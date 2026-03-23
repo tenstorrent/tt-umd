@@ -4,6 +4,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     cmake_minimum_required(VERSION 3.16)
     project(tt_umd_nanobind)
 
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
     message(STATUS "Building nanobind as standalone project from UMD install artifacts")
 
     include(${PROJECT_SOURCE_DIR}/../cmake/example_client.cmake)
@@ -90,12 +93,12 @@ if(TARGET nanobind-static)
     )
 endif()
 
-# Link the Python interface target to libdevice and nanobind
+# Link the Python interface target to libtt-umd and nanobind
 # This is needed by BOTH build types, so it goes before the if/else.
 target_link_libraries(
     nanobind_tt_umd
     PRIVATE
-        umd::device
+        umd::tt-umd
         fmt::fmt-header-only
         tt-logger::tt-logger
 )
@@ -166,18 +169,18 @@ if(TT_UMD_BUILD_PIP)
     # Install Python package files
     install_python_package_files(tt_umd pip_wheel)
 
-    # Make co-locating libdevice optional to mirror previous behavior
+    # Make co-locating libtt-umd optional to mirror previous behavior
     if(NOT DEFINED TT_UMD_BUILD_PYTHON)
-        option(TT_UMD_BUILD_PYTHON "Install libdevice next to Python module" ON)
+        option(TT_UMD_BUILD_PYTHON "Install libtt-umd next to Python module" ON)
     endif()
 
-    # Install device library to root for Python package (co-located with the module)
+    # Install tt-umd library to root for Python package (co-located with the module)
     # Only when building Python bindings to avoid conflicts with main install
     # Skip for static libraries as they are linked statically into the Python module
     if(TT_UMD_BUILD_PYTHON AND NOT TT_UMD_BUILD_STATIC)
-        install(FILES $<TARGET_FILE:umd::device> DESTINATION . COMPONENT pip_wheel)
+        install(FILES $<TARGET_FILE:umd::tt-umd> DESTINATION . COMPONENT pip_wheel)
     elseif(TT_UMD_BUILD_PYTHON AND TT_UMD_BUILD_STATIC)
-        message(STATUS "Skipping device library install for pip wheel: device is built as static library")
+        message(STATUS "Skipping tt-umd library install for pip wheel: tt-umd is built as static library")
     endif()
 else()
     # --- FHS/CPACK LOGIC ---

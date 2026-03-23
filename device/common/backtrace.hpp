@@ -15,16 +15,14 @@
 
 namespace tt::assert {
 
-static std::string demangle(const char *str) {
-    size_t size = 0;
+static inline std::string demangle(const char *str) {
     int status = 0;
     std::string rt(256, '\0');
     if (1 == sscanf(str, "%*[^(]%*[^_]%255[^)+]", rt.data())) {
-        char *v = abi::__cxa_demangle(rt.data(), nullptr, &size, &status);
+        size_t length = 0;
+        std::unique_ptr<char, decltype(&free)> v(abi::__cxa_demangle(rt.data(), nullptr, &length, &status), &free);
         if (v) {
-            std::string result(v);
-            free(v);
-            return result;
+            return std::string(v.get());
         }
     }
     return str;

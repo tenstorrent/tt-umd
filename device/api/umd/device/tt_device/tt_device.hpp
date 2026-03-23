@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -38,16 +39,29 @@ enum class TTDeviceInitResult {
     SUCCESSFUL,
 };
 
+// Represents the status of the ETH core.
+enum class EthTrainingStatus {
+    IN_PROGRESS = 0,
+    SUCCESS = 1,
+    FAIL = 2,
+    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
+};
+
 class TTDevice {
 public:
     /**
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
 
-    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
     TTDevice(
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
@@ -72,7 +86,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from device to host.
@@ -82,7 +96,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -92,7 +106,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -102,7 +116,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -223,7 +237,7 @@ public:
 
     virtual ChipInfo get_chip_info();
 
-    semver_t get_firmware_version();
+    FirmwareBundleVersion get_firmware_version();
 
     /**
      * Waits for ARC core to be fully ready for communication.
@@ -306,6 +320,8 @@ public:
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
 
+    static void set_sigbus_safe_handler(bool set_safe_handler);
+
     /**
      * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
      * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
@@ -319,13 +335,21 @@ public:
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
+    /**
+     * Read the training status of the given ETH core.
+     *
+     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @return Training status
+     */
+    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
-    int communication_device_id_;
+    int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    tt::ARCH arch;
+    tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
@@ -334,9 +358,37 @@ protected:
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 
+    virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
+
+    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
+
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
+
+    virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
+
+    /**
+     * Device-specific DMA transfer from device to host.
+     * This method performs the actual hardware-specific DMA transfer.
+     *
+     * @param dst destination host address
+     * @param src device AXI address
+     * @param size number of bytes
+     * @throws std::runtime_error if the transfer is not supported or fails
+     */
+    virtual void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) = 0;
+
+    /**
+     * Device-specific DMA transfer from host to device.
+     * This method performs the actual hardware-specific DMA transfer.
+     *
+     * @param dst device AXI address
+     * @param src source host address
+     * @param size number of bytes
+     * @throws std::runtime_error if the transfer fails
+     */
+    virtual void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) = 0;
 
 private:
     void probe_arc();
@@ -345,11 +397,19 @@ private:
 
     TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
 
+    template <bool safe>
+    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    template <bool safe>
+    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex tt_device_io_lock;
+
+    bool use_safe_api_ = false;
 };
 
 }  // namespace tt::umd

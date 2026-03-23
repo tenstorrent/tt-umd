@@ -8,7 +8,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -20,28 +19,40 @@
 #include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
 
+/* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
+    SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
+}
+
 TTDevice::TTDevice(
-    std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl) :
+    std::shared_ptr<PCIDevice> pci_device,
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    bool use_safe_api) :
     pci_device_(std::move(pci_device)),
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device_->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    use_safe_api_(use_safe_api) {
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+    if (use_safe_api_) {
+        set_sigbus_safe_handler(true);
+    }
 }
 
 TTDevice::TTDevice(
@@ -91,7 +102,8 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     return TTDeviceInitResult::SUCCESSFUL;
 }
 
-/* static */ std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type) {
+/* static */ std::unique_ptr<TTDevice> TTDevice::create(
+    int device_number, IODeviceType device_type, bool use_safe_api) {
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
@@ -110,15 +122,16 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device, use_safe_api));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device));
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device, use_safe_api));
         default:
             return nullptr;
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
@@ -127,7 +140,8 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
                 return std::unique_ptr<RemoteWormholeTTDevice>(
                     new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<RemoteWormholeTTDevice>(
+                new RemoteWormholeTTDevice(std::move(remote_communication), use_safe_api));
         }
         case tt::ARCH::BLACKHOLE: {
             return nullptr;
@@ -168,31 +182,57 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 
 TlbWindow *TTDevice::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
-        cached_tlb_window = std::make_unique<TlbWindow>(
+        cached_tlb_window = std::make_unique<SiliconTlbWindow>(
             get_pci_device()->allocate_tlb(architecture_impl_->get_cached_tlb_size(), TlbMapping::UC));
         return cached_tlb_window.get();
     }
     return cached_tlb_window.get();
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+template <bool safe>
+void TTDevice::read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->read(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
         return;
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+    if constexpr (safe) {
+        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
+    } else {
+        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+    }
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+template <bool safe>
+void TTDevice::write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         jtag_device_->write(communication_device_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
         return;
     }
 
     std::lock_guard<std::mutex> lock(tt_device_io_lock);
-    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
+    if constexpr (safe) {
+        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
+    } else {
+        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
+    }
+}
+
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (use_safe_api_) {
+        read_from_device_impl<true>(mem_ptr, core, addr, size);
+        return;
+    }
+    read_from_device_impl<false>(mem_ptr, core, addr, size);
+}
+
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    if (use_safe_api_) {
+        write_to_device_impl<true>(mem_ptr, core, addr, size);
+        return;
+    }
+    write_to_device_impl<false>(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -206,6 +246,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
             dram_channel,
             architecture_impl_->get_dram_banks_number() - 1));
     }
+    const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
+    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
     auto start = std::chrono::steady_clock::now();
     while (true) {
         std::vector<DramTrainingStatus> dram_training_status =
@@ -217,7 +259,21 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            throw std::runtime_error("DRAM training failed");
+            if (num_retrain_dram_core > 0) {
+                log_warning(
+                    LogUMD,
+                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
+                    dram_channel,
+                    num_retrain_dram_core - 1);
+                retrain_dram_core(dram_channel);
+                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+                num_retrain_dram_core--;
+            } else {
+                throw std::runtime_error(fmt::format(
+                    "DRAM training failed for channel {} after {} retrain attempts",
+                    dram_channel,
+                    MAX_DRAM_RETRAIN_ATTEMPTS));
+            }
         }
 
         if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
@@ -255,7 +311,7 @@ ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetr
 
 FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider.get(); }
 
-semver_t TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
+FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
 void TTDevice::wait_for_non_mmio_flush() {}
 
@@ -486,10 +542,52 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     }
 }
 
+void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
+    memcpy(dst, dma_buffer.buffer, size);
+}
+
+void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d is not applicable for JTAG communication type.");
+    }
+    DmaBuffer &dma_buffer = pci_device_->get_dma_buffer();
+
+    if (size > dma_buffer.size) {
+        throw std::runtime_error("DMA size exceeds buffer size");
+    }
+
+    memcpy(dma_buffer.buffer, src, size);
+    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
+}
+
+void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_h2d_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
+}
+
+void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("dma_d2h_zero_copy is not applicable for JTAG communication type.");
+    }
+    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
+}
+
 TlbWindow *TTDevice::get_cached_pcie_dma_tlb_window(tlb_data config) {
     if (cached_pcie_dma_tlb_window == nullptr) {
-        cached_pcie_dma_tlb_window =
-            std::make_unique<TlbWindow>(get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
+        cached_pcie_dma_tlb_window = std::make_unique<SiliconTlbWindow>(
+            get_pci_device()->allocate_tlb(get_pcie_dma_tlb_size(), TlbMapping::WC), config);
         return cached_pcie_dma_tlb_window.get();
     }
 

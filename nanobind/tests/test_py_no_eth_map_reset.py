@@ -87,29 +87,29 @@ class TestNoEthMapReset(unittest.TestCase):
     def test_profiling_and_reset(self):
         reset_time_1 = self.perform_warm_reset()
         options_1 = tt_umd.TopologyDiscoveryOptions()
-        options_1.no_remote_discovery = False
-        options_1.no_wait_for_eth_training = False
+        options_1.discover_remote_devices = True
+        options_1.wait_on_ethernet_link_training = True
         cluster_desc, time_1 = self.profile_topology_discovery(
             options_1,
-            "Full discovery (no_remote_discovery=False, no_wait_for_eth_training=False)",
+            "Full discovery (discover_remote_devices=True, wait_on_ethernet_link_training=True)",
         )
 
         reset_time_2 = self.perform_warm_reset()
         options_2 = tt_umd.TopologyDiscoveryOptions()
-        options_1.no_remote_discovery = True
-        options_1.no_wait_for_eth_training = False
+        options_1.discover_remote_devices = False
+        options_1.wait_on_ethernet_link_training = True
         _, time_2 = self.profile_topology_discovery(
             options_2,
-            "Local-only, full initialization (no_remote_discovery=True, no_wait_for_eth_training=False)",
+            "Local-only, full initialization (discover_remote_devices=False, wait_on_ethernet_link_training=True)",
         )
 
         reset_time_3 = self.perform_warm_reset()
         options_3 = tt_umd.TopologyDiscoveryOptions()
-        options_3.no_remote_discovery = True
-        options_3.no_wait_for_eth_training = True
+        options_3.discover_remote_devices = False
+        options_3.wait_on_ethernet_link_training = False
         _, time_3 = self.profile_topology_discovery(
             options_3,
-            "Local-only, no waiting on eth (no_remote_discovery=True, no_wait_for_eth_training=True)",
+            "Local-only, no waiting on eth (discover_remote_devices=False, wait_on_ethernet_link_training=False)",
         )
 
         # Build comprehensive device map

@@ -31,9 +31,7 @@ namespace tt::umd {
 SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
-    pcie_base_ = tlb_manager->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0
-                     ? 0x800000000
-                     : (tlb_manager->get_tt_device()->get_arch() == tt::ARCH::BLACKHOLE ? 4ULL << 58 : 0);
+    pcie_base_ = get_pcie_base_for_arch(tlb_manager->get_tt_device()->get_arch());
     TT_ASSERT(
         num_host_mem_channels <= 4,
         "Only 4 host memory channels are supported per device, but {} requested.",
@@ -50,7 +48,7 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
     }
 }
 
-SiliconSysmemManager::~SiliconSysmemManager() { unpin_or_unmap_sysmem(); }
+SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {

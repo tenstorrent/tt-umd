@@ -23,7 +23,7 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
@@ -376,14 +376,15 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, reg_src, size);
+        tt_device_->read_from_device(dest, translated_core, reg_src, size);
         return;
     }
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_src;
     config.x_end = translated_core.x;
@@ -495,10 +496,12 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
+    const bool include_dram_in_l1_membar = soc_descriptor_.arch == tt::ARCH::BLACKHOLE;
     if (!cores.empty()) {
         // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
+        std::vector<CoreCoord> dram_to_sync = {};
 
         for (const auto& core : cores) {
             auto core_from_soc = soc_descriptor_.get_coord_at(core, core.coord_system);
@@ -506,12 +509,17 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
                 eth_to_sync.push_back(core);
+            } else if (include_dram_in_l1_membar && core_from_soc.core_type == CoreType::DRAM) {
+                dram_to_sync.push_back(core);
             } else {
                 TT_THROW("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
             }
         }
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(dram_to_sync, dram_address_params.DRAM_BARRIER_BASE);
+        }
     } else {
         // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
@@ -519,6 +527,11 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
             l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(
+                soc_descriptor_.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED),
+                dram_address_params.DRAM_BARRIER_BASE);
+        }
     }
 }
 
@@ -567,7 +580,7 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<TlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
         return cached_wc_tlb_window.get();
     }
@@ -577,7 +590,7 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<TlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
         return cached_uc_tlb_window.get();
     }

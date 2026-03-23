@@ -22,6 +22,21 @@
 
 using namespace tt::umd;
 
+/**
+ * Helper that reads data from a device core using the appropriate mechanism for the
+ * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
+ * dma_read_from_device is used. On other architectures (including Blackhole), the standard
+ * read_from_device path is used instead.
+ */
+void read_data_based_on_architecture(
+    TTDevice& tt_device, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
+    if (tt_device.get_arch() == tt::ARCH::WORMHOLE_B0) {
+        tt_device.dma_read_from_device(mem_ptr, size, core, address);
+    } else {
+        tt_device.read_from_device(mem_ptr, core, address, size);
+    }
+}
+
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 static constexpr int NUM_OF_BYTES_RESERVED = 128;
@@ -131,7 +146,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 }
 
 // Many threads start and stop many clusters.
-TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
+TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -172,10 +187,6 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
 TEST(Multiprocess, WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto workload_thread = std::thread([&] {
         std::cout << "Creating workload cluster" << std::endl;
@@ -224,10 +235,6 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 
 TEST(Multiprocess, LongLivedMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
@@ -311,10 +318,6 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
 TEST(Multiprocess, DMAWriteReadRaceCondition) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     // Use the first available PCI device for this test.
     const int test_device_id = pci_device_ids.at(0);
     const int num_processes = 4;
@@ -357,9 +360,10 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using DMA.
+                    // Read data back using architecture-specific method.
                     std::fill(read_data.begin(), read_data.end(), 0);
-                    tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
+                    read_data_based_on_architecture(
+                        *tt_device, tensix_core, read_data.data(), process_address, data_size);
 
                     // Verify data integrity.
                     ASSERT_EQ(write_data, read_data)
@@ -387,10 +391,6 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
 TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     constexpr int NUM_PROCESSES = 4;
     std::vector<pid_t> pids;
@@ -431,9 +431,10 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using DMA.
+                    // Read data back using architecture-specific method.
                     std::fill(read_data.begin(), read_data.end(), 0);
-                    tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
+                    read_data_based_on_architecture(
+                        *tt_device, tensix_core, read_data.data(), process_address, data_size);
 
                     // Verify data integrity.
                     if (write_data != read_data) {

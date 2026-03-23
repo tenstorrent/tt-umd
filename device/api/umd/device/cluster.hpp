@@ -17,7 +17,9 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.hpp"
@@ -55,14 +57,17 @@ struct ClusterOptions {
      * Chip type to create.
      */
     ChipType chip_type = ChipType::SILICON;
+
     /**
      * Number of host memory channels (hugepages) per MMIO device.
      */
     uint32_t num_host_mem_ch_per_mmio_device = 0;
+
     /**
      * If set to false, harvesting will be skipped for constructed soc descriptors.
      */
     bool perform_harvesting = true;
+
     /**
      * simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
      * each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
@@ -70,11 +75,13 @@ struct ClusterOptions {
      */
     HarvestingMasks simulated_harvesting_masks = {};
     std::unordered_map<ChipId, HarvestingMasks> simulated_harvesting_masks_per_chip;
+
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
      * descriptor based on architecture will be used.
      */
     std::string sdesc_path;
+
     /**
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
@@ -88,6 +95,7 @@ struct ClusterOptions {
      * the system.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
+
     /**
      * This parameter is used only for SIMULATION chip type.
      */
@@ -98,6 +106,11 @@ struct ClusterOptions {
      * This determines how the cluster will communicate with the underlying hardware.
      */
     IODeviceType io_device_type = IODeviceType::PCIe;
+
+    /*
+     * Options related to topology discovery. Only applicable for SILICON chip type.
+     */
+    TopologyDiscoveryOptions topology_discovery_options = {};
 };
 
 /**
@@ -135,7 +148,9 @@ public:
      * cluster descriptor object based on the devices connected to the system.
      */
     static std::unique_ptr<ClusterDescriptor> create_cluster_descriptor(
-        std::string sdesc_path = {}, IODeviceType device_type = IODeviceType::PCIe);
+        const std::string& sdesc_path = {},
+        IODeviceType device_type = IODeviceType::PCIe,
+        const TopologyDiscoveryOptions& topology_discovery_options = {});
 
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
@@ -461,6 +476,19 @@ public:
      */
     Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
 
+    /**
+     * Provide fast read/write access to a statically-mapped TLB.
+     * It is the caller's responsibility to ensure that
+     * - the target has a static TLB mapping configured.
+     * - the mapping is unchanged during the lifetime of the returned pointer.
+     * - the Cluster instance outlives the returned pointer.
+     * - use of the returned pointer is congruent with the target's TLB setup.
+     *
+     * @param chip The chip to access.
+     * @param core The core to access.
+     */
+    TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
+
     //---------- Functions for synchronization and memory barriers.
 
     /**
@@ -611,12 +639,12 @@ public:
     /**
      * Get the ethernet firmware version used by the physical cluster.
      */
-    std::optional<semver_t> get_ethernet_firmware_version() const;
+    std::optional<SemVer> get_ethernet_firmware_version() const;
 
     /**
      * Get the firmware bundle version.
      */
-    std::optional<semver_t> get_firmware_bundle_version() const;
+    std::optional<FirmwareBundleVersion> get_firmware_bundle_version() const;
 
     //---------- Functions to get various internal cluster objects, mainly device classes and their components.
 
@@ -726,8 +754,8 @@ private:
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;
     bool use_translated_coords_for_eth_broadcast = true;
-    std::optional<semver_t> eth_fw_version;  // Ethernet FW the driver is interfacing with.
-    std::optional<semver_t> fw_bundle_version;
+    std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
+    std::optional<FirmwareBundleVersion> fw_bundle_version;
 };
 
 }  // namespace tt::umd

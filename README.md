@@ -1,9 +1,9 @@
 <div align="center">
-<h1> TT-UMD :tm: </h1>
+<h1> TT-UMD </h1>
 
 User Mode Driver
 
-<img src="./docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
+<img src="https://raw.githubusercontent.com/tenstorrent/tt-umd/main/docs/images/tt_logo_stacked_color.png" alt="ttnn logo" height="100"/>
 
 </div>
 <br/>
@@ -18,12 +18,7 @@ Required Ubuntu dependencies:
 sudo apt install -y libhwloc-dev cmake ninja-build
 ```
 
-Suggested third-party dependency is Clang 17:
-```
-wget https://apt.llvm.org/llvm.sh
-chmod u+x llvm.sh
-sudo ./llvm.sh 17
-```
+UMD currently supports gcc-11 and newer gcc versions, and clang-13 and newer clang versions.
 
 ## IOMMU and Hugepage requirements
 To determine whether your system requires hugepage configuration, run the provided script:
@@ -60,7 +55,7 @@ pip install .
 
 ### Build flow for C++ lib
 
-To build `libdevice.so`:
+To build `libtt-umd.so`:
 ```
 cmake -B build -G Ninja
 cmake --build build
@@ -134,6 +129,21 @@ cmake --build build
 TT_LOGGER_LEVEL=debug ./build/bin/your_program
 ```
 
+### Tracy Profiling
+
+UMD supports [Tracy](https://github.com/tenstorrent/tracy) profiling via the `TT_UMD_ENABLE_TRACY` build option. When disabled (the default), Tracy has zero footprint — no binary overhead, no runtime cost.
+
+#### Building with Tracy
+
+```bash
+cmake -B build -G Ninja -DTT_UMD_ENABLE_TRACY=ON
+cmake --build build
+```
+
+#### Capturing a trace
+
+Launch the [Tracy server](https://github.com/tenstorrent/tracy), start the application you want to profile, then click connect
+
 # Integration
 UMD can be consumed by downstream projects in multiple ways.
 
@@ -141,7 +151,7 @@ UMD can be consumed by downstream projects in multiple ways.
 You can use tt_umd module by installing it in your current python environment
 
 ## From Source (CMake)
-You can link `libdevice.so` by linking against the `umd::device` target.
+You can link `libtt-umd.so` by linking against the `umd::tt-umd` target.
 
 ### Using CPM Package Manager
 ```

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -173,5 +174,13 @@ struct boot_results_t {
 };
 
 constexpr uint32_t BOOT_RESULTS_ADDR = 0x7CC00;
+
+// Static asserts to match verified addresses in BH ERISC FW.
+static_assert(BOOT_RESULTS_ADDR + offsetof(eth_status_t, postcode) == 0x7CC00, "eth_status_t.postcode must be 0x7CC00");
+static_assert(
+    BOOT_RESULTS_ADDR + offsetof(eth_status_t, heartbeat[0]) == 0x7CC70, "eth_status_t.heartbeat[0] must be 0x7CC70");
+static_assert(
+    BOOT_RESULTS_ADDR + offsetof(eth_status_t, port_status) == 0x7CC04,
+    "eth_status_t.port_status address must be 0x7CC04");
 
 }  // namespace tt::umd::blackhole

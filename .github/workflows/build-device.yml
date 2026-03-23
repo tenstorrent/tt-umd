@@ -374,7 +374,7 @@ jobs:
           mkdir -p ./cmake
           cp "${EXAMPLE_DIR}"/* ./cmake
 
-          echo "Build UMD examples (which are dependent on libdevice.so)"
+          echo "Build UMD examples (which are dependent on libtt-umd.so)"
           cd ./example_test
           cmake -B build -G Ninja
           cmake --build ./build

@@ -3,7 +3,7 @@ add_executable(listener_example listener_example.cpp)
 target_link_libraries(
     listener_example
     PRIVATE
-        umd::device
+        umd::tt-umd
         tt-logger::tt-logger
 )
 
@@ -12,7 +12,7 @@ add_executable(notifier_example notifier_example.cpp)
 target_link_libraries(
     notifier_example
     PRIVATE
-        umd::device
+        umd::tt-umd
         tt-logger::tt-logger
 )
 

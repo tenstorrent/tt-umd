@@ -29,33 +29,39 @@ public:
     /**
      * Returns the base mapped address of the TLB.
      */
-    virtual uint8_t* get_base() = 0;
+    uint8_t* get_base() const { return tlb_base_; }
 
     /**
      * Returns the size of the TLB.
      */
-    virtual size_t get_size() const = 0;
+    size_t get_size() const { return tlb_size_; }
 
     /**
      * Returns the current configuration of the TLB.
      */
-    virtual const tlb_data& get_config() const = 0;
+    const tlb_data& get_config() const { return tlb_config_; }
 
     /**
      * Returns the TLB mapping type (UC or WC).
      */
-    virtual TlbMapping get_tlb_mapping() const = 0;
+    TlbMapping get_tlb_mapping() const { return tlb_mapping_; }
 
     /**
      * Returns the TLB ID, representing index of TLB in BAR0.
      */
-    virtual int get_tlb_id() const = 0;
+    int get_tlb_id() const { return tlb_id_; }
 
 protected:
     /**
      * Protected default constructor - only derived classes can construct.
      */
     TlbHandle() = default;
+
+    int tlb_id_ = 0;
+    uint8_t* tlb_base_ = nullptr;
+    size_t tlb_size_ = 0;
+    tlb_data tlb_config_{};
+    TlbMapping tlb_mapping_ = TlbMapping::UC;
 
 private:
     /**

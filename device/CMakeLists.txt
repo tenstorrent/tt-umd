@@ -29,18 +29,21 @@ if(TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_STATIC)
-    add_library(device STATIC)
-    message(STATUS "Building device library as STATIC")
+    add_library(tt-umd STATIC)
+    message(STATUS "Building tt-umd library as STATIC")
 else()
-    add_library(device SHARED)
-    message(STATUS "Building device library as SHARED")
+    add_library(tt-umd SHARED)
+    message(STATUS "Building tt-umd library as SHARED")
 endif()
-add_library(${PROJECT_NAME}::device ALIAS device)
+add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
+# Alias for old name
+add_library(${PROJECT_NAME}::device ALIAS tt-umd)
+add_library(device ALIAS tt-umd)
 
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
 if(COMMAND TT_ENABLE_UNITY_BUILD)
-    tt_enable_unity_build(device)
+    tt_enable_unity_build(tt-umd)
     # Exclude files that cause ODR violations due to conflicting eth_interface.h headers 
     set_source_files_properties(
         arch/wormhole_implementation.cpp
@@ -52,7 +55,7 @@ if(COMMAND TT_ENABLE_UNITY_BUILD)
 endif()
 
 target_sources(
-    device
+    tt-umd
     PRIVATE
         arch/architecture_implementation.cpp
         chip/chip.cpp
@@ -85,10 +88,9 @@ target_sources(
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
+        tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
+        tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
         firmware/firmware_info_provider.cpp
-        firmware/wormhole_18_3_firmware_info_provider.cpp
-        firmware/wormhole_18_7_firmware_info_provider.cpp
-        firmware/blackhole_18_7_firmware_info_provider.cpp
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
@@ -123,7 +125,7 @@ target_sources(
 
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(
-        device
+        tt-umd
         PRIVATE
             simulation/simulation_chip.cpp
             simulation/tt_sim_chip.cpp
@@ -133,17 +135,19 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
-            chip_helpers/tt_sim_tlb_manager.cpp
+            chip_helpers/simulation_tlb_manager.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
+            pcie/rtl_sim_tlb_window.cpp
+            pcie/rtl_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
-    target_compile_definitions(device PRIVATE TT_UMD_BUILD_SIMULATION)
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
-        device
+        tt-umd
         PUBLIC
             FILE_SET api
             TYPE HEADERS
@@ -168,7 +172,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
-                api/umd/device/chip_helpers/tt_sim_tlb_manager.hpp
+                api/umd/device/chip_helpers/simulation_tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
@@ -183,6 +187,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/tlb_window.hpp
                 api/umd/device/pcie/tt_sim_tlb_window.hpp
                 api/umd/device/pcie/tt_sim_tlb_handle.hpp
+                api/umd/device/pcie/rtl_sim_tlb_window.hpp
+                api/umd/device/pcie/rtl_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
@@ -201,12 +207,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/jtag_protocol.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
                 api/umd/device/tt_device/protocol/remote_protocol.hpp
+                api/umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp
+                api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
+                api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
-                api/umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp
-                api/umd/device/firmware/wormhole_18_7_firmware_info_provider.hpp
-                api/umd/device/firmware/blackhole_18_7_firmware_info_provider.hpp
+                api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
@@ -252,7 +259,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
 endif()
 
 target_include_directories(
-    device
+    tt-umd
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
     PRIVATE
@@ -262,7 +269,7 @@ target_include_directories(
 )
 
 target_link_libraries(
-    device
+    tt-umd
     PRIVATE
         umd::Firmware
         hwloc
@@ -274,7 +281,7 @@ target_link_libraries(
         yaml-cpp::yaml-cpp
 )
 
-target_link_libraries(device PRIVATE umd_asio_lib)
+target_link_libraries(tt-umd PRIVATE umd_asio_lib)
 
 check_function_exists(
     backtrace
@@ -284,13 +291,13 @@ check_function_exists(
 if(NOT HAVE_BACKTRACE)
     find_library(EXECINFO_LIB execinfo)
     if(EXECINFO_LIB)
-        target_link_libraries(device PRIVATE ${EXECINFO_LIB})
+        target_link_libraries(tt-umd PRIVATE ${EXECINFO_LIB})
     endif()
 endif()
 
 if(TT_UMD_BUILD_SIMULATION)
     target_link_libraries(
-        device
+        tt-umd
         PRIVATE
             flatbuffers::flatbuffers
             nng
@@ -298,12 +305,18 @@ if(TT_UMD_BUILD_SIMULATION)
     )
 endif()
 
+if(TT_UMD_ENABLE_TRACY)
+    target_link_libraries(tt-umd PRIVATE TracyClient)
+    target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
+    message(STATUS "Tracy profiling enabled for device library")
+endif()
+
 # Install functionality requires CMake 3.23+ for FILE_SET support
 # Skip install for static libraries as they are typically used for internal linking only
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
     install(
         TARGETS
-            device
+            tt-umd
         EXPORT ${PROJECT_NAME}Targets
         ARCHIVE
             DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -331,11 +344,11 @@ endif()
 
 # Add a custom command to copy the library to build/lib
 add_custom_command(
-    TARGET device
+    TARGET tt-umd
     POST_BUILD
     COMMAND
         ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
     COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:device> ${CMAKE_BINARY_DIR}/lib/
-    COMMENT "Copying device library to build/lib"
+        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
+    COMMENT "Copying tt-umd library to build/lib"
 )

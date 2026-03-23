@@ -6,7 +6,7 @@
 
 namespace tt::umd::wormhole {
 
-enum TelemetryTag : uint8_t {
+enum LegacyTelemetryTag : uint8_t {
     ENUM_VERSION = 0,
     DEVICE_ID = 1,
     ASIC_RO = 2,

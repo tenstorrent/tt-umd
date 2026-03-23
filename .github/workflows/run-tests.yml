@@ -138,3 +138,12 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+
+      - name: Run UMD tools
+        run: |
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/telemetry --count 1000
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/harvesting
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/system_health
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/warm_reset
+          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/tlb_virus

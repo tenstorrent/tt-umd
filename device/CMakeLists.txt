@@ -40,6 +40,22 @@ add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
 add_library(${PROJECT_NAME}::device ALIAS tt-umd)
 add_library(device ALIAS tt-umd)
 
+# Set version
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        VERSION
+            ${TT_UMD_VERSION_CMAKE}
+)
+# SOVERSION should contain only the major component (e.g. 0.9.4 -> 0)
+string(REGEX REPLACE "^([0-9]+)\..*" "\\1" TT_UMD_SOVERSION ${TT_UMD_VERSION_CMAKE})
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        SOVERSION
+            ${TT_UMD_SOVERSION}
+)
+
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
 if(COMMAND TT_ENABLE_UNITY_BUILD)

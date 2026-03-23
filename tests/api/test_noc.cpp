@@ -128,6 +128,34 @@ public:
 
     Cluster* get_cluster() { return cluster_.get(); };
 
+    tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
+        auto noc_port = (core.core_type == CoreType::DRAM) ? get_noc_port(core) : 0;
+        // NOTE: The noc_port parameter is not used for Blackhole. Unlike Wormhole where DRAM banks
+        // have multiple NOC ports with different register base addresses, Blackhole uses a single
+        // register base address per core type.
+        const uint64_t noc_node_id_reg_addr =
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
+                core.core_type, noc_index, noc_port) +
+            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
+        uint32_t noc_node_id_val;
+        cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        uint32_t x = noc_node_id_val & 0x3F;
+        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        log_debug(
+            tt::LogUMD,
+            "Reading noc {} regs for chip {} core ({},{}) from addr {:x}. Result is raw {:x} which corresponds to "
+            "core ({},{})",
+            noc_index,
+            chip,
+            core.x,
+            core.y,
+            noc_node_id_reg_addr,
+            noc_node_id_val,
+            x,
+            y);
+        return tt_xy_pair(x, y);
+    }
+
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, tt_xy_pair core, uint8_t noc_index) {
         auto noc_port = get_noc_port(core, noc_index);
         const uint64_t noc_translated_id_reg_addr =
@@ -273,34 +301,6 @@ private:
         uint32_t translated_x = noc_translated_id_val & 0x3F;
         uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
         return tt_xy_pair(translated_x, translated_y);
-    }
-
-    tt_xy_pair read_noc_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
-        auto noc_port = (core.core_type == CoreType::DRAM) ? get_noc_port(core) : 0;
-        // NOTE: The noc_port parameter is not used for Blackhole. Unlike Wormhole where DRAM banks
-        // have multiple NOC ports with different register base addresses, Blackhole uses a single
-        // register base address per core type.
-        const uint64_t noc_node_id_reg_addr =
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
-                core.core_type, noc_index, noc_port) +
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
-        uint32_t noc_node_id_val;
-        cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-        log_debug(
-            tt::LogUMD,
-            "Reading noc {} regs for chip {} core ({},{}) from addr {:x}. Result is raw {:x} which corresponds to "
-            "core ({},{})",
-            noc_index,
-            chip,
-            core.x,
-            core.y,
-            noc_node_id_reg_addr,
-            noc_node_id_val,
-            x,
-            y);
-        return tt_xy_pair(x, y);
     }
 
     static uint8_t get_noc_index(CoordSystem noc) { return (noc == CoordSystem::NOC0) ? 0 : 1; }
@@ -700,6 +700,42 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
                              << translated.y << ")";
         EXPECT_EQ(y, noc1.y) << "node_id Y mismatch at index " << i << " TRANSLATED (" << translated.x << ","
                              << translated.y << ")";
+    }
+    log_info(tt::LogUMD, "{}", info);
+}
+
+TEST_F(TestNoc, BlackholeRouterOnlyNoc1ViaCluster) {
+    auto arch = get_cluster()->get_cluster_description()->get_arch(0);
+    if (arch != ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Blackhole-only test";
+    }
+
+    ChipId chip = *get_cluster()->get_target_mmio_device_ids().begin();
+
+    NocIdSwitcher noc_switcher(NocId::NOC1);
+
+    const std::vector<CoreCoord>& noc1_cores =
+        get_cluster()->get_soc_descriptor(chip).get_cores(CoreType::ROUTER_ONLY, CoordSystem::NOC1);
+
+    std::string info = "Chip " + std::to_string(chip) + " ROUTER_ONLY NOC1 via Cluster:\n";
+    for (size_t i = 0; i < noc1_cores.size(); i++) {
+        const CoreCoord& core = noc1_cores[i];
+
+        const auto [node_x, node_y] = read_noc_id_reg(chip, core, 1);
+        const auto [translated_x, translated_y] = read_noc_translated_id_reg(chip, core, 1);
+
+        info += fmt::format(
+            "  [{:>2}] NOC1 ({:>2},{:>2})  node_id=({},{})  translated_id=({},{})\n",
+            i,
+            core.x,
+            core.y,
+            node_x,
+            node_y,
+            translated_x,
+            translated_y);
+
+        EXPECT_EQ(node_x, core.x) << "node_id X mismatch at index " << i;
+        EXPECT_EQ(node_y, core.y) << "node_id Y mismatch at index " << i;
     }
     log_info(tt::LogUMD, "{}", info);
 }

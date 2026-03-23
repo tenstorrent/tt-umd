@@ -145,12 +145,12 @@ int TTSimTlbHandle::get_tlb_id() const { return sim_tlb_id_; }
 uint64_t TTSimTlbHandle::get_address() const { return sim_address_; }
 
 void TTSimTlbHandle::free_tlb() noexcept {
-    if (sim_manager_) {
-        sim_manager_->deallocate_tlb_index(sim_tlb_id_);
-        sim_manager_ = nullptr;
+    // if (sim_manager_) {
+    //     sim_manager_->deallocate_tlb_index(sim_tlb_id_);
+    //     sim_manager_ = nullptr;
 
-        log_debug(LogUMD, "Freed simulation TLB with ID {}", sim_tlb_id_);
-    }
+    //     log_debug(LogUMD, "Freed simulation TLB with ID {}", sim_tlb_id_);
+    // }
 }
 
 }  // namespace tt::umd

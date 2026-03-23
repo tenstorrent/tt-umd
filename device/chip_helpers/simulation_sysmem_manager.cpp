@@ -18,12 +18,39 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
 
 namespace tt::umd {
 
-SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch) {
+SimulationSysmemManager::SimulationSysmemManager(
+    uint32_t num_host_mem_channels, tt::ARCH arch, TTSimCommunicator* communicator) :
+    communicator_(communicator) {
     pcie_base_ = get_pcie_base_for_arch(arch);
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
+}
+
+void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    SysmemManager::write_to_sysmem(channel, src, sysmem_dest, size);
+    if (communicator_) {
+        communicator_->advance_clock(10);
+    }
+}
+
+void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    SysmemManager::read_from_sysmem(channel, dest, sysmem_src, size);
+    if (communicator_) {
+        communicator_->advance_clock(10);
+    }
+}
+
+void SimulationSysmemManager::write_to_sysmem_no_clock(
+    uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+    SysmemManager::write_to_sysmem(channel, src, sysmem_dest, size);
+}
+
+void SimulationSysmemManager::read_from_sysmem_no_clock(
+    uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+    SysmemManager::read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {

@@ -3,7 +3,7 @@ add_executable(tt_device_example tt_device_example.cpp)
 target_link_libraries(
     tt_device_example
     PRIVATE
-        umd::device
+        umd::tt-umd
         tt-logger::tt-logger
 )
 

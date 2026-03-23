@@ -129,4 +129,33 @@ uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }
 
+void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
+
+uint32_t TlbWindow::safe_read32(uint64_t offset) { return read32(offset); }
+
+void TlbWindow::safe_write_register(uint64_t offset, const void* data, size_t size) {
+    write_register(offset, data, size);
+}
+
+void TlbWindow::safe_read_register(uint64_t offset, void* data, size_t size) { read_register(offset, data, size); }
+
+void TlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size) { write_block(offset, data, size); }
+
+void TlbWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
+
+void TlbWindow::safe_write_block_reconfigure(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    write_block_reconfigure(mem_ptr, core, addr, size, ordering);
+}
+
+void TlbWindow::safe_read_block_reconfigure(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    read_block_reconfigure(mem_ptr, core, addr, size, ordering);
+}
+
+void TlbWindow::safe_noc_multicast_write_reconfigure(
+    void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, ordering);
+}
+
 }  // namespace tt::umd

@@ -10,20 +10,18 @@
 
 namespace tt::umd {
 
-// Forward declaration.
-class TTSimCommunicator;
+class RtlSimCommunicator;
 
 /**
- * Simulation TlbWindow implementation that uses TTSimCommunicator
- * for memory access instead of direct pointer dereferencing.
- * This allows TLB operations to work with TTSim where the device
- * memory is not mapped into the user process.
+ * RTL simulation TlbWindow implementation that translates TLB-based memory access
+ * into tile_read_bytes/tile_write_bytes calls on RtlSimCommunicator.
+ * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
+ * is used to reconstruct the target core and address for each access.
  */
-class TTSimTlbWindow : public TlbWindow {
+class RtlSimTlbWindow : public TlbWindow {
 public:
-    TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
+    RtlSimTlbWindow(std::unique_ptr<TlbHandle> handle, RtlSimCommunicator* communicator, const tlb_data config = {});
 
-    // Implementation of memory access methods using TTSimCommunicator.
     void write16(uint64_t offset, uint16_t value) override;
     uint16_t read16(uint64_t offset) override;
     void write32(uint64_t offset, uint32_t value) override;
@@ -34,7 +32,6 @@ public:
     void read_block(uint64_t offset, void* data, size_t size) override;
 
     void safe_write16(uint64_t offset, uint16_t value) override;
-
     uint16_t safe_read16(uint64_t offset) override;
 
 protected:
@@ -42,12 +39,16 @@ protected:
 
 private:
     /**
-     * Get the physical address for a TLB window offset.
-     * This combines the TLB's base address with the given offset.
+     * Translate a TLB window offset to (core, address) and perform a write via the communicator.
      */
-    uint64_t get_physical_address(uint64_t offset) const;
+    void translate_and_write(uint64_t offset, const void* data, size_t size);
 
-    TTSimCommunicator* sim_communicator_;
+    /**
+     * Translate a TLB window offset to (core, address) and perform a read via the communicator.
+     */
+    void translate_and_read(uint64_t offset, void* data, size_t size);
+
+    RtlSimCommunicator* communicator_;
 };
 
 }  // namespace tt::umd

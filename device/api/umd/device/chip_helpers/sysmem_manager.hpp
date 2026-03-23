@@ -7,6 +7,7 @@
 #include "sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 
 namespace tt::umd {
@@ -42,12 +43,13 @@ public:
     virtual std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
+    static uint64_t get_pcie_base_for_arch(tt::ARCH arch);
+
 protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 
-    TLBManager* tlb_manager_;
-    TTDevice* tt_device_;
-    // const uint64_t pcie_base_;
+    TLBManager* tlb_manager_ = nullptr;
+    TTDevice* tt_device_ = nullptr;
     uint64_t pcie_base_;
 
     std::vector<HugepageMapping> hugepage_mapping_per_channel;

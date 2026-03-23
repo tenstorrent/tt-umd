@@ -6,217 +6,148 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <set>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
+#include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(const TopologyDiscoveryOptions& options) :
-    TopologyDiscovery(options) {}
+TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
+    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
+    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
-TopologyDiscoveryWormhole::EthAddresses TopologyDiscoveryWormhole::get_eth_addresses(uint32_t eth_fw_version) {
-    uint32_t masked_version = eth_fw_version & 0x00FFFFFF;
-
-    uint64_t eth_param_table;
-    uint64_t node_info;
-    uint64_t eth_conn_info;
-    uint64_t results_buf;
-    uint64_t erisc_remote_board_type_offset;
-    uint64_t erisc_local_board_type_offset;
-    uint64_t erisc_local_board_id_lo_offset;
-    uint64_t erisc_remote_board_id_lo_offset;
-    uint64_t erisc_remote_eth_id_offset;
-    uint64_t routing_firmware_state;
-
-    if (masked_version >= 0x060000) {
-        eth_param_table = 0x1000;
-        node_info = 0x1100;
-        eth_conn_info = 0x1200;
-        results_buf = 0x1ec0;
-        routing_firmware_state = 0x104c;
-    } else {
-        throw std::runtime_error(
-            fmt::format("Unsupported ETH version {:#x}. ETH version should always be at least 6.0.0.", eth_fw_version));
-    }
-
-    if (masked_version >= 0x06C000) {
-        erisc_remote_board_type_offset = 77;
-        erisc_local_board_type_offset = 69;
-        erisc_remote_board_id_lo_offset = 72;
-        erisc_local_board_id_lo_offset = 64;
-        erisc_remote_eth_id_offset = 76;
-    } else {
-        erisc_remote_board_type_offset = 72;
-        erisc_local_board_type_offset = 64;
-        erisc_remote_board_id_lo_offset = 73;
-        erisc_local_board_id_lo_offset = 65;
-        erisc_remote_eth_id_offset = 77;
-    }
-
-    return TopologyDiscoveryWormhole::EthAddresses{
-        masked_version,
-        eth_param_table,
-        routing_firmware_state,
-        node_info,
-        eth_conn_info,
-        results_buf,
-        erisc_remote_board_type_offset,
-        erisc_local_board_type_offset,
-        erisc_local_board_id_lo_offset,
-        erisc_remote_board_id_lo_offset,
-        erisc_remote_eth_id_offset};
-}
-
-uint64_t TopologyDiscoveryWormhole::get_remote_board_id(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // See comment in get_local_board_id.
-        return get_remote_asic_id(chip, eth_core);
+        return get_remote_asic_id(tt_device, eth_core);
     }
 
-    TTDevice* tt_device = chip->get_tt_device();
     uint32_t board_id;
     tt_device->read_from_device(
         &board_id,
         eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
+        EthAddresses::RESULTS_BUF + (4 * EthAddresses::ERISC_REMOTE_BOARD_ID_LO_OFFSET),
         sizeof(uint32_t));
     return board_id;
 }
 
-uint64_t TopologyDiscoveryWormhole::get_local_board_id(Chip* chip, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryWormhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
-        // only some chips, we hack the board_id to be the asic ID. That way, the pci_target_devices filter
+        // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
         // from the ClusterOptions will work correctly on 6U.
         // Note that the board_id will still be reported properly in the cluster descriptor, since it is
         // fetched through another function when cluster descriptor is being filled up.
-        return get_local_asic_id(chip, eth_core);
+        return get_local_asic_id(tt_device, eth_core);
     }
 
-    TTDevice* tt_device = chip->get_tt_device();
     // WH-ERISC mangles the ARC board id into 32 bits, just enough to be uniquely identifying.
     uint64_t board_id = tt_device->get_board_id();
     return ((board_id >> 4) & 0xF0000000) | (board_id & 0x0FFFFFFF);
 }
 
-uint64_t TopologyDiscoveryWormhole::get_remote_board_type(Chip* chip, tt_xy_pair eth_core) {
-    TTDevice* tt_device = chip->get_tt_device();
-    uint32_t board_id;
-    tt_device->read_from_device(
-        &board_id,
-        eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_type_offset),
-        sizeof(uint32_t));
-    return board_id;
-}
-
-uint64_t TopologyDiscoveryWormhole::get_local_asic_id(Chip* chip, tt_xy_pair eth_core) {
-    TTDevice* tt_device = chip->get_tt_device();
+uint64_t TopologyDiscoveryWormhole::get_local_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t asic_id_lo;
     tt_device->read_from_device(
         &asic_id_lo,
         eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_local_board_id_lo_offset),
+        EthAddresses::RESULTS_BUF + (4 * EthAddresses::ERISC_LOCAL_BOARD_ID_LO_OFFSET),
         sizeof(uint32_t));
     uint32_t asic_id_hi;
     tt_device->read_from_device(
         &asic_id_hi,
         eth_core,
-        eth_addresses.results_buf + (4 * (eth_addresses.erisc_local_board_id_lo_offset + 1)),
+        EthAddresses::RESULTS_BUF + (4 * (EthAddresses::ERISC_LOCAL_BOARD_ID_LO_OFFSET + 1)),
         sizeof(uint32_t));
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
-uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(Chip* chip, tt_xy_pair eth_core) {
-    TTDevice* tt_device = chip->get_tt_device();
+uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t asic_id_lo;
     tt_device->read_from_device(
         &asic_id_lo,
         eth_core,
-        eth_addresses.results_buf + (4 * eth_addresses.erisc_remote_board_id_lo_offset),
+        EthAddresses::RESULTS_BUF + (4 * EthAddresses::ERISC_REMOTE_BOARD_ID_LO_OFFSET),
         sizeof(uint32_t));
     uint32_t asic_id_hi;
     tt_device->read_from_device(
         &asic_id_hi,
         eth_core,
-        eth_addresses.results_buf + (4 * (eth_addresses.erisc_remote_board_id_lo_offset + 1)),
+        EthAddresses::RESULTS_BUF + (4 * (EthAddresses::ERISC_REMOTE_BOARD_ID_LO_OFFSET + 1)),
         sizeof(uint32_t));
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
-tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(Chip* chip, tt_xy_pair local_eth_core) {
+tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     const uint32_t shelf_offset = 9;
-    TTDevice* tt_device = chip->get_tt_device();
     uint32_t remote_id;
     tt_device->read_from_device(
         &remote_id,
         {local_eth_core.x, local_eth_core.y},
-        eth_addresses.node_info + (4 * shelf_offset),
+        EthAddresses::NODE_INFO + (4 * shelf_offset),
         sizeof(uint32_t));
 
     return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
 }
 
-uint32_t TopologyDiscoveryWormhole::read_training_status(Chip* chip, tt_xy_pair eth_core) {
-    uint32_t training_status;
-    TTDevice* tt_device = chip->get_tt_device();
-    tt_device->read_from_device(&training_status, eth_core, 0x1104, sizeof(uint32_t));
-    return training_status;
-}
-
-uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(Chip* chip, tt_xy_pair local_eth_core) {
+uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
         throw std::runtime_error(
             "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
     }
     uint32_t remote_eth_id;
-    TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(
         &remote_eth_id,
         local_eth_core,
-        eth_addresses.results_buf + 4 * eth_addresses.erisc_remote_eth_id_offset,
+        EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
         sizeof(uint32_t));
     return remote_eth_id;
 }
 
-std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(Chip* chip, tt_xy_pair eth_core) {
-    TTDevice* tt_device = chip->get_tt_device();
-
-    uint32_t current_chip_eth_coord_info;
-    tt_device->read_from_device(&current_chip_eth_coord_info, eth_core, eth_addresses.node_info + 8, sizeof(uint32_t));
+std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t current_device_eth_coord_info;
+    tt_device->read_from_device(
+        &current_device_eth_coord_info, eth_core, EthAddresses::NODE_INFO + 8, sizeof(uint32_t));
 
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
-    eth_coord.x = (current_chip_eth_coord_info >> 16) & 0xFF;
-    eth_coord.y = (current_chip_eth_coord_info >> 24) & 0xFF;
-    eth_coord.rack = current_chip_eth_coord_info & 0xFF;
-    eth_coord.shelf = (current_chip_eth_coord_info >> 8) & 0xFF;
+    eth_coord.x = (current_device_eth_coord_info >> 16) & 0xFF;
+    eth_coord.y = (current_device_eth_coord_info >> 24) & 0xFF;
+    eth_coord.rack = current_device_eth_coord_info & 0xFF;
+    eth_coord.shelf = (current_device_eth_coord_info >> 8) & 0xFF;
 
     return eth_coord;
 }
 
-std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip* chip, tt_xy_pair eth_core) {
+std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
     const uint32_t shelf_offset = 9;
     const uint32_t rack_offset = 10;
-    TTDevice* tt_device = chip->get_tt_device();
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;
     tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * rack_offset), sizeof(uint32_t));
+        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
 
     eth_coord.rack = remote_id & 0xFF;
     eth_coord.shelf = (remote_id >> 8) & 0xFF;
 
     tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, eth_addresses.node_info + (4 * shelf_offset), sizeof(uint32_t));
+        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
 
     eth_coord.x = (remote_id >> 16) & 0x3F;
     eth_coord.y = (remote_id >> 22) & 0x3F;
@@ -224,107 +155,59 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(Chip* ch
     return eth_coord;
 }
 
-std::unique_ptr<RemoteChip> TopologyDiscoveryWormhole::create_remote_chip(
-    std::optional<EthCoord> eth_coord, Chip* gateway_chip, std::set<uint32_t> gateway_eth_channels) {
+std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
+    std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
     if (is_running_on_6u) {
         return nullptr;
     }
-    EthCoord remote_chip_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
+    EthCoord remote_device_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
 
-    return RemoteChip::create(
-        dynamic_cast<LocalChip*>(gateway_chip),
-        remote_chip_eth_coord,
-        gateway_eth_channels,
-        options.soc_descriptor_path);
+    std::unique_ptr<RemoteCommunication> remote_communication =
+        RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
+    remote_communication->set_remote_transfer_ethernet_cores(
+        get_soc_descriptor(gateway_device)
+            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
+    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
+    remote_tt_device->init_tt_device();
+    if (options.wait_on_ethernet_link_training) {
+        wait_eth_cores_training(remote_tt_device.get());
+    }
+    return remote_tt_device;
 }
 
-uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
+uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (is_running_on_6u) {
-        return get_remote_eth_id(chip, local_eth_core);
+        return get_remote_eth_id(tt_device, local_eth_core);
     }
-    tt_xy_pair remote_eth_core = get_remote_eth_core(chip, local_eth_core);
+    tt_xy_pair remote_eth_core = get_remote_eth_core(tt_device, local_eth_core);
 
     // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
-    return chip->get_soc_descriptor().translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
 }
 
-uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(Chip* chip, tt_xy_pair local_eth_core) {
-    return get_remote_eth_channel(chip, local_eth_core);
+uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
+    return get_remote_eth_channel(tt_device, local_eth_core);
 }
 
 bool TopologyDiscoveryWormhole::is_using_eth_coords() { return !is_running_on_6u; }
 
-void TopologyDiscoveryWormhole::init_topology_discovery() {
-    std::vector<int> device_ids;
-    switch (options.io_device_type) {
-        case IODeviceType::JTAG: {
-            auto device_cnt = JtagDevice::create()->get_device_cnt();
-            if (!device_cnt) {
-                TT_THROW("Topology discovery initialisation failed, no JTAG devices were found..");
-            }
-            // JTAG devices (j-links) are referred to with their index within a vector
-            // that's stored inside of a JtagDevice object.
-            // That index is completely different from the actual JTAG device id.
-            // So no matter how many JTAG devices (j-links) are present, the one with index 0 will be used here.
-            break;
-        }
-        case IODeviceType::PCIe: {
-            auto pci_device_ids = PCIDevice::enumerate_devices();
-            if (pci_device_ids.empty()) {
-                return;
-            }
-            device_ids = pci_device_ids;
-            break;
-        }
-        default:
-            TT_THROW("Unsupported IODeviceType during topology discovery.");
-    }
-
-    for (auto& device_id : device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, options.io_device_type);
-        // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-    }
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_ids[0], options.io_device_type);
-    tt_device->init_tt_device();
+void TopologyDiscoveryWormhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB;
-    eth_addresses =
-        TopologyDiscoveryWormhole::get_eth_addresses(tt_device->get_firmware_info_provider()->get_eth_fw_version());
 }
 
-bool TopologyDiscoveryWormhole::is_board_id_included(uint64_t board_id, uint64_t board_type) const {
-    // Since at the moment we don't want to go outside of single host on 6U,
-    // we just check for board ids that are discovered from pci_target_devices.
-    if (is_running_on_6u) {
-        return board_ids.find(board_id) != board_ids.end();
-    }
-
-    // This is TG case, board_type is set to 0. We want to include even the TG board that is not
-    // connected over PCIe, so we always want to include it.
-    if (board_type == 0) {
-        return true;
-    }
-
-    return board_ids.find(board_id) != board_ids.end();
+bool TopologyDiscoveryWormhole::is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) {
+    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
-bool TopologyDiscoveryWormhole::is_eth_trained(Chip* chip, const tt_xy_pair eth_core) {
-    return read_training_status(chip, eth_core) == LINK_TRAIN_SUCCESS;
-}
-
-bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord eth_core) {
-    uint32_t eth_fw_version_read;
-    chip->read_from_device(eth_core, &eth_fw_version_read, chip->l1_address_params.fw_version_addr, sizeof(uint32_t));
-
-    semver_t eth_fw_version = semver_t::from_eth_fw_tag(eth_fw_version_read);
+bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
+    uint64_t current_device_asic_id = get_asic_id(tt_device);
 
     bool eth_fw_problem = false;
     if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version =
-            get_expected_eth_firmware_version_from_firmware_bundle(first_fw_bundle_version.value(), ARCH::WORMHOLE_B0);
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
         if (expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version: {}", expected_eth_fw_version->to_string());
+            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
         } else {
             expected_eth_fw_version = eth_fw_version;
             log_debug(
@@ -339,57 +222,129 @@ bool TopologyDiscoveryWormhole::verify_eth_core_fw_version(Chip* chip, CoreCoord
     if (eth_fw_version != expected_eth_fw_version) {
         log_warning(
             LogUMD,
-            "ETH FW version mismatch for chip {} ETH core {}, found: {}.",
-            get_local_asic_id(chip, eth_core),
+            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+            current_device_asic_id,
             eth_core.str(),
+            expected_eth_fw_version->to_string(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
     }
 
-    if (options.verify_eth_fw_hash) {
-        auto hash_check = verify_eth_fw_integrity(chip->get_tt_device(), eth_core, eth_fw_version);
-        if (hash_check.has_value() && hash_check.value() == false) {
+    if (options.perform_eth_fw_hash_check) {
+        auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
+        if (hash_check.has_value() && !hash_check.value()) {
             log_warning(
                 LogUMD,
-                "ETH FW version hash check failed for chip {} ETH core {}",
-                get_local_asic_id(chip, eth_core),
-                eth_core.str());
+                "ETH FW hash check failed for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
+                current_device_asic_id,
+                eth_core.str(),
+                expected_eth_fw_version->to_string(),
+                eth_fw_version.to_string());
             eth_fw_problem = true;
         }
     }
 
-    return options.no_eth_firmware_strictness || !eth_fw_problem;
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
 }
 
-uint64_t TopologyDiscoveryWormhole::get_unconnected_chip_id(Chip* chip) {
-    return chip->get_tt_device()->get_board_id();
-}
+uint64_t TopologyDiscoveryWormhole::get_unconnected_device_id(TTDevice* tt_device) { return tt_device->get_board_id(); }
 
-bool TopologyDiscoveryWormhole::verify_routing_firmware_state(Chip* chip, const tt_xy_pair eth_core) {
+void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) {
     uint32_t routing_firmware_disabled;
-    TTDevice* tt_device = chip->get_tt_device();
     tt_device->read_from_device(
-        &routing_firmware_disabled, eth_core, eth_addresses.routing_firmware_state, sizeof(uint32_t));
+        &routing_firmware_disabled, eth_core, EthAddresses::ROUTING_FIRMWARE_STATE, sizeof(uint32_t));
     if (is_running_on_6u && routing_firmware_disabled == 0) {
         auto message = fmt::format(
-            "Routing FW on 6U unexpectedly enabled on chip {} core {}.",
-            get_local_asic_id(chip, eth_core),
+            "Routing FW on 6U unexpectedly enabled on device {} core {}.",
+            get_local_asic_id(tt_device, eth_core),
             eth_core.str());
-        if (options.no_eth_firmware_strictness) {
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
             log_warning(LogUMD, message);
-            return false;
+            return;
         }
         TT_THROW(message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
         auto message = fmt::format(
-            "Routing FW unexpectedly disabled on chip {} core {}.", get_local_asic_id(chip, eth_core), eth_core.str());
-        if (options.no_eth_firmware_strictness) {
+            "Routing FW unexpectedly disabled on device {} core {}.",
+            get_local_asic_id(tt_device, eth_core),
+            eth_core.str());
+        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
             log_warning(LogUMD, message);
-            return false;
+            return;
         }
         TT_THROW(message);
     }
-    return true;
 }
 
+bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t port_disable_mask = 0;
+    tt_device->read_from_device(
+        &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
+    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0;
+    const uint32_t channel =
+        get_soc_descriptor(tt_device).translate_coord_to(eth_core, noc_system, CoordSystem::LOGICAL).y;
+    return (port_disable_mask >> channel) & 1;
+}
+
+uint32_t TopologyDiscoveryWormhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t heartbeat_value = 0;
+    tt_device->read_from_device(&heartbeat_value, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));
+    return heartbeat_value;
+}
+
+uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t postcode = 0;
+    tt_device->read_from_device(&postcode, eth_core, wormhole::ETH_POSTCODE_ADDR, sizeof(uint32_t));
+    return postcode;
+}
+
+void TopologyDiscoveryWormhole::retrain_eth_cores() {
+    if (!is_running_on_6u || !options.perform_6u_eth_retrain) {
+        return;
+    }
+
+    for (uint32_t attempt = 0; attempt < ETH_RETRAIN_ATTEMPT_COUNT; attempt++) {
+        log_debug(LogUMD, "Retraining ETH cores on Wormhole B0 devices, iteration {}.", attempt + 1);
+        bool all_eth_cores_trained = true;
+
+        for (const auto& [asic_id, tt_device] : devices_to_discover) {
+            auto* wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
+
+            for (const CoreCoord& eth_core :
+                 get_soc_descriptor(tt_device.get())
+                     .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
+                EthTrainingStatus status = tt_device->read_eth_core_training_status(eth_core);
+                bool should_retrain = (status == EthTrainingStatus::FAIL) ||
+                                      (RETRAIN_UNCONNECTED && status == EthTrainingStatus::NOT_CONNECTED);
+                if (!should_retrain) {
+                    continue;
+                }
+
+                SemVer eth_fw_version = get_eth_fw_version(tt_device.get(), eth_core);
+                if (eth_fw_version < wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN) {
+                    log_warning(
+                        LogUMD,
+                        "ETH FW version {} is older than minimum version needed for retraining {}. Skipping retrain.",
+                        eth_fw_version.to_string(),
+                        wormhole::MIN_ETH_FW_VERSION_FOR_RETRAIN.to_string());
+                    return;
+                }
+
+                log_debug(
+                    LogUMD, "Retraining ETH core {} on device {}, attempt {}.", eth_core.str(), asic_id, attempt + 1);
+                wormhole_tt_device->retrain_eth_core(eth_core);
+                all_eth_cores_trained = false;
+            }
+        }
+
+        if (all_eth_cores_trained) {
+            break;
+        }
+
+        for (const auto& [asic_id, tt_device] : devices_to_discover) {
+            log_debug(LogUMD, "Waiting for ETH cores to finish training after retrain on device {}.", asic_id);
+            wait_eth_cores_training(tt_device.get());
+        }
+    }
+}
 }  // namespace tt::umd

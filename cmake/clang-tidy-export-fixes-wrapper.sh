@@ -27,7 +27,7 @@ done
 
 if [[ -z "$SOURCE_FILE" ]]; then
     # If no source file found, just run clang-tidy without export-fixes
-    clang-tidy-17 "$@" || true
+    clang-tidy-20 "$@" || true
     exit 0
 fi
 
@@ -39,5 +39,5 @@ FIXES_FILE="${FIXES_DIR}/${BASENAME}-${HASH}.yaml"
 
 # Run clang-tidy but ignore exit code (warnings-as-errors would cause non-zero)
 # Fixes are still exported to the YAML file
-clang-tidy-17 --export-fixes="$FIXES_FILE" "$@" || true
+clang-tidy-20 --export-fixes="$FIXES_FILE" "$@" || true
 exit 0

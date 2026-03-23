@@ -5,6 +5,12 @@
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
@@ -49,9 +55,7 @@ TEST(ApiSysmemManager, BasicIO) {
 
 TEST(ApiSysmemManager, SysmemBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
 
     if (!pci_device->is_iommu_enabled()) {
@@ -110,12 +114,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 }
 
 TEST(ApiSysmemManager, SysmemBufferUnaligned) {
-    const auto page_size = sysconf(_SC_PAGESIZE);
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
     if (!pci_device->is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
@@ -181,9 +180,6 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
 TEST(ApiSysmemManager, SysmemBufferFunctions) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
@@ -210,9 +206,6 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }

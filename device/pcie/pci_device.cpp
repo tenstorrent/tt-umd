@@ -10,17 +10,29 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
+#include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstring>  // for memcpy
+#include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ios>
+#include <map>
+#include <memory>
 #include <optional>
+#include <set>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
@@ -28,17 +40,6 @@
 #include "utils.hpp"
 
 namespace tt::umd {
-
-static const uint16_t GS_PCIE_DEVICE_ID = 0xfaca;
-static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
-static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
-
-// TODO: we'll have to rethink this when KMD takes control of the inbound PCIe
-// TLB windows and there is no longer a pre-defined WC/UC split.
-static const uint32_t GS_BAR0_WC_MAPPING_SIZE = (156 << 20) + (10 << 21) + (18 << 24);
-
-// Defines the address for WC region. addresses 0 to BH_BAR0_WC_MAPPING_SIZE are in WC, above that are UC.
-static const uint32_t BH_BAR0_WC_MAPPING_SIZE = 188 << 21;
 
 template <typename T>
 static std::optional<T> try_read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name) {
@@ -125,8 +126,6 @@ static std::string get_pci_bdf(
     return fmt::format("{:04x}:{:02x}:{:02x}.{:x}", pci_domain, pci_bus, pci_device, pci_function);
 }
 
-static bool is_number(const std::string &str) { return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit); }
-
 static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &target_bdf) {
     std::string base_path = "/sys/bus/pci/slots";
 
@@ -136,7 +135,7 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
         }
 
         std::string dir_name = entry.path().filename().string();
-        if (!is_number(dir_name)) {
+        if (!tt::umd::utils::is_integer_string(dir_name)) {
             continue;
         }
 
@@ -198,7 +197,14 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
 }
 
 static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
+        // to check if the device is in the pci_target_devices set.
+        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
+            continue;
+        }
+
+        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
@@ -226,15 +232,15 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
 }
 
 tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == WH_PCIE_DEVICE_ID) {
+    if (this->device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == BH_PCIE_DEVICE_ID) {
+    } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         return tt::ARCH::BLACKHOLE;
     }
     return tt::ARCH::Invalid;
 }
 
-std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci_target_devices) {
+std::vector<int> PCIDevice::enumerate_devices() {
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -242,28 +248,121 @@ std::vector<int> PCIDevice::enumerate_devices(const std::unordered_set<int> &pci
         return device_ids;
     }
 
-    std::unordered_set<int> visible_devices = utils::get_visible_devices(pci_target_devices);
+    const char *tt_visible_devices_env = std::getenv("TT_VISIBLE_DEVICES");
+    if (!tt_visible_devices_env) {
+        return sort_ids_based_on_bdf(get_all_device_ids());
+    }
 
-    for (const auto &entry : std::filesystem::directory_iterator(path)) {
-        std::string filename = entry.path().filename().string();
+    std::string tt_visible_devices_str(tt_visible_devices_env);
+    if (tt_visible_devices_str.empty()) {
+        return device_ids;
+    }
 
-        // TODO: this will skip any device that has a non-numeric name, which
-        // is probably what we want longer-term (i.e. a UUID or something).
-        if (std::all_of(filename.begin(), filename.end(), ::isdigit)) {
-            int pci_device_id = std::stoi(filename);
-            if (visible_devices.empty() || visible_devices.find(pci_device_id) != visible_devices.end()) {
-                device_ids.push_back(pci_device_id);
+    std::vector<std::string> device_tokens = utils::split_string_by_comma(tt_visible_devices_str);
+
+    std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+
+    std::vector<int> all_device_ids = {};
+
+    for (const auto &[bdf, device_id] : get_bdf_to_device_id_map()) {
+        all_device_ids.push_back(device_id);
+    }
+
+    std::set<int> filtered_device_ids;
+
+    for (const auto &device_token : device_tokens) {
+        // Check if token is BDF format (contains colon and dot).
+        bool is_bdf = tt::umd::utils::is_bdf_string(device_token);
+
+        if (is_bdf) {
+            bool matched_bdf_pattern = false;
+            for (const auto &bdf_to_device_id : bdf_to_device_id_map) {
+                if (bdf_to_device_id.first.find(device_token) != std::string::npos) {
+                    int device_id = bdf_to_device_id.second;
+                    filtered_device_ids.insert(device_id);
+                    log_debug(
+                        LogUMD,
+                        "Added device id {} with BDF {} because of token filter {}.",
+                        device_id,
+                        bdf_to_device_id.first,
+                        device_token);
+                    matched_bdf_pattern = true;
+                }
             }
+
+            if (!matched_bdf_pattern) {
+                TT_THROW(
+                    "Invalid BDF identifier in TT_VISIBLE_DEVICES: {}. Valid device identifiers are either integers or "
+                    "part of the BDF string.",
+                    device_token);
+            }
+
+            continue;
+        }
+
+        bool is_integer = tt::umd::utils::is_integer_string(device_token);
+
+        if (is_integer) {
+            int logical_device_id = std::stoi(device_token);
+
+            if (logical_device_id < 0 || logical_device_id >= all_device_ids.size()) {
+                TT_THROW(
+                    "Invalid device ID in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                    "part of the BDF string. Valid integer IDs are between 0 and {}.",
+                    device_token,
+                    all_device_ids.size() - 1);
+            }
+
+            log_debug(
+                LogUMD,
+                "Added device id {} because of token filter {}.",
+                all_device_ids[logical_device_id],
+                device_token);
+
+            filtered_device_ids.insert(all_device_ids[logical_device_id]);
+
+        } else {
+            TT_THROW(
+                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
+                "part of the BDF string.",
+                device_token);
         }
     }
 
-    std::sort(device_ids.begin(), device_ids.end());
-    return device_ids;
+    for (const int &filtered_device_id : filtered_device_ids) {
+        device_ids.push_back(filtered_device_id);
+    }
+
+    return sort_ids_based_on_bdf(device_ids);
 }
 
-std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unordered_set<int> &pci_target_devices) {
+std::vector<int> PCIDevice::sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids) {
+    std::vector<int> sorted_ids_based_on_bdf;
+    std::map<std::string, int> bdf_to_device_id_map = get_bdf_to_device_id_map();
+    std::unordered_set<int> input_ids(pci_device_ids.begin(), pci_device_ids.end());
+    std::unordered_set<int> mapped_ids;
+
+    for (const auto &[bdf, device_id] : bdf_to_device_id_map) {
+        if (input_ids.count(device_id)) {
+            sorted_ids_based_on_bdf.push_back(device_id);
+            mapped_ids.insert(device_id);
+        }
+    }
+
+    // Append any IDs that could not be mapped to a BDF, preserving input order.
+    for (int device_id : pci_device_ids) {
+        if (!mapped_ids.count(device_id)) {
+            log_debug(tt::LogUMD, "Device ID {} could not be mapped to a BDF, appending at end.", device_id);
+            sorted_ids_based_on_bdf.push_back(device_id);
+        }
+    }
+
+    return sorted_ids_based_on_bdf;
+}
+
+std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
     std::map<int, PciDeviceInfo> infos;
-    for (int n : PCIDevice::enumerate_devices(pci_target_devices)) {
+    for (int n : PCIDevice::enumerate_devices()) {
         int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
         if (fd == -1) {
             continue;
@@ -279,6 +378,14 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info(const std::unorde
     return infos;
 }
 
+std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
+    std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
+    if (umd_logical_id < 0 || umd_logical_id >= static_cast<int>(enumerated_ids.size())) {
+        return std::nullopt;
+    }
+    return enumerated_ids[umd_logical_id];
+}
+
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
@@ -288,7 +395,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info)) {
+    iommu_enabled(detect_iommu(info)),
+    arch_impl_(architecture_implementation::create(arch)) {
     if (iommu_enabled && kmd_version < KMD_IOMMU) {
         TT_THROW("Running with IOMMU support requires KMD version {} or newer", KMD_IOMMU.to_string());
     }
@@ -377,7 +485,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             bar4_wc_mapping = mappings.mapping_array[i];
         }
 
-        log_debug(
+        log_trace(
             LogUMD,
             "BAR mapping id {} base {} size {}",
             mappings.mapping_array[i].mapping_id,
@@ -399,6 +507,22 @@ PCIDevice::PCIDevice(int pci_device_number) :
 
     if (bar0 == MAP_FAILED) {
         throw std::runtime_error(fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
+    }
+
+    // Map TLB configuration registers. Wormhole has up to 186 TLBs and Blackhole up to 202 TLBs; with
+    // approximately 8–12 bytes per TLB configuration register, the maximum required space is about
+    // 202 * 12 = 2424 bytes, which fits comfortably in a single 4 KB page.
+    tlb_config_space = mmap(
+        nullptr,
+        tlb_config_space_size,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED,
+        pci_device_file_desc,
+        bar0_uc_mapping.mapping_base + arch_impl_->get_static_tlb_cfg_addr());
+
+    if (tlb_config_space == MAP_FAILED) {
+        throw std::runtime_error(
+            fmt::format("TLB configuration registers mapping failed for device {}.", pci_device_num));
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
@@ -456,6 +580,10 @@ PCIDevice::~PCIDevice() {
 
     if (bar0 != nullptr && bar0 != MAP_FAILED) {
         munmap(bar0, bar0_size);
+    }
+
+    if (tlb_config_space != nullptr && tlb_config_space != MAP_FAILED) {
+        munmap(tlb_config_space, tlb_config_space_size);
     }
 
     if (bar2_uc != nullptr && bar2_uc != MAP_FAILED) {
@@ -661,7 +789,7 @@ void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
         unpin_pages.in.size);
 }
 
-semver_t PCIDevice::read_kmd_version() {
+SemVer PCIDevice::read_kmd_version() {
     static const std::string path = "/sys/module/tenstorrent/version";
     std::ifstream file(path);
 
@@ -673,14 +801,14 @@ semver_t PCIDevice::read_kmd_version() {
     std::string version_str;
     std::getline(file, version_str);
 
-    return semver_t(version_str);
+    return SemVer(version_str);
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     try {
-        return std::make_unique<TlbHandle>(tt_device_handle, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
-        if (read_kmd_version() < semver_t(2, 6, 0)) {
+        if (read_kmd_version() < SemVer(2, 6, 0)) {
             TT_THROW(
                 "Failed to allocate TLB window. Note that the resource might be exhausted by some other hung process. "
                 "Error: {}",
@@ -693,6 +821,41 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
             pci_device_num,
             e.what());
     }
+}
+
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
+    // Get the TLB configuration for this index.
+    auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
+
+    // Apply the architecture-specific bit field offsets to pack the TLB data.
+    auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
+
+    // Calculate the register address for this TLB index using architecture-specific register size.
+    const uint64_t tlb_cfg_reg_size_bytes = arch_impl_->get_tlb_cfg_reg_size_bytes();
+    uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
+
+    // Write to the appropriate location in BAR0.
+    volatile uint64_t *tlb_reg_ptr =
+        reinterpret_cast<volatile uint64_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
+
+    // Write the TLB register values
+    // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
+    tlb_reg_ptr[0] = lower_64;
+
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // Blackhole needs the upper 32 bits as well (96-bit total)
+        // Cast to uint32_t* to write only 4 bytes and avoid overwriting the next register.
+        volatile uint32_t *tlb_reg_upper_ptr = reinterpret_cast<volatile uint32_t *>(tlb_reg_ptr);
+        tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
+    }
+
+    log_trace(
+        LogUMD,
+        "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
+        tlb_index,
+        tlb_register_addr,
+        lower_64,
+        upper_64);
 }
 
 void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
@@ -783,8 +946,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
 }
 
 void PCIDevice::allocate_pcie_dma_buffer() {
-    if (arch != tt::ARCH::WORMHOLE_B0) {
-        // DMA buffer is only supported on Wormhole B0.
+    if (arch != tt::ARCH::WORMHOLE_B0 && arch != tt::ARCH::BLACKHOLE) {
+        // DMA buffer is only supported on Wormhole B0 and Blackhole.
         return;
     }
     // DMA buffer allocation.
@@ -838,11 +1001,48 @@ tt::ARCH PCIDevice::get_pcie_arch() {
     return cached_arch;
 }
 
-bool PCIDevice::is_arch_agnostic_reset_supported() {
-    if (PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET) {
-        return true;
+bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
+
+std::vector<int> PCIDevice::get_all_device_ids() {
+    std::vector<int> device_ids;
+    std::string path = "/dev/tenstorrent/";
+
+    if (!std::filesystem::exists(path)) {
+        return device_ids;
     }
-    return false;
+
+    // Enumerate all devices, ignoring TT_VISIBLE_DEVICES.
+    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+        std::string filename = entry.path().filename().string();
+        if (tt::umd::utils::is_integer_string(filename)) {
+            int pci_device_id = std::stoi(filename);
+            device_ids.push_back(pci_device_id);
+        }
+    }
+
+    return device_ids;
+}
+
+std::map<std::string, int> PCIDevice::get_bdf_to_device_id_map() {
+    std::map<std::string, int> bdf_to_device_id;
+
+    for (int device_id : get_all_device_ids()) {
+        int fd = open(fmt::format("/dev/tenstorrent/{}", device_id).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
+        if (fd == -1) {
+            continue;
+        }
+
+        try {
+            PciDeviceInfo device_info = read_device_info(fd);
+            bdf_to_device_id[device_info.pci_bdf] = device_id;
+        } catch (...) {
+            // Ignore failed reads and continue with next device.
+        }
+
+        close(fd);
+    }
+
+    return bdf_to_device_id;
 }
 
 }  // namespace tt::umd

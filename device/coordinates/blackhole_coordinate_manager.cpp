@@ -4,7 +4,14 @@
 
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
+#include <vector>
 
 namespace tt::umd {
 
@@ -64,7 +71,7 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.x) {
         harvesting_masks.tensix_harvesting_mask = 0;
     }
-    size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
+
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
@@ -82,7 +89,7 @@ void BlackholeCoordinateManager::translate_tensix_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_tensix_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping();
     } else {
         fill_tensix_default_noc0_translated_mapping();
     }
@@ -92,7 +99,7 @@ void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
     if (CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask) > tensix_grid_size.x) {
         harvesting_masks.tensix_harvesting_mask = 0;
     }
-    size_t num_harvested_x = CoordinateManager::get_num_harvested(harvesting_masks.tensix_harvesting_mask);
+
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
@@ -137,8 +144,6 @@ void BlackholeCoordinateManager::fill_tensix_noc0_translated_mapping() {
 }
 
 void BlackholeCoordinateManager::translate_dram_coords() {
-    size_t num_harvested_banks = CoordinateManager::get_num_harvested(harvesting_masks.dram_harvesting_mask);
-
     size_t logical_x = 0;
     for (size_t x = 0; x < dram_grid_size.x; x++) {
         if (!(harvesting_masks.dram_harvesting_mask & (1 << x))) {
@@ -154,16 +159,13 @@ void BlackholeCoordinateManager::translate_dram_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_dram_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_dram_noc0_translated_mapping();
     } else {
         fill_dram_default_noc0_translated_mapping();
     }
 }
 
 void BlackholeCoordinateManager::translate_eth_coords() {
-    size_t num_harvested_channels = CoordinateManager::get_num_harvested(harvesting_masks.eth_harvesting_mask);
-
-    size_t harvested_eth_channel_start = eth_cores.size() - num_harvested_channels;
     size_t unharvested_logical_eth_channel = 0;
     for (size_t eth_channel = 0; eth_channel < eth_cores.size(); eth_channel++) {
         if (!(harvesting_masks.eth_harvesting_mask & (1 << eth_channel))) {
@@ -178,7 +180,7 @@ void BlackholeCoordinateManager::translate_eth_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_eth_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_eth_noc0_translated_mapping();
     } else {
         fill_eth_default_noc0_translated_mapping();
     }
@@ -199,7 +201,7 @@ void BlackholeCoordinateManager::translate_pcie_coords() {
     }
 
     if (noc_translation_enabled) {
-        fill_pcie_noc0_translated_mapping();
+        BlackholeCoordinateManager::fill_pcie_noc0_translated_mapping();
     } else {
         fill_pcie_default_noc0_translated_mapping();
     }
@@ -391,7 +393,6 @@ void BlackholeCoordinateManager::fill_dram_noc0_translated_mapping() {
             blackhole::dram_translated_coordinate_start_x + 1);
     }
 
-    const size_t virtual_index = (dram_grid_size.x - 1) * dram_grid_size.y;
     const size_t noc0_index = harvested_bank * dram_grid_size.y;
 
     const size_t harvested_bank_translated_x = blackhole::dram_translated_coordinate_start_x + 1;

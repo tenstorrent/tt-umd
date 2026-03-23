@@ -6,6 +6,8 @@
 
 #include <fmt/core.h>
 
+#include <string>
+
 namespace tt {
 
 std::string xy_pair::str() const { return fmt::format("(x={},y={})", x, y); }

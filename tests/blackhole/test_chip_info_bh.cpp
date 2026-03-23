@@ -4,6 +4,9 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <vector>
+
 #include "umd/device/tt_device/tt_device.hpp"
 
 using namespace tt;
@@ -20,9 +23,8 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
 
         EXPECT_TRUE(
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||
-            chip_info.board_type == BoardType::P300);
+            chip_info.board_type == BoardType::P300 || chip_info.board_type == BoardType::UBB_BLACKHOLE);
 
-        // TODO: uncomment this when we can read asic location properly from telemetry.
-        // EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);.
+        EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);
     }
 }

@@ -4,8 +4,12 @@
 
 #include <gtest/gtest.h>
 
+#include <functional>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "assert.hpp"
 

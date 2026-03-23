@@ -33,9 +33,7 @@ protected:
 
     WormholeTestFixture() {}
 
-    ~WormholeTestFixture() override {
-        // You can do clean-up work that doesn't throw exceptions here.
-    }
+    ~WormholeTestFixture() override = default;
 
     virtual int get_detected_num_chips() = 0;
     virtual bool is_test_skipped() = 0;

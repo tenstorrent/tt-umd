@@ -4,10 +4,13 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 
+#include <cstdint>
 #include <stdexcept>
+#include <tuple>
 
 #include "assert.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
@@ -108,6 +111,9 @@ uint64_t wormhole_implementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
     if (noc == 0) {
         for (const auto& noc_pair : wormhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
+            if (core_type == CoreType::DRAM) {
+                return wormhole::DRAM_NOC0_CONTROL_REG_ADDR_BASE_MAP[noc_port];
+            }
             if (noc_pair.first == core_type) {
                 return noc_pair.second;
             }
@@ -115,6 +121,10 @@ uint64_t wormhole_implementation::get_noc_reg_base(
     } else {
         for (const auto& noc_pair : wormhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
             if (noc_pair.first == core_type) {
+                if (core_type == CoreType::DRAM) {
+                    return wormhole::DRAM_NOC1_CONTROL_REG_ADDR_BASE_MAP[noc_port];
+                    ;
+                }
                 return noc_pair.second;
             }
         }

@@ -2,12 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "tests/galaxy/test_galaxy_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -82,8 +86,6 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 }
 
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);

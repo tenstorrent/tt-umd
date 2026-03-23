@@ -2,15 +2,26 @@ set(API_TESTS_SRCS
     test_chip.cpp
     test_cluster_descriptor.cpp
     test_cluster.cpp
+    test_soc_descriptor.cpp
+    test_device_io.cpp
+    test_risc_program.cpp
     test_tlb_manager.cpp
     test_software_harvesting.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
     test_tt_device.cpp
+    test_spi_tt_device.cpp
     test_noc.cpp
     test_jtag.cpp
     test_arc_telemetry.cpp
+    test_firmware_info_provider.cpp
+    test_warm_reset.cpp
+    test_tt_visible_devices.cpp
 )
+
+if(TT_UMD_BUILD_SIMULATION)
+    list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
+endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})
 target_link_libraries(api_tests PRIVATE test_common)

@@ -4,6 +4,15 @@
 
 #include "umd/device/chip/mock_chip.hpp"
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <set>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
@@ -41,6 +50,8 @@ void MockChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src
 void MockChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {}
 
 void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {}
+
+void MockChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
 
 void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
 

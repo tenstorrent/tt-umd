@@ -98,7 +98,7 @@ static inline std::string to_str(const CoordSystem coord_system) {
 // this CoreCoord to tt namespace.
 namespace umd {
 struct CoreCoord : public tt_xy_pair {
-    CoreCoord() {}
+    CoreCoord() = default;
 
     CoreCoord(const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system) :
         tt_xy_pair(x, y), core_type(type), coord_system(coord_system) {}

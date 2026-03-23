@@ -4,9 +4,10 @@
 
 #pragma once
 
-#include <memory>
 #include <mutex>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -26,6 +27,8 @@ enum class MutexType {
     CREATE_ETH_MAP,
     // Used for guarding against multiple users initializing the same chip.
     CHIP_IN_USE,
+    // Used for guarding PCIe DMA operations against concurrent access from multiple processes.
+    PCIE_DMA,
 };
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying
@@ -35,6 +38,33 @@ enum class MutexType {
 // it might be slower do to it each time. This way, locking/unlocking should be faster.
 class LockManager {
 public:
+    // Maps MutexType enum values to their string names used in shared-memory lock names.
+    inline static const std::unordered_map<MutexType, std::string> MUTEX_TYPE_TO_STRING = {
+        {MutexType::ARC_MSG, "ARC_MSG"},
+        {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
+        {MutexType::NON_MMIO, "NON_MMIO"},
+        {MutexType::MEM_BARRIER, "MEM_BARRIER"},
+        {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
+        {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
+        {MutexType::PCIE_DMA, "PCIE_DMA"},
+    };
+
+    // Mutex types that are initialized per chip (combined with device_id + device_type).
+    inline static const std::vector<MutexType> CHIP_SPECIFIC_MUTEX_TYPES = {
+        MutexType::ARC_MSG,
+        MutexType::REMOTE_ARC_MSG,
+        MutexType::NON_MMIO,
+        MutexType::MEM_BARRIER,
+        MutexType::CHIP_IN_USE,
+        MutexType::PCIE_DMA,
+    };
+
+    // Mutex types that are initialized system-wide (no device_id).
+    inline static const std::vector<MutexType> SYSTEM_WIDE_MUTEX_TYPES = {
+        MutexType::ARC_MSG,
+        MutexType::CREATE_ETH_MAP,
+    };
+
     // This set of functions is used to manage mutexes which are system wide and not chip specific.
     void initialize_mutex(MutexType mutex_type);
     void clear_mutex(MutexType mutex_type);
@@ -57,12 +87,6 @@ private:
     void initialize_mutex_internal(const std::string& mutex_name);
     void clear_mutex_internal(const std::string& mutex_name);
     std::unique_lock<RobustMutex> acquire_mutex_internal(const std::string& mutex_name);
-
-    // Const map of mutex names for each of the types listed in the enum.
-    static const std::unordered_map<MutexType, std::string> MutexTypeToString;
-
-    // Const map of Device type names for each of the types listed in the enum.
-    static const std::unordered_map<IODeviceType, std::string> DeviceTypeToString;
 
     // Maps from mutex name to an initialized mutex.
     // Mutex names are made from mutex type name or directly mutex name combined with device number.

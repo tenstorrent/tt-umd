@@ -301,14 +301,13 @@ void RtlSimCommunicator::handle_ram_write_notification(const void *notification)
 
 void RtlSimCommunicator::handle_ram_read_notification(const void *notification) {
     auto buf = GetDeviceRequestResponse(notification);
-    uint32_t ram_idx = buf->core()->x();
     uint64_t address = buf->address();
     uint32_t size = buf->size();
 
     log_debug(tt::LogEmulationDriver, "[AXI_RAM_READ] @ 0x{:016x} size={}.", address, size);
 
-    uint32_t num_uint32s = (size + 3) / 4;
-    std::vector<uint32_t> read_data(num_uint32s, 0);
+    // Flatbuffer data field is [uint32], so round up byte size to uint32 count.
+    std::vector<uint32_t> read_data((size + 3) / 4, 0);
 
     if (ram_read_callback_) {
         ram_read_callback_(address, read_data.data(), size);
@@ -316,8 +315,8 @@ void RtlSimCommunicator::handle_ram_read_notification(const void *notification) 
         log_warning(tt::LogEmulationDriver, "[AXI_RAM_READ] No callback registered, returning zeros.");
     }
 
-    // Send response back to simulator.
-    tt_xy_pair core = {ram_idx, 0};
+    // Echo back the core from the request so the simulator can route the response.
+    tt_xy_pair core = {buf->core()->x(), 0};
     std::lock_guard<std::mutex> lock(device_lock_);
     send_command_to_simulation_host(
         host_, create_flatbuffer(DEVICE_COMMAND_AXI_RAM_READ_NOTIFICATION, read_data, core, address, size));

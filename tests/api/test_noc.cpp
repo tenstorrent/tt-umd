@@ -714,6 +714,10 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1ViaCluster) {
 
     NocIdSwitcher noc_switcher(NocId::NOC1);
 
+    const uint32_t harvesting_mask =
+        get_cluster()->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
+    log_info(tt::LogUMD, "Chip {} tensix harvesting mask: 0x{:x}", chip, harvesting_mask);
+
     const std::vector<CoreCoord>& noc1_cores =
         get_cluster()->get_soc_descriptor(chip).get_cores(CoreType::ROUTER_ONLY, CoordSystem::NOC1);
 

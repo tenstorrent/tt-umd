@@ -495,7 +495,7 @@ TEST_P(TestNocTranslatedCoordinates, VerifyNocIdTranslatedCoordinatesMatch) {
                 expected_translated = tt_xy_pair(translated_coord.x, translated_coord.y);
             }
 
-            log_debug(
+            log_info(
                 tt::LogUMD,
                 "Chip {} {} core {}=({},{}) NOC{} -> EXPECTED_TRANSLATED=({},{}) vs TRANSLATED_REG=({},{})",
                 chip,
@@ -620,7 +620,7 @@ INSTANTIATE_TEST_SUITE_P(
         return "x" + std::to_string(coord.x) + "_y" + std::to_string(coord.y) + "_NOC" + std::to_string(noc_index);
     });
 
-TEST_F(TestNoc, BlackholeHarvestingMapAndRouterNodeIds) {
+TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
     if (arch != ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Blackhole-only test";
@@ -628,47 +628,78 @@ TEST_F(TestNoc, BlackholeHarvestingMapAndRouterNodeIds) {
 
     ChipId chip = *get_cluster()->get_target_mmio_device_ids().begin();
 
-    const uint32_t harvesting_mask =
-        get_cluster()->get_cluster_description()->get_harvesting_masks(chip).tensix_harvesting_mask;
+    NocIdSwitcher noc_switcher(NocId::NOC1);
 
-    // Tensix NOC0 x-coordinates in column order.
-    const std::vector<size_t> tensix_noc0_x = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
+    // ROUTER_ONLY translated coordinates (== NOC0 for router cores).
+    // clang-format off
+    constexpr std::array<tt_xy_pair, 18> router_coords_noc1_translated = {{
+        {15,  0},
+        {13,  0},
+        {12,  0},
+        {11,  0},
+        {10,  0},
+        { 9,  0},
+        { 6,  0},
+        { 4,  0},
+        { 3,  0},
+        { 2,  0},
+        { 1,  0},
+        { 0,  0},
+        { 8,  1},
+        { 8, 10},
+        { 8,  8},
+        { 8,  6},
+        { 8,  4},
+        { 8, 11},
+    }};
+    // clang-format on
 
-    // Print header with NOC0 x-coordinates.
-    std::string header = "Chip " + std::to_string(chip) + " harvesting mask 0x" + fmt::format("{:x}", harvesting_mask) +
-                         " mapped to columns:\n";
-    header += "NOC0 x: ";
-    for (size_t x : tensix_noc0_x) {
-        header += fmt::format("{:>2} ", x);
-    }
-    header += "\n";
-    header += "Harv:   ";
-    for (size_t col = 0; col < tensix_noc0_x.size(); col++) {
-        header += fmt::format("{:>2} ", (harvesting_mask >> col) & 1);
-    }
-    log_info(tt::LogUMD, "{}", header);
+    const std::vector<CoreCoord>& noc1_cores =
+        get_cluster()->get_soc_descriptor(chip).get_cores(CoreType::ROUTER_ONLY, CoordSystem::NOC1);
 
-    // Read and print node_id regs for all ROUTER_ONLY cores in NOC0.
-    NocIdSwitcher noc_switcher(NocId::NOC0);
+    auto* device = get_cluster()->get_tt_device(chip);
+    auto* arch_impl = device->get_architecture_implementation();
 
-    const std::vector<CoreCoord>& router_cores =
-        get_cluster()->get_soc_descriptor(chip).get_cores(CoreType::ROUTER_ONLY, CoordSystem::NOC0);
+    const uint64_t noc_node_id_reg_addr =
+        arch_impl->get_noc_reg_base(CoreType::ROUTER_ONLY, 1, 0) + arch_impl->get_noc_node_id_offset();
+    const uint64_t noc_translated_id_reg_addr =
+        arch_impl->get_noc_reg_base(CoreType::ROUTER_ONLY, 1, 0) + arch_impl->get_noc_node_translated_id_offset();
 
-    std::string router_info = "Chip " + std::to_string(chip) + " ROUTER_ONLY NOC0 node_id registers:\n";
-    for (const CoreCoord& core : router_cores) {
-        const uint64_t noc_node_id_reg_addr =
-            get_cluster()->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
-                CoreType::ROUTER_ONLY, 0, 0) +
-            get_cluster()->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_id_offset();
+    ASSERT_EQ(router_coords_noc1_translated.size(), noc1_cores.size());
+
+    std::string info = "Chip " + std::to_string(chip) + " ROUTER_ONLY NOC1 via translated coords:\n";
+    for (size_t i = 0; i < router_coords_noc1_translated.size(); i++) {
+        const tt_xy_pair& translated = router_coords_noc1_translated[i];
+        const CoreCoord& noc1 = noc1_cores[i];
 
         uint32_t noc_node_id_val;
-        get_cluster()->read_from_device_reg(
-            &noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        device->read_from_device(&noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val));
 
         uint32_t x = noc_node_id_val & 0x3F;
         uint32_t y = (noc_node_id_val >> 6) & 0x3F;
-        router_info +=
-            fmt::format("  ({:>2},{:>2}) -> node_id raw=0x{:08x} => ({},{})\n", core.x, core.y, noc_node_id_val, x, y);
+
+        uint32_t noc_translated_id_val;
+        device->read_from_device(
+            &noc_translated_id_val, translated, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
+
+        uint32_t translated_x = noc_translated_id_val & 0x3F;
+        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
+
+        info += fmt::format(
+            "TRANSLATED ({:>2},{:>2})  node_id=0x{:08x} ({},{})  logical_id=0x{:08x} ({},{})\n",
+            translated.x,
+            translated.y,
+            noc_node_id_val,
+            x,
+            y,
+            noc_translated_id_val,
+            translated_x,
+            translated_y);
+
+        EXPECT_EQ(x, noc1.x) << "node_id X mismatch at index " << i << " TRANSLATED (" << translated.x << ","
+                             << translated.y << ")";
+        EXPECT_EQ(y, noc1.y) << "node_id Y mismatch at index " << i << " TRANSLATED (" << translated.x << ","
+                             << translated.y << ")";
     }
-    log_info(tt::LogUMD, "{}", router_info);
+    log_info(tt::LogUMD, "{}", info);
 }

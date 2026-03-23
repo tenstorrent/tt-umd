@@ -13,6 +13,8 @@ on:
     branches: ["main"]
 
 jobs:
+  # Note: this job also serves as the tt-metal build verification job —
+  # building tt-metal is a required step before running ttsim tests.
   build-tt-sim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.

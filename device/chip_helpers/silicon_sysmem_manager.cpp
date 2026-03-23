@@ -138,16 +138,17 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         if (mapping == MAP_FAILED) {
             log_warning(
                 LogUMD,
-                "UMD: Hugepage allocation failed. (device: {}, {}/{} errno: {}).",
+                "UMD: Hugepage allocation failed. (device: {}, {}/{} errno {} ({})).",
                 physical_device_id,
                 ch,
                 num_host_mem_channels,
+                errno,
                 strerror(errno));
             print_file_contents("/proc/cmdline");
             print_file_contents(
                 "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
-            success = false;
-            continue;
+            hugepage_mapping_per_channel.resize(ch);
+            return false;
         }
 
         // Better performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same

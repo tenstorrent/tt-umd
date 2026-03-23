@@ -50,7 +50,8 @@ protected:
 
     TLBManager* tlb_manager_ = nullptr;
     TTDevice* tt_device_ = nullptr;
-    uint64_t pcie_base_;
+    // TODO: Properly initialize for SimulationSysmemManager.
+    uint64_t pcie_base_ = 0;
 
     std::vector<HugepageMapping> hugepage_mapping_per_channel;
     void* iommu_mapping = nullptr;

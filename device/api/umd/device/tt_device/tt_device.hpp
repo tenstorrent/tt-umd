@@ -20,6 +20,8 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -28,6 +30,7 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class SysmemManager;
 
 enum class TTDeviceInitResult {
     UNKNOWN = 0,
@@ -342,6 +345,17 @@ public:
      * @return Training status
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+
+    virtual void start_device();
+    virtual void close_device();
+
+    virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
+    virtual SysmemManager *get_sysmem_manager();
+    virtual TLBManager *get_tlb_manager();
 
 protected:
     std::shared_ptr<PCIDevice> pci_device_;

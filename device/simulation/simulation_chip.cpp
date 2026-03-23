@@ -157,15 +157,9 @@ int SimulationChip::get_numa_node() {
     throw std::runtime_error("SimulationChip::get_numa_node is not available for this chip.");
 }
 
-TTDevice* SimulationChip::get_tt_device() {
-    throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
-}
+SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_ ? tt_device_->get_sysmem_manager() : nullptr; }
 
-SysmemManager* SimulationChip::get_sysmem_manager() { return nullptr; }
-
-TLBManager* SimulationChip::get_tlb_manager() {
-    throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");
-}
+TLBManager* SimulationChip::get_tlb_manager() { return tt_device_ ? tt_device_->get_tlb_manager() : nullptr; }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 

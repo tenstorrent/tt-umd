@@ -11,6 +11,7 @@
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
@@ -35,7 +36,8 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    TTDevice* get_tt_device() override;
+    TTDevice* get_tt_device() override { return tt_device_.get(); }
+
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
@@ -89,7 +91,8 @@ protected:
     SimulationChip(
         const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id);
 
-    // Simulator directory.
+    std::unique_ptr<TTDevice> tt_device_;
+
     // Common state variables.
     DriverNocParams noc_params;
     tt::ARCH arch_name;

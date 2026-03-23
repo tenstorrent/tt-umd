@@ -18,6 +18,7 @@
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -314,6 +315,30 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firm
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
 void TTDevice::wait_for_non_mmio_flush() {}
+
+void TTDevice::start_device() { throw std::runtime_error("TTDevice::start_device is not implemented."); }
+
+void TTDevice::close_device() { throw std::runtime_error("TTDevice::close_device is not implemented."); }
+
+void TTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets) {
+    throw std::runtime_error("TTDevice::send_tensix_risc_reset is not implemented.");
+}
+
+void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) {
+    throw std::runtime_error("TTDevice::send_tensix_risc_reset is not implemented.");
+}
+
+void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+    throw std::runtime_error("TTDevice::assert_risc_reset is not implemented.");
+}
+
+void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+    throw std::runtime_error("TTDevice::deassert_risc_reset is not implemented.");
+}
+
+SysmemManager *TTDevice::get_sysmem_manager() { return nullptr; }
+
+TLBManager *TTDevice::get_tlb_manager() { return nullptr; }
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 

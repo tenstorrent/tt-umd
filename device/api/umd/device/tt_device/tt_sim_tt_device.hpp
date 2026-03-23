@@ -58,13 +58,13 @@ public:
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void close_device();
-    void start_device();
+    void close_device() override;
+    void start_device() override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
-    void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
-    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
-    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets) override;
+    void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) override;
+    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
     /**
      * Get the TTSimCommunicator for low-level device operations.
@@ -72,7 +72,7 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+    SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
 
     /**
      * Get the architecture implementation.
@@ -80,7 +80,7 @@ public:
      */
     const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
 
-    TLBManager *get_tlb_manager();
+    TLBManager *get_tlb_manager() override;
 
     uint64_t bar0_base = 0;
 

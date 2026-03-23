@@ -9,7 +9,6 @@
 #include <memory>
 
 #include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
 namespace tt::umd {
 
@@ -33,11 +32,6 @@ public:
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
-
-    SysmemManager* get_sysmem_manager() override { return tt_device_->get_sysmem_manager(); }
-
-private:
-    std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

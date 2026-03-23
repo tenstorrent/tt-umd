@@ -11,13 +11,13 @@ UMD follows a modified versioning scheme during initial development (major versi
   - Urgent bugfixes.
   - Format: `YYYYMMDD` date integer
 
-- **`b` (Minor)** - Incremented for new features:
-  - Requires an open issue documenting the feature
-  - Issues must be linked and closed before bumping
-  - Examples: telemetry helpers, ETH link retrain, SPI support
+- **`b` (Minor)** - Incremented for new features.
+  - Requires an open GitHub issue documenting which features are required to be complete for the version to be created.
+  - Issues must be linked and closed before creating the version.
+  - Issues can be T-shirt size XS to M.
 
-- **`a` (Pre-major)** - Incremented for major milestones:
-  - Requires a defined milestone.
+- **`a` (Pre-major)** - Incremented on milestones.
+  - Requires a defined milestone GitHub issue.
   - Examples: large API changes, new protocols, new architecture support.
 
 ### Important Notes

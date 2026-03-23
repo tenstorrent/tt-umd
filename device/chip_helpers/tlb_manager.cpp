@@ -34,20 +34,23 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.local_offset = address;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.noc_sel = 0;
     config.ordering = ordering;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
+    config.static_vc = true;
+    std::cout << "allocating" << std::endl;
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
-    log_debug(
-        LogUMD,
-        "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
-        tt_device_->get_pci_device()->get_device_num(),
-        core.str(),
-        tlb_size,
-        address,
-        ordering,
-        tlb_window->handle_ref().get_tlb_id());
+    // log_debug(
+    //     LogUMD,
+    //     "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
+    //     tt_device_->get_pci_device()->get_device_num(),
+    //     core.str(),
+    //     tlb_size,
+    //     address,
+    //     ordering,
+    //     tlb_window->handle_ref().get_tlb_id());
+
+    std::cout << "core " << core.x << " " << core.y << std::endl;
 
     tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
     map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
@@ -55,6 +58,9 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
 }
 
 TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
+    std::cout << "here" << std::endl;
+    configure_tlb(core, 16 * (1 << 20), 0, tlb_data::Strict);
+    std::cout << "done" << std::endl;
     if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
         return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
     } else {
@@ -96,6 +102,7 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
 
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    std::cout << "I am here?" << std::endl;
     if (tlb_size != 0) {
         return std::make_unique<SiliconTlbWindow>(
             tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);

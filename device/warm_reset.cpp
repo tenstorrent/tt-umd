@@ -57,7 +57,7 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         log_info(LogUMD, "No PCI devices found.");
         return false;
     }
-    bool reset_success = true;
+    bool reset_success = false;
 
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));

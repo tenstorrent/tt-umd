@@ -25,6 +25,9 @@ int main(int argc, char *argv[]) {
         cxxopts::value<std::vector<std::string>>())(
         "j,jtag",
         "Use JTAG mode for device communication. If not provided, PCIe will be used by default.",
+        cxxopts::value<bool>()->default_value("false"))(
+        "retrain_6u",
+        "Attempt to retrain failed Ethernet links on 6U machines during topology discovery.",
         cxxopts::value<bool>()->default_value("false"))("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
@@ -51,7 +54,11 @@ int main(int argc, char *argv[]) {
         device_type = IODeviceType::JTAG;
     }
 
-    std::unique_ptr<ClusterDescriptor> cluster_descriptor = Cluster::create_cluster_descriptor("", device_type);
+    TopologyDiscoveryOptions topology_options;
+    topology_options.perform_6u_eth_retrain = result["retrain_6u"].as<bool>();
+
+    std::unique_ptr<ClusterDescriptor> cluster_descriptor =
+        Cluster::create_cluster_descriptor("", device_type, topology_options);
 
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);

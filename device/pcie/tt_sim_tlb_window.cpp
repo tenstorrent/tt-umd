@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <iostream>
 #include <memory>
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
@@ -76,7 +75,7 @@ void TTSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(off
 uint16_t TTSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
 
 tt::ARCH TTSimTlbWindow::get_arch() const {
-    TTSimTlbHandle* sim_handle = dynamic_cast<TTSimTlbHandle*>(tlb_handle.get());
+    auto* sim_handle = dynamic_cast<TTSimTlbHandle*>(tlb_handle.get());
     return sim_handle->get_tlb_manager()->get_tt_device()->get_arch();
 }
 

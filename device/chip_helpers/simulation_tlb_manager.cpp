@@ -220,17 +220,21 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
 }
 
 uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
-    return bar0_base_ + 0x1fc00000 + tlb_index * tlb_reg_size_bytes_;
+    // TLB configuration registers start at this offset from BAR0 base.
+    static constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
+    return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;
 }
 
 const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
+    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
+    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     switch (architecture_) {
         case tt::ARCH::BLACKHOLE:
-            return allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
+            return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
         case tt::ARCH::WORMHOLE_B0:
-            return allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
+            return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
         default:
             log_debug(
                 LogUMD,

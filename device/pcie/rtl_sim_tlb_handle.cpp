@@ -20,6 +20,8 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size
     tlb_mapping_ = mapping;
 
     if (manager_) {
+        // This is a fake, non-dereferenceable pointer used only for address arithmetic.
+        // For RTL sim, bar0_base is 0, so this will be a near-null address.
         tlb_base_ = reinterpret_cast<uint8_t*>(manager_->get_tlb_address_from_index(tlb_id_));
     }
 

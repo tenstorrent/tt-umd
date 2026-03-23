@@ -29,7 +29,7 @@ public:
     /**
      * Returns the base mapped address of the TLB.
      */
-    uint8_t* get_base() { return tlb_base_; }
+    uint8_t* get_base() const { return tlb_base_; }
 
     /**
      * Returns the size of the TLB.

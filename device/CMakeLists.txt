@@ -48,13 +48,13 @@ set_target_properties(
             ${TT_UMD_VERSION_CMAKE}
 )
 # SOVERSION should contain only the major component (e.g. 0.9.4 -> 0)
-#string(REGEX REPLACE "^([0-9]+)\..*" "\\1" TT_UMD_SOVERSION ${TT_UMD_VERSION_CMAKE})
-#set_target_properties(
-#    tt-umd
-#    PROPERTIES
-#        SOVERSION
-#            ${TT_UMD_SOVERSION}
-#)
+string(REGEX REPLACE "^([0-9]+)\..*" "\\1" TT_UMD_SOVERSION ${TT_UMD_VERSION_CMAKE})
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        SOVERSION
+            ${TT_UMD_SOVERSION}
+)
 
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
@@ -361,6 +361,12 @@ add_custom_command(
     COMMAND
         ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
     COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
-    COMMENT "Copying tt-umd library to build/lib"
+        ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
+    COMMAND
+        ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:tt-umd>
+        ${CMAKE_BINARY_DIR}/lib/$<TARGET_SONAME_FILE_NAME:tt-umd>
+    COMMAND
+        ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:tt-umd>
+        ${CMAKE_BINARY_DIR}/lib/$<TARGET_LINKER_FILE_NAME:tt-umd>
+    COMMENT "Copying tt-umd library and symlinks to build/lib"
 )

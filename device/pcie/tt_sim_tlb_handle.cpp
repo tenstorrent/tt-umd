@@ -52,8 +52,7 @@ std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
     int tlb_id,
     size_t size,
     const TlbMapping tlb_mapping) {
-    auto* handle = new TTSimTlbHandle(manager, communicator, tlb_id, size, tlb_mapping);
-    return std::unique_ptr<TTSimTlbHandle>(handle);
+    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(manager, communicator, tlb_id, size, tlb_mapping));
 }
 
 TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }

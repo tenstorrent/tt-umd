@@ -32,6 +32,14 @@ void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t siz
     communicator_->tile_read_bytes(config.x_end, config.y_end, device_addr, data, static_cast<uint32_t>(size));
 }
 
+void RtlSimTlbWindow::write16(uint64_t offset, uint16_t value) { translate_and_write(offset, &value, sizeof(value)); }
+
+uint16_t RtlSimTlbWindow::read16(uint64_t offset) {
+    uint16_t value = 0;
+    translate_and_read(offset, &value, sizeof(value));
+    return value;
+}
+
 void RtlSimTlbWindow::write32(uint64_t offset, uint32_t value) { translate_and_write(offset, &value, sizeof(value)); }
 
 uint32_t RtlSimTlbWindow::read32(uint64_t offset) {
@@ -53,6 +61,10 @@ void RtlSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size
 }
 
 void RtlSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) { translate_and_read(offset, data, size); }
+
+void RtlSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(offset, value); }
+
+uint16_t RtlSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
 
 tt::ARCH RtlSimTlbWindow::get_arch() const {
     RtlSimTlbHandle* handle = dynamic_cast<RtlSimTlbHandle*>(tlb_handle.get());

@@ -33,8 +33,7 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size
 
 std::unique_ptr<RtlSimTlbHandle> RtlSimTlbHandle::create(
     SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping) {
-    auto* handle = new RtlSimTlbHandle(manager, tlb_id, size, mapping);
-    return std::unique_ptr<RtlSimTlbHandle>(handle);
+    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(manager, tlb_id, size, mapping));
 }
 
 RtlSimTlbHandle::~RtlSimTlbHandle() noexcept { RtlSimTlbHandle::free_tlb(); }

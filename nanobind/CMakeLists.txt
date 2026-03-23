@@ -199,7 +199,7 @@ else()
             nanobind_tt_umd
             PROPERTIES
                 INSTALL_RPATH
-                    "${CMAKE_INSTALL_LIBDIR}"
+                    "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}"
         )
     endif()
 

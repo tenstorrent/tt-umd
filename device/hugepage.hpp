@@ -15,6 +15,9 @@ const uint64_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 // Get number of 1GB host hugepages installed.
 uint32_t get_num_hugepages();
 
+// Get number of free 1GB host hugepages available for allocation.
+uint32_t get_free_hugepages();
+
 // Dynamically figure out how many host memory channels (based on hugepages installed) for each device, based on arch.
 uint32_t get_available_num_host_mem_channels(
     const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id);

@@ -113,6 +113,14 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
+    if (get_free_hugepages() == 0) {
+        log_warning(
+            LogUMD,
+            "SiliconSysmemManager::init_hugepages: no free 1GB hugepages available. "
+            "Ensure hugepages are configured via /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages.");
+        return false;
+    }
+
     bool success = true;
 
     hugepage_mapping_per_channel.resize(num_host_mem_channels);

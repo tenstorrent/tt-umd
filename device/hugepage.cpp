@@ -36,6 +36,24 @@ uint32_t get_num_hugepages() {
     return num_hugepages;
 }
 
+uint32_t get_free_hugepages() {
+    std::string free_hugepages_path = "/sys/kernel/mm/hugepages/hugepages-1048576kB/free_hugepages";
+    std::ifstream free_hugepages_file(free_hugepages_path);
+    uint32_t free_hugepages = 0;
+
+    if (free_hugepages_file.is_open()) {
+        std::string value;
+        std::getline(free_hugepages_file, value);
+        free_hugepages = std::stoi(value);
+        log_debug(LogUMD, "Parsed free_hugepages: {} from {}", free_hugepages, free_hugepages_path);
+    } else {
+        TT_THROW(
+            fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, free_hugepages_path, std::strerror(errno)));
+    }
+
+    return free_hugepages;
+}
+
 uint32_t get_available_num_host_mem_channels(
     const uint32_t num_channels_per_device_target, const uint16_t device_id, const uint16_t revision_id) {
     // To minimally support hybrid dev systems with mix of ARCH, get only devices matching current ARCH's device_id.

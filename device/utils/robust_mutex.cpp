@@ -110,9 +110,10 @@ void* get_tsan_mutex_id(const std::string& mutex_name) {
     // name are the same logical mutex across all threads/processes, we maintain
     // a process-local map from mutex name to a stable address.
     //
-    // This function assumes initialize() has already been called, which registers
-    // the mutex in tsan_mutex_id_storage. Since we only read from the map here
-    // (after initialization), no locking is needed.
+    // Must hold tsan_storage_mutex while accessing the map: concurrent threads
+    // initializing other mutexes may be inserting into it, and unordered_map
+    // inserts (including potential rehash) race with concurrent finds.
+    std::lock_guard<std::mutex> lock(tsan_storage_mutex);
     auto it = tsan_mutex_id_storage.find(mutex_name);
     TT_ASSERT(
         it != tsan_mutex_id_storage.end(),

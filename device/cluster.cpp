@@ -329,6 +329,7 @@ HarvestingMasks Cluster::get_harvesting_masks(
 }
 
 Cluster::Cluster(ClusterOptions options) {
+    bool is_ttsim_simulation = false;
     switch (options.chip_type) {
         case ChipType::SILICON: {
             if (options.cluster_descriptor != nullptr) {
@@ -358,7 +359,7 @@ Cluster::Cluster(ClusterOptions options) {
 #endif
                 // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
                 // simulation.
-                bool is_ttsim_simulation =
+                is_ttsim_simulation =
                     (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
                 bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
                 std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =

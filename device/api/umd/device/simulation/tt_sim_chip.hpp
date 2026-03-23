@@ -44,7 +44,7 @@ public:
 
     void set_chips_to_clock(std::unordered_map<ChipId, TTSimChip*> chips_to_clock);
 
-    TTDevice* get_tt_device() override { return tt_device_.get(); }
+    // TTDevice* get_tt_device() override { return tt_device_.get(); }
 
 private:
     void create_simulator_binary();

@@ -489,6 +489,7 @@ static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_co
 }
 
 static std::atomic<bool> keep_monitoring{false};
+static std::mutex io_mutex;
 static std::weak_ptr<asio::io_context> weak_io;
 
 bool WarmResetCommunication::Monitor::start_monitoring(
@@ -501,7 +502,10 @@ bool WarmResetCommunication::Monitor::start_monitoring(
     std::thread([on_cleanup_request = std::move(on_cleanup_request),
                  post_cleanup_request = std::move(post_cleanup_request)]() {
         auto io = std::make_shared<asio::io_context>();
-        weak_io = io;
+        {
+            std::lock_guard<std::mutex> lock(io_mutex);
+            weak_io = io;
+        }
         std::error_code ec;
 
         std::filesystem::create_directories(LISTENER_DIR, ec);
@@ -617,7 +621,12 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
 void WarmResetCommunication::Monitor::stop_monitoring() {
     keep_monitoring.store(false);
-    if (auto io = weak_io.lock()) {
+    std::shared_ptr<asio::io_context> io;
+    {
+        std::lock_guard<std::mutex> lock(io_mutex);
+        io = weak_io.lock();
+    }
+    if (io) {
         io->stop();
     }
 }

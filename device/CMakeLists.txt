@@ -361,7 +361,13 @@ add_custom_command(
     COMMAND
         ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
     COMMAND
-        ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
+        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
+)
+add_custom_command(
+    TARGET tt-umd
+    POST_BUILD
+    COMMAND
+        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
     COMMAND
         ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:tt-umd>
         ${CMAKE_BINARY_DIR}/lib/$<TARGET_SONAME_FILE_NAME:tt-umd>

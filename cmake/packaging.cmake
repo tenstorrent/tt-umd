@@ -66,6 +66,9 @@ set(CPACK_RPM_UMD_PYTHON_PACKAGE_NAME "umd-python")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "support@tenstorrent.com")
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 
+# Help dpkg-shlibdeps find libtt-umd.so.0 from umd-runtime component when building umd-python package
+set(CPACK_DEBIAN_UMD_PYTHON_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+
 # RPM-specific defaults
 set(CPACK_RPM_PACKAGE_LICENSE "Apache-2.0")
 set(CPACK_RPM_PACKAGE_GROUP "Development/Libraries")

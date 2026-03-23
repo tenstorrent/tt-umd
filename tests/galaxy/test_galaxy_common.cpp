@@ -1,8 +1,11 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #include "test_galaxy_common.hpp"
+
+#include <cstdint>
+#include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 
@@ -23,14 +26,12 @@ void move_data(
         device.get_soc_descriptor(receiver_core.chip).get_coord_at(receiver_core.core, receiver_core.core.coord_system),
         receiver_core.addr);
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
-
-    return;
 }
 
 void broadcast_data(
     Cluster& device,
     tt_multichip_core_addr sender_core,
-    std::vector<tt_multichip_core_addr> receiver_cores,
+    const std::vector<tt_multichip_core_addr>& receiver_cores,
     uint32_t size) {
     std::vector<uint32_t> readback_vec = {};
     test_utils::read_data_from_device(
@@ -50,6 +51,4 @@ void broadcast_data(
             receiver_core.addr);
     }
     device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
-
-    return;
 }

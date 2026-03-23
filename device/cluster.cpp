@@ -1,28 +1,28 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
-#include "umd/device/cluster.hpp"
 
-#include <assert.h>
+#include "api/umd/device/cluster.hpp"
+
 #include <dirent.h>
-#include <errno.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>  // Needed to format vectors
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/mman.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <cassert>
 #include <cerrno>
 #include <chrono>
+#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iomanip>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -31,13 +31,18 @@
 #include <optional>
 #include <ratio>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <type_traits>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/cluster.hpp"
 #include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
 #include "hugepage.hpp"
@@ -49,6 +54,7 @@
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
@@ -62,25 +68,12 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
-
-extern bool umd_use_noc1;
-
-static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
-
-// --------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------
-// --------------------------------------------------------------------------------------------------------------
-
-#include <fstream>
-#include <iomanip>
-#include <thread>
-
-#include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -104,23 +97,6 @@ struct remote_update_ptr_t {
 
 const SocDescriptor& Cluster::get_soc_descriptor(ChipId chip_id) const {
     return get_chip(chip_id)->get_soc_descriptor();
-}
-
-void Cluster::verify_sysmem_initialized() {
-    for (const ChipId& chip_id : local_chip_ids_) {
-        bool hugepages_initialized =
-            (get_chip(chip_id)->get_sysmem_manager()->get_hugepage_mapping(0).mapping != nullptr);
-        // Large writes to remote chips require hugepages to be initialized.
-        // Conservative assert - end workload if remote chips present but hugepages not initialized (failures caused
-        // if using remote only for small transactions)
-        if (remote_chip_ids_.size()) {
-            TT_ASSERT(
-                hugepages_initialized, "Hugepages must be successfully initialized if workload contains remote chips!");
-        }
-        if (!hugepages_initialized) {
-            log_warning(LogUMD, "No hugepage mapping at device {}.", chip_id);
-        }
-    }
 }
 
 void Cluster::log_device_summary() {
@@ -191,6 +167,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
         auto mmio_id_map = cluster_desc->get_chips_with_mmio();
+        pci_ids.reserve(local_chip_ids_.size());
         for (ChipId local_chip_id : local_chip_ids_) {
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
@@ -204,21 +181,11 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         log_device_summary();
 
         if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            // Min ERISC FW version required to support ethernet broadcast is 6.5.0.
-            use_ethernet_broadcast &= eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_SUPPORTED_MIN;
-            // Virtual coordinates can be used for broadcast headers if ERISC FW >= 6.8.0 and NOC translation is enabled
-            // Temporarily enable this feature for 6.7.241 as well for testing.
+            // Virtual coordinates can be used for broadcast headers if NOC translation is enabled.
             use_translated_coords_for_eth_broadcast = true;
             for (const auto& chip : all_chip_ids_) {
-                use_translated_coords_for_eth_broadcast &=
-                    (eth_fw_version >= erisc_firmware::WH_ERISC_FW_ETH_BROADCAST_VIRTUAL_COORDS_MIN ||
-                     eth_fw_version == semver_t(6, 7, 241)) &&
-                    get_soc_descriptor(chip).noc_translation_enabled;
+                use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
             }
-        }
-
-        if (cluster_desc->get_io_device_type() == IODeviceType::PCIe) {
-            verify_sysmem_initialized();
         }
     }
 
@@ -242,7 +209,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips());
+        return SimulationChip::create(
+            simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
         throw std::runtime_error(
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
@@ -264,10 +232,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return chip;
     } else {
         ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-        LocalChip* local_chip = get_local_chip(gateway_id);
-        const auto& active_channels = cluster_desc->get_active_eth_channels(gateway_id);
         return RemoteChip::create(
-            local_chip,
+            get_local_chip(gateway_id),
             cluster_desc->get_chip_location(chip_id),
             cluster_desc->get_active_eth_channels(gateway_id),
             soc_desc);
@@ -362,71 +328,59 @@ HarvestingMasks Cluster::get_harvesting_masks(
 }
 
 Cluster::Cluster(ClusterOptions options) {
-    // If the cluster descriptor is not provided, create a new one.
-    ClusterDescriptor* temp_full_cluster_desc = options.cluster_descriptor;
-    std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr;
-
-    bool is_ttsim_simulation =
-        (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
-
-    // We need to constuct a cluster descriptor if a custom one was not passed.
-    if (temp_full_cluster_desc == nullptr) {
-        if (options.chip_type == ChipType::SILICON) {
-            // If no custom descriptor is provided, we need to create a new one from the existing devices on the system.
-            temp_full_cluster_desc_ptr = Cluster::create_cluster_descriptor(options.sdesc_path, options.io_device_type);
-        } else {
-            // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock cluster
-            // descriptor from passed target devices.
-            auto arch = tt::ARCH::WORMHOLE_B0;
-#ifdef TT_UMD_BUILD_SIMULATION
-            if (options.chip_type == ChipType::SIMULATION) {
-                if (options.sdesc_path.empty()) {
-                    options.sdesc_path =
-                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
-                }
-                arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+    switch (options.chip_type) {
+        case ChipType::SILICON: {
+            if (options.cluster_descriptor != nullptr) {
+                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                    options.cluster_descriptor, options.target_devices);
+                break;
             }
-#endif
-            // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
-            // simulation.
-            bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
-            temp_full_cluster_desc_ptr =
-                ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
-        }
-        temp_full_cluster_desc = temp_full_cluster_desc_ptr.get();
-    }
 
-    // If target devices were passed, we want to honour it by constraining the cluster descriptor to only include the
-    // chips in the target devices. Note that we can skip this step in case of mock cluster descriptor, since it was
-    // already created using the target devices.
-    if (!options.target_devices.empty() && options.chip_type == ChipType::SILICON) {
-        // If target devices are passed create constrained cluster descriptor which only contains the chips to be in
-        // this Cluster.
-        cluster_desc =
-            ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, options.target_devices);
-#ifdef TT_UMD_BUILD_SIMULATION
-    } else if (options.chip_type == ChipType::SIMULATION && options.cluster_descriptor) {
-        // Filter devices only when a cluster descriptor is passed for simulation.
-        // Note that this is filtered based on logical chip ids, which is different from how silicon chips are filtered.
-        auto visible_devices = utils::get_visible_devices(options.target_devices);
-        if (!visible_devices.empty()) {
-            cluster_desc =
-                ClusterDescriptor::create_constrained_cluster_descriptor(temp_full_cluster_desc, visible_devices);
-        } else {
-            cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+            cluster_desc = Cluster::create_cluster_descriptor(
+                options.sdesc_path, options.io_device_type, options.topology_discovery_options);
+            break;
         }
+        case ChipType::MOCK:
+        case ChipType::SIMULATION: {
+            if (options.cluster_descriptor == nullptr) {
+                // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
+                // cluster descriptor from passed target devices.
+                auto arch = tt::ARCH::WORMHOLE_B0;
+#ifdef TT_UMD_BUILD_SIMULATION
+                if (options.chip_type == ChipType::SIMULATION) {
+                    if (options.sdesc_path.empty()) {
+                        options.sdesc_path =
+                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    }
+                    arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+                }
 #endif
-    } else {
-        // If no target devices are passed, we can use the full cluster.
-        // Note that the pointer is being dereferenced below, that means that the default copy constructor will be
-        // called for ClusterDescriptor to construct the object which will end up in the unique_ptr, note that the
-        // line below doesn't take ownership of already existing object pointed to by temp_full_cluster_desc.
-        cluster_desc = std::make_unique<ClusterDescriptor>(*temp_full_cluster_desc);
+                // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
+                // simulation.
+                bool is_ttsim_simulation =
+                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+                bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+                std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =
+                    ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+
+                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                    temp_full_cluster_desc_ptr.get(), options.target_devices);
+
+                break;
+            }
+
+            cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                options.cluster_descriptor, options.target_devices);
+
+            break;
+        }
+        default:
+            throw std::runtime_error("Unsupported chip type");
     }
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        // Combine passed simulated_harvesting_masks
+        // Combine passed simulated_harvesting_masks.
         HarvestingMasks simulated_harvesting_masks =
             options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
                                                    options.simulated_harvesting_masks_per_chip.end())
@@ -505,8 +459,13 @@ void Cluster::deassert_risc_reset(
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
+}
+
+TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -524,7 +483,7 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
@@ -541,7 +500,8 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    tt_xy_pair translated_core = get_chip(logical_device_id)->translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
@@ -598,12 +558,12 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         ChipId first_mmio_chip = *(get_target_mmio_device_ids().begin());
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
-                // Get shelf local physical chip id included in broadcast
+                // Get shelf local physical chip id included in broadcast.
                 ChipId physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
                 EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
-                // Rack word to be set in header
+                // Rack word to be set in header.
                 uint32_t rack_word = eth_coords.rack >> 2;
-                // Rack byte to be set in header
+                // Rack byte to be set in header.
                 uint32_t rack_byte = eth_coords.rack % 4;
                 // 1st level grouping: Group broadcasts based on the MMIO chip they must go through
                 // Nebula + Galaxy Topology assumption: Disjoint sets can only be present in the first shelf, with each
@@ -636,7 +596,7 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
                         .insert({physical_chip_id, broadcast_mask});
 
                 } else {
-                    // Target was seen before -> include curr rack and shelf in header
+                    // Target was seen before -> include curr rack and shelf in header.
                     broadcast_mask_for_target_chips_per_group.at(closest_mmio_chip)
                         .at(physical_chip_id)
                         .at(rack_word) |= static_cast<uint32_t>(1 << eth_coords.shelf) << rack_byte;
@@ -647,19 +607,19 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         // number of groups after this step represent the final set of broadcast grids.
         for (auto& mmio_group : broadcast_mask_for_target_chips_per_group) {
             for (auto& chip : mmio_group.second) {
-                // Generate a hash for this MMIO Chip + Rack + Shelf group
+                // Generate a hash for this MMIO Chip + Rack + Shelf group.
                 std::vector<int> header_hash = {
                     mmio_group.first, chip.second.at(0), chip.second.at(1), chip.second.at(2)};
                 if (broadcast_header_union_per_group.find(header_hash) == broadcast_header_union_per_group.end()) {
                     broadcast_header_union_per_group.insert(
                         {header_hash, std::make_tuple(mmio_group.first, chip.second)});
                 } else {
-                    // If group found, update chip header entry
+                    // If group found, update chip header entry.
                     std::get<1>(broadcast_header_union_per_group.at(header_hash)).at(3) |= chip.second.at(3);
                 }
             }
         }
-        // Get all broadcast headers per MMIO group
+        // Get all broadcast headers per MMIO group.
         for (const auto& header : broadcast_header_union_per_group) {
             ChipId mmio_chip = std::get<0>(header.second);
             if (bcast_header_cache[chips_to_exclude].find(mmio_chip) == bcast_header_cache[chips_to_exclude].end()) {
@@ -667,7 +627,7 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
             }
             bcast_header_cache[chips_to_exclude].at(mmio_chip).push_back(std::get<1>(header.second));
         }
-        // Invert headers (FW convention)
+        // Invert headers (FW convention).
         for (auto& bcast_group : bcast_header_cache[chips_to_exclude]) {
             for (auto& header : bcast_group.second) {
                 int header_idx = 0;
@@ -716,7 +676,7 @@ void Cluster::ethernet_broadcast_write(
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
     if (use_ethernet_broadcast) {
-        // Broadcast through ERISC core supported
+        // Broadcast through ERISC core supported.
         std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
             get_ethernet_broadcast_headers(chips_to_exclude);
         // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
@@ -740,7 +700,7 @@ void Cluster::ethernet_broadcast_write(
             }
         }
     } else {
-        // Broadcast not supported. Implement this at the software level as a for loop
+        // Broadcast not supported. Implement this at the software level as a for loop.
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
@@ -761,17 +721,18 @@ void Cluster::broadcast_write_to_cluster(
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& cols_to_exclude) {
+    std::set<uint32_t>& columns_to_exclude) {
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(9) == cols_to_exclude.end()) {
+        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
+            columns_to_exclude.find(9) == columns_to_exclude.end()) {
             TT_ASSERT(
-                !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
+                !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
-            if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
-                // When broadcast includes column zero do not exclude anything
+            if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
+                // When broadcast includes column zero do not exclude anything.
                 std::set<uint32_t> unsafe_rows = {};
-                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
+                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = columns_to_exclude;
                 std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
                 cols_to_exclude_for_col_0_bcast.insert(9);
                 rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
@@ -784,8 +745,8 @@ void Cluster::broadcast_write_to_cluster(
                     cols_to_exclude_for_col_0_bcast,
                     false);
             }
-            if (cols_to_exclude.find(9) == cols_to_exclude.end()) {
-                std::set<uint32_t> cols_to_exclude_for_col_9_bcast = cols_to_exclude;
+            if (columns_to_exclude.find(9) == columns_to_exclude.end()) {
+                std::set<uint32_t> cols_to_exclude_for_col_9_bcast = columns_to_exclude;
                 cols_to_exclude_for_col_9_bcast.insert(0);
                 ethernet_broadcast_write(
                     mem_ptr,
@@ -799,7 +760,7 @@ void Cluster::broadcast_write_to_cluster(
         } else {
             TT_ASSERT(
                 use_translated_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                    valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -807,20 +768,21 @@ void Cluster::broadcast_write_to_cluster(
                 address,
                 chips_to_exclude,
                 rows_to_exclude,
-                cols_to_exclude,
+                columns_to_exclude,
                 use_translated_coords_for_eth_broadcast);
         }
     } else {
         auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (cols_to_exclude.find(0) == cols_to_exclude.end() or cols_to_exclude.find(5) == cols_to_exclude.end()) {
+        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
+            columns_to_exclude.find(5) == columns_to_exclude.end()) {
             TT_ASSERT(
-                !tensix_or_eth_in_broadcast(cols_to_exclude, architecture_implementation.get()),
+                !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
-            if (cols_to_exclude.find(0) == cols_to_exclude.end()) {
+            if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
                 // since writing to these is unsafe ERISC FW does not exclude these.
                 std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
-                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude;
+                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = columns_to_exclude;
                 std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
                 cols_to_exclude_for_col_0_bcast.insert(5);
                 rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
@@ -833,8 +795,8 @@ void Cluster::broadcast_write_to_cluster(
                     cols_to_exclude_for_col_0_bcast,
                     false);
             }
-            if (cols_to_exclude.find(5) == cols_to_exclude.end()) {
-                std::set<uint32_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude;
+            if (columns_to_exclude.find(5) == columns_to_exclude.end()) {
+                std::set<uint32_t> cols_to_exclude_for_col_5_bcast = columns_to_exclude;
                 cols_to_exclude_for_col_5_bcast.insert(0);
                 ethernet_broadcast_write(
                     mem_ptr,
@@ -848,7 +810,7 @@ void Cluster::broadcast_write_to_cluster(
         } else {
             TT_ASSERT(
                 use_translated_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, cols_to_exclude, architecture_implementation.get()),
+                    valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -856,7 +818,7 @@ void Cluster::broadcast_write_to_cluster(
                 address,
                 chips_to_exclude,
                 rows_to_exclude,
-                cols_to_exclude,
+                columns_to_exclude,
                 use_translated_coords_for_eth_broadcast);
         }
     }
@@ -898,6 +860,11 @@ void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, Cor
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+}
+
+void Cluster::dma_multicast_write(
+    void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
@@ -951,7 +918,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     }
     broadcast_write_to_cluster(
         &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
-    // Ensure that reset signal is globally visible
+    // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }
 
@@ -962,25 +929,26 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 }
 
 void Cluster::deassert_resets_and_set_power_state() {
-    // Assert tensix resets on all chips in cluster
+    // Assert tensix resets on all chips in cluster.
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();
     }
 
-    // MT Initial BH - ARC messages not supported in Blackhole
+    // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
             get_chip(chip)->enable_ethernet_queue();
         }
     }
 
-    // Set power state to busy
+    // Set power state to busy.
     set_power_state(DevicePowerState::BUSY);
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
+    log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device();
@@ -991,7 +959,8 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
-    // Close remote device first because sending risc reset requires corresponding pcie device to be active
+    log_info(LogUMD, "Closing devices in cluster");
+    // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();
     }
@@ -1026,9 +995,9 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     }
 }
 
-std::optional<semver_t> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
+std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
 
-std::optional<semver_t> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
+std::optional<FirmwareBundleVersion> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }
 
 void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
     for (auto& [_, chip] : chips_) {
@@ -1037,11 +1006,10 @@ void Cluster::set_barrier_address_params(const BarrierAddressParams& barrier_add
 }
 
 std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
-    std::string sdesc_path, IODeviceType device_type) {
-    TopologyDiscoveryOptions options;
-    options.soc_descriptor_path = sdesc_path;
-    options.io_device_type = device_type;
-    return TopologyDiscovery::discover(std::move(options)).first;
+    const std::string& sdesc_path,
+    IODeviceType device_type,
+    const TopologyDiscoveryOptions& topology_discovery_options) {
+    return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
 }
 
 }  // namespace tt::umd

@@ -1,13 +1,17 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cassert>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "tests/galaxy/test_galaxy_common.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
@@ -67,13 +71,13 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             &command_history);
     } catch (...) {
@@ -82,8 +86,6 @@ TEST_F(WormholeGalaxyStabilityTestFixture, MixedRemoteTransfers) {
 }
 
 TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTransfersMediumSmall) {
-    int seed = 0;
-
     log_info(LogUMD, "Started MultithreadedMixedRemoteTransfersMediumSmall");
 
     assert(cluster != nullptr);
@@ -97,13 +99,13 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             nullptr);
     });
@@ -117,12 +119,12 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
             false,
             nullptr);
@@ -137,12 +139,12 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             std::uniform_int_distribution<transfer_size_t>(0x4, 30000),
             false,
             nullptr);
@@ -157,13 +159,13 @@ TEST_F(WormholeGalaxyStabilityTestFixture, DISABLED_MultithreadedMixedRemoteTran
             std::uniform_int_distribution<address_t>(0x100000, 0x200000),
             // WRITE_SIZE_GENERATOR_T const& write_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution
+            // UNROLL_COUNT_GENERATOR_T const& unroll_count_distribution.
             std::uniform_int_distribution<int>(2, 4),
             0.75,
             0.75,
             // READ_SIZE_GENERATOR_T const& read_size_distribution,
             std::uniform_int_distribution<transfer_size_t>(0x4, 3000),
-            // Set to true if you want to emit the command history code to command line
+            // Set to true if you want to emit the command history code to command line.
             false,
             nullptr);
     });

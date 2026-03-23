@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include <unordered_map>
@@ -21,10 +20,10 @@ class TTDevice;
 class TLBManager {
 public:
     TLBManager(TTDevice* tt_device);
+    virtual ~TLBManager() = default;
 
     // All tt_xy_pairs should be in TRANSLATED coords.
     void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
-    void configure_tlb_kmd(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 
@@ -40,14 +39,13 @@ public:
 
     TlbWindow* get_tlb_window(const tt_xy_pair core);
 
-    std::unique_ptr<TlbWindow> allocate_tlb_window(
+    virtual std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
 
-private:
-    // TODO: move these functions to the layer below, or make separate functions
-    // to handle getting TLBs per architecture.
-    static const std::vector<size_t> get_tlb_arch_sizes(const tt::ARCH arch);
+    // Clear all static TLB mappings.
+    void clear_mapped_tlbs();
 
+private:
     TTDevice* tt_device_;
 };
 

@@ -1,0 +1,92 @@
+# Run exalens tests on the specified architecture and card.
+name: Run Exalens Tests
+
+on:
+  workflow_call:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
+      card:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
+      build-type:
+        required: true
+        type: string
+        default: Release
+      log-level:
+        required: false
+        type: string
+        default: 'info'
+      log-params:
+        required: false
+        type: string
+        default: ""
+
+env:
+  WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+
+jobs:
+  test:
+    name: Run Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - ${{ inputs.card }}
+    container:
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-ubuntu-22.04:latest
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+
+    steps:
+      - name: Print all params
+        run: |
+          ${{ inputs.log-params }}
+          echo run-exalens-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+          echo run-exalens-tests - card: ${{ inputs.card }}
+          echo run-exalens-tests - build-type: ${{ inputs.build-type }}
+          echo run-exalens-tests - log-level: ${{ inputs.log-level }}
+
+      - name: Cleanup workspace directory from previous runs.
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      - uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-exalens
+          ref: main
+          submodules: recursive
+          path: ./
+
+      - name: Get tt-exalens kernels artifact
+        uses: pyTooling/download-artifact@v4
+        with:
+          name: ttexalens-build
+          path: ./
+
+      - name: Use wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: ./
+
+      - name: Install UMD wheel
+        shell: bash
+        run: |
+          pip install tt_umd-*.whl --force-reinstall
+
+      - name: Run Python tests for tt-exalens library
+        run: |
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+
+      - name: Run Python tests for tt-exalens app
+        run: |
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py

@@ -1,8 +1,14 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <cxxopts.hpp>
+#include <iostream>
+#include <memory>
+#include <ostream>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
+#include <vector>
 
 #include "common.hpp"
 #include "umd/device/cluster.hpp"
@@ -33,7 +39,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::string cluster_descriptor_path = "";
+    std::string cluster_descriptor_path;
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
@@ -50,8 +56,7 @@ int main(int argc, char *argv[]) {
     if (result.count("logical_devices")) {
         std::unordered_set<int> logical_device_ids = extract_int_set(result["logical_devices"]);
 
-        cluster_descriptor =
-            ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get(), logical_device_ids);
+        cluster_descriptor = ClusterDescriptor::create_constrained_cluster_descriptor(cluster_descriptor.get());
     }
 
     std::string output_path = cluster_descriptor->serialize_to_file(cluster_descriptor_path);

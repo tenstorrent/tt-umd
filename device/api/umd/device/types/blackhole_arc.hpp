@@ -1,18 +1,14 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
 #include <cstdint>
 
-namespace tt::umd {
+namespace tt::umd::blackhole {
 
-namespace blackhole {
-
-// Note, this only includes message IDs that have actually be implemented in CMFW
+// Note, this only includes message IDs that have actually be implemented in CMFW.
 enum class ArcMessageType : uint8_t {
     RESERVED_01 = 0x01,  // reserved to avoid conflict with initial SCRATCH[5] value
     NOP = 0x11,          // Do nothing
@@ -42,8 +38,11 @@ enum class ArcMessageType : uint8_t {
     ASIC_STATE1 = 0xA1,
     ASIC_STATE3 = 0xA3,
     ASIC_STATE5 = 0xA5,
+    TOGGLE_GDDR_RESET = 0xB6,
     SET_LAST_SERIAL = 0xBE,
     EFUSE_BURN = 0xBF,
+    SPI_UNLOCK = 0xC2,  // Unlock SPI for write (required since fw 19.0)
+    SPI_LOCK = 0xC3,    // Lock SPI after write (required since fw 19.0)
 };
 
 // Usage of queues proposed by Syseng.
@@ -54,6 +53,4 @@ enum BlackholeArcMessageQueueIndex : uint8_t {
     APPLICATION = 3,
 };
 
-}  // namespace blackhole
-
-}  // namespace tt::umd
+}  // namespace tt::umd::blackhole

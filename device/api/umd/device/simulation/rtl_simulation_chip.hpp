@@ -1,23 +1,26 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 
 #include "umd/device/simulation/simulation_chip.hpp"
-#include "umd/device/simulation/simulation_host.hpp"
+#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
 namespace tt::umd {
 
 // RTL simulation implementation using subprocess and flatbuffer communication.
 class RtlSimulationChip : public SimulationChip {
 public:
-    RtlSimulationChip(const std::filesystem::path& simulator_directory, SocDescriptor soc_descriptor, ChipId chip_id);
+    RtlSimulationChip(
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
     ~RtlSimulationChip() override = default;
 
     void start_device() override;
@@ -31,8 +34,10 @@ public:
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
+    SysmemManager* get_sysmem_manager() override { return tt_device_->get_sysmem_manager(); }
+
 private:
-    SimulationHost host;
+    std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };
 
 }  // namespace tt::umd

@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -21,7 +19,6 @@ namespace tt {
  * Enums for different architectures.
  */
 enum class ARCH {
-    GRAYSKULL = 1,
     WORMHOLE_B0 = 2,
     BLACKHOLE = 3,
     QUASAR = 4,

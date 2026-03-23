@@ -1,11 +1,18 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 #include <sys/mman.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
+
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 using namespace tt::umd;
 
@@ -20,7 +27,7 @@ TEST(ApiSysmemManager, BasicIO) {
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
         // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SysmemManager>(tlb_manager.get(), 1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), 1);
 
         sysmem->pin_or_map_sysmem_to_device();
 
@@ -37,7 +44,7 @@ TEST(ApiSysmemManager, BasicIO) {
         EXPECT_THROW(
             sysmem->write_to_sysmem(1, data_write.data(), 0, data_write.size() * sizeof(uint32_t)), std::runtime_error);
 
-        // When we write over the limit, the address is wrapped around the hugepage size
+        // When we write over the limit, the address is wrapped around the hugepage size.
         sysmem->write_to_sysmem(
             0, data_write.data(), HUGEPAGE_REGION_SIZE + 0x100, data_write.size() * sizeof(uint32_t));
         data_read = std::vector<uint32_t>(data_write.size(), 0);
@@ -48,9 +55,7 @@ TEST(ApiSysmemManager, BasicIO) {
 
 TEST(ApiSysmemManager, SysmemBuffers) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
+
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
 
     if (!pci_device->is_iommu_enabled()) {
@@ -109,12 +114,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
 }
 
 TEST(ApiSysmemManager, SysmemBufferUnaligned) {
-    const auto page_size = sysconf(_SC_PAGESIZE);
-
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     std::unique_ptr<PCIDevice> pci_device = std::make_unique<PCIDevice>(pci_device_ids[0]);
     if (!pci_device->is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
@@ -180,9 +180,6 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
 
 TEST(ApiSysmemManager, SysmemBufferFunctions) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
@@ -209,9 +206,6 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }

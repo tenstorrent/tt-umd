@@ -1,11 +1,10 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <memory>
@@ -20,43 +19,49 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
-// TODO: Should be moved to blackhole_architecture_implementation.h
-// See /vendor_ip/synopsys/052021/bh_pcie_ctl_gen5/export/configuration/DWC_pcie_ctl.h
-static const uint64_t UNROLL_ATU_OFFSET_BAR = 0x1200;
-
-// TODO: should be removed from tt_device.h, and put into blackhole_tt_device.h
-// TODO: this is a bit of a hack... something to revisit when we formalize an
-// abstraction for IO.
-// BAR0 size for Blackhole, used to determine whether write block should use BAR0 or BAR4
-static const uint64_t BAR0_BH_SIZE = 512 * 1024 * 1024;
-
-struct dynamic_tlb {
-    uint64_t bar_offset;      // Offset that address is mapped to, within the PCI BAR.
-    uint64_t remaining_size;  // Bytes remaining between bar_offset and end of the TLB.
-};
-
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 
+enum class TTDeviceInitResult {
+    UNKNOWN = 0,
+    UNINITIALIZED,
+    ARC_STARTUP_FAILED,
+    ARC_MESSENGER_UNAVAILABLE,
+    ARC_TELEMETRY_UNAVAILABLE,
+    FIRMWARE_INFO_PROVIDER_UNAVAILABLE,
+    SUCCESSFUL,
+};
+
+// Represents the status of the ETH core.
+enum class EthTrainingStatus {
+    IN_PROGRESS = 0,
+    SUCCESS = 1,
+    FAIL = 2,
+    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
+};
+
 class TTDevice {
 public:
-    // TODO #526: This is a hack to allow UMD to use the NOC1 TLB. Don't use this function.
-    static void use_noc1(bool use_noc1);
-
     /**
      * Creates a proper TTDevice object for the given device number.
      * Jtag support can be enabled.
      */
-    static std::unique_ptr<TTDevice> create(int device_number, IODeviceType device_type = IODeviceType::PCIe);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
 
-    TTDevice(std::shared_ptr<PCIDevice> pci_device, std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
     TTDevice(
         std::shared_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
@@ -81,7 +86,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size) = 0;
+    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from device to host.
@@ -91,7 +96,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) = 0;
+    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -101,7 +106,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
 
     /**
      * DMA transfer from host to device.
@@ -111,7 +116,7 @@ public:
      * @param size number of bytes
      * @throws std::runtime_error if the DMA transfer fails
      */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) = 0;
+    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -232,7 +237,7 @@ public:
 
     virtual ChipInfo get_chip_info();
 
-    semver_t get_firmware_version();
+    FirmwareBundleVersion get_firmware_version();
 
     /**
      * Waits for ARC core to be fully ready for communication.
@@ -265,6 +270,8 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
+    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -285,7 +292,8 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    TTDeviceInitResult init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool throw_on_arc_failure = true);
 
     uint64_t get_refclk_counter();
 
@@ -308,42 +316,100 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+
+    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+
+    static void set_sigbus_safe_handler(bool set_safe_handler);
+
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    /**
+     * Read the training status of the given ETH core.
+     *
+     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @return Training status
+     */
+    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;
-    IODeviceType communication_device_type_;
-    int communication_device_id_;
+    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
+    int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
-    tt::ARCH arch;
+    tt::ARCH arch = tt::ARCH::Invalid;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    template <typename T>
-    T *get_register_address(uint32_t register_offset);
-
-    semver_t fw_version_from_telemetry(const uint32_t telemetry_data) const;
-
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
 
-    ChipInfo chip_info;
+    virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
+
+    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
 
-private:
-    virtual void pre_init_hook(){};
+    virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
 
-    virtual void post_init_hook(){};
+    /**
+     * Device-specific DMA transfer from device to host.
+     * This method performs the actual hardware-specific DMA transfer.
+     *
+     * @param dst destination host address
+     * @param src device AXI address
+     * @param size number of bytes
+     * @throws std::runtime_error if the transfer is not supported or fails
+     */
+    virtual void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) = 0;
+
+    /**
+     * Device-specific DMA transfer from host to device.
+     * This method performs the actual hardware-specific DMA transfer.
+     *
+     * @param dst device AXI address
+     * @param src source host address
+     * @param size number of bytes
+     * @throws std::runtime_error if the transfer fails
+     */
+    virtual void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) = 0;
+
+private:
+    void probe_arc();
+
+    TlbWindow *get_cached_tlb_window();
+
+    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
+
+    template <bool safe>
+    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    template <bool safe>
+    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
-    TlbWindow *get_cached_tlb_window(tlb_data config);
+    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
 
     std::mutex tt_device_io_lock;
+
+    bool use_safe_api_ = false;
 };
 
 }  // namespace tt::umd

@@ -183,7 +183,7 @@ pseudo-source code:
 */
 inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
     // First instruction is architecture-specific and added at runtime:
-    // Wormhole: 0xffef07b7 (lui a5, 0xffef0)  |  Blackhole: 0xffb127b7 (lui a5, 0xffb12)
+    // Wormhole: 0xffef07b7 (lui a5, 0xffef0)  |  Blackhole: 0xffb127b7 (lui a5, 0xffb12).
     0x00700713,  // li a4, 7
     0x28e7a223,  // sw a4, 644(a5)
     0x00100713,  // li a4, 1
@@ -197,6 +197,6 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
     0x0000006f   // j .L2 (jump back to itself - infinite loop)
 };
 
-// Architecture-specific first instructions for brisc_configuration_program_default
+// Architecture-specific first instructions for brisc_configuration_program_default.
 inline constexpr uint32_t WORMHOLE_BRISC_BASE_INSTRUCTION = 0xffef07b7;   // lui a5, 0xffef0
 inline constexpr uint32_t BLACKHOLE_BRISC_BASE_INSTRUCTION = 0xffb127b7;  // lui a5, 0xffb12

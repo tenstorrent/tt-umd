@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -39,7 +37,7 @@ struct tlb_data {
     uint64_t linked = 0;
     uint64_t static_vc = 0;
 
-    // Orderings
+    // Orderings.
     static constexpr uint64_t Relaxed = 0;
     static constexpr uint64_t Strict = 1;
     static constexpr uint64_t Posted = 2;

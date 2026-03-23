@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -7,19 +7,27 @@
 #include <fmt/core.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <regex>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
+#include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
@@ -95,7 +103,7 @@ void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vecto
     const uint32_t num_noc_ports = cores.empty() ? 0 : cores[0].size();
 
     for (const auto &dram_cores : cores) {
-        // Insert the dram core if it's within the given grid
+        // Insert the dram core if it's within the given grid.
         bool serialize_cores = true;
 
         for (const auto &dram_core : dram_cores) {
@@ -186,6 +194,39 @@ CoreCoord SocDescriptor::get_coord_at(const tt_xy_pair core, const CoordSystem c
 CoreCoord SocDescriptor::translate_coord_to(
     const tt_xy_pair core_location, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
+}
+
+tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
+    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
+    // Tensix cores are always used in translated space. Other cores are used either in
+    // NOC1 or translated space depending on the is_selected_noc1() flag.
+    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
+    if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
+        return translate_coord_to(core, CoordSystem::TRANSLATED);
+    }
+
+    // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
+    // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
+    // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
+    if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
+        (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    }
+
+    return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+}
+
+// Convenience wrapper around translate_chip_coord_to_translated that returns a CoreCoord
+// directly, preserving the core type and setting the coordinate system to TRANSLATED.
+//
+// Note: Unlike translate_coord_to, which provides straightforward coordinate mappings,
+// translate_chip_coord_to_translated applies additional architecture-specific adjustments
+// (e.g., Wormhole DRAM/ARC/PCIe cores falling back to NOC0/NOC1 instead of translated
+// coordinates). Ideally translate_coord_to would be sufficient, but the workarounds in
+// translate_chip_coord_to_translated are still needed until the underlying dependencies
+// are resolved (see comments in translate_chip_coord_to_translated for details).
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+    return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, CoordSystem::TRANSLATED);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
@@ -368,6 +409,7 @@ void SocDescriptor::load_from_soc_desc_info(const SocDescriptorInfo &soc_desc_in
 
 std::vector<tt_xy_pair> SocDescriptor::convert_to_tt_xy_pair(const std::vector<std::string> &core_strings) {
     std::vector<tt_xy_pair> core_pairs;
+    core_pairs.reserve(core_strings.size());
     for (const auto &core_string : core_strings) {
         core_pairs.push_back(format_node(core_string));
     }
@@ -438,19 +480,6 @@ void SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.worker_l1_size = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
-
-    // Inlcude harvested cores directly in SocDescriptor if available
-    if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
-        harvested_workers = SocDescriptor::convert_to_tt_xy_pair(
-            device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
-    }
-    if (device_descriptor_yaml["harvested_eth"].IsDefined()) {
-        harvested_ethernet_cores = SocDescriptor::convert_to_tt_xy_pair(
-            device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
-    }
-    if (device_descriptor_yaml["harvested_dram"].IsDefined()) {
-        harvested_dram_cores = SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
-    }
 
     load_from_soc_desc_info(soc_desc_info);
 }
@@ -551,28 +580,12 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::PCIE);
     out << YAML::EndSeq;
 
-    out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
-    serialize_dram_cores(&out, get_harvested_dram_cores());
-    out << YAML::EndSeq;
-
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
     serialize_dram_cores(&out, get_dram_cores());
     out << YAML::EndSeq;
 
-    out << YAML::Key << "harvested_eth" << YAML::Value << YAML::BeginSeq;
-    for (const auto &eth : get_harvested_cores(CoreType::ETH)) {
-        write_coords(&out, eth);
-    }
-    out << YAML::EndSeq;
-
     out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
     write_core_locations(&out, CoreType::ETH);
-    out << YAML::EndSeq;
-
-    out << YAML::Key << "harvested_workers" << YAML::Value << YAML::BeginSeq;
-    for (const auto &worker : get_harvested_cores(CoreType::TENSIX)) {
-        write_coords(&out, worker);
-    }
     out << YAML::EndSeq;
 
     out << YAML::Key << "functional_workers" << YAML::Value << YAML::BeginSeq;
@@ -591,7 +604,7 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::L2CPU);
     out << YAML::EndSeq;
 
-    // Fill in the rest that are static to our device
+    // Fill in the rest that are static to our device.
     out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
     out << YAML::Key << "eth_l1_size" << YAML::Value << eth_l1_size;
@@ -645,24 +658,6 @@ std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {
     return soc_path;
 }
 
-std::string SocDescriptor::get_soc_descriptor_path(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0:
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/wormhole_b0_8x10.yaml");
-        case tt::ARCH::BLACKHOLE: {
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/blackhole_140_arch.yaml");
-        }
-        case tt::ARCH::QUASAR: {
-            // TODO: this path needs to be changed to point to soc descriptors outside of tests directory.
-            return utils::get_abs_path("tests/soc_descs/quasar_simulation_1x1.yaml");
-        }
-        default:
-            throw std::runtime_error("Invalid architecture");
-    }
-}
-
 void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     const tt_xy_pair empty = {0, 0};
     for (const auto &core_type :
@@ -678,7 +673,7 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
             core_type == CoreType::L2CPU) {
-            // Ethernet and Router cores aren't arranged in a grid, initializing as empty
+            // Ethernet and Router cores aren't arranged in a grid, initializing as empty.
             grid_size_map.insert({core_type, empty});
             harvested_grid_size_map.insert({core_type, empty});
             continue;
@@ -698,20 +693,12 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     }
 
     const std::vector<CoreCoord> harvested_dram_cores = harvested_cores_map.at(CoreType::DRAM);
-    const tt_xy_pair harvested_dram_grid_size = harvested_grid_size_map.at(CoreType::DRAM);
-
-    harvested_dram_cores_core_coord.resize(harvested_dram_grid_size.x);
-    for (size_t bank = 0; bank < harvested_dram_grid_size.x; bank++) {
-        for (size_t noc_port = 0; noc_port < harvested_dram_grid_size.y; noc_port++) {
-            harvested_dram_cores_core_coord[bank].push_back(
-                harvested_dram_cores[bank * harvested_dram_grid_size.y + noc_port]);
-        }
-    }
 }
 
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const {
     std::vector<CoreCoord> translated_cores;
+    translated_cores.reserve(noc0_cores.size());
     for (const auto &core : noc0_cores) {
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }
@@ -797,10 +784,6 @@ tt_xy_pair SocDescriptor::get_harvested_grid_size(const CoreType core_type) cons
 }
 
 std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const { return dram_cores_core_coord; }
-
-std::vector<std::vector<CoreCoord>> SocDescriptor::get_harvested_dram_cores() const {
-    return harvested_dram_cores_core_coord;
-}
 
 uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
 

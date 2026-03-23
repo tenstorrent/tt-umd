@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -47,6 +45,7 @@ public:
     virtual uint32_t get_dram_channel_0_x() const = 0;
     virtual uint32_t get_dram_channel_0_y() const = 0;
     virtual uint32_t get_dram_banks_number() const = 0;
+    virtual uint32_t get_aiclk_busy_val() const = 0;
     virtual uint32_t get_broadcast_tlb_index() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_base() const = 0;
     virtual uint32_t get_dynamic_tlb_2m_size() const = 0;
@@ -56,8 +55,6 @@ public:
     virtual uint32_t get_mem_large_read_tlb() const = 0;
     virtual uint32_t get_mem_large_write_tlb() const = 0;
     virtual uint32_t get_num_eth_channels() const = 0;
-    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
-    virtual uint32_t get_static_tlb_size() const = 0;
     virtual uint32_t get_read_checking_offset() const = 0;
     virtual uint32_t get_reg_tlb() const = 0;
     virtual uint32_t get_tlb_base_index_16m() const = 0;
@@ -70,7 +67,7 @@ public:
     virtual uint32_t get_grid_size_y() const = 0;
     virtual uint64_t get_arc_apb_noc_base_address() const = 0;
     virtual uint64_t get_arc_csm_noc_base_address() const = 0;
-    // Replace with std::span once we enable C++20
+    // Replace with std::span once we enable C++20.
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
@@ -82,8 +79,13 @@ public:
     virtual std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const = 0;
     virtual std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const = 0;
 
+    // Get available TLB sizes for this architecture.
+    virtual const std::vector<size_t>& get_tlb_sizes() const = 0;
+
     virtual std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const = 0;
     virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
+    virtual uint64_t get_tlb_cfg_reg_size_bytes() const = 0;
+    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
     virtual DriverHostAddressParams get_host_address_params() const = 0;
@@ -93,6 +95,7 @@ public:
     static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
 
     virtual uint64_t get_noc_node_id_offset() const = 0;
+    virtual uint64_t get_noc_node_translated_id_offset() const = 0;
     virtual uint64_t get_noc_reg_base(
         const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 

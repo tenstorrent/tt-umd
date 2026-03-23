@@ -1,9 +1,14 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/arc/arc_messenger.hpp"
+
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <stdexcept>
+#include <vector>
 
 #include "umd/device/arc/blackhole_arc_messenger.hpp"
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
@@ -34,7 +39,7 @@ ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
         MutexType::REMOTE_ARC_MSG,
         tt_device->get_communication_device_id(),
         tt_device->get_communication_device_type());
-    // TODO: Remove this once we have proper mutex usage
+    // TODO: Remove this once we have proper mutex usage.
     lock_manager.initialize_mutex(MutexType::ARC_MSG);
 }
 

@@ -1,10 +1,15 @@
-// SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
 // This file holds Chip specific API examples.
 
 #include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -35,7 +40,6 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
         auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-        tlb_configuration tlb_description = tlb_manager->get_tlb_configuration(any_worker_translated_core);
 
         // TODO: Maybe accept tlb_index only?
         uint64_t address_l1_to_write = 0;

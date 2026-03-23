@@ -1,11 +1,16 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <iostream>
+#include <ostream>
 #include <stdexcept>
+#include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -113,9 +118,9 @@ TEST(SocDescriptor, SocDescriptorDRAMChannels) {
 
     int num_dram_channels = soc_desc.get_num_dram_channels();
 
-    // Core type with no separate channels
+    // Core type with no separate channels.
     EXPECT_THROW(soc_desc.get_cores(tt::CoreType::ARC, tt::CoordSystem::LOGICAL, 0), std::runtime_error);
-    // Invalid channel
+    // Invalid channel.
     EXPECT_THROW(
         soc_desc.get_cores(tt::CoreType::DRAM, tt::CoordSystem::LOGICAL, num_dram_channels + 1), std::runtime_error);
 
@@ -612,7 +617,7 @@ TEST(SocDescriptor, BlackholeNOC1Cores) {
 }
 
 TEST(SocDescriptor, AllSocDescriptors) {
-    for (std::string soc_desc_yaml : test_utils::GetAllSocDescs()) {
+    for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {
         std::cout << "Testing " << soc_desc_yaml << std::endl;
 
         auto arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_yaml);
@@ -695,8 +700,4 @@ TEST(SocDescriptor, SerializeSimulatorQuasar) {
         file_path.string(),
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
-}
-
-TEST(SocDescriptor, SocDescriptorCreatFromSerialized) {
-    SocDescriptor soc_desc_yaml(test_utils::GetSocDescAbsPath("serialized.yaml"), {.noc_translation_enabled = true});
 }

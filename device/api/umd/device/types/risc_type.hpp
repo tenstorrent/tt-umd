@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -75,13 +73,13 @@ enum class RiscType : std::uint64_t {
     DM6 = 1ULL << 30,
     DM7 = 1ULL << 31,
 
-    // Combined constants for each NEO triplet
+    // Combined constants for each NEO triplet.
     ALL_NEO0_TRISCS = NEO0_TRISC0 | NEO0_TRISC1 | NEO0_TRISC2 | NEO0_TRISC3,
     ALL_NEO1_TRISCS = NEO1_TRISC0 | NEO1_TRISC1 | NEO1_TRISC2 | NEO1_TRISC3,
     ALL_NEO2_TRISCS = NEO2_TRISC0 | NEO2_TRISC1 | NEO2_TRISC2 | NEO2_TRISC3,
     ALL_NEO3_TRISCS = NEO3_TRISC0 | NEO3_TRISC1 | NEO3_TRISC2 | NEO3_TRISC3,
 
-    // Combined constants for all cores of each type
+    // Combined constants for all cores of each type.
     ALL_NEO_TRISCS = ALL_NEO0_TRISCS | ALL_NEO1_TRISCS | ALL_NEO2_TRISCS | ALL_NEO3_TRISCS,
     ALL_NEO_DMS = DM0 | DM1 | DM2 | DM3 | DM4 | DM5 | DM6 | DM7,
     ALL_NEO = ALL_NEO_TRISCS | ALL_NEO_DMS,
@@ -92,18 +90,18 @@ std::string RiscTypeToString(RiscType value);
 RiscType invert_selected_options(RiscType selected);
 
 constexpr RiscType operator|(RiscType lhs, RiscType rhs) {
-    return static_cast<RiscType>(static_cast<uint32_t>(lhs) | static_cast<uint32_t>(rhs));
+    return static_cast<RiscType>(static_cast<uint64_t>(lhs) | static_cast<uint64_t>(rhs));
 }
 
 constexpr RiscType operator&(RiscType lhs, RiscType rhs) {
-    return static_cast<RiscType>(static_cast<uint32_t>(lhs) & static_cast<uint32_t>(rhs));
+    return static_cast<RiscType>(static_cast<uint64_t>(lhs) & static_cast<uint64_t>(rhs));
 }
 
 constexpr bool operator!=(RiscType lhs, RiscType rhs) {
-    return static_cast<uint32_t>(lhs) != static_cast<uint32_t>(rhs);
+    return static_cast<uint64_t>(lhs) != static_cast<uint64_t>(rhs);
 }
 
-constexpr RiscType operator~(RiscType operand) { return static_cast<RiscType>(~static_cast<std::uint32_t>(operand)); }
+constexpr RiscType operator~(RiscType operand) { return static_cast<RiscType>(~static_cast<std::uint64_t>(operand)); }
 
 constexpr RiscType& operator|=(RiscType& lhs, RiscType rhs) {
     lhs = lhs | rhs;
@@ -115,7 +113,7 @@ constexpr RiscType& operator&=(RiscType& lhs, RiscType rhs) {
     return lhs;
 }
 
-// Stream output operator for cout
+// Stream output operator for cout.
 inline std::ostream& operator<<(std::ostream& os, RiscType risc_type) { return os << RiscTypeToString(risc_type); }
 
 }  // namespace tt::umd

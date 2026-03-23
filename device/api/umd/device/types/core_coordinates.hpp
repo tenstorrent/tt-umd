@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -12,7 +10,7 @@
 
 #include "umd/device/types/xy_pair.hpp"
 
-// For documentation on Coordinate systems, lookup docs/coordinate_systems.md
+// For documentation on Coordinate systems, lookup docs/coordinate_systems.md.
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {
@@ -20,7 +18,7 @@ namespace tt {
  * CoreType is an enum class that represents all types of cores
  * present on the Tenstorrent chip.
  */
-// TODO: change to uint8_t and uplift to tt-metal
+// TODO: change to uint8_t and uplift to tt-metal.
 enum class CoreType {
     ARC,
     DRAM,
@@ -100,7 +98,7 @@ static inline std::string to_str(const CoordSystem coord_system) {
 // this CoreCoord to tt namespace.
 namespace umd {
 struct CoreCoord : public tt_xy_pair {
-    CoreCoord() {}
+    CoreCoord() = default;
 
     CoreCoord(const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system) :
         tt_xy_pair(x, y), core_type(type), coord_system(coord_system) {}

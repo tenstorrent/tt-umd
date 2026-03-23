@@ -1,7 +1,12 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/firmware/wormhole_18_3_firmware_info_provider.hpp"
+
+#include <cstdint>
+#include <optional>
+#include <vector>
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
@@ -9,6 +14,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
@@ -19,9 +25,14 @@ Wormhole_18_3_FirmwareInfoProvider::Wormhole_18_3_FirmwareInfoProvider(TTDevice*
     axiclk_available = telemetry->is_entry_available(wormhole::TelemetryTag::AXICLK);
     arcclk_available = telemetry->is_entry_available(wormhole::TelemetryTag::ARCCLK);
     fan_speed_available = telemetry->is_entry_available(wormhole::TelemetryTag::FAN_SPEED);
+    fan_rpm_available = false;
     tdp_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDP);
     tdc_available = telemetry->is_entry_available(wormhole::TelemetryTag::TDC);
     vcore_available = telemetry->is_entry_available(wormhole::TelemetryTag::VCORE);
+    eth_live_status_available = telemetry->is_entry_available(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    // Firmware < 18.4 doesn't populate thermal limit fields; the tags exist but contain garbage.
+    thm_limit_shutdown_available = false;
+    thm_limit_throttle_available = false;
 }
 
 uint64_t Wormhole_18_3_FirmwareInfoProvider::get_board_id() const {
@@ -34,10 +45,9 @@ uint32_t Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    return get_eth_fw_version_from_telemetry(
-        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION),
-        tt_device->get_arch());
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_eth_fw_version_semver() const {
+    return SemVer::from_wormhole_eth_firmware_tag(
+        tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ETH_FW_VERSION));
 }
 
 double Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature() const {
@@ -118,11 +128,16 @@ std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_speed() cons
         return std::nullopt;
     }
     const uint32_t fan_speed = telemetry->read_entry(wormhole::TelemetryTag::FAN_SPEED);
-    // All ones mean fans not present on board, or not under control of firmware.
+    // The value 0xFFFFFFFF means fans are not present on board, or not under control of firmware.
     if (fan_speed == 0xFFFFFFFF) {
         return std::nullopt;
     }
     return fan_speed;
+}
+
+std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_fan_rpm() const {
+    // FAN_RPM is not available in Wormhole 18.3 telemetry (only FAN_SPEED as percentage).
+    return std::nullopt;
 }
 
 std::optional<uint32_t> Wormhole_18_3_FirmwareInfoProvider::get_tdp() const {
@@ -154,39 +169,78 @@ std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_board_temperature(
     if (!board_temperature_available) {
         return std::nullopt;
     }
-    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature()
+    // Stored in s16.16 format. See Wormhole_18_3_FirmwareInfoProvider::get_asic_temperature().
     return static_cast<double>(telemetry->read_entry(wormhole::TelemetryTag::BOARD_TEMPERATURE)) / 65536.0f;
+}
+
+std::optional<std::vector<bool>> Wormhole_18_3_FirmwareInfoProvider::get_eth_heartbeat_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    uint32_t data = telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+}
+
+std::optional<std::vector<bool>> Wormhole_18_3_FirmwareInfoProvider::get_eth_retrain_status() const {
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    if (!eth_live_status_available) {
+        return std::nullopt;
+    }
+    uint32_t data = telemetry->read_entry(wormhole::TelemetryTag::ETH_LIVE_STATUS);
+    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 uint32_t Wormhole_18_3_FirmwareInfoProvider::get_heartbeat() const {
     return tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::ARC0_HEALTH);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_gddr_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_gddr_fw_version() const {
     // Seems like GDDR FW version is not available in Wormhole 18.3.x firmware.
     return std::nullopt;
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_cm_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_cm_fw_version() const {
     // Seems like CM FW version is not available in Wormhole 18.3.x firmware.
     return std::nullopt;
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_dm_app_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_dm_app_fw_version() const {
     return get_dm_app_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DM_APP_FW_VERSION),
         tt::ARCH::WORMHOLE_B0);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_dm_bl_fw_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_dm_bl_fw_version() const {
     return get_dm_bl_fw_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::DM_BL_FW_VERSION),
         tt::ARCH::WORMHOLE_B0);
 }
 
-std::optional<semver_t> Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version() const {
+std::optional<SemVer> Wormhole_18_3_FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(
         tt_device->get_arc_telemetry_reader()->read_entry(wormhole::TelemetryTag::TT_FLASH_VERSION));
+}
+
+std::optional<GddrTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
+std::optional<GddrModuleTelemetry> Wormhole_18_3_FirmwareInfoProvider::get_dram_telemetry(
+    GddrModule gddr_module) const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
+std::optional<uint16_t> Wormhole_18_3_FirmwareInfoProvider::get_dram_speed() const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
+}
+
+std::optional<double> Wormhole_18_3_FirmwareInfoProvider::get_current_max_dram_temperature() const {
+    // SMBUS telemetry does not map to the new style GDDR telemetry structure.
+    return std::nullopt;
 }
 
 }  // namespace tt::umd

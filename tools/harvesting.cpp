@@ -1,10 +1,17 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
 #include <cxxopts.hpp>
 #include <iomanip>
+#include <ios>
+#include <iostream>
+#include <memory>
+#include <ostream>
 #include <sstream>
+#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "umd/device/cluster.hpp"
 

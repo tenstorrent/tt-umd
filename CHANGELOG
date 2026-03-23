@@ -1,5 +1,88 @@
 # Changelog
 
+## [0.9.4] - 2026-03-18
+
+### Changed
+
+TopologyDiscoveryOptions refactoring.
+TopologyDiscoveryOption to retrain ETH links on 6u.
+TLBs for TTsim.
+DRAM retrain support.
+DeviceProtocol changes.
+Simulator in TTDevice changes.
+ETH heartbeat check.
+
+## [0.9.3] - 2026-02-24
+
+### Changed
+
+Sigbus safe read write API.
+Remove 4U related code.
+Implement BH SPI as well, so full SPI support.
+P150 expects harvested cores.
+TT_VISIBLE_DEVICES uses logical IDs.
+
+## [0.9.2] - 2026-02-09
+
+### Changed
+
+SPI interface for Wormhole.
+PCI BDF based sorting and filtering.
+Multicast PCI DMA.
+Support Blackhole loudbox.
+Many code fixes and test enhancements.
+
+## [0.9.1] - 2026-01-23
+
+### Changed
+
+Started publishing to pypi.
+
+## [0.9.0] - 2026-01-23
+
+### Changed
+
+Warm reset notification and callback implementation.
+
+## [0.8.6] - 2026-01-20
+
+### Changed
+
+Make predicting ETH FW from CMFW optional in TopologyDiscovery.
+
+## [0.8.4] - 2026-01-16
+
+### Changed
+
+Use older manylinux image
+
+## [0.8.3] - 2026-01-15
+
+### Changed
+
+Reverted remote discovery issue
+
+## [0.8.2] - 2026-01-15
+
+### Changed
+
+Support warm reset without secondary bus reset.
+Expose subsystem vendor id.
+
+## [0.8.1] - 2026-01-15
+
+### Changed
+
+Support dma functions on TTDevice layer
+
+## [0.8.0] - 2026-01-14
+
+### Changed
+
+Many functional fixes and minor changes.
+Final fixes needed for integration into tt-smi.
+Also contains adjustments needed for integration into exalens.
+
 ## [0.7.0] - 2025-11-29
 
 ### Changed

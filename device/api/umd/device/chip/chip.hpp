@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -58,13 +56,15 @@ public:
     virtual void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) = 0;
     virtual void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
+    virtual void dma_multicast_write(
+        void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
     virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels = {}) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
 
     // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);
@@ -115,16 +115,13 @@ public:
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
-    // TODO: To be moved to private implementation once methods are moved to chip
+    // TODO: To be moved to private implementation once methods are moved to chip.
     void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
 
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
     DeviceDramAddressParams dram_address_params;
     DeviceL1AddressParams l1_address_params;
-
-    // TODO: To be removed once we properly refactor usage of NOC1 coords.
-    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
 
 protected:
     void wait_chip_to_be_ready();

@@ -1,8 +1,11 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/types/risc_type.hpp"
+
+#include <cstdint>
+#include <string>
 
 namespace tt::umd {
 
@@ -35,7 +38,7 @@ std::string RiscTypeToString(RiscType value) {
         output += "NCRISC | ";
     }
 
-    // Check NEO Tensix TRISC cores
+    // Check NEO Tensix TRISC cores.
     if ((value & RiscType::NEO0_TRISC0) != RiscType::NONE) {
         output += "NEO0_TRISC0 | ";
     }
@@ -82,7 +85,7 @@ std::string RiscTypeToString(RiscType value) {
         output += "NEO3_TRISC2 | ";
     }
 
-    // Check NEO Tensix Data Movement cores
+    // Check NEO Tensix Data Movement cores.
     if ((value & RiscType::DM0) != RiscType::NONE) {
         output += "DM0 | ";
     }
@@ -111,7 +114,7 @@ std::string RiscTypeToString(RiscType value) {
     if (output.empty()) {
         output = "NONE";
     } else {
-        // Remove the trailing " | "
+        // Remove the trailing " | ".
         output.erase(output.end() - 3, output.end());
     }
 
@@ -119,9 +122,9 @@ std::string RiscTypeToString(RiscType value) {
 }
 
 RiscType invert_selected_options(RiscType selected) {
-    uint32_t selected_bits = static_cast<uint32_t>(selected);
-    uint32_t inverted =
-        (~selected_bits) & static_cast<uint32_t>(RiscType::ALL | RiscType::ALL_TENSIX | RiscType::ALL_NEO);
+    uint64_t selected_bits = static_cast<uint64_t>(selected);
+    uint64_t inverted =
+        (~selected_bits) & static_cast<uint64_t>(RiscType::ALL | RiscType::ALL_TENSIX | RiscType::ALL_NEO);
     return static_cast<RiscType>(inverted);
 }
 

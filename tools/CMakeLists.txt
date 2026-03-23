@@ -4,6 +4,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     cmake_minimum_required(VERSION 3.16)
     project(tt_umd_tools)
 
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
     message(STATUS "Building tools as standalone project from UMD install artifacts")
 
     include(${PROJECT_SOURCE_DIR}/../cmake/example_client.cmake)
@@ -13,7 +16,7 @@ add_library(tools_common INTERFACE)
 target_link_libraries(
     tools_common
     INTERFACE
-        umd::device
+        umd::tt-umd
         tt-logger::tt-logger
         cxxopts::cxxopts
 )
@@ -62,6 +65,39 @@ set_target_properties(
             system_health
 )
 
+add_executable(tlb_virus tlb_virus.cpp)
+target_link_libraries(tlb_virus PRIVATE tools_common)
+set_target_properties(
+    tlb_virus
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            tlb_virus
+)
+
+add_executable(warm_reset warm_reset.cpp)
+target_link_libraries(warm_reset PRIVATE tools_common)
+set_target_properties(
+    warm_reset
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            warm_reset
+)
+
+add_executable(lock_virus lock_virus.cpp)
+target_link_libraries(lock_virus PRIVATE tools_common)
+set_target_properties(
+    lock_virus
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            lock_virus
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -69,4 +105,7 @@ add_custom_target(
         topology
         harvesting
         system_health
+        warm_reset
+        tlb_virus
+        lock_virus
 )

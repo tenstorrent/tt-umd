@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 
 #include <stddef.h>
@@ -113,6 +112,8 @@ private:
      */
     void validate(const size_t offset) const;
 
+    TlbWindow* get_cached_tlb_window();
+
     TLBManager* tlb_manager_;
 
     // Virtual address in process addr space.
@@ -134,6 +135,8 @@ private:
     // Address that is used on the NOC to access the buffer.  NOC target must be
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
+
+    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 };
 
 }  // namespace tt::umd

@@ -1,69 +1,58 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include "umd/device/utils/lock_manager.hpp"
 
+#include <mutex>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 
 namespace tt::umd {
 
-const std::unordered_map<MutexType, std::string> LockManager::MutexTypeToString = {
-    {MutexType::ARC_MSG, "ARC_MSG"},
-    {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
-    {MutexType::NON_MMIO, "NON_MMIO"},
-    {MutexType::MEM_BARRIER, "MEM_BARRIER"},
-    {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
-    {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
-};
-
-const std::unordered_map<IODeviceType, std::string> LockManager::DeviceTypeToString = {
-    {IODeviceType::PCIe, "PCIe"},
-    {IODeviceType::JTAG, "JTAG"},
-};
-
 void LockManager::initialize_mutex(MutexType mutex_type) {
-    initialize_mutex_internal(MutexTypeToString.at(mutex_type));
+    initialize_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
 void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name =
-        MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
+    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
+                             DeviceTypeToString.at(device_type);
     initialize_mutex_internal(mutex_name);
 }
 
-void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MutexTypeToString.at(mutex_type)); }
+void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type)); }
 
 void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name =
-        MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
+    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
+                             DeviceTypeToString.at(device_type);
     clear_mutex_internal(mutex_name);
 }
 
 std::unique_lock<RobustMutex> LockManager::acquire_mutex(MutexType mutex_type) {
-    return acquire_mutex_internal(MutexTypeToString.at(mutex_type));
+    return acquire_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
 std::unique_lock<RobustMutex> LockManager::acquire_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name =
-        MutexTypeToString.at(mutex_type) + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
+    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
+                             DeviceTypeToString.at(device_type);
     return acquire_mutex_internal(mutex_name);
 }
 
-void LockManager::initialize_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+void LockManager::initialize_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     initialize_mutex_internal(mutex_name);
 }
 
-void LockManager::clear_mutex(std::string mutex_prefix, int device_id, IODeviceType device_type) {
+void LockManager::clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     clear_mutex_internal(mutex_name);
 }
 
 std::unique_lock<RobustMutex> LockManager::acquire_mutex(
-    std::string mutex_prefix, int device_id, IODeviceType device_type) {
+    const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
     std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
     return acquire_mutex_internal(mutex_name);
 }

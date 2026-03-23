@@ -1,33 +1,37 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip/local_chip.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/blackhole_eth.hpp"
-
-extern bool umd_use_noc1;
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-// TLB size for DRAM on blackhole - 4GB
-const uint64_t BH_4GB_TLB_SIZE = 4ULL * 1024 * 1024 * 1024;
-
 std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, std::string sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
+    int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
@@ -48,7 +52,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     remote_communication = RemoteCommunication::create_remote_communication(
@@ -57,7 +61,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
+        std::move(soc_descriptor),
         std::move(tt_device),
         std::move(tlb_manager),
         std::move(sysmem_manager),
@@ -81,7 +85,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (device_type == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     remote_communication = RemoteCommunication::create_remote_communication(
@@ -90,7 +94,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
+        std::move(soc_descriptor),
         std::move(tt_device),
         std::move(tlb_manager),
         std::move(sysmem_manager),
@@ -105,7 +109,7 @@ LocalChip::LocalChip(
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
     int num_host_mem_channels) :
-    Chip(tt_device->get_chip_info(), soc_descriptor),
+    Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
@@ -119,7 +123,6 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
-    cached_pcie_dma_tlb_window.reset();
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     remote_communication_.reset();
@@ -141,7 +144,7 @@ void LocalChip::initialize_default_chip_mutexes() {
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
-    // Initialize interprocess mutexes to make host -> device memory barriers atomic
+    // Initialize interprocess mutexes to make host -> device memory barriers atomic.
     lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
 
     // Initialize mutex guarding initialized chips.
@@ -159,6 +162,7 @@ void LocalChip::initialize_membars() {
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
+    dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
         dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
     }
@@ -182,7 +186,6 @@ void LocalChip::start_device() {
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
     chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
-    check_pcie_device_initialized();
     sysmem_manager_->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
@@ -200,6 +203,9 @@ void LocalChip::close_device() {
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
+        }
+        if (tlb_manager_) {
+            tlb_manager_->clear_mapped_tlbs();
         }
     }
     chip_started_lock_.reset();
@@ -276,45 +282,19 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, translated_core, l1_dest, size);
         return;
     }
 
-    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
-
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-        uint8_t* buffer_addr = static_cast<uint8_t*>(const_cast<void*>(src));
-        tlb_data config{};
-        config.local_offset = l1_dest;
-        config.x_end = translated_core.x;
-        config.y_end = translated_core.y;
-        config.noc_sel = umd_use_noc1 ? 1 : 0;
-        config.ordering = tlb_data::Strict;
-        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-        TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
-
-        while (size > 0) {
-            uint32_t tlb_size = tlb_window->get_size();
-
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->write_block(0, buffer_addr, transfer_size);
-
-            size -= transfer_size;
-            l1_dest += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = l1_dest;
-            tlb_window->configure(config);
-        }
+        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
     }
 }
 
@@ -328,9 +308,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         l1_src,
         size);
 
-    uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
-
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, l1_src, size);
@@ -341,144 +319,22 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, ui
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-        uint8_t* buffer_addr = static_cast<uint8_t*>(dest);
-        tlb_data config{};
-        config.local_offset = l1_src;
-        config.x_end = translated_core.x;
-        config.y_end = translated_core.y;
-        config.noc_sel = umd_use_noc1 ? 1 : 0;
-        config.ordering = tlb_data::Relaxed;
-        config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-        TlbWindow* tlb_window = get_cached_wc_tlb_window(config);
-
-        while (size > 0) {
-            uint32_t tlb_size = tlb_window->get_size();
-            uint32_t transfer_size = std::min(size, tlb_size);
-
-            tlb_window->read_block(0, buffer_addr, transfer_size);
-
-            size -= transfer_size;
-            l1_src += transfer_size;
-            buffer_addr += transfer_size;
-
-            config.local_offset = l1_src;
-            tlb_window->configure(config);
-        }
+        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
     }
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
-            "DMA operations are not supported for {} devices.",
-            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
-    }
-
-    if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) write.",
-            get_tt_device()->get_communication_device_id());
-        write_to_device(core, src, addr, size);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(pcie_dma_lock);
-
-    const uint8_t* buffer = static_cast<const uint8_t*>(src);
-    PCIDevice* pci_device = tt_device_->get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
-
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
-
-    auto axi_address_base = get_tt_device()
-                                ->get_architecture_implementation()
-                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        tt_device_->dma_h2d(axi_address, buffer, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
+    tt_device_->dma_write_to_device(src, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW(
-            "DMA operations are not supported for {} devices.",
-            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
-    }
+    tt_device_->dma_read_from_device(dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+}
 
-    if (get_tt_device()->get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        log_warning(
-            LogUMD,
-            "DMA buffer was not allocated for PCI device {}, falling back to non-DMA (regular MMIO TLB) read.",
-            get_tt_device()->get_communication_device_id());
-        read_from_device(core, dst, addr, size);
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(pcie_dma_lock);
-
-    uint8_t* buffer = static_cast<uint8_t*>(dst);
-    PCIDevice* pci_device = tt_device_->get_pci_device().get();
-    size_t dmabuf_size = pci_device->get_dma_buffer().size;
-
-    tt_xy_pair translated_core = translate_chip_coord_to_translated(core);
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
-    config.ordering = tlb_data::Relaxed;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_pcie_dma_tlb_window(config);
-
-    auto axi_address_base = get_tt_device()
-                                ->get_architecture_implementation()
-                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
-                                .tlb_offset;
-
-    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
-    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-
-    while (size > 0) {
-        auto tlb_size = tlb_window->get_size();
-        size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
-
-        tt_device_->dma_d2h(buffer, axi_address, transfer_size);
-
-        size -= transfer_size;
-        addr += transfer_size;
-        buffer += transfer_size;
-
-        config.local_offset = addr;
-        tlb_window->configure(config);
-        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
-    }
+void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
+    tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
+    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -497,15 +353,16 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
+    TlbWindow* tlb_window = get_cached_uc_tlb_window();
+    tlb_window->configure(config);
 
     tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
 }
@@ -519,22 +376,24 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         throw std::runtime_error("Register address must be 4-byte aligned");
     }
 
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, core, reg_src, size);
+        tt_device_->read_from_device(dest, translated_core, reg_src, size);
         return;
     }
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = translate_chip_coord_to_translated(core);
     tlb_data config{};
     config.local_offset = reg_src;
     config.x_end = translated_core.x;
     config.y_end = translated_core.y;
-    config.noc_sel = umd_use_noc1 ? 1 : 0;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window(config);
+    TlbWindow* tlb_window = get_cached_uc_tlb_window();
+    tlb_window->configure(config);
 
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
@@ -550,7 +409,7 @@ void LocalChip::ethernet_broadcast_write(
     }
 
     // target_chip and target_core are ignored when broadcast is enabled.
-    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, broadcast_header);
+    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, std::move(broadcast_header));
 }
 
 void LocalChip::wait_for_non_mmio_flush() {
@@ -569,35 +428,12 @@ void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& cha
         get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
 }
 
-std::unique_lock<RobustMutex> LocalChip::acquire_mutex(std::string mutex_name, int pci_device_id) {
+std::unique_lock<RobustMutex> LocalChip::acquire_mutex(const std::string& mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
 }
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
-}
-
-void LocalChip::check_pcie_device_initialized() {
-    if (test_setup_interface()) {
-        throw std::runtime_error(
-            "Device is incorrectly initialized. If this is a harvested Wormhole machine, it is likely that NOC "
-            "Translation Tables are not enabled on device. These need to be enabled for the silicon driver to run.");
-    }
-}
-
-int LocalChip::test_setup_interface() {
-    int ret_val = 0;
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t regval = 0;
-        read_from_device_reg(CoreCoord(1, 0, CoreType::ETH, CoordSystem::NOC0), &regval, 0xffb20108, sizeof(uint32_t));
-        ret_val = (regval != HANG_READ_VALUE && (regval == 33)) ? 0 : 1;
-        return ret_val;
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
-        // TODO #768 figure out BH implementation
-        return 0;
-    } else {
-        throw std::runtime_error(fmt::format("Unsupported architecture: {}", arch_to_str(soc_descriptor_.arch)));
-    }
 }
 
 void LocalChip::init_pcie_iatus() {
@@ -648,22 +484,24 @@ void LocalChip::set_membar_flag(
         }
     }
     // Ensure that reads or writes after this do not get reordered.
-    // Reordering can cause races where data gets transferred before the barrier has returned
+    // Reordering can cause races where data gets transferred before the barrier has returned.
     tt_driver_atomics::mfence();
 }
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
-    // Ensure that this memory barrier is atomic across processes/threads
+    // Ensure that this memory barrier is atomic across processes/threads.
     auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
-    if (cores.size()) {
-        // Insert barrier on specific cores with L1
+    const bool include_dram_in_l1_membar = soc_descriptor_.arch == tt::ARCH::BLACKHOLE;
+    if (!cores.empty()) {
+        // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
         std::vector<CoreCoord> eth_to_sync = {};
+        std::vector<CoreCoord> dram_to_sync = {};
 
         for (const auto& core : cores) {
             auto core_from_soc = soc_descriptor_.get_coord_at(core, core.coord_system);
@@ -671,24 +509,34 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
                 eth_to_sync.push_back(core);
+            } else if (include_dram_in_l1_membar && core_from_soc.core_type == CoreType::DRAM) {
+                dram_to_sync.push_back(core);
             } else {
                 TT_THROW("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
             }
         }
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(dram_to_sync, dram_address_params.DRAM_BARRIER_BASE);
+        }
     } else {
-        // Insert barrier on all cores with L1
+        // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
             soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(
+                soc_descriptor_.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED),
+                dram_address_params.DRAM_BARRIER_BASE);
+        }
     }
 }
 
 void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
-    if (cores.size()) {
+    if (!cores.empty()) {
         for (const auto& core : cores) {
             TT_ASSERT(
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
@@ -697,8 +545,9 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     } else {
-        // Insert Barrier on all DRAM Cores
+        // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
+        dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
         for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(
                 soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
@@ -729,36 +578,45 @@ int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
 
-TlbWindow* LocalChip::get_cached_wc_tlb_window(tlb_data config) {
+TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::WC), config);
+        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
         return cached_wc_tlb_window.get();
     }
 
-    cached_wc_tlb_window->configure(config);
     return cached_wc_tlb_window.get();
 }
 
-TlbWindow* LocalChip::get_cached_uc_tlb_window(tlb_data config) {
+TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(1 << 21, TlbMapping::UC), config);
+        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
         return cached_uc_tlb_window.get();
     }
 
-    cached_uc_tlb_window->configure(config);
     return cached_uc_tlb_window.get();
 }
 
-TlbWindow* LocalChip::get_cached_pcie_dma_tlb_window(tlb_data config) {
-    if (cached_pcie_dma_tlb_window == nullptr) {
-        cached_pcie_dma_tlb_window = std::make_unique<TlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(16 * 1024 * 1024, TlbMapping::WC), config);
-        return cached_pcie_dma_tlb_window.get();
+void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    // TODO: Support other core types once needed.
+    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
+        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
     }
 
-    cached_pcie_dma_tlb_window->configure(config);
-    return cached_pcie_dma_tlb_window.get();
+    // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
+    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
+        TT_THROW("noc_multicast_write is only supported on PCIe devices.");
+    }
+
+    std::lock_guard<std::mutex> lock(wc_tlb_lock);
+
+    get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
+        dst,
+        size,
+        get_soc_descriptor().translate_chip_coord_to_translated(core_start),
+        get_soc_descriptor().translate_chip_coord_to_translated(core_end),
+        addr,
+        tlb_data::Relaxed);
 }
 }  // namespace tt::umd

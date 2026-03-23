@@ -1,8 +1,20 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
+
+#include <algorithm>
+#include <cstdint>
 #include <cxxopts.hpp>
+#include <ios>
+#include <iostream>
+#include <memory>
+#include <ostream>
+#include <sstream>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <unordered_map>
+#include <vector>
 
 #include "common.hpp"
 #include "umd/device/cluster.hpp"
@@ -58,17 +70,17 @@ bool check_if_external_cable_is_used(
     if (board_type == BoardType::UBB) {
         auto ubb_asic_id = ((unique_chip_id >> 56) & 0xFF);
         if (ubb_asic_id == 1) {
-            // UBB 1 has external cables on channels 0-7
+            // UBB 1 has external cables on channels 0-7.
             return (chan >= 0 and chan <= 7);
         } else if (ubb_asic_id >= 2 and ubb_asic_id <= 4) {
-            // UBB 2 to 4 has external cables on channels 0-3
+            // UBB 2 to 4 has external cables on channels 0-3.
             return (chan >= 0 and chan <= 3);
         } else if (ubb_asic_id == 5) {
-            // UBB 5 has external cables on channels 4-7
+            // UBB 5 has external cables on channels 4-7.
             return (chan >= 4 and chan <= 7);
         }
     } else if (board_type == BoardType::N300) {
-        // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips
+        // N300 has external cables on channels 8-9 on MMIO chips and channels 0-1 on non-MMIO chips.
         auto mmio_device_id = cluster_descriptor->get_closest_mmio_capable_chip(chip_id);
         if (mmio_device_id == chip_id) {
             return (chan != 8 and chan != 9);
@@ -122,10 +134,10 @@ std::string get_connector_str(
             str << "LK1 trace";
             break;
         case ConnectorType::LK2:
-            str << "LK1 trace";
+            str << "LK2 trace";
             break;
         case ConnectorType::LK3:
-            str << "LK1 trace";
+            str << "LK3 trace";
             break;
     }
     str << ")";
@@ -135,7 +147,7 @@ std::string get_connector_str(
 int main(int argc, char* argv[]) {
     cxxopts::Options options("system_health", "A tool that reports system health.");
 
-    options.add_options()("f,path", "File path to save cluster descriptor to.");
+    options.add_options()("f,path", "File path to save cluster descriptor to.")("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
 
@@ -144,7 +156,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::string cluster_descriptor_path = "";
+    std::string cluster_descriptor_path;
     if (result.count("path")) {
         cluster_descriptor_path = result["path"].as<std::string>();
     }
@@ -159,7 +171,7 @@ int main(int argc, char* argv[]) {
     std::vector<std::uint32_t> read_vec;
 
     if (unique_chip_ids.empty()) {
-        // Temporary patch to workaround unique chip ids not being set for non-6U systems
+        // Temporary patch to workaround unique chip ids not being set for non-6U systems.
         for (const auto& chip_id : cluster->get_target_device_ids()) {
             unique_chip_ids[chip_id] = chip_id;
         }
@@ -185,13 +197,10 @@ int main(int argc, char* argv[]) {
 
             std::stringstream eth_ss;
 
-            read_vec.resize(sizeof(uint32_t) / sizeof(uint32_t));
+            read_vec.resize(1);
             static constexpr std::uint32_t RETRAIN_COUNT_ADDR = 0x1EDC;  // wormhole
             cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
-
-            const bool is_external_cable =
-                check_if_external_cable_is_used(cluster_descriptor, board_type, chip_id, unique_chip_id, chan);
 
             std::string connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);
             if (cluster_descriptor->ethernet_core_has_active_ethernet_link(chip_id, chan)) {

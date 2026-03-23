@@ -1,12 +1,12 @@
-/*
- * SPDX-FileCopyrightText: (c) 2024 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/types/xy_pair.hpp"
 
 #include <fmt/core.h>
+
+#include <string>
 
 namespace tt {
 

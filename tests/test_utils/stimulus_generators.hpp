@@ -1,8 +1,7 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 #include <gtest/gtest.h>
 
@@ -11,6 +10,7 @@
 #include <iostream>
 #include <map>
 #include <random>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -54,8 +54,8 @@ public:
     ConstrainedTemplateTemplateGenerator(
         int seed,
         DISTRIBUTION_T<UNCONSTRAINED_SAMPLE_T> const& distribution,
-        std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
-        generator(seed), distribution(distribution), constrain(constrain) {}
+        std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)>&& constrain) :
+        generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
         auto sample = distribution(generator);
@@ -72,8 +72,8 @@ template <typename SAMPLE_T, typename UNCONSTRAINED_SAMPLE_T, class DISTRIBUTION
 class ConstrainedTemplateGenerator {
 public:
     ConstrainedTemplateGenerator(
-        int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)> constrain) :
-        generator(seed), distribution(distribution), constrain(constrain) {}
+        int seed, DISTRIBUTION_T const& distribution, std::function<SAMPLE_T(UNCONSTRAINED_SAMPLE_T)>&& constrain) :
+        generator(seed), distribution(distribution), constrain(std::move(constrain)) {}
 
     SAMPLE_T generate() {
         auto sample = distribution(generator);
@@ -261,7 +261,7 @@ template <
 
     typename GENERATOR_T = std::mt19937>
 class TestGenerator {
-    // ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;
+    // ConstrainedTemplateTemplateGenerator<RemoteTransferType, int, TRANS_TYPE_DISTRIBUTION_T, GENERATOR_T>;.
     using transfer_type_generator_t = DefaultTransferTypeGenerator;
     using write_command_generator_t =
         WriteCommandGenerator<WRITE_DEST_DISTR_T, WRITE_ADDR_DISTR_T, WRITE_SIZE_DISTR_OUT_T, WRITE_SIZE_DISTR_T>;
@@ -279,9 +279,9 @@ public:
         write_command_generator(write_command_generator),
         read_command_generator(read_command_generator) {}
 
-    // Generate a sample (transfer type, size, chip, destination, address) based on custom distributions
+    // Generate a sample (transfer type, size, chip, destination, address) based on custom distributions.
     remote_transfer_sample_t generate_sample() {
-        // Randomly select a transfer type
+        // Randomly select a transfer type.
         RemoteTransferType transfer_type = transfer_type_distribution.generate();
         assert(transfer_type < 4 && transfer_type >= 0);
         switch (transfer_type) {
@@ -362,7 +362,7 @@ static inline std::vector<destination_t> generate_core_index_locations(
 }
 
 // Add a default test harness that can be invoked with custom distributions only.
-static void print_command(remote_transfer_sample_t const& command) {
+static inline void print_command(remote_transfer_sample_t const& command) {
     RemoteTransferType transfer_type = std::get<0>(command);
     switch (transfer_type) {
         case RemoteTransferType::WRITE: {
@@ -389,7 +389,6 @@ int bytes_to_words(int num_bytes) {
 
 static inline void dispatch_remote_transfer_command(
     Cluster& driver, remote_transfer_sample_t const& command, std::vector<uint32_t>& payload) {
-    RemoteTransferType transfer_type = std::get<0>(command);
     auto resize_payload = [](std::vector<uint32_t>& payload, int size_in_bytes) {
         payload.resize(bytes_to_words<uint32_t>(size_in_bytes));
     };
@@ -464,7 +463,7 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
     std::cout << std::endl;
 }
 
-static void print_command_history_executable_code(std::vector<remote_transfer_sample_t> const& command_history) {
+static inline void print_command_history_executable_code(std::vector<remote_transfer_sample_t> const& command_history) {
     std::cout << "std::vector<uint32_t> payload;" << std::endl;
     for (remote_transfer_sample_t const& command : command_history) {
         print_command_executable_code(command);
@@ -515,7 +514,7 @@ void RunMixedTransfers(
 
     if (record_command_history) {
         assert(command_history != nullptr);
-        assert(command_history->size() == 0);  // only support passing in empty command histories
+        assert(command_history->empty());  // only support passing in empty command histories
         command_history->reserve(num_samples);
     }
     std::vector<uint32_t> payload = {};
@@ -525,7 +524,6 @@ void RunMixedTransfers(
             command_history->push_back(sample);
         }
 
-        RemoteTransferType transfer_type = std::get<0>(sample);
         if (record_command_history) {
             print_command_executable_code(sample);
         } else {
@@ -538,14 +536,14 @@ void RunMixedTransfers(
     }
 }
 
-static ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>
+static inline ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>
 get_default_address_generator(int seed, address_t start, address_t end) {
     auto const& address_distribution = std::uniform_int_distribution<address_t>(start, end);
     return ConstrainedTemplateTemplateGenerator<address_t, address_t, std::uniform_int_distribution>(
         seed + 1, address_distribution, address_aligner);
 }
 
-static ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>
+static inline ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>
 get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
     assert(cluster != nullptr);
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
@@ -558,7 +556,7 @@ get_default_full_dram_dest_generator(int seed, Cluster* cluster) {
         [core_index_to_location](int dest) -> destination_t { return core_index_to_location.at(dest); });
 }
 
-static WriteCommandGenerator<
+static inline WriteCommandGenerator<
     std::uniform_int_distribution,
     std::uniform_int_distribution,
     transfer_size_t,
@@ -583,7 +581,7 @@ build_dummy_write_command_generator(Cluster& cluster) {
     return WriteCommandGenerator(dest_generator, addr_generator, write_size_generator);
 }
 
-static ReadCommandGenerator<
+static inline ReadCommandGenerator<
     std::uniform_int_distribution,
     std::uniform_int_distribution,
     transfer_size_t,

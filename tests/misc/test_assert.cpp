@@ -1,12 +1,15 @@
-/*
- * SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
 #include <gtest/gtest.h>
 
+#include <functional>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "assert.hpp"
 
@@ -29,7 +32,7 @@ struct UnformattableType {
         return os << "UnformattableType(" << obj.value << ")";
     }
 
-    // Note: No fmt::formatter specialization - this makes it unformattable by fmt
+    // Note: No fmt::formatter specialization - this makes it unformattable by fmt.
 };
 
 TEST(Assert, AssertMessage) {
@@ -139,7 +142,7 @@ TEST(Assert, UnformattableTypes) {
 }
 
 TEST(Assert, MismatchedPlaceholders) {
-    // Test cases where placeholder count doesn't match parameter count
+    // Test cases where placeholder count doesn't match parameter count.
 
     {
         std::stringstream output;

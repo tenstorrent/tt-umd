@@ -1,8 +1,6 @@
-/*
- * SPDX-FileCopyrightText: (c) 2023 Tenstorrent Inc.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: © 2023 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
@@ -59,7 +57,7 @@ enum class arc_message_type {
     DEASSERT_RISCV_RESET = 0xba
 };
 
-// DEVICE_DATA
+// DEVICE_DATA.
 inline constexpr tt_xy_pair GRID_SIZE = {17, 12};
 // Vectors for mapping NOC0 x and y coordinates to NOC1 x and y coordinates.
 // NOC0_X_TO_NOC1_X[noc0_x] is the NOC1 x coordinate corresponding to NOC0 x coordinate noc0_x.
@@ -153,13 +151,13 @@ static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
 // We are using P0 on the NOC for all L2CPU cores.
 static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 3}, {8, 5}, {8, 7}, {8, 9}};
 
-// Return to std::array instead of std::vector once we get std::span support in C++20
+// Return to std::array instead of std::vector once we get std::span support in C++20.
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 static const std::vector<uint32_t> HARVESTING_NOC_LOCATIONS = {1, 16, 2, 15, 3, 14, 4, 13, 5, 12, 6, 11, 7, 10};
 static const std::vector<uint32_t> LOGICAL_HARVESTING_LAYOUT = {0, 2, 4, 6, 8, 10, 12, 13, 11, 9, 7, 5, 3, 1};
 
-inline constexpr uint32_t STATIC_TLB_SIZE = 1024 * 1024;  // TODO: Copied from wormhole. Need to verify.
+inline constexpr uint32_t STATIC_TLB_SIZE = 2 * 1024 * 1024;  // 2MB
 
 inline constexpr xy_pair BROADCAST_LOCATION = {0, 0};  // TODO: Copied from wormhole. Need to verify.
 inline constexpr uint32_t BROADCAST_TLB_INDEX = 0;     // TODO: Copied from wormhole. Need to verify.
@@ -188,7 +186,7 @@ inline constexpr uint32_t DYNAMIC_TLB_2M_BASE = TLB_BASE_2M;
 
 // REG_TLB for dynamic writes to registers. They are aligned with the kernel driver's WC/UC split.  But kernel driver
 // uses different TLB's for these.
-// Revisit for BH
+// Revisit for BH.
 inline constexpr unsigned int REG_TLB = TLB_BASE_INDEX_2M + 191;
 
 inline constexpr uint32_t DYNAMIC_TLB_BASE_INDEX = TLB_BASE_INDEX_2M + 180;
@@ -203,15 +201,15 @@ inline constexpr uint32_t DRAM_CHANNEL_0_PEER2PEER_REGION_START = 0x30000000;  /
 inline constexpr uint32_t GRID_SIZE_X = 17;
 inline constexpr uint32_t GRID_SIZE_Y = 12;
 
-// AXI Resets accessed through TLB
+// AXI Resets accessed through TLB.
 inline constexpr uint32_t TENSIX_SM_TLB_INDEX = 188;
 inline constexpr uint32_t AXI_RESET_OFFSET = TLB_BASE_2M + TENSIX_SM_TLB_INDEX * TLB_2M_SIZE;
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = AXI_RESET_OFFSET + 0x0100;
 
-// Computed this value from AXI_RESET_OFFSET
+// Computed this value from AXI_RESET_OFFSET.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 
-// MT: This is no longer valid for Blackhole. Review messages to ARC
+// MT: This is no longer valid for Blackhole. Review messages to ARC.
 inline constexpr uint32_t ARC_CSM_OFFSET = 0x1FE80000;
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = ARC_CSM_OFFSET + 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = ARC_CSM_OFFSET + 0x784C4;
@@ -245,11 +243,13 @@ inline constexpr uint32_t ARC_QUEUE_ENTRY_SIZE = 32;
 // ARC firmware interrupt address and value to write in order
 // to make an interrupt request.
 inline constexpr uint32_t ARC_FW_INT_ADDR = ARC_RESET_UNIT_OFFSET + 0x100;
-constexpr uint32_t ARC_FW_INT_VAL = 65536;
+inline constexpr uint32_t ARC_FW_INT_VAL = 65536;
 
 inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
+inline constexpr uint32_t SCRATCH_RAM_0 = ARC_RESET_UNIT_OFFSET + 0x400;
 inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
+inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
@@ -286,6 +286,8 @@ inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_A
      {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;
+inline constexpr uint64_t NOC_ID_TRANSLATED_OFFSET =
+    0x148;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 inline constexpr size_t eth_translated_coordinate_start_x = 20;
 inline constexpr size_t eth_translated_coordinate_start_y = 25;
@@ -304,9 +306,14 @@ inline constexpr uint32_t SOFT_RESET_TRISC2 = 1 << 14;
 inline constexpr uint32_t SOFT_RESET_NCRISC = 1 << 18;
 inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 
+// ETH related constants.
+inline constexpr uint64_t ETH_FW_MAJOR_ADDR = 0x7CFBE;
+inline constexpr uint64_t ETH_FW_MINOR_ADDR = 0x7CFBD;
+inline constexpr uint64_t ETH_FW_PATCH_ADDR = 0x7CFBC;
+
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
-tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool umd_use_noc1);
+tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
 
 }  // namespace blackhole
 
@@ -370,6 +377,8 @@ public:
 
     uint32_t get_dram_banks_number() const override { return blackhole::NUM_DRAM_BANKS; }
 
+    uint32_t get_aiclk_busy_val() const override { return blackhole::AICLK_BUSY_VAL; }
+
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return blackhole::DYNAMIC_TLB_2M_BASE; }
@@ -396,10 +405,6 @@ public:
     uint32_t get_mem_large_write_tlb() const override { return blackhole::MEM_LARGE_WRITE_TLB; }
 
     uint32_t get_num_eth_channels() const override { return blackhole::NUM_ETH_CHANNELS; }
-
-    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
-
-    uint32_t get_static_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
 
     uint32_t get_read_checking_offset() const override { return blackhole::BH_NOC_NODE_ID_OFFSET; }
 
@@ -454,19 +459,32 @@ public:
         return {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G};
     }
 
+    const std::vector<size_t>& get_tlb_sizes() const override {
+        static constexpr uint32_t one_mb = 1 << 20;
+        static constexpr size_t one_gb = 1024ULL * one_mb;
+        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
+        return tlb_sizes;
+    }
+
     std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
     tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
+
+    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
+
+    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
     DriverHostAddressParams get_host_address_params() const override;
     DriverEthInterfaceParams get_eth_interface_params() const override;
     DriverNocParams get_noc_params() const override;
 
-    virtual uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
+    uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return blackhole::NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
-    size_t get_cached_tlb_size() const override { return 1 << 21; }  // 2MB
+    size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return false; }  // False due to a known HW issue.
 };

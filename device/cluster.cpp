@@ -242,11 +242,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 }
 
 SocDescriptor Cluster::construct_soc_descriptor(
-    const std::string& soc_desc_path,
-    ChipId chip_id,
-    ChipType chip_type,
-    ClusterDescriptor* cluster_desc,
-    bool perform_harvesting) {
+    const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc) {
     bool chip_in_cluster_descriptor =
         cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end();
 
@@ -261,9 +257,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
     if (chip_in_cluster_descriptor) {
         chip_info.noc_translation_enabled = cluster_desc->get_noc_translation_table_en().at(chip_id);
         chip_info.harvesting_masks = HarvestingMasks{};
-        if (perform_harvesting) {
-            chip_info.harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
-        }
+        chip_info.harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
         chip_info.board_type = cluster_desc->get_board_type(chip_id);
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
@@ -368,8 +362,8 @@ Cluster::Cluster(ClusterOptions options) {
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        SocDescriptor soc_desc = construct_soc_descriptor(
-            options.sdesc_path, chip_id, options.chip_type, cluster_desc.get(), options.perform_harvesting);
+        SocDescriptor soc_desc =
+            construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
 
         add_chip(
             chip_id,

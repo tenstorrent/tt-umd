@@ -66,7 +66,6 @@ TEST(SiliconDriverWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         Cluster cluster(ClusterOptions{
-            .perform_harvesting = false,
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
     }
@@ -75,7 +74,6 @@ TEST(SiliconDriverWH, CreateDestroy) {
 TEST(SiliconDriverWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     Cluster cluster(ClusterOptions{
-        .perform_harvesting = false,
         .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
     });
     for (const auto& chip : cluster.get_target_device_ids()) {

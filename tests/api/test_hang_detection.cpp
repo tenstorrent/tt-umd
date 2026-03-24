@@ -57,9 +57,7 @@ protected:
     }
 
     // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
-    uint32_t hang_pcie(tt_xy_pair pcie_core, NocId noc = NocId::NOC0) {
-        return 0;
-    }
+    uint32_t hang_pcie(tt_xy_pair pcie_core, NocId noc = NocId::NOC0) { return 0; }
 
     uint32_t read_hang_check_reg_via_noc(NocId noc = NocId::NOC0) {
         const auto* arch_impl = tt_device_->get_architecture_implementation();

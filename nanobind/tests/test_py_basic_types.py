@@ -54,7 +54,9 @@ class TestBasicTypes(unittest.TestCase):
             | tt_umd.TensixSoftResetOptions.TRISC1
             | tt_umd.TensixSoftResetOptions.TRISC2
         )
-        self.assertEqual(int(combined), int(tt_umd.TensixSoftResetOptions.ALL_TRISC_SOFT_RESET))
+        self.assertEqual(
+            int(combined), int(tt_umd.TensixSoftResetOptions.ALL_TRISC_SOFT_RESET)
+        )
 
     def test_tensix_soft_reset_options_invert(self):
         inverted = ~tt_umd.TensixSoftResetOptions.BRISC

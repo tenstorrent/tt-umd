@@ -221,31 +221,28 @@ CoreCoord SocDescriptor::translate_coord_to(
 }
 
 tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the is_selected_noc1() flag.
-    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
-    if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
-        // ROUTER_ONLY cores via NOC1: the node_id register returns NOC1 coordinates,
-        // so we need a direct NOC1 -> TRANSLATED mapping. The standard TRANSLATED mapping
-        // doesn't account for NOC1 coordinate space for router cores.
-        if (core.core_type == CoreType::ROUTER_ONLY && is_selected_noc1()) {
-            CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
-            tt_xy_pair noc1_xy(noc1_core.x, noc1_core.y);
-            return ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(noc1_xy);
-        }
-        return translate_coord_to(core, CoordSystem::TRANSLATED);
+    if (!noc_translation_enabled) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    }
+
+    // ROUTER_ONLY cores via NOC1: the node_id register returns NOC1 coordinates,
+    // so we need a direct NOC1 -> TRANSLATED mapping. The standard TRANSLATED mapping
+    // doesn't account for NOC1 coordinate space for router cores.
+    if ((arch == tt::ARCH::BLACKHOLE) && (core.core_type == CoreType::ROUTER_ONLY) && is_selected_noc1()) {
+        CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
+        tt_xy_pair noc1_xy(noc1_core.x, noc1_core.y);
+        return ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(noc1_xy);
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
     // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
-    if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
+    if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    return translate_coord_to(core, CoordSystem::TRANSLATED);
 }
 
 // Convenience wrapper around translate_chip_coord_to_translated that returns a CoreCoord

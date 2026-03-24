@@ -70,6 +70,8 @@ void bind_basic_types(nb::module_ &m) {
         .value("TRISC1", RiscType::TRISC1)
         .value("TRISC2", RiscType::TRISC2)
         .value("NCRISC", RiscType::NCRISC)
+        .value("ERISC0", RiscType::ERISC0)
+        .value("ERISC1", RiscType::ERISC1)
         .value("ALL_TENSIX_TRISCS", RiscType::ALL_TENSIX_TRISCS)
         .value("ALL_TENSIX_DMS", RiscType::ALL_TENSIX_DMS)
         .value("ALL_TENSIX", RiscType::ALL_TENSIX)
@@ -108,7 +110,7 @@ void bind_basic_types(nb::module_ &m) {
         .def("__str__", [](RiscType rt) { return RiscTypeToString(rt); })
         .def("__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; })
         .def("__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; })
-        .def("__invert__", [](RiscType rt) { return ~rt; });
+        .def("__invert__", [](RiscType rt) { return invert_selected_options(rt); });
 
     nb::enum_<TensixSoftResetOptions>(m, "TensixSoftResetOptions")
         .value("NONE", TensixSoftResetOptions::NONE)
@@ -127,7 +129,7 @@ void bind_basic_types(nb::module_ &m) {
         .def("__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); })
         .def("__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; })
         .def("__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; })
-        .def("__invert__", [](TensixSoftResetOptions opt) { return ~opt; });
+        .def("__invert__", [](TensixSoftResetOptions opt) { return invert_selected_options(opt); });
 
     nb::enum_<tt::BoardType>(m, "BoardType")
         .value("E75", tt::BoardType::E75)

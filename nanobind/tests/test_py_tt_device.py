@@ -312,6 +312,31 @@ class TestTTDevice(unittest.TestCase):
         tt_umd.set_thread_noc_id(tt_umd.NocId.NOC0)
         print("Set thread NocId back to NOC0")
 
+    def test_get_risc_reset_state(self):
+        """Test get_risc_reset_state returns a valid uint32 value."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found. Skipping test.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.init_tt_device()
+
+            soc_descriptor = tt_umd.SocDescriptor(dev)
+            tensix_core = soc_descriptor.get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+            )[0]
+
+            state = dev.get_risc_reset_state(tensix_core.x, tensix_core.y)
+            self.assertIsInstance(state, int)
+            self.assertGreaterEqual(state, 0)
+            self.assertLessEqual(state, 0xFFFFFFFF)
+            print(
+                f"Device {pci_id} core ({tensix_core.x},{tensix_core.y}) "
+                f"risc reset state: 0x{state:08x}"
+            )
+
     def test_sigbus_exception_type_binding(self):
         """
         Verifies that the C++ SigbusError is correctly mapped to a Python type

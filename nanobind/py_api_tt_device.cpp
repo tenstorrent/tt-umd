@@ -248,7 +248,8 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
-            "Get the soft reset state for a core in translated coordinates")
+            "Get the raw soft reset register value for a core in translated coordinates. "
+            "The returned uint32_t is a bitmask of TensixSoftResetOptions bits.")
         .def(
             "set_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint32_t risc_flags) -> void {
@@ -258,7 +259,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("risc_flags"),
-            "Set the soft reset state for a core in translated coordinates")
+            "Set the raw soft reset register value for a core in translated coordinates. "
+            "risc_flags is a bitmask of TensixSoftResetOptions bits.")
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
@@ -462,13 +464,8 @@ void bind_tt_device(nb::module_ &m) {
                 &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
             nb::arg("soft_resets"),
-            "Send a Tensix RISC reset with specific soft reset options for a single core.")
-        .def(
-            "send_tensix_risc_reset_all_cores",
-            static_cast<void (RtlSimulationTTDevice::*)(const TensixSoftResetOptions &)>(
-                &RtlSimulationTTDevice::send_tensix_risc_reset),
-            nb::arg("soft_resets"),
-            "Send a Tensix RISC reset with specific soft reset options to all tensix cores.")
+            "Send a Tensix RISC reset with specific soft reset options for a single core. "
+            "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
         .def(
             "assert_risc_reset",
             [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {

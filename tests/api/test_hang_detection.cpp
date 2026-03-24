@@ -51,14 +51,13 @@ protected:
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
     }
 
+    // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
     uint32_t read_hang_check_reg_via_bar() {
         return tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
     }
 
+    // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
     uint32_t hang_pcie(tt_xy_pair pcie_core, NocId noc = NocId::NOC0) {
-        // uint32_t hang_read_value = 0;
-        // tt_device_->read_from_device(&hang_read_value, pcie_core, pcie_hang_addr(tt_device_->get_arch()),
-        // sizeof(hang_read_value));
         return 0;
     }
 
@@ -107,6 +106,7 @@ protected:
     }
 
 private:
+    // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
     uint64_t pcie_hang_addr(tt::ARCH arch) {
         switch (arch) {
             case tt::ARCH::WORMHOLE_B0:
@@ -212,6 +212,7 @@ TEST_P(NocHangDetectionTest, TestIsNocHungAPI) {
     EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() still true after warm reset.";
 }
 
+// TODO: Disabled, will be implemented when a heuristic for hanging the PCIe tile is found.
 TEST_F(HangDetectionTest, DISABLED_TestDeviceHangDetection) {
     ASSERT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() returned true before any hang.";
 

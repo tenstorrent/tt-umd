@@ -726,7 +726,6 @@ private:
         bool perform_harvesting);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
-    HarvestingMasks get_harvesting_masks(ChipId chip_id, ClusterDescriptor* cluster_desc, bool perform_harvesting);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     // State variables.

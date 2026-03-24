@@ -66,6 +66,7 @@
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
@@ -259,7 +260,10 @@ SocDescriptor Cluster::construct_soc_descriptor(
     ChipInfo chip_info;
     if (chip_in_cluster_descriptor) {
         chip_info.noc_translation_enabled = cluster_desc->get_noc_translation_table_en().at(chip_id);
-        chip_info.harvesting_masks = get_harvesting_masks(chip_id, cluster_desc, perform_harvesting);
+        chip_info.harvesting_masks = HarvestingMasks{};
+        if (perform_harvesting) {
+            chip_info.harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
+        }
         chip_info.board_type = cluster_desc->get_board_type(chip_id);
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
@@ -299,27 +303,6 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         remote_chip_ids_.insert(chip_id);
     }
     chips_.emplace(chip_id, std::move(chip));
-}
-
-HarvestingMasks Cluster::get_harvesting_masks(
-    ChipId chip_id, ClusterDescriptor* cluster_desc, bool perform_harvesting) {
-    if (!perform_harvesting) {
-        log_info(LogUMD, "Skipping harvesting for chip {}.", chip_id);
-        return HarvestingMasks{};
-    }
-
-    HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
-    log_info(
-        LogUMD,
-        "Harvesting masks for chip {} tensix: {:#x} dram: {:#x} eth: {:#x} pcie: {:#x} l2cpu: {:#x}",
-        chip_id,
-        cluster_harvesting_masks.tensix_harvesting_mask,
-        cluster_harvesting_masks.dram_harvesting_mask,
-        cluster_harvesting_masks.eth_harvesting_mask,
-        cluster_harvesting_masks.pcie_harvesting_mask,
-        cluster_harvesting_masks.l2cpu_harvesting_mask);
-
-    return cluster_harvesting_masks;
 }
 
 Cluster::Cluster(ClusterOptions options) {

@@ -405,14 +405,13 @@ bool BlackholeTTDevice::is_hardware_hung() {
     return (node_id == HANG_READ_VALUE);
 }
 
-uint32_t BlackholeTTDevice::read_hang_check_reg_via_noc(NocId noc) {
+uint32_t BlackholeTTDevice::read_hang_check_reg_via_noc() {
     SocDescriptor soc_desc(get_arch(), get_chip_info());
     tt_xy_pair pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
-    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(get_selected_noc_id())) +
                     architecture_impl_->get_noc_node_id_offset();
 
     uint32_t value = 0;
-    NocIdSwitcher switcher(noc);
     read_from_device(&value, pcie_core, addr, sizeof(value));
     return value;
 }

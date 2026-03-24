@@ -86,8 +86,8 @@ bool RemoteWormholeTTDevice::is_hardware_hung() {
     return remote_communication_->get_local_device()->is_hardware_hung();
 }
 
-uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc(NocId noc) {
-    return remote_communication_->get_local_device()->read_hang_check_reg_via_noc(noc);
+uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc() {
+    return remote_communication_->get_local_device()->read_hang_check_reg_via_noc();
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(

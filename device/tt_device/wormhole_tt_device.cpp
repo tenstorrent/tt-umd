@@ -574,14 +574,13 @@ bool WormholeTTDevice::is_hardware_hung() {
     return (scratch_data == HANG_READ_VALUE);
 }
 
-uint32_t WormholeTTDevice::read_hang_check_reg_via_noc(NocId noc) {
+uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {
     SocDescriptor soc_desc(get_arch(), get_chip_info());
     tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
     uint64_t addr =
         architecture_impl_->get_arc_apb_noc_base_address() + architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4;
 
     uint32_t value = 0;
-    NocIdSwitcher switcher(noc);
     read_from_device(&value, arc_core, addr, sizeof(value));
     return value;
 }

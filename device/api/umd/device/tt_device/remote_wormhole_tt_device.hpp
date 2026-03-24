@@ -41,7 +41,7 @@ public:
      * so hang detection is done via the local TTDevice used by RemoteCommunication.
      */
     bool is_hardware_hung() override;
-    uint32_t read_hang_check_reg_via_noc(NocId noc) override;
+    uint32_t read_hang_check_reg_via_noc() override;
 
     void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
 

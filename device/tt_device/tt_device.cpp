@@ -174,8 +174,8 @@ bool TTDevice::is_noc_hung(NocId noc) {
     if (communication_device_type_ == IODeviceType::JTAG) {
         TT_THROW("is_noc_hung is not applicable for JTAG communication type.");
     }
-
-    return (read_hang_check_reg_via_noc(noc) == HANG_READ_VALUE);
+    NocIdSwitcher switcher(noc);
+    return (read_hang_check_reg_via_noc() == HANG_READ_VALUE);
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

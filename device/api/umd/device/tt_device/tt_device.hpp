@@ -79,7 +79,7 @@ public:
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
     bool is_noc_hung(NocId noc);
-    virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
+    virtual uint32_t read_hang_check_reg_via_noc() = 0;
 
     /**
      * DMA transfer from device to host.

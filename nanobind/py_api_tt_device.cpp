@@ -249,18 +249,18 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_x"),
             nb::arg("core_y"),
             "Get the raw soft reset register value for a core in translated coordinates. "
-            "The returned uint32_t is a bitmask of TensixSoftResetOptions bits.")
+            "The bit layout of this value corresponds to TensixSoftResetOptions.")
         .def(
             "set_risc_reset_state",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint32_t risc_flags) -> void {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint32_t soft_reset_raw_value) -> void {
                 tt_xy_pair core = {core_x, core_y};
-                self.set_risc_reset_state(core, risc_flags);
+                self.set_risc_reset_state(core, soft_reset_raw_value);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
-            nb::arg("risc_flags"),
+            nb::arg("soft_reset_raw_value"),
             "Set the raw soft reset register value for a core in translated coordinates. "
-            "risc_flags is a bitmask of TensixSoftResetOptions bits.")
+            "The bit layout of this value corresponds to TensixSoftResetOptions; do not pass RiscType bits here.")
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {

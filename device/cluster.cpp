@@ -268,6 +268,16 @@ SocDescriptor Cluster::construct_soc_descriptor(
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
 
+    log_info(
+        LogUMD,
+        "Harvesting masks for Chip {}: Tensix: {:#x} DRAM: {:#x} ETH: {:#x} PCIe: {:#x} L2CPU: {:#x}",
+        chip_id,
+        chip_info.harvesting_masks.tensix_harvesting_mask,
+        chip_info.harvesting_masks.dram_harvesting_mask,
+        chip_info.harvesting_masks.eth_harvesting_mask,
+        chip_info.harvesting_masks.pcie_harvesting_mask,
+        chip_info.harvesting_masks.l2cpu_harvesting_mask);
+
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 

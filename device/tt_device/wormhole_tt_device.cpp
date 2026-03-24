@@ -567,9 +567,9 @@ bool WormholeTTDevice::is_hardware_hung() {
         TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
-    uint32_t scratch_data = bar_read32(get_architecture_implementation()->get_read_checking_offset());
+    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
-    return (scratch_data == HANG_READ_VALUE);
+    return (node_id == HANG_READ_VALUE);
 }
 
 uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {

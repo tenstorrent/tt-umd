@@ -25,7 +25,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {
         // We need to set this default harvesting mask for Blackhole so we could create SocDescriptor.
-        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used
+        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used.
         // without creating ClusterDescriptor, so we need to add it here as well.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }

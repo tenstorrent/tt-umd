@@ -29,7 +29,12 @@ protected:
             GTEST_SKIP() << "TT_UMD_SIMULATOR is not set. Skipping TTSim device IO tests.";
         }
         auto device = create_simulation_tt_device(simulator_path);
-        tt_device.reset(dynamic_cast<TTSimTTDevice*>(device.release()));
+        auto* sim_device = dynamic_cast<TTSimTTDevice*>(device.get());
+        if (sim_device == nullptr) {
+            GTEST_SKIP() << "TT_UMD_SIMULATOR does not point to a TTSimTTDevice. Skipping TTSim device IO tests.";
+        }
+        tt_device.reset(sim_device);
+        device.release();
         tt_device->start_device();
     }
 

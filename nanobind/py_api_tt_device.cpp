@@ -422,8 +422,7 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    // Add simulation factory to TTDevice - must be inside TT_UMD_BUILD_SIMULATION guard
-    // since it links against simulation code.
+    // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
         "create_simulation_tt_device",
         &create_simulation_tt_device,

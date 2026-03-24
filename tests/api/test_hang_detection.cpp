@@ -57,7 +57,8 @@ protected:
 
     uint32_t hang_pcie(tt_xy_pair pcie_core, NocId noc = NocId::NOC0) {
         // uint32_t hang_read_value = 0;
-        // tt_device_->read_from_device(&hang_read_value, pcie_core, pcie_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+        // tt_device_->read_from_device(&hang_read_value, pcie_core, pcie_hang_addr(tt_device_->get_arch()),
+        // sizeof(hang_read_value));
         return 0;
     }
 
@@ -87,7 +88,8 @@ protected:
             tt_device_->set_risc_reset_state(tensix_core, static_cast<uint32_t>(TENSIX_ASSERT_SOFT_RESET));
         }
         NocIdSwitcher switcher(noc);
-        tt_device_->read_from_device(&hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+        tt_device_->read_from_device(
+            &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
         return hang_read_value;
     }
 
@@ -106,7 +108,7 @@ protected:
 
 private:
     uint64_t pcie_hang_addr(tt::ARCH arch) {
-        switch(arch) {
+        switch (arch) {
             case tt::ARCH::WORMHOLE_B0:
                 return 1;
             case tt::ARCH::BLACKHOLE:
@@ -117,7 +119,7 @@ private:
     }
 
     uint64_t noc_hang_addr(tt::ARCH arch) {
-        switch(arch) {
+        switch (arch) {
             case tt::ARCH::WORMHOLE_B0:
                 return WH_NOC_HANG_ADDR;
             case tt::ARCH::BLACKHOLE:

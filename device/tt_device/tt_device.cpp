@@ -17,6 +17,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -76,6 +77,7 @@ void TTDevice::probe_arc() {
 }
 
 TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
+    ZoneScopedNC("TTDevice::init_tt_device", tracy::Color::DarkGreen);
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
         if (throw_on_arc_failure) {
@@ -104,6 +106,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number, IODeviceType device_type, bool use_safe_api) {
+    ZoneScopedNC("TTDevice::create", tracy::Color::DarkGreen);
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();

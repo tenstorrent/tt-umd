@@ -220,7 +220,7 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
-static const uint32_t BH_BAR_PCIE_NOC_NODE_ID_OFFSET = 0x1FD04044;
+inline constexpr uint32_t BH_BAR_PCIE_NOC_NODE_ID_OFFSET = 0x1FD04044;
 
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 

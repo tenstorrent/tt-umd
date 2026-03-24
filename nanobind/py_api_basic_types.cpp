@@ -118,18 +118,16 @@ void bind_basic_types(nb::module_ &m) {
         .value("TRISC2", TensixSoftResetOptions::TRISC2)
         .value("NCRISC", TensixSoftResetOptions::NCRISC)
         .value("STAGGERED_START", TensixSoftResetOptions::STAGGERED_START)
+        .value("ALL_TRISC_SOFT_RESET", ALL_TRISC_SOFT_RESET)
+        .value("ALL_TENSIX_SOFT_RESET", ALL_TENSIX_SOFT_RESET)
+        .value("TENSIX_ASSERT_SOFT_RESET", TENSIX_ASSERT_SOFT_RESET)
+        .value("TENSIX_DEASSERT_SOFT_RESET", TENSIX_DEASSERT_SOFT_RESET)
+        .value("TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER", TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER)
         .def("__int__", [](TensixSoftResetOptions opt) { return static_cast<uint32_t>(opt); })
         .def("__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); })
         .def("__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; })
         .def("__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; })
         .def("__invert__", [](TensixSoftResetOptions opt) { return ~opt; });
-
-    // Pre-defined TensixSoftResetOptions constants.
-    m.attr("ALL_TRISC_SOFT_RESET") = ALL_TRISC_SOFT_RESET;
-    m.attr("ALL_TENSIX_SOFT_RESET") = ALL_TENSIX_SOFT_RESET;
-    m.attr("TENSIX_ASSERT_SOFT_RESET") = TENSIX_ASSERT_SOFT_RESET;
-    m.attr("TENSIX_DEASSERT_SOFT_RESET") = TENSIX_DEASSERT_SOFT_RESET;
-    m.attr("TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER") = TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER;
 
     nb::enum_<tt::BoardType>(m, "BoardType")
         .value("E75", tt::BoardType::E75)

@@ -10,6 +10,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -57,6 +58,56 @@ void bind_basic_types(nb::module_ &m) {
         .def("__str__", &tt::arch_to_str)
         .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
         .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"));
+
+    nb::enum_<RiscType>(m, "RiscType")
+        .value("NONE", RiscType::NONE)
+        .value("ALL", RiscType::ALL)
+        .value("ALL_TRISCS", RiscType::ALL_TRISCS)
+        .value("ALL_DATA_MOVEMENT", RiscType::ALL_DATA_MOVEMENT)
+        .value("BRISC", RiscType::BRISC)
+        .value("TRISC0", RiscType::TRISC0)
+        .value("TRISC1", RiscType::TRISC1)
+        .value("TRISC2", RiscType::TRISC2)
+        .value("NCRISC", RiscType::NCRISC)
+        .value("ALL_TENSIX_TRISCS", RiscType::ALL_TENSIX_TRISCS)
+        .value("ALL_TENSIX_DMS", RiscType::ALL_TENSIX_DMS)
+        .value("ALL_TENSIX", RiscType::ALL_TENSIX)
+        .value("NEO0_TRISC0", RiscType::NEO0_TRISC0)
+        .value("NEO0_TRISC1", RiscType::NEO0_TRISC1)
+        .value("NEO0_TRISC2", RiscType::NEO0_TRISC2)
+        .value("NEO0_TRISC3", RiscType::NEO0_TRISC3)
+        .value("NEO1_TRISC0", RiscType::NEO1_TRISC0)
+        .value("NEO1_TRISC1", RiscType::NEO1_TRISC1)
+        .value("NEO1_TRISC2", RiscType::NEO1_TRISC2)
+        .value("NEO1_TRISC3", RiscType::NEO1_TRISC3)
+        .value("NEO2_TRISC0", RiscType::NEO2_TRISC0)
+        .value("NEO2_TRISC1", RiscType::NEO2_TRISC1)
+        .value("NEO2_TRISC2", RiscType::NEO2_TRISC2)
+        .value("NEO2_TRISC3", RiscType::NEO2_TRISC3)
+        .value("NEO3_TRISC0", RiscType::NEO3_TRISC0)
+        .value("NEO3_TRISC1", RiscType::NEO3_TRISC1)
+        .value("NEO3_TRISC2", RiscType::NEO3_TRISC2)
+        .value("NEO3_TRISC3", RiscType::NEO3_TRISC3)
+        .value("DM0", RiscType::DM0)
+        .value("DM1", RiscType::DM1)
+        .value("DM2", RiscType::DM2)
+        .value("DM3", RiscType::DM3)
+        .value("DM4", RiscType::DM4)
+        .value("DM5", RiscType::DM5)
+        .value("DM6", RiscType::DM6)
+        .value("DM7", RiscType::DM7)
+        .value("ALL_NEO0_TRISCS", RiscType::ALL_NEO0_TRISCS)
+        .value("ALL_NEO1_TRISCS", RiscType::ALL_NEO1_TRISCS)
+        .value("ALL_NEO2_TRISCS", RiscType::ALL_NEO2_TRISCS)
+        .value("ALL_NEO3_TRISCS", RiscType::ALL_NEO3_TRISCS)
+        .value("ALL_NEO_TRISCS", RiscType::ALL_NEO_TRISCS)
+        .value("ALL_NEO_DMS", RiscType::ALL_NEO_DMS)
+        .value("ALL_NEO", RiscType::ALL_NEO)
+        .def("__int__", [](RiscType rt) { return static_cast<uint64_t>(rt); })
+        .def("__str__", [](RiscType rt) { return RiscTypeToString(rt); })
+        .def("__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; })
+        .def("__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; })
+        .def("__invert__", [](RiscType rt) { return ~rt; });
 
     nb::enum_<tt::BoardType>(m, "BoardType")
         .value("E75", tt::BoardType::E75)

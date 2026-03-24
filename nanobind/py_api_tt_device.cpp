@@ -26,6 +26,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/exceptions.hpp"
 namespace nb = nanobind;
 
@@ -238,6 +239,25 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("data"),
             "Write a 32-bit value to the specified address on bar0")
+        .def(
+            "get_risc_reset_state",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y) -> uint32_t {
+                tt_xy_pair core = {core_x, core_y};
+                return self.get_risc_reset_state(core);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            "Get the soft reset state for a core in translated coordinates")
+        .def(
+            "set_risc_reset_state",
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint32_t risc_flags) -> void {
+                tt_xy_pair core = {core_x, core_y};
+                self.set_risc_reset_state(core, risc_flags);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("risc_flags"),
+            "Set the soft reset state for a core in translated coordinates")
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {

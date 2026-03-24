@@ -56,11 +56,11 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
         // Map to track allocations per device and per size: device_id -> (size -> (allocated, total)).
         std::map<int, std::map<size_t, std::pair<int, uint32_t>>> tlb_allocation_summary;
 
         for (int pci_device_id : PCIDevice::enumerate_devices()) {
+            std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
             auto tt_device = TTDevice::create(pci_device_id);
             tt_device->init_tt_device();
             tt::ARCH arch = tt_device->get_arch();
@@ -107,9 +107,6 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-
-            // Free TLBs before tt_device (and its PCIDevice) goes out of scope.
-            allocated_tlbs.clear();
         }
 
         log_info(tt::LogUMD, "TLB stress test completed.");

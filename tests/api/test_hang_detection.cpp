@@ -9,6 +9,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "assert.hpp"
 #include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
@@ -16,6 +17,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
@@ -53,23 +55,26 @@ protected:
         return tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
     }
 
+    uint32_t hang_pcie(tt_xy_pair pcie_core, NocId noc = NocId::NOC0) {
+        // uint32_t hang_read_value = 0;
+        // tt_device_->read_from_device(&hang_read_value, pcie_core, pcie_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+        return 0;
+    }
+
     uint32_t read_hang_check_reg_via_noc(NocId noc = NocId::NOC0) {
         const auto* arch_impl = tt_device_->get_architecture_implementation();
         uint32_t value = 0;
+        NocIdSwitcher noc_switcher(noc);
 
         if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
             tt_xy_pair arc_core = soc_desc_->get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
             uint64_t scratch6_noc_addr =
                 arch_impl->get_arc_apb_noc_base_address() + arch_impl->get_arc_reset_scratch_offset() + 6 * 4;
-
-            NocIdSwitcher noc_switcher(noc);
             tt_device_->read_from_device(&value, arc_core, scratch6_noc_addr, sizeof(value));
         } else {
             tt_xy_pair pcie_core = soc_desc_->get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
             uint64_t noc_node_id_addr = arch_impl->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
                                         arch_impl->get_noc_node_id_offset();
-
-            NocIdSwitcher noc_switcher(noc);
             tt_device_->read_from_device(&value, pcie_core, noc_node_id_addr, sizeof(value));
         }
 
@@ -78,14 +83,11 @@ protected:
 
     uint32_t hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
         uint32_t hang_read_value = 0;
-        if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            NocIdSwitcher switcher(noc);
-            tt_device_->read_from_device(&hang_read_value, tensix_core, WH_NOC_HANG_ADDR, sizeof(hang_read_value));
-        } else if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
+        if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
             tt_device_->set_risc_reset_state(tensix_core, static_cast<uint32_t>(TENSIX_ASSERT_SOFT_RESET));
-            NocIdSwitcher switcher(noc);
-            tt_device_->read_from_device(&hang_read_value, tensix_core, BH_NOC_HANG_ADDR, sizeof(hang_read_value));
         }
+        NocIdSwitcher switcher(noc);
+        tt_device_->read_from_device(&hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
         return hang_read_value;
     }
 
@@ -100,6 +102,29 @@ protected:
         cluster.reset();
 
         init_device(pci_device_id);
+    }
+
+private:
+    uint64_t pcie_hang_addr(tt::ARCH arch) {
+        switch(arch) {
+            case tt::ARCH::WORMHOLE_B0:
+                return 1;
+            case tt::ARCH::BLACKHOLE:
+                return 0;
+            default:
+                TT_THROW("Invalid architecture: {}.", arch);
+        }
+    }
+
+    uint64_t noc_hang_addr(tt::ARCH arch) {
+        switch(arch) {
+            case tt::ARCH::WORMHOLE_B0:
+                return WH_NOC_HANG_ADDR;
+            case tt::ARCH::BLACKHOLE:
+                return BH_NOC_HANG_ADDR;
+            default:
+                TT_THROW("Invalid architecture: {}.", arch);
+        }
     }
 };
 

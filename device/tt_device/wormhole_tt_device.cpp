@@ -567,9 +567,7 @@ bool WormholeTTDevice::is_hardware_hung() {
         TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
-    uint32_t scratch_data = bar_read32(
-        architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
-        6 * 4);
+    uint32_t scratch_data = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
     return (scratch_data == HANG_READ_VALUE);
 }
@@ -577,9 +575,8 @@ bool WormholeTTDevice::is_hardware_hung() {
 uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {
     SocDescriptor soc_desc(get_arch(), get_chip_info());
     tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
-    uint64_t addr =
-        architecture_impl_->get_arc_apb_noc_base_address() + architecture_impl_->get_arc_reset_scratch_offset() + 6 * 4;
-
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
+                    architecture_impl_->get_noc_node_id_offset();
     uint32_t value = 0;
     read_from_device(&value, arc_core, addr, sizeof(value));
     return value;

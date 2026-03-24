@@ -198,21 +198,17 @@ CoreCoord SocDescriptor::translate_coord_to(
 
 tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
     if (!noc_translation_enabled) {
-        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    // Wormhole-specific workaround (only when translation is enabled): For DRAM, ARC, and PCIe cores, the translated
-    // coordinate system is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC). Task to
-    // address this: https://github.com/tenstorrent/tt-umd/issues/2176.
+    // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
+    // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
+    // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
     if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the is_selected_noc1() flag.
-    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true - but they can also use TRANSLATED.
     return translate_coord_to(core, CoordSystem::TRANSLATED);
 }
 

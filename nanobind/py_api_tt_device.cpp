@@ -27,6 +27,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/exceptions.hpp"
 namespace nb = nanobind;
 
@@ -455,6 +456,42 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("translated_core"),
             nb::arg("deassert"),
             "Send a Tensix RISC reset signal to the RTL simulation device.")
+        .def(
+            "send_tensix_risc_reset_with_options",
+            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
+                &RtlSimulationTTDevice::send_tensix_risc_reset),
+            nb::arg("translated_core"),
+            nb::arg("soft_resets"),
+            "Send a Tensix RISC reset with specific soft reset options for a single core.")
+        .def(
+            "send_tensix_risc_reset_all_cores",
+            static_cast<void (RtlSimulationTTDevice::*)(const TensixSoftResetOptions &)>(
+                &RtlSimulationTTDevice::send_tensix_risc_reset),
+            nb::arg("soft_resets"),
+            "Send a Tensix RISC reset with specific soft reset options to all tensix cores.")
+        .def(
+            "assert_risc_reset",
+            [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
+                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("selected_riscs"),
+            "Assert RISC reset for selected RISC cores on a given core.")
+        .def(
+            "deassert_risc_reset",
+            [](RtlSimulationTTDevice &self,
+               uint32_t core_x,
+               uint32_t core_y,
+               RiscType selected_riscs,
+               bool staggered_start) {
+                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("selected_riscs"),
+            nb::arg("staggered_start") = false,
+            "Deassert RISC reset for selected RISC cores on a given core.")
         .def(
             "get_soc_descriptor",
             &RtlSimulationTTDevice::get_soc_descriptor,

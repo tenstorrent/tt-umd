@@ -11,6 +11,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -108,6 +109,27 @@ void bind_basic_types(nb::module_ &m) {
         .def("__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; })
         .def("__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; })
         .def("__invert__", [](RiscType rt) { return ~rt; });
+
+    nb::enum_<TensixSoftResetOptions>(m, "TensixSoftResetOptions")
+        .value("NONE", TensixSoftResetOptions::NONE)
+        .value("BRISC", TensixSoftResetOptions::BRISC)
+        .value("TRISC0", TensixSoftResetOptions::TRISC0)
+        .value("TRISC1", TensixSoftResetOptions::TRISC1)
+        .value("TRISC2", TensixSoftResetOptions::TRISC2)
+        .value("NCRISC", TensixSoftResetOptions::NCRISC)
+        .value("STAGGERED_START", TensixSoftResetOptions::STAGGERED_START)
+        .def("__int__", [](TensixSoftResetOptions opt) { return static_cast<uint32_t>(opt); })
+        .def("__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); })
+        .def("__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; })
+        .def("__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; })
+        .def("__invert__", [](TensixSoftResetOptions opt) { return ~opt; });
+
+    // Pre-defined TensixSoftResetOptions constants.
+    m.attr("ALL_TRISC_SOFT_RESET") = ALL_TRISC_SOFT_RESET;
+    m.attr("ALL_TENSIX_SOFT_RESET") = ALL_TENSIX_SOFT_RESET;
+    m.attr("TENSIX_ASSERT_SOFT_RESET") = TENSIX_ASSERT_SOFT_RESET;
+    m.attr("TENSIX_DEASSERT_SOFT_RESET") = TENSIX_DEASSERT_SOFT_RESET;
+    m.attr("TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER") = TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER;
 
     nb::enum_<tt::BoardType>(m, "BoardType")
         .value("E75", tt::BoardType::E75)

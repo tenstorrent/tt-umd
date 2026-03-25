@@ -34,7 +34,7 @@ protected:
             GTEST_SKIP() << "TT_UMD_SIMULATOR does not point to a TTSimTTDevice. Skipping TTSim device IO tests.";
         }
         tt_device.reset(sim_device);
-        device.release();
+        device.release();  // NOLINT(bugprone-unused-return-value)
         tt_device->start_device();
     }
 

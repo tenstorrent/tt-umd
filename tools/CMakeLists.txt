@@ -16,7 +16,7 @@ add_library(tools_common INTERFACE)
 target_link_libraries(
     tools_common
     INTERFACE
-        umd::device
+        umd::tt-umd
         tt-logger::tt-logger
         cxxopts::cxxopts
 )

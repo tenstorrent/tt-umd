@@ -6,7 +6,7 @@ In general, see the common build instructions in the main [README](../README.md)
 
 Short instructions for building tools:
 ```
-cmake -B build -G Ninja
+cmake -B build -G Ninja -DTT_UMD_BUILD_TOOLS=ON
 cmake --build build --target umd_tools
 ```
 

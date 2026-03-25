@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -16,23 +16,19 @@
 #include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
-#include "umd/device/pcie/tt_sim_tlb_window.hpp"
-#include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
-TTSimTlbManager::TTSimTlbManager(TTDevice* tt_device) : TLBManager(tt_device) {
-    tt_sim_tt_device_ = dynamic_cast<TTSimTTDevice*>(tt_device);
-    bar0_base_ = tt_sim_tt_device_->bar0_base;
-
+SimulationTlbManager::SimulationTlbManager(
+    TTDevice* tt_device, uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
+    TLBManager(tt_device), bar0_base_(bar0_base), arch_impl_(arch_impl), factory_(std::move(factory)) {
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
 }
 
-int TTSimTlbManager::allocate_tlb_index(size_t size) {
+int SimulationTlbManager::allocate_tlb_index(size_t size) {
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     if (size == 0) {
@@ -109,7 +105,7 @@ int TTSimTlbManager::allocate_tlb_index(size_t size) {
     return -1;  // No available TLB
 }
 
-void TTSimTlbManager::deallocate_tlb_index(int tlb_index) {
+void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -147,7 +143,7 @@ void TTSimTlbManager::deallocate_tlb_index(int tlb_index) {
     }
 }
 
-size_t TTSimTlbManager::get_tlb_size_from_index(int tlb_index) {
+size_t SimulationTlbManager::get_tlb_size_from_index(int tlb_index) {
     // Check 1MB TLBs (Wormhole only).
     if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
         return tlb_1mb_size_;
@@ -172,7 +168,7 @@ size_t TTSimTlbManager::get_tlb_size_from_index(int tlb_index) {
     return 0;
 }
 
-uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
+uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         // Wormhole B0 address calculation.
         if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
@@ -197,7 +193,6 @@ uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
             return bar0_base_ + (static_cast<uint64_t>(tlb_index) * tlb_2mb_size_);
         } else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
             // 4GB TLBs are in BAR4, not BAR0 for Blackhole
-            // For now, use BAR0 base but this might need adjustment based on actual BAR4 mapping.
             throw std::runtime_error("4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
         }
     }
@@ -206,12 +201,12 @@ uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
     return 0;
 }
 
-std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
+std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     const auto* arch_impl = get_architecture_impl();
     if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
         (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
-        throw std::runtime_error("TLBs of 1MB and 2MB are not supported in TTSim for Wormhole architecture.");
+        throw std::runtime_error("TLBs of 1MB and 2MB are not supported in simulation for Wormhole architecture.");
     }
 
     int tlb_index = allocate_tlb_index(tlb_size);
@@ -221,22 +216,36 @@ std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
 
     size_t actual_tlb_size = get_tlb_size_from_index(tlb_index);
 
-    auto tlb_handle = TTSimTlbHandle::create(this, tlb_index, actual_tlb_size, mapping);
-    return std::make_unique<TTSimTlbWindow>(std::move(tlb_handle), get_communicator(), config);
+    return factory_(this, tlb_index, actual_tlb_size, mapping, config);
 }
 
-uint64_t TTSimTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
-    return bar0_base_ + 0x1fc00000 + tlb_index * tlb_reg_size_bytes_;
+uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
+    // TLB configuration registers start at this offset from BAR0 base.
+    static constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
+    return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;
 }
 
-const architecture_implementation* TTSimTlbManager::get_architecture_impl() const {
-    return tt_sim_tt_device_->get_architecture_impl();
+const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
+
+std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
+    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
+    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    switch (architecture_) {
+        case tt::ARCH::BLACKHOLE:
+            return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
+        case tt::ARCH::WORMHOLE_B0:
+            return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not support TLB allocation, returning nullptr.",
+                tt::arch_to_str(architecture_));
+            return nullptr;
+    }
 }
 
-TTSimCommunicator* TTSimTlbManager::get_communicator() const { return tt_sim_tt_device_->get_communicator(); }
-
-void TTSimTlbManager::initialize_architecture_config() {
-    architecture_ = tt_sim_tt_device_->get_architecture_impl()->get_architecture();
+void SimulationTlbManager::initialize_architecture_config() {
+    architecture_ = get_architecture_impl()->get_architecture();
 
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         // Wormhole B0 configuration.
@@ -295,7 +304,7 @@ void TTSimTlbManager::initialize_architecture_config() {
         log_debug(
             LogUMD,
             fmt::format(
-                "Architecture {} does not yet have support for TLB management in TTSim. UMD will use legacy "
+                "Architecture {} does not yet have support for TLB management in simulation. UMD will use legacy "
                 "tile_wr_bytes and tile_rd_bytes path.",
                 tt::arch_to_str(architecture_)));
     }

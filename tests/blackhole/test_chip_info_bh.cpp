@@ -25,6 +25,23 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||
             chip_info.board_type == BoardType::P300 || chip_info.board_type == BoardType::UBB_BLACKHOLE);
 
-        EXPECT_TRUE(chip_info.asic_location == 0 || chip_info.asic_location == 1);
+        switch (chip_info.board_type) {
+            case BoardType::P100:
+            case BoardType::P150: {
+                EXPECT_TRUE(chip_info.asic_location == 0);
+                break;
+            }
+            case BoardType::P300: {
+                EXPECT_TRUE(chip_info.asic_location <= 1);
+                break;
+            }
+            case BoardType::UBB_BLACKHOLE: {
+                EXPECT_TRUE(chip_info.asic_location <= 8);
+                break;
+            }
+            default: {
+                throw std::runtime_error("Unexpected board type for Blackhole.");
+            }
+        }
     }
 }

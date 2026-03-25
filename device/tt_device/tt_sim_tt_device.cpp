@@ -18,10 +18,20 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(const std::filesystem::path& simulator_directory) {
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, 0);
+    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    ChipInfo chip_info{};
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // We need to set this default harvesting mask for Blackhole so we could create SocDescriptor.
+        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used.
+        // without creating ClusterDescriptor, so we need to add it here as well.
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    }
+    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
+    return std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(

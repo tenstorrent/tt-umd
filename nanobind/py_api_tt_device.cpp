@@ -23,6 +23,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
+#include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -421,6 +422,18 @@ void bind_tt_device(nb::module_ &m) {
     nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
 
 #ifdef TT_UMD_BUILD_SIMULATION
+    // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
+    m.def(
+        "create_simulation_tt_device",
+        &create_simulation_tt_device,
+        nb::arg("simulator_path"),
+        nb::arg("num_host_mem_channels") = 0,
+        nb::arg("copy_sim_binary") = false,
+        nb::rv_policy::take_ownership,
+        "Creates a simulation TTDevice from a simulator path. "
+        "If the path ends with '.so', creates a TTSimTTDevice (functional simulator). "
+        "Otherwise, creates an RtlSimulationTTDevice (RTL simulator).");
+
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
         .def_static(
             "create",

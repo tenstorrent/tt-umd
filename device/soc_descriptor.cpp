@@ -221,12 +221,12 @@ CoreCoord SocDescriptor::translate_coord_to(
 }
 
 // Translates a chip coordinate to the correct device coordinates, returning a CoreCoord
-// with the appropriate coordinate system set. This applies architecture-specific fixups
-// (e.g., Wormhole DRAM/ARC/PCIe cores use NOC0/NOC1 instead of translated coordinates)
-// so the returned coordinate system reflects what is actually used for device access.
-// Prefer this over translate_coord_to when the caller needs device-ready coordinates
-// with the correct CoordSystem tag.
-CoreCoord SocDescriptor::translate_chip_coord_to_umd_device_coords(const CoreCoord core) const {
+// Returns the correct pre-translation coordinates for the given architecture. Note that
+// the returned CoordSystem is not necessarily TRANSLATED — architecture-specific fixups
+// (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1 coordinates instead.
+// The key guarantee is that the returned coordinates will be correct for device access
+// on the given architecture.
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
     if (!noc_translation_enabled) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
@@ -255,12 +255,10 @@ CoreCoord SocDescriptor::translate_chip_coord_to_umd_device_coords(const CoreCoo
     return translate_coord_to(core, CoordSystem::TRANSLATED);
 }
 
-// Note: Despite the name, the returned coordinates are not necessarily in the TRANSLATED
-// coordinate system — architecture-specific fixups in translate_chip_coord_to_umd_device_coords
-// may produce NOC0/NOC1 coordinates instead. This function exists solely to provide a
-// tt_xy_pair return type; the actual logic lives in translate_chip_coord_to_umd_device_coords.
+// Convenience wrapper returning tt_xy_pair; the actual logic lives in
+// translate_chip_coord_to_translated_coord.
 tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    return translate_chip_coord_to_umd_device_coords(core);
+    return translate_chip_coord_to_translated_coord(core);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {

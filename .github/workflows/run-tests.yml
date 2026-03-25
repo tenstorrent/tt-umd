@@ -145,5 +145,10 @@ jobs:
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/harvesting
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/system_health
-          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/warm_reset
+          # warm_reset is expected to return 1 on no devices.
+          if [[ "${{ inputs.arch }}" == "baremetal" ]]; then
+            ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/warm_reset || [ $? -eq 1 ]
+          else
+            ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/warm_reset
+          fi
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/tlb_virus

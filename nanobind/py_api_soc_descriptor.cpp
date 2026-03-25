@@ -128,10 +128,10 @@ void bind_soc_descriptor(nb::module_ &m) {
             nb::arg("core"),
             "Translate a chip coordinate to translated coordinate system in tt_xy_pair")
         .def(
-            "translate_chip_coord_to_translated_coord",
-            &SocDescriptor::translate_chip_coord_to_translated_coord,
+            "translate_chip_coord_to_tt_device_coords",
+            &SocDescriptor::translate_chip_coord_to_tt_device_coords,
             nb::arg("core"),
-            "Translate a chip coordinate to translated coordinate system in CoreCoord")
+            "Translate a chip coordinate to device-ready coordinates with correct CoordSystem")
         .def(
             "get_coord_at",
             &SocDescriptor::get_coord_at,

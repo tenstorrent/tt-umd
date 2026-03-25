@@ -66,6 +66,7 @@
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
@@ -241,12 +242,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 }
 
 SocDescriptor Cluster::construct_soc_descriptor(
-    const std::string& soc_desc_path,
-    ChipId chip_id,
-    ChipType chip_type,
-    ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    HarvestingMasks& simulated_harvesting_masks) {
+    const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc) {
     bool chip_in_cluster_descriptor =
         cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end();
 
@@ -260,11 +256,21 @@ SocDescriptor Cluster::construct_soc_descriptor(
     ChipInfo chip_info;
     if (chip_in_cluster_descriptor) {
         chip_info.noc_translation_enabled = cluster_desc->get_noc_translation_table_en().at(chip_id);
-        chip_info.harvesting_masks =
-            get_harvesting_masks(chip_id, cluster_desc, perform_harvesting, simulated_harvesting_masks);
+        chip_info.harvesting_masks = HarvestingMasks{};
+        chip_info.harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
         chip_info.board_type = cluster_desc->get_board_type(chip_id);
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
+
+    log_info(
+        LogUMD,
+        "Harvesting masks for Chip {}: Tensix: {:#x} DRAM: {:#x} ETH: {:#x} PCIe: {:#x} L2CPU: {:#x}",
+        chip_id,
+        chip_info.harvesting_masks.tensix_harvesting_mask,
+        chip_info.harvesting_masks.dram_harvesting_mask,
+        chip_info.harvesting_masks.eth_harvesting_mask,
+        chip_info.harvesting_masks.pcie_harvesting_mask,
+        chip_info.harvesting_masks.l2cpu_harvesting_mask);
 
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
@@ -301,30 +307,6 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         remote_chip_ids_.insert(chip_id);
     }
     chips_.emplace(chip_id, std::move(chip));
-}
-
-HarvestingMasks Cluster::get_harvesting_masks(
-    ChipId chip_id,
-    ClusterDescriptor* cluster_desc,
-    bool perform_harvesting,
-    HarvestingMasks& simulated_harvesting_masks) {
-    if (!perform_harvesting) {
-        log_info(LogUMD, "Skipping harvesting for chip {}.", chip_id);
-        return HarvestingMasks{};
-    }
-
-    HarvestingMasks cluster_harvesting_masks = cluster_desc->get_harvesting_masks(chip_id);
-    log_info(
-        LogUMD,
-        "Harvesting masks for chip {} tensix: {:#x} dram: {:#x} eth: {:#x} pcie: {:#x} l2cpu: {:#x}",
-        chip_id,
-        cluster_harvesting_masks.tensix_harvesting_mask | simulated_harvesting_masks.tensix_harvesting_mask,
-        cluster_harvesting_masks.dram_harvesting_mask | simulated_harvesting_masks.dram_harvesting_mask,
-        cluster_harvesting_masks.eth_harvesting_mask | simulated_harvesting_masks.eth_harvesting_mask,
-        cluster_harvesting_masks.pcie_harvesting_mask | simulated_harvesting_masks.pcie_harvesting_mask,
-        cluster_harvesting_masks.l2cpu_harvesting_mask | simulated_harvesting_masks.l2cpu_harvesting_mask);
-
-    return cluster_harvesting_masks | simulated_harvesting_masks;
 }
 
 Cluster::Cluster(ClusterOptions options) {
@@ -380,19 +362,8 @@ Cluster::Cluster(ClusterOptions options) {
 
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        // Combine passed simulated_harvesting_masks.
-        HarvestingMasks simulated_harvesting_masks =
-            options.simulated_harvesting_masks | ((options.simulated_harvesting_masks_per_chip.find(chip_id) !=
-                                                   options.simulated_harvesting_masks_per_chip.end())
-                                                      ? options.simulated_harvesting_masks_per_chip.at(chip_id)
-                                                      : HarvestingMasks{});
-        SocDescriptor soc_desc = construct_soc_descriptor(
-            options.sdesc_path,
-            chip_id,
-            options.chip_type,
-            cluster_desc.get(),
-            options.perform_harvesting,
-            simulated_harvesting_masks);
+        SocDescriptor soc_desc =
+            construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
 
         add_chip(
             chip_id,
@@ -461,6 +432,11 @@ ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
+}
+
+TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }
 
 std::map<int, int> Cluster::get_clocks() {

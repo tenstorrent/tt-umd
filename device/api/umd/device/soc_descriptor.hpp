@@ -30,7 +30,7 @@ namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy);
 
-tt_xy_pair format_node(std::string str);
+tt_xy_pair format_node(const std::string& str);
 
 //! SocNodeDescriptor contains information regarding the Node/Core
 /*!

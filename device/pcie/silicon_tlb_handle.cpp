@@ -19,19 +19,22 @@
 namespace tt::umd {
 
 SiliconTlbHandle::SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping) :
-    tlb_size(size), pci_device_(pci_device), tlb_mapping(tlb_mapping) {
+    pci_device_(pci_device) {
+    tlb_size_ = size;
+    tlb_mapping_ = tlb_mapping;
+
     tt_device_t* tt_device = pci_device_.get_tt_device_handle();
 
     int ret_code = tt_tlb_alloc(
-        tt_device, size, tlb_mapping == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
+        tt_device, size, tlb_mapping_ == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
     if (ret_code != 0) {
         TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
     }
 
-    tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id));
+    tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id_));
 
-    tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base));
+    tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base_));
 }
 
 SiliconTlbHandle::~SiliconTlbHandle() noexcept { SiliconTlbHandle::free_tlb(); }
@@ -44,21 +47,11 @@ void SiliconTlbHandle::configure(const tlb_data& new_config) {
     // before passing to configure_tlb.
     tlb_data cfg_data = new_config;
     cfg_data.local_offset = cfg_data.local_offset / get_size();
-    pci_device_.configure_tlb(tlb_id, cfg_data);
+    pci_device_.configure_tlb(tlb_id_, cfg_data);
 
-    tlb_config = new_config;
+    tlb_config_ = new_config;
 }
 
-uint8_t* SiliconTlbHandle::get_base() { return tlb_base; }
-
-size_t SiliconTlbHandle::get_size() const { return tlb_size; }
-
-const tlb_data& SiliconTlbHandle::get_config() const { return tlb_config; }
-
-TlbMapping SiliconTlbHandle::get_tlb_mapping() const { return tlb_mapping; }
-
 void SiliconTlbHandle::free_tlb() noexcept { tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_); }
-
-int SiliconTlbHandle::get_tlb_id() const { return tlb_id; }
 
 }  // namespace tt::umd

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <functional>
 #include <mutex>
 #include <vector>
 
@@ -12,16 +13,32 @@
 
 namespace tt::umd {
 
-// Forward declarations to avoid circular dependencies.
-class TTSimCommunicator;
-class TTSimTTDevice;
+class SimulationTlbManager;
 
-class TTSimTlbManager : public TLBManager {
+/**
+ * Factory function type for creating TlbWindow instances.
+ * Different simulation backends (TTSim, RTL sim) provide their own factory
+ * that creates the appropriate TlbHandle + TlbWindow combination.
+ */
+using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
+    SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
+
+class SimulationTlbManager : public TLBManager {
 public:
-    TTSimTlbManager(TTDevice* tt_device);
+    SimulationTlbManager(
+        TTDevice* tt_device,
+        uint64_t bar0_base,
+        const architecture_implementation* arch_impl,
+        TlbWindowFactory factory);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
-        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
+        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;
+
+    /**
+     * Allocate a TLB window with a default size based on the device architecture.
+     * Returns nullptr if the architecture does not support TLBs.
+     */
+    std::unique_ptr<TlbWindow> allocate_default_tlb_window();
 
     /**
      * Allocate a TLB index based on the requested size.
@@ -58,20 +75,15 @@ public:
      */
     const architecture_implementation* get_architecture_impl() const;
 
-    /**
-     * Get the TTSimCommunicator for low-level device operations.
-     * @return Pointer to TTSimCommunicator
-     */
-    class TTSimCommunicator* get_communicator() const;
-
 private:
     /**
      * Initialize architecture-specific TLB configuration based on the device architecture.
      */
     void initialize_architecture_config();
 
-    TTSimTTDevice* tt_sim_tt_device_ = nullptr;
     uint64_t bar0_base_ = 0;
+    const architecture_implementation* arch_impl_ = nullptr;
+    TlbWindowFactory factory_;
 
     // Architecture-specific TLB configuration.
     tt::ARCH architecture_;

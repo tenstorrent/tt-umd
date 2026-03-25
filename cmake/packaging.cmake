@@ -75,7 +75,7 @@ if(NOT TT_UMD_BUILD_STATIC)
     include(CPack)
 endif()
 
-# 1. The runtime library package (libdevice.so)
+# 1. The runtime library package (libtt-umd.so)
 cpack_add_component(
     umd-runtime
     DISPLAY_NAME "Tenstorrent UMD Runtime"

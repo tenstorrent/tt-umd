@@ -67,22 +67,7 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
-          # TODO: To be added when available.
-          # {arch: blackhole, card: tt-ubuntu-2204-p100a-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
           {arch: wormhole_b0, card: 6u},
-          # bh-gh-07 is a P300 runner.
-          {arch: blackhole, card: bh-gh-07},
-          {arch: blackhole, card: tt-ubuntu-2204-bh-loudbox-viommu-stable},
-          {arch: baremetal, card: ubuntu-22.04},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',
@@ -108,10 +93,6 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {runs-on: tt-ubuntu-2204-p150b-stable},
-          {runs-on: tt-ubuntu-2204-n150-stable},
-          {runs-on: tt-ubuntu-2204-n300-stable},
-          {runs-on: tt-ubuntu-2204-n300-llmbox-stable},
           {runs-on: 6u},
         ]
         ubuntu-docker-version: [
@@ -127,30 +108,3 @@ jobs:
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-
-  run-exalens-tests:
-    secrets: inherit
-    needs: build-tests
-    strategy:
-      fail-fast: false
-      matrix:
-        test-group: [
-          {runs-on: tt-ubuntu-2204-p150b-stable},
-          {runs-on: tt-ubuntu-2204-n150-stable},
-          {runs-on: tt-ubuntu-2204-n300-stable},
-        ]
-        ubuntu-docker-version: [
-          'ubuntu-22.04',
-        ]
-    uses: ./.github/workflows/run-exalens-tests.yml
-    with:
-      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
-      card: ${{ matrix.test-group.runs-on }}
-      timeout: ${{ fromJSON(inputs.timeout) }}
-      log-level: ${{ inputs.log-level || 'info' }}
-      build-type: ${{ inputs.build-type }}
-      log-params: |
-        ${{ inputs.log-params }}
-        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}

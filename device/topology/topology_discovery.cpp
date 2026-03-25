@@ -123,50 +123,85 @@ void TopologyDiscovery::get_connected_devices() {
             TT_THROW("Unsupported device type.");
     }
 
-    for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
-        if (tt_device->get_arch() != get_topology_arch()) {
-            log_warning(
-                LogUMD,
-                "Skipped device {} with different architecture: {}",
-                device_id,
-                arch_to_str(tt_device->get_arch()));
+    // Phase 1: Create and initialize all TTDevices in parallel.
+    // TTDevice::create and init_tt_device are the expensive operations (especially init_tt_device which can take
+    // minutes post-reset), and they only touch per-device state so they are safe to run concurrently.
+    struct DeviceInitResult {
+        int device_id;
+        std::unique_ptr<TTDevice> tt_device;
+        std::exception_ptr exception;
+    };
+
+    std::vector<DeviceInitResult> init_results(local_device_ids.size());
+    std::vector<std::thread> init_threads;
+    init_threads.reserve(local_device_ids.size());
+
+    for (size_t i = 0; i < local_device_ids.size(); i++) {
+        init_results[i].device_id = local_device_ids[i];
+        init_threads.emplace_back([this, &result = init_results[i]]() {
+            try {
+                result.tt_device = TTDevice::create(result.device_id, io_device_type);
+                if (result.tt_device && result.tt_device->get_arch() == get_topology_arch()) {
+                    result.tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+                }
+            } catch (...) {
+                result.exception = std::current_exception();
+            }
+        });
+    }
+
+    for (auto& t : init_threads) {
+        t.join();
+    }
+
+    // Phase 2: Process initialized devices sequentially.
+    // Operations here depend on shared TopologyDiscovery state (devices_to_discover, board_ids, etc.).
+    for (auto& result : init_results) {
+        if (result.exception) {
+            std::rethrow_exception(result.exception);
+        }
+
+        if (!result.tt_device || result.tt_device->get_arch() != get_topology_arch()) {
+            if (result.tt_device) {
+                log_warning(
+                    LogUMD,
+                    "Skipped device {} with different architecture: {}",
+                    result.device_id,
+                    arch_to_str(result.tt_device->get_arch()));
+            }
             continue;
         }
 
-        // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-
-        verify_fw_bundle_version(tt_device.get());
+        verify_fw_bundle_version(result.tt_device.get());
 
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
-            init_first_device(tt_device.get());
+            init_first_device(result.tt_device.get());
         }
 
         if (options.wait_on_ethernet_link_training) {
-            wait_eth_cores_training(tt_device.get());
+            wait_eth_cores_training(result.tt_device.get());
         }
 
         std::vector<CoreCoord> eth_cores =
-            get_soc_descriptor(tt_device.get())
+            get_soc_descriptor(result.tt_device.get())
                 .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
         for (const CoreCoord& eth_core : eth_cores) {
-            uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
+            uint64_t board_id = get_local_board_id(result.tt_device.get(), eth_core);
             if (board_id != 0) {
                 board_ids.insert(board_id);
                 break;
             }
         }
 
-        uint64_t asic_id = get_asic_id(tt_device.get());
-        devices_to_discover.emplace(asic_id, std::move(tt_device));
+        uint64_t asic_id = get_asic_id(result.tt_device.get());
+        devices_to_discover.emplace(asic_id, std::move(result.tt_device));
 
         log_debug(
             LogUMD,
             "Discovered {} device w/ MMIO, ID: {}, ASIC ID {}",
             DeviceTypeToString.at(io_device_type),
-            device_id,
+            result.device_id,
             asic_id);
     }
 }

@@ -361,10 +361,65 @@ Cluster::Cluster(ClusterOptions options) {
     }
 
     // Construct all the required chips from the cluster descriptor.
+    // Local chips are constructed in parallel since each LocalChip::create does expensive
+    // TTDevice::create + init_tt_device that are independent per device.
+    // Remote chips must be constructed after local chips since they depend on get_local_chip().
+    std::vector<ChipId> local_chip_ids;
+    std::vector<ChipId> remote_chip_ids;
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+        if (cluster_desc->is_chip_mmio_capable(chip_id) || options.chip_type != ChipType::SILICON) {
+            local_chip_ids.push_back(chip_id);
+        } else {
+            remote_chip_ids.push_back(chip_id);
+        }
+    }
+
+    // Phase 1: Construct local chips in parallel.
+    struct ChipInitResult {
+        ChipId chip_id;
+        SocDescriptor soc_desc;
+        std::unique_ptr<Chip> chip;
+        std::exception_ptr exception;
+    };
+
+    std::vector<ChipInitResult> local_results(local_chip_ids.size());
+    std::vector<std::thread> init_threads;
+    init_threads.reserve(local_chip_ids.size());
+
+    for (size_t i = 0; i < local_chip_ids.size(); i++) {
+        local_results[i].chip_id = local_chip_ids[i];
+        init_threads.emplace_back([this, &result = local_results[i], &options]() {
+            try {
+                result.soc_desc =
+                    construct_soc_descriptor(options.sdesc_path, result.chip_id, options.chip_type, cluster_desc.get());
+                result.chip = construct_chip_from_cluster(
+                    result.chip_id,
+                    options.chip_type,
+                    cluster_desc.get(),
+                    result.soc_desc,
+                    options.num_host_mem_ch_per_mmio_device,
+                    options.simulator_directory);
+            } catch (...) {
+                result.exception = std::current_exception();
+            }
+        });
+    }
+
+    for (auto& t : init_threads) {
+        t.join();
+    }
+
+    for (auto& result : local_results) {
+        if (result.exception) {
+            std::rethrow_exception(result.exception);
+        }
+        add_chip(result.chip_id, options.chip_type, std::move(result.chip));
+    }
+
+    // Phase 2: Construct remote chips sequentially (they depend on local chips).
+    for (auto& chip_id : remote_chip_ids) {
         SocDescriptor soc_desc =
             construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
-
         add_chip(
             chip_id,
             options.chip_type,

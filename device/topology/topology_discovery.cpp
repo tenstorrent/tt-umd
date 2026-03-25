@@ -31,7 +31,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/exceptions.hpp"
+#include "umd/device/utils/exceptions.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -209,21 +209,12 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             if (!eth_heartbeat_running(tt_device, eth_core)) {
-                std::string msg = fmt::format(
-                    "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
-                    current_device_asic_id,
-                    eth_core.str(),
-                    get_eth_postcode(tt_device, eth_core));
+                auto error = ETHHeartbeatError(
+                    eth_core, get_eth_postcode(tt_device, eth_core), get_eth_heartbeat(tt_device, eth_core));
                 if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                    throw ETHHeartbeatException(
-                        "ETH Heartbeat check failed.",
-                        ETHHeartbeatFailureData{
-                            {eth_core},
-                            get_eth_postcode(tt_device, eth_core),
-                            get_eth_heartbeat(tt_device, eth_core),
-                        });
+                    throw error;
                 } else {
-                    log_warning(LogUMD, msg);
+                    log_warning(LogUMD, error.what());
                     continue;
                 }
             }

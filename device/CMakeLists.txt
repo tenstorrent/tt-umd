@@ -109,6 +109,7 @@ target_sources(
         noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
+        utils/exceptions.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology/topology_discovery.cpp
@@ -241,7 +242,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/cluster_types.hpp
                 api/umd/device/types/communication_protocol.hpp
                 api/umd/device/types/core_coordinates.hpp
-                api/umd/device/types/exceptions.hpp
                 api/umd/device/types/gddr_telemetry.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp

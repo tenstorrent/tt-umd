@@ -37,22 +37,28 @@ namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
-tt_xy_pair format_node(std::string str) {
-    int x_coord;
-    int y_coord;
-    std::regex expr("([0-9]+)[-,xX]([0-9]+)");
-    std::smatch x_y_pair;
+tt_xy_pair format_node(const std::string &str) {
+    // Find the separator character.
+    size_t sep_pos = std::string::npos;
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '-') {
+            sep_pos = i;
+            break;
+        }
+    }
 
-    if (std::regex_search(str, x_y_pair, expr)) {
-        x_coord = std::stoi(x_y_pair[1]);
-        y_coord = std::stoi(x_y_pair[2]);
-    } else {
+    if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
         throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
     }
 
-    tt_xy_pair xy(x_coord, y_coord);
-
-    return xy;
+    try {
+        const char *str_cstr = str.c_str();
+        int x_coord = std::atoi(str_cstr);
+        int y_coord = std::atoi(str_cstr + sep_pos + 1);
+        return tt_xy_pair(x_coord, y_coord);
+    } catch (...) {
+        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+    }
 }
 
 const char *ws = " \t\n\r\f\v";

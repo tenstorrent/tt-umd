@@ -137,6 +137,7 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_manager.cpp
+            tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
             pcie/rtl_sim_tlb_window.cpp
@@ -201,6 +202,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
+                api/umd/device/tt_device/simulation_device_factory.hpp
                 api/umd/device/tt_device/protocol/device_protocol.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
                 api/umd/device/tt_device/protocol/pcie_protocol.hpp

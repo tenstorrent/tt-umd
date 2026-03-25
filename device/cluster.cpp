@@ -309,7 +309,9 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
     chips_.emplace(chip_id, std::move(chip));
 }
 
-Cluster::Cluster(ClusterOptions options) {
+// Options is intentionally taken by value because it may be mutated when TT_UMD_BUILD_SIMULATION is enabled.
+// NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
+Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
     switch (options.chip_type) {
         case ChipType::SILICON: {
             if (options.cluster_descriptor != nullptr) {

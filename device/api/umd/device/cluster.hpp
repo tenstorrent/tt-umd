@@ -64,11 +64,6 @@ struct ClusterOptions {
     uint32_t num_host_mem_ch_per_mmio_device = 0;
 
     /**
-     * If set to false, harvesting will be skipped for constructed soc descriptors.
-     */
-    bool perform_harvesting = true;
-
-    /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
      * descriptor based on architecture will be used.
      */
@@ -719,11 +714,7 @@ private:
         int num_host_mem_channels,
         const std::filesystem::path& simulator_directory);
     SocDescriptor construct_soc_descriptor(
-        const std::string& soc_desc_path,
-        ChipId chip_id,
-        ChipType chip_type,
-        ClusterDescriptor* cluster_desc,
-        bool perform_harvesting);
+        const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);

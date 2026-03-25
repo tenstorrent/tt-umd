@@ -280,7 +280,8 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 
 //             std::vector<uint8_t> readback(data_size, 1);
 //             cluster->read_from_device(
-//                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+//                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address,
+//                 readback.size());
 
 //             EXPECT_EQ(zeros, readback);
 //         }
@@ -292,7 +293,8 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 //         for (uint32_t y = 0; y < grid_size.y; y++) {
 //             std::vector<uint8_t> readback(data_size, 0);
 //             cluster->read_from_device(
-//                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
+//                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address,
+//                 readback.size());
 
 //             EXPECT_EQ(write_data, readback);
 //         }

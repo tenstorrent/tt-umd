@@ -76,8 +76,6 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     Cluster cluster(ClusterOptions{
         .perform_harvesting = false,
-        .simulated_harvesting_masks = {60, 0, 0},
-        .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
         .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
     });
     for (const auto& chip : cluster.get_target_device_ids()) {
@@ -87,10 +85,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 }
 
 TEST(SiliconDriverWH, HarvestingRuntime) {
-    Cluster cluster(ClusterOptions{
-        .simulated_harvesting_masks = {60, 0, 0},
-        .simulated_harvesting_masks_per_chip = {{0, {30, 0, 0}}, {1, {60, 0, 0}}},
-    });
+    Cluster cluster(ClusterOptions{});
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 

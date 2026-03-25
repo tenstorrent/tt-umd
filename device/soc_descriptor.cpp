@@ -231,9 +231,10 @@ CoreCoord SocDescriptor::translate_chip_coord_to_umd_device_coords(const CoreCoo
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    // ROUTER_ONLY cores via NOC1: the node_id register returns NOC1 coordinates,
-    // so we need a direct NOC1 -> TRANSLATED mapping. The standard TRANSLATED mapping
-    // doesn't account for NOC1 coordinate space for router cores.
+    // For ROUTER_ONLY cores, the translated coordinate space differs depending on
+    // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
+    // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
+    // network resolve to the correct tile.
     if ((arch == tt::ARCH::BLACKHOLE) && (core.core_type == CoreType::ROUTER_ONLY) && is_selected_noc1()) {
         CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
         CoreCoord translated_noc1_core = CoreCoord(

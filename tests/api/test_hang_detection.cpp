@@ -29,7 +29,7 @@ using namespace tt::umd;
 class HangDetectionTest : public ::testing::Test {
 protected:
     static constexpr uint64_t WH_NOC_HANG_ADDR = 0xFFB11030;
-    static constexpr uint64_t BH_NOC_HANG_ADDR = 0xFFB14000;
+    static constexpr uint64_t BH_NOC_HANG_ADDR = 0xFFBA0000;
 
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SocDescriptor> soc_desc_;

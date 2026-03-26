@@ -219,7 +219,8 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
             reset_info.out.output_size_bytes = 0;
             reset_info.out.result = 0;
             if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
-                TT_THROW("TENSTORRENT_IOCTL_RESET_DEVICE failed");
+                TT_THROW(
+                    "TENSTORRENT_IOCTL_RESET_DEVICE failed on device {} with flags {}: {}", n, flags, strerror(errno));
             }
         } catch (const std::exception &e) {
             log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());

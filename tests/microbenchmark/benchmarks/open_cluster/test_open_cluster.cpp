@@ -10,7 +10,9 @@
 #include <memory>
 
 #include "common/microbenchmark_utils.hpp"
+#include "test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/warm_reset.hpp"
 
@@ -19,15 +21,22 @@ using namespace tt::umd::test::utils;
 
 // Measure the time it takes to open/construct a Cluster object with default ClusterOptions.
 TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
-    auto bench = ankerl::nanobench::Bench()
-                     .maxEpochTime(std::chrono::seconds(30))
-                     .title("ClusterConstructor")
-                     .unit("cluster")
-                     .name("default")
-                     .run([&] {
-                         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-                         ankerl::nanobench::doNotOptimizeAway(cluster);
-                     });
+    auto devices_info = PCIDevice::enumerate_devices_info();
+    ASSERT_FALSE(devices_info.empty());
+    tt::ARCH arch = devices_info.begin()->second.get_arch();
+    ClusterOptions options;
+    options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
+
+    auto bench =
+        ankerl::nanobench::Bench().maxEpochTime(std::chrono::seconds(30)).title("ClusterConstructor").unit("cluster");
+    bench.name("default").run([&] {
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        ankerl::nanobench::doNotOptimizeAway(cluster);
+    });
+    bench.name("from sdesc").run([&] {
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+        ankerl::nanobench::doNotOptimizeAway(cluster);
+    });
     test::utils::export_results(bench);
 }
 

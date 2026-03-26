@@ -88,3 +88,16 @@ jobs:
           asyncio.run(asyncio.wait_for(run(), timeout=60))
           print("tt-smi ran successfully")
           EOF
+
+      - name: Install pytest
+        run: pip install pytest
+
+      - name: Clone tt-smi source for tests
+        run: git clone --depth 1 https://github.com/tenstorrent/tt-smi.git tt-smi-src
+
+      # Run the same hardware test suite that tt-smi runs in its own CI, against the UMD wheel
+      # from the current branch. Galaxy tests are excluded since the hardware runners are not
+      # Galaxy systems. Tests are parametrized to run against both Luwen and UMD backends.
+      - name: Run tt-smi tests
+        working-directory: tt-smi-src
+        run: pytest tests/ -v -m "requires_hardware and not requires_galaxy"

@@ -328,7 +328,7 @@ jobs:
 
   publish-to-testpypi:
     name: Publish Python 🐍 distribution 📦 to TestPyPI
-    needs: [prepare-release, build-python-wheels]
+    needs: [prepare-release, build-python-wheels, build-cpp-artifacts]
     runs-on: ubuntu-22.04
 
     environment:
@@ -353,7 +353,7 @@ jobs:
 
   publish-to-pypi:
     name: Publish Python 🐍 distribution 📦 to PyPI
-    needs: [prepare-release, build-python-wheels, publish-to-testpypi]
+    needs: [prepare-release, build-python-wheels, build-cpp-artifacts, publish-to-testpypi]
     runs-on: ubuntu-22.04
 
     environment:

@@ -52,5 +52,20 @@ TEST(MicrobenchmarkOpenCluster, TopologyDiscovery) {
         ankerl::nanobench::doNotOptimizeAway(devices);
     });
 
+    auto devices_info = PCIDevice::enumerate_devices_info();
+    ASSERT_FALSE(devices_info.empty());
+    tt::ARCH arch = devices_info.begin()->second.get_arch();
+    std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
+
+    bench.name("default with sdesc_path").run([&] {
+        auto [cluster_descriptor, devices] = TopologyDiscovery::discover({}, IODeviceType::PCIe, sdesc_path);
+        ankerl::nanobench::doNotOptimizeAway(devices);
+    });
+    bench.name("local only with sdesc_path").run([&] {
+        auto [cluster_descriptor, devices] =
+            TopologyDiscovery::discover({.discover_remote_devices = false}, IODeviceType::PCIe, sdesc_path);
+        ankerl::nanobench::doNotOptimizeAway(devices);
+    });
+
     test::utils::export_results(bench);
 }

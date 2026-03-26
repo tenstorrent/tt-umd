@@ -243,7 +243,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
 }
 
 std::vector<int> PCIDevice::enumerate_devices() {
-    ZoneScopedNC("PCIDevice::enumerate_devices", tracy::Color::DarkGreen);
+    ZoneScopedNC("UMD::PCIDevice::enumerate_devices", tracy::Color::DarkGreen);
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 

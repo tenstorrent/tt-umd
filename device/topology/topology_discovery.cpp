@@ -83,7 +83,7 @@ TopologyDiscovery::TopologyDiscovery(
     options(options), io_device_type(io_device_type), soc_descriptor_path(soc_descriptor_path) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
-    ZoneScopedNC("TopologyDiscovery::create_ethernet_map", tracy::Color::DarkGreen);
+    ZoneScopedNC("UMD::TopologyDiscovery::create_ethernet_map", tracy::Color::DarkGreen);
     log_debug(LogUMD, "Starting topology discovery.");
     get_connected_devices();
     retrain_eth_cores();
@@ -94,7 +94,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
-    ZoneScopedNC("TopologyDiscovery::discover", tracy::Color::DarkGreen);
+    ZoneScopedNC("UMD::TopologyDiscovery::discover", tracy::Color::DarkGreen);
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscovery> td =
         TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
@@ -110,7 +110,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
 }
 
 void TopologyDiscovery::get_connected_devices() {
-    ZoneScopedNC("TopologyDiscovery::get_connected_devices", tracy::Color::DarkGreen);
+    ZoneScopedNC("UMD::TopologyDiscovery::get_connected_devices", tracy::Color::DarkGreen);
     std::vector<int> local_device_ids;
     switch (io_device_type) {
         case IODeviceType::PCIe: {
@@ -176,7 +176,7 @@ void TopologyDiscovery::get_connected_devices() {
 }
 
 void TopologyDiscovery::discover_remote_devices() {
-    ZoneScopedNC("TopologyDiscovery::discover_remote_devices", tracy::Color::DarkGreen);
+    ZoneScopedNC("UMD::TopologyDiscovery::discover_remote_devices", tracy::Color::DarkGreen);
     std::set<uint64_t> discovered_devices = {};
     for (const auto& [current_device_asic_id, tt_device] : devices_to_discover) {
         discovered_devices.insert(current_device_asic_id);

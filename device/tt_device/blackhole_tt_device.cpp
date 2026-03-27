@@ -406,6 +406,8 @@ bool BlackholeTTDevice::is_hardware_hung() {
 }
 
 uint32_t BlackholeTTDevice::read_hang_check_reg_via_noc() {
+    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
+    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
     SocDescriptor soc_desc(get_arch(), get_chip_info());
     tt_xy_pair pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
     uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(get_selected_noc_id())) +

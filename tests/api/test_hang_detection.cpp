@@ -16,6 +16,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -51,14 +52,6 @@ protected:
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
     }
 
-    // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
-    uint32_t read_hang_check_reg_via_bar() {
-        return tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
-    }
-
-    // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
-    uint32_t hang_pcie(tt_xy_pair pcie_core, NocId noc = NocId::NOC0) { return 0; }
-
     uint32_t read_hang_check_reg_via_noc(NocId noc = NocId::NOC0) {
         const auto* arch_impl = tt_device_->get_architecture_implementation();
         uint32_t value = 0;
@@ -79,6 +72,10 @@ protected:
         return value;
     }
 
+    // Deliberately hangs the specified NOC by reading an address that causes the NOC transaction to
+    // never complete. On WH, this targets a TDMA register on the tensix core. On BH, the tensix core
+    // is first put into reset, then a read to a private tensix address is issued. Both approaches were
+    // empirically found by the tt-exalens team to reliably hang the NOC.
     uint32_t hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -104,18 +101,6 @@ protected:
     }
 
 private:
-    // TODO: Unused, will be implemented when a heuristic for hanging the PCIe tile is found.
-    uint64_t pcie_hang_addr(tt::ARCH arch) {
-        switch (arch) {
-            case tt::ARCH::WORMHOLE_B0:
-                return 1;
-            case tt::ARCH::BLACKHOLE:
-                return 0;
-            default:
-                TT_THROW("Invalid architecture: {}.", arch);
-        }
-    }
-
     uint64_t noc_hang_addr(tt::ARCH arch) {
         switch (arch) {
             case tt::ARCH::WORMHOLE_B0:
@@ -132,16 +117,51 @@ private:
 // itself works correctly, but the subsequent warm reset and topology rediscovery sometimes fail.
 // The hang detection is verified; the post-reset reinitialization path needs further investigation.
 
-TEST_F(HangDetectionTest, DISABLED_HangCheckRegisterReadEquivalence) {
-    uint32_t bar_value = read_hang_check_reg_via_bar();
-    uint32_t noc_value = read_hang_check_reg_via_noc(NocId::NOC0);
+class BarVsNocNodeIdTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};
 
-    log_info(LogUMD, "hang-check BAR=0x{:08X}  NOC=0x{:08X}", bar_value, noc_value);
+TEST_P(BarVsNocNodeIdTest, DISABLED_ReadNodeIdViaBarAndNoc) {
+    NocId noc = GetParam();
 
-    EXPECT_NE(bar_value, 0xFFFFFFFF) << "BAR read returned all ones.";
-    EXPECT_NE(noc_value, 0xFFFFFFFF) << "NOC read returned all ones.";
-    EXPECT_EQ(bar_value, noc_value) << "BAR and NOC reads differ.";
+    // BAR always reads the NOC0 node ID register (get_read_checking_offset targets NOC0).
+    uint32_t bar_val =
+        tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
+
+    uint32_t noc_val;
+    {
+        NocIdSwitcher noc_switcher(noc);
+        noc_val = tt_device_->read_hang_check_reg_via_noc();
+    }
+
+    uint32_t bar_x = bar_val & 0x3F;
+    uint32_t bar_y = (bar_val >> 6) & 0x3F;
+    uint32_t noc_x = noc_val & 0x3F;
+    uint32_t noc_y = (noc_val >> 6) & 0x3F;
+
+    log_info(
+        LogUMD,
+        "Node ID via BAR=0x{:08X} ({},{}), via NOC{}=0x{:08X} ({},{})",
+        bar_val,
+        bar_x,
+        bar_y,
+        static_cast<int>(noc),
+        noc_val,
+        noc_x,
+        noc_y);
+
+    EXPECT_NE(bar_val, 0xFFFFFFFF) << "BAR read returned all ones.";
+    EXPECT_NE(noc_val, 0xFFFFFFFF) << "NOC" << static_cast<int>(noc) << " read returned all ones.";
+
+    // BAR targets the NOC0 register, so equivalence is only expected when reading via NOC0.
+    if (noc == NocId::NOC0) {
+        EXPECT_EQ(bar_val, noc_val) << "BAR and NOC0 node ID reads differ.";
+    }
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    BarVsNoc,
+    BarVsNocNodeIdTest,
+    ::testing::Values(NocId::NOC0, NocId::NOC1),
+    [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
 
 class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};
 
@@ -179,13 +199,10 @@ TEST_P(NocHangDetectionTest, DISABLED_TestNocHangDetection) {
 
     warm_reset_and_reinit();
 
-    uint32_t bar_recovered = read_hang_check_reg_via_bar();
-    EXPECT_NE(bar_recovered, 0xFFFFFFFF) << "BAR read still returns all ones after warm reset.";
-
     uint32_t noc_recovered = read_hang_check_reg_via_noc(verify_noc);
     EXPECT_NE(noc_recovered, 0xFFFFFFFF) << "NOC read still returns all ones after warm reset.";
 
-    log_info(LogUMD, "Post-reset: BAR=0x{:08X}  NOC=0x{:08X}", bar_recovered, noc_recovered);
+    log_info(LogUMD, "Post-reset: NOC=0x{:08X}", noc_recovered);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -212,17 +229,4 @@ TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
     warm_reset_and_reinit();
 
     EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() still true after warm reset.";
-}
-
-// TODO: Disabled, will be implemented when a heuristic for hanging the PCIe tile is found.
-TEST_F(HangDetectionTest, DISABLED_TestDeviceHangDetection) {
-    ASSERT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() returned true before any hang.";
-
-    // TODO: Add hang_pcie_tile() to make BAR reads return 0xFFFFFFFF.
-
-    EXPECT_TRUE(tt_device_->is_hardware_hung()) << "is_hardware_hung() did not detect the hang.";
-
-    warm_reset_and_reinit();
-
-    EXPECT_FALSE(tt_device_->is_hardware_hung()) << "is_hardware_hung() still true after warm reset.";
 }

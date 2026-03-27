@@ -79,6 +79,11 @@ public:
     virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     virtual bool is_hardware_hung() = 0;
     bool is_noc_hung(NocId noc);
+    /**
+     * Reads the NOC node ID register via a NOC transaction (using the currently selected NOC).
+     *
+     * @return Raw register value. A return of HANG_READ_VALUE (0xFFFFFFFF) indicates the NOC is hung.
+     */
     virtual uint32_t read_hang_check_reg_via_noc() = 0;
 
     /**

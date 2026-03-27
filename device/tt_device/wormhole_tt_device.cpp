@@ -573,7 +573,11 @@ bool WormholeTTDevice::is_hardware_hung() {
 }
 
 uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {
+    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
+    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
     SocDescriptor soc_desc(get_arch(), get_chip_info());
+    // Read from ARC core because WH has a BAR-mapped node ID register only on the ARC tile.
+    // This keeps the BAR and NOC paths reading the same register for equivalence checking.
     tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
     uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
                     architecture_impl_->get_noc_node_id_offset();

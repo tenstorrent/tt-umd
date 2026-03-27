@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 
@@ -87,7 +88,17 @@ bool RemoteWormholeTTDevice::is_hardware_hung() {
 }
 
 uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc() {
-    return remote_communication_->get_local_device()->read_hang_check_reg_via_noc();
+    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
+    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    // Read the NOC node ID register on the remote chip (not the local device),
+    // so we detect hangs on the remote machine itself.
+    tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
+                    architecture_impl_->get_noc_node_id_offset();
+    uint32_t value = 0;
+    read_from_device(&value, arc_core, addr, sizeof(value));
+    return value;
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(

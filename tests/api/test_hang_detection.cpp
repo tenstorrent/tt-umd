@@ -52,26 +52,6 @@ protected:
         soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
     }
 
-    uint32_t read_hang_check_reg_via_noc(NocId noc = NocId::NOC0) {
-        const auto* arch_impl = tt_device_->get_architecture_implementation();
-        uint32_t value = 0;
-        NocIdSwitcher noc_switcher(noc);
-
-        if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            tt_xy_pair arc_core = soc_desc_->get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
-            uint64_t scratch6_noc_addr =
-                arch_impl->get_arc_apb_noc_base_address() + arch_impl->get_arc_reset_scratch_offset() + 6 * 4;
-            tt_device_->read_from_device(&value, arc_core, scratch6_noc_addr, sizeof(value));
-        } else {
-            tt_xy_pair pcie_core = soc_desc_->get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
-            uint64_t noc_node_id_addr = arch_impl->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
-                                        arch_impl->get_noc_node_id_offset();
-            tt_device_->read_from_device(&value, pcie_core, noc_node_id_addr, sizeof(value));
-        }
-
-        return value;
-    }
-
     // Deliberately hangs the specified NOC by reading an address that causes the NOC transaction to
     // never complete. On WH, this targets a TDMA register on the tensix core. On BH, the tensix core
     // is first put into reset, then a read to a private tensix address is issued. Both approaches were
@@ -117,13 +97,11 @@ private:
 // itself works correctly, but the subsequent warm reset and topology rediscovery sometimes fail.
 // The hang detection is verified; the post-reset reinitialization path needs further investigation.
 
-class NodeIdVerificationNocAndBar : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {
+class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {
 protected:
     static tt_xy_pair extract_node_id(uint32_t reg_val) { return tt_xy_pair(reg_val & 0x3F, (reg_val >> 6) & 0x3F); }
 
     // Returns the BAR0 address for the NOC node ID register for the given arch and NOC.
-    // WH: ARC APB BAR0 base + NOC NIU offset + node ID offset (0x2C).
-    // BH: PCIe BAR0 NOC NIU base + node ID offset (0x44).
     uint32_t get_bar_node_id_offset(tt::ARCH arch, NocId noc) {
         if (arch == tt::ARCH::WORMHOLE_B0) {
             // WH: ARC NIU BAR0 base + node ID register offset (0x2C).
@@ -140,7 +118,7 @@ protected:
     }
 };
 
-TEST_P(NodeIdVerificationNocAndBar, DISABLED_ReadNodeIdViaBarAndNoc) {
+TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBarAndNoc) {
     NocId noc = GetParam();
     tt::ARCH arch = tt_device_->get_arch();
 
@@ -171,62 +149,6 @@ TEST_P(NodeIdVerificationNocAndBar, DISABLED_ReadNodeIdViaBarAndNoc) {
     EXPECT_EQ(bar_node_id, noc_node_id) << "BAR and NOC" << static_cast<int>(noc) << " node ID reads differ.";
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    NodeIdNocAndBar,
-    NodeIdVerificationNocAndBar,
-    ::testing::Values(NocId::NOC0, NocId::NOC1),
-    [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
-
-class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};
-
-TEST_P(NocHangDetectionTest, DISABLED_TestNocHangDetection) {
-    NocId noc_to_hang = GetParam();
-    NocId healthy_noc = (noc_to_hang == NocId::NOC0) ? NocId::NOC1 : NocId::NOC0;
-
-    if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE && noc_to_hang == NocId::NOC0) {
-        GTEST_SKIP()
-            << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
-    }
-
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
-    uint32_t healthy_noc_node_id_before_hang = read_hang_check_reg_via_noc(healthy_noc);
-    ASSERT_NE(healthy_noc_node_id_before_hang, 0xFFFFFFFF)
-        << "NOC" << static_cast<int>(healthy_noc) << " appears hung before test started.";
-
-    uint32_t hang_read_value = hang_noc(tensix_core, noc_to_hang);
-
-    uint32_t healthy_noc_node_id_after_hang = read_hang_check_reg_via_noc(healthy_noc);
-
-    log_info(
-        LogUMD,
-        "After hanging NOC{}: hang_read=0x{:08X}, healthy NOC{} before=0x{:08X} after=0x{:08X}",
-        static_cast<int>(noc_to_hang),
-        hang_read_value,
-        static_cast<int>(healthy_noc),
-        healthy_noc_node_id_before_hang,
-        healthy_noc_node_id_after_hang);
-
-    EXPECT_NE(healthy_noc_node_id_after_hang, 0xFFFFFFFF)
-        << "NOC" << static_cast<int>(healthy_noc) << " should still work after hanging NOC"
-        << static_cast<int>(noc_to_hang);
-    EXPECT_EQ(healthy_noc_node_id_after_hang, healthy_noc_node_id_before_hang)
-        << "NOC" << static_cast<int>(healthy_noc) << " value should match pre-hang value.";
-
-    warm_reset_and_reinit();
-
-    uint32_t healthy_noc_node_id_after_reset = read_hang_check_reg_via_noc(healthy_noc);
-    EXPECT_NE(healthy_noc_node_id_after_reset, 0xFFFFFFFF) << "NOC read still returns all ones after warm reset.";
-
-    log_info(LogUMD, "Post-reset: NOC=0x{:08X}", healthy_noc_node_id_after_reset);
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    HangNoc,
-    NocHangDetectionTest,
-    ::testing::Values(NocId::NOC0, NocId::NOC1),
-    [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
-
 TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
     NocId noc_to_hang = GetParam();
 
@@ -246,3 +168,9 @@ TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
 
     EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() still true after warm reset.";
 }
+
+INSTANTIATE_TEST_SUITE_P(
+    PerNoc,
+    NocHangDetectionTest,
+    ::testing::Values(NocId::NOC0, NocId::NOC1),
+    [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });

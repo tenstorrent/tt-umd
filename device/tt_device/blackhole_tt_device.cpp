@@ -117,7 +117,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + 0x100;
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.

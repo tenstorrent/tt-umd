@@ -126,10 +126,14 @@ protected:
     // BH: PCIe BAR0 NOC NIU base + node ID offset (0x44).
     uint32_t get_bar_node_id_offset(tt::ARCH arch, NocId noc) {
         if (arch == tt::ARCH::WORMHOLE_B0) {
-            uint32_t niu_offset = (noc == NocId::NOC0) ? 0x50000 : 0x58000;
-            return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + niu_offset + wormhole::NOC_NODE_ID_OFFSET;
+            // WH: ARC NIU BAR0 base + node ID register offset (0x2C).
+            uint32_t niu_base =
+                (noc == NocId::NOC0) ? wormhole::NIU_CFG_NOC0_BAR_ARC_ADDR : wormhole::NIU_CFG_NOC1_BAR_ARC_ADDR;
+            return niu_base + wormhole::NOC_NODE_ID_OFFSET;
         } else if (arch == tt::ARCH::BLACKHOLE) {
-            uint32_t niu_base = (noc == NocId::NOC0) ? 0x1FD04000 : 0x1FD14000;
+            // BH: PCIe NIU BAR0 base + node ID register offset (0x44).
+            uint32_t niu_base =
+                (noc == NocId::NOC0) ? blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR : blackhole::NIU_CFG_NOC1_BAR_PCIE_ADDR;
             return niu_base + blackhole::NOC_NODE_ID_OFFSET;
         }
         TT_THROW("Unsupported architecture.");

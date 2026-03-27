@@ -65,7 +65,6 @@ Checks: >
     -misc-non-private-member-variables-in-classes,
     -misc-no-recursion,
     -misc-override-with-different-visibility,
-    -misc-throw-by-value-catch-by-reference,
     -misc-redundant-expression,
     -misc-unused-parameters,
     -misc-use-anonymous-namespace,

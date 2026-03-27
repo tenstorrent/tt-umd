@@ -7,7 +7,11 @@ on:
       - main
     paths:
       - 'VERSION'
-
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
 env:
   RELEASE_BUILD_TYPE: Release
   BUILD_OUTPUT_DIR: ./build

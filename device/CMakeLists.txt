@@ -109,7 +109,7 @@ target_sources(
         noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
-        utils/exceptions.cpp
+        utils/error.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology/topology_discovery.cpp
@@ -235,7 +235,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/utils/common.hpp
-                api/umd/device/utils/exceptions.hpp
+                api/umd/device/utils/error_detail.hpp
+                api/umd/device/utils/error.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp

@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 
 #include <fmt/format.h>
 
-#include <stdexcept>
-#include <string>
+namespace tt::umd::error {
+using namespace tt::umd;
 
-namespace tt::umd {
 ETHHeartbeatError::ETHHeartbeatError(tt_xy_pair eth_core, uint32_t postcode, uint32_t heartbeat_value) :
     UmdError<ETHHeartbeatFailureData>(
         fmt::format(
@@ -18,4 +17,4 @@ ETHHeartbeatError::ETHHeartbeatError(tt_xy_pair eth_core, uint32_t postcode, uin
             postcode,
             heartbeat_value),
         ETHHeartbeatFailureData{{.core = eth_core}, postcode, heartbeat_value}) {}
-}  // namespace tt::umd
+}  // namespace tt::umd::error

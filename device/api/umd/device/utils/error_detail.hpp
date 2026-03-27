@@ -7,7 +7,6 @@
 #include <cxxabi.h>
 #include <execinfo.h>
 
-#include <exception>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -15,11 +14,7 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/types/xy_pair.hpp"
-
-namespace tt::umd {
-
-namespace error {
+namespace tt::umd::error {
 static inline std::string demangle(const char* str) {
     int status = 0;
     std::string rt(256, '\0');
@@ -70,7 +65,6 @@ inline std::string backtrace_to_string(
     }
     return ss.str();
 }
-}  // namespace error
 
 template <typename DATA_T>
 class UmdError {
@@ -120,38 +114,10 @@ protected:
 };
 
 #define UMD_THROW(error_type, ...) \
-    (throw tt::umd::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__))
+    (throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__))
 
-#define UMD_THROW_IF(condition, error_type, ...)                                                        \
-    ((condition) ? throw tt::umd::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__) \
+#define UMD_THROW_IF(condition, error_type, ...)                                                               \
+    ((condition) ? throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__) \
                  : error_type(__VA_ARGS__))
 
-//-----------------------------------------------------------------------------
-
-struct CoreExceptionData {
-public:
-    xy_pair core;
-};
-
-struct ETHHeartbeatFailureData : public CoreExceptionData {
-    uint32_t postcode;
-    uint32_t heartbeat_value;
-};
-
-class ETHHeartbeatError : public UmdError<ETHHeartbeatFailureData> {
-public:
-    explicit ETHHeartbeatError(tt_xy_pair eth_core, uint32_t postcode, uint32_t heartbeat_value);
-};
-
-//-----------------------------------------------------------------------------
-/**
- * @brief Exception thrown when a SIGBUS signal is intercepted.
- * This indicates a hardware access error, likely due to a reset or
- * hanging device while accessing mapped memory.
- */
-class SigbusError : public std::runtime_error {
-public:
-    explicit SigbusError(const std::string& message) : std::runtime_error(message) {}
-};
-
-}  // namespace tt::umd
+}  // namespace tt::umd::error

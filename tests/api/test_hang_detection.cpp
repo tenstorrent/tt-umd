@@ -119,6 +119,8 @@ private:
 
 class NodeIdVerificationNocAndBar : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {
 protected:
+    static tt_xy_pair extract_node_id(uint32_t reg_val) { return tt_xy_pair(reg_val & 0x3F, (reg_val >> 6) & 0x3F); }
+
     // Returns the BAR0 address for the NOC node ID register for the given arch and NOC.
     // WH: ARC APB BAR0 base + NOC NIU offset + node ID offset (0x2C).
     // BH: PCIe BAR0 NOC NIU base + node ID offset (0x44).
@@ -138,33 +140,31 @@ TEST_P(NodeIdVerificationNocAndBar, DISABLED_ReadNodeIdViaBarAndNoc) {
     NocId noc = GetParam();
     tt::ARCH arch = tt_device_->get_arch();
 
-    uint32_t bar_val = tt_device_->bar_read32(get_bar_node_id_offset(arch, noc));
+    uint32_t bar_raw = tt_device_->bar_read32(get_bar_node_id_offset(arch, noc));
 
-    uint32_t noc_val;
+    uint32_t noc_raw;
     {
         NocIdSwitcher noc_switcher(noc);
-        noc_val = tt_device_->read_hang_check_reg_via_noc();
+        noc_raw = tt_device_->read_hang_check_reg_via_noc();
     }
 
-    uint32_t bar_x = bar_val & 0x3F;
-    uint32_t bar_y = (bar_val >> 6) & 0x3F;
-    uint32_t noc_x = noc_val & 0x3F;
-    uint32_t noc_y = (noc_val >> 6) & 0x3F;
+    tt_xy_pair bar_node_id = extract_node_id(bar_raw);
+    tt_xy_pair noc_node_id = extract_node_id(noc_raw);
 
     log_info(
         LogUMD,
-        "NOC{} node ID: BAR=0x{:08X} ({},{}), NOC=0x{:08X} ({},{})",
+        "NOC{} node ID: BAR=({},{}) [0x{:08X}], NOC=({},{}) [0x{:08X}]",
         static_cast<int>(noc),
-        bar_val,
-        bar_x,
-        bar_y,
-        noc_val,
-        noc_x,
-        noc_y);
+        bar_node_id.x,
+        bar_node_id.y,
+        bar_raw,
+        noc_node_id.x,
+        noc_node_id.y,
+        noc_raw);
 
-    EXPECT_NE(bar_val, 0xFFFFFFFF) << "BAR read returned all ones.";
-    EXPECT_NE(noc_val, 0xFFFFFFFF) << "NOC" << static_cast<int>(noc) << " read returned all ones.";
-    EXPECT_EQ(bar_val, noc_val) << "BAR and NOC" << static_cast<int>(noc) << " node ID reads differ.";
+    EXPECT_NE(bar_raw, 0xFFFFFFFF) << "BAR read returned all ones.";
+    EXPECT_NE(noc_raw, 0xFFFFFFFF) << "NOC" << static_cast<int>(noc) << " read returned all ones.";
+    EXPECT_EQ(bar_node_id, noc_node_id) << "BAR and NOC" << static_cast<int>(noc) << " node ID reads differ.";
 }
 
 INSTANTIATE_TEST_SUITE_P(

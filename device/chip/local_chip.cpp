@@ -44,29 +44,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
     }
 
-    std::unique_ptr<TLBManager> tlb_manager = nullptr;
-    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
-    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
-
-    // The variables bellow are only needed when using PCIe.
-    // JTAG(currently the only communication protocol other than PCIe) has no use of them.
-    if (device_type == IODeviceType::PCIe) {
-        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
-    }
-    // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    remote_communication = RemoteCommunication::create_remote_communication(
-        tt_device.get(),
-        {0, 0, 0, 0},
-        sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
-
-    return std::unique_ptr<LocalChip>(new LocalChip(
-        std::move(soc_descriptor),
-        std::move(tt_device),
-        std::move(tlb_manager),
-        std::move(sysmem_manager),
-        std::move(remote_communication),
-        num_host_mem_channels));
+    return LocalChip::create(std::move(tt_device), std::move(soc_descriptor), num_host_mem_channels);
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
@@ -77,21 +55,25 @@ std::unique_ptr<LocalChip> LocalChip::create(
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
+    return LocalChip::create(std::move(tt_device), std::move(soc_descriptor), num_host_mem_channels);
+}
+
+std::unique_ptr<LocalChip> LocalChip::create(
+    std::unique_ptr<TTDevice> tt_device, SocDescriptor soc_descriptor, int num_host_mem_channels) {
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
     std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
-    // The variables bellow are only needed when using PCIe.
+    // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
-    if (device_type == IODeviceType::PCIe) {
+    if (tt_device->get_pci_device() != nullptr) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    remote_communication = RemoteCommunication::create_remote_communication(
-        tt_device.get(),
-        {0, 0, 0, 0},
-        sysmem_manager->get_num_host_mem_channels() > 0 ? sysmem_manager.get() : nullptr);
+    SysmemManager* sysmem_ptr =
+        (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
+    remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         std::move(soc_descriptor),

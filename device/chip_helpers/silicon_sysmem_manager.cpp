@@ -6,8 +6,8 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
-#include <linux/mman.h>  // for MAP_HUGE_1GB
-#include <sys/mman.h>    // for mmap, munmap
+#include <sys/mman.h>  // for mmap, munmap
+#include <sys/stat.h>  // for fstat
 
 #include <cerrno>
 #include <cstddef>
@@ -113,11 +113,12 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
     auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
 
-    if (get_free_hugepages() == 0) {
+    std::string hugepage_dir = find_hugepage_dir(hugepage_size);
+    if (hugepage_dir.empty()) {
         log_warning(
             LogUMD,
-            "SiliconSysmemManager::init_hugepages: no free 1GB hugepages available. "
-            "Ensure hugepages are configured via /sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages.");
+            "SiliconSysmemManager::init_hugepage: no huge page mount found for hugepage_size: {}.",
+            hugepage_size);
         return false;
     }
 
@@ -127,31 +128,52 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (int ch = 0; ch < num_host_mem_channels; ch++) {
-        std::byte *mapping = static_cast<std::byte *>(mmap(
-            nullptr,
-            hugepage_size,
-            PROT_READ | PROT_WRITE,
-            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
-            -1,
-            0));
+        int hugepage_fd = open_hugepage_file(hugepage_dir, physical_device_id, ch);
+        if (hugepage_fd == -1) {
+            // Probably a permissions problem.
+            log_warning(
+                LogUMD,
+                "SiliconSysmemManager::init_hugepage: physical_device_id: {} ch: {} creating hugepage mapping file "
+                "failed.",
+                physical_device_id,
+                ch);
+            success = false;
+            continue;
+        }
+
+        // Verify opened file size.
+        struct stat hugepage_st;
+        if (fstat(hugepage_fd, &hugepage_st) == -1) {
+            log_warning(LogUMD, "Error reading hugepage file size after opening.");
+        }
+
+        std::byte *mapping = static_cast<std::byte *>(
+            mmap(nullptr, hugepage_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, hugepage_fd, 0));
+
+        close(hugepage_fd);
 
         if (mapping == MAP_FAILED) {
             log_warning(
                 LogUMD,
-                "UMD: Hugepage allocation failed. (device: {}, {}/{} errno {} ({})).",
+                "UMD: Mapping a hugepage failed. (device: {}, {}/{} errno: {}).",
                 physical_device_id,
                 ch,
                 num_host_mem_channels,
-                errno,
                 strerror(errno));
+            if (hugepage_st.st_size == 0) {
+                log_warning(
+                    LogUMD,
+                    "Opened hugepage file has zero size, mapping might've failed due to that. Verify that enough "
+                    "hugepages are provided.");
+            }
             print_file_contents("/proc/cmdline");
             print_file_contents(
                 "/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages");  // Hardcoded for 1GB hugepage.
-            hugepage_mapping_per_channel.resize(ch);
-            return false;
+            success = false;
+            continue;
         }
 
-        // Better performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
+        // Beter performance if hugepage just allocated (populate flag to prevent lazy alloc) is migrated to same
         // numanode as TT device.
         if (!tt::cpuset::cpuset_allocator::bind_area_to_memory_nodeset(physical_device_id, mapping, hugepage_size)) {
             log_warning(

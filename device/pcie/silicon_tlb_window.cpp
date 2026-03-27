@@ -105,28 +105,15 @@ void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
 }
 
 void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
-    auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
-
     validate(offset, size);
-
-    if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device((void *)dst, src, size);
-    } else {
-        memcpy((void *)dst, (void *)src, size);
-    }
+    memcpy_to_device((void *)dst, data, size);
 }
 
 void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     const void *src = tlb_handle->get_base() + get_total_offset(offset);
-
     validate(offset, size);
-
-    if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(data, src, size);
-    } else {
-        memcpy(data, src, size);
-    }
+    memcpy_from_device(data, src, size);
 }
 
 void SiliconTlbWindow::memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {

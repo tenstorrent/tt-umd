@@ -25,6 +25,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -116,7 +117,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + 0x100;
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
@@ -390,18 +391,31 @@ EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair et
 }
 
 bool BlackholeTTDevice::is_hardware_hung() {
-    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
 
-    // TODO: I am commented that out because we end up in this code path if we
-    // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
-    // it doesn't necessarily mean the hardware is hung. It's possible to write
-    // 0xffffffff to device memory and reading it back should not trigger an
-    // exception. In my case, the hardware was not hung but the 0xffffffff was
-    // related to a failure which was obscured by the exception. For now,
-    // just return false.  -- @joelsmithTT, Oct 1 2025
+    // Reading user data that happens to be 0xFFFFFFFF does not mean the chip is
+    // hung. To distinguish a real hang from legitimate data, we read the NOC
+    // node ID register — it holds the PCIe tile coordinates and can never be
+    // 0xFFFFFFFF on healthy hardware. If this independent read also returns all
+    // ones, the NOC/chip is truly hung.
+    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
-    log_debug(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
-    return false;
+    return (node_id == HANG_READ_VALUE);
+}
+
+uint32_t BlackholeTTDevice::read_hang_check_reg_via_noc() {
+    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
+    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    tt_xy_pair pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(get_selected_noc_id())) +
+                    architecture_impl_->get_noc_node_id_offset();
+
+    uint32_t value = 0;
+    read_from_device(&value, pcie_core, addr, sizeof(value));
+    return value;
 }
 
 int BlackholeTTDevice::get_pcie_x_coordinate() {

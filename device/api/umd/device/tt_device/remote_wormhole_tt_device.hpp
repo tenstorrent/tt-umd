@@ -36,11 +36,15 @@ public:
      */
     void detect_hang_read(std::uint32_t data_read) override;
 
-    /*
-     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
-     * so hang detection is done via the local TTDevice used by RemoteCommunication.
-     */
     bool is_hardware_hung() override;
+
+    /*
+     * Reads the NOC node ID register on the local device.
+     * A hung remote NOC causes the ethernet transaction to time out rather than
+     * returning 0xFFFFFFFF — returning all ones is a property of the PCIe tile for a non-responsive
+     * NOC transaction - and this is why the local device is used.
+     */
+    uint32_t read_hang_check_reg_via_noc() override;
 
     void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
 

@@ -181,7 +181,7 @@ class NocHangDetectionTest : public HangDetectionTest, public ::testing::WithPar
 
 TEST_P(NocHangDetectionTest, DISABLED_TestNocHangDetection) {
     NocId noc_to_hang = GetParam();
-    NocId verify_noc = (noc_to_hang == NocId::NOC0) ? NocId::NOC1 : NocId::NOC0;
+    NocId healthy_noc = (noc_to_hang == NocId::NOC0) ? NocId::NOC1 : NocId::NOC0;
 
     if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE && noc_to_hang == NocId::NOC0) {
         GTEST_SKIP()
@@ -190,33 +190,35 @@ TEST_P(NocHangDetectionTest, DISABLED_TestNocHangDetection) {
 
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-    uint32_t baseline = read_hang_check_reg_via_noc(verify_noc);
-    ASSERT_NE(baseline, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc) << " appears hung before test started.";
+    uint32_t healthy_noc_node_id_before_hang = read_hang_check_reg_via_noc(healthy_noc);
+    ASSERT_NE(healthy_noc_node_id_before_hang, 0xFFFFFFFF)
+        << "NOC" << static_cast<int>(healthy_noc) << " appears hung before test started.";
 
     uint32_t hang_read_value = hang_noc(tensix_core, noc_to_hang);
 
-    uint32_t verify_value = read_hang_check_reg_via_noc(verify_noc);
+    uint32_t healthy_noc_node_id_after_hang = read_hang_check_reg_via_noc(healthy_noc);
 
     log_info(
         LogUMD,
-        "After hanging NOC{}: hang_read=0x{:08X}, verify NOC{}=0x{:08X}, baseline=0x{:08X}",
+        "After hanging NOC{}: hang_read=0x{:08X}, healthy NOC{} before=0x{:08X} after=0x{:08X}",
         static_cast<int>(noc_to_hang),
         hang_read_value,
-        static_cast<int>(verify_noc),
-        verify_value,
-        baseline);
+        static_cast<int>(healthy_noc),
+        healthy_noc_node_id_before_hang,
+        healthy_noc_node_id_after_hang);
 
-    EXPECT_NE(verify_value, 0xFFFFFFFF) << "NOC" << static_cast<int>(verify_noc)
-                                        << " should still work after hanging NOC" << static_cast<int>(noc_to_hang);
-    EXPECT_EQ(verify_value, baseline) << "NOC" << static_cast<int>(verify_noc)
-                                      << " value should match pre-hang baseline.";
+    EXPECT_NE(healthy_noc_node_id_after_hang, 0xFFFFFFFF)
+        << "NOC" << static_cast<int>(healthy_noc) << " should still work after hanging NOC"
+        << static_cast<int>(noc_to_hang);
+    EXPECT_EQ(healthy_noc_node_id_after_hang, healthy_noc_node_id_before_hang)
+        << "NOC" << static_cast<int>(healthy_noc) << " value should match pre-hang value.";
 
     warm_reset_and_reinit();
 
-    uint32_t noc_recovered = read_hang_check_reg_via_noc(verify_noc);
-    EXPECT_NE(noc_recovered, 0xFFFFFFFF) << "NOC read still returns all ones after warm reset.";
+    uint32_t healthy_noc_node_id_after_reset = read_hang_check_reg_via_noc(healthy_noc);
+    EXPECT_NE(healthy_noc_node_id_after_reset, 0xFFFFFFFF) << "NOC read still returns all ones after warm reset.";
 
-    log_info(LogUMD, "Post-reset: NOC=0x{:08X}", noc_recovered);
+    log_info(LogUMD, "Post-reset: NOC=0x{:08X}", healthy_noc_node_id_after_reset);
 }
 
 INSTANTIATE_TEST_SUITE_P(

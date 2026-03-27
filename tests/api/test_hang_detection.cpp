@@ -119,13 +119,16 @@ private:
 
 class NodeIdVerificationNocAndBar : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {
 protected:
+    // Returns the BAR0 address for the NOC node ID register for the given arch and NOC.
+    // WH: ARC APB BAR0 base + NOC NIU offset + node ID offset (0x2C).
+    // BH: PCIe BAR0 NOC NIU base + node ID offset (0x44).
     uint32_t get_bar_node_id_offset(tt::ARCH arch, NocId noc) {
         if (arch == tt::ARCH::WORMHOLE_B0) {
-            return (noc == NocId::NOC0) ? wormhole::WH_BAR_ARC_NOC0_NODE_ID_OFFSET
-                                        : wormhole::WH_BAR_ARC_NOC1_NODE_ID_OFFSET;
+            uint32_t niu_offset = (noc == NocId::NOC0) ? 0x50000 : 0x58000;
+            return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + niu_offset + wormhole::NOC_NODE_ID_OFFSET;
         } else if (arch == tt::ARCH::BLACKHOLE) {
-            return (noc == NocId::NOC0) ? blackhole::BH_BAR_PCIE_NOC0_NODE_ID_OFFSET
-                                        : blackhole::BH_BAR_PCIE_NOC1_NODE_ID_OFFSET;
+            uint32_t niu_base = (noc == NocId::NOC0) ? 0x1FD04000 : 0x1FD14000;
+            return niu_base + blackhole::NOC_NODE_ID_OFFSET;
         }
         TT_THROW("Unsupported architecture.");
     }

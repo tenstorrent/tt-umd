@@ -117,14 +117,25 @@ private:
 // itself works correctly, but the subsequent warm reset and topology rediscovery sometimes fail.
 // The hang detection is verified; the post-reset reinitialization path needs further investigation.
 
-class BarVsNocNodeIdTest : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {};
+class NodeIdVerificationNocAndBar : public HangDetectionTest, public ::testing::WithParamInterface<NocId> {
+protected:
+    uint32_t get_bar_node_id_offset(tt::ARCH arch, NocId noc) {
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            return (noc == NocId::NOC0) ? wormhole::WH_BAR_ARC_NOC0_NODE_ID_OFFSET
+                                        : wormhole::WH_BAR_ARC_NOC1_NODE_ID_OFFSET;
+        } else if (arch == tt::ARCH::BLACKHOLE) {
+            return (noc == NocId::NOC0) ? blackhole::BH_BAR_PCIE_NOC0_NODE_ID_OFFSET
+                                        : blackhole::BH_BAR_PCIE_NOC1_NODE_ID_OFFSET;
+        }
+        TT_THROW("Unsupported architecture.");
+    }
+};
 
-TEST_P(BarVsNocNodeIdTest, DISABLED_ReadNodeIdViaBarAndNoc) {
+TEST_P(NodeIdVerificationNocAndBar, DISABLED_ReadNodeIdViaBarAndNoc) {
     NocId noc = GetParam();
+    tt::ARCH arch = tt_device_->get_arch();
 
-    // BAR always reads the NOC0 node ID register (get_read_checking_offset targets NOC0).
-    uint32_t bar_val =
-        tt_device_->bar_read32(tt_device_->get_architecture_implementation()->get_read_checking_offset());
+    uint32_t bar_val = tt_device_->bar_read32(get_bar_node_id_offset(arch, noc));
 
     uint32_t noc_val;
     {
@@ -139,27 +150,23 @@ TEST_P(BarVsNocNodeIdTest, DISABLED_ReadNodeIdViaBarAndNoc) {
 
     log_info(
         LogUMD,
-        "Node ID via BAR=0x{:08X} ({},{}), via NOC{}=0x{:08X} ({},{})",
+        "NOC{} node ID: BAR=0x{:08X} ({},{}), NOC=0x{:08X} ({},{})",
+        static_cast<int>(noc),
         bar_val,
         bar_x,
         bar_y,
-        static_cast<int>(noc),
         noc_val,
         noc_x,
         noc_y);
 
     EXPECT_NE(bar_val, 0xFFFFFFFF) << "BAR read returned all ones.";
     EXPECT_NE(noc_val, 0xFFFFFFFF) << "NOC" << static_cast<int>(noc) << " read returned all ones.";
-
-    // BAR targets the NOC0 register, so equivalence is only expected when reading via NOC0.
-    if (noc == NocId::NOC0) {
-        EXPECT_EQ(bar_val, noc_val) << "BAR and NOC0 node ID reads differ.";
-    }
+    EXPECT_EQ(bar_val, noc_val) << "BAR and NOC" << static_cast<int>(noc) << " node ID reads differ.";
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    BarVsNoc,
-    BarVsNocNodeIdTest,
+    NodeIdNocAndBar,
+    NodeIdVerificationNocAndBar,
     ::testing::Values(NocId::NOC0, NocId::NOC1),
     [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
 

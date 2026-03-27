@@ -268,9 +268,9 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t ARC_SCRATCH_6_OFFSET = 0x1FF30078;
 
-// BAR0-mapped ARC NOC node ID register: ARC APB BAR0 base + NIU offset for each NOC.
-inline constexpr uint32_t WH_BAR_ARC_NOC0_NODE_ID_OFFSET = ARC_APB_BAR0_XBAR_OFFSET_START + 0x50000;
-inline constexpr uint32_t WH_BAR_ARC_NOC1_NODE_ID_OFFSET = ARC_APB_BAR0_XBAR_OFFSET_START + 0x58000;
+// BAR0-mapped ARC NOC node ID register: ARC APB BAR0 base + NIU offset + node ID register offset (0x2C).
+inline constexpr uint32_t WH_BAR_ARC_NOC0_NODE_ID_OFFSET = ARC_APB_BAR0_XBAR_OFFSET_START + 0x50000 + 0x2C;
+inline constexpr uint32_t WH_BAR_ARC_NOC1_NODE_ID_OFFSET = ARC_APB_BAR0_XBAR_OFFSET_START + 0x58000 + 0x2C;
 
 // ARC Reset Unit offset address (APB peripheral) - accessible via BAR0 or NOC
 // Usage examples with ARC_RESET_SCRATCH_STATUS_OFFSET:

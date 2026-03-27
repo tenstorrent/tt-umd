@@ -75,52 +75,48 @@ inline std::string backtrace_to_string(
 template <typename DATA_T>
 class UmdError {
 public:
-    explicit UmdError(const std::string& what, const DATA_T& data) : what_string_(what), exception_data_(data) {}
+    explicit UmdError(const std::string& what, const DATA_T& data) : message_(what), error_data_(data) {}
 
-    std::string& what() { return what_string_; }
+    std::string& message() { return message_; }
 
-    const std::string& what() const noexcept { return what_string_; }
+    const std::string& message() const noexcept { return message_; }
 
-    DATA_T& data() { return exception_data_; }
+    DATA_T& data() { return error_data_; }
 
-    const DATA_T& data() const noexcept { return exception_data_; }
+    const DATA_T& data() const noexcept { return error_data_; }
 
 private:
-    std::string what_string_;
-    DATA_T exception_data_;
+    std::string message_;
+    DATA_T error_data_;
 };
 
 template <typename ERROR_T>
 class UmdException : public std::runtime_error {
 public:
     explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
-        std::runtime_error(error.what()), error_(error), file_(file), line_(line) {
+        std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
         backtrace_ = tt::umd::error::backtrace();
-    }
-
-    std::string& what() { return error_.what(); }
-
-    const char* what() const noexcept override {
         std::stringstream ss;
-        ss << error_.what() << std::endl;
+        ss << error_.message() << std::endl;
         ss << "Location: " << file_ << ":" << line_ << std::endl;
         for (size_t i = 0; i < backtrace_.size(); ++i) {
             ss << backtrace_[i] << std::endl;
         }
-        output_ = ss.str();
-        return output_.c_str();
+        what_output_ = ss.str();
     }
+
+    const char* what() const noexcept override { return what_output_.c_str(); }
 
     ERROR_T& error() { return error_; }
 
     const ERROR_T& error() const noexcept { return error_; }
 
 protected:
-    ERROR_T error_;
-    std::string file_;
     uint32_t line_ = 0;
+    std::string file_;
     std::vector<std::string> backtrace_;
-    mutable std::string output_;
+    std::string what_output_;
+    ERROR_T error_;
 };
 
 #define UMD_THROW(error_type, ...) \

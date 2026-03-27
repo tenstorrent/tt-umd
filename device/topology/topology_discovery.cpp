@@ -209,14 +209,13 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             if (!eth_heartbeat_running(tt_device, eth_core)) {
-                auto error = ETHHeartbeatError(
-                    eth_core, get_eth_postcode(tt_device, eth_core), get_eth_heartbeat(tt_device, eth_core));
-                if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                    throw error;
-                } else {
-                    log_warning(LogUMD, error.what());
-                    continue;
-                }
+                auto error = UMD_THROW_IF(
+                    options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
+                    ETHHeartbeatError,
+                    eth_core,
+                    get_eth_postcode(tt_device, eth_core),
+                    get_eth_heartbeat(tt_device, eth_core));
+                log_warning(LogUMD, error.message());
             }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {

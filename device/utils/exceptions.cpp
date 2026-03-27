@@ -11,7 +11,7 @@
 
 namespace tt::umd {
 ETHHeartbeatError::ETHHeartbeatError(tt_xy_pair eth_core, uint32_t postcode, uint32_t heartbeat_value) :
-    UMDException(
+    UmdError<ETHHeartbeatFailureData>(
         fmt::format(
             "Ethernet heartbeat error on core {}: postcode={:#x}, heartbeat={:#x}",
             eth_core.str(),

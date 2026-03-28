@@ -33,7 +33,7 @@ namespace tt::umd {
 static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
 static constexpr uint32_t DMA_TIMEOUT_MS = 10000;  // 10 seconds
 
-WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],

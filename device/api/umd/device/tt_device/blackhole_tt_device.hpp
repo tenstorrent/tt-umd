@@ -49,7 +49,7 @@ public:
     uint32_t read_hang_check_reg_via_noc() override;
 
 protected:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
+    BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
     BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     virtual bool is_arc_available_over_axi();

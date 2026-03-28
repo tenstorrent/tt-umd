@@ -54,7 +54,7 @@ public:
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
 private:
-    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api);
+    RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
     /*
      * This is a constructor primarily used for JTAG to create a RemoteWormholeTTDevice

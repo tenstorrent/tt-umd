@@ -39,7 +39,7 @@ namespace tt::umd {
 }
 
 TTDevice::TTDevice(
-    std::shared_ptr<PCIDevice> pci_device,
+    std::unique_ptr<PCIDevice> pci_device,
     std::unique_ptr<architecture_implementation> architecture_impl,
     bool use_safe_api) :
     pci_device_(std::move(pci_device)),
@@ -118,13 +118,13 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
         }
     }
 
-    auto pci_device = std::make_shared<PCIDevice>(device_number);
+    auto pci_device = std::make_unique<PCIDevice>(device_number);
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(pci_device, use_safe_api));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(pci_device, use_safe_api));
+            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
         default:
             return nullptr;
     }
@@ -140,8 +140,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
                 return std::unique_ptr<RemoteWormholeTTDevice>(
                     new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
             }
-            return std::unique_ptr<RemoteWormholeTTDevice>(
-                new RemoteWormholeTTDevice(std::move(remote_communication), use_safe_api));
+            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             return nullptr;
@@ -153,7 +152,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
+PCIDevice *TTDevice::get_pci_device() { return pci_device_.get(); }
 
 JtagDevice *TTDevice::get_jtag_device() { return jtag_device_.get(); }
 
@@ -405,7 +404,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     const uint8_t *buffer = static_cast<const uint8_t *>(src);
-    PCIDevice *pci_device = get_pci_device().get();
+    PCIDevice *pci_device = get_pci_device();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     tlb_data config{};
@@ -458,7 +457,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     uint8_t *buffer = static_cast<uint8_t *>(dst);
-    PCIDevice *pci_device = get_pci_device().get();
+    PCIDevice *pci_device = get_pci_device();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     tlb_data config{};
@@ -513,7 +512,7 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     const uint8_t *buffer = static_cast<const uint8_t *>(src);
-    PCIDevice *pci_device = get_pci_device().get();
+    PCIDevice *pci_device = get_pci_device();
     size_t dmabuf_size = pci_device->get_dma_buffer().size;
 
     tlb_data config{};

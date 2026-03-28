@@ -60,7 +60,7 @@ public:
         std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
 
     TTDevice(
-        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<architecture_implementation> architecture_impl,
         bool use_safe_api);
     TTDevice(
@@ -71,7 +71,7 @@ public:
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
-    std::shared_ptr<PCIDevice> get_pci_device();
+    PCIDevice *get_pci_device();
     JtagDevice *get_jtag_device();
 
     tt::ARCH get_arch();
@@ -352,7 +352,7 @@ public:
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
 protected:
-    std::shared_ptr<PCIDevice> pci_device_;
+    std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;

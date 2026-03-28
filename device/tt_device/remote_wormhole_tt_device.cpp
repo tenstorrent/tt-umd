@@ -17,9 +17,7 @@
 
 namespace tt::umd {
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) :
-    WormholeTTDevice(remote_communication->get_local_device()->get_pci_device(), use_safe_api),
+RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {
     is_remote_tt_device = true;
 }

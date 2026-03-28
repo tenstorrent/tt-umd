@@ -50,7 +50,7 @@ public:
     ~WormholeTTDevice() override = default;
 
 protected:
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
+    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
     WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
     /*
      * Create a device without an underlying communication device.

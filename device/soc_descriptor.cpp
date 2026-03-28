@@ -202,37 +202,32 @@ CoreCoord SocDescriptor::translate_coord_to(
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
 }
 
-tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the is_selected_noc1() flag.
-    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
-    if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
-        return translate_coord_to(core, CoordSystem::TRANSLATED);
+// Translates a chip coordinate to the correct device coordinates, returning a CoreCoord
+// Returns the correct pre-translation coordinates for the given architecture. Note that
+// the returned CoordSystem is not necessarily TRANSLATED — architecture-specific fixups
+// (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1 coordinates instead.
+// The key guarantee is that the returned coordinates will be correct for device access
+// on the given architecture.
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+    if (!noc_translation_enabled) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
     // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
-    if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
+    if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    return translate_coord_to(core, CoordSystem::TRANSLATED);
 }
 
-// Convenience wrapper around translate_chip_coord_to_translated that returns a CoreCoord
-// directly, preserving the core type and setting the coordinate system to TRANSLATED.
-//
-// Note: Unlike translate_coord_to, which provides straightforward coordinate mappings,
-// translate_chip_coord_to_translated applies additional architecture-specific adjustments
-// (e.g., Wormhole DRAM/ARC/PCIe cores falling back to NOC0/NOC1 instead of translated
-// coordinates). Ideally translate_coord_to would be sufficient, but the workarounds in
-// translate_chip_coord_to_translated are still needed until the underlying dependencies
-// are resolved (see comments in translate_chip_coord_to_translated for details).
-CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
-    return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, CoordSystem::TRANSLATED);
+// Convenience wrapper returning tt_xy_pair; the actual logic lives in
+// translate_chip_coord_to_translated_coord.
+tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
+    return translate_chip_coord_to_translated_coord(core);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {

@@ -11,6 +11,7 @@
 #include <utility>
 
 #include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 
@@ -84,6 +85,10 @@ void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
 
 bool RemoteWormholeTTDevice::is_hardware_hung() {
     return remote_communication_->get_local_device()->is_hardware_hung();
+}
+
+uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc() {
+    return remote_communication_->get_local_device()->read_hang_check_reg_via_noc();
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(

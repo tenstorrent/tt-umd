@@ -41,6 +41,9 @@ public:
 
     bool is_hardware_hung() override { return false; }
 
+    /** Hang detection not implemented for simulator; returns 0 (not HANG_READ_VALUE). */
+    uint32_t read_hang_check_reg_via_noc() override { return 0; }
+
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void *src, size_t size) override;

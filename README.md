@@ -31,11 +31,13 @@ To determine whether your system requires hugepage configuration, run the provid
 If your system IOMMU is enabled, no hugepage setup is required.
 If you don't have IOMMU enabled, than hugepages might be required for some of the driver functionality.
 [1G hugepages](https://www.kernel.org/doc/Documentation/admin-guide/mm/hugetlbpage.rst) are required for shared device/host memory.  Techniques for setup:
-  * Recommended: add `hugepagesz=1G hugepages=N` to your kernel boot parameters (where N is the number of hugepages needed), then reboot.
-  * Alternative: the [tt-system-tools](https://github.com/tenstorrent/tt-system-tools) repository contains a .deb package which will configure your system.
+  * Recommended: the [tt-system-tools](https://github.com/tenstorrent/tt-system-tools) repository contains a .deb package which will configure your system
+      * `sudo dpkg -i tenstorrent-tools_1.1-5_all.deb`
+  * Alternative: Metal project provides instructions and a [script](https://github.com/tenstorrent/tt-metal/blob/main/INSTALLING.md#step-3-hugepages).
   * For experts:
-    * Put system IOMMU in passthrough mode or disable it.
-    * Allocate 1 or more 1G hugepages via kernel boot parameters or at runtime via `/sys/kernel/mm/hugepages/hugepages-1048576kB/nr_hugepages`.
+    * Put system IOMMU in passthrough mode or disable it
+    * Allocate 1 or more 1G hugepages
+    * Mount the hugetlbfs at /dev/hugepages-1G (e.g. `mount -t hugetlbfs hugetlbfs /dev/hugepages-1G -o mode=777,pagesize=1024M`)
 
 ## Install and use UMD
 

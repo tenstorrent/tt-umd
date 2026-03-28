@@ -7,8 +7,9 @@
 #include <cxxabi.h>
 #include <execinfo.h>
 
+#include <cstdint>
+#include <cstdlib>
 #include <memory>
-#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -25,7 +26,11 @@ namespace tt::umd::error {
  * @param skip Number of top stack frames to skip (default: 1, skipping this function itself).
  * @return Vector of demangled stack frame strings, empty if capture fails.
  */
-static inline std::vector<std::string> get_stacktrace(int max_frames = 64, int skip = 1) {
+static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, uint32_t skip = 1) {
+    if (skip >= max_frames) {
+        return std::vector<std::string>{};
+    }
+
     std::vector<std::string> stack_frames;
     std::vector<void*> target_stack(max_frames);
     int addr_count = backtrace(target_stack.data(), max_frames);
@@ -99,7 +104,7 @@ public:
      *
      * @return Reference to the error message string.
      */
-    std::string& message() { return message_; }
+    std::string& message() noexcept { return message_; }
 
     /**
      * @brief Gets a const reference to the error message.
@@ -113,7 +118,7 @@ public:
      *
      * @return Reference to the error data.
      */
-    DATA_T& data() { return error_data_; }
+    DATA_T& data() noexcept { return error_data_; }
 
     /**
      * @brief Gets a const reference to the structured error data.
@@ -167,13 +172,6 @@ public:
      * @return C-string containing the full error message with diagnostic information.
      */
     const char* what() const noexcept override { return what_output_.c_str(); }
-
-    /**
-     * @brief Gets a mutable reference to the wrapped error object.
-     *
-     * @return Reference to the UmdError object.
-     */
-    ERROR_T& error() { return error_; }
 
     /**
      * @brief Gets a const reference to the wrapped error object.

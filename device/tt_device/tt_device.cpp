@@ -24,6 +24,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -42,15 +43,16 @@ TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device,
     std::unique_ptr<architecture_implementation> architecture_impl,
     bool use_safe_api) :
-    pci_device_(std::move(pci_device)),
     communication_device_type_(IODeviceType::PCIe),
-    communication_device_id_(pci_device_->get_device_num()),
+    communication_device_id_(pci_device->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()),
-    use_safe_api_(use_safe_api) {
+    arch(architecture_impl_->get_architecture()) {
+    auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
+    pcie_capabilities_ = pcie_protocol.get();
+    device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-    if (use_safe_api_) {
+    if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
 }

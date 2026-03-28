@@ -18,6 +18,9 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/jtag_interface.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -73,6 +76,10 @@ public:
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
     JtagDevice *get_jtag_device();
+
+    DeviceProtocol *get_device_protocol();
+    PcieInterface *get_pcie_interface();
+    JtagInterface *get_jtag_interface();
 
     tt::ARCH get_arch();
 
@@ -373,6 +380,10 @@ protected:
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
+
+    std::unique_ptr<DeviceProtocol> device_protocol_;
+    PcieInterface *pcie_capabilities_ = nullptr;
+    JtagInterface *jtag_capabilities_ = nullptr;
 
     virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
 

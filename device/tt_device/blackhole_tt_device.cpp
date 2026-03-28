@@ -228,7 +228,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(
+        get_jtag_device()->read(
             communication_device_id_,
             mem_ptr,
             blackhole::ARC_CORES_NOC0[0].x,
@@ -250,7 +250,7 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(
+        get_jtag_device()->write(
             communication_device_id_,
             mem_ptr,
             blackhole::ARC_CORES_NOC0[0].x,

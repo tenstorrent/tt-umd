@@ -24,6 +24,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -61,11 +62,14 @@ TTDevice::TTDevice(
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     std::unique_ptr<architecture_implementation> architecture_impl) :
-    jtag_device_(std::move(jtag_device)),
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {}
+    arch(architecture_impl_->get_architecture()) {
+    auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
+    jtag_capabilities_ = jtag_protocol.get();
+    device_protocol_ = std::move(jtag_protocol);
+}
 
 TTDevice::TTDevice() = default;
 
@@ -156,7 +160,7 @@ architecture_implementation *TTDevice::get_architecture_implementation() { retur
 
 PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
 
-JtagDevice *TTDevice::get_jtag_device() { return jtag_device_.get(); }
+JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
 
 DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 
@@ -165,6 +169,13 @@ PcieInterface *TTDevice::get_pcie_interface() {
         throw std::runtime_error("PCIe interface is not available for this device.");
     }
     return pcie_capabilities_;
+}
+
+JtagInterface *TTDevice::get_jtag_interface() {
+    if (!jtag_capabilities_) {
+        throw std::runtime_error("JTAG interface is not available for this device.");
+    }
+    return jtag_capabilities_;
 }
 
 tt::ARCH TTDevice::get_arch() { return arch; }

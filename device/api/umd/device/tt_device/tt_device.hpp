@@ -359,7 +359,6 @@ public:
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
 protected:
-    std::unique_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;

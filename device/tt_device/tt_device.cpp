@@ -341,7 +341,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
     if (!get_pcie_interface()->dma_write_to_device(src, size, core, addr)) {
-        pcie_dma_lock.release();  // Take a better look at this release..
+        pcie_dma_lock.unlock();
         write_to_device(src, core, addr, size);
     }
 }
@@ -350,7 +350,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
     if (!get_pcie_interface()->dma_read_from_device(dst, size, core, addr)) {
-        pcie_dma_lock.release();  // Take a better look at this release..
+        pcie_dma_lock.unlock();
         read_from_device(dst, core, addr, size);
     }
 }
@@ -359,7 +359,7 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
     if (!get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr)) {
-        pcie_dma_lock.release();  // Take a better look at this release..
+        pcie_dma_lock.unlock();
         noc_multicast_write(src, size, core_start, core_end, addr);
     }
 }

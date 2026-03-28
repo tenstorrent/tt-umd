@@ -10,6 +10,7 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdint>
@@ -26,6 +27,7 @@
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -377,6 +379,57 @@ std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
         close(fd);
     }
     return infos;
+}
+
+std::vector<DeviceProcess> PCIDevice::get_device_processes() {
+    std::vector<DeviceProcess> result;
+    std::string procfs_base = "/proc/driver/tenstorrent";
+
+    if (!std::filesystem::exists(procfs_base)) {
+        return result;
+    }
+
+    std::set<std::pair<pid_t, int>> seen;
+
+    for (const auto &entry : std::filesystem::directory_iterator(procfs_base)) {
+        if (!entry.is_directory()) {
+            continue;
+        }
+        const std::string name = entry.path().filename().string();
+        int device;
+        try {
+            device = std::stoi(name);
+        } catch (...) {
+            continue;
+        }
+
+        std::ifstream pids_file(entry.path() / "pids");
+        if (!pids_file.is_open()) {
+            continue;
+        }
+
+        std::string line;
+        while (std::getline(pids_file, line)) {
+            if (line.empty()) {
+                continue;
+            }
+            pid_t pid;
+            try {
+                pid = std::stoi(line);
+            } catch (...) {
+                continue;
+            }
+            if (seen.emplace(pid, device).second) {
+                result.push_back({pid, device});
+            }
+        }
+    }
+
+    std::sort(result.begin(), result.end(), [](const DeviceProcess &a, const DeviceProcess &b) {
+        return std::tie(a.device, a.pid) < std::tie(b.device, b.pid);
+    });
+
+    return result;
 }
 
 std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2024 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -54,16 +54,6 @@ inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void* cal
     }
 
     return bt;
-}
-
-inline std::string backtrace_to_string(
-    int size = 64, int skip = 2, const std::string& prefix = "", void* caller_address = nullptr) {
-    std::vector<std::string> bt = backtrace(size, skip, caller_address);
-    std::stringstream ss;
-    for (size_t i = 0; i < bt.size(); ++i) {
-        ss << prefix << bt[i] << std::endl;
-    }
-    return ss.str();
 }
 
 template <typename DATA_T>

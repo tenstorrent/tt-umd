@@ -15,6 +15,16 @@
 #include <vector>
 
 namespace tt::umd::error {
+/**
+ * @brief Captures and demangles the current stack trace.
+ *
+ * This function uses backtrace() to capture the call stack and demangles C++ symbol names
+ * for better readability. It's useful for debugging and error reporting.
+ *
+ * @param max_frames Maximum number of stack frames to capture (default: 64).
+ * @param skip Number of top stack frames to skip (default: 1, skipping this function itself).
+ * @return Vector of demangled stack frame strings, empty if capture fails.
+ */
 static inline std::vector<std::string> get_stacktrace(int max_frames = 64, int skip = 1) {
     std::vector<std::string> stack_frames;
     std::vector<void*> target_stack(max_frames);
@@ -61,27 +71,84 @@ static inline std::vector<std::string> get_stacktrace(int max_frames = 64, int s
     return stack_frames;
 }
 
+/**
+ * @brief Error object that pairs a message with structured error data.
+ *
+ * This template class represents an error condition with both a human-readable
+ * message and structured data of type DATA_T. It is meant to be specialized
+ * with a data class containing error metadata. Specialize UmdErrors in
+ * /api/umd/device/utils/error.hpp. Constructors of specialized UmdError
+ * classes should be implemented in /device/utils/error.cpp to reduce
+ * dependencies.
+ *
+ * @tparam DATA_T Type of the structured error data.
+ */
 template <typename DATA_T>
 class UmdError {
 public:
+    /**
+     * @brief Constructs an error with a message and associated data.
+     *
+     * @param what Human-readable error message.
+     * @param data Structured error data providing additional context.
+     */
     explicit UmdError(const std::string& what, const DATA_T& data) : message_(what), error_data_(data) {}
 
+    /**
+     * @brief Gets a mutable reference to the error message.
+     *
+     * @return Reference to the error message string.
+     */
     std::string& message() { return message_; }
 
+    /**
+     * @brief Gets a const reference to the error message.
+     *
+     * @return Const reference to the error message string.
+     */
     const std::string& message() const noexcept { return message_; }
 
+    /**
+     * @brief Gets a mutable reference to the structured error data.
+     *
+     * @return Reference to the error data.
+     */
     DATA_T& data() { return error_data_; }
 
+    /**
+     * @brief Gets a const reference to the structured error data.
+     *
+     * @return Const reference to the error data.
+     */
     const DATA_T& data() const noexcept { return error_data_; }
 
 private:
-    std::string message_;
-    DATA_T error_data_;
+    std::string message_;  ///< Human-readable error message.
+    DATA_T error_data_;    ///< Structured error data.
 };
 
+/**
+ * @brief Exception wrapper that adds location and stack trace information to UmdError.
+ *
+ * This template class wraps a UmdError object and provides standard exception functionality
+ * through std::runtime_error. It captures the file location, line number, and stack trace
+ * when the exception is constructed, making it easier to diagnose error conditions.
+ *
+ * @tparam ERROR_T Type of the UmdError object being wrapped (e.g., UmdError<ETHHeartbeatFailureData>).
+ */
 template <typename ERROR_T>
 class UmdException : public std::runtime_error {
 public:
+    /**
+     * @brief Constructs an exception with error details, location, and stack trace.
+     *
+     * Captures the current stack trace and formats a comprehensive error message
+     * including the error message, source location, and backtrace.
+     *
+     * @param error The UmdError object containing the error message and data.
+     * @param file Source file where the exception was thrown (typically __FILE__).
+     * @param line Line number where the exception was thrown (typically __LINE__).
+     */
     explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
         std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
         backtrace_ = tt::umd::error::get_stacktrace();
@@ -94,29 +161,86 @@ public:
         what_output_ = ss.str();
     }
 
+    /**
+     * @brief Returns a detailed error message including location and stack trace.
+     *
+     * @return C-string containing the full error message with diagnostic information.
+     */
     const char* what() const noexcept override { return what_output_.c_str(); }
 
+    /**
+     * @brief Gets a mutable reference to the wrapped error object.
+     *
+     * @return Reference to the UmdError object.
+     */
     ERROR_T& error() { return error_; }
 
+    /**
+     * @brief Gets a const reference to the wrapped error object.
+     *
+     * @return Const reference to the UmdError object.
+     */
     const ERROR_T& error() const noexcept { return error_; }
 
+    /**
+     * @brief Gets the source file where the exception was thrown.
+     *
+     * @return Const reference to the filename string.
+     */
     const std::string& file() const noexcept { return file_; }
 
+    /**
+     * @brief Gets the line number where the exception was thrown.
+     *
+     * @return Line number in the source file.
+     */
     uint32_t line() const noexcept { return line_; }
 
+    /**
+     * @brief Gets the captured stack trace.
+     *
+     * @return Const reference to vector of demangled stack frame strings.
+     */
     const std::vector<std::string>& backtrace() const noexcept { return backtrace_; }
 
 protected:
-    uint32_t line_ = 0;
-    std::string file_;
-    std::vector<std::string> backtrace_;
-    std::string what_output_;
-    ERROR_T error_;
+    uint32_t line_ = 0;                   ///< Line number where exception was thrown.
+    std::string file_;                    ///< Source file where exception was thrown.
+    std::vector<std::string> backtrace_;  ///< Captured and demangled stack trace.
+    std::string what_output_;             ///< Formatted error message with all details.
+    ERROR_T error_;                       ///< Wrapped UmdError object.
 };
 
+/**
+ * @brief Macro to throw a UmdException with automatic location tracking.
+ *
+ * This macro constructs an error object of the specified type with the given arguments,
+ * wraps it in a UmdException, and throws it. The file and line information are automatically
+ * captured at the throw site.
+ *
+ * @param error_type The type of UmdError to construct (e.g., UmdError<ETHHeartbeatFailureData>).
+ * @param ... Arguments to forward to the error_type constructor.
+ *
+ */
 #define UMD_THROW(error_type, ...) \
     (throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__))
 
+/**
+ * @brief Macro to conditionally throw a UmdException with automatic location tracking.
+ *
+ * This macro evaluates a condition and throws a UmdException if the condition is true.
+ * If the condition is false, it returns the constructed error object without throwing.
+ * The file and line information are automatically captured at the invocation site.
+ *
+ * @param condition Boolean expression; exception is thrown if true.
+ * @param error_type The type of UmdError to construct (e.g., UmdError<ETHHeartbeatFailureData>).
+ * @param ... Arguments to forward to the error_type constructor.
+ *
+ * Example:
+ * @code
+ * UMD_THROW_IF(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
+ * @endcode
+ */
 #define UMD_THROW_IF(condition, error_type, ...)                                                               \
     ((condition) ? throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__) \
                  : error_type(__VA_ARGS__))

@@ -95,6 +95,12 @@ public:
 
     const ERROR_T& error() const noexcept { return error_; }
 
+    const std::string& file() const noexcept { return file_; }
+
+    uint32_t line() const noexcept { return line_; }
+
+    const std::vector<std::string>& backtrace() const noexcept { return backtrace_; }
+
 protected:
     uint32_t line_ = 0;
     std::string file_;

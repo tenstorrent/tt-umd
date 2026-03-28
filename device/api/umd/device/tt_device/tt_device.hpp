@@ -144,13 +144,13 @@ public:
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
      * will ensure that the write will land on the correct cores.
      *
-     * @param dst pointer to memory from which the data is sent
+     * @param src pointer to memory from which the data is sent
      * @param size number of bytes
      * @param core_start starting core coordinates (x,y) of the multicast write
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -359,7 +359,6 @@ public:
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
 protected:
-    std::unique_ptr<PCIDevice> pci_device_;
     std::unique_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
@@ -385,50 +384,10 @@ protected:
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
 
-    virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
-
-    /**
-     * Device-specific DMA transfer from device to host.
-     * This method performs the actual hardware-specific DMA transfer.
-     *
-     * @param dst destination host address
-     * @param src device AXI address
-     * @param size number of bytes
-     * @throws std::runtime_error if the transfer is not supported or fails
-     */
-    virtual void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) = 0;
-
-    /**
-     * Device-specific DMA transfer from host to device.
-     * This method performs the actual hardware-specific DMA transfer.
-     *
-     * @param dst device AXI address
-     * @param src source host address
-     * @param size number of bytes
-     * @throws std::runtime_error if the transfer fails
-     */
-    virtual void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) = 0;
-
 private:
     void probe_arc();
 
-    TlbWindow *get_cached_tlb_window();
-
-    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
-
-    template <bool safe>
-    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    template <bool safe>
-    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
-
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
-
     std::mutex tt_device_io_lock;
-
-    bool use_safe_api_ = false;
 };
 
 }  // namespace tt::umd

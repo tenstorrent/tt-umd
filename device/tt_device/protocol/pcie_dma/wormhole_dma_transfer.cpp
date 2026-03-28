@@ -129,4 +129,10 @@ void WormholeDmaTransfer::h2d_transfer(
     }
 }
 
+// TODO: This is a temporary implementation, and ought to be replaced with a
+// driver-based technique that can take advantage of multiple channels and
+// interrupts.  With a driver-based implementation we can also avoid the need to
+// memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
+// the application will require IOMMU support.  One day...
+
 }  // namespace tt::umd

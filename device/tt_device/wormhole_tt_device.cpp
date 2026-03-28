@@ -41,7 +41,7 @@ WormholeTTDevice::WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool u
                                   : wormhole::ARC_CORES_NOC0[0];
 }
 
-WormholeTTDevice::WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>()) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],

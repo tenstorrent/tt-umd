@@ -50,7 +50,7 @@ public:
 
 protected:
     BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
-    BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     virtual bool is_arc_available_over_axi();
 

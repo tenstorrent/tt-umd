@@ -51,7 +51,7 @@ public:
 
 protected:
     WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
     /*
      * Create a device without an underlying communication device.
      * Used for remote devices that depend on remote_communication.

@@ -56,7 +56,7 @@ TTDevice::TTDevice(
 }
 
 TTDevice::TTDevice(
-    std::shared_ptr<JtagDevice> jtag_device,
+    std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     std::unique_ptr<architecture_implementation> architecture_impl) :
     jtag_device_(std::move(jtag_device)),
@@ -110,9 +110,9 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 
         switch (jtag_device->get_jtag_arch(device_number)) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(jtag_device, device_number));
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(jtag_device, device_number));
+                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
             default:
                 return nullptr;
         }
@@ -155,7 +155,7 @@ architecture_implementation *TTDevice::get_architecture_implementation() { retur
 
 std::shared_ptr<PCIDevice> TTDevice::get_pci_device() { return pci_device_; }
 
-std::shared_ptr<JtagDevice> TTDevice::get_jtag_device() { return jtag_device_; }
+JtagDevice *TTDevice::get_jtag_device() { return jtag_device_.get(); }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 

@@ -15,45 +15,50 @@
 #include <vector>
 
 namespace tt::umd::error {
-static inline std::string demangle(const char* str) {
-    int status = 0;
-    std::string rt(256, '\0');
-    if (1 == sscanf(str, "%*[^(]%*[^_]%255[^)+]", rt.data())) {
-        size_t length = 0;
-        std::unique_ptr<char, decltype(&free)> v(abi::__cxa_demangle(rt.data(), nullptr, &length, &status), &free);
-        if (v) {
-            return std::string(v.get());
+static inline std::vector<std::string> get_stacktrace(int max_frames = 64, int skip = 1) {
+    std::vector<std::string> stack_frames;
+    std::vector<void*> target_stack(max_frames);
+    int addr_count = backtrace(target_stack.data(), max_frames);
+
+    if (addr_count <= skip) {
+        return stack_frames;
+    }
+
+    std::unique_ptr<char*, void (*)(void*)> symbols(backtrace_symbols(target_stack.data(), addr_count), std::free);
+
+    if (!symbols) {
+        return stack_frames;
+    }
+    for (int i = skip; i < addr_count; i++) {
+        std::string entry(symbols.get()[i]);
+
+        size_t open_paren = entry.find('(');
+        size_t plus_sign = entry.find('+', open_paren);
+
+        if (open_paren != std::string::npos && plus_sign != std::string::npos) {
+            std::string mangled = entry.substr(open_paren + 1, plus_sign - open_paren - 1);
+
+            // Skip empty mangled names (common in some shared libs/main).
+            if (mangled.empty()) {
+                stack_frames.push_back(entry);
+                continue;
+            }
+
+            int status;
+            std::unique_ptr<char, void (*)(void*)> demangled(
+                abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status), std::free);
+
+            if (status == 0 && demangled != nullptr) {
+                stack_frames.push_back(demangled.get());
+            } else {
+                stack_frames.push_back(mangled);
+            }
+        } else {
+            stack_frames.push_back(entry);
         }
     }
-    return str;
-}
 
-/**
- * @brief Get the current call stack
- * @param[out] bt Save Call Stack
- * @param[in] size Maximum number of return layers
- * @param[in] skip Skip the number of layers at the top of the stack
- */
-inline std::vector<std::string> backtrace(int size = 64, int skip = 1, void* caller_address = nullptr) {
-    std::vector<std::string> bt;
-    std::vector<void*> array(size);
-
-    if (caller_address != nullptr) {
-        array.at(1) = caller_address;
-    }
-
-    size_t s = ::backtrace(array.data(), size);
-    std::unique_ptr<char*, decltype(&free)> strings(backtrace_symbols(array.data(), s), &free);
-
-    if (strings == nullptr) {
-        return bt;
-    }
-
-    for (size_t i = skip; i < s; ++i) {
-        bt.push_back(demangle(strings.get()[i]));
-    }
-
-    return bt;
+    return stack_frames;
 }
 
 template <typename DATA_T>
@@ -79,7 +84,7 @@ class UmdException : public std::runtime_error {
 public:
     explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
         std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
-        backtrace_ = tt::umd::error::backtrace();
+        backtrace_ = tt::umd::error::get_stacktrace();
         std::stringstream ss;
         ss << error_.message() << std::endl;
         ss << "Location: " << file_ << ":" << line_ << std::endl;

@@ -208,14 +208,22 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!eth_heartbeat_running(tt_device, eth_core)) {
-                auto error = UMD_THROW_IF(
-                    options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
-                    error::ETHHeartbeatError,
-                    eth_core,
-                    get_eth_postcode(tt_device, eth_core),
-                    get_eth_heartbeat(tt_device, eth_core));
-                log_warning(LogUMD, error.message());
+            // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
+            // Note that even checking can slow down the CI enough for it to time out.
+            if (options.eth_fw_heartbeat_failure != TopologyDiscoveryOptions::Action::THROW) {
+                if (!eth_heartbeat_running(tt_device, eth_core)) {
+                    std::string msg = fmt::format(
+                        "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
+                        current_device_asic_id,
+                        eth_core.str(),
+                        get_eth_postcode(tt_device, eth_core));
+                    if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
+                        TT_THROW(msg);
+                    } else {
+                        log_warning(LogUMD, msg);
+                        continue;
+                    }
+                }
             }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
@@ -420,8 +428,8 @@ TTDevice* TopologyDiscovery::get_tt_device(const uint64_t asic_id) {
 
 uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     // This function should return a unique ID for the device. At the moment we are going to use mangled board ID
-    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
-    // If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
+    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first
+    // one. If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
     std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
         CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
@@ -530,7 +538,8 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 
     SocDescriptor soc_descriptor;
     if (soc_descriptor_path.empty()) {
-        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the
+        // architecture.
         soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
         soc_descriptor = SocDescriptor(soc_descriptor_path, tt_device->get_chip_info());

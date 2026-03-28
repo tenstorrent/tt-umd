@@ -9,12 +9,4 @@
 namespace tt::umd::error {
 using namespace tt::umd;
 
-ETHHeartbeatError::ETHHeartbeatError(tt_xy_pair eth_core, uint32_t postcode, uint32_t heartbeat_value) :
-    UmdError<ETHHeartbeatFailureData>(
-        fmt::format(
-            "Ethernet heartbeat error on core {}: postcode={:#x}, heartbeat={:#x}",
-            eth_core.str(),
-            postcode,
-            heartbeat_value),
-        ETHHeartbeatFailureData{{.core = eth_core}, postcode, heartbeat_value}) {}
 }  // namespace tt::umd::error

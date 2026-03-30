@@ -34,6 +34,24 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     }
 }
 
+TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+
+        std::vector<uint32_t> return_values;
+        uint32_t exit_code =
+            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::READ_TS, return_values);
+
+        EXPECT_EQ(exit_code, 0);
+        ASSERT_FALSE(return_values.empty());
+        EXPECT_GT(return_values[0], 0u);
+    }
+}
+
 TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
     const uint32_t ms_sleep = 2000;
 

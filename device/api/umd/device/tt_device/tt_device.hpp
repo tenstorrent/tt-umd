@@ -375,6 +375,10 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
+    void set_pcie_interface(PcieInterface *pcie_interface) { pcie_capabilities_ = pcie_interface; }
+
+    void set_jtag_interface(JtagInterface *jtag_interface) { jtag_capabilities_ = jtag_interface; }
+
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;

@@ -13,6 +13,12 @@
 
 namespace tt::umd {
 
+// TODO: This is a temporary implementation, and ought to be replaced with a
+// driver-based technique that can take advantage of multiple channels and
+// interrupts.  With a driver-based implementation we can also avoid the need to
+// memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
+// the application will require IOMMU support.  One day...
+
 void WormholeDmaTransfer::d2h_transfer(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size) {
     static constexpr uint32_t DMA_COMPLETION_VALUE = 0xfaca;
@@ -128,11 +134,5 @@ void WormholeDmaTransfer::h2d_transfer(
         }
     }
 }
-
-// TODO: This is a temporary implementation, and ought to be replaced with a
-// driver-based technique that can take advantage of multiple channels and
-// interrupts.  With a driver-based implementation we can also avoid the need to
-// memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
-// the application will require IOMMU support.  One day...
 
 }  // namespace tt::umd

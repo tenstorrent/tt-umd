@@ -339,9 +339,9 @@ void bind_tt_device(nb::module_ &m) {
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,
-               bool wait_for_done,
-               uint32_t arg0,
-               uint32_t arg1,
+               bool wait_for_done = true,
+               uint32_t arg0 = 0xffff,
+               uint32_t arg1 = 0xffff,
                uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
@@ -359,9 +359,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
             "milliseconds.")
@@ -369,9 +369,9 @@ void bind_tt_device(nb::module_ &m) {
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,
-               bool wait_for_done,
-               uint32_t arg0,
-               uint32_t arg1,
+               bool wait_for_done = true,
+               uint32_t arg0 = 0xffff,
+               uint32_t arg1 = 0xffff,
                uint32_t timeout = 1) -> std::tuple<int, int, int> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
@@ -389,9 +389,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 

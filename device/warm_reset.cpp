@@ -44,7 +44,8 @@ namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset(
+    std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
     if constexpr (is_arm_platform()) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return false;
@@ -63,8 +64,7 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        reset_success =
-            warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
+        reset_success = warm_reset_arch_agnostic(pci_device_ids, reset_m3, m3_delay, secondary_bus_reset);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
         // Re-enumerate here as a safety net for potential race conditions where devices disappear
         // between the pre-reset notification and now. Clients are still guaranteed to receive the
@@ -94,7 +94,8 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     return reset_success;
 }
 
-bool WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset_chip_id(
+    const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
     std::vector<int> pci_ids;
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
     for (const auto& id : chip_ids) {
@@ -104,10 +105,14 @@ bool WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_
         }
         pci_ids.push_back(enumerated_ids[id]);
     }
-    return warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+    return warm_reset(pci_ids, reset_m3, secondary_bus_reset, m3_delay);
 }
 
-bool WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset_pci_bdfs(
+    const std::vector<std::string>& pci_bdfs,
+    bool reset_m3,
+    bool secondary_bus_reset,
+    std::chrono::milliseconds m3_delay) {
     std::vector<int> pci_ids;
     std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
     for (const auto& [id, info] : pci_devices_info) {
@@ -116,7 +121,7 @@ bool WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bo
         }
     }
 
-    return warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+    return warm_reset(pci_ids, reset_m3, secondary_bus_reset, m3_delay);
 }
 
 int wait_for_pci_bdf_to_reappear(

@@ -379,12 +379,12 @@ protected:
 
     tt_xy_pair arc_core;
 
+private:
+    void probe_arc();
+
     std::unique_ptr<DeviceProtocol> device_protocol_;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
-
-private:
-    void probe_arc();
 
     std::mutex tt_device_io_lock;
 };

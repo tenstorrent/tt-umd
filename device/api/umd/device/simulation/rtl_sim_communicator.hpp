@@ -152,11 +152,20 @@ public:
     };
 
 private:
-    // Wait for a regular command response from the command queue.
-    ReceivedMessage wait_for_command_response();
-
     // Notification handler thread entry point.
+    // This thread is started with the simulation host, and receives all communication from the simulator.
+    // In its implementation, it will handle (call the right callbacks) the simulator initiated
+    // communication, like receiving host ram IO requests.
+    // If the received message is, in fact, a response to a previously send command from the simulator host,
+    // like a read request, it will just put it into command_queue, to be consumed by the operation waiting on a
+    // response.
     void notification_handler_thread();
+
+    // Wait for a regular command response from the command queue.
+    // Command queue is filled up by notification_handler_thread. Operations that need to wait
+    // on a response from the simulator should call this function to consume a response from the
+    // said command queue.
+    ReceivedMessage wait_for_command_response();
 
     // Handle AXI RAM write notification from the simulator.
     void handle_ram_write_notification(const void *notification);

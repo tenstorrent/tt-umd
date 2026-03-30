@@ -57,8 +57,9 @@ RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_di
 RtlSimCommunicator::~RtlSimCommunicator() {
     if (notification_thread_running_.load()) {
         notification_thread_running_.store(false);
+        // Detach instead of join to avoid hanging if a user callback is stuck.
         if (notification_thread_.joinable()) {
-            notification_thread_.join();
+            notification_thread_.detach();
         }
     }
 
@@ -135,8 +136,9 @@ void RtlSimCommunicator::shutdown() {
         log_info(tt::LogEmulationDriver, "Stopping AXI RAM notification handler thread.");
         notification_thread_running_.store(false);
         command_queue_cv_.notify_all();
+        // Detach instead of join to avoid hanging if a user callback is stuck.
         if (notification_thread_.joinable()) {
-            notification_thread_.join();
+            notification_thread_.detach();
         }
     }
 
@@ -164,7 +166,13 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
 
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
 
-    std::memcpy(data, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
+    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
+    TT_ASSERT(
+        response_bytes >= size,
+        "tile_read_bytes response size {} is smaller than requested size {}.",
+        response_bytes,
+        size);
+    std::memcpy(data, rd_resp_buf->data()->data(), size);
     nng_free(msg.data, msg.size);
 }
 
@@ -242,7 +250,7 @@ void RtlSimCommunicator::notification_handler_thread() {
         size_t buf_size = 0;
 
         try {
-            buf_size = host_.recv_from_device_with_timeout(&buf_ptr, 5000);
+            buf_size = host_.recv_from_device(&buf_ptr, 5000);
 
             if (buf_size == 0 || buf_ptr == nullptr) {
                 continue;
@@ -293,6 +301,12 @@ void RtlSimCommunicator::handle_ram_write_notification(const void *notification)
     log_debug(tt::LogEmulationDriver, "[AXI_RAM_WRITE] @ 0x{:016x} size={}.", address, size);
 
     if (ram_write_callback_ && buf->data() && buf->data()->size() > 0) {
+        uint32_t payload_bytes = buf->data()->size() * sizeof(uint32_t);
+        TT_ASSERT(
+            payload_bytes >= size,
+            "RAM write notification payload {} is smaller than reported size {}.",
+            payload_bytes,
+            size);
         ram_write_callback_(address, buf->data()->data(), size);
     } else if (!ram_write_callback_) {
         log_warning(tt::LogEmulationDriver, "[AXI_RAM_WRITE] No callback registered, dropping write.");

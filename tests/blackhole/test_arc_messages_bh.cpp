@@ -37,6 +37,26 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     }
 }
 
+TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+
+        // TEST (0x90) increments the argument and returns it in word[1] of the response.
+        unsigned int random_arg = 42;
+        std::vector<uint32_t> return_values;
+        uint32_t exit_code =
+            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST, return_values, {random_arg});
+
+        EXPECT_EQ(exit_code, 0);
+        ASSERT_FALSE(return_values.empty());
+        EXPECT_EQ(return_values[0], random_arg + 1);
+    }
+}
+
 TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 

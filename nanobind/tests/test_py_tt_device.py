@@ -243,6 +243,31 @@ class TestTTDevice(unittest.TestCase):
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
             dev.set_power_state(False)
 
+    def test_arc_msg_test_increment(self):
+        """TEST (0x90) increments arg0 and returns it. Call twice to verify arg passing and return values."""
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        for dev_id in pci_ids:
+            dev = tt_umd.TTDevice.create(dev_id)
+            dev.init_tt_device()
+            arch = dev.get_arch()
+            print(f"Testing arc_msg TEST increment on device {dev_id} with arch {arch}")
+
+            # Test out both arg passing styles (args list vs individual arg) to ensure both work correctly
+            random_arg = 42
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, arg0=random_arg)
+            print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(return_3, random_arg + 1)
+
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, args=[random_arg])
+            print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(return_3, random_arg + 1)
+
     def test_get_chip_info(self):
         """Test get_chip_info method."""
         pci_ids = tt_umd.PCIDevice.enumerate_devices()

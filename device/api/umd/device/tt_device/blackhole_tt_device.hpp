@@ -60,8 +60,6 @@ protected:
     uint32_t get_max_dram_retrain_attempts() const override { return 3; }
 
 private:
-    std::mutex dma_mutex_;
-
     int get_pcie_x_coordinate();
 
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);

@@ -65,9 +65,5 @@ protected:
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
-
-    // Enforce single-threaded access, even though there are more serious issues
-    // surrounding resource management as it relates to DMA.
-    std::mutex dma_mutex_;
 };
 }  // namespace tt::umd

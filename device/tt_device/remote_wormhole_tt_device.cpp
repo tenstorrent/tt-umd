@@ -39,17 +39,6 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
     is_remote_tt_device = true;
 }
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type) :
-    remote_communication_(std::move(remote_communication)) {
-    // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
-    // which in turn uses a local TTDevice for communication,
-    // the device type of the underlying communication device is the device type of the local TTDevice.
-    communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
-    communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();
-    is_remote_tt_device = true;
-}
-
 void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }

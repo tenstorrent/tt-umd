@@ -375,6 +375,8 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
+    // Temporary setters used by RemoteWormholeTTDevice to borrow the local device's interfaces.
+    // Remove once RemoteWormholeTTDevice is replaced by RemoteProtocol.
     void set_pcie_interface(PcieInterface *pcie_interface) { pcie_capabilities_ = pcie_interface; }
 
     void set_jtag_interface(JtagInterface *jtag_interface) { jtag_capabilities_ = jtag_interface; }

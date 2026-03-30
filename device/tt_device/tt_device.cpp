@@ -140,12 +140,6 @@ std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            // This is a workaround to allow RemoteWormholeTTDevice creation over JTAG.
-            // TODO: In the future, either remove this if branch or refactor the RemoteWormholeTTDevice class hierarchy.
-            if (remote_communication->get_local_device()->get_communication_device_type() == IODeviceType::JTAG) {
-                return std::unique_ptr<RemoteWormholeTTDevice>(
-                    new RemoteWormholeTTDevice(std::move(remote_communication), IODeviceType::JTAG));
-            }
             return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {

@@ -391,8 +391,6 @@ private:
     std::unique_ptr<DeviceProtocol> device_protocol_;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
-
-    std::mutex tt_device_io_lock;
 };
 
 }  // namespace tt::umd

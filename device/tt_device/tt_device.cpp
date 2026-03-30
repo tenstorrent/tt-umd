@@ -327,7 +327,6 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    std::lock_guard<std::mutex> lock(tt_device_io_lock);
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 

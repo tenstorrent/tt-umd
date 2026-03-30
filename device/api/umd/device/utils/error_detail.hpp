@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -48,25 +49,26 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
         std::string entry(symbols.get()[i]);
 
         size_t open_paren = entry.find('(');
-        size_t plus_sign = entry.find('+', open_paren);
+        if (open_paren != std::string::npos) {
+            size_t plus_sign = entry.find('+', open_paren);
+            if (plus_sign != std::string::npos) {
+                std::string mangled = entry.substr(open_paren + 1, plus_sign - open_paren - 1);
 
-        if (open_paren != std::string::npos && plus_sign != std::string::npos) {
-            std::string mangled = entry.substr(open_paren + 1, plus_sign - open_paren - 1);
+                // Skip empty mangled names (common in some shared libs/main).
+                if (mangled.empty()) {
+                    stack_frames.push_back(entry);
+                    continue;
+                }
 
-            // Skip empty mangled names (common in some shared libs/main).
-            if (mangled.empty()) {
-                stack_frames.push_back(entry);
-                continue;
-            }
+                int status;
+                std::unique_ptr<char, void (*)(void*)> demangled(
+                    abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status), std::free);
 
-            int status;
-            std::unique_ptr<char, void (*)(void*)> demangled(
-                abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status), std::free);
-
-            if (status == 0 && demangled != nullptr) {
-                stack_frames.push_back(demangled.get());
-            } else {
-                stack_frames.push_back(mangled);
+                if (status == 0 && demangled != nullptr) {
+                    stack_frames.push_back(demangled.get());
+                } else {
+                    stack_frames.push_back(mangled);
+                }
             }
         } else {
             stack_frames.push_back(entry);
@@ -156,12 +158,12 @@ public:
      */
     explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
         std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
-        backtrace_ = tt::umd::error::get_stacktrace();
+        backtrace_ = tt::umd::error::get_stacktrace(64, 2);
         std::stringstream ss;
         ss << error_.message() << std::endl;
         ss << "Location: " << file_ << ":" << line_ << std::endl;
         for (size_t i = 0; i < backtrace_.size(); ++i) {
-            ss << backtrace_[i] << std::endl;
+            ss << std::setw(2) << std::right << i + 1 << ". " << backtrace_[i] << std::endl;
         }
         what_output_ = ss.str();
     }
@@ -201,7 +203,7 @@ public:
      */
     const std::vector<std::string>& backtrace() const noexcept { return backtrace_; }
 
-protected:
+private:
     uint32_t line_ = 0;                   ///< Line number where exception was thrown.
     std::string file_;                    ///< Source file where exception was thrown.
     std::vector<std::string> backtrace_;  ///< Captured and demangled stack trace.

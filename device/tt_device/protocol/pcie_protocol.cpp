@@ -132,6 +132,9 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+    // const_cast is safe here: dma_transfer only reads from the buffer in H2D direction (memcpy into DMA buffer).
+    // dma_transfer uses void* to handle both H2D (read) and D2H (write) in a single function.
+    // TODO: Split dma_transfer into separate H2D/D2H functions to remove this cast.
     return dma_transfer(
         const_cast<void*>(src), size, addr, create_dma_tlb_config(addr, core), DmaDirection::H2D);  // NOLINT
 }

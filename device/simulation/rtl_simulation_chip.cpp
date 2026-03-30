@@ -65,4 +65,6 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
     tt_device_->deassert_risc_reset(translate_core, selected_riscs, staggered_start);
 }
 
+TLBManager* RtlSimulationChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
+
 }  // namespace tt::umd

@@ -71,6 +71,8 @@ public:
 
     SimulationSysmemManager* get_sysmem_manager() { return sysmem_manager_.get(); }
 
+    TLBManager* get_tlb_manager();
+
     const architecture_implementation* get_architecture_impl() const { return architecture_impl_.get(); }
 
 protected:

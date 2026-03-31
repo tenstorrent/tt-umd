@@ -16,6 +16,19 @@
 #include <string>
 #include <vector>
 
+/**
+ * error_detail.hpp contains the UmdError and UmdException classes.
+ * The classes were designed carefully to conform to the following design goals:
+ * - Must be C++17.
+ * - No 3rd party dependencies.
+ * - Errors are easy to define, construct and it's easy to access their metadata.
+ * - Errors can easily be converted to exceptions.
+ * - Once exceptions will be removed in UMD, it is easy to convert them back to
+ *   errors by just removing the exception layer that was wrapping them.
+ * - Exceptions automatically capture stack trace, file and line information.
+ * - Exceptions display stack trace, file and line information through their interface.
+ */
+
 namespace tt::umd::error {
 /**
  * @brief Captures and demangles the current stack trace.
@@ -79,11 +92,11 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
 }
 
 /**
- * @brief Error object that pairs a message with structured error data.
- *
- * This template class represents an error condition with both a human-readable
- * message and structured data of type DATA_T. It is meant to be specialized
- * with a data class containing error metadata. Specialize UmdErrors in
+ * @brief Error object that pairs an error message with structured error data.
+
+ * This template class represents an error condition in UMD. The interface
+ * contains a human-readable error message and user-defined structured error
+ * metadata of type DATA_T. Specialized UmdErrors should be located in
  * /api/umd/device/utils/error.hpp. Constructors of specialized UmdError
  * classes should be implemented in /device/utils/error.cpp to reduce
  * dependencies.
@@ -158,7 +171,9 @@ public:
      */
     explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
         std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
-        backtrace_ = tt::umd::error::get_stacktrace(64, 2);
+        // Automatically capture stack trace on construction.
+        // Skip first two frames (get_stacktrace() and this constructor.).
+        backtrace_ = tt::umd::error::get_stacktrace(/*max_frames=*/64, /*skip=*/2);
         std::stringstream ss;
         ss << error_.message() << std::endl;
         ss << "Location: " << file_ << ":" << line_ << std::endl;
@@ -166,6 +181,22 @@ public:
             ss << std::setw(2) << std::right << i + 1 << ". " << backtrace_[i] << std::endl;
         }
         what_output_ = ss.str();
+
+        /*
+            Example stack trace output:
+                Location: /tt-umd/device/topology/topology_discovery.cpp:491
+                1. tt::umd::TopologyDiscovery::verify_fw_bundle_version(tt::umd::TTDevice*)
+                2. tt::umd::TopologyDiscovery::get_connected_devices()
+                3. tt::umd::TopologyDiscovery::create_ethernet_map()
+                4. tt::umd::TopologyDiscovery::discover(tt::umd::TopologyDiscoveryOptions const&, tt::umd::IODeviceType,
+            std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+                5. tt::umd::Cluster::create_cluster_descriptor(std::__cxx11::basic_string<char, std::char_traits<char>,
+            std::allocator<char> > const&, tt::umd::IODeviceType, tt::umd::TopologyDiscoveryOptions const&)
+                6. ./build/tools/umd/topology(+0xbb0e4) [0x55c2986cc0e4]
+                7. /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7f341a06cd90]
+                8. __libc_start_main
+                9. ./build/tools/umd/topology(+0xb9975) [0x55c2986ca975]
+        */
     }
 
     /**

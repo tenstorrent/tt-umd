@@ -701,3 +701,135 @@ TEST(SocDescriptor, SerializeSimulatorQuasar) {
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
 }
+
+// DRAM_WORKER shares physical positions with DRAM but has a distinct CoreType tag.
+// These tests verify that DRAM_WORKER coordinates delegate through DRAM correctly.
+
+TEST(SocDescriptor, DramWorkerMatchesDramCoresWormhole) {
+    SocDescriptor soc_desc(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
+
+    const auto dram_cores = soc_desc.get_cores(CoreType::DRAM);
+    const auto dram_worker_cores = soc_desc.get_cores(CoreType::DRAM_WORKER);
+
+    ASSERT_EQ(dram_cores.size(), dram_worker_cores.size());
+    for (size_t i = 0; i < dram_cores.size(); i++) {
+        EXPECT_EQ(dram_cores[i].x, dram_worker_cores[i].x);
+        EXPECT_EQ(dram_cores[i].y, dram_worker_cores[i].y);
+        EXPECT_EQ(dram_cores[i].coord_system, dram_worker_cores[i].coord_system);
+        EXPECT_EQ(dram_worker_cores[i].core_type, CoreType::DRAM_WORKER);
+        EXPECT_EQ(dram_cores[i].core_type, CoreType::DRAM);
+    }
+
+    EXPECT_EQ(soc_desc.get_grid_size(CoreType::DRAM), soc_desc.get_grid_size(CoreType::DRAM_WORKER));
+}
+
+TEST(SocDescriptor, DramWorkerTranslationWormhole) {
+    SocDescriptor soc_desc(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
+
+    const tt_xy_pair grid_size = soc_desc.get_grid_size(CoreType::DRAM_WORKER);
+
+    for (size_t x = 0; x < grid_size.x; x++) {
+        for (size_t y = 0; y < grid_size.y; y++) {
+            CoreCoord dram_logical(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord dram_worker_logical(x, y, CoreType::DRAM_WORKER, CoordSystem::LOGICAL);
+
+            CoreCoord dram_noc0 = soc_desc.translate_coord_to(dram_logical, CoordSystem::NOC0);
+            CoreCoord dram_worker_noc0 = soc_desc.translate_coord_to(dram_worker_logical, CoordSystem::NOC0);
+
+            EXPECT_EQ(dram_noc0.x, dram_worker_noc0.x);
+            EXPECT_EQ(dram_noc0.y, dram_worker_noc0.y);
+            EXPECT_EQ(dram_worker_noc0.core_type, CoreType::DRAM_WORKER);
+
+            CoreCoord dram_translated = soc_desc.translate_coord_to(dram_logical, CoordSystem::TRANSLATED);
+            CoreCoord dram_worker_translated = soc_desc.translate_coord_to(dram_worker_logical, CoordSystem::TRANSLATED);
+
+            EXPECT_EQ(dram_translated.x, dram_worker_translated.x);
+            EXPECT_EQ(dram_translated.y, dram_worker_translated.y);
+            EXPECT_EQ(dram_worker_translated.core_type, CoreType::DRAM_WORKER);
+        }
+    }
+}
+
+TEST(SocDescriptor, DramWorkerMatchesDramCoresBlackhole) {
+    SocDescriptor soc_desc(
+        test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"), {.noc_translation_enabled = true});
+
+    const auto dram_cores = soc_desc.get_cores(CoreType::DRAM);
+    const auto dram_worker_cores = soc_desc.get_cores(CoreType::DRAM_WORKER);
+
+    ASSERT_EQ(dram_cores.size(), dram_worker_cores.size());
+    for (size_t i = 0; i < dram_cores.size(); i++) {
+        EXPECT_EQ(dram_cores[i].x, dram_worker_cores[i].x);
+        EXPECT_EQ(dram_cores[i].y, dram_worker_cores[i].y);
+        EXPECT_EQ(dram_worker_cores[i].core_type, CoreType::DRAM_WORKER);
+    }
+
+    EXPECT_EQ(soc_desc.get_grid_size(CoreType::DRAM), soc_desc.get_grid_size(CoreType::DRAM_WORKER));
+    EXPECT_EQ(
+        soc_desc.get_harvested_grid_size(CoreType::DRAM), soc_desc.get_harvested_grid_size(CoreType::DRAM_WORKER));
+}
+
+TEST(SocDescriptor, DramWorkerHarvestingBlackhole) {
+    const size_t num_dram_banks = blackhole::NUM_DRAM_BANKS;
+    const size_t num_noc_ports_per_bank = blackhole::NUM_NOC_PORTS_PER_DRAM_BANK;
+
+    const HarvestingMasks harvesting_masks = {.tensix_harvesting_mask = 0, .dram_harvesting_mask = 1};
+
+    SocDescriptor soc_desc(
+        test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"),
+        {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
+
+    const auto dram_cores = soc_desc.get_cores(CoreType::DRAM);
+    const auto dram_worker_cores = soc_desc.get_cores(CoreType::DRAM_WORKER);
+
+    ASSERT_EQ(dram_cores.size(), dram_worker_cores.size());
+    ASSERT_EQ(dram_cores.size(), (num_dram_banks - 1) * num_noc_ports_per_bank);
+
+    for (size_t i = 0; i < dram_cores.size(); i++) {
+        EXPECT_EQ(dram_cores[i].x, dram_worker_cores[i].x);
+        EXPECT_EQ(dram_cores[i].y, dram_worker_cores[i].y);
+        EXPECT_EQ(dram_worker_cores[i].core_type, CoreType::DRAM_WORKER);
+    }
+
+    const auto harvested_dram = soc_desc.get_harvested_cores(CoreType::DRAM);
+    const auto harvested_dram_worker = soc_desc.get_harvested_cores(CoreType::DRAM_WORKER);
+
+    ASSERT_EQ(harvested_dram.size(), harvested_dram_worker.size());
+    ASSERT_EQ(harvested_dram.size(), num_noc_ports_per_bank);
+
+    for (size_t i = 0; i < harvested_dram.size(); i++) {
+        EXPECT_EQ(harvested_dram[i].x, harvested_dram_worker[i].x);
+        EXPECT_EQ(harvested_dram[i].y, harvested_dram_worker[i].y);
+        EXPECT_EQ(harvested_dram_worker[i].core_type, CoreType::DRAM_WORKER);
+    }
+
+    EXPECT_EQ(soc_desc.get_grid_size(CoreType::DRAM), soc_desc.get_grid_size(CoreType::DRAM_WORKER));
+}
+
+TEST(SocDescriptor, DramWorkerTranslationBlackhole) {
+    SocDescriptor soc_desc(
+        test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"), {.noc_translation_enabled = true});
+
+    const tt_xy_pair grid_size = soc_desc.get_grid_size(CoreType::DRAM_WORKER);
+
+    for (size_t x = 0; x < grid_size.x; x++) {
+        for (size_t y = 0; y < grid_size.y; y++) {
+            CoreCoord dram_logical(x, y, CoreType::DRAM, CoordSystem::LOGICAL);
+            CoreCoord dram_worker_logical(x, y, CoreType::DRAM_WORKER, CoordSystem::LOGICAL);
+
+            CoreCoord dram_noc0 = soc_desc.translate_coord_to(dram_logical, CoordSystem::NOC0);
+            CoreCoord dram_worker_noc0 = soc_desc.translate_coord_to(dram_worker_logical, CoordSystem::NOC0);
+
+            EXPECT_EQ(dram_noc0.x, dram_worker_noc0.x);
+            EXPECT_EQ(dram_noc0.y, dram_worker_noc0.y);
+            EXPECT_EQ(dram_worker_noc0.core_type, CoreType::DRAM_WORKER);
+
+            CoreCoord dram_translated = soc_desc.translate_coord_to(dram_logical, CoordSystem::TRANSLATED);
+            CoreCoord dram_worker_translated = soc_desc.translate_coord_to(dram_worker_logical, CoordSystem::TRANSLATED);
+
+            EXPECT_EQ(dram_translated.x, dram_worker_translated.x);
+            EXPECT_EQ(dram_translated.y, dram_worker_translated.y);
+            EXPECT_EQ(dram_worker_translated.core_type, CoreType::DRAM_WORKER);
+        }
+    }
+}

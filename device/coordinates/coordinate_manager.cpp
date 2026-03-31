@@ -130,6 +130,15 @@ void CoordinateManager::identity_map_noc0_cores() {
 
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
+    // DRAM_WORKER shares physical positions with DRAM. Delegate through the DRAM path
+    // and remap the result's core_type back to DRAM_WORKER.
+    if (core_coord.core_type == CoreType::DRAM_WORKER) {
+        CoreCoord dram_coord(core_coord.x, core_coord.y, CoreType::DRAM, core_coord.coord_system);
+        CoreCoord result = translate_coord_to(dram_coord, target_coord_system);
+        result.core_type = CoreType::DRAM_WORKER;
+        return result;
+    }
+
     auto noc0_coord_it = to_noc0_map.find(core_coord);
     if (noc0_coord_it == to_noc0_map.end()) {
         throw std::runtime_error(fmt::format(
@@ -422,6 +431,7 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType 
         case CoreType::TENSIX:
             return tensix_cores;
         case CoreType::DRAM:
+        case CoreType::DRAM_WORKER:
             return dram_cores;
         case CoreType::ETH:
             return eth_cores;
@@ -498,12 +508,21 @@ std::vector<CoreCoord> CoordinateManager::get_l2cpu_cores() const { return get_a
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_l2cpu_cores() const { return {}; }
 
+static std::vector<CoreCoord> remap_core_type(std::vector<CoreCoord> cores, CoreType target_type) {
+    for (auto& core : cores) {
+        core.core_type = target_type;
+    }
+    return cores;
+}
+
 std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
             return get_tensix_cores();
         case CoreType::DRAM:
             return get_dram_cores();
+        case CoreType::DRAM_WORKER:
+            return remap_core_type(get_dram_cores(), CoreType::DRAM_WORKER);
         case CoreType::ETH:
             return get_eth_cores();
         case CoreType::PCIE:
@@ -526,6 +545,7 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
         case CoreType::TENSIX:
             return get_tensix_grid_size();
         case CoreType::DRAM:
+        case CoreType::DRAM_WORKER:
             return get_dram_grid_size();
         case CoreType::ARC:
             return arc_grid_size;
@@ -542,6 +562,8 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_cores(const CoreType cor
             return get_harvested_tensix_cores();
         case CoreType::DRAM:
             return get_harvested_dram_cores();
+        case CoreType::DRAM_WORKER:
+            return remap_core_type(get_harvested_dram_cores(), CoreType::DRAM_WORKER);
         case CoreType::ETH:
             return get_harvested_eth_cores();
         case CoreType::PCIE:
@@ -567,6 +589,7 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
         case CoreType::TENSIX:
             return get_harvested_tensix_grid_size();
         case CoreType::DRAM:
+        case CoreType::DRAM_WORKER:
             return get_harvested_dram_grid_size();
         case CoreType::ARC:
         case CoreType::PCIE:

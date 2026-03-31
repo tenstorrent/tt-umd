@@ -209,7 +209,8 @@ tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord cor
     // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
     if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
-        (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
+        (core.core_type == CoreType::DRAM || core.core_type == CoreType::DRAM_WORKER ||
+         core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
@@ -663,6 +664,7 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     for (const auto &core_type :
          {CoreType::TENSIX,
           CoreType::DRAM,
+          CoreType::DRAM_WORKER,
           CoreType::ETH,
           CoreType::ARC,
           CoreType::PCIE,
@@ -713,7 +715,9 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
     // Filter cores by channel if specified.
     // At this time, only applicable for DRAM cores.
     if (channel.has_value()) {
-        TT_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
+        TT_ASSERT(
+            core_type == CoreType::DRAM || core_type == CoreType::DRAM_WORKER,
+            "Core type must be DRAM or DRAM_WORKER when setting channel.");
         TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
         std::vector<CoreCoord> filtered_cores;
         for (const auto &core : cores) {

@@ -125,6 +125,12 @@ Logical coordinates can be used for all core types. Each core type has a logical
    - X coordinate -> in range [0, number of banks - 1]
    - Y coordinate -> in range [0, number of noc ports for each bank - 1]
 
+- DRAM_WORKER cores
+   - Represents programmable DRISCs on DRAM banks (available on Blackhole). These cores share the same physical NOC0 positions and logical coordinate grid as DRAM cores, but are semantically distinct: DRAM is used for memory data-access routing endpoints, while DRAM_WORKER is used for kernel placement on the programmable RISC-V (DRISC) attached to each DRAM bank.
+   - Coordinate translations for DRAM_WORKER delegate through the DRAM path internally, so `translate_coord_to(DRAM_WORKER, LOGICAL)` will produce the same physical position as the equivalent DRAM translation, but with `core_type == DRAM_WORKER` in the result.
+   - X coordinate -> in range [0, number of banks - 1]
+   - Y coordinate -> in range [0, number of noc ports for each bank - 1]
+
 - ETH cores
    - X coordinate -> always 0
    - Y coordinate -> represents ETH ID (TODO: add ETH ID to core mapping)
@@ -167,6 +173,7 @@ enum class CoreType {
     TENSIX,
     ROUTER_ONLY,
     ETH,
+    DRAM_WORKER,
 };
 
 enum class CoordSystem : std::uint8_t {

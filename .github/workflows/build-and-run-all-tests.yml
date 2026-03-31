@@ -10,6 +10,10 @@ on:
       timeout:
         required: true
         type: number
+      image-tag:
+        required: false
+        type: string
+        default: latest
       log-params:
         required: false
         type: string
@@ -54,6 +58,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -95,6 +100,7 @@ jobs:
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -123,6 +129,7 @@ jobs:
       card: ${{ matrix.test-group.runs-on }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}

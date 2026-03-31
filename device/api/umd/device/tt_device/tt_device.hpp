@@ -18,6 +18,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -88,15 +89,8 @@ public:
 
     tt::ARCH get_arch();
 
-    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
+    virtual bool detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     bool is_noc_hung(NocId noc);
-    /**
-     * Reads the NOC node ID register via a NOC transaction (using the currently selected NOC).
-     *
-     * @return Raw register value. A return of HANG_READ_VALUE (0xFFFFFFFF) indicates the NOC is hung.
-     */
-    virtual uint32_t read_hang_check_reg_via_noc() = 0;
 
     /**
      * DMA transfer from device to host.
@@ -384,6 +378,8 @@ protected:
 
     void set_jtag_interface(JtagInterface *jtag_interface) { jtag_capabilities_ = jtag_interface; }
 
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
@@ -392,6 +388,7 @@ private:
     void probe_arc();
 
     std::unique_ptr<DeviceProtocol> device_protocol_;
+    std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;

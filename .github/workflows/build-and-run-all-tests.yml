@@ -48,8 +48,15 @@ jobs:
     with:
       docker-version: ubuntu-22.04
 
-  build-tests:
+  after-ensure-image:
+    name: After ensure image
     needs: ensure-image
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Docker image ensured"
+
+  build-tests:
+    needs: after-ensure-image
     secrets: inherit
     strategy:
       fail-fast: false

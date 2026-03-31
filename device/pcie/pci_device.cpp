@@ -390,7 +390,7 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
 static int open_pci_device(const std::string &device_path) {
     // O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states.
     int flags = O_RDWR | O_CLOEXEC;
-    if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE) {
+    if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE && PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) {
         log_debug(LogUMD, fmt::format("Opening device {} in power aware mode.", device_path));
         flags |= O_APPEND;
     } else {

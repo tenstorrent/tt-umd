@@ -391,7 +391,10 @@ static int open_pci_device(const std::string &device_path) {
     // O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states.
     int flags = O_RDWR | O_CLOEXEC;
     if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE) {
+        log_debug(LogUMD, fmt::format("Opening device {} in power aware mode.", device_path));
         flags |= O_APPEND;
+    } else {
+        log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
     }
     return open(device_path.c_str(), flags);
 }

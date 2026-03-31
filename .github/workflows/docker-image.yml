@@ -92,10 +92,10 @@ jobs:
             ${{ env.CI_IMAGE }}:${{ steps.hash.outputs.tag }}
           cache-from: type=registry,ref=${{ env.CI_IMAGE }}:latest
 
-      # Update :latest when merging to main so manual/external consumers
-      # always get the most recent image.
-      - name: Tag as latest on main
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      # Always keep :latest pointing at the current content-hash tag so that
+      # CI jobs that run after this step get the correct image.  On main this
+      # also updates the tag that external / manual consumers pull.
+      - name: Tag as latest
         run: |
           docker buildx imagetools create \
             --tag "$CI_IMAGE:latest" \

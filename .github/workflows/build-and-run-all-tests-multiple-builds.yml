@@ -28,27 +28,8 @@ on:
     branches: ["main"]
 
 jobs:
-  ensure-image:
-    name: Ensure Docker image
-    secrets: inherit
-    uses: ./.github/workflows/docker-image.yml
-    with:
-      docker-version: ubuntu-22.04
-
-  resolve-image:
-    name: Resolve image tag
-    needs: ensure-image
-    runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.relay.outputs.image-tag }}
-    steps:
-      - name: Relay image tag
-        id: relay
-        run: echo "image-tag=${{ needs.ensure-image.outputs.image-tag }}" >> "$GITHUB_OUTPUT"
-
   build-and-run-all-tests:
     name: ""
-    needs: resolve-image
     secrets: inherit
     strategy:
       fail-fast: false
@@ -66,6 +47,5 @@ jobs:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
       timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
-      image-tag: ${{ needs.resolve-image.outputs.image-tag }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

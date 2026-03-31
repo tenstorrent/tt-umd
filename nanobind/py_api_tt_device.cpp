@@ -29,7 +29,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -63,11 +63,11 @@ void bind_tt_device(nb::module_ &m) {
         .value("JTAG", IODeviceType::JTAG)
         .value("Undefined", IODeviceType::UNDEFINED);
 
-    nb::exception<SigbusError>(m, "SigbusError");
+    nb::exception<error::SigbusError>(m, "SigbusError");
 
     m.def(
         "raise_sigbus_error_for_testing",
-        []() { throw SigbusError("This is a test exception from C++"); },
+        []() { throw error::SigbusError("This is a test exception from C++"); },
         "A helper function to verify SigbusError propagation");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")

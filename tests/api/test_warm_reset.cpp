@@ -31,10 +31,11 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
+using namespace tt::umd::error;
 
 // Small helper function to check if the ipmitool is ready.
 bool is_ipmitool_ready() {

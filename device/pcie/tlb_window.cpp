@@ -11,12 +11,14 @@
 #include <utility>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 
 namespace tt::umd {
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
+    ZoneScopedC(tracy::Color::Cyan);
     tlb_data aligned_config = config;
     aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);
@@ -25,6 +27,7 @@ TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
 
 void TlbWindow::read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    ZoneScopedC(tracy::Color::Cyan);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
@@ -51,6 +54,7 @@ void TlbWindow::read_block_reconfigure(
 
 void TlbWindow::write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    ZoneScopedC(tracy::Color::Cyan);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
@@ -78,6 +82,7 @@ void TlbWindow::write_block_reconfigure(
 
 void TlbWindow::noc_multicast_write_reconfigure(
     void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    ZoneScopedC(tracy::Color::Cyan);
     uint8_t* buffer_addr = static_cast<uint8_t*>(dst);
     tlb_data config{};
     config.local_offset = addr;
@@ -117,6 +122,7 @@ void TlbWindow::validate(uint64_t offset, size_t size) const {
 }
 
 void TlbWindow::configure(const tlb_data& new_config) {
+    ZoneScopedC(tracy::Color::Cyan);
     tlb_data aligned_config = new_config;
     aligned_config.local_offset = new_config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);

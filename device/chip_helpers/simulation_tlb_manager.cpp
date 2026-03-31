@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "assert.hpp"
+#include "tracy.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -29,6 +30,7 @@ SimulationTlbManager::SimulationTlbManager(
 }
 
 int SimulationTlbManager::allocate_tlb_index(size_t size) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     if (size == 0) {
@@ -106,6 +108,7 @@ int SimulationTlbManager::allocate_tlb_index(size_t size) {
 }
 
 void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -203,6 +206,7 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    ZoneScopedC(tracy::Color::Cyan);
     const auto* arch_impl = get_architecture_impl();
     if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
         (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {

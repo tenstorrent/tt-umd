@@ -15,6 +15,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
@@ -25,6 +26,7 @@ namespace tt::umd {
 TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
 void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
+    ZoneScopedC(tracy::Color::Cyan);
     TT_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
         "Invalid ordering specified in Cluster::configure_tlb");
@@ -96,6 +98,7 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
 
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    ZoneScopedC(tracy::Color::Cyan);
     if (tlb_size != 0) {
         return std::make_unique<SiliconTlbWindow>(
             tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
@@ -118,6 +121,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
 }
 
 void TLBManager::clear_mapped_tlbs() {
+    ZoneScopedC(tracy::Color::Cyan);
     log_debug(LogUMD, "Clearing all TLB mappings.");
     tlb_config_map_.clear();
     map_core_to_tlb_.clear();

@@ -14,6 +14,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "tracy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 
 namespace tt::umd {
@@ -35,6 +36,7 @@ SiliconTlbHandle::SiliconTlbHandle(PCIDevice& pci_device, size_t size, const Tlb
     tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id_));
 
     tt_tlb_get_mmio(tlb_handle_, reinterpret_cast<void**>(&tlb_base_));
+    TracyAllocN(tlb_base_, tlb_size_, "TLB");
 }
 
 SiliconTlbHandle::~SiliconTlbHandle() noexcept { SiliconTlbHandle::free_tlb(); }
@@ -52,6 +54,9 @@ void SiliconTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;
 }
 
-void SiliconTlbHandle::free_tlb() noexcept { tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_); }
+void SiliconTlbHandle::free_tlb() noexcept {
+    TracyFreeN(tlb_base_, "TLB");
+    tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_);
+}
 
 }  // namespace tt::umd

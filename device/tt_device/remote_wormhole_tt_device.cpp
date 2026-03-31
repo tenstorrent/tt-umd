@@ -36,10 +36,7 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
         TTDevice::set_jtag_interface(
             get_remote_interface()->get_remote_communication()->get_local_device()->get_jtag_interface());
     }
-    communication_device_type_ =
-        get_remote_interface()->get_remote_communication()->get_local_device()->get_communication_device_type();
-    communication_device_id_ =
-        get_remote_interface()->get_remote_communication()->get_local_device()->get_communication_device_id();
+
     is_remote_tt_device = true;
 }
 

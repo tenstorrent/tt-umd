@@ -168,9 +168,7 @@ PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_dev
 
 JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
 
-RemoteCommunication *TTDevice::get_remote_communication() {
-    return get_remote_interface()->get_remote_communication();
-};
+RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
 
 DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 

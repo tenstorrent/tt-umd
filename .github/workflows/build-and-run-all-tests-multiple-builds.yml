@@ -28,82 +28,17 @@ on:
     branches: ["main"]
 
 jobs:
-  # Ensure the CI Docker image for ubuntu-22.04 exists in ghcr.io.
-  # Computes a content-hash of the Dockerfile + shared install scripts and
-  # builds/pushes only when the tag is missing.  Always updates :latest so
-  # that the downstream jobs pick up the correct image.
+  # Ensure the Docker image for CI exists. If the Dockerfile (or its
+  # install scripts) changed on this branch the image is rebuilt and pushed
+  # with a content-hash tag.  Otherwise the existing image is reused.
   ensure-image:
     name: Ensure Docker image
-    runs-on: ubuntu-22.04
-    timeout-minutes: 20
     permissions:
       packages: write
-    outputs:
-      image-tag: ${{ steps.hash.outputs.tag }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Compute content hash
-        id: hash
-        run: |
-          DOCKERFILE=".github/ubuntu-22.04.Dockerfile"
-
-          # Collect the Dockerfile itself plus any scripts it COPYs
-          FILES="$DOCKERFILE"
-          for script in $(grep -oP '(?<=COPY )\S+\.sh' "$DOCKERFILE" || true); do
-            FILES="$FILES .github/$script"
-          done
-
-          echo "Hashing files: $FILES"
-          # shellcheck disable=SC2086
-          HASH=$(cat $FILES | sha256sum | cut -c1-12)
-          TAG="sha-${HASH}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Computed tag: $TAG"
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if image already exists
-        id: check
-        run: |
-          CI_IMAGE="ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04"
-          if docker manifest inspect "$CI_IMAGE:${{ steps.hash.outputs.tag }}" > /dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Image $CI_IMAGE:${{ steps.hash.outputs.tag }} already exists, skipping build."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "Image $CI_IMAGE:${{ steps.hash.outputs.tag }} not found, will build."
-          fi
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push image
-        if: steps.check.outputs.exists == 'false'
-        uses: docker/build-push-action@v6
-        with:
-          context: .github
-          file: .github/ubuntu-22.04.Dockerfile
-          push: true
-          build-args: |
-            GIT_SHA=${{ github.sha }}
-          tags: |
-            ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:${{ steps.hash.outputs.tag }}
-          cache-from: >-
-            type=registry,ref=ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
-
-      # Always keep :latest pointing at the current content-hash tag so that
-      # CI jobs pulling :latest below get the correct image for this branch.
-      - name: Tag as latest
-        run: |
-          docker buildx imagetools create \
-            --tag "ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest" \
-            "ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:${{ steps.hash.outputs.tag }}"
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04
 
   build-and-run-all-tests:
     name: ""
@@ -117,14 +52,18 @@ jobs:
         # optimized out in the Release.
         # We run both ASan and TSan build on push events to main. TSan is slower but catches hard race condition bugs.
         # When workflow is requested, all the requested build-types are run.
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
-                                 github.event_name == 'push' && '["ASan", "TSan"]' ||
+        # build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
+        #                          github.event_name == 'push' && '["ASan", "TSan"]' ||
+        #                          github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
+        # TODO: Enable asan/tsan builds in CI, just uncomment lines above. For now we still run only Release builds
+        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
+                                 github.event_name == 'push' && '["Release"]' ||
                                  github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
       timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
-      image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

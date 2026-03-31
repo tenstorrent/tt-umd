@@ -10,13 +10,13 @@ on:
       timeout:
         required: true
         type: number
-      image-tag:
+      docker-image-tag:
         required: false
         type: string
-        default: latest
+        default: ""
         description: >-
-          Content-hash image tag from ensure-image (e.g. "sha-abc123def456").
-          Defaults to ":latest" for standalone workflow_dispatch runs.
+          Content-hash tag produced by docker-image.yml.
+          When empty the downstream jobs fall back to ":latest".
       log-params:
         required: false
         type: string
@@ -61,7 +61,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.image-tag }}
+      image-tag: ${{ inputs.docker-image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -103,7 +103,7 @@ jobs:
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.image-tag }}
+      image-tag: ${{ inputs.docker-image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -132,7 +132,7 @@ jobs:
       card: ${{ matrix.test-group.runs-on }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.image-tag }}
+      image-tag: ${{ inputs.docker-image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}

@@ -15,12 +15,15 @@
 namespace tt::umd {
 
 class DeviceProtocol;
+class PcieInterface;
 
 /**
  * HangDetector checks whether the device hardware is hung.
  *
- * Depends only on DeviceProtocol for I/O. For BAR access it dynamic_casts
- * the protocol to PcieInterface — returns std::nullopt if the cast fails.
+ * Depends only on DeviceProtocol for I/O. For BAR access it requires
+ * a PcieInterface — returns std::nullopt if unavailable.
+ * For NOC access it requires a non-remote protocol (PCIe or JTAG) —
+ * returns std::nullopt for remote protocols.
  *
  * Arch-specific variants (Wormhole, Blackhole) override the protected
  * read_hang_check_reg_via_bar() and read_hang_check_reg_via_noc() with the
@@ -44,12 +47,16 @@ protected:
 
     DeviceProtocol* get_protocol() const { return protocol_; }
 
+    PcieInterface* get_pcie_interface() const { return pcie_interface_; }
+
     architecture_implementation* get_arch_impl() const { return arch_impl_; }
 
     tt_xy_pair get_hang_check_core() const { return hang_check_core_; }
 
 private:
     DeviceProtocol* protocol_;
+    PcieInterface* pcie_interface_;
+    bool is_local_protocol_;
     architecture_implementation* arch_impl_;
     tt_xy_pair hang_check_core_;
 };

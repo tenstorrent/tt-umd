@@ -17,8 +17,7 @@ WormholeHangDetector::WormholeHangDetector(
     HangDetector(protocol, arch_impl, arc_core) {}
 
 uint32_t WormholeHangDetector::read_hang_check_reg_via_bar() {
-    auto* pcie = dynamic_cast<PcieInterface*>(get_protocol());
-    return pcie->bar_read32(get_arch_impl()->get_read_checking_offset());
+    return get_pcie_interface()->bar_read32(get_arch_impl()->get_read_checking_offset());
 }
 
 uint32_t WormholeHangDetector::read_hang_check_reg_via_noc() {

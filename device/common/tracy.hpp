@@ -12,4 +12,5 @@
 #define ZoneScoped
 #define ZoneScopedN(name)
 #define ZoneScopedNC(name, color)
+#define ZoneScopedC(color)
 #endif

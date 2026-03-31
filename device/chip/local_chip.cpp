@@ -33,7 +33,7 @@ static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.")
 
 std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedNC("UMD::LocalChip::create (sdesc_path)", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     TTDeviceInitResult init_result = tt_device->init_tt_device();
@@ -55,7 +55,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
 
 std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, const SocDescriptor& soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedNC("LocalChip::create", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
@@ -145,7 +145,7 @@ void LocalChip::initialize_default_chip_mutexes() {
 }
 
 void LocalChip::initialize_membars() {
-    ZoneScopedNC("UMD::LocalChip::initialize_membars", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
@@ -172,7 +172,7 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device() {
-    ZoneScopedNC("UMD::LocalChip::start_device", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
         return;
     }
@@ -190,7 +190,7 @@ void LocalChip::start_device() {
 }
 
 void LocalChip::close_device() {
-    ZoneScopedNC("UMD::LocalChip::close_device", tracy::Color::DarkRed);
+    ZoneScopedC(tracy::Color::DarkRed);
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
@@ -433,7 +433,7 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int
 }
 
 void LocalChip::init_pcie_iatus() {
-    ZoneScopedNC("UMD::LocalChip::init_pcie_iatus", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     // TODO: this should go away soon; KMD knows how to do this at page pinning time.
     for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
         HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
@@ -562,7 +562,7 @@ void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
 }
 
 void LocalChip::deassert_risc_resets() {
-    ZoneScopedNC("UMD::LocalChip::deassert_risc_resets", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX |

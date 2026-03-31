@@ -32,7 +32,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     EthCoord target_eth_coord,
     const std::set<uint32_t>& remote_transfer_eth_channels,
     const std::string& sdesc_path) {
-    ZoneScopedNC("UMD::RemoteChip::create (sdesc_path)", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -63,7 +63,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     EthCoord target_eth_coord,
     const std::set<uint32_t>& remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
-    ZoneScopedNC("UMD::RemoteChip::create (SocDescriptor)", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -110,7 +110,7 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 void RemoteChip::start_device() {}
 
 void RemoteChip::close_device() {
-    ZoneScopedNC("UMD::RemoteChip::close_device", tracy::Color::DarkRed);
+    ZoneScopedC(tracy::Color::DarkRed);
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {

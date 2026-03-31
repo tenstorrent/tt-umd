@@ -161,7 +161,7 @@ void Cluster::log_pci_device_summary() {
 }
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
-    ZoneScopedNC("UMD::Cluster::construct_cluster", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
@@ -251,7 +251,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
 SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc) {
-    ZoneScopedNC("UMD::Cluster::construct_soc_descriptor", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
 
     bool chip_in_cluster_descriptor =
         cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end();
@@ -925,7 +925,7 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 }
 
 void Cluster::deassert_resets_and_set_power_state() {
-    ZoneScopedNC("UMD::Cluster::deassert_resets_and_set_power_state", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
@@ -945,7 +945,7 @@ void Cluster::deassert_resets_and_set_power_state() {
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
-    ZoneScopedNC("UMD::Cluster::start_device", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
@@ -957,7 +957,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
-    ZoneScopedNC("UMD::Cluster::close_device", tracy::Color::DarkRed);
+    ZoneScopedC(tracy::Color::DarkRed);
     log_info(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
@@ -1008,7 +1008,7 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::string& sdesc_path,
     IODeviceType device_type,
     const TopologyDiscoveryOptions& topology_discovery_options) {
-    ZoneScopedNC("UMD::Cluster::create_cluster_descriptor", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
 }
 

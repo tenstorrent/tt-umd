@@ -40,12 +40,12 @@ TTSimChip::TTSimChip(
 TTSimChip::~TTSimChip() = default;
 
 void TTSimChip::start_device() {
-    ZoneScopedNC("UMD::TTSimChip::start_device", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     tt_device_->start_device();
 }
 
 void TTSimChip::close_device() {
-    ZoneScopedNC("UMD::TTSimChip::close_device", tracy::Color::DarkRed);
+    ZoneScopedC(tracy::Color::DarkRed);
     tt_device_->close_device();
 }
 
@@ -69,13 +69,13 @@ void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets
 }
 
 void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    ZoneScopedNC("UMD::TTSimChip::assert_risc_reset", tracy::Color::DarkRed);
+    ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->assert_risc_reset(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs);
 }
 
 void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    ZoneScopedNC("UMD::TTSimChip::deassert_risc_reset", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->deassert_risc_reset(
         soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs, staggered_start);

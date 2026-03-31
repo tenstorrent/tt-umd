@@ -271,6 +271,7 @@ jobs:
             -DTT_UMD_BUILD_PIP=OFF \
             -DTT_UMD_BUILD_PYTHON=ON \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
             -DCMAKE_BUILD_TYPE=${{ env.RELEASE_BUILD_TYPE }} \
             -DCMAKE_INSTALL_PREFIX=${{ env.INSTALL_OUTPUT_DIR }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}

@@ -77,7 +77,7 @@ void TTDevice::probe_arc() {
 }
 
 TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
-    ZoneScopedNC("UMD::TTDevice::init_tt_device", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
         if (throw_on_arc_failure) {
@@ -106,7 +106,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number, IODeviceType device_type, bool use_safe_api) {
-    ZoneScopedNC("UMD::TTDevice::create", tracy::Color::DarkGreen);
+    ZoneScopedC(tracy::Color::DarkGreen);
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();

@@ -17,15 +17,15 @@ WormholeHangDetector::WormholeHangDetector(
     HangDetector(protocol, arch_impl, arc_core) {}
 
 uint32_t WormholeHangDetector::read_hang_check_reg_via_bar() {
-    auto* pcie = dynamic_cast<PcieInterface*>(protocol_);
-    return pcie->bar_read32(arch_impl_->get_read_checking_offset());
+    auto* pcie = dynamic_cast<PcieInterface*>(get_protocol());
+    return pcie->bar_read32(get_arch_impl()->get_read_checking_offset());
 }
 
 uint32_t WormholeHangDetector::read_hang_check_reg_via_noc() {
-    uint64_t addr = arch_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
-                    arch_impl_->get_noc_node_id_offset();
+    uint64_t addr = get_arch_impl()->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
+                    get_arch_impl()->get_noc_node_id_offset();
     uint32_t value = 0;
-    protocol_->read_from_device(&value, hang_check_core_, addr, sizeof(value));
+    get_protocol()->read_from_device(&value, get_hang_check_core(), addr, sizeof(value));
     return value;
 }
 

@@ -122,6 +122,12 @@ TEST(TestCluster, GetEthernetFirmware) {
 
 TEST(TestCluster, TestDifferentPowerModes) {
     {
+        if (PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "Different power modes is supported only for Blackhole.";
+        }
+    }
+
+    {
         TopologyDiscoveryOptions default_options;
         auto [desc_default, devices_default] = TopologyDiscovery::discover(default_options);
         for (auto& [chip_id, tt_device] : devices_default) {

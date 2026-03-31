@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -162,6 +163,7 @@ void TopologyDiscovery::get_connected_devices() {
 
         uint64_t asic_id = get_asic_id(tt_device.get());
         devices_to_discover.emplace(asic_id, std::move(tt_device));
+        device_problems.emplace(asic_id, std::deque<error::TopologyErrors>{});
 
         log_debug(
             LogUMD,
@@ -289,6 +291,7 @@ void TopologyDiscovery::discover_remote_devices() {
                     active_eth_channels_per_device.at(gateway_device_id));
 
                 devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
+                device_problems.emplace(remote_asic_id, std::deque<error::TopologyErrors>{});
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
@@ -452,17 +455,15 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
-            const std::string mismatch_msg = fmt::format(
-                "Firmware bundle version mismatch for device {}: expected {}, got {}",
+            auto error = UMD_THROW_IF(
+                options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW,
+                error::CMFWUnsupportedError,
+                *tt_device,
                 get_asic_id(tt_device),
-                first_fw_bundle_version->to_string(),
-                fw_bundle_version.to_string());
-            if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW) {
-                TT_THROW(mismatch_msg);
-            } else {
-                log_warning(LogUMD, mismatch_msg);
-                return;
-            }
+                fw_bundle_version,
+                expected_eth_fw_version.value());
+            device_problems[get_asic_id(tt_device)].push_back(error);
+            log_warning(LogUMD, error.message());
         }
         return;
     }
@@ -481,17 +482,15 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         latest_supported_fw_bundle_version.to_string());
 
     if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
-        const std::string cmfw_unsupported_msg = fmt::format(
-            "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
-            "architecture.",
-            fw_bundle_version.to_string(),
-            minimum_compatible_fw_bundle_version.to_string(),
-            arch_to_str(arch));
-        if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW) {
-            TT_THROW(cmfw_unsupported_msg);
-        } else {
-            return;
-        }
+        auto error = UMD_THROW_IF(
+            options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW,
+            error::CMFWUnsupportedError,
+            *tt_device,
+            get_asic_id(tt_device),
+            fw_bundle_version,
+            minimum_compatible_fw_bundle_version);
+        device_problems[get_asic_id(tt_device)].push_back(error);
+        log_warning(LogUMD, error.message());
     }
 
     if (fw_bundle_version > latest_supported_fw_bundle_version) {

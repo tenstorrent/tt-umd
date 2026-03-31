@@ -4,10 +4,6 @@
 
 #pragma once
 
-#include <optional>
-
-#include "umd/device/types/arch.hpp"
-
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.

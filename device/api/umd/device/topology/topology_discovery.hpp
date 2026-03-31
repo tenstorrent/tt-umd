@@ -4,9 +4,13 @@
 
 #pragma once
 
+#include <cstdint>
+#include <deque>
+#include <map>
 #include <memory>
 #include <optional>
 #include <unordered_set>
+#include <vector>
 
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -16,6 +20,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -163,6 +168,9 @@ protected:
     // The FW bundle version found on the first discovered local device, that needs
     // to match with all of the other discovered FW bundle versions on all devices.
     std::optional<FirmwareBundleVersion> first_fw_bundle_version;
+
+    // Mapping unique discovery ID to list of problems.
+    std::map<uint64_t, std::deque<error::TopologyErrors>> device_problems;
 
 private:
     // Hack used to cache SocDescriptors.

@@ -169,6 +169,7 @@ void TopologyDiscovery::get_connected_devices() {
             device_id,
             asic_id);
     }
+    log_debug(LogUMD, "Initialized {} locally connected devices.", devices_to_discover.size());
 }
 
 void TopologyDiscovery::discover_remote_devices() {
@@ -177,6 +178,9 @@ void TopologyDiscovery::discover_remote_devices() {
         discovered_devices.insert(current_device_asic_id);
         remote_asic_id_to_mmio_device_id.emplace(current_device_asic_id, current_device_asic_id);
         active_eth_channels_per_device.emplace(current_device_asic_id, std::set<uint32_t>());
+    }
+    if (!options.discover_remote_devices) {
+        log_debug(LogUMD, "Discovering remote devices is disabled.");
     }
     while (!devices_to_discover.empty()) {
         auto it = devices_to_discover.begin();
@@ -506,6 +510,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
     auto timeout_left = timeout_ms;
+    log_debug(LogUMD, "Waiting on ethernet link training on device: {}", tt_device->get_communication_device_id());
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = eth_core;
@@ -519,6 +524,11 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
 
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
+    log_debug(
+        LogUMD,
+        "Completed ethernet link training on device: {} after {} ms",
+        tt_device->get_communication_device_id(),
+        (timeout_ms - timeout_left).count());
 }
 
 bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {

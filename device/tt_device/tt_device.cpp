@@ -26,6 +26,7 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
+#include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -69,6 +70,18 @@ TTDevice::TTDevice(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
+}
+
+TTDevice::TTDevice(
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    std::unique_ptr<architecture_implementation> architecture_impl) :
+    communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
+    communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()) {
+    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
+    remote_capabilities_ = remote_protocol.get();
+    device_protocol_ = std::move(remote_protocol);
 }
 
 TTDevice::TTDevice() = default;
@@ -136,8 +149,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(
-    std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) {
+std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
@@ -156,6 +168,10 @@ PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_dev
 
 JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
 
+RemoteCommunication *TTDevice::get_remote_communication() {
+    return get_remote_interface()->get_remote_communication();
+};
+
 DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 
 PcieInterface *TTDevice::get_pcie_interface() {
@@ -170,6 +186,13 @@ JtagInterface *TTDevice::get_jtag_interface() {
         throw std::runtime_error("JTAG interface is not available for this device.");
     }
     return jtag_capabilities_;
+}
+
+RemoteInterface *TTDevice::get_remote_interface() {
+    if (!remote_capabilities_) {
+        throw std::runtime_error("Remote interface is not available for this device.");
+    }
+    return remote_capabilities_;
 }
 
 tt::ARCH TTDevice::get_arch() { return arch; }

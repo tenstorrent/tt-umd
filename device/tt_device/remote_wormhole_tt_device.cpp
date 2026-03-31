@@ -19,37 +19,41 @@
 namespace tt::umd {
 
 RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
-    remote_communication_(std::move(remote_communication)) {
+    WormholeTTDevice(std::move(remote_communication)) {
     // RemoteWormholeTTDevice doesn't own a PCIe/JTAG device, but some base class methods
     // (e.g. bar_read32, topology discovery) require access to the local device's interface.
     // Borrow the local device's interface until RemoteProtocol replaces this class entirely.
     bool has_pcie = false;
     try {
-        TTDevice::set_pcie_interface(remote_communication_->get_local_device()->get_pcie_interface());
+        TTDevice::set_pcie_interface(
+            TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_pcie_interface());
         has_pcie = true;
     } catch (const std::runtime_error &) {
         log_warning(LogUMD, "Local device does not have a PCIe interface, trying JTAG.");
     }
 
     if (!has_pcie) {
-        TTDevice::set_jtag_interface(remote_communication_->get_local_device()->get_jtag_interface());
+        TTDevice::set_jtag_interface(
+            get_remote_interface()->get_remote_communication()->get_local_device()->get_jtag_interface());
     }
-    communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
-    communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();
+    communication_device_type_ =
+        get_remote_interface()->get_remote_communication()->get_local_device()->get_communication_device_type();
+    communication_device_id_ =
+        get_remote_interface()->get_remote_communication()->get_local_device()->get_communication_device_id();
     is_remote_tt_device = true;
 }
 
 void RemoteWormholeTTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
+    get_remote_interface()->get_remote_communication()->read_non_mmio(core, mem_ptr, addr, size);
 }
 
 void RemoteWormholeTTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
-    remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
+    get_remote_interface()->get_remote_communication()->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteWormholeTTDevice::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
-
-RemoteCommunication *RemoteWormholeTTDevice::get_remote_communication() const { return remote_communication_.get(); }
+void RemoteWormholeTTDevice::wait_for_non_mmio_flush() {
+    get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
+}
 
 void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
@@ -84,15 +88,15 @@ void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_
 }
 
 void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
-    remote_communication_->get_local_device()->detect_hang_read(data_read);
+    get_remote_interface()->get_remote_communication()->get_local_device()->detect_hang_read(data_read);
 }
 
 bool RemoteWormholeTTDevice::is_hardware_hung() {
-    return remote_communication_->get_local_device()->is_hardware_hung();
+    return get_remote_interface()->get_remote_communication()->get_local_device()->is_hardware_hung();
 }
 
 uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc() {
-    return remote_communication_->get_local_device()->read_hang_check_reg_via_noc();
+    return get_remote_interface()->get_remote_communication()->get_local_device()->read_hang_check_reg_via_noc();
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(

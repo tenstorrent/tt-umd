@@ -23,16 +23,13 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
     // RemoteWormholeTTDevice doesn't own a PCIe/JTAG device, but some base class methods
     // (e.g. bar_read32, topology discovery) require access to the local device's interface.
     // Borrow the local device's interface until RemoteProtocol replaces this class entirely.
-    bool has_pcie = false;
-    try {
-        TTDevice::set_pcie_interface(remote_communication_->get_local_device()->get_pcie_interface());
-        has_pcie = true;
-    } catch (const std::runtime_error &) {
-        log_warning(LogUMD, "Local device does not have a PCIe interface, trying JTAG.");
-    }
-
-    if (!has_pcie) {
-        TTDevice::set_jtag_interface(remote_communication_->get_local_device()->get_jtag_interface());
+    auto *local = remote_communication_->get_local_device();
+    if (local->has_pcie_interface()) {
+        TTDevice::set_pcie_interface(local->get_pcie_interface());
+    } else if (local->has_jtag_interface()) {
+        TTDevice::set_jtag_interface(local->get_jtag_interface());
+    } else {
+        throw std::runtime_error("Local device has no available interface (PCIe or JTAG).");
     }
     communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
     communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();

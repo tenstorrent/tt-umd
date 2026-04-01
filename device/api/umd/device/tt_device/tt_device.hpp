@@ -59,8 +59,7 @@ public:
      */
     static std::unique_ptr<TTDevice> create(
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
@@ -80,6 +79,12 @@ public:
     DeviceProtocol *get_device_protocol();
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
+
+    // Temporary queries used by RemoteWormholeTTDevice to probe the local device's interfaces.
+    // These will be removed once RemoteWormholeTTDevice is replaced by RemoteProtocol.
+    bool has_pcie_interface() const { return pcie_capabilities_ != nullptr; }
+
+    bool has_jtag_interface() const { return jtag_capabilities_ != nullptr; }
 
     tt::ARCH get_arch();
 

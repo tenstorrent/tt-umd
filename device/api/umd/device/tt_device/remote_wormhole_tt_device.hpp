@@ -56,8 +56,7 @@ public:
 private:
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(
-        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<RemoteCommunication> remote_communication_;
 };

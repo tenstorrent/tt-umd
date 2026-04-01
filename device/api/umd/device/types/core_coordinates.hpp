@@ -142,7 +142,7 @@ struct CoreCoord : public xy_pair {
         const CoordSystem coord_system = CoordSystem::LITERAL) :
         xy_pair(x, y), core_type(type), coord_system(coord_system) {}
 
-    explicit CoreCoord(
+    CoreCoord(
         const xy_pair core,
         const CoreType type = CoreType::UNSPECIFIED,
         const CoordSystem coord_system = CoordSystem::LITERAL) :
@@ -173,9 +173,9 @@ struct CoreCoord : public xy_pair {
         std::stringstream ss;
         char shorthand = type_shorthand(core_type);
         if (shorthand != '\0') {
-            ss << shorthand;
+            ss << shorthand << ' ';
         }
-        ss << x << '-' << y;
+        ss << x << ',' << y;
         if (coord_system != CoordSystem::LITERAL) {
             ss << ' ' << '(' << to_str(coord_system) << ')';
         }

@@ -154,57 +154,50 @@ inline void streaming_memcpy_from_device(void* dest, void* src, std::size_t size
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* s_aligned = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
 
-    // Phase 1: Align source to 16 bytes using 4-byte volatile loads.
-    while (size >= 4 && (reinterpret_cast<std::uintptr_t>(s_aligned) % 16) != 0) {
+    // Phase 1: Align source to 32 bytes using 4-byte volatile loads.
+    while (size >= 4 && (reinterpret_cast<std::uintptr_t>(s_aligned) % 32) != 0) {
         *reinterpret_cast<std::uint32_t*>(d) = *reinterpret_cast<volatile std::uint32_t*>(s_aligned);
         d += 4;
         s_aligned += 4;
         size -= 4;
     }
 
-    // Phase 2: Bulk 256-byte blocks (16 x 16-byte SSE streaming loads).
+    // Phase 2: Bulk 256-byte blocks (8 x 32-byte AVX2 streaming loads).
     while (size >= 256) {
-        __m128i v0 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned));
-        __m128i v1 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 16));
-        __m128i v2 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 32));
-        __m128i v3 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 48));
-        __m128i v4 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 64));
-        __m128i v5 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 80));
-        __m128i v6 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 96));
-        __m128i v7 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 112));
-        __m128i v8 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 128));
-        __m128i v9 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 144));
-        __m128i v10 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 160));
-        __m128i v11 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 176));
-        __m128i v12 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 192));
-        __m128i v13 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 208));
-        __m128i v14 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 224));
-        __m128i v15 = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned + 240));
+        __m256i v0 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned));
+        __m256i v1 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 32));
+        __m256i v2 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 64));
+        __m256i v3 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 96));
+        __m256i v4 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 128));
+        __m256i v5 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 160));
+        __m256i v6 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 192));
+        __m256i v7 = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned + 224));
 
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d), v0);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 16), v1);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 32), v2);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 48), v3);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 64), v4);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 80), v5);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 96), v6);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 112), v7);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 128), v8);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 144), v9);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 160), v10);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 176), v11);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 192), v12);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 208), v13);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 224), v14);
-        _mm_storeu_si128(reinterpret_cast<__m128i*>(d + 240), v15);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v0);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 32), v1);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 64), v2);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 96), v3);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 128), v4);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 160), v5);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 192), v6);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 224), v7);
 
         d += 256;
         s_aligned += 256;
         size -= 256;
     }
 
-    // Phase 3: Remaining 16-byte chunks.
-    while (size >= 16) {
+    // Phase 3: Remaining 32-byte chunks.
+    while (size >= 32) {
+        __m256i v = _mm256_stream_load_si256(reinterpret_cast<const __m256i*>(s_aligned));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v);
+        d += 32;
+        s_aligned += 32;
+        size -= 32;
+    }
+
+    // Phase 3b: Remaining 16-byte chunk.
+    if (size >= 16) {
         __m128i v = _mm_stream_load_si128(reinterpret_cast<__m128i*>(s_aligned));
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d), v);
         d += 16;

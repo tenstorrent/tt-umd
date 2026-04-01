@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include <cstdint>
+#include <sstream>
 
 #include "umd/device/types/xy_pair.hpp"
 
@@ -35,6 +36,7 @@ enum class CoreType {
     ETH,
     WORKER,
     COUNT,
+    UNSPECIFIED,
 };
 
 /*
@@ -46,6 +48,7 @@ enum class CoordSystem : std::uint8_t {
     NOC0,
     TRANSLATED,
     NOC1,
+    LITERAL,
 };
 
 static inline std::string to_str(const CoreType core_type) {
@@ -74,8 +77,38 @@ static inline std::string to_str(const CoreType core_type) {
             return "ETH";
         case CoreType::WORKER:
             return "WORKER";
+        case CoreType::UNSPECIFIED:
+            return "UNSPECIFIED";
         default:
             return "UNKNOWN";
+    }
+}
+
+static inline char type_shorthand(const CoreType type) {
+    switch (type) {
+        case CoreType::ARC:
+            return 'A';
+        case CoreType::DRAM:
+            return 'D';
+        case CoreType::ACTIVE_ETH:
+        case CoreType::IDLE_ETH:
+        case CoreType::ETH:
+            return 'E';
+        case CoreType::PCIE:
+            return 'P';
+        case CoreType::TENSIX:
+        case CoreType::WORKER:
+            return 'T';
+        case CoreType::ROUTER_ONLY:
+            return 'R';
+        case CoreType::SECURITY:
+            return 'S';
+        case CoreType::L2CPU:
+            return 'L';
+        case CoreType::UNSPECIFIED:
+            return '\0';
+        default:
+            return '?';
     }
 }
 
@@ -89,6 +122,8 @@ static inline std::string to_str(const CoordSystem coord_system) {
             return "TRANSLATED";
         case CoordSystem::NOC1:
             return "NOC1";
+        case CoordSystem::LITERAL:
+            return "LITERAL";
         default:
             return "UNKNOWN";
     }
@@ -97,14 +132,21 @@ static inline std::string to_str(const CoordSystem coord_system) {
 // TODO: There is a conflicting declaration in tt_metal for CoreCoord. We need to remove that one before we can move
 // this CoreCoord to tt namespace.
 namespace umd {
-struct CoreCoord : public tt_xy_pair {
+struct CoreCoord : public xy_pair {
     CoreCoord() = default;
 
-    CoreCoord(const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system) :
-        tt_xy_pair(x, y), core_type(type), coord_system(coord_system) {}
+    CoreCoord(
+        const size_t x,
+        const size_t y,
+        const CoreType type = CoreType::UNSPECIFIED,
+        const CoordSystem coord_system = CoordSystem::LITERAL) :
+        xy_pair(x, y), core_type(type), coord_system(coord_system) {}
 
-    CoreCoord(const tt_xy_pair core, const CoreType type, const CoordSystem coord_system) :
-        tt_xy_pair(core), core_type(type), coord_system(coord_system) {}
+    explicit CoreCoord(
+        const xy_pair core,
+        const CoreType type = CoreType::UNSPECIFIED,
+        const CoordSystem coord_system = CoordSystem::LITERAL) :
+        xy_pair(core), core_type(type), coord_system(coord_system) {}
 
     CoreType core_type;
     CoordSystem coord_system;
@@ -115,30 +157,29 @@ struct CoreCoord : public tt_xy_pair {
     }
 
     bool operator<(const CoreCoord& o) const {
-        if (x < o.x) {
-            return true;
+        if (x != o.x) {
+            return x < o.x;
         }
-        if (x > o.x) {
-            return false;
+        if (y != o.y) {
+            return y < o.y;
         }
-        if (y < o.y) {
-            return true;
-        }
-        if (y > o.y) {
-            return false;
-        }
-        if (core_type < o.core_type) {
-            return true;
-        }
-        if (core_type > o.core_type) {
-            return false;
+        if (core_type != o.core_type) {
+            return core_type < o.core_type;
         }
         return coord_system < o.coord_system;
     }
 
     std::string str() const {
-        return "CoreCoord: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + to_str(core_type) + ", " +
-               to_str(coord_system) + ")";
+        std::stringstream ss;
+        char shorthand = type_shorthand(core_type);
+        if (shorthand != '\0') {
+            ss << shorthand;
+        }
+        ss << x << '-' << y;
+        if (coord_system != CoordSystem::LITERAL) {
+            ss << ' ' << '(' << to_str(coord_system) << ')';
+        }
+        return ss.str();
     }
 };
 }  // namespace umd

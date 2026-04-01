@@ -24,6 +24,8 @@
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
+namespace tt::umd {
+
 /* static */ std::filesystem::path JtagDevice::jtag_library_path =
     std::filesystem::path("./build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
@@ -346,3 +348,5 @@ bool JtagDevice::is_hardware_hung(uint8_t chip_id) {
     } while (((status.value() & 0x1) == 0) && (timeout > 0));
     return timeout == 0;
 }
+
+}  // namespace tt::umd

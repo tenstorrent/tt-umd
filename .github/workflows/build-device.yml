@@ -51,6 +51,10 @@ jobs:
 
     name: Build device for any arch on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     runs-on: tt-ubuntu-2204-large-stable
+    env:
+      # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
+      # This skips Tracy's runtime TSC check to prevent initialization failures during build.
+      TRACY_NO_INVARIANT_CHECK: 1
     container:
       image: >-
         harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
@@ -76,7 +80,8 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=ON \
-            -DTT_UMD_ENABLE_CLANG_TIDY=ON
+            -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+            -DTT_UMD_ENABLE_TRACY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -369,7 +374,7 @@ jobs:
           mkdir -p ./cmake
           cp "${EXAMPLE_DIR}"/* ./cmake
 
-          echo "Build UMD examples (which are dependent on libdevice.so)"
+          echo "Build UMD examples (which are dependent on libtt-umd.so)"
           cd ./example_test
           cmake -B build -G Ninja
           cmake --build ./build

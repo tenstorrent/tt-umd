@@ -278,6 +278,11 @@ private:
     static std::unordered_set<ChipId> get_target_chip_ids_from_visible_devices(
         const ClusterDescriptor *full_cluster_desc);
 
+    static void apply_chip_id_remapping(
+        ClusterDescriptor *remapped,
+        const ClusterDescriptor *desc,
+        const std::unordered_map<ChipId, ChipId> &old_to_new);
+
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
         ethernet_connections;
     // TODO: unify uint64_t with ChipUID.

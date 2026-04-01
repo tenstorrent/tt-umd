@@ -21,6 +21,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -566,11 +567,23 @@ bool WormholeTTDevice::is_hardware_hung() {
         TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
     }
 
-    uint32_t scratch_data = bar_read32(
-        architecture_impl_->get_arc_axi_apb_peripheral_offset() + architecture_impl_->get_arc_reset_scratch_offset() +
-        6 * 4);
+    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
-    return (scratch_data == HANG_READ_VALUE);
+    return (node_id == HANG_READ_VALUE);
+}
+
+uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {
+    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
+    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    // Read from ARC core because WH has a BAR-mapped node ID register only on the ARC tile.
+    // This keeps the BAR and NOC paths reading the same register for equivalence checking.
+    tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
+                    architecture_impl_->get_noc_node_id_offset();
+    uint32_t value = 0;
+    read_from_device(&value, arc_core, addr, sizeof(value));
+    return value;
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {

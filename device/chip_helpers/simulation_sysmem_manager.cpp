@@ -21,7 +21,8 @@
 
 namespace tt::umd {
 
-SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) {
+SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch) {
+    pcie_base_ = get_pcie_base_for_arch(arch);
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 

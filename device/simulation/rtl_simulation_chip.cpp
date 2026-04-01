@@ -19,8 +19,9 @@ RtlSimulationChip::RtlSimulationChip(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels),
-    tt_device_(std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id)) {
+    SimulationChip(simulator_directory, soc_descriptor, chip_id),
+    tt_device_(
+        std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 }
 
@@ -63,5 +64,7 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     tt_device_->deassert_risc_reset(translate_core, selected_riscs, staggered_start);
 }
+
+TLBManager* RtlSimulationChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
 
 }  // namespace tt::umd

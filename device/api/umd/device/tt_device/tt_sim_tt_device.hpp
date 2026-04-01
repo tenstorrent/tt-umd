@@ -9,7 +9,7 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -30,7 +30,8 @@ public:
         int num_host_mem_channels = 0);
     ~TTSimTTDevice();
 
-    static std::unique_ptr<TTSimTTDevice> create(const std::filesystem::path &simulator_directory);
+    static std::unique_ptr<TTSimTTDevice> create(
+        const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0, bool copy_sim_binary = false);
 
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
@@ -39,6 +40,9 @@ public:
     SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
 
     bool is_hardware_hung() override { return false; }
+
+    /** Hang detection not implemented for simulator; returns 0 (not HANG_READ_VALUE). */
+    uint32_t read_hang_check_reg_via_noc() override { return 0; }
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
@@ -80,6 +84,8 @@ public:
      */
     const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
 
+    TLBManager *get_tlb_manager();
+
     uint64_t bar0_base = 0;
 
 protected:
@@ -105,10 +111,7 @@ private:
 
     uint32_t libttsim_pci_device_id;
 
-    std::unique_ptr<TTSimTlbManager> tlb_manager_;
-
-    TlbWindow *get_cached_tlb_window();
-
+    std::unique_ptr<SimulationTlbManager> tlb_manager_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 };
 }  // namespace tt::umd

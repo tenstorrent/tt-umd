@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -63,6 +63,16 @@ struct ScopedJumpGuard {
 
 SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
     TlbWindow(std::move(handle), config) {}
+
+void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
+    validate(offset, sizeof(uint16_t));
+    *reinterpret_cast<volatile uint16_t *>(tlb_handle->get_base() + get_total_offset(offset)) = value;
+}
+
+uint16_t SiliconTlbWindow::read16(uint64_t offset) {
+    validate(offset, sizeof(uint16_t));
+    return *reinterpret_cast<volatile uint16_t *>(tlb_handle->get_base() + get_total_offset(offset));
+}
 
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
@@ -229,9 +239,15 @@ decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
     } else {
         std::atomic_signal_fence(std::memory_order_seq_cst);
         jump_set = 0;
-        throw SigbusError("SIGBUS signal detected: Device access failed.");
+        throw error::SigbusError("SIGBUS signal detected: Device access failed.");
     }
 }
+
+void SiliconTlbWindow::safe_write16(uint64_t offset, uint16_t value) {
+    execute_safe(&SiliconTlbWindow::write16, offset, value);
+}
+
+uint16_t SiliconTlbWindow::safe_read16(uint64_t offset) { return execute_safe(&SiliconTlbWindow::read16, offset); }
 
 void SiliconTlbWindow::safe_write32(uint64_t offset, uint32_t value) {
     execute_safe(&SiliconTlbWindow::write32, offset, value);

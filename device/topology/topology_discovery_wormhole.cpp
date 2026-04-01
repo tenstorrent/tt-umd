@@ -276,6 +276,16 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     }
 }
 
+bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, tt_xy_pair eth_core) {
+    uint32_t port_disable_mask = 0;
+    tt_device->read_from_device(
+        &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
+    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0;
+    const uint32_t channel =
+        get_soc_descriptor(tt_device).translate_coord_to(eth_core, noc_system, CoordSystem::LOGICAL).y;
+    return (port_disable_mask >> channel) & 1;
+}
+
 uint32_t TopologyDiscoveryWormhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t heartbeat_value = 0;
     tt_device->read_from_device(&heartbeat_value, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));

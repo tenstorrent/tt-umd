@@ -18,7 +18,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -90,7 +90,8 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
 
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
-            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB);
+            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB ||
+            board_type == BoardType::UBB_BLACKHOLE);
     }
 }
 

@@ -171,6 +171,11 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
 
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         env:

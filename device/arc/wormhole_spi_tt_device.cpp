@@ -101,7 +101,7 @@ uint32_t WormholeSPITTDevice::get_clock() {
 
     if (telemetry) {
         // TelemetryTag (unified enum) is only available in firmware >= 18.7
-        // For older firmware, wormhole::TelemetryTag should be used.
+        // For older firmware, wormhole::LegacyTelemetryTag should be used.
         FirmwareBundleVersion fw_version = device_->get_firmware_version();
 
         if (fw_version < FirmwareBundleVersion(18, 7, 0)) {

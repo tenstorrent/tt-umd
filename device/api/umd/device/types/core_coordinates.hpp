@@ -178,7 +178,7 @@ struct CoreCoord : public xy_pair {
         if (shorthand != '\0') {
             ss << shorthand;
         }
-        ss << x << ',' << y;
+        ss << x << '-' << y;
         ss << ' ' << '(' << to_str(coord_system) << ')';
         return ss.str();
     }

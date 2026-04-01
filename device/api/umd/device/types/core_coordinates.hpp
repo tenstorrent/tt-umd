@@ -87,24 +87,24 @@ static inline std::string to_str(const CoreType core_type) {
 static inline char type_shorthand(const CoreType type) {
     switch (type) {
         case CoreType::ARC:
-            return 'A';
+            return 'a';
         case CoreType::DRAM:
-            return 'D';
+            return 'd';
         case CoreType::ACTIVE_ETH:
         case CoreType::IDLE_ETH:
         case CoreType::ETH:
-            return 'E';
+            return 'e';
         case CoreType::PCIE:
-            return 'P';
+            return 'p';
         case CoreType::TENSIX:
         case CoreType::WORKER:
-            return 'T';
+            return 't';
         case CoreType::ROUTER_ONLY:
-            return 'R';
+            return 'e';
         case CoreType::SECURITY:
-            return 'S';
+            return 's';
         case CoreType::L2CPU:
-            return 'L';
+            return 'l';
         case CoreType::UNSPECIFIED:
             return '\0';
         default:
@@ -170,15 +170,16 @@ struct CoreCoord : public xy_pair {
     }
 
     std::string str() const {
+        if (coord_system == CoordSystem::LITERAL) {
+            return tt_xy_pair::str();
+        }
         std::stringstream ss;
         char shorthand = type_shorthand(core_type);
         if (shorthand != '\0') {
-            ss << shorthand << ' ';
+            ss << shorthand;
         }
         ss << x << ',' << y;
-        if (coord_system != CoordSystem::LITERAL) {
-            ss << ' ' << '(' << to_str(coord_system) << ')';
-        }
+        ss << ' ' << '(' << to_str(coord_system) << ')';
         return ss.str();
     }
 };

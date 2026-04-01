@@ -23,8 +23,10 @@ struct TestError : UmdError<TestErrorData> {
 
 TEST(UmdException, Macros) {
     EXPECT_THROW(UMD_THROW(TestError, 200), UmdException<TestError>);
-    EXPECT_THROW(UMD_THROW_IF(true, TestError, 200), UmdException<TestError>);
-    EXPECT_NO_THROW(UMD_THROW_IF(false, TestError, 200));
+    EXPECT_THROW(UMD_THROW_OR_RETURN(true, TestError, 200), UmdException<TestError>);
+    EXPECT_NO_THROW(UMD_THROW_OR_RETURN(false, TestError, 200));
+    auto error = UMD_THROW_OR_RETURN(false, TestError, 200);
+    EXPECT_EQ(error.data().cookie, 200);
 }
 
 TEST(UmdException, ExceptionData) {

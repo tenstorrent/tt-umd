@@ -253,11 +253,35 @@ private:
  * @param ... Arguments to forward to the error_type constructor.
  *
  */
-#define UMD_THROW(error_type, ...) \
-    (throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__))
+#define UMD_THROW(error_type, ...)                                                                   \
+    do {                                                                                             \
+        throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__); \
+    } while (0)
 
 /**
- * @brief Macro to conditionally throw a UmdException with automatic location tracking.
+ * @brief Macro to assert a condition and throw a UmdException if it fails.
+ *
+ * This macro evaluates a condition and throws a UmdException if the condition is false.
+ * The file and line information are automatically captured at the assertion site.
+ *
+ * @param condition Boolean expression; exception is thrown if false.
+ * @param error_type The type of UmdError to construct (e.g., UmdError<ETHHeartbeatFailureData>).
+ * @param ... Arguments to forward to the error_type constructor.
+ *
+ * Example:
+ * @code
+ * UMD_ASSERT(ptr != nullptr, UmdError<NullPointerData>, "Pointer must not be null", data);
+ * @endcode
+ */
+#define UMD_ASSERT(condition, error_type, ...)                                                           \
+    do {                                                                                                 \
+        if (!(condition)) {                                                                              \
+            throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__); \
+        }                                                                                                \
+    } while (0)
+
+/**
+ * @brief Macro to either throw an UmdException or return an UmdError.
  *
  * This macro evaluates a condition and throws a UmdException if the condition is true.
  * If the condition is false, it returns the constructed error object without throwing.
@@ -269,10 +293,10 @@ private:
  *
  * Example:
  * @code
- * UMD_THROW_IF(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
+ * UMD_THROW_OR_RETURN(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
  * @endcode
  */
-#define UMD_THROW_IF(condition, error_type, ...)                                                               \
+#define UMD_THROW_OR_RETURN(condition, error_type, ...)                                                        \
     ((condition) ? throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__) \
                  : error_type(__VA_ARGS__))
 

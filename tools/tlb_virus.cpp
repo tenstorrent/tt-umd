@@ -56,7 +56,6 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
         // Map to track allocations per device and per size: device_id -> (size -> (allocated, total)).
         std::map<int, std::map<size_t, std::pair<int, uint32_t>>> tlb_allocation_summary;
 

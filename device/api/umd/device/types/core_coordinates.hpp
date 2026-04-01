@@ -48,7 +48,8 @@ enum class CoordSystem : std::uint8_t {
     NOC0,
     TRANSLATED,
     NOC1,
-    LITERAL,
+    LITERAL,  // LITERAL is not an actual coordinate system. It just means not to perform any operations on the
+              // coordinates.
 };
 
 static inline std::string to_str(const CoreType core_type) {
@@ -84,6 +85,7 @@ static inline std::string to_str(const CoreType core_type) {
     }
 }
 
+// Core type shorthands are used in stringifying CoreCoord.
 static inline char type_shorthand(const CoreType type) {
     switch (type) {
         case CoreType::ARC:
@@ -100,7 +102,7 @@ static inline char type_shorthand(const CoreType type) {
         case CoreType::WORKER:
             return 't';
         case CoreType::ROUTER_ONLY:
-            return 'e';
+            return 'r';
         case CoreType::SECURITY:
             return 's';
         case CoreType::L2CPU:
@@ -135,14 +137,14 @@ namespace umd {
 struct CoreCoord : public xy_pair {
     CoreCoord() = default;
 
-    CoreCoord(
+    constexpr CoreCoord(
         const size_t x,
         const size_t y,
         const CoreType type = CoreType::UNSPECIFIED,
         const CoordSystem coord_system = CoordSystem::LITERAL) :
         xy_pair(x, y), core_type(type), coord_system(coord_system) {}
 
-    CoreCoord(
+    constexpr CoreCoord(
         const xy_pair core,
         const CoreType type = CoreType::UNSPECIFIED,
         const CoordSystem coord_system = CoordSystem::LITERAL) :

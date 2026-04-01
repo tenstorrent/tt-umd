@@ -192,7 +192,6 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
             return 2;
         case BoardType::P100:
         case BoardType::P150:
-        case BoardType::QUASAR:
             return 1;
         case BoardType::P300:
             return 2;
@@ -200,6 +199,8 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         case BoardType::UBB:
         case BoardType::UBB_BLACKHOLE:
             return 32;
+        case BoardType::QUASAR: // Mock device only
+            return 1;
         default:
             throw std::runtime_error("Unknown board type for number of chips calculation.");
     }
@@ -219,7 +220,7 @@ inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
     // TODO: move 0x35 constant to be equal to UBB_WORMHOLE once we delete UBB.
     {0x35, BoardType::UBB},
     {0x47, BoardType::UBB_BLACKHOLE},
-    {0x50, BoardType::QUASAR}};
+    {0x50, BoardType::QUASAR}}; // Fictional board UPI for Quasar mock device
 
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;

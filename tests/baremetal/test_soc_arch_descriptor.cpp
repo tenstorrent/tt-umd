@@ -299,6 +299,127 @@ TEST(SocArchDescriptor, BlackholeHasSecurityAndL2CPU) {
     EXPECT_FALSE(desc.l2cpu_cores.empty());
 }
 
+// Test Blackhole simulation 1x2 YAML descriptor.
+TEST(SocArchDescriptor, BlackholeSimulation1x2) {
+    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("blackhole_simulation_1x2.yaml"));
+
+    EXPECT_EQ(desc.arch, tt::ARCH::BLACKHOLE);
+    EXPECT_EQ(desc.grid_size, tt_xy_pair(2, 2));
+
+    // 2 tensix cores: (0,1) and (1,1).
+    EXPECT_EQ(desc.tensix_cores.size(), 2);
+    EXPECT_EQ(desc.tensix_cores[0], tt_xy_pair(0, 1));
+    EXPECT_EQ(desc.tensix_cores[1], tt_xy_pair(1, 1));
+
+    // 1 DRAM bank with 1 core: (1,0).
+    ASSERT_EQ(desc.dram_cores.size(), 1);
+    ASSERT_EQ(desc.dram_cores[0].size(), 1);
+    EXPECT_EQ(desc.dram_cores[0][0], tt_xy_pair(1, 0));
+
+    // 1 router core: (0,0).
+    EXPECT_EQ(desc.router_cores.size(), 1);
+    EXPECT_EQ(desc.router_cores[0], tt_xy_pair(0, 0));
+
+    // No ARC, PCIe, ETH cores.
+    EXPECT_TRUE(desc.arc_cores.empty());
+    EXPECT_TRUE(desc.pcie_cores.empty());
+    EXPECT_TRUE(desc.eth_cores.empty());
+
+    // Memory sizes.
+    EXPECT_EQ(desc.worker_l1_size, 1572864);
+    EXPECT_EQ(desc.dram_bank_size, 1073741824);
+    EXPECT_EQ(desc.eth_l1_size, 0);
+
+    // Worker grid size: 2x1.
+    EXPECT_EQ(desc.worker_grid_size, tt_xy_pair(2, 1));
+
+    // NOC mappings.
+    ASSERT_EQ(desc.noc0_x_to_noc1_x.size(), 2);
+    EXPECT_EQ(desc.noc0_x_to_noc1_x[0], 1);
+    EXPECT_EQ(desc.noc0_x_to_noc1_x[1], 0);
+    ASSERT_EQ(desc.noc0_y_to_noc1_y.size(), 2);
+    EXPECT_EQ(desc.noc0_y_to_noc1_y[0], 1);
+    EXPECT_EQ(desc.noc0_y_to_noc1_y[1], 0);
+}
+
+// Test Quasar simulation 1x1 YAML descriptor.
+TEST(SocArchDescriptor, QuasarSimulation1x1) {
+    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml"));
+
+    EXPECT_EQ(desc.arch, tt::ARCH::QUASAR);
+    EXPECT_EQ(desc.grid_size, tt_xy_pair(1, 3));
+
+    // 1 tensix core: (0,1).
+    ASSERT_EQ(desc.tensix_cores.size(), 1);
+    EXPECT_EQ(desc.tensix_cores[0], tt_xy_pair(0, 1));
+
+    // 1 DRAM bank with 1 core: (0,0).
+    ASSERT_EQ(desc.dram_cores.size(), 1);
+    ASSERT_EQ(desc.dram_cores[0].size(), 1);
+    EXPECT_EQ(desc.dram_cores[0][0], tt_xy_pair(0, 0));
+
+    // 1 router core: (0,2).
+    EXPECT_EQ(desc.router_cores.size(), 1);
+    EXPECT_EQ(desc.router_cores[0], tt_xy_pair(0, 2));
+
+    // No ARC, PCIe, ETH cores.
+    EXPECT_TRUE(desc.arc_cores.empty());
+    EXPECT_TRUE(desc.pcie_cores.empty());
+    EXPECT_TRUE(desc.eth_cores.empty());
+
+    // Memory sizes.
+    EXPECT_EQ(desc.worker_l1_size, 4194304);
+    EXPECT_EQ(desc.dram_bank_size, 1073741824);
+    EXPECT_EQ(desc.eth_l1_size, 0);
+
+    // Worker grid size: 1x1.
+    EXPECT_EQ(desc.worker_grid_size, tt_xy_pair(1, 1));
+}
+
+// Test Wormhole B0 1x1 YAML descriptor.
+TEST(SocArchDescriptor, WormholeB01x1) {
+    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"));
+
+    EXPECT_EQ(desc.arch, tt::ARCH::WORMHOLE_B0);
+    EXPECT_EQ(desc.grid_size, tt_xy_pair(10, 12));
+
+    // 1 tensix core: (1,1).
+    ASSERT_EQ(desc.tensix_cores.size(), 1);
+    EXPECT_EQ(desc.tensix_cores[0], tt_xy_pair(1, 1));
+
+    // 6 DRAM banks with 3 ports each.
+    ASSERT_EQ(desc.dram_cores.size(), 6);
+    for (const auto& bank : desc.dram_cores) {
+        EXPECT_EQ(bank.size(), 3);
+    }
+
+    // 16 ETH cores.
+    EXPECT_EQ(desc.eth_cores.size(), 16);
+
+    // 1 ARC core: (0,10).
+    ASSERT_EQ(desc.arc_cores.size(), 1);
+    EXPECT_EQ(desc.arc_cores[0], tt_xy_pair(0, 10));
+
+    // 1 PCIe core: (0,3).
+    ASSERT_EQ(desc.pcie_cores.size(), 1);
+    EXPECT_EQ(desc.pcie_cores[0], tt_xy_pair(0, 3));
+
+    // Memory sizes match wormhole constants.
+    EXPECT_EQ(desc.worker_l1_size, wormhole::TENSIX_L1_SIZE);
+    EXPECT_EQ(desc.dram_bank_size, wormhole::DRAM_BANK_SIZE);
+    EXPECT_EQ(desc.eth_l1_size, wormhole::ETH_L1_SIZE);
+
+    // Worker grid size: 1x1.
+    EXPECT_EQ(desc.worker_grid_size, tt_xy_pair(1, 1));
+
+    // NOC mappings should be the same as full wormhole.
+    EXPECT_EQ(desc.noc0_x_to_noc1_x, wormhole::NOC0_X_TO_NOC1_X);
+    EXPECT_EQ(desc.noc0_y_to_noc1_y, wormhole::NOC0_Y_TO_NOC1_Y);
+
+    // Many router cores (grid is full 10x12 but only 1 tensix worker).
+    EXPECT_FALSE(desc.router_cores.empty());
+}
+
 // Test all available YAML descriptors can be loaded.
 TEST(SocArchDescriptor, AllSocDescriptors) {
     for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {

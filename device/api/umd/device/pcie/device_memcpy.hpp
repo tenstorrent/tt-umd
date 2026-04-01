@@ -41,14 +41,13 @@ inline void streaming_memcpy_to_device(void* dest, const void* src, std::size_t 
 #if defined(__x86_64__) || defined(_M_X64)
     // d is now 4-byte aligned. Cast to non-volatile for SIMD intrinsics — the intrinsics
     // are opaque to the compiler and won't be reordered or eliminated.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* d_aligned = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
 
     // Phase 1: Align destination to 32 bytes using 4-byte streaming stores.
     while (size >= 4 && (reinterpret_cast<std::uintptr_t>(d_aligned) % 32) != 0) {
         _mm_stream_si32(
-            reinterpret_cast<int*>(d_aligned),
-            static_cast<int>(*reinterpret_cast<const std::uint32_t*>(s)));
+            reinterpret_cast<int*>(d_aligned), static_cast<int>(*reinterpret_cast<const std::uint32_t*>(s)));
         d_aligned += 4;
         s += 4;
         size -= 4;
@@ -100,8 +99,7 @@ inline void streaming_memcpy_to_device(void* dest, const void* src, std::size_t 
     // Phase 5: Remaining 4-byte chunks.
     while (size >= 4) {
         _mm_stream_si32(
-            reinterpret_cast<int*>(d_aligned),
-            static_cast<int>(*reinterpret_cast<const std::uint32_t*>(s)));
+            reinterpret_cast<int*>(d_aligned), static_cast<int>(*reinterpret_cast<const std::uint32_t*>(s)));
         d_aligned += 4;
         s += 4;
         size -= 4;
@@ -153,7 +151,7 @@ inline void streaming_memcpy_from_device(void* dest, void* src, std::size_t size
 #if defined(__x86_64__) || defined(_M_X64)
     // s is now 4-byte aligned. Cast to non-volatile for SIMD intrinsics — the intrinsics
     // are opaque to the compiler and won't be reordered or eliminated.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* s_aligned = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
 
     // Phase 1: Align source to 16 bytes using 4-byte volatile loads.

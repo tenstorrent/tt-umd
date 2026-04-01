@@ -155,8 +155,11 @@ CoreCoord CoordinateManager::translate_coord_to(
 }
 
 CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
+    if (coord_system == CoordSystem::LITERAL) {
+        throw std::runtime_error("LITERAL is an invalid coord. system.");
+    }
     if (coord_system == CoordSystem::LOGICAL) {
-        throw std::runtime_error("Coordinate is ambiguous for logical system.");
+        throw std::runtime_error("Coordinate is ambiguous for logical coord. system.");
     }
 
     auto coord_it = to_core_type_map.find({core, coord_system});

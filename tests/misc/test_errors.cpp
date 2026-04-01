@@ -23,6 +23,8 @@ struct TestError : UmdError<TestErrorData> {
 
 TEST(UmdException, Macros) {
     EXPECT_THROW(UMD_THROW(TestError, 200), UmdException<TestError>);
+    EXPECT_THROW(UMD_ASSERT(true, TestError), UmdException<TestError>);
+    EXPECT_NO_THROW(UMD_ASSERT(false, TestError));
     EXPECT_THROW(UMD_THROW_OR_RETURN(true, TestError, 200), UmdException<TestError>);
     EXPECT_NO_THROW(UMD_THROW_OR_RETURN(false, TestError, 200));
     auto error = UMD_THROW_OR_RETURN(false, TestError, 200);

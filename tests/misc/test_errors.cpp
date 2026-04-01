@@ -73,6 +73,7 @@ TEST(UmdException, DeepCatch) {
 TEST(UmdException, AssertCondition) {
     try {
         UMD_ASSERT(1 == 2, TestError);
+        FAIL();
     } catch (UmdException<TestError> &error) {
         EXPECT_EQ("1 == 2", error.condition());
         std::cout << error.what() << std::endl;

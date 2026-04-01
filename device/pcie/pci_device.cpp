@@ -32,6 +32,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
@@ -242,6 +243,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
 }
 
 std::vector<int> PCIDevice::enumerate_devices() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 

@@ -1032,8 +1032,8 @@ void PCIDevice::set_power_state(bool busy) {
     power_state.validity = TT_POWER_VALIDITY(4, 0);
 
     if (busy) {
-        power_state.power_flags = TT_POWER_FLAG_MAX_AI_CLK | TT_POWER_FLAG_MRISC_PHY_WAKEUP |
-                                  TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
+        power_state.power_flags =
+            TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
     } else {
         power_state.power_flags = 0;
     }

@@ -8,6 +8,8 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 #include "umd/device/simulation/multi_process_tt_sim_chip.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
@@ -49,6 +51,7 @@ SimulationChip::SimulationChip(
     }
 
     sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels);
+    tlb_manager_ = std::make_unique<TTSimTlbManager>(soc_descriptor.arch);
 }
 
 // Base class implementations (common simple methods).
@@ -166,9 +169,8 @@ TTDevice* SimulationChip::get_tt_device() {
 
 SysmemManager* SimulationChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-TLBManager* SimulationChip::get_tlb_manager() {
-    throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");
-}
+// Let SimulationChip own the tlb_manager_ given both MultiProcessTTSimchip & TTSimChip use it
+TLBManager* SimulationChip::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 

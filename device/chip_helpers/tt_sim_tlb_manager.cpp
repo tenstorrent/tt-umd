@@ -24,9 +24,8 @@
 
 namespace tt::umd {
 
-TTSimTlbManager::TTSimTlbManager(TTDevice* tt_device) : TLBManager(tt_device) {
-    tt_sim_tt_device_ = dynamic_cast<TTSimTTDevice*>(tt_device);
-    bar0_base_ = tt_sim_tt_device_->bar0_base;
+TTSimTlbManager::TTSimTlbManager(tt::ARCH arch) : TLBManager(nullptr), architecture_(arch) {
+    bar0_base_ = 0;
 
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
@@ -230,13 +229,19 @@ uint64_t TTSimTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
 }
 
 const architecture_implementation* TTSimTlbManager::get_architecture_impl() const {
-    return tt_sim_tt_device_->get_architecture_impl();
+    if (architecture_ == tt::ARCH::WORMHOLE_B0) {
+        static wormhole_implementation wormhole_impl;
+        return &wormhole_impl;
+    } else if (architecture_ == tt::ARCH::BLACKHOLE) {
+        static blackhole_implementation blackhole_impl;
+        return &blackhole_impl;
+    }
+    TT_THROW("Unsupported architecture");
 }
 
 TTSimCommunicator* TTSimTlbManager::get_communicator() const { return tt_sim_tt_device_->get_communicator(); }
 
 void TTSimTlbManager::initialize_architecture_config() {
-    architecture_ = tt_sim_tt_device_->get_architecture_impl()->get_architecture();
 
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         // Wormhole B0 configuration.

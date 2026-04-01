@@ -11,7 +11,10 @@
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/simulation_tlb_window.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
@@ -101,6 +104,7 @@ protected:
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
 
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+    std::unique_ptr<TTSimTlbManager> tlb_manager_;
 
     // To enable DPRINT usage in the Simulator,
     // the simulation device code should acquire a lock

@@ -45,7 +45,6 @@ void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translated_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     impl_->write_to_device(translated_core, src, l1_dest, size);
-// >>>>>>> 9e429c7c (#0: Add Active Ethernet connectivity support to ttsim chip)
 }
 
 void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {

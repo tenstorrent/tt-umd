@@ -228,15 +228,13 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
     arch_name_value = trim(arch_name_value);
     arch = tt::arch_from_str(arch_name_value);
 
-    tensix_cores =
-        SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>());
+    tensix_cores = SocArchDescriptor::convert_to_tt_xy_pair(
+        device_descriptor_yaml["functional_workers"].as<std::vector<std::string>>());
     dram_cores = SocArchDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "dram");
     pcie_cores =
         SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
-    eth_cores =
-        SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
-    arc_cores =
-        SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
+    eth_cores = SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
+    arc_cores = SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
     router_cores =
         SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["router_only"].as<std::vector<std::string>>());
 

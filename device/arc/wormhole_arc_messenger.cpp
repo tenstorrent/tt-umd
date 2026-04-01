@@ -35,9 +35,9 @@ uint32_t WormholeArcMessenger::send_message(
             fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size()));
     }
 
-    // Extract args (default to 0 if not provided).
-    uint16_t arg0 = 0;
-    uint16_t arg1 = 0;
+    // Extract args (default to 0xFFFF if not provided).
+    uint16_t arg0 = 0xFFFF;
+    uint16_t arg1 = 0xFFFF;
 
     if (!args.empty()) {
         if (args[0] > 0xFFFF) {
@@ -117,6 +117,15 @@ uint32_t WormholeArcMessenger::send_message(
     }
 
     tt_device->detect_hang_read();
+
+    log_debug(
+        LogUMD,
+        "ARC message 0x{:x} completed with exit code 0x{:x} and return values {} on device {}",
+        msg_code,
+        exit_code,
+        fmt::join(return_values, ","),
+        tt_device->get_communication_device_id());
+
     return exit_code;
 }
 

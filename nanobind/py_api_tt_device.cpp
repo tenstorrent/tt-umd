@@ -313,7 +313,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t msg_code,
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -342,7 +342,7 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done = true,
                uint32_t arg0 = 0xffff,
                uint32_t arg1 = 0xffff,
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -372,7 +372,7 @@ void bind_tt_device(nb::module_ &m) {
                bool wait_for_done = true,
                uint32_t arg0 = 0xffff,
                uint32_t arg1 = 0xffff,
-               uint32_t timeout = 1) -> std::tuple<int, int, int> {
+               uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(

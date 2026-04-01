@@ -256,17 +256,28 @@ class TestTTDevice(unittest.TestCase):
             arch = dev.get_arch()
             print(f"Testing arc_msg TEST increment on device {dev_id} with arch {arch}")
 
-            # Test out both arg passing styles (args list vs individual arg) to ensure both work correctly
+            # Test out both arg passing styles (args list vs individual arg) to ensure both work correctly.
+            # Wormhole accepts only two arguments. And both are passed packed into a single uint32 value.
+            # What that means, is that the returned uint32 will contain both.
+            # On blackhole with new arc msg protocol, we have up to 8 arguments each being uint32. So the
+            # test message will only take the actual first argument into consideration.
+            # The TEST message just increments the arg passed.
             random_arg = 42
-            exit_code, return_3, return_4 = dev.arc_msg(0x90, arg0=random_arg)
+            default_arg_1 = 0xFFFF
+            expected_value = (
+                random_arg
+                + 1
+                + (default_arg_1 << 16 if arch == tt_umd.ARCH.WORMHOLE_B0 else 0)
+            )
+            exit_code, return_3, return_4 = dev.arc_msg(0x90, True, arg0=random_arg)
             print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
             self.assertEqual(exit_code, 0)
-            self.assertEqual(return_3, random_arg + 1)
+            self.assertEqual(return_3, expected_value)
 
             exit_code, return_3, return_4 = dev.arc_msg(0x90, args=[random_arg])
             print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
             self.assertEqual(exit_code, 0)
-            self.assertEqual(return_3, random_arg + 1)
+            self.assertEqual(return_3, expected_value)
 
     def test_get_chip_info(self):
         """Test get_chip_info method."""

@@ -45,6 +45,7 @@ enum ChipType {
     SILICON,
     SIMULATION,
     MOCK,
+    SWEMULE,
 };
 
 /**

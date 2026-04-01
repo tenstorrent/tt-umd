@@ -69,6 +69,7 @@ target_sources(
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
+        $<$<BOOL:${TT_UMD_BUILD_EMULE}>:chip/sw_emule_chip.cpp>
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
@@ -156,6 +157,13 @@ if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
+if(TT_UMD_BUILD_EMULE)
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
+    if(TT_EMULE_PATH)
+        target_include_directories(tt-umd PRIVATE "${TT_EMULE_PATH}/include")
+    endif()
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
         tt-umd
@@ -177,6 +185,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
                 api/umd/device/chip/mock_chip.hpp
+                api/umd/device/chip/sw_emule_chip.hpp
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp
                 api/umd/device/chip_helpers/simulation_sysmem_manager.hpp

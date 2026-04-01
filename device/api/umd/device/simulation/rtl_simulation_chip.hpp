@@ -36,6 +36,10 @@ public:
 
     SysmemManager* get_sysmem_manager() override { return tt_device_->get_sysmem_manager(); }
 
+    TTDevice* get_tt_device() override { return tt_device_.get(); }
+
+    TLBManager* get_tlb_manager() override;
+
 private:
     std::unique_ptr<RtlSimulationTTDevice> tt_device_;
 };

@@ -39,12 +39,8 @@ jobs:
         # optimized out in the Release.
         # We run both ASan and TSan build on push events to main. TSan is slower but catches hard race condition bugs.
         # When workflow is requested, all the requested build-types are run.
-        # build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
-        #                          github.event_name == 'push' && '["ASan", "TSan"]' ||
-        #                          github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
-        # TODO: Enable asan/tsan builds in CI, just uncomment lines above. For now we still run only Release builds
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
-                                 github.event_name == 'push' && '["Release"]' ||
+        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
+                                 github.event_name == 'push' && '["ASan", "TSan"]' ||
                                  github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:

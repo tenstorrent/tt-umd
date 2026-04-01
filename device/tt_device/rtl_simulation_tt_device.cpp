@@ -244,4 +244,6 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
 }
 
+TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
+
 }  // namespace tt::umd

@@ -109,8 +109,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // TLBs will be automatically freed when allocated_tlbs goes out of scope.
-        log_info(tt::LogUMD, "TLB stress test completed. All TLBs will be freed on exit.");
+        log_info(tt::LogUMD, "TLB stress test completed.");
 
         // Print summary for all devices.
         log_info(tt::LogUMD, "=== TLB Allocation Summary ===");

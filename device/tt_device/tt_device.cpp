@@ -151,6 +151,13 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
+void TTDevice::set_power_state(bool busy) {
+    if (is_remote_tt_device || !pcie_capabilities_) {
+        return;
+    }
+    get_pci_device()->set_power_state(busy);
+}
+
 PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
 
 JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }

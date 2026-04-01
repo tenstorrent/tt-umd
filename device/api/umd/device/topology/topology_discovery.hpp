@@ -131,6 +131,8 @@ protected:
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices;
     SocDescriptor get_soc_descriptor(TTDevice* tt_device);
 
+    std::deque<std::unique_ptr<TTDevice>> unhealthy_local_devices;
+
     std::unordered_map<uint64_t, EthCoord> eth_coords;
 
     std::vector<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>> ethernet_connections;

@@ -28,6 +28,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -136,7 +137,14 @@ void TopologyDiscovery::get_connected_devices() {
         }
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        auto init_result = tt_device->init_tt_device(
+            timeout::ARC_LONG_POST_RESET_TIMEOUT,
+            /*throw_on_arc_failure=*/options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW);
+        if (init_result != TTDeviceInitResult::SUCCESSFUL) {
+            unhealthy_local_devices.push_back(std::move(tt_device));
+            log_warning(LogUMD, "Marked device {} unhealthy.", device_id);
+            continue;
+        }
 
         verify_fw_bundle_version(tt_device.get());
 
@@ -303,10 +311,19 @@ void TopologyDiscovery::discover_remote_devices() {
     patch_eth_connections();
 }
 
+static bool is_device_unhealthy(uint64_t asic_id) { return (asic_id >> 32) & 0xDEADDEAD; }
+
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
     std::map<uint64_t, ChipId> asic_id_to_chip_id;
     ChipId chip_id = 0;
+
+    // Go through unhealthy devices and assign them mock ASIC IDs:
+    uint64_t mock_asic_id = 0xDEADDEAD00000000;
+    for (std::unique_ptr<TTDevice>& bad_device : unhealthy_local_devices) {
+        devices.emplace(mock_asic_id, std::move(bad_device));
+        mock_asic_id++;
+    }
 
     if (!devices.empty() && devices.begin()->second->get_communication_device_type() == IODeviceType::PCIe) {
         std::vector<std::pair<std::string, uint64_t>> sorted_device_bdfs;
@@ -325,6 +342,9 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             asic_id_to_chip_id.emplace(asic_id, chip_id);
             cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
             cluster_desc->chip_pci_bdfs.emplace(chip_id, bdf);
+            if (is_device_unhealthy(asic_id)) {
+                cluster_desc->unhealthy_devices.push_back(chip_id);
+            }
             chip_id++;
         }
     } else {
@@ -332,6 +352,9 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             if (!tt_device->is_remote()) {
                 asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
                 cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+                if (is_device_unhealthy(current_device_asic_id)) {
+                    cluster_desc->unhealthy_devices.push_back(chip_id);
+                }
                 chip_id++;
             }
         }
@@ -350,6 +373,9 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
+        if (is_device_unhealthy(current_device_asic_id)) {
+            continue;
+        }
         ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
         cluster_desc->all_chips.insert(current_chip_id);
         cluster_desc->chip_arch.insert({current_chip_id, tt_device->get_arch()});

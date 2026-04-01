@@ -184,13 +184,9 @@ struct CoreCoord : public xy_pair {
 };
 
 // Comparison operators for CoreCoord with xy_pair to resolve ambiguity.
-constexpr bool operator==(const umd::CoreCoord& a, const xy_pair& b) {
-    return a.coord_system == CoordSystem::LITERAL && a.x == b.x && a.y == b.y;
-}
+constexpr bool operator==(const umd::CoreCoord& a, const xy_pair& b) { return a.x == b.x && a.y == b.y; }
 
-constexpr bool operator==(const xy_pair& a, const umd::CoreCoord& b) {
-    return b.coord_system == CoordSystem::LITERAL && a.x == b.x && a.y == b.y;
-}
+constexpr bool operator==(const xy_pair& a, const umd::CoreCoord& b) { return a.x == b.x && a.y == b.y; }
 
 constexpr bool operator!=(const umd::CoreCoord& a, const xy_pair& b) { return !(a == b); }
 

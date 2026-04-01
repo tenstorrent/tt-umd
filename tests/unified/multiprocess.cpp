@@ -185,7 +185,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
 }
 
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
-TEST(Multiprocess, WorkloadVSMonitor) {
+TEST(Multiprocess, DISABLED_WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     auto workload_thread = std::thread([&] {

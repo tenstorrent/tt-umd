@@ -5,12 +5,14 @@
 #pragma once
 
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 
 namespace tt::umd {
 
 class SimulationSysmemManager : public SysmemManager {
 public:
     SimulationSysmemManager(uint32_t num_host_mem_channels);
+    SimulationSysmemManager(TLBManager* tlb_manager, uint32_t num_host_mem_channels);
     ~SimulationSysmemManager() override;
 
     bool pin_or_map_sysmem_to_device() override;

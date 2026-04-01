@@ -16,6 +16,7 @@
 #include "assert.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/simulation_tlb_handle.hpp"
 #include "umd/device/pcie/simulation_tlb_window.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
@@ -23,10 +24,16 @@
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
+    
+TTSimTlbManager::TTSimTlbManager(TTDevice* tt_device) : TLBManager(tt_device){
+    tt_sim_tt_device_ = dynamic_cast<TTSimTTDevice*>(tt_device);
+    bar0_base_ = tt_sim_tt_device_->bar0_base;
+    // Initialize architecture-specific configuration.
+    initialize_architecture_config();
+}
 
 TTSimTlbManager::TTSimTlbManager(tt::ARCH arch) : TLBManager(nullptr), architecture_(arch) {
     bar0_base_ = 0;
-
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
 }
@@ -229,6 +236,9 @@ uint64_t TTSimTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
 }
 
 const architecture_implementation* TTSimTlbManager::get_architecture_impl() const {
+    if(tt_sim_tt_device_) return tt_sim_tt_device_->get_architecture_impl();
+    
+    // If tt_sim_tt_device_ is nullptr means we are in multiproc sim 
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         static wormhole_implementation wormhole_impl;
         return &wormhole_impl;

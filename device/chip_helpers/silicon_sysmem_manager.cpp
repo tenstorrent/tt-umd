@@ -5,6 +5,7 @@
  */
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_buffer.hpp"
 
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
@@ -358,7 +359,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SiliconSysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
 }
 
 }  // namespace tt::umd

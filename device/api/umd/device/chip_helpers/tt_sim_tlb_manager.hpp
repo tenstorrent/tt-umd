@@ -19,7 +19,7 @@ class TTSimTTDevice;
 class TTSimTlbManager : public TLBManager {
 public:
     TTSimTlbManager(TTDevice* tt_device);
-    // Constructor for SimulationChip
+    // constructor for SimulationChip
     TTSimTlbManager(tt::ARCH arch);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(

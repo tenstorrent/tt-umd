@@ -9,6 +9,7 @@
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "sysmem_buffer.hpp"
 
 namespace tt::umd {
 
@@ -24,7 +25,7 @@ namespace tt::umd {
  * visible to device, has its own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
  * buffers.
  */
-class SysmemBuffer {
+class SiliconSysmemBuffer : public SysmemBuffer {
 public:
     /**
      * Constructor for SysmemBuffer. Start of the buffer must be aligned
@@ -47,11 +48,8 @@ public:
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
-
-    // default constructor here to let sim bypass nullptr deref in constructor
-    SysmemBuffer() = default;
-
-    virtual ~SysmemBuffer() = 0;
+    SiliconSysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    ~SiliconSysmemBuffer() override;
 
     /**
      * Returns the virtual address of the buffer in the process address space.

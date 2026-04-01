@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_buffer.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -19,7 +20,20 @@
 
 namespace tt::umd {
 
-void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+SiliconSysmemBuffer::SiliconSysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc) :
+    tlb_manager_(tlb_manager), buffer_va_(buffer_va), mapped_buffer_size_(buffer_size), buffer_size_(buffer_size) {
+    align_address_and_size();
+    PCIDevice* pci_device = tlb_manager->get_tt_device()->get_pci_device().get();
+    if (map_to_noc) {
+        std::tie(noc_addr_, device_io_addr_) = pci_device->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);
+    } else {
+        device_io_addr_ = pci_device->map_for_dma(buffer_va_, mapped_buffer_size_);
+        noc_addr_ = std::nullopt;
+    }
+}
+
+
+void SiliconSysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
@@ -74,7 +88,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     }
 }
 
-void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+void SiliconSysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
@@ -128,7 +142,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     }
 }
 
-SysmemBuffer::~SysmemBuffer() {
+SiliconSysmemBuffer::~SiliconSysmemBuffer() {
     try {
         tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {
@@ -137,7 +151,7 @@ SysmemBuffer::~SysmemBuffer() {
     }
 }
 
-void SysmemBuffer::align_address_and_size() {
+void SiliconSysmemBuffer::align_address_and_size() {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);
     offset_from_aligned_addr_ = reinterpret_cast<uint64_t>(buffer_va_) - aligned_buffer_va;
@@ -145,22 +159,22 @@ void SysmemBuffer::align_address_and_size() {
     mapped_buffer_size_ = (mapped_buffer_size_ + offset_from_aligned_addr_ + page_size - 1) & ~(page_size - 1);
 }
 
-void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
+void* SiliconSysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
 
-size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }
+size_t SiliconSysmemBuffer::get_buffer_size() const { return buffer_size_; }
 
-uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
+uint64_t SiliconSysmemBuffer::get_device_io_addr(const size_t offset) const {
     validate(offset);
     return device_io_addr_ + offset + offset_from_aligned_addr_;
 }
 
-void SysmemBuffer::validate(const size_t offset) const {
+void SiliconSysmemBuffer::validate(const size_t offset) const {
     if (offset >= buffer_size_) {
         TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {#:x}", offset, buffer_size_);
     }
 }
 
-TlbWindow* SysmemBuffer::get_cached_tlb_window() {
+TlbWindow* SiliconSysmemBuffer::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
         cached_tlb_window =
             std::make_unique<SiliconTlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(

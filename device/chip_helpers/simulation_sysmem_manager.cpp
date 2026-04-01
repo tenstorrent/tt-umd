@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_buffer.hpp"
 
 #include <sys/mman.h>  // for mmap, munmap
 #include <sys/stat.h>  // for fstat
@@ -18,12 +19,21 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 
 namespace tt::umd {
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels) {
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
+
+// Constructor for multriproc
+SimulationSysmemManager::SimulationSysmemManager(TLBManager* tlb_manager, uint32_t num_host_mem_channels){
+    // nullptr in base class 
+    tlb_manager_ = tlb_manager;
+    SimulationSysmemManager::init_sysmem(num_host_mem_channels);
+}
+
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     if (num_host_mem_channels == 0) {
@@ -67,7 +77,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Sim: Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SimulationSysmemBuffer>();
     // returning nullptr here
     // return nullptr;
 }

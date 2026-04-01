@@ -61,6 +61,7 @@ enum TelemetryTag : uint8_t {
     MAX_GDDR_TEMP = 51,
     ASIC_LOCATION = 52,
     BOARD_POWER_LIMIT = 53,
+    INPUT_POWER = 54,
     TDC_LIMIT_MAX = 55,
     THM_LIMIT_THROTTLE = 56,
     TT_FLASH_VERSION = 58,

@@ -16,6 +16,7 @@ class TestTelemetry(unittest.TestCase):
         # Test telemetry for all available devices
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
             tel_reader = dev.get_arc_telemetry_reader()
             tag = int(tt_umd.TelemetryTag.ASIC_TEMPERATURE)
@@ -23,6 +24,7 @@ class TestTelemetry(unittest.TestCase):
                 f"Device {pci_id} - Telemetry reading for asic temperature: ",
                 tel_reader.read_entry(tag),
             )
+            dev.set_power_state(False)
 
     def test_remote_telemetry(self):
         cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
@@ -44,6 +46,7 @@ class TestTelemetry(unittest.TestCase):
         # Test SMBUS telemetry for all available devices
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
 
             # Only test SMBUS telemetry on wormhole devices
@@ -56,6 +59,7 @@ class TestTelemetry(unittest.TestCase):
                         tt_umd.wormhole.TelemetryTag.ASIC_TEMPERATURE
                     )
                     print(f"Device {pci_id} - SMBUS telemetry ASIC temperature: {temp}")
+            dev.set_power_state(False)
 
     def test_gddr_telemetry(self):
         """Test GDDR telemetry (temperatures, errors, status) for DRAM monitoring."""
@@ -66,6 +70,7 @@ class TestTelemetry(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
 
             fw_info = tt_umd.FirmwareInfoProvider.create_firmware_info_provider(dev)
@@ -80,12 +85,14 @@ class TestTelemetry(unittest.TestCase):
                 print(
                     f"Device {pci_id} - Skipping detailed GDDR telemetry (not Blackhole, arch={dev.get_arch()})"
                 )
+                dev.set_power_state(False)
                 continue
 
             # Test aggregated GDDR telemetry
             gddr_telemetry = fw_info.get_aggregated_dram_telemetry()
             if gddr_telemetry is None:
                 print(f"Device {pci_id} - GDDR telemetry not available")
+                dev.set_power_state(False)
                 continue
 
             # Test max DRAM temperature
@@ -120,3 +127,4 @@ class TestTelemetry(unittest.TestCase):
                         f"top={module_telemetry.dram_temperature_top}C "
                         f"bottom={module_telemetry.dram_temperature_bottom}C"
                     )
+            dev.set_power_state(False)

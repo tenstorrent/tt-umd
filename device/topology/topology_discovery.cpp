@@ -295,7 +295,10 @@ void TopologyDiscovery::discover_remote_devices() {
                     eth_coord,
                     devices.at(gateway_device_id).get(),
                     active_eth_channels_per_device.at(gateway_device_id));
-
+                if (remote_device == nullptr) {
+                    log_warning(LogUMD, "Failed to init. remote device ASIC ID: {}.", remote_asic_id);
+                    continue;
+                }
                 devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);

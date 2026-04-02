@@ -18,6 +18,7 @@
 #include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
@@ -168,7 +169,15 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
         get_soc_descriptor(gateway_device)
             .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
+    try {
+        remote_tt_device->init_tt_device();
+    } catch (std::runtime_error& re) {
+        if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+            throw;
+        }
+        return nullptr;
+    }
+
     if (options.wait_on_ethernet_link_training) {
         wait_eth_cores_training(remote_tt_device.get());
     }

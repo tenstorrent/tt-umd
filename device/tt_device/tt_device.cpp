@@ -199,7 +199,8 @@ bool TTDevice::detect_hang_read(std::uint32_t data_read) {
     }
     auto result = hang_detector_->is_pcie_hung(data_read);
     if (!result.has_value()) {
-        throw std::runtime_error("PCIe hang detection is not supported for this device.");
+        log_warning(LogUMD, "PCIe hang detection is not supported for this device.");
+        return false;
     }
     if (result.value()) {
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");

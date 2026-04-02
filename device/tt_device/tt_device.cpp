@@ -214,7 +214,8 @@ bool TTDevice::is_noc_hung(NocId noc) {
     }
     auto result = hang_detector_->is_noc_hung(noc);
     if (!result.has_value()) {
-        throw std::runtime_error("NOC hang detection is not supported for this device.");
+        log_warning(LogUMD, "NOC hang detection is not supported for this device.");
+        return false;
     }
     return result.value();
 }

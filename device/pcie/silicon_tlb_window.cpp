@@ -156,8 +156,7 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const void *src, std::size
     // Copy the source-aligned middle using streaming loads.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
-    streaming_memcpy_from_device(dest, const_cast<copy_t *>(sp), middle_bytes);
+    streaming_memcpy_from_device(dest, sp, middle_bytes);
 
     auto *dp = static_cast<char *>(dest) + middle_bytes;
     sp += num_words;

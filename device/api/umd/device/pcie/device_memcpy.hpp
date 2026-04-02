@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -46,8 +47,9 @@ inline void streaming_memcpy_to_device(void* dest, const void* src, std::size_t 
 
     // Phase 1: Align destination to 32 bytes using 4-byte streaming stores.
     while (size >= 4 && (reinterpret_cast<std::uintptr_t>(d_aligned) % 32) != 0) {
-        _mm_stream_si32(
-            reinterpret_cast<int*>(d_aligned), static_cast<int>(*reinterpret_cast<const std::uint32_t*>(s)));
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        _mm_stream_si32(reinterpret_cast<int*>(d_aligned), static_cast<int>(tmp));
         d_aligned += 4;
         s += 4;
         size -= 4;
@@ -98,8 +100,9 @@ inline void streaming_memcpy_to_device(void* dest, const void* src, std::size_t 
 
     // Phase 5: Remaining 4-byte chunks.
     while (size >= 4) {
-        _mm_stream_si32(
-            reinterpret_cast<int*>(d_aligned), static_cast<int>(*reinterpret_cast<const std::uint32_t*>(s)));
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        _mm_stream_si32(reinterpret_cast<int*>(d_aligned), static_cast<int>(tmp));
         d_aligned += 4;
         s += 4;
         size -= 4;
@@ -113,8 +116,9 @@ inline void streaming_memcpy_to_device(void* dest, const void* src, std::size_t 
 #else
     // Portable fallback: explicit 4-byte stores for the aligned middle.
     while (size >= 4) {
-        *reinterpret_cast<volatile std::uint32_t*>(const_cast<volatile std::uint8_t*>(d)) =
-            *reinterpret_cast<const std::uint32_t*>(s);
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        *reinterpret_cast<volatile std::uint32_t*>(const_cast<volatile std::uint8_t*>(d)) = tmp;
         d += 4;
         s += 4;
         size -= 4;
@@ -131,16 +135,16 @@ inline void streaming_memcpy_to_device(void* dest, const void* src, std::size_t 
 /**
  * Streaming memcpy for reads from device memory mapped through a TLB window.
  *
- * On x86_64: uses non-temporal (streaming) loads via SSE4.1 (MOVNTDQA), avoiding
- * CPU cache pollution from device data that won't be reused.
+ * On x86_64: uses non-temporal (streaming) loads via AVX/AVX2 and SSE4.1 (MOVNTDQA),
+ * avoiding CPU cache pollution from device data that won't be reused.
  *
  * On other architectures: falls back to explicit single-byte/4-byte loads.
  *
  * Handles arbitrary alignment and size.
  */
-inline void streaming_memcpy_from_device(void* dest, void* src, std::size_t size) {
+inline void streaming_memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
     auto* d = static_cast<std::uint8_t*>(dest);
-    auto* s = static_cast<volatile std::uint8_t*>(src);
+    auto* s = static_cast<const volatile std::uint8_t*>(src);
 
     // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(s) % 4) != 0) {
@@ -156,7 +160,8 @@ inline void streaming_memcpy_from_device(void* dest, void* src, std::size_t size
 
     // Phase 1: Align source to 32 bytes using 4-byte volatile loads.
     while (size >= 4 && (reinterpret_cast<std::uintptr_t>(s_aligned) % 32) != 0) {
-        *reinterpret_cast<std::uint32_t*>(d) = *reinterpret_cast<volatile std::uint32_t*>(s_aligned);
+        std::uint32_t tmp = *reinterpret_cast<volatile std::uint32_t*>(s_aligned);
+        std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
         s_aligned += 4;
         size -= 4;
@@ -207,19 +212,20 @@ inline void streaming_memcpy_from_device(void* dest, void* src, std::size_t size
 
     // Phase 4: Remaining 4-byte chunks.
     while (size >= 4) {
-        *reinterpret_cast<std::uint32_t*>(d) = *reinterpret_cast<volatile std::uint32_t*>(s_aligned);
+        std::uint32_t tmp = *reinterpret_cast<volatile std::uint32_t*>(s_aligned);
+        std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
         s_aligned += 4;
         size -= 4;
     }
 
-    s = reinterpret_cast<volatile std::uint8_t*>(s_aligned);
+    s = reinterpret_cast<const volatile std::uint8_t*>(s_aligned);
 
 #else
     // Portable fallback: explicit 4-byte loads for the aligned middle.
     while (size >= 4) {
-        *reinterpret_cast<std::uint32_t*>(d) =
-            *reinterpret_cast<volatile std::uint32_t*>(const_cast<volatile std::uint8_t*>(s));
+        std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
         s += 4;
         size -= 4;

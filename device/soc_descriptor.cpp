@@ -129,17 +129,17 @@ void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vecto
 
 void SocDescriptor::init_from_arch_descriptor(const ChipInfo &chip_info) {
     // Copy static fields from arch descriptor for backward compatibility.
-    arch = arch_desc_->arch;
-    grid_size = arch_desc_->grid_size;
-    worker_l1_size = arch_desc_->worker_l1_size;
-    eth_l1_size = arch_desc_->eth_l1_size;
-    dram_bank_size = arch_desc_->dram_bank_size;
-    trisc_sizes = arch_desc_->trisc_sizes;
-    device_descriptor_file_path = arch_desc_->device_descriptor_file_path;
-    overlay_version = arch_desc_->overlay_version;
-    unpacker_version = arch_desc_->unpacker_version;
-    dst_size_alignment = arch_desc_->dst_size_alignment;
-    packer_version = arch_desc_->packer_version;
+    arch = arch_desc_->get_arch();
+    grid_size = arch_desc_->get_grid_size();
+    worker_l1_size = arch_desc_->get_worker_l1_size();
+    eth_l1_size = arch_desc_->get_eth_l1_size();
+    dram_bank_size = arch_desc_->get_dram_bank_size();
+    trisc_sizes = arch_desc_->get_trisc_sizes();
+    device_descriptor_file_path = arch_desc_->get_device_descriptor_file_path();
+    overlay_version = arch_desc_->get_overlay_version();
+    unpacker_version = arch_desc_->get_unpacker_version();
+    dst_size_alignment = arch_desc_->get_dst_size_alignment();
+    packer_version = arch_desc_->get_packer_version();
 
     // Set runtime fields.
     noc_translation_enabled = chip_info.noc_translation_enabled;
@@ -150,13 +150,13 @@ void SocDescriptor::init_from_arch_descriptor(const ChipInfo &chip_info) {
 }
 
 void SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
-    const tt_xy_pair dram_grid_size = tt_xy_pair(
-        arch_desc_->dram_cores.size(), arch_desc_->dram_cores.empty() ? 0 : arch_desc_->dram_cores[0].size());
-    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->arc_cores);
-    tt_xy_pair pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->pcie_cores);
+    const auto &dram_cores = arch_desc_->get_dram_cores();
+    const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
+    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_arc_cores());
+    tt_xy_pair pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_pcie_cores());
 
     std::vector<tt_xy_pair> dram_cores_unpacked;
-    for (const auto &vec : arch_desc_->dram_cores) {
+    for (const auto &vec : dram_cores) {
         for (const auto &core : vec) {
             dram_cores_unpacked.push_back(core);
         }
@@ -181,27 +181,27 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         UMD_THROW(error::RuntimeError, "P300 card right chip should always have PCIe core (2, 0) harvested.");
     }
 
-    pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->pcie_cores);
+    pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_pcie_cores());
 
     coordinate_manager = CoordinateManager::create_coordinate_manager(
         arch,
         noc_translation_enabled,
         harvesting_masks,
-        arch_desc_->worker_grid_size,
-        arch_desc_->tensix_cores,
+        arch_desc_->get_worker_grid_size(),
+        arch_desc_->get_tensix_cores(),
         dram_grid_size,
         dram_cores_unpacked,
-        arch_desc_->eth_cores,
+        arch_desc_->get_eth_cores(),
         arc_grid_size,
-        arch_desc_->arc_cores,
+        arch_desc_->get_arc_cores(),
         pcie_grid_size,
-        arch_desc_->pcie_cores,
-        arch_desc_->router_cores,
-        arch_desc_->security_cores,
-        arch_desc_->l2cpu_cores,
-        arch_desc_->dispatch_cores,
-        arch_desc_->noc0_x_to_noc1_x,
-        arch_desc_->noc0_y_to_noc1_y);
+        arch_desc_->get_pcie_cores(),
+        arch_desc_->get_router_cores(),
+        arch_desc_->get_security_cores(),
+        arch_desc_->get_l2cpu_cores(),
+        arch_desc_->get_dispatch_cores(),
+        arch_desc_->get_noc0_x_to_noc1_x(),
+        arch_desc_->get_noc0_y_to_noc1_y());
     get_cores_and_grid_size_from_coordinate_manager();
 }
 

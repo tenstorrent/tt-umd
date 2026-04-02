@@ -152,6 +152,7 @@ void ProcessManager::send_message_with_response(
 
     // Wait for response message
     Message response_msg;
+    // last hang here
     ssize_t bytes_read = safe_read(parent_fd_, &response_msg, sizeof(Message));
     if (bytes_read < 0) {
         TT_THROW("Failed to read response message: {}", strerror(errno));

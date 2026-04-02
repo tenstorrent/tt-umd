@@ -128,15 +128,6 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     }
 }
 
-SysmemBuffer::~SysmemBuffer() {
-    try {
-        tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
-    } catch (...) {
-        log_warning(
-            LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);
-    }
-}
-
 void SysmemBuffer::align_address_and_size() {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     uint64_t aligned_buffer_va = reinterpret_cast<uint64_t>(buffer_va_) & ~(page_size - 1);

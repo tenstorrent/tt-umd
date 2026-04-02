@@ -14,7 +14,7 @@
 namespace tt::umd {
 
 /**
- * SysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
+ * SiliconSysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
  * Currently, there are two types of sysmem buffers:
  * 1. Hugepage-based sysmem buffer, that represents old system memory scheme used, that we still want to support until
  * transition to IOMMU is complete.
@@ -28,7 +28,7 @@ namespace tt::umd {
 class SiliconSysmemBuffer : public SysmemBuffer {
 public:
     /**
-     * Constructor for SysmemBuffer. Start of the buffer must be aligned
+     * Constructor for SiliconSysmemBuffer. Start of the buffer must be aligned
      * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
      * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
      * see a buffer of the original size. Same as for buffer size, user won't be able to access the memory before the
@@ -100,7 +100,7 @@ private:
     /**
      * Aligns the address and size of the buffer to the page size. If the buffer is not aligned to the page size,
      * it will be aligned and the size will be adjusted accordingly. The original buffer size will not be changed.
-     * However, behaviour (calculation of offset) of the SysmemBuffer is always going to be based on the original VA and
+     * However, behaviour (calculation of offset) of the SiliconSysmemBuffer is always going to be based on the original VA and
      * size.
      */
     void align_address_and_size();
@@ -125,7 +125,7 @@ private:
 
     // Size of the buffer requested by user. If the buffer is not aligned to the page size, size of the memory
     // mapped through KMD will be larger than this. This is used to return the size of the buffer requested by the user.
-    // Offsets in other SysmemBuffer functions are not allowed to be larger than this size.
+    // Offsets in other SiliconSysmemBuffer functions are not allowed to be larger than this size.
     size_t buffer_size_;
 
     // Address that is used on the system bus to access the beginning of the mapped buffer.

@@ -12,7 +12,7 @@ namespace tt::umd{
 class SimulationSysmemBuffer : public SysmemBuffer {
 public: 
 
-SimulationSysmemBuffer() = default;
+SimulationSysmemBuffer(void* buffer_va, size_t buffer_size);
 
 private:
 

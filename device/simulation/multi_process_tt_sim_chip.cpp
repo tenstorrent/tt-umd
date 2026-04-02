@@ -65,6 +65,7 @@ void MultiProcessTTSimChip::read_from_device(CoreCoord core, void* dest, uint64_
     msg_data.translated_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     msg_data.l1_src = l1_src;
     msg_data.size = size;
+    // hang here 
     process_manager_->send_message_with_response(
         MessageType::READ_FROM_DEVICE, &msg_data, sizeof(ReadMessageData), dest, size);
 }

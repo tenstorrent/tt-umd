@@ -51,7 +51,7 @@ public:
     // default constructor here to let sim bypass nullptr deref in constructor
     SysmemBuffer() = default;
 
-    virtual ~SysmemBuffer() = 0;
+    virtual ~SysmemBuffer() = default;
 
     /**
      * Returns the virtual address of the buffer in the process address space.
@@ -98,7 +98,7 @@ public:
      */
     void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
 
-private:
+protected:
     /**
      * Aligns the address and size of the buffer to the page size. If the buffer is not aligned to the page size,
      * it will be aligned and the size will be adjusted accordingly. The original buffer size will not be changed.

@@ -77,7 +77,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Sim: Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SimulationSysmemBuffer>();
+    return std::make_unique<SimulationSysmemBuffer>(buffer, sysmem_buffer_size);
     // returning nullptr here
     // return nullptr;
 }

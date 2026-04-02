@@ -16,7 +16,8 @@ public:
 
 private:
     uint32_t read_hang_check_reg_via_bar() override;
-    uint32_t read_hang_check_reg_via_noc() override;
+    uint32_t read_hang_check_reg_via_noc(NocId noc) override;
+    tt_xy_pair get_hang_check_core(NocId noc) const override;
 };
 
 }  // namespace tt::umd

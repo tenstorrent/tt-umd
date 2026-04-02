@@ -20,7 +20,7 @@ uint32_t BlackholeHangDetector::read_hang_check_reg_via_bar() {
     return get_pcie_interface()->bar_read32(get_arch_impl()->get_read_checking_offset());
 }
 
-uint32_t BlackholeHangDetector::read_hang_check_reg_via_noc() {
+uint32_t BlackholeHangDetector::read_hang_check_reg_via_noc(NocId noc) {
     uint64_t addr = get_arch_impl()->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(get_selected_noc_id())) +
                     get_arch_impl()->get_noc_node_id_offset();
     uint32_t value = 0;

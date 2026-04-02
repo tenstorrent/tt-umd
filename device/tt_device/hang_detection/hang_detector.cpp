@@ -35,7 +35,7 @@ std::optional<bool> HangDetector::is_noc_hung(NocId noc) {
         return std::nullopt;
     }
     NocIdSwitcher switcher(noc);
-    return read_hang_check_reg_via_noc() == HANG_READ_VALUE;
+    return read_hang_check_reg_via_noc(noc) == HANG_READ_VALUE;
 }
 
 }  // namespace tt::umd

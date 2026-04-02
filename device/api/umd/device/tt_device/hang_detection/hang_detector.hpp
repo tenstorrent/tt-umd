@@ -26,7 +26,7 @@ class PcieInterface;
  * returns std::nullopt for remote protocols.
  *
  * Arch-specific variants (Wormhole, Blackhole) override the protected
- * read_hang_check_reg_via_bar() and read_hang_check_reg_via_noc() with the
+ * read_hang_check_reg_via_bar() and read_hang_check_reg_via_noc(NocId noc) with the
  * appropriate core type.
  */
 class HangDetector {
@@ -43,7 +43,7 @@ protected:
 
     // Arch-specific implementations.
     virtual uint32_t read_hang_check_reg_via_bar() = 0;
-    virtual uint32_t read_hang_check_reg_via_noc() = 0;
+    virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
 
     DeviceProtocol* get_protocol() const { return protocol_; }
 
@@ -51,7 +51,7 @@ protected:
 
     architecture_implementation* get_arch_impl() const { return arch_impl_; }
 
-    tt_xy_pair get_hang_check_core() const { return hang_check_core_; }
+    virtual tt_xy_pair get_hang_check_core(NocId noc) const = 0;
 
 private:
     DeviceProtocol* protocol_;

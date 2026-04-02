@@ -60,6 +60,13 @@ option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
 option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
 option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling support" OFF)
+option(TT_UMD_BUILD_EMULE "Enable software emulation chip (SWEmuleChip)" OFF)
+set(TT_EMULE_PATH "" CACHE PATH
+    "Local path to tt-emule source (overrides CPM fetch from GitHub)")
+
+if(TT_UMD_BUILD_EMULE AND TT_EMULE_PATH)
+    set(CPM_tt_emule_SOURCE "${TT_EMULE_PATH}")
+endif()
 
 # Prevent installation when building static libraries
 # This check must be early to fail before third-party dependencies are installed

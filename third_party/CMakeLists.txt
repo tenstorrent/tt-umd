@@ -222,3 +222,16 @@ if(TT_UMD_ENABLE_TRACY)
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
     )
 endif()
+
+############################################################################################################################
+# tt-emule (software emulation support)
+############################################################################################################################
+if(TT_UMD_BUILD_EMULE)
+    CPMAddPackage(
+        NAME tt_emule
+        GITHUB_REPOSITORY tenstorrent/tt-emule
+        GIT_TAG main
+        SYSTEM YES
+        EXCLUDE_FROM_ALL YES
+    )
+endif()

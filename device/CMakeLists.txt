@@ -159,9 +159,7 @@ endif()
 
 if(TT_UMD_BUILD_EMULE)
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
-    if(TT_EMULE_PATH)
-        target_include_directories(tt-umd PRIVATE "${TT_EMULE_PATH}/include")
-    endif()
+    target_link_libraries(tt-umd PRIVATE tt-emule::headers)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)

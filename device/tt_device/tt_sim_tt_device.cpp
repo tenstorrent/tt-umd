@@ -53,7 +53,12 @@ TTSimTTDevice::TTSimTTDevice(
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
-    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
+    log_info(
+        tt::LogEmulationDriver,
+        "TTSimTTDevice chip_id={} PCI vendor_id=0x{:x} device_id=0x{:x}",
+        chip_id_,
+        vendor_id,
+        libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||

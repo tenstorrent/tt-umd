@@ -136,7 +136,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
-            chip_helpers/simulation_tlb_manager.cpp
+            chip_helpers/tlb_allocator.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
@@ -174,7 +174,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
-                api/umd/device/chip_helpers/simulation_tlb_manager.hpp
+                api/umd/device/chip_helpers/tlb_allocator.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp

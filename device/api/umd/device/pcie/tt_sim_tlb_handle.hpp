@@ -14,7 +14,7 @@
 
 namespace tt::umd {
 
-class SimulationTlbManager;
+class TlbAllocator;
 
 /**
  * Simulation-specific TlbHandle that inherits from TlbHandle but bypasses hardware operations.
@@ -27,7 +27,7 @@ public:
      * This bypasses the hardware constructor and sets up simulation state.
      */
     static std::unique_ptr<TTSimTlbHandle> create(
-        SimulationTlbManager* manager,
+        TlbAllocator* allocator,
         class TTSimCommunicator* communicator,
         int tlb_id,
         size_t size,
@@ -37,12 +37,12 @@ public:
 
     void configure(const tlb_data& new_config) override;
 
-    SimulationTlbManager* get_tlb_manager() const { return sim_manager_; }
+    TlbAllocator* get_allocator() const { return allocator_; }
 
 private:
     // Private constructor to enforce use of create() factory method.
     TTSimTlbHandle(
-        SimulationTlbManager* manager,
+        TlbAllocator* allocator,
         class TTSimCommunicator* communicator,
         int tlb_id,
         size_t size,
@@ -50,7 +50,7 @@ private:
 
     void free_tlb() noexcept override;
 
-    SimulationTlbManager* sim_manager_;
+    TlbAllocator* allocator_;
     class TTSimCommunicator* sim_communicator_;
     uint64_t tlb_reg_addr_ = 0;
 };

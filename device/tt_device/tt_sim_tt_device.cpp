@@ -16,6 +16,58 @@
 
 namespace tt::umd {
 
+namespace {
+
+/**
+ * TTSim-specific TLBManager that creates TTSimTlbHandle + TTSimTlbWindow directly,
+ * eliminating the need for a std::function factory.
+ */
+class TTSimTLBManager : public TLBManager {
+public:
+    TTSimTLBManager(TTDevice* tt_device, TlbAllocator* allocator, TTSimCommunicator* communicator) :
+        TLBManager(tt_device), allocator_(allocator), communicator_(communicator) {}
+
+    void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) override {
+        log_debug(LogUMD, "Requesting TLB window of size {}", tlb_size);
+
+        tlb_data config = build_tlb_config(core, address, ordering);
+
+        const auto* arch_impl = allocator_->get_architecture_impl();
+        if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
+            (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
+            throw std::runtime_error("TLBs of 1MB and 2MB are not supported in simulation for Wormhole architecture.");
+        }
+
+        int tlb_index = allocator_->allocate_tlb_index(tlb_size);
+        if (tlb_index == -1) {
+            throw std::runtime_error("No available TLB of requested size");
+        }
+
+        size_t actual_tlb_size = allocator_->get_tlb_size_from_index(tlb_index);
+        auto handle = TTSimTlbHandle::create(allocator_, communicator_, tlb_index, actual_tlb_size, TlbMapping::WC);
+        auto window = std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_, config);
+
+        register_tlb_window(core, tlb_size, address, std::move(window));
+    }
+
+    std::unique_ptr<TlbWindow> allocate_tlb_window(tlb_data config, TlbMapping mapping, size_t tlb_size) {
+        int tlb_index = allocator_->allocate_tlb_index(tlb_size);
+        if (tlb_index == -1) {
+            throw std::runtime_error("No available TLB of requested size");
+        }
+
+        size_t actual_tlb_size = allocator_->get_tlb_size_from_index(tlb_index);
+        auto handle = TTSimTlbHandle::create(allocator_, communicator_, tlb_index, actual_tlb_size, mapping);
+        return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_, config);
+    }
+
+private:
+    TlbAllocator* allocator_;
+    TTSimCommunicator* communicator_;
+};
+
+}  // namespace
+
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
@@ -70,16 +122,14 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
-        this,
-        bar0_base,
-        architecture_impl_.get(),
-        [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
-            auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
-            return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
-        });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    tlb_allocator_ = std::make_unique<TlbAllocator>(bar0_base, architecture_impl_.get());
+    tlb_manager_ = std::make_unique<TTSimTLBManager>(this, tlb_allocator_.get(), communicator_.get());
+
+    size_t default_tlb_size = tlb_allocator_->get_default_tlb_size();
+    if (default_tlb_size > 0) {
+        auto* sim_tlb_mgr = dynamic_cast<TTSimTLBManager*>(tlb_manager_.get());
+        cached_tlb_window_ = sim_tlb_mgr->allocate_tlb_window({}, TlbMapping::WC, default_tlb_size);
+    }
 }
 
 TTSimTTDevice::~TTSimTTDevice() = default;
@@ -265,6 +315,6 @@ void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in TTSim device.");
 }
 
-TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
+TLBManager* TTSimTTDevice::get_tlb_manager() { return tlb_manager_.get(); }
 
 }  // namespace tt::umd

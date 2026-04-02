@@ -23,7 +23,7 @@ public:
     virtual ~TLBManager() = default;
 
     // All tt_xy_pairs should be in TRANSLATED coords.
-    void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
+    virtual void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 
@@ -39,11 +39,19 @@ public:
 
     TlbWindow* get_tlb_window(const tt_xy_pair core);
 
-    virtual std::unique_ptr<TlbWindow> allocate_tlb_window(
-        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
-
     // Clear all static TLB mappings.
     void clear_mapped_tlbs();
+
+protected:
+    /**
+     * Build a tlb_data configuration struct for the given core and address.
+     */
+    tlb_data build_tlb_config(tt_xy_pair core, uint64_t address, uint64_t ordering) const;
+
+    /**
+     * Register a TlbWindow in the bookkeeping maps after allocation.
+     */
+    void register_tlb_window(tt_xy_pair core, size_t tlb_size, uint64_t address, std::unique_ptr<TlbWindow> tlb_window);
 
 private:
     TTDevice* tt_device_;

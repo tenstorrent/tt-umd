@@ -9,7 +9,8 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/tlb_allocator.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -89,7 +90,8 @@ private:
     SocDescriptor soc_descriptor_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
-    std::unique_ptr<SimulationTlbManager> tlb_manager_;
+    std::unique_ptr<TlbAllocator> tlb_allocator_;
+    std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

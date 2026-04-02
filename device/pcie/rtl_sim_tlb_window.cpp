@@ -7,10 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/tlb_allocator.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
@@ -68,7 +67,7 @@ uint16_t RtlSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); 
 
 tt::ARCH RtlSimTlbWindow::get_arch() const {
     auto* handle = dynamic_cast<RtlSimTlbHandle*>(tlb_handle.get());
-    return handle->get_tlb_manager()->get_tt_device()->get_arch();
+    return handle->get_allocator()->get_architecture();
 }
 
 }  // namespace tt::umd

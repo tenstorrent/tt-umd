@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-class SimulationTlbManager;
+class TlbAllocator;
 
 /**
  * RTL simulation TlbHandle that stores TLB configuration in software only.
@@ -24,20 +24,20 @@ class SimulationTlbManager;
 class RtlSimTlbHandle : public TlbHandle {
 public:
     static std::unique_ptr<RtlSimTlbHandle> create(
-        SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping);
+        TlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping);
 
     ~RtlSimTlbHandle() noexcept;
 
     void configure(const tlb_data& new_config) override;
 
-    SimulationTlbManager* get_tlb_manager() const { return manager_; }
+    TlbAllocator* get_allocator() const { return allocator_; }
 
 private:
-    RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping);
+    RtlSimTlbHandle(TlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping);
 
     void free_tlb() noexcept override;
 
-    SimulationTlbManager* manager_;
+    TlbAllocator* allocator_;
 };
 
 }  // namespace tt::umd

@@ -9,10 +9,9 @@
 #include <cstring>
 #include <memory>
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/tlb_allocator.hpp"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
@@ -76,7 +75,7 @@ uint16_t TTSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
 
 tt::ARCH TTSimTlbWindow::get_arch() const {
     auto* sim_handle = dynamic_cast<TTSimTlbHandle*>(tlb_handle.get());
-    return sim_handle->get_tlb_manager()->get_tt_device()->get_arch();
+    return sim_handle->get_allocator()->get_architecture();
 }
 
 }  // namespace tt::umd

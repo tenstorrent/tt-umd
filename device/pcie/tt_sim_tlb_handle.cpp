@@ -12,29 +12,22 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/tlb_allocator.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 
 namespace tt::umd {
 
-// Forward declaration to avoid circular dependency.
-class SimulationTlbManager;
-
 TTSimTlbHandle::TTSimTlbHandle(
-    SimulationTlbManager* manager,
-    TTSimCommunicator* communicator,
-    int tlb_id,
-    size_t size,
-    const TlbMapping tlb_mapping) :
-    sim_manager_(manager), sim_communicator_(communicator) {
+    TlbAllocator* allocator, TTSimCommunicator* communicator, int tlb_id, size_t size, const TlbMapping tlb_mapping) :
+    allocator_(allocator), sim_communicator_(communicator) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = tlb_mapping;
 
     // Compute the address for this TLB based on BAR0 base + TLB offset.
-    if (sim_manager_) {
-        tlb_base_ = reinterpret_cast<uint8_t*>(sim_manager_->get_tlb_address_from_index(tlb_id_));
-        tlb_reg_addr_ = sim_manager_->get_tlb_reg_address_from_index(tlb_id_);
+    if (allocator_) {
+        tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
+        tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }
 
     log_debug(
@@ -46,12 +39,8 @@ TTSimTlbHandle::TTSimTlbHandle(
 }
 
 std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
-    SimulationTlbManager* manager,
-    TTSimCommunicator* communicator,
-    int tlb_id,
-    size_t size,
-    const TlbMapping tlb_mapping) {
-    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(manager, communicator, tlb_id, size, tlb_mapping));
+    TlbAllocator* allocator, TTSimCommunicator* communicator, int tlb_id, size_t size, const TlbMapping tlb_mapping) {
+    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(allocator, communicator, tlb_id, size, tlb_mapping));
 }
 
 TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
@@ -64,8 +53,8 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_.ordering = 0;
     tlb_config_.static_vc = 0;
 
-    // Get architecture from manager to determine correct offsets.
-    const architecture_implementation* arch_impl = sim_manager_->get_architecture_impl();
+    // Get architecture from allocator to determine correct offsets.
+    const architecture_implementation* arch_impl = allocator_->get_architecture_impl();
     tt::ARCH architecture = arch_impl->get_architecture();
 
     log_debug(
@@ -143,9 +132,9 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
 }
 
 void TTSimTlbHandle::free_tlb() noexcept {
-    if (sim_manager_) {
-        sim_manager_->deallocate_tlb_index(tlb_id_);
-        sim_manager_ = nullptr;
+    if (allocator_) {
+        allocator_->deallocate_tlb_index(tlb_id_);
+        allocator_ = nullptr;
 
         log_debug(LogUMD, "Freed simulation TLB with ID {}", tlb_id_);
     }

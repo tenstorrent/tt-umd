@@ -15,6 +15,52 @@
 
 namespace tt::umd {
 
+namespace {
+
+/**
+ * RTL simulation-specific TLBManager that creates RtlSimTlbHandle + RtlSimTlbWindow directly,
+ * eliminating the need for a std::function factory.
+ */
+class RtlSimTLBManager : public TLBManager {
+public:
+    RtlSimTLBManager(TTDevice* tt_device, TlbAllocator* allocator, RtlSimCommunicator* communicator) :
+        TLBManager(tt_device), allocator_(allocator), communicator_(communicator) {}
+
+    void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) override {
+        log_debug(LogUMD, "Requesting TLB window of size {}", tlb_size);
+
+        tlb_data config = build_tlb_config(core, address, ordering);
+
+        int tlb_index = allocator_->allocate_tlb_index(tlb_size);
+        if (tlb_index == -1) {
+            throw std::runtime_error("No available TLB of requested size");
+        }
+
+        size_t actual_tlb_size = allocator_->get_tlb_size_from_index(tlb_index);
+        auto handle = RtlSimTlbHandle::create(allocator_, tlb_index, actual_tlb_size, TlbMapping::WC);
+        auto window = std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_, config);
+
+        register_tlb_window(core, tlb_size, address, std::move(window));
+    }
+
+    std::unique_ptr<TlbWindow> allocate_tlb_window(tlb_data config, TlbMapping mapping, size_t tlb_size) {
+        int tlb_index = allocator_->allocate_tlb_index(tlb_size);
+        if (tlb_index == -1) {
+            throw std::runtime_error("No available TLB of requested size");
+        }
+
+        size_t actual_tlb_size = allocator_->get_tlb_size_from_index(tlb_index);
+        auto handle = RtlSimTlbHandle::create(allocator_, tlb_index, actual_tlb_size, mapping);
+        return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_, config);
+    }
+
+private:
+    TlbAllocator* allocator_;
+    RtlSimCommunicator* communicator_;
+};
+
+}  // namespace
+
 static_assert(!std::is_abstract<RtlSimulationTTDevice>(), "RtlSimulationTTDevice must be non-abstract.");
 
 // Array of DM RiscType values for iteration.
@@ -52,16 +98,14 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     arch = soc_descriptor_.arch;
     communicator_->initialize();
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
-        this,
-        /*bar0_base=*/0,
-        architecture_impl_.get(),
-        [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
-            auto handle = RtlSimTlbHandle::create(mgr, id, sz, map);
-            return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
-        });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    tlb_allocator_ = std::make_unique<TlbAllocator>(/*bar0_base=*/0, architecture_impl_.get());
+    tlb_manager_ = std::make_unique<RtlSimTLBManager>(this, tlb_allocator_.get(), communicator_.get());
+
+    size_t default_tlb_size = tlb_allocator_->get_default_tlb_size();
+    if (default_tlb_size > 0) {
+        auto* rtl_tlb_mgr = dynamic_cast<RtlSimTLBManager*>(tlb_manager_.get());
+        cached_tlb_window_ = rtl_tlb_mgr->allocate_tlb_window({}, TlbMapping::WC, default_tlb_size);
+    }
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
@@ -252,6 +296,6 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
 }
 
-TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
+TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return tlb_manager_.get(); }
 
 }  // namespace tt::umd

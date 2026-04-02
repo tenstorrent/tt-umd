@@ -28,12 +28,6 @@ public:
 
     void wait_for_non_mmio_flush() override;
 
-    /*
-     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
-     * so hang detection is done via the local TTDevice used by RemoteCommunication.
-     */
-    bool detect_hang_read(std::uint32_t data_read) override;
-
     void dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
 
     void dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;

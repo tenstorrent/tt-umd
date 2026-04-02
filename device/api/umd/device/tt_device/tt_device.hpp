@@ -89,7 +89,11 @@ public:
 
     tt::ARCH get_arch();
 
-    virtual bool detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
+    /*
+     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
+     * so hang detection is done via the local TTDevice used by RemoteCommunication.
+     */
+    bool detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     bool is_noc_hung(NocId noc);
 
     /**

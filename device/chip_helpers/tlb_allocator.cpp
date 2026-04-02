@@ -206,9 +206,12 @@ size_t TlbAllocator::get_default_tlb_size() const {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     switch (architecture_) {
-        case tt::ARCH::BLACKHOLE: return SIZE_2MB;
-        case tt::ARCH::WORMHOLE_B0: return SIZE_16MB;
-        default: return 0;
+        case tt::ARCH::BLACKHOLE:
+            return SIZE_2MB;
+        case tt::ARCH::WORMHOLE_B0:
+            return SIZE_16MB;
+        default:
+            return 0;
     }
 }
 

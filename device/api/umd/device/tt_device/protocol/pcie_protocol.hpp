@@ -40,7 +40,7 @@ public:
 
     // PcieInterface.
     PCIDevice* get_pci_device() override;
-    [[nodiscard]] bool dma_write_to_device(void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
+    [[nodiscard]] bool dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
     [[nodiscard]] bool dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
     [[nodiscard]] bool dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;

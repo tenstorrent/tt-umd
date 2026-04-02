@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
 #include "assert.hpp"
@@ -17,19 +18,19 @@
 
 namespace tt::umd {
 
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api) :
-    WormholeTTDevice(remote_communication->get_local_device()->get_pci_device(), use_safe_api),
+RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {
-    is_remote_tt_device = true;
-}
-
-RemoteWormholeTTDevice::RemoteWormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication, IODeviceType device_type) :
-    remote_communication_(std::move(remote_communication)) {
-    // Since RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
-    // which in turn uses a local TTDevice for communication,
-    // the device type of the underlying communication device is the device type of the local TTDevice.
+    // RemoteWormholeTTDevice doesn't own a PCIe/JTAG device, but some base class methods
+    // (e.g. bar_read32, topology discovery) require access to the local device's interface.
+    // Borrow the local device's interface until RemoteProtocol replaces this class entirely.
+    auto *local = remote_communication_->get_local_device();
+    if (local->has_pcie_interface()) {
+        TTDevice::set_pcie_interface(local->get_pcie_interface());
+    } else if (local->has_jtag_interface()) {
+        TTDevice::set_jtag_interface(local->get_jtag_interface());
+    } else {
+        throw std::runtime_error("Local device has no available interface (PCIe or JTAG).");
+    }
     communication_device_type_ = remote_communication_->get_local_device()->get_communication_device_type();
     communication_device_id_ = remote_communication_->get_local_device()->get_communication_device_id();
     is_remote_tt_device = true;
@@ -92,12 +93,12 @@ uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc() {
 }
 
 void RemoteWormholeTTDevice::noc_multicast_write(
-    void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     // TODO: implement multicast over remote communication.
     // For now, we fallback to unicast for all cores.
     for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
         for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            write_to_device(dst, tt_xy_pair(x, y), addr, size);
+            write_to_device(src, tt_xy_pair(x, y), addr, size);
         }
     }
 }

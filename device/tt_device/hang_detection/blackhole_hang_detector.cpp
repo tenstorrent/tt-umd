@@ -37,6 +37,7 @@ tt_xy_pair BlackholeHangDetector::get_hang_check_core(NocId noc) const {
         return blackhole::PCIE_CORES_TYPE2_NOC0[0];
     }
     uint32_t noc1_x = blackhole::NOC0_X_TO_NOC1_X[blackhole::PCIE_CORES_TYPE2_NOC0[0].x];
+    // NOC1 y-coordinate depends on whether NOC translation is enabled.
     uint32_t noc1_y = noc_translation_enabled_ ? 0 : blackhole::NOC0_Y_TO_NOC1_Y[blackhole::PCIE_CORES_TYPE2_NOC0[0].y];
     return tt_xy_pair(noc1_x, noc1_y);
 }

@@ -468,6 +468,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("copy_sim_binary") = false,
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(
+            "send_tensix_risc_reset",
+            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, bool)>(&TTSimTTDevice::send_tensix_risc_reset),
+            nb::arg("translated_core"),
+            nb::arg("deassert"),
+            "Send a Tensix RISC reset signal to the simulation device.")
+        .def(
             "send_tensix_risc_reset_with_options",
             static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
                 &TTSimTTDevice::send_tensix_risc_reset),

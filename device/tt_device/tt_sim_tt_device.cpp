@@ -107,6 +107,10 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
     communicator_->advance_clock(10);
 }
 
+void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
+    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
+}
+
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||

@@ -281,7 +281,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         utils::check_timeout(
             start,
             timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
     }
 }
 

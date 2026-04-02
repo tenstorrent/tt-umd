@@ -12,13 +12,11 @@
 
 namespace tt::umd {
 
-HangDetector::HangDetector(
-    DeviceProtocol* protocol, architecture_implementation* arch_impl, tt_xy_pair hang_check_core) :
+HangDetector::HangDetector(DeviceProtocol* protocol, architecture_implementation* arch_impl) :
     protocol_(protocol),
     pcie_interface_(dynamic_cast<PcieInterface*>(protocol)),
     is_local_protocol_(!dynamic_cast<RemoteInterface*>(protocol)),
-    arch_impl_(arch_impl),
-    hang_check_core_(hang_check_core) {}
+    arch_impl_(arch_impl) {}
 
 std::optional<bool> HangDetector::is_pcie_hung(uint32_t data_read) {
     if (data_read != HANG_READ_VALUE) {
@@ -35,7 +33,11 @@ std::optional<bool> HangDetector::is_noc_hung(NocId noc) {
         return std::nullopt;
     }
     NocIdSwitcher switcher(noc);
-    return read_hang_check_reg_via_noc(noc) == HANG_READ_VALUE;
+    auto result = read_hang_check_reg_via_noc(noc);
+    if (!result.has_value()) {
+        return std::nullopt;
+    }
+    return result.value() == HANG_READ_VALUE;
 }
 
 }  // namespace tt::umd

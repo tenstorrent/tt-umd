@@ -10,7 +10,6 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -39,11 +38,7 @@ public:
     std::optional<bool> is_noc_hung(NocId noc);
 
 protected:
-    HangDetector(DeviceProtocol* protocol, architecture_implementation* arch_impl, tt_xy_pair hang_check_core);
-
-    // Arch-specific implementations.
-    virtual uint32_t read_hang_check_reg_via_bar() = 0;
-    virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
+    HangDetector(DeviceProtocol* protocol, architecture_implementation* arch_impl);
 
     DeviceProtocol* get_protocol() const { return protocol_; }
 
@@ -51,14 +46,16 @@ protected:
 
     architecture_implementation* get_arch_impl() const { return arch_impl_; }
 
-    virtual tt_xy_pair get_hang_check_core(NocId noc) const = 0;
-
 private:
+    // Arch-specific implementations.
+    virtual uint32_t read_hang_check_reg_via_bar() = 0;
+    // Returns nullopt if the core coordinate for this NOC is not known.
+    virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
+
     DeviceProtocol* protocol_;
     PcieInterface* pcie_interface_;
     bool is_local_protocol_;
     architecture_implementation* arch_impl_;
-    tt_xy_pair hang_check_core_;
 };
 
 }  // namespace tt::umd

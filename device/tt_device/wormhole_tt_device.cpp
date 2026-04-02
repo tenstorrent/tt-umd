@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -36,8 +37,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool u
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    set_hang_detector(
-        std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation(), arc_core));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
@@ -46,8 +46,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    set_hang_detector(
-        std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation(), arc_core));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
@@ -56,8 +55,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    set_hang_detector(
-        std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation(), arc_core));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
     log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }
 

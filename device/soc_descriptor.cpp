@@ -217,6 +217,9 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
 
 SocDescriptor::SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info) :
     arch_desc_(std::move(arch_desc)) {
+    if (!arch_desc_) {
+        throw std::invalid_argument("SocArchDescriptor pointer must not be null.");
+    }
     init_from_arch_descriptor(chip_info);
 }
 

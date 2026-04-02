@@ -124,6 +124,11 @@ tt_xy_pair SocArchDescriptor::get_grid_size_from_path(const std::string& soc_des
 }
 
 void SocArchDescriptor::build_derived_data() {
+    // Clear derived data in case this is called more than once.
+    cores_.clear();
+    dram_core_channel_map_.clear();
+    ethernet_core_channel_map_.clear();
+
     // Build core descriptor map.
     for (const auto& arc_core : arc_cores_) {
         CoreDescriptor core_descriptor;
@@ -209,7 +214,12 @@ void SocArchDescriptor::build_derived_data() {
 static const char* ws = " \t\n\r\f\v";
 
 static inline std::string& rtrim(std::string& s, const char* t = ws) {
-    s.erase(s.find_last_not_of(t) + 1);
+    auto pos = s.find_last_not_of(t);
+    if (pos == std::string::npos) {
+        s.clear();
+    } else {
+        s.erase(pos + 1);
+    }
     return s;
 }
 
@@ -261,6 +271,22 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
     worker_l1_size_ = device_descriptor_yaml["worker_l1_size"].as<uint32_t>();
     eth_l1_size_ = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     dram_bank_size_ = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
+
+    if (device_descriptor_yaml["features"].IsDefined()) {
+        auto features = device_descriptor_yaml["features"];
+        if (features["overlay"].IsDefined() && features["overlay"]["version"].IsDefined()) {
+            overlay_version_ = features["overlay"]["version"].as<int>();
+        }
+        if (features["unpacker"].IsDefined() && features["unpacker"]["version"].IsDefined()) {
+            unpacker_version_ = features["unpacker"]["version"].as<int>();
+        }
+        if (features["math"].IsDefined() && features["math"]["dst_size_alignment"].IsDefined()) {
+            dst_size_alignment_ = features["math"]["dst_size_alignment"].as<int>();
+        }
+        if (features["packer"].IsDefined() && features["packer"]["version"].IsDefined()) {
+            packer_version_ = features["packer"]["version"].as<int>();
+        }
+    }
 }
 
 std::vector<tt_xy_pair> SocArchDescriptor::convert_to_tt_xy_pair(const std::vector<std::string>& core_strings) {

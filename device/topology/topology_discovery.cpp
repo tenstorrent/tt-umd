@@ -311,7 +311,7 @@ void TopologyDiscovery::discover_remote_devices() {
     patch_eth_connections();
 }
 
-static bool is_device_unhealthy(uint64_t asic_id) { return (asic_id >> 32) & 0xDEADDEAD; }
+static bool is_device_unhealthy(uint64_t asic_id) { return (asic_id >> 32) == 0xDEADDEAD; }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();

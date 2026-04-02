@@ -25,6 +25,9 @@ TEST(UmdException, Macros) {
     EXPECT_THROW(UMD_THROW(TestError, 200), UmdException<TestError>);
     EXPECT_THROW(UMD_ASSERT(false, TestError), UmdException<TestError>);
     EXPECT_NO_THROW(UMD_ASSERT(true, TestError));
+
+    // UMD_THROW_OR_RETURN is used when the erroneous condition is already hit.
+    // It either throws an exception, or returns the equivalent error, whose metadata can be accessed.
     EXPECT_THROW(UMD_THROW_OR_RETURN(true, TestError, 200), UmdException<TestError>);
     EXPECT_NO_THROW(UMD_THROW_OR_RETURN(false, TestError, 200));
     auto error = UMD_THROW_OR_RETURN(false, TestError, 200);
@@ -50,6 +53,8 @@ TEST(UmdException, ExceptionData) {
     }
 }
 
+// Tests that UmdException can be caught as both its specific type (UmdException<TestError>) and as its base type
+// (std::runtime_error) in nested try-catch blocks, verifying the exception message remains consistent.
 TEST(UmdException, DeepCatch) {
     bool caught_umd_error = false;
     std::string umd_error_what;
@@ -72,6 +77,8 @@ TEST(UmdException, DeepCatch) {
 
 TEST(UmdException, AssertCondition) {
     try {
+        // 1 == 2 is a failing assert condition. This test verifies the condition
+        // string remains the same as the assert condition in code.
         UMD_ASSERT(1 == 2, TestError);
         FAIL();
     } catch (UmdException<TestError> &error) {

@@ -18,7 +18,6 @@
 namespace tt::umd {
 
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
-    ZoneScopedC(tracy::Color::Cyan);
     tlb_data aligned_config = config;
     aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);
@@ -122,7 +121,6 @@ void TlbWindow::validate(uint64_t offset, size_t size) const {
 }
 
 void TlbWindow::configure(const tlb_data& new_config) {
-    ZoneScopedC(tracy::Color::Cyan);
     tlb_data aligned_config = new_config;
     aligned_config.local_offset = new_config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);

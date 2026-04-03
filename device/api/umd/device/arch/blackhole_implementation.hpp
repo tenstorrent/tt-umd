@@ -220,8 +220,6 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
-static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
-
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
 inline constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
@@ -253,8 +251,8 @@ inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SP
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
-inline constexpr uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
-inline constexpr uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
+inline constexpr uint32_t NIU_CFG_NOC0_BAR_PCIE_ADDR = 0x1FD04000;
+inline constexpr uint32_t NIU_CFG_NOC1_BAR_PCIE_ADDR = 0x1FD14000;
 
 inline constexpr uint64_t NIU_CFG_NOC0_ARC_ADDR = 0x80050100;
 inline constexpr uint64_t NIU_CFG_NOC1_ARC_ADDR = 0x80058100;
@@ -406,7 +404,9 @@ public:
 
     uint32_t get_num_eth_channels() const override { return blackhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override { return blackhole::BH_NOC_NODE_ID_OFFSET; }
+    uint32_t get_read_checking_offset() const override {
+        return blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + blackhole::NOC_NODE_ID_OFFSET;
+    }
 
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
 

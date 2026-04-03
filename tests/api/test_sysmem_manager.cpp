@@ -23,6 +23,7 @@ TEST(ApiSysmemManager, BasicIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
 
@@ -50,6 +51,8 @@ TEST(ApiSysmemManager, BasicIO) {
         data_read = std::vector<uint32_t>(data_write.size(), 0);
         sysmem->read_from_sysmem(0, data_read.data(), 0x100, data_read.size() * sizeof(uint32_t));
         EXPECT_EQ(data_write, data_read);
+
+        tt_device->set_power_state(false);
     }
 }
 

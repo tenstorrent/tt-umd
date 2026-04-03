@@ -44,11 +44,14 @@ public:
 
     void retrain_eth_core(tt_xy_pair eth_core);
 
+    bool is_hardware_hung() override;
+    uint32_t read_hang_check_reg_via_noc() override;
+
     ~WormholeTTDevice() override = default;
 
 protected:
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
+    WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
     /*
      * Create a device without an underlying communication device.
      * Used for remote devices that depend on remote_communication.
@@ -60,17 +63,7 @@ protected:
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
-protected:
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) override;
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
-
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
-
-    bool is_hardware_hung() override;
-
-    // Enforce single-threaded access, even though there are more serious issues
-    // surrounding resource management as it relates to DMA.
-    std::mutex dma_mutex_;
 };
 }  // namespace tt::umd

@@ -92,7 +92,10 @@ std::array<uint32_t, BlackholeArcMessageQueue::entry_len> BlackholeArcMessageQue
 }
 
 uint32_t BlackholeArcMessageQueue::send_message(
-    const ArcMessageType message_type, const std::vector<uint32_t>& args, const std::chrono::milliseconds timeout_ms) {
+    const ArcMessageType message_type,
+    std::vector<uint32_t>& return_values,
+    const std::vector<uint32_t>& args,
+    const std::chrono::milliseconds timeout_ms) {
     if (args.size() > 7) {
         throw std::runtime_error(
             fmt::format("Blackhole ARC messages are limited to 7 arguments, but: {} were provided", args.size()));
@@ -111,6 +114,8 @@ uint32_t BlackholeArcMessageQueue::send_message(
     std::array<uint32_t, BlackholeArcMessageQueue::entry_len> response = pop_response(timeout_ms);
 
     uint32_t status = response[0] & 0xFF;
+
+    return_values.assign(response.begin() + 1, response.end());
 
     // Response is packed in high 16 bits of the message.
     if (status < blackhole::ARC_MSG_RESPONSE_OK_LIMIT) {

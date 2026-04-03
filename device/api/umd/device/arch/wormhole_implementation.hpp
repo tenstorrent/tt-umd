@@ -253,6 +253,10 @@ inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
+// ARC NIU BAR0 base addresses for NOC0 and NOC1.
+inline constexpr uint32_t NIU_CFG_NOC0_BAR_ARC_ADDR = ARC_APB_BAR0_XBAR_OFFSET_START + 0x50000;
+inline constexpr uint32_t NIU_CFG_NOC1_BAR_ARC_ADDR = ARC_APB_BAR0_XBAR_OFFSET_START + 0x58000;
+
 inline constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
 inline constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
 
@@ -422,7 +426,9 @@ public:
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override { return wormhole::ARC_SCRATCH_6_OFFSET; }
+    uint32_t get_read_checking_offset() const override {
+        return wormhole::NIU_CFG_NOC0_BAR_ARC_ADDR + wormhole::NOC_NODE_ID_OFFSET;
+    }
 
     uint32_t get_reg_tlb() const override { return wormhole::REG_TLB; }
 

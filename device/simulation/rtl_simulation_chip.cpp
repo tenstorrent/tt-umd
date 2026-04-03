@@ -9,6 +9,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "tracy.hpp"
 
 namespace tt::umd {
 
@@ -26,6 +27,7 @@ RtlSimulationChip::RtlSimulationChip(
 }
 
 void RtlSimulationChip::start_device() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->start_device();
 }
@@ -54,15 +56,19 @@ void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& sof
 }
 
 void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     tt_device_->assert_risc_reset(translate_core, selected_riscs);
 }
 
 void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED);
     tt_device_->deassert_risc_reset(translate_core, selected_riscs, staggered_start);
 }
+
+TLBManager* RtlSimulationChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
 
 }  // namespace tt::umd

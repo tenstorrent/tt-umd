@@ -78,12 +78,6 @@ public:
 
     SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
 
-    /**
-     * Get the architecture implementation.
-     * @return Pointer to architecture implementation
-     */
-    const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
-
     TLBManager *get_tlb_manager();
 
     uint64_t bar0_base = 0;
@@ -103,7 +97,6 @@ private:
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;
-    std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     uint32_t libttsim_pci_device_id;

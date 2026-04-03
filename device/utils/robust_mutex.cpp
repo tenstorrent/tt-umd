@@ -38,12 +38,9 @@
 #endif
 #endif
 
-// Declare TSAN hooks once.
+// Include TSAN interface when building with ThreadSanitizer.
 #ifdef __SANITIZE_THREAD__
-extern "C" {
-void __tsan_acquire(void* addr);
-void __tsan_release(void* addr);
-}
+#include <sanitizer/tsan_interface.h>
 #endif
 
 namespace tt::umd {
@@ -106,16 +103,17 @@ pthread_mutex_t RobustMutex::multithread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
 static std::unordered_map<std::string, char> tsan_mutex_id_storage;
 static std::mutex tsan_storage_mutex;
 
-void* get_tsan_mutex_id(std::string mutex_name) {
+void* get_tsan_mutex_id(const std::string& mutex_name) {
     // TSAN needs a stable, valid memory address to track mutex synchronization.
     // For cross-process mutexes, each process maps shared memory to different
     // virtual addresses. To ensure TSAN understands that mutexes with the same
     // name are the same logical mutex across all threads/processes, we maintain
     // a process-local map from mutex name to a stable address.
     //
-    // This function assumes initialize() has already been called, which registers
-    // the mutex in tsan_mutex_id_storage. Since we only read from the map here
-    // (after initialization), no locking is needed.
+    // Must hold tsan_storage_mutex while accessing the map: concurrent threads
+    // initializing other mutexes may be inserting into it, and unordered_map
+    // inserts (including potential rehash) race with concurrent finds.
+    std::lock_guard<std::mutex> lock(tsan_storage_mutex);
     auto it = tsan_mutex_id_storage.find(mutex_name);
     TT_ASSERT(
         it != tsan_mutex_id_storage.end(),

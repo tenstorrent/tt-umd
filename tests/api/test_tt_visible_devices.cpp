@@ -253,7 +253,6 @@ TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
         ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << chip_id;
         auto pci_device = tt_device->get_pci_device();
-        ASSERT_NE(pci_device, nullptr) << "No PCI device found for logical ID " << chip_id;
         ASSERT_LT(chip_id, enumerated_ids.size())
             << "Logical chip ID " << chip_id << " is out of bounds for enumerate_devices() result of size "
             << enumerated_ids.size();

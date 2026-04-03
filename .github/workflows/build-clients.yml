@@ -152,6 +152,7 @@ jobs:
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DTT_UMD_BUILD_TOOLS=OFF \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests
 

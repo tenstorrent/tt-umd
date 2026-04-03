@@ -34,4 +34,11 @@ inline constexpr SemVer KMD_ARCH_AGNOSTIC_RESET = SemVer{2, 4, 1};
  * same time.
  */
 inline constexpr SemVer KMD_TLBS = SemVer(1, 34, 0);
+
+/**
+ * KMD version 2.6.0 introduced the TENSTORRENT_IOCTL_SET_POWER_STATE IOCTL for explicit per-client power domain
+ * management. Opening the device with O_APPEND opts out of legacy mode, allowing idle devices to reduce power even
+ * while application connections remain active.
+ */
+inline constexpr SemVer KMD_POWER_STATE = SemVer(2, 6, 0);
 }  // namespace tt::umd

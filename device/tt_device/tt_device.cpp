@@ -15,6 +15,9 @@
 #include <utility>
 #include <vector>
 
+#include "assert.hpp"
+#include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -25,6 +28,7 @@
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -93,6 +97,7 @@ void TTDevice::probe_arc() {
 }
 
 TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
         if (throw_on_arc_failure) {
@@ -121,6 +126,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number, IODeviceType device_type, bool use_safe_api) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
@@ -167,6 +173,13 @@ PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_dev
 JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
 
 RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
+
+void TTDevice::set_power_state(bool busy) {
+    if (is_remote_tt_device || !pcie_capabilities_) {
+        return;
+    }
+    get_pci_device()->set_power_state(busy);
+}
 
 DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 
@@ -360,28 +373,46 @@ void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-    if (!get_pcie_interface()->dma_write_to_device(src, size, core, addr)) {
-        pcie_dma_lock.unlock();
-        write_to_device(src, core, addr, size);
+
+    // Returns true if DMA transfer succeeded, false if DMA is not available.
+    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr);
+    if (dma_success) {
+        return;
     }
+
+    // DMA unavailable, fall back to regular write.
+    pcie_dma_lock.unlock();
+    write_to_device(src, core, addr, size);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-    if (!get_pcie_interface()->dma_read_from_device(dst, size, core, addr)) {
-        pcie_dma_lock.unlock();
-        read_from_device(dst, core, addr, size);
+
+    // Returns true if DMA transfer succeeded, false if DMA is not available.
+    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr);
+    if (dma_success) {
+        return;
     }
+
+    // DMA unavailable, fall back to regular read.
+    pcie_dma_lock.unlock();
+    read_from_device(dst, core, addr, size);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-    if (!get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr)) {
-        pcie_dma_lock.unlock();
-        noc_multicast_write(src, size, core_start, core_end, addr);
+
+    // Returns true if DMA transfer succeeded, false if DMA is not available.
+    bool dma_success = get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr);
+    if (dma_success) {
+        return;
     }
+
+    // DMA unavailable, fall back to regular multicast write.
+    pcie_dma_lock.unlock();
+    noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }

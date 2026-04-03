@@ -25,9 +25,11 @@ public:
         IODeviceType device_type = IODeviceType::PCIe);
     static std::unique_ptr<LocalChip> create(
         int physical_device_id,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         int num_host_mem_channels = 0,
         IODeviceType device_type = IODeviceType::PCIe);
+    static std::unique_ptr<LocalChip> create(
+        std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels = 0);
 
     ~LocalChip() override;
 

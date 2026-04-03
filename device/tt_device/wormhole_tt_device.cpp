@@ -58,7 +58,6 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
     set_hang_detector(std::make_unique<WormholeHangDetector>(
         TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
         get_architecture_implementation()));
-    log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {

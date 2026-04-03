@@ -42,6 +42,7 @@ def setup_spi_test_devices():
     ):
         if cluster_descriptor.is_chip_mmio_capable(chip):
             umd_tt_devices[chip] = tt_umd.TTDevice.create(chip_to_mmio_map[chip])
+            umd_tt_devices[chip].set_power_state(True)
             umd_tt_devices[chip].init_tt_device()
         else:
             closest_mmio = cluster_descriptor.get_closest_mmio_capable_chip(chip)

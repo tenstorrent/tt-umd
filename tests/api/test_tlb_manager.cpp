@@ -25,6 +25,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         const size_t tlb_tensix_size = tt_device->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
@@ -48,5 +49,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         // TODO: This should be converted to AbstractIO writer.
         Writer writer = tlb_manager->get_static_tlb_writer(any_worker_translated_core);
         writer.write(address_l1_to_write, buffer_to_write[0]);
+
+        tt_device->set_power_state(false);
     }
 }

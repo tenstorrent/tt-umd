@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "assert.hpp"
+#include "tracy.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -30,6 +31,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     EthCoord target_eth_coord,
     const std::set<uint32_t>& remote_transfer_eth_channels,
     const std::string& sdesc_path) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -39,7 +41,11 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
+    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
+    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
+        throw std::runtime_error(
+            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
+    }
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -56,6 +62,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     EthCoord target_eth_coord,
     const std::set<uint32_t>& remote_transfer_eth_channels,
     SocDescriptor soc_descriptor) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
@@ -65,7 +72,11 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
+    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
+    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
+        throw std::runtime_error(
+            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
+    }
 
     return std::unique_ptr<RemoteChip>(
         new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
@@ -84,6 +95,7 @@ bool RemoteChip::is_mmio_capable() const { return false; }
 void RemoteChip::start_device() {}
 
 void RemoteChip::close_device() {
+    ZoneScopedC(tracy::Color::DarkRed);
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {

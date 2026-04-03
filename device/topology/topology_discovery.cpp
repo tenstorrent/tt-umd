@@ -29,6 +29,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -156,7 +157,7 @@ void TopologyDiscovery::get_connected_devices() {
 
             log_debug(
                 LogUMD,
-                "Discovered unhealthy {} device w/ MMIO, ID: {}, ASIC ID: {}",
+                "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
                 DeviceTypeToString.at(io_device_type),
                 device_id,
                 asic_id);
@@ -196,7 +197,7 @@ void TopologyDiscovery::get_connected_devices() {
             device_id,
             asic_id);
     }
-    log_debug(LogUMD, "Discovered {} locally connected devices.", devices_to_discover.size());
+    log_debug(LogUMD, "Discovered {} locally connected device(s).", devices_to_discover.size());
 }
 
 void TopologyDiscovery::discover_remote_devices() {
@@ -326,11 +327,34 @@ void TopologyDiscovery::discover_remote_devices() {
                     active_eth_channels_per_device.at(gateway_device_id));
                 ChipId chip_id = get_next_chip_id();
 
-                devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
+                try {
+                    remote_device->init_tt_device();
+                    // Put device in discovery queue only if it is healthy.
+                    devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
+                    if (options.wait_on_ethernet_link_training) {
+                        wait_eth_cores_training(remote_device.get());
+                    }
+                } catch (std::runtime_error& re) {  // Catches both remote comm. failure and ARC init failure.
+                    if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+                        throw;
+                    }
+
+                    uint64_t mock_asic_id = get_unhealthy_asic_id(chip_id);
+                    devices_to_discover.emplace(mock_asic_id, std::move(remote_device));
+                    asic_id_to_chip_id.emplace(mock_asic_id, chip_id);
+
+                    log_debug(
+                        LogUMD,
+                        "Discovered remote device ASIC ID: {} is unhealthy. Assigned mock ASIC ID: {}",
+                        remote_asic_id,
+                        mock_asic_id);
+                }
+                // These actions are safe for both healthy and unhealthy devices.
                 asic_id_to_chip_id.emplace(remote_asic_id, chip_id);
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
-                discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
+                // This will prevent attempting init. of an unhealthy device over another ETH core.
+                discovered_devices.insert(remote_asic_id);
             } else {
                 log_debug(LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 ethernet_connections.push_back(

@@ -53,7 +53,12 @@ TTSimTTDevice::TTSimTTDevice(
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
-    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
+    log_info(
+        tt::LogEmulationDriver,
+        "TTSimTTDevice chip_id={} PCI vendor_id=0x{:x} device_id=0x{:x}",
+        chip_id_,
+        vendor_id,
+        libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
@@ -105,6 +110,10 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
     communicator_->advance_clock(10);
+}
+
+void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
+    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
@@ -186,14 +195,6 @@ void TTSimTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
 }
 
 void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 

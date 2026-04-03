@@ -25,12 +25,14 @@
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -82,6 +84,7 @@ TopologyDiscovery::TopologyDiscovery(
     options(options), io_device_type(io_device_type), soc_descriptor_path(soc_descriptor_path) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     log_debug(LogUMD, "Starting topology discovery.");
     get_connected_devices();
     retrain_eth_cores();
@@ -92,6 +95,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscovery> td =
         TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
@@ -107,6 +111,7 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
 }
 
 void TopologyDiscovery::get_connected_devices() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> local_device_ids;
     switch (io_device_type) {
         case IODeviceType::PCIe: {
@@ -125,6 +130,9 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
+        if (!options.low_power) {
+            tt_device->set_power_state(true);
+        }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(
                 LogUMD,
@@ -169,14 +177,19 @@ void TopologyDiscovery::get_connected_devices() {
             device_id,
             asic_id);
     }
+    log_debug(LogUMD, "Initialized {} locally connected devices.", devices_to_discover.size());
 }
 
 void TopologyDiscovery::discover_remote_devices() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::set<uint64_t> discovered_devices = {};
     for (const auto& [current_device_asic_id, tt_device] : devices_to_discover) {
         discovered_devices.insert(current_device_asic_id);
         remote_asic_id_to_mmio_device_id.emplace(current_device_asic_id, current_device_asic_id);
         active_eth_channels_per_device.emplace(current_device_asic_id, std::set<uint32_t>());
+    }
+    if (!options.discover_remote_devices) {
+        log_debug(LogUMD, "Discovering remote devices is disabled.");
     }
     while (!devices_to_discover.empty()) {
         auto it = devices_to_discover.begin();
@@ -427,8 +440,8 @@ TTDevice* TopologyDiscovery::get_tt_device(const uint64_t asic_id) {
 
 uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     // This function should return a unique ID for the device. At the moment we are going to use mangled board ID
-    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first one.
-    // If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
+    // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first
+    // one. If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
     std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(
         CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
@@ -506,6 +519,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
     auto timeout_left = timeout_ms;
+    log_debug(LogUMD, "Waiting on ethernet link training on device: {}", tt_device->get_communication_device_id());
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = eth_core;
@@ -519,6 +533,11 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
 
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
+    log_debug(
+        LogUMD,
+        "Completed ethernet link training on device: {} after {} ms",
+        tt_device->get_communication_device_id(),
+        (timeout_ms - timeout_left).count());
 }
 
 bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
@@ -537,7 +556,8 @@ SocDescriptor TopologyDiscovery::get_soc_descriptor(TTDevice* tt_device) {
 
     SocDescriptor soc_descriptor;
     if (soc_descriptor_path.empty()) {
-        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
+        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the
+        // architecture.
         soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
     } else {
         soc_descriptor = SocDescriptor(soc_descriptor_path, tt_device->get_chip_info());

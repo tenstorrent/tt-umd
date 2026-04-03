@@ -15,6 +15,7 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
             print(
                 f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}"
@@ -77,6 +78,7 @@ class TestTTDevice(unittest.TestCase):
                 "Buffer-based noc_read should match original noc_read",
             )
             print(f"noc_read buffer version verified against original version")
+            dev.set_power_state(False)
 
     def test_dma_tt_device(self):
         pci_ids = tt_umd.PCIDevice.enumerate_devices()
@@ -87,9 +89,11 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
             if dev.is_remote():
                 print(f"Skipping remote device {pci_id} for DMA test")
+                dev.set_power_state(False)
                 continue
 
             # On Blackhole, dma_read_from_device is not supported; fall back to noc_read.
@@ -174,6 +178,7 @@ class TestTTDevice(unittest.TestCase):
                 "Buffer-based noc_read should match original noc_read",
             )
             print(f"noc_read buffer version verified against original version")
+            dev.set_power_state(False)
 
     def test_remote_tt_device(self):
         cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
@@ -216,6 +221,7 @@ class TestTTDevice(unittest.TestCase):
 
         for dev_id in pci_ids:
             dev = tt_umd.TTDevice.create(dev_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
             arch = dev.get_arch()
             print(f"Testing arc_msg on device {dev_id} with arch {arch}")
@@ -235,6 +241,7 @@ class TestTTDevice(unittest.TestCase):
                 f"arc_msg result: exit_code={exit_code:#x}, return_3={return_3:#x}, return_4={return_4:#x}"
             )
             self.assertEqual(exit_code, 0, "arc_msg should succeed")
+            dev.set_power_state(False)
 
     def test_get_chip_info(self):
         """Test get_chip_info method."""
@@ -245,6 +252,7 @@ class TestTTDevice(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
 
             chip_info = dev.get_chip_info()
@@ -269,6 +277,7 @@ class TestTTDevice(unittest.TestCase):
             print(
                 f"    l2cpu_harvesting_mask: {chip_info.harvesting_masks.l2cpu_harvesting_mask}"
             )
+            dev.set_power_state(False)
 
     def test_use_noc1(self):
         """Test use_noc1 static method."""
@@ -284,6 +293,7 @@ class TestTTDevice(unittest.TestCase):
         # Perform basic read/write operations to verify use_noc1 works
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
             print(
                 f"TTDevice id {pci_id} has arch {dev.get_arch()} and board id {dev.get_board_id()}"
@@ -308,6 +318,7 @@ class TestTTDevice(unittest.TestCase):
                 read_data, test_data, "Read data should match written data"
             )
             dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
+            dev.set_power_state(False)
 
         tt_umd.set_thread_noc_id(tt_umd.NocId.NOC0)
         print("Set thread NocId back to NOC0")

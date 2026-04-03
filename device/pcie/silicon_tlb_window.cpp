@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -239,7 +239,7 @@ decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
     } else {
         std::atomic_signal_fence(std::memory_order_seq_cst);
         jump_set = 0;
-        throw SigbusError("SIGBUS signal detected: Device access failed.");
+        throw error::SigbusError("SIGBUS signal detected: Device access failed.");
     }
 }
 

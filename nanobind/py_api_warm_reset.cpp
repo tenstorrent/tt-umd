@@ -22,24 +22,30 @@ void bind_warm_reset(nb::module_ &m) {
             nb::arg("pci_device_ids") = std::vector<int>{},
             nb::arg("reset_m3") = false,
             nb::arg("secondary_bus_reset") = true,  // default to true for backward compatibility
+            nb::arg("m3_delay_s") = 20.0,
             "Perform a warm reset of the device. reset_m3 flag sends specific ARC message to do a M3 board level "
-            "reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset.")
+            "reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset. "
+            "m3_delay_s is the post-reset wait time in seconds when reset_m3 is True (default 20s).")
         .def_static(
             "warm_reset_chip_id",
             &WarmReset::warm_reset_chip_id,
             nb::arg("chip_ids") = std::vector<int>{},
             nb::arg("reset_m3") = false,
             nb::arg("secondary_bus_reset") = true,
+            nb::arg("m3_delay_s") = 20.0,
             "Perform a warm reset of the device using chip IDs. reset_m3 flag sends specific ARC message to do a M3 "
-            "board level reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset.")
+            "board level reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset. "
+            "m3_delay_s is the post-reset wait time in seconds when reset_m3 is True (default 20s).")
         .def_static(
             "warm_reset_pci_bdfs",
             &WarmReset::warm_reset_pci_bdfs,
             nb::arg("pci_bdfs") = std::vector<std::string>{},
             nb::arg("reset_m3") = false,
             nb::arg("secondary_bus_reset") = true,
+            nb::arg("m3_delay_s") = 20.0,
             "Perform a warm reset of the device using PCI BDFs. reset_m3 flag sends specific ARC message to do a M3 "
-            "board level reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset.")
+            "board level reset. secondary_bus_reset flag performs a RESET_PCIE_LINK before issuing the ASIC reset. "
+            "m3_delay_s is the post-reset wait time in seconds when reset_m3 is True (default 20s).")
         .def_static(
             "ubb_warm_reset",
             &WarmReset::ubb_warm_reset,

@@ -59,9 +59,16 @@ public:
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         for (int pci_device_id : pci_device_ids) {
             auto tt_device = TTDevice::create(pci_device_id);
+            tt_device->set_power_state(true);
             tt_device->init_tt_device();
             ASSERT_NE(tt_device->get_firmware_info_provider(), nullptr);
             tt_devices_.push_back(std::move(tt_device));
+        }
+    }
+
+    void TearDown() override {
+        for (auto& tt_device : tt_devices_) {
+            tt_device->set_power_state(false);
         }
     }
 

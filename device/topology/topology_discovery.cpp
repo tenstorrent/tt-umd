@@ -329,11 +329,11 @@ void TopologyDiscovery::discover_remote_devices() {
 
                 try {
                     remote_device->init_tt_device();
-                    // Put device in discovery queue only if it is healthy.
-                    devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
                     if (options.wait_on_ethernet_link_training) {
                         wait_eth_cores_training(remote_device.get());
                     }
+                    // Put device in discovery queue only if it is healthy.
+                    devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
                 } catch (std::runtime_error& re) {  // Catches both remote comm. failure and ARC init failure.
                     if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                         throw;

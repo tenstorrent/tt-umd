@@ -61,6 +61,13 @@ struct TopologyDiscoveryOptions {
     Action eth_fw_heartbeat_failure = Action::THROW;
 
     /**
+     * @brief Action to take when device initialization fails. IGNORE keeps devices it can
+     * and marks them as unhealthy.
+     * Defaults to THROW.
+     */
+    Action device_init_failure_action = Action::THROW;
+
+    /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.
      * If false, only locally connected devices will be discovered.
      * Defaults to true.

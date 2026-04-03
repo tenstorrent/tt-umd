@@ -33,7 +33,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -146,7 +145,22 @@ void TopologyDiscovery::get_connected_devices() {
         ChipId chip_id = get_next_chip_id();
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        auto init_result = tt_device->init_tt_device(
+            timeout::ARC_LONG_POST_RESET_TIMEOUT,
+            /*throw_on_arc_failure=*/options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW);
+        if (init_result != TTDeviceInitResult::SUCCESSFUL) {
+            uint64_t asic_id = get_unhealthy_asic_id(device_id);
+            devices_to_discover.emplace(asic_id, std::move(tt_device));
+            asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+            log_debug(
+                LogUMD,
+                "Discovered unhealthy {} device w/ MMIO, ID: {}, ASIC ID: {}",
+                DeviceTypeToString.at(io_device_type),
+                device_id,
+                asic_id);
+            continue;
+        }
 
         verify_fw_bundle_version(tt_device.get());
 
@@ -176,12 +190,12 @@ void TopologyDiscovery::get_connected_devices() {
 
         log_debug(
             LogUMD,
-            "Discovered {} device w/ MMIO, ID: {}, ASIC ID {}",
+            "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
             DeviceTypeToString.at(io_device_type),
             device_id,
             asic_id);
     }
-    log_debug(LogUMD, "Initialized {} locally connected devices.", devices_to_discover.size());
+    log_debug(LogUMD, "Discovered {} locally connected devices.", devices_to_discover.size());
 }
 
 void TopologyDiscovery::discover_remote_devices() {
@@ -200,6 +214,12 @@ void TopologyDiscovery::discover_remote_devices() {
         uint64_t current_device_asic_id = it->first;
         devices.emplace(current_device_asic_id, std::move(it->second));
         devices_to_discover.erase(it);
+
+        // Skip discovery from unhealthy devices.
+        if (is_marked_unhealthy(current_device_asic_id)) {
+            continue;
+        }
+
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
         verify_fw_bundle_version(tt_device);
@@ -326,6 +346,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId chip_id = asic_id_to_chip_id[current_device_asic_id];
+
+        if (is_marked_unhealthy(current_device_asic_id)) {
+            cluster_desc->unhealthy_devices.push_back(chip_id);
+            continue;
+        }
+
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
 
         if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
@@ -340,6 +366,13 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
+
+        // Cluster descriptor is not designed to contain partial information about devices,
+        // so we cannot add information about unhealthy devices.
+        if (is_marked_unhealthy(current_device_asic_id)) {
+            continue;
+        }
+
         cluster_desc->all_chips.insert(current_chip_id);
         cluster_desc->chip_arch.insert({current_chip_id, tt_device->get_arch()});
 

@@ -29,7 +29,6 @@ RtlSimulationChip::RtlSimulationChip(
 void RtlSimulationChip::start_device() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->start_device();
 }
 
 void RtlSimulationChip::close_device() {}

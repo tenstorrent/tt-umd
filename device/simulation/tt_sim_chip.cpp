@@ -41,12 +41,10 @@ TTSimChip::~TTSimChip() = default;
 
 void TTSimChip::start_device() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    tt_device_->start_device();
 }
 
 void TTSimChip::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);
-    tt_device_->close_device();
 }
 
 void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {

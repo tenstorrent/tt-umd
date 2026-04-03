@@ -46,9 +46,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
+    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
     arch = soc_descriptor_.arch;
     communicator_->initialize();
 
@@ -243,5 +243,7 @@ void RtlSimulationTTDevice::dma_multicast_write(
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
 }
+
+TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

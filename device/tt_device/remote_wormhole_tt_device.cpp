@@ -14,6 +14,7 @@
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 
 namespace tt::umd {
@@ -23,20 +24,14 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
     // RemoteWormholeTTDevice doesn't own a PCIe/JTAG device, but some base class methods
     // (e.g. bar_read32, topology discovery) require access to the local device's interface.
     // Borrow the local device's interface until RemoteProtocol replaces this class entirely.
-    bool has_pcie = false;
-    try {
-        TTDevice::set_pcie_interface(
-            TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_pcie_interface());
-        has_pcie = true;
-    } catch (const std::runtime_error &) {
-        log_warning(LogUMD, "Local device does not have a PCIe interface, trying JTAG.");
+    auto *local = TTDevice::get_remote_interface()->get_remote_communication()->get_local_device();
+    if (local->has_pcie_interface()) {
+        TTDevice::set_pcie_interface(local->get_pcie_interface());
+    } else if (local->has_jtag_interface()) {
+        TTDevice::set_jtag_interface(local->get_jtag_interface());
+    } else {
+        throw std::runtime_error("Local device has no available interface (PCIe or JTAG).");
     }
-
-    if (!has_pcie) {
-        TTDevice::set_jtag_interface(
-            get_remote_interface()->get_remote_communication()->get_local_device()->get_jtag_interface());
-    }
-
     is_remote_tt_device = true;
 }
 

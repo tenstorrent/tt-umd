@@ -56,7 +56,6 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-        std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
         // Map to track allocations per device and per size: device_id -> (size -> (allocated, total)).
         std::map<int, std::map<size_t, std::pair<int, uint32_t>>> tlb_allocation_summary;
 
@@ -110,8 +109,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // TLBs will be automatically freed when allocated_tlbs goes out of scope.
-        log_info(tt::LogUMD, "TLB stress test completed. All TLBs will be freed on exit.");
+        log_info(tt::LogUMD, "TLB stress test completed.");
 
         // Print summary for all devices.
         log_info(tt::LogUMD, "=== TLB Allocation Summary ===");

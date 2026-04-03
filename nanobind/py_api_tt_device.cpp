@@ -25,11 +25,12 @@
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 namespace nb = nanobind;
 
 using namespace tt;
@@ -63,11 +64,11 @@ void bind_tt_device(nb::module_ &m) {
         .value("JTAG", IODeviceType::JTAG)
         .value("Undefined", IODeviceType::UNDEFINED);
 
-    nb::exception<SigbusError>(m, "SigbusError");
+    nb::exception<error::SigbusError>(m, "SigbusError");
 
     m.def(
         "raise_sigbus_error_for_testing",
-        []() { throw SigbusError("This is a test exception from C++"); },
+        []() { throw error::SigbusError("This is a test exception from C++"); },
         "A helper function to verify SigbusError propagation");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
@@ -134,6 +135,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
             nb::rv_policy::take_ownership)
+        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"))
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,
@@ -456,6 +458,63 @@ void bind_tt_device(nb::module_ &m) {
         "Creates a simulation TTDevice from a simulator path. "
         "If the path ends with '.so', creates a TTSimTTDevice (functional simulator). "
         "Otherwise, creates an RtlSimulationTTDevice (RTL simulator).");
+
+    nb::class_<TTSimTTDevice, TTDevice>(m, "TTSimTTDevice")
+        .def_static(
+            "create",
+            &TTSimTTDevice::create,
+            nb::arg("simulator_directory"),
+            nb::arg("num_host_mem_channels") = 0,
+            nb::arg("copy_sim_binary") = false,
+            "Creates a TTSimTTDevice for functional simulation communication.")
+        .def(
+            "send_tensix_risc_reset",
+            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, bool)>(&TTSimTTDevice::send_tensix_risc_reset),
+            nb::arg("translated_core"),
+            nb::arg("deassert"),
+            "Send a Tensix RISC reset signal to the simulation device.")
+        .def(
+            "send_tensix_risc_reset_with_options",
+            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
+                &TTSimTTDevice::send_tensix_risc_reset),
+            nb::arg("translated_core"),
+            nb::arg("soft_resets"),
+            "Send a Tensix RISC reset with specific soft reset options for a single core.")
+        .def(
+            "send_tensix_risc_reset_all",
+            static_cast<void (TTSimTTDevice::*)(const TensixSoftResetOptions &)>(
+                &TTSimTTDevice::send_tensix_risc_reset),
+            nb::arg("soft_resets"),
+            "Send a Tensix RISC reset with specific soft reset options for all cores.")
+        .def(
+            "assert_risc_reset",
+            [](TTSimTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
+                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("selected_riscs"),
+            "Assert RISC reset for selected RISC cores on a given core.")
+        .def(
+            "deassert_risc_reset",
+            [](TTSimTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs, bool staggered_start) {
+                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("selected_riscs"),
+            nb::arg("staggered_start") = false,
+            "Deassert RISC reset for selected RISC cores on a given core.")
+        .def(
+            "get_soc_descriptor",
+            &TTSimTTDevice::get_soc_descriptor,
+            nb::rv_policy::reference_internal,
+            "Get the SocDescriptor associated with this simulation device.")
+        .def("close_device", &TTSimTTDevice::close_device, "Close the simulation device.")
+        .def("start_device", &TTSimTTDevice::start_device, "Start the simulation device.")
+        .def("get_clock", &TTSimTTDevice::get_clock, "Get the clock frequency.")
+        .def("get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, "Get the minimum clock frequency.")
+        .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");
 
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
         .def_static(

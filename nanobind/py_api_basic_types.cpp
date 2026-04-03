@@ -144,7 +144,7 @@ void bind_basic_types(nb::module_ &m) {
         .value("UBB", tt::BoardType::UBB)
         .value("UBB_WORMHOLE", tt::BoardType::UBB_WORMHOLE)
         .value("UBB_BLACKHOLE", tt::BoardType::UBB_BLACKHOLE)
-        .value("QUASAR", tt::BoardType::QUASAR)
+        .value("QUASAR", tt::BoardType::QUASAR_BOARD)
         .value("UNKNOWN", tt::BoardType::UNKNOWN)
         .def("__str__", &tt::board_type_to_string)
         .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });

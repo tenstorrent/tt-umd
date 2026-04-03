@@ -59,6 +59,7 @@ SpiTestDevices setup_spi_test_devices() {
         if (cluster_desc->is_chip_mmio_capable(chip_id)) {
             int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
             auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe);
+            tt_device->set_power_state(true);
             tt_device->init_tt_device();
             result.tt_devices[chip_id] = std::move(tt_device);
         } else {

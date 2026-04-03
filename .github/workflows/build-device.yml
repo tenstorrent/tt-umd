@@ -143,6 +143,7 @@ jobs:
 
       - name: Generate ${{ matrix.image.package }} package
         working-directory: ${{ env.TT_UMD_DIR }}/build
+        shell: bash
         run: |
           PKG="${{ matrix.image.package }}"
           cpack -G "${PKG^^}"
@@ -225,6 +226,7 @@ jobs:
 
       - name: Generate ${{ matrix.image.package }} package for umd-python
         working-directory: ${{ env.TT_UMD_DIR }}/build
+        shell: bash
         run: |
           PKG="${{ matrix.image.package }}"
           cpack -G "${PKG^^}"

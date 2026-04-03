@@ -59,9 +59,6 @@ public:
     void dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void close_device();
-    void start_device();
-
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets);
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);

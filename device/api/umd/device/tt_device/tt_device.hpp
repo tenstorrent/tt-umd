@@ -296,8 +296,6 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
-    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
-
     /**
      * Request full power domains from KMD (busy=true) or release them (busy=false).
      * No-op for remote devices and on KMD versions older than 2.6.0.

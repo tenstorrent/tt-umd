@@ -104,8 +104,9 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     }
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     // Resort devices by ChipID instead of internal unique identifiers.
-    for (auto& [chip_id, unique_id] : cluster_desc->chip_unique_ids) {
-        devices[chip_id] = std::move(td->devices.at(unique_id));
+    for (auto& [unique_id, device] : td->devices) {
+        ChipId chip_id = td->asic_id_to_chip_id[unique_id];
+        devices[chip_id] = std::move(device);
     }
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }

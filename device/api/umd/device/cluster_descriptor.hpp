@@ -247,7 +247,7 @@ public:
 
     const std::unordered_map<ChipId, std::string> &get_chip_pci_bdfs() const;
 
-    const std::vector<ChipId> &get_unhealthy_devices() const { return unhealthy_devices; };
+    const std::vector<ChipId> &get_unhealthy_devices() const { return unhealthy_devices; }
 
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;

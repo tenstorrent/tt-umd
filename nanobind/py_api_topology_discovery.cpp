@@ -61,7 +61,8 @@ void bind_topology_discovery(nb::module_& m) {
             "get_board_id_for_chip",
             &ClusterDescriptor::get_board_id_for_chip,
             nb::arg("chip"),
-            "Get board ID for a chip");
+            "Get board ID for a chip")
+        .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices);
 
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 

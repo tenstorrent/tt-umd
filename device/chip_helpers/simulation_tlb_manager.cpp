@@ -230,11 +230,15 @@ const architecture_implementation* SimulationTlbManager::get_architecture_impl()
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    // Quasar has no TLB size list; use a large virtual TLB so the communicator handles all I/O.
+    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     switch (architecture_) {
         case tt::ARCH::BLACKHOLE:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
         case tt::ARCH::WORMHOLE_B0:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
+        case tt::ARCH::QUASAR:
+            return factory_(this, 0, SIZE_4GB, TlbMapping::WC, {});
         default:
             log_debug(
                 LogUMD,

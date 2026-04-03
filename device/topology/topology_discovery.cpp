@@ -328,7 +328,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
         ChipId chip_id = asic_id_to_chip_id[current_device_asic_id];
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
 
-        if (io_device_type == IODeviceType::PCIe) {
+        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
             cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
         }
 

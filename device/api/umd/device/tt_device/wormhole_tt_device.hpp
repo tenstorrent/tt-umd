@@ -52,14 +52,7 @@ public:
 protected:
     WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
     WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-    /*
-     * Create a device without an underlying communication device.
-     * Used for remote devices that depend on remote_communication.
-     * WARNING: This constructor should not be used for PCIe devices as certain functionalities from base class rely on
-     * the presence of an underlying communication device. Creating a WormholeTTDevice without an underlying
-     * communication device over PCIe would require overriding several methods from the base class.
-     */
-    WormholeTTDevice();
+    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 

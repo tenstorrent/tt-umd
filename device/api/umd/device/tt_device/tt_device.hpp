@@ -21,6 +21,7 @@
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -69,16 +70,21 @@ public:
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
         std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
     JtagDevice *get_jtag_device();
+    RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
+    RemoteInterface *get_remote_interface();
 
     // Temporary queries used by RemoteWormholeTTDevice to probe the local device's interfaces.
     // These will be removed once RemoteWormholeTTDevice is replaced by RemoteProtocol.
@@ -290,8 +296,6 @@ public:
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
-    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
-
     /**
      * Request full power domains from KMD (busy=true) or release them (busy=false).
      * No-op for remote devices and on KMD versions older than 2.6.0.
@@ -404,6 +408,7 @@ private:
     std::unique_ptr<DeviceProtocol> device_protocol_;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
+    RemoteInterface *remote_capabilities_ = nullptr;
 };
 
 }  // namespace tt::umd

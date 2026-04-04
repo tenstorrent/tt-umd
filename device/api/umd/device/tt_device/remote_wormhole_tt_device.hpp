@@ -28,8 +28,6 @@ public:
 
     void wait_for_non_mmio_flush() override;
 
-    RemoteCommunication* get_remote_communication() const override;
-
     /*
      * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
      * so hang detection is done via the local TTDevice used by RemoteCommunication.
@@ -57,8 +55,6 @@ private:
     RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
     friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
-
-    std::unique_ptr<RemoteCommunication> remote_communication_;
 };
 
 }  // namespace tt::umd

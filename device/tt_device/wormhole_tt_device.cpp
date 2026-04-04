@@ -22,6 +22,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -46,7 +47,8 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint
                                   : wormhole::ARC_CORES_NOC0[0];
 }
 
-WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
+    TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>()) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])

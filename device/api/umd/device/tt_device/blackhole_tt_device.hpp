@@ -48,6 +48,8 @@ public:
     bool is_hardware_hung() override;
     uint32_t read_hang_check_reg_via_noc() override;
 
+    void noc_broadcast(void *src, size_t size, uint64_t addr) override;
+
 protected:
     BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
     BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

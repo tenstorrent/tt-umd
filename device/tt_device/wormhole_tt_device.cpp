@@ -95,6 +95,22 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
+void WormholeTTDevice::noc_broadcast(void *src, size_t size, uint64_t addr) {
+    // When translation is enabled, tensix cores live in a virtual address space starting at
+    // (tensix_translated_coordinate_start_x, tensix_translated_coordinate_start_y) with grid 8x10.
+    // Without translation, use raw NOC coordinates for the full 10x12 grid, skipping the
+    // NOC controller column at x=0.
+    if (get_chip_info().noc_translation_enabled) {
+        constexpr uint32_t x_start = wormhole::tensix_translated_coordinate_start_x;
+        constexpr uint32_t y_start = wormhole::tensix_translated_coordinate_start_y;
+        constexpr uint32_t x_end = x_start + wormhole::TENSIX_GRID_SIZE.x - 1;
+        constexpr uint32_t y_end = y_start + wormhole::TENSIX_GRID_SIZE.y - 1;
+        noc_multicast_write(src, size, {x_start, y_start}, {x_end, y_end}, addr);
+    } else {
+        noc_multicast_write(src, size, {1, 0}, {9, 11}, addr);
+    }
+}
+
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;

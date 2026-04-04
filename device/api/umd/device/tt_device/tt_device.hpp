@@ -158,6 +158,21 @@ public:
     virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     /**
+     * NOC broadcast write function that writes data to all cores on the NOC grid. Equivalent to noc_multicast_write
+     * covering the entire chip grid. The exact coordinates used depend on the architecture and whether NOC translation
+     * is enabled.
+     *
+     * For Wormhole: multicasts to the full grid (start=(1,0), end=(9,11)).
+     * For Blackhole with NOC translation disabled: full grid (start=(0,1), end=(16,11)).
+     * For Blackhole with NOC translation enabled: uses wraparound coordinates so the NOC hardware covers all cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_broadcast(void *src, size_t size, uint64_t addr);
+
+    /**
      * Read function that will send read message to the ARC core APB peripherals.
      *
      * @param mem_ptr pointer to memory which will receive the data

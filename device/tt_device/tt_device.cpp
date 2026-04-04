@@ -339,6 +339,10 @@ void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
+void TTDevice::noc_broadcast(void *src, size_t size, uint64_t addr) {
+    TT_THROW("noc_broadcast is not supported for this architecture");
+}
+
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);

@@ -47,6 +47,8 @@ public:
     bool is_hardware_hung() override;
     uint32_t read_hang_check_reg_via_noc() override;
 
+    void noc_broadcast(void *src, size_t size, uint64_t addr) override;
+
     ~WormholeTTDevice() override = default;
 
 protected:

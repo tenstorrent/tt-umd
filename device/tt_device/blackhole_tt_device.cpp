@@ -63,6 +63,18 @@ BlackholeTTDevice::~BlackholeTTDevice() {
     }
 }
 
+void BlackholeTTDevice::noc_broadcast(void *src, size_t size, uint64_t addr) {
+    // Blackhole grid is 17x12. Broadcast coordinates depend on NOC translation:
+    //   Translation disabled: full grid multicast, skipping the NOC controller row at y=0.
+    //   Translation enabled:  wraparound trick — end < start causes the NOC hardware to
+    //                         wrap around and cover all cores (mirrors luwen behavior).
+    if (get_chip_info().noc_translation_enabled) {
+        noc_multicast_write(src, size, {2, 3}, {1, 2}, addr);
+    } else {
+        noc_multicast_write(src, size, {0, 1}, {16, 11}, addr);
+    }
+}
+
 void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint64_t base = region * region_size;
     uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);

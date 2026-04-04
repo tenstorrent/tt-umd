@@ -244,6 +244,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             "Write a 32-bit value to the specified address on bar0")
         .def(
+            "is_pcie_hung",
+            &TTDevice::is_pcie_hung,
+            nb::arg("data_read") = HANG_READ_VALUE,
+            "Check if the PCIe interface is hung. Throws if hardware is confirmed hung.")
+        .def("is_noc_hung", &TTDevice::is_noc_hung, nb::arg("noc"), "Check if the specified NOC is hung.")
+        .def(
             "get_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y) -> uint32_t {
                 tt_xy_pair core = {core_x, core_y};

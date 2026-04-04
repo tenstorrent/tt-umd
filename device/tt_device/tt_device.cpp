@@ -206,7 +206,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-bool TTDevice::detect_hang_read(std::uint32_t data_read) {
+bool TTDevice::is_pcie_hung(std::uint32_t data_read) {
     if (!hang_detector_) {
         throw std::runtime_error("HangDetector is not available for this device.");
     }

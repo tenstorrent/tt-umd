@@ -116,7 +116,7 @@ uint32_t WormholeArcMessenger::send_message(
             start, timeout_ms, fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
     }
 
-    tt_device->detect_hang_read();
+    tt_device->is_pcie_hung();
     return exit_code;
 }
 

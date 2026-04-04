@@ -95,11 +95,32 @@ public:
 
     tt::ARCH get_arch();
 
-    /*
-     * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
-     * so hang detection is done via the local TTDevice used by RemoteCommunication.
+    /**
+     * Check if the PCIe communication is hung.
+     *
+     * Reads a known register over BAR and compares the result against the hang
+     * signature. If the device is not locally accessible (e.g. JTAG or remote),
+     * the check is skipped and false is returned.
+     *
+     * @param data_read  Value to compare against the hang signature. Defaults to
+     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   after any BAR read that returned a suspicious value.
+     * @return true if the PCIe communication appears hung.
+     * @throws std::runtime_error if a confirmed hang is detected.
      */
-    bool detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE);
+
+    /**
+     * Check if NOC traffic to the device is hung.
+     *
+     * Sends a read over the specified NOC and compares the result against the
+     * hang signature. Only meaningful for locally accessible devices; on remote
+     * devices the check is skipped and false is returned.
+     *
+     * @param noc  NOC to check (NOC0 or NOC1).
+     * @return true if the NOC appears hung.
+     * @throws std::runtime_error if a confirmed hang is detected.
+     */
     bool is_noc_hung(NocId noc);
 
     /**

@@ -96,6 +96,14 @@ public:
     tt::ARCH get_arch();
 
     /**
+     * @brief Controls what happens when a hang is confirmed.
+     */
+    enum class HangAction {
+        Throw,        ///< Throw std::runtime_error (default).
+        ReturnValue,  ///< Return instead of throwing.
+    };
+
+    /**
      * Check if the PCIe communication is hung.
      *
      * Reads a known register over BAR and compares the result against the hang
@@ -105,10 +113,11 @@ public:
      * @param data_read  Value to compare against the hang signature. Defaults to
      *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
      *                   after any BAR read that returned a suspicious value.
-     * @return true if the PCIe communication appears hung.
-     * @throws std::runtime_error if a confirmed hang is detected.
+     * @param action     What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
      */
-    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE);
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::Throw);
 
     /**
      * Check if NOC traffic to the device is hung.
@@ -117,11 +126,12 @@ public:
      * hang signature. Only meaningful for locally accessible devices; on remote
      * devices the check is skipped and false is returned.
      *
-     * @param noc  NOC to check (NOC0 or NOC1).
-     * @return true if the NOC appears hung.
-     * @throws std::runtime_error if a confirmed hang is detected.
+     * @param noc     NOC to check (NOC0 or NOC1).
+     * @param action  What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the NOC appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
      */
-    bool is_noc_hung(NocId noc);
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::Throw);
 
     /**
      * DMA transfer from device to host.

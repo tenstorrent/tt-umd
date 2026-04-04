@@ -130,7 +130,7 @@ TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBarAndNoc) {
 
     EXPECT_NE(bar_raw, 0xFFFFFFFF) << "BAR read returned all ones.";
 
-    EXPECT_FALSE(tt_device_->is_noc_hung(noc))
+    EXPECT_FALSE(tt_device_->is_noc_hung(noc, TTDevice::HangAction::ReturnValue))
         << "NOC" << static_cast<int>(noc) << " appears hung on a healthy device.";
 }
 
@@ -142,16 +142,19 @@ TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
             << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
     }
 
-    ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() returned true before any hang.";
+    ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::ReturnValue))
+        << "is_noc_hung() returned true before any hang.";
 
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     hang_noc(tensix_core, noc_to_hang);
 
-    EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() did not detect the hang.";
+    EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::ReturnValue))
+        << "is_noc_hung() did not detect the hang.";
 
     warm_reset_and_reinit();
 
-    EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() still true after warm reset.";
+    EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::ReturnValue))
+        << "is_noc_hung() still true after warm reset.";
 }
 
 INSTANTIATE_TEST_SUITE_P(

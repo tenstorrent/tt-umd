@@ -206,7 +206,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-bool TTDevice::is_pcie_hung(std::uint32_t data_read) {
+bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     if (!hang_detector_) {
         throw std::runtime_error("HangDetector is not available for this device.");
     }
@@ -216,12 +216,15 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read) {
         return false;
     }
     if (result.value()) {
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+        if (action == TTDevice::HangAction::Throw) {
+            throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+        }
+        return true;
     }
     return false;
 }
 
-bool TTDevice::is_noc_hung(NocId noc) {
+bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     if (!hang_detector_) {
         throw std::runtime_error("HangDetector is not available for this device.");
     }
@@ -230,7 +233,14 @@ bool TTDevice::is_noc_hung(NocId noc) {
         log_warning(LogUMD, "NOC hang detection is not supported for this device.");
         return false;
     }
-    return result.value();
+    if (result.value()) {
+        if (action == TTDevice::HangAction::Throw) {
+            throw std::runtime_error(
+                fmt::format("NOC{} appears hung: you should reset the board.", static_cast<int>(noc)));
+        }
+        return true;
+    }
+    return false;
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

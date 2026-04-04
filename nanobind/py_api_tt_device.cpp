@@ -127,7 +127,13 @@ void bind_tt_device(nb::module_ &m) {
             return std::make_tuple(core.x, core.y);
         });
 
-    nb::class_<TTDevice>(m, "TTDevice")
+    auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
+
+    nb::enum_<TTDevice::HangAction>(tt_device_class, "HangAction")
+        .value("Throw", TTDevice::HangAction::Throw)
+        .value("ReturnValue", TTDevice::HangAction::ReturnValue);
+
+    tt_device_class
         .def_static(
             "create",
             static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
@@ -247,8 +253,14 @@ void bind_tt_device(nb::module_ &m) {
             "is_pcie_hung",
             &TTDevice::is_pcie_hung,
             nb::arg("data_read") = HANG_READ_VALUE,
-            "Check if the PCIe interface is hung. Throws if hardware is confirmed hung.")
-        .def("is_noc_hung", &TTDevice::is_noc_hung, nb::arg("noc"), "Check if the specified NOC is hung.")
+            nb::arg("action") = TTDevice::HangAction::Throw,
+            "Check if the PCIe communication is hung.")
+        .def(
+            "is_noc_hung",
+            &TTDevice::is_noc_hung,
+            nb::arg("noc"),
+            nb::arg("action") = TTDevice::HangAction::Throw,
+            "Check if the specified NOC is hung.")
         .def(
             "get_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y) -> uint32_t {

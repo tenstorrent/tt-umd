@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -366,6 +367,11 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
             "milliseconds.")
+        .def(
+            "get_local_eth_coord",
+            &TTDevice::get_local_eth_coord,
+            "Returns the ETH coordinate (rack/shelf/x/y) of this chip, or None if not supported (Blackhole) "
+            "or no trained ETH cores are available.")
         .def(
             "arc_msg",
             [](TTDevice &self,

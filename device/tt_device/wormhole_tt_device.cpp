@@ -268,6 +268,49 @@ void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
     write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
 }
 
+std::optional<EthCoord> WormholeTTDevice::get_local_eth_coord() {
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    const CoordSystem noc_system = is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0;
+    for (const CoreCoord &eth_core : soc_desc.get_cores(CoreType::ETH, noc_system)) {
+        if (read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS) {
+            return get_local_eth_coord(eth_core);
+        }
+    }
+    return std::nullopt;
+}
+
+EthCoord WormholeTTDevice::get_local_eth_coord(tt_xy_pair eth_core) {
+    uint32_t eth_coord_info;
+    read_from_device(&eth_coord_info, eth_core, wormhole::ETH_NODE_INFO_ADDR + 8, sizeof(uint32_t));
+
+    EthCoord eth_coord;
+    eth_coord.cluster_id = 0;
+    eth_coord.rack = eth_coord_info & 0xFF;
+    eth_coord.shelf = (eth_coord_info >> 8) & 0xFF;
+    eth_coord.x = (eth_coord_info >> 16) & 0xFF;
+    eth_coord.y = (eth_coord_info >> 24) & 0xFF;
+    return eth_coord;
+}
+
+EthCoord WormholeTTDevice::get_remote_eth_coord(tt_xy_pair eth_core) {
+    constexpr uint32_t shelf_offset = 9;
+    constexpr uint32_t rack_offset = 10;
+
+    EthCoord eth_coord;
+    eth_coord.cluster_id = 0;
+
+    uint32_t remote_id;
+    read_from_device(&remote_id, eth_core, wormhole::ETH_NODE_INFO_ADDR + (4 * rack_offset), sizeof(uint32_t));
+    eth_coord.rack = remote_id & 0xFF;
+    eth_coord.shelf = (remote_id >> 8) & 0xFF;
+
+    read_from_device(&remote_id, eth_core, wormhole::ETH_NODE_INFO_ADDR + (4 * shelf_offset), sizeof(uint32_t));
+    eth_coord.x = (remote_id >> 16) & 0x3F;
+    eth_coord.y = (remote_id >> 22) & 0x3F;
+
+    return eth_coord;
+}
+
 bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;

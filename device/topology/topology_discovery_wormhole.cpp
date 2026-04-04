@@ -120,39 +120,11 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy
 }
 
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
-    uint32_t current_device_eth_coord_info;
-    tt_device->read_from_device(
-        &current_device_eth_coord_info, eth_core, EthAddresses::NODE_INFO + 8, sizeof(uint32_t));
-
-    EthCoord eth_coord;
-    eth_coord.cluster_id = 0;
-    eth_coord.x = (current_device_eth_coord_info >> 16) & 0xFF;
-    eth_coord.y = (current_device_eth_coord_info >> 24) & 0xFF;
-    eth_coord.rack = current_device_eth_coord_info & 0xFF;
-    eth_coord.shelf = (current_device_eth_coord_info >> 8) & 0xFF;
-
-    return eth_coord;
+    return dynamic_cast<WormholeTTDevice*>(tt_device)->get_local_eth_coord(eth_core);
 }
 
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
-    const uint32_t shelf_offset = 9;
-    const uint32_t rack_offset = 10;
-    EthCoord eth_coord;
-    eth_coord.cluster_id = 0;
-    uint32_t remote_id;
-    tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
-
-    eth_coord.rack = remote_id & 0xFF;
-    eth_coord.shelf = (remote_id >> 8) & 0xFF;
-
-    tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
-
-    eth_coord.x = (remote_id >> 16) & 0x3F;
-    eth_coord.y = (remote_id >> 22) & 0x3F;
-
-    return eth_coord;
+    return dynamic_cast<WormholeTTDevice*>(tt_device)->get_remote_eth_coord(eth_core);
 }
 
 std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(

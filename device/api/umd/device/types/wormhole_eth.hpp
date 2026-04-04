@@ -12,6 +12,7 @@ namespace tt::umd::wormhole {
 
 // ETH related constants.
 // Tied to the wormhole ETH FW layout.
+inline constexpr uint32_t ETH_NODE_INFO_ADDR = 0x1100;
 inline constexpr uint32_t ETH_TRAIN_STATUS_ADDR = 0x1104;
 inline constexpr uint32_t ETH_RETRAIN_ADDR = 0x1EFC;
 inline constexpr uint32_t ETH_LINK_ERR_STATUS_ADDR = 0x1440;

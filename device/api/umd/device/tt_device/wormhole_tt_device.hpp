@@ -44,6 +44,10 @@ public:
 
     void retrain_eth_core(tt_xy_pair eth_core);
 
+    EthCoord get_local_eth_coord(tt_xy_pair eth_core);
+    EthCoord get_remote_eth_coord(tt_xy_pair eth_core);
+    std::optional<EthCoord> get_local_eth_coord() override;
+
     bool is_hardware_hung() override;
     uint32_t read_hang_check_reg_via_noc() override;
 

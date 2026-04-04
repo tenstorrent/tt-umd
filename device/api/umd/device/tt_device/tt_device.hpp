@@ -8,6 +8,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "umd/device/arc/arc_messenger.hpp"
@@ -370,6 +371,15 @@ public:
      * @return Training status
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+
+    /**
+     * Returns the ETH coordinate (rack/shelf/x/y position in the fabric) of this chip.
+     * Finds any trained ETH core and reads the coordinate from it.
+     *
+     * @return EthCoord if the chip supports ETH coordinates and has at least one trained ETH core,
+     *         std::nullopt otherwise (e.g. Blackhole, or no trained ETH cores).
+     */
+    virtual std::optional<EthCoord> get_local_eth_coord() { return std::nullopt; }
 
 protected:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;

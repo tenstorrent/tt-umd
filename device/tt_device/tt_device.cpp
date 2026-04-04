@@ -29,7 +29,6 @@
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -156,7 +155,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             return nullptr;
@@ -310,7 +309,12 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firm
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
-void TTDevice::wait_for_non_mmio_flush() {}
+void TTDevice::wait_for_non_mmio_flush() {
+    if (!remote_capabilities_) {
+        return;
+    }
+    get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
+}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
@@ -367,10 +371,23 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (is_remote_tt_device) {
+        // Remote devices don't have direct NOC multicast support.
+        // Fallback to unicast for all cores in the range.
+        for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+            for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+                write_to_device(src, tt_xy_pair(x, y), addr, size);
+            }
+        }
+        return;
+    }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+    if (is_remote_tt_device) {
+        throw std::runtime_error("DMA write to device not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -386,6 +403,9 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    if (is_remote_tt_device) {
+        throw std::runtime_error("DMA read from device not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -401,6 +421,9 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (is_remote_tt_device) {
+        throw std::runtime_error("DMA multicast write not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 

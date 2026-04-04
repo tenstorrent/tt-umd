@@ -61,6 +61,7 @@ jobs:
 
     env:
       LD_LIBRARY_PATH: ./build/lib
+      TT_LOGGER_LEVEL: ${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'debug' || inputs.log-level }}
 
     steps:
       - name: Print all params

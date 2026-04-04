@@ -18,7 +18,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -32,6 +32,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         ChipInfo chip_info = tt_device->get_chip_info();
@@ -47,6 +48,8 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
         ASSERT_EQ(data_write, data_read);
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -59,6 +62,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
         uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
 
@@ -77,6 +81,8 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
         tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
         ASSERT_EQ(data_write1, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -84,13 +90,17 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         BoardType board_type = tt_device->get_board_type();
 
         EXPECT_TRUE(
             board_type == BoardType::N150 || board_type == BoardType::N300 || board_type == BoardType::P100 ||
-            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB);
+            board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB ||
+            board_type == BoardType::UBB_BLACKHOLE);
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -105,6 +115,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
         ChipInfo chip_info = tt_device->get_chip_info();
 
@@ -144,6 +155,8 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
         thread0.join();
         thread1.join();
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -192,10 +205,6 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
 TEST(ApiTTDeviceTest, MulticastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
 
     const tt::ARCH arch = pci_devices_info.at(pci_device_ids[0]).get_arch();
@@ -217,6 +226,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
@@ -245,5 +255,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
                 EXPECT_EQ(data_write, readback);
             }
         }
+
+        tt_device->set_power_state(false);
     }
 }

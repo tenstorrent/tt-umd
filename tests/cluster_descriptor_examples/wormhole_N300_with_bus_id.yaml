@@ -23,12 +23,6 @@ harvesting: {
    1: {noc_translation: true, harvest_mask: 5},
 }
 
-# This value will be null if the boardtype is unknown, should never happen in practice but to be defensive it would be useful to throw an error on this case.
-boardtype: {
-   0: n300,
-   1: n300,
-}
-
 chip_to_bus_id: {
    0: "0x1a",
    1: "0x1b",

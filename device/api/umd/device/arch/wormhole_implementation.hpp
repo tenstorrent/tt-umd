@@ -253,6 +253,10 @@ inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
 
+// ARC NIU BAR0 base addresses for NOC0 and NOC1.
+inline constexpr uint32_t NIU_CFG_NOC0_BAR_ARC_ADDR = ARC_APB_BAR0_XBAR_OFFSET_START + 0x50000;
+inline constexpr uint32_t NIU_CFG_NOC1_BAR_ARC_ADDR = ARC_APB_BAR0_XBAR_OFFSET_START + 0x58000;
+
 inline constexpr uint32_t ARC_CSM_OFFSET_AXI = 0x1FE80000;
 inline constexpr uint64_t ARC_CSM_OFFSET_NOC = 0x810000000;
 
@@ -309,6 +313,8 @@ constexpr std::array<std::pair<CoreType, uint64_t>, 6> NOC1_CONTROL_REG_ADDR_BAS
      {CoreType::ARC, 0xFFFB20000},
      {CoreType::ROUTER_ONLY, 0xFFB20000}}};
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x2C;
+inline constexpr uint64_t NOC_ID_TRANSLATED_OFFSET =
+    0x138;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 constexpr std::array<uint64_t, 3> DRAM_NOC0_CONTROL_REG_ADDR_BASE_MAP = {0x100080000, 0x100090000, 0x1000A0000};
 constexpr std::array<uint64_t, 3> DRAM_NOC1_CONTROL_REG_ADDR_BASE_MAP = {0x100088000, 0x100098000, 0x1000A8000};
@@ -338,8 +344,6 @@ inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
-// ETH related constants.
-inline constexpr uint32_t ETH_FW_VERSION_ADDR = 0x210;
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {
@@ -402,6 +406,8 @@ public:
 
     uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
 
+    uint32_t get_aiclk_busy_val() const override { return wormhole::AICLK_BUSY_VAL; }
+
     uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return wormhole::DYNAMIC_TLB_2M_BASE; }
@@ -420,7 +426,9 @@ public:
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override { return wormhole::ARC_SCRATCH_6_OFFSET; }
+    uint32_t get_read_checking_offset() const override {
+        return wormhole::NIU_CFG_NOC0_BAR_ARC_ADDR + wormhole::NOC_NODE_ID_OFFSET;
+    }
 
     uint32_t get_reg_tlb() const override { return wormhole::REG_TLB; }
 
@@ -493,6 +501,8 @@ public:
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return wormhole::NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

@@ -27,6 +27,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -42,7 +43,8 @@ FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
         auto start = std::chrono::steady_clock::now();
         auto timeout_duration = std::chrono::milliseconds(250);
         while (std::chrono::steady_clock::now() - start < timeout_duration) {
-            auto fw_bundle_version = smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION);
+            auto fw_bundle_version =
+                smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION);
             if (fw_bundle_version != 0) {
                 return FirmwareBundleVersion::from_firmware_bundle_tag(fw_bundle_version);
             }
@@ -51,7 +53,7 @@ FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
         log_warning(
             tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
         return FirmwareBundleVersion::from_firmware_bundle_tag(
-            smbus_telemetry_reader->read_entry(wormhole::TelemetryTag::FW_BUNDLE_VERSION));
+            smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)

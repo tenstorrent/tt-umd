@@ -65,6 +65,18 @@ inline std::vector<std::string> split_string_by_comma(const std::string& input_s
     return device_tokens;
 }
 
+// Check if a string is a valid integer (all digits).
+inline bool is_integer_string(const std::string& str) {
+    return !str.empty() && std::all_of(str.begin(), str.end(), ::isdigit);
+}
+
+// Check if a string looks like a BDF (Bus:Device.Function) format.
+// BDF format contains ':' and '.' and only valid hex/BDF characters.
+inline bool is_bdf_string(const std::string& str) {
+    return (str.find(':') != std::string::npos || str.find('.') != std::string::npos) &&
+           (str.find_first_not_of("0123456789abcdefABCDEF.:") == std::string::npos);
+}
+
 // This ENV variable is used to specify visible devices for BOTH PCIe and JTAG interfaces depending on which one is
 // active.
 // This ENV variable is used to specify visible devices by PCI BDF (Bus:Device.Function) addresses.

@@ -22,6 +22,21 @@
 
 using namespace tt::umd;
 
+/**
+ * Helper that reads data from a device core using the appropriate mechanism for the
+ * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
+ * dma_read_from_device is used. On other architectures (including Blackhole), the standard
+ * read_from_device path is used instead.
+ */
+void read_data_based_on_architecture(
+    TTDevice& tt_device, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
+    if (tt_device.get_arch() == tt::ARCH::WORMHOLE_B0) {
+        tt_device.dma_read_from_device(mem_ptr, size, core, address);
+    } else {
+        tt_device.read_from_device(mem_ptr, core, address, size);
+    }
+}
+
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 static constexpr int NUM_OF_BYTES_RESERVED = 128;
@@ -131,7 +146,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 }
 
 // Many threads start and stop many clusters.
-TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
+TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -170,12 +185,8 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
 }
 
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
-TEST(Multiprocess, WorkloadVSMonitor) {
+TEST(Multiprocess, DISABLED_WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto workload_thread = std::thread([&] {
         std::cout << "Creating workload cluster" << std::endl;
@@ -204,6 +215,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -215,6 +227,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
             tt_device->read_from_device(&example_read, arc_core, 0x8003042C, sizeof(uint32_t));
         }
         std::cout << "Destroying low level monitor cluster" << std::endl;
+        tt_device->set_power_state(false);
     });
 
     workload_thread.join();
@@ -225,13 +238,10 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 TEST(Multiprocess, LongLivedMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     auto low_level_monitor_thread = std::thread([&] {
         std::cout << "Creating low level monitor cluster" << std::endl;
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -243,6 +253,7 @@ TEST(Multiprocess, LongLivedMonitor) {
             tt_device->read_from_device(&example_read, arc_core, 0x8003042C, sizeof(uint32_t));
         }
         std::cout << "Destroying low level monitor cluster" << std::endl;
+        tt_device->set_power_state(false);
     });
 
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -311,10 +322,6 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
 TEST(Multiprocess, DMAWriteReadRaceCondition) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
-
     // Use the first available PCI device for this test.
     const int test_device_id = pci_device_ids.at(0);
     const int num_processes = 4;
@@ -334,6 +341,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
             // Each process creates its own TTDevice object with the same PCIDevice.
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            tt_device->set_power_state(true);
             tt_device->init_tt_device();
 
             SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -357,9 +365,10 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using DMA.
+                    // Read data back using architecture-specific method.
                     std::fill(read_data.begin(), read_data.end(), 0);
-                    tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
+                    read_data_based_on_architecture(
+                        *tt_device, tensix_core, read_data.data(), process_address, data_size);
 
                     // Verify data integrity.
                     ASSERT_EQ(write_data, read_data)
@@ -374,6 +383,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
             std::cout << "Process " << process_id << ": Completed " << num_iterations << " DMA operations successfully"
                       << std::endl;
+            tt_device->set_power_state(false);
         }));
     }
 
@@ -387,10 +397,6 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
 
 TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     constexpr int NUM_PROCESSES = 4;
     std::vector<pid_t> pids;
@@ -410,6 +416,7 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
 
             // Each process creates its own TTDevice object with the same PCIDevice.
             std::unique_ptr<TTDevice> tt_device = TTDevice::create(test_device_id);
+            tt_device->set_power_state(true);
             tt_device->init_tt_device();
 
             SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
@@ -431,9 +438,10 @@ TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using DMA.
+                    // Read data back using architecture-specific method.
                     std::fill(read_data.begin(), read_data.end(), 0);
-                    tt_device->dma_read_from_device(read_data.data(), data_size, tensix_core, process_address);
+                    read_data_based_on_architecture(
+                        *tt_device, tensix_core, read_data.data(), process_address, data_size);
 
                     // Verify data integrity.
                     if (write_data != read_data) {

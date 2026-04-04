@@ -24,6 +24,8 @@
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
 constexpr uint32_t WORMHOLE_ARC_EFUSE_HARVESTING = (WORMHOLE_ARC_EFUSE_BOX1 + 0x25C);
 
+namespace tt::umd {
+
 /* static */ std::filesystem::path JtagDevice::jtag_library_path =
     std::filesystem::path("./build/lib/libtt_umd_jtag.so");
 /* static */ std::optional<uint8_t> JtagDevice::curr_device_idx = std::nullopt;
@@ -61,7 +63,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     }
 }
 
-/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(
+/* static */ std::unique_ptr<JtagDevice> JtagDevice::create(
     const std::filesystem::path& binary_directory, const std::unordered_set<int>& jtag_target_devices) {
     std::filesystem::path actual_path = binary_directory;
 
@@ -78,7 +80,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     }
 
     std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
-    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), jtag_target_devices);
+    std::unique_ptr<JtagDevice> jtag_device = std::make_unique<JtagDevice>(std::move(jtag), jtag_target_devices);
 
     // Check that all chips are of the same type.
     auto arch = jtag_device->get_jtag_arch(0);
@@ -346,3 +348,5 @@ bool JtagDevice::is_hardware_hung(uint8_t chip_id) {
     } while (((status.value() & 0x1) == 0) && (timeout > 0));
     return timeout == 0;
 }
+
+}  // namespace tt::umd

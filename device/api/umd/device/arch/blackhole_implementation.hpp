@@ -220,8 +220,6 @@ inline constexpr uint32_t RISCV_DEBUG_REG_DBG_BUS_CNTL_REG = 0xFFB12000 + 0x54;
 
 inline constexpr uint32_t MSG_TYPE_SETUP_IATU_FOR_PEER_TO_PEER = 0x97;
 
-static const uint32_t BH_NOC_NODE_ID_OFFSET = 0x1FD04044;
-
 inline constexpr uint32_t ARC_XBAR_ADDRESS_END = 0xFFFFFFFF;
 
 inline constexpr uint64_t ARC_NOC_XBAR_ADDRESS_START = 0x80000000;
@@ -253,8 +251,8 @@ inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SP
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
 
-inline constexpr uint32_t NIU_CFG_NOC0_BAR_ADDR = 0x1FD04100;
-inline constexpr uint32_t NIU_CFG_NOC1_BAR_ADDR = 0x1FD14100;
+inline constexpr uint32_t NIU_CFG_NOC0_BAR_PCIE_ADDR = 0x1FD04000;
+inline constexpr uint32_t NIU_CFG_NOC1_BAR_PCIE_ADDR = 0x1FD14000;
 
 inline constexpr uint64_t NIU_CFG_NOC0_ARC_ADDR = 0x80050100;
 inline constexpr uint64_t NIU_CFG_NOC1_ARC_ADDR = 0x80058100;
@@ -286,6 +284,8 @@ inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_A
      {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;
+inline constexpr uint64_t NOC_ID_TRANSLATED_OFFSET =
+    0x148;  // In official documentation, this register is named as NOC_ID_LOGICAL_OFFSET.
 
 inline constexpr size_t eth_translated_coordinate_start_x = 20;
 inline constexpr size_t eth_translated_coordinate_start_y = 25;
@@ -375,6 +375,8 @@ public:
 
     uint32_t get_dram_banks_number() const override { return blackhole::NUM_DRAM_BANKS; }
 
+    uint32_t get_aiclk_busy_val() const override { return blackhole::AICLK_BUSY_VAL; }
+
     uint32_t get_broadcast_tlb_index() const override { return blackhole::BROADCAST_TLB_INDEX; }
 
     uint32_t get_dynamic_tlb_2m_base() const override { return blackhole::DYNAMIC_TLB_2M_BASE; }
@@ -402,7 +404,9 @@ public:
 
     uint32_t get_num_eth_channels() const override { return blackhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override { return blackhole::BH_NOC_NODE_ID_OFFSET; }
+    uint32_t get_read_checking_offset() const override {
+        return blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + blackhole::NOC_NODE_ID_OFFSET;
+    }
 
     uint32_t get_reg_tlb() const override { return blackhole::REG_TLB; }
 
@@ -475,6 +479,8 @@ public:
     DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
+
+    uint64_t get_noc_node_translated_id_offset() const override { return blackhole::NOC_ID_TRANSLATED_OFFSET; }
 
     uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 

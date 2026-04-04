@@ -15,6 +15,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
@@ -50,11 +51,13 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
 void Chip::wait_chip_to_be_ready() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     wait_eth_cores_training();
     wait_dram_cores_training();
 }
 
 void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto timeout_left = timeout_ms;
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
@@ -73,6 +76,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
 }
 
 void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     TTDevice* tt_device = get_tt_device();
     const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
     const uint32_t chip_num_dram_channels = std::min(
@@ -166,12 +170,14 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
+    ZoneScopedC(tracy::Color::DarkRed);
     for (const CoreCoord core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         assert_risc_reset(core, selected_riscs);
     }
 }
 
 void Chip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     for (const CoreCoord core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         deassert_risc_reset(core, selected_riscs, staggered_start);
     }
@@ -229,6 +235,7 @@ int Chip::arc_msg(
 }
 
 void Chip::set_power_state(DevicePowerState state) {
+    ZoneScopedN("UMD_Chip::set_power_state");
     int exit_code = 0;
     if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);

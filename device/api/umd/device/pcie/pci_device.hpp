@@ -10,11 +10,13 @@
 #include <cstdio>
 #include <map>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
@@ -135,6 +137,12 @@ public:
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
     static std::map<int, PciDeviceInfo> enumerate_devices_info();
+
+    /**
+     * Returns the PCI device ID for the given UMD logical ID (index into enumerate_devices()).
+     * @return PCI device ID, or std::nullopt if umd_logical_id is out of range.
+     */
+    static std::optional<int> get_pci_device_id(int umd_logical_id);
 
     /**
      * Read device information from sysfs.
@@ -306,6 +314,16 @@ public:
     static bool is_arch_agnostic_reset_supported();
 
     /**
+     * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).
+     * When busy is true, all power domains are requested (max AI clock, PHY wakeup, Tensix and L2CPU enabled).
+     * When busy is false, all power flags are released, allowing the device to enter a low-power idle state.
+     * Has no effect on KMD versions older than 2.6.0.
+     *
+     * @param busy true to request full power, false to release power flags.
+     */
+    void set_power_state(bool busy);
+
+    /**
      * Get the tt_device handle for low-level operations.
      * @return Pointer to the tt_device handle
      */
@@ -357,6 +375,14 @@ private:
      * @return vector of all available device IDs
      */
     static std::vector<int> get_all_device_ids();
+
+    /**
+     * Sort a list of device IDs by their PCI BDF (Bus:Device.Function) order.
+     * Any IDs that cannot be mapped to a BDF are appended at the end in their original order.
+     * @param pci_device_ids list of device IDs to sort
+     * @return sorted device IDs
+     */
+    static std::vector<int> sort_ids_based_on_bdf(const std::vector<int> &pci_device_ids);
 
     /**
      * Get mapping of BDF to device ID without considering TT_VISIBLE_DEVICES environment variable.

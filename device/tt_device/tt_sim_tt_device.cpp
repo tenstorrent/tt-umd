@@ -9,19 +9,29 @@
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/pcie/pci_ids.h"
+#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
+#include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
 
-static const uint16_t WH_PCIE_DEVICE_ID = 0x401e;
-static const uint16_t BH_PCIE_DEVICE_ID = 0xb140;
-
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(const std::filesystem::path& simulator_directory) {
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, 0);
+    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    ChipInfo chip_info{};
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // We need to set this default harvesting mask for Blackhole so we could create SocDescriptor.
+        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used.
+        // without creating ClusterDescriptor, so we need to add it here as well.
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    }
+    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
+    return std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -34,8 +44,8 @@ TTSimTTDevice::TTSimTTDevice(
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels)) {
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
+    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -43,40 +53,46 @@ TTSimTTDevice::TTSimTTDevice(
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
-    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
+    log_info(
+        tt::LogEmulationDriver,
+        "TTSimTTDevice chip_id={} PCI vendor_id=0x{:x} device_id=0x{:x}",
+        chip_id_,
+        vendor_id,
+        libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
-    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
+        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         // Compute physical address of BAR0 from PCI config registers.
         bar0_base = communicator_->pci_config_read32(0, 0x10);
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
-        if (libttsim_pci_device_id == WH_PCIE_DEVICE_ID) {
+        if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
         } else {
             tlb_region_size_ = 2 * 1024 * 1024;
         }
     }
+
+    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+        this,
+        bar0_base,
+        architecture_impl_.get(),
+        [comm = communicator_.get()](
+            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
+            auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
+            return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
+        });
+    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
-TTSimTTDevice::~TTSimTTDevice() = default;
-
-void TTSimTTDevice::start_device() {}
-
-void TTSimTTDevice::close_device() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogUMD, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
-        while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size_ - uint32_t(addr & (tlb_region_size_ - 1)));
-            communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, cur_size);
-            addr += cur_size;
-            mem_ptr = reinterpret_cast<const uint8_t*>(mem_ptr) + cur_size;
-            size -= cur_size;
-        }
+    if (cached_tlb_window_) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -84,27 +100,26 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (tlb_region_size_) {  // if set, split into requests that do not span TLB regions
-        while (size) {
-            uint32_t cur_size = std::min(size, tlb_region_size_ - uint32_t(addr & (tlb_region_size_ - 1)));
-            communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, cur_size);
-            addr += cur_size;
-            mem_ptr = reinterpret_cast<uint8_t*>(mem_ptr) + cur_size;
-            size -= cur_size;
-        }
+    if (cached_tlb_window_) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
     communicator_->advance_clock(10);
 }
 
+void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
+    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
+}
+
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if ((libttsim_pci_device_id == WH_PCIE_DEVICE_ID) || (libttsim_pci_device_id == BH_PCIE_DEVICE_ID)) {
+    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
+        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint32_t reset_value = uint32_t(soft_resets);
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else if (libttsim_pci_device_id == 0xFEED) {  // QSR
+    } else if (libttsim_pci_device_id == TT_GRENDEL_PCI_DEVICE_ID) {
         uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
         uint64_t reset_value = uint64_t(soft_resets);
         if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
@@ -242,5 +257,11 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->write_to_sysmem(channel, p, offset, size);
 }
+
+void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    throw std::runtime_error("DRAM retraining is not supported in TTSim device.");
+}
+
+TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

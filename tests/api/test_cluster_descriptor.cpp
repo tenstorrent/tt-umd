@@ -23,6 +23,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -37,7 +38,7 @@ int count_connections(
     return count;
 }
 
-TEST(ApiClusterDescriptorTest, DetectArch) {
+TEST(TestClusterDescriptor, DetectArch) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     if (cluster_desc->get_number_of_chips() == 0) {
@@ -69,12 +70,8 @@ TEST(ApiClusterDescriptorTest, DetectArch) {
     }
 }
 
-TEST(ApiClusterDescriptorTest, BasicFunctionality) {
+TEST(TestClusterDescriptor, BasicFunctionality) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-
-    if (cluster_desc == nullptr) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     std::unordered_set<ChipId> all_chips = cluster_desc->get_all_chips();
     std::unordered_map<ChipId, EthCoord> eth_chip_coords = cluster_desc->get_chip_locations();
@@ -101,12 +98,8 @@ TEST(ApiClusterDescriptorTest, BasicFunctionality) {
         cluster_desc->get_chips_grouped_by_closest_mmio();
 }
 
-TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
+TEST(TestClusterDescriptor, EthernetConnectivity) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-
-    if (cluster_desc == nullptr) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     auto ethernet_connections = cluster_desc->get_ethernet_connections();
     for (const auto& [chip, connections] : ethernet_connections) {
@@ -156,11 +149,8 @@ TEST(ApiClusterDescriptorTest, EthernetConnectivity) {
     }
 }
 
-TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
+TEST(TestClusterDescriptor, PrintClusterDescriptor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     // In case of u6 galaxy and blackhole, we generate the cluster descriptor.
     // For wormhole we still use create-ethernet-map.
@@ -177,7 +167,7 @@ TEST(ApiClusterDescriptorTest, PrintClusterDescriptor) {
     file.close();
 }
 
-TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
+TEST(TestClusterDescriptor, VerifyEthConnections) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     std::unordered_map<ChipId, std::unordered_map<EthernetChannel, std::tuple<ChipId, EthernetChannel>>>
@@ -203,14 +193,10 @@ TEST(ApiClusterDescriptorTest, VerifyEthConnections) {
  * single N300 or something similar, but this should raise our confidence of standard topologies working as
  * expected.
  */
-TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
+TEST(TestClusterDescriptor, VerifyStandardTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
 
     auto all_chips = cluster_desc->get_all_chips();
-
-    if (all_chips.empty()) {
-        GTEST_SKIP() << "No chips present on the system. Skipping test.";
-    }
 
     switch (all_chips.size()) {
         // This covers N150, P100, P150.
@@ -314,5 +300,56 @@ TEST(ApiClusterDescriptorTest, VerifyStandardTopology) {
             throw std::runtime_error(
                 "Unexpected number of chips in the cluster descriptor: " + std::to_string(all_chips.size()));
         }
+    }
+}
+
+// It is expected that logical ETH channel numbers are in the range [0, num_channels) for each
+// chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
+// into acount. This test verifies that both for Wormhole and Blackhole.
+TEST(TestClusterDescriptor, TestClusterLogicalETHChannelsConnectivity) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+
+    for (const auto& [chip, connections] : cluster_desc->get_ethernet_connections()) {
+        const uint32_t num_channels_local_chip = cluster->get_soc_descriptor(chip).get_cores(CoreType::ETH).size();
+        for (const auto& [channel, remote_chip_and_channel] : connections) {
+            auto [remote_chip, remote_channel] = remote_chip_and_channel;
+
+            const uint32_t num_channels_remote_chip =
+                cluster->get_soc_descriptor(remote_chip).get_cores(CoreType::ETH).size();
+
+            EXPECT_TRUE(channel < num_channels_local_chip);
+            EXPECT_TRUE(remote_channel < num_channels_remote_chip);
+        }
+    }
+}
+
+// Test that TopologyDiscovery works in both default (high-power) and low-power modes.
+// Both modes should discover the same set of devices and produce equivalent cluster descriptors.
+TEST(TestClusterDescriptor, TopologyDiscoveryPowerModes) {
+    // Default mode (high power).
+    TopologyDiscoveryOptions default_options;
+    default_options.discover_remote_devices = false;
+    auto [desc_default, devices_default] = TopologyDiscovery::discover(default_options);
+
+    // Low-power mode.
+    TopologyDiscoveryOptions low_power_options;
+    low_power_options.discover_remote_devices = false;
+    low_power_options.low_power = true;
+    auto [desc_low_power, devices_low_power] = TopologyDiscovery::discover(low_power_options);
+
+    // Both modes should discover the same number of chips.
+    EXPECT_EQ(desc_default->get_number_of_chips(), desc_low_power->get_number_of_chips());
+
+    // Both modes should discover the same set of chips.
+    EXPECT_EQ(desc_default->get_all_chips(), desc_low_power->get_all_chips());
+
+    // Both modes should discover the same MMIO-capable chips.
+    EXPECT_EQ(desc_default->get_chips_with_mmio(), desc_low_power->get_chips_with_mmio());
+
+    // Both modes should report the same architecture for each chip.
+    for (auto chip_id : desc_default->get_all_chips()) {
+        EXPECT_EQ(desc_default->get_arch(chip_id), desc_low_power->get_arch(chip_id));
     }
 }

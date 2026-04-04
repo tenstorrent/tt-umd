@@ -17,8 +17,6 @@
 
 #include "pcie/ioctl.h"
 
-#define BLACKHOLE_PCI_DEVICE_ID 0xb140
-#define WORMHOLE_PCI_DEVICE_ID 0x401e
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DEBUG(fmt, ...)                                                        \
     do {                                                                       \
@@ -63,14 +61,14 @@ struct tt_dma_t {
     uint64_t noc;  /* NOC address (inside EP PCIe tile) */
 };
 
-int tt_device_open(const char* chardev_path, tt_device_t** out_dev) {
+int tt_device_open(const char* chardev_path, tt_device_t** out_dev, int extra_flags) {
     struct tt_device_t* dev = calloc(1, sizeof(struct tt_device_t));
 
     if (!dev) {
         return -ENOMEM;
     }
 
-    dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC);
+    dev->fd = open(chardev_path, O_RDWR | O_CLOEXEC | extra_flags);
     if (dev->fd == -1) {
         int e = errno;
         free(dev);
@@ -101,9 +99,9 @@ int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out
     }
 
     uint64_t arch = TT_DEVICE_ARCH_UNKNOWN;
-    if (get_device_info.out.device_id == BLACKHOLE_PCI_DEVICE_ID) {
+    if (get_device_info.out.device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
         arch = TT_DEVICE_ARCH_BLACKHOLE;
-    } else if (get_device_info.out.device_id == WORMHOLE_PCI_DEVICE_ID) {
+    } else if (get_device_info.out.device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
         arch = TT_DEVICE_ARCH_WORMHOLE;
     }
 
@@ -330,13 +328,11 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
         return -EINVAL;
     }
 
-    struct tt_dma_t* dma = malloc(sizeof(struct tt_dma_t));
+    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
 
     if (!dma) {
         return -ENOMEM;
     }
-
-    memset(dma, 0, sizeof(struct tt_dma_t));
 
     struct {
         struct tenstorrent_pin_pages_in in;

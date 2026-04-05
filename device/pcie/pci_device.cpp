@@ -867,11 +867,23 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     log_trace(
         LogUMD,
-        "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
+        "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x} "
+        "[local_offset={}, x_end={}, y_end={}, x_start={}, y_start={}, noc_sel={}, mcast={}, ordering={}, linked={}, "
+        "static_vc={}]",
         tlb_index,
         tlb_register_addr,
         lower_64,
-        upper_64);
+        upper_64,
+        tlb_config.local_offset,
+        tlb_config.x_end,
+        tlb_config.y_end,
+        tlb_config.x_start,
+        tlb_config.y_start,
+        tlb_config.noc_sel,
+        tlb_config.mcast,
+        tlb_config.ordering,
+        tlb_config.linked,
+        tlb_config.static_vc);
 }
 
 void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {

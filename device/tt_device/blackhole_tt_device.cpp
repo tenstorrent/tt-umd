@@ -64,12 +64,18 @@ BlackholeTTDevice::~BlackholeTTDevice() {
 }
 
 void BlackholeTTDevice::noc_broadcast(void *src, size_t size, uint64_t addr) {
-    // Blackhole grid is 17x12. Broadcast coordinates depend on NOC translation:
-    //   Translation disabled: full grid multicast, skipping the NOC controller row at y=0.
-    //   Translation enabled:  wraparound trick — end < start causes the NOC hardware to
-    //                         wrap around and cover all cores (mirrors luwen behavior).
+    // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
+    //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
+    //   Translation enabled:  hardware broadcast is avoided; use a software multicast with
+    //                         wraparound coordinates that differ per NOC:
+    //                           NOC0: start=(2,3), end=(1,2)
+    //                           NOC1: start=(1,2), end=(2,3).
     if (get_chip_info().noc_translation_enabled) {
-        noc_multicast_write(src, size, {2, 3}, {1, 2}, addr);
+        if (is_selected_noc1()) {
+            noc_multicast_write(src, size, {1, 2}, {2, 3}, addr);
+        } else {
+            noc_multicast_write(src, size, {2, 3}, {1, 2}, addr);
+        }
     } else {
         noc_multicast_write(src, size, {0, 1}, {16, 11}, addr);
     }

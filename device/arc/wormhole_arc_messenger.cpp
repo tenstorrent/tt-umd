@@ -4,6 +4,8 @@
 
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 
+#include <fmt/ranges.h>
+
 #include <chrono>
 #include <cstdint>
 #include <stdexcept>

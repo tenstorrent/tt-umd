@@ -44,7 +44,7 @@ struct routing_cmd_t {
 
 RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
     TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) :
-    RemoteCommunication(local_tt_device, sysmem_manager), target_chip(target_chip) {}
+    RemoteCommunication(local_tt_device, local_tt_device->get_arch(), sysmem_manager), target_chip(target_chip) {}
 
 /*
  *

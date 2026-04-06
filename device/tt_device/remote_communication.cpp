@@ -19,14 +19,14 @@
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
-    local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager), arch_(local_tt_device_->get_arch()) {
+RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, tt::ARCH arch, SysmemManager* sysmem_manager) :
+    local_tt_device_(local_tt_device), arch_(arch), sysmem_manager_(sysmem_manager) {
     lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_communication_device_id());
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) {
-    switch (local_tt_device->get_arch()) {
+    TTDevice* local_tt_device, tt::ARCH arch, EthCoord target_chip, SysmemManager* sysmem_manager) {
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:

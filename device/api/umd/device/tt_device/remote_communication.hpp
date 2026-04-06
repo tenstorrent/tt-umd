@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -16,11 +17,11 @@ class SysmemManager;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager = nullptr);
+    RemoteCommunication(TTDevice* local_tt_device, tt::ARCH arch, SysmemManager* sysmem_manager = nullptr);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device, tt::ARCH arch, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
 
     // Target core should be in translated coords.
     // Note that since we're not using TLBManager, the read/writes won't ever go through static TLBs, which should
@@ -66,9 +67,9 @@ protected:
     bool flush_non_mmio_ = false;
 
     TTDevice* local_tt_device_;
+    tt::ARCH arch_;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
-    tt::ARCH arch_;
 };
 
 }  // namespace tt::umd

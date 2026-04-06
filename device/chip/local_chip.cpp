@@ -84,7 +84,8 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =
         (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
-    remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
+    remote_communication = RemoteCommunication::create_remote_communication(
+        tt_device.get(), tt_device->get_arch(), {0, 0, 0, 0}, sysmem_ptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,

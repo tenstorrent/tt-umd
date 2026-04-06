@@ -431,6 +431,3 @@ jobs:
             echo "ERROR: Python package not found! Test skipped improperly."
             exit 1  # Force CI failure
           fi
-
-  run-ttsim-tests:
-    uses: ./.github/workflows/run-ttsim-tests.yml

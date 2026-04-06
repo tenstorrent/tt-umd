@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "umd/device/utils/timeouts.hpp"
@@ -16,26 +17,45 @@ namespace tt::umd {
 
 class WarmReset {
 public:
-    static void warm_reset(
-        std::vector<int> pci_device_ids = {}, bool reset_m3 = false, bool secondary_bus_reset = true);
+    static bool warm_reset(
+        std::vector<int> pci_device_ids = {},
+        bool reset_m3 = false,
+        bool secondary_bus_reset = true,
+        std::chrono::milliseconds m3_delay = timeout::WARM_RESET_M3_TIMEOUT);
 
-    static void ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
+    // Resets devices identified by their UMD chip IDs (indices into the list returned by
+    // PCIDevice::enumerate_devices(), corresponding to /dev/tenstorrent/<N> device numbers).
+    // These are equivalent to chip_id values from Cluster::get_target_mmio_device_ids().
+    // This differs from warm_reset() which takes raw PCI device IDs directly.
+    static bool warm_reset_chip_id(
+        const std::vector<int>& chip_ids = {},
+        bool reset_m3 = false,
+        bool secondary_bus_reset = true,
+        std::chrono::milliseconds m3_delay = timeout::WARM_RESET_M3_TIMEOUT);
+
+    static bool warm_reset_pci_bdfs(
+        const std::vector<std::string>& pci_bdfs = {},
+        bool reset_m3 = false,
+        bool secondary_bus_reset = true,
+        std::chrono::milliseconds m3_delay = timeout::WARM_RESET_M3_TIMEOUT);
+
+    static bool ubb_warm_reset(const std::chrono::milliseconds timeout_ms = timeout::UBB_WARM_RESET_TIMEOUT);
 
 private:
     static constexpr auto POST_RESET_WAIT = std::chrono::milliseconds(2'000);
     static constexpr auto UBB_POST_RESET_WAIT = std::chrono::milliseconds(30'000);
 
-    static void warm_reset_blackhole_legacy(std::vector<int> pci_device_ids);
+    static bool warm_reset_blackhole_legacy(std::vector<int> pci_device_ids);
 
-    static void warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3);
+    static bool warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3);
 
-    static void warm_reset_arch_agnostic(
+    static bool warm_reset_arch_agnostic(
         std::vector<int> pci_device_ids,
         bool reset_m3,
         std::chrono::milliseconds reset_m3_timeout = timeout::WARM_RESET_M3_TIMEOUT,
         bool secondary_bus_reset = true);
 
-    static void wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
+    static bool wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time);
 
     static void ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms);
 };

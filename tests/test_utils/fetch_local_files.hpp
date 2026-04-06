@@ -39,15 +39,14 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "2x2_n300_cluster_desc.yaml",
              "6u_cluster_desc.yaml",
              "blackhole_8xP150.yaml",
+             "blackhole_4xP150.yaml",
              "blackhole_P100.yaml",
              "blackhole_P150.yaml",
              "blackhole_P300_first_mmio.yaml",
              "blackhole_P300_second_mmio.yaml",
              "blackhole_P300_both_mmio.yaml",
              "t3k_cluster_desc.yaml",
-             "tg_cluster_desc.yaml",
              "wormhole_2xN300_unconnected.yaml",
-             "wormhole_4xN300_mesh.yaml",
              "wormhole_N150_unique_ids.yaml",
              "wormhole_N150.yaml",
              "wormhole_N300_routing_info.yaml",
@@ -55,6 +54,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300_with_remote_connections.yaml",
              "wormhole_N300_with_bus_id.yaml",
              "wormhole_N300.yaml",
+             "wormhole_N300_jtag.yaml",
              "wormhole_N300_pci_bdf.yaml",
          }) {
         cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));
@@ -70,10 +70,10 @@ inline std::vector<std::string> GetAllSocDescs() {
              "blackhole_140_arch.yaml",
              "blackhole_simulation_1x2.yaml",
              "quasar_simulation_1x1.yaml",
-             "serialized.yaml",
              "wormhole_b0_1x1.yaml",
              "wormhole_b0_8x10.yaml",
              "wormhole_b0_one_dram_one_tensix_no_eth.yaml",
+             "quasar_32_arch.yaml",
          }) {
         soc_desc_names.push_back(GetSocDescAbsPath(soc_desc_name));
     }

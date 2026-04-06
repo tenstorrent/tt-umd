@@ -5,10 +5,12 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
 #include <set>
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -28,14 +30,6 @@ public:
 
     bool get_noc_translation_enabled() override;
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
-
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -49,16 +43,21 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    void dma_multicast_write(
-        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
-
-protected:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
-    BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
     bool is_hardware_hung() override;
+    uint32_t read_hang_check_reg_via_noc() override;
+
+protected:
+    BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
+    BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     virtual bool is_arc_available_over_axi();
+
+    void retrain_dram_core(const uint32_t dram_channel) override;
+
+    // Number of retrain attempts is chosen based on syseng team testing.
+    uint32_t get_max_dram_retrain_attempts() const override { return 3; }
 
 private:
     int get_pcie_x_coordinate();

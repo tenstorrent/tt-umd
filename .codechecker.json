@@ -17,6 +17,8 @@
         "prefix:boost",
         "--disable",
         "checker:optin.core.EnumCastOutOfRange",
+        "--disable",
+        "checker:security.insecureAPI.DeprecatedOrUnsafeBufferHandling",
         "--ctu"
     ]
 }

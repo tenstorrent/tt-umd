@@ -17,3 +17,4 @@ tt_umd.egg-info
 ucli.key
 _codeql_build_dir/
 _codeql_detected_source_root
+uv.lock

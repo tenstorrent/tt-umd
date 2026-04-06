@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -26,14 +27,6 @@ public:
 
     bool get_noc_translation_enabled() override;
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
-
-    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
-
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -47,34 +40,23 @@ public:
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
+    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
+
+    void retrain_eth_core(tt_xy_pair eth_core);
+
+    bool is_hardware_hung() override;
+    uint32_t read_hang_check_reg_via_noc() override;
+
     ~WormholeTTDevice() override = default;
 
 protected:
-    WormholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
-    WormholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-    /*
-     * Create a device without an underlying communication device.
-     * Used for remote devices that depend on remote_communication.
-     * WARNING: This constructor should not be used for PCIe devices as certain functionalities from base class rely on
-     * the presence of an underlying communication device. Creating a WormholeTTDevice without an underlying
-     * communication device over PCIe would require overriding several methods from the base class.
-     */
-    WormholeTTDevice();
+    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
+    WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
+
+    void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
-
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size);
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size);
-
-    bool is_hardware_hung() override;
-
-    static constexpr uint32_t LINK_TRAIN_TRAINING = 0;
-
-    uint32_t read_training_status(tt_xy_pair eth_core);
-
-    // Enforce single-threaded access, even though there are more serious issues
-    // surrounding resource management as it relates to DMA.
-    std::mutex dma_mutex_;
 };
 }  // namespace tt::umd

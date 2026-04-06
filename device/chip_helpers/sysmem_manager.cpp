@@ -58,12 +58,23 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
     if (tt_device_) {
         log_debug(
             LogUMD,
-            "Cluster::read_buffer (comm. device ID: {}, ch: {}) from {:p}",
+            "SysmemManager: read_from_sysmem (comm. device ID: {}, ch: {}) from {:p}",
             tt_device_->get_communication_device_id(),
             channel,
             user_scratchspace);
     }
     memcpy(dest, user_scratchspace, size);
+}
+
+uint64_t SysmemManager::get_pcie_base_for_arch(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return 0x800000000;
+        case tt::ARCH::BLACKHOLE:
+            return 4ULL << 58;
+        default:
+            return 0;
+    }
 }
 
 size_t SysmemManager::get_num_host_mem_channels() const { return hugepage_mapping_per_channel.size(); }

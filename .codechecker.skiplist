@@ -19,3 +19,5 @@
 -*.pb.h
 -*.pb.cc
 
+# Internal ignore
+-*/device/tt_kmd_lib/tt_kmd_lib.c

@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
@@ -18,10 +19,13 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "assert.hpp"
 #include "noc_access.hpp"
+#include "umd/device/arc/blackhole_spi_tt_device.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -30,12 +34,12 @@
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api) :
+BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api) {
     arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
 }
 
-BlackholeTTDevice::BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
+BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>()) {
     arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
 }
@@ -48,8 +52,8 @@ BlackholeTTDevice::~BlackholeTTDevice() {
     if (get_communication_device_type() != IODeviceType::PCIe) {
         return;
     }
-    if (pci_device_->bar2_uc != nullptr && pci_device_->bar2_uc != MAP_FAILED) {
-        auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
+    if (get_pci_device()->bar2_uc != nullptr && get_pci_device()->bar2_uc != MAP_FAILED) {
+        auto *bar2 = static_cast<volatile uint8_t *>(get_pci_device()->bar2_uc);
 
         for (size_t region : iatu_regions_) {
             uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
@@ -62,7 +66,7 @@ BlackholeTTDevice::~BlackholeTTDevice() {
 void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint64_t base = region * region_size;
     uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
-    auto *bar2 = static_cast<volatile uint8_t *>(pci_device_->bar2_uc);
+    auto *bar2 = static_cast<volatile uint8_t *>(get_pci_device()->bar2_uc);
 
     if (region_size % (1ULL << 30) != 0 || region_size > (1ULL << 32)) {
         // If you hit this, the suggestion is to not use iATU: map your buffer
@@ -104,7 +108,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
     log_info(
         LogUMD,
         "Device: {} Mapped iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}",
-        this->pci_device_->get_device_num(),
+        this->get_pci_device()->get_device_num(),
         region,
         base,
         limit,
@@ -113,7 +117,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
 bool BlackholeTTDevice::get_noc_translation_enabled() {
     uint32_t niu_cfg;
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_ADDR;
+    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + 0x100;
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
@@ -194,10 +198,10 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
                 start,
                 timeout_ms,
                 fmt::format(
-                    "Timed out after waiting {} ms for arc core ({}, {}) to start",
+                    "ARC core {} startup timed out after: {}. Status: 0x{:x}",
+                    arc_core.str(),
                     timeout_ms.count(),
-                    arc_core.x,
-                    arc_core.y),
+                    arc_boot_status),
                 utils::TimeoutAction::Return)) {
             return false;
         }
@@ -219,28 +223,12 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
-void BlackholeTTDevice::dma_d2h(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    throw std::runtime_error("H2D DMA is not supported on Blackhole.");
-}
-
-void BlackholeTTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    throw std::runtime_error("D2H DMA is not supported on Blackhole.");
-}
-
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->read(
+        get_jtag_device()->read(
             communication_device_id_,
             mem_ptr,
             blackhole::ARC_CORES_NOC0[0].x,
@@ -262,7 +250,7 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         throw std::runtime_error("Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        jtag_device_->write(
+        get_jtag_device()->write(
             communication_device_id_,
             mem_ptr,
             blackhole::ARC_CORES_NOC0[0].x,
@@ -291,15 +279,10 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto time_taken = std::chrono::milliseconds(0);
 
-    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
-    uint32_t port_status_val;
-    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
-
     // Port status should be last state to settle during the eth training sequence
     // PORT_UNKNOWN means that eth is still training.
     auto start = std::chrono::steady_clock::now();
-    while (port_status_val == blackhole::port_status_e::PORT_UNKNOWN) {
-        read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -313,19 +296,39 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     return time_taken;
 }
 
+EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+    uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+    uint32_t port_status_val;
+    read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
+    return static_cast<EthTrainingStatus>(port_status_val);
+}
+
 bool BlackholeTTDevice::is_hardware_hung() {
-    // throw std::runtime_error("Hardware hang detection is not supported on Blackhole.");
+    if (communication_device_type_ == IODeviceType::JTAG) {
+        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
+    }
 
-    // TODO: I am commented that out because we end up in this code path if we
-    // read 0xfffffff from a Blackhole. Although 0xffffffff can indicate a hang,
-    // it doesn't necessarily mean the hardware is hung. It's possible to write
-    // 0xffffffff to device memory and reading it back should not trigger an
-    // exception. In my case, the hardware was not hung but the 0xffffffff was
-    // related to a failure which was obscured by the exception. For now,
-    // just return false.  -- @joelsmithTT, Oct 1 2025
+    // Reading user data that happens to be 0xFFFFFFFF does not mean the chip is
+    // hung. To distinguish a real hang from legitimate data, we read the NOC
+    // node ID register — it holds the PCIe tile coordinates and can never be
+    // 0xFFFFFFFF on healthy hardware. If this independent read also returns all
+    // ones, the NOC/chip is truly hung.
+    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
 
-    log_debug(LogUMD, "Hang detection is not supported (yet) on Blackhole.");
-    return false;
+    return (node_id == HANG_READ_VALUE);
+}
+
+uint32_t BlackholeTTDevice::read_hang_check_reg_via_noc() {
+    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
+    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
+    SocDescriptor soc_desc(get_arch(), get_chip_info());
+    tt_xy_pair pcie_core = soc_desc.get_cores(CoreType::PCIE, CoordSystem::TRANSLATED)[0];
+    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(get_selected_noc_id())) +
+                    architecture_impl_->get_noc_node_id_offset();
+
+    uint32_t value = 0;
+    read_from_device(&value, pcie_core, addr, sizeof(value));
+    return value;
 }
 
 int BlackholeTTDevice::get_pcie_x_coordinate() {
@@ -337,9 +340,13 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 // x = 2: ARC not accessible, x = 11: ARC accessible
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
 
-void BlackholeTTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    throw std::runtime_error("DMA multicast write not supported for Blackhole devices.");
+void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
+    uint32_t ret_code = get_arc_messenger()->send_message(
+        static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});
+    if (ret_code != 0) {
+        throw std::runtime_error(
+            fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
+    }
 }
 
 }  // namespace tt::umd

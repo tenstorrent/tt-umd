@@ -15,10 +15,12 @@
 #include <cerrno>
 #include <cstring>
 #include <filesystem>
+#include <iostream>
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "tracy.hpp"
 
 namespace tt::umd {
 
@@ -30,15 +32,16 @@ TTSimChip::TTSimChip(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
-    SimulationChip(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels) {
-    tt_device_ = std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary);
+    SimulationChip(simulator_directory, soc_descriptor, chip_id) {
+    tt_device_ = std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimChip::~TTSimChip() = default;
 
-void TTSimChip::start_device() { tt_device_->start_device(); }
+void TTSimChip::start_device() {}
 
-void TTSimChip::close_device() { tt_device_->close_device(); }
+void TTSimChip::close_device() {}
 
 void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
@@ -60,14 +63,18 @@ void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets
 }
 
 void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->assert_risc_reset(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs);
 }
 
 void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->deassert_risc_reset(
         soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs, staggered_start);
 }
+
+TLBManager* TTSimChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
 
 }  // namespace tt::umd

@@ -37,22 +37,28 @@ namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
-tt_xy_pair format_node(std::string str) {
-    int x_coord;
-    int y_coord;
-    std::regex expr("([0-9]+)[-,xX]([0-9]+)");
-    std::smatch x_y_pair;
+tt_xy_pair format_node(const std::string &str) {
+    // Find the separator character.
+    size_t sep_pos = std::string::npos;
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '-') {
+            sep_pos = i;
+            break;
+        }
+    }
 
-    if (std::regex_search(str, x_y_pair, expr)) {
-        x_coord = std::stoi(x_y_pair[1]);
-        y_coord = std::stoi(x_y_pair[2]);
-    } else {
+    if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
         throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
     }
 
-    tt_xy_pair xy(x_coord, y_coord);
-
-    return xy;
+    try {
+        const char *str_cstr = str.c_str();
+        int x_coord = std::atoi(str_cstr);
+        int y_coord = std::atoi(str_cstr + sep_pos + 1);
+        return tt_xy_pair(x_coord, y_coord);
+    } catch (...) {
+        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+    }
 }
 
 const char *ws = " \t\n\r\f\v";
@@ -196,16 +202,32 @@ CoreCoord SocDescriptor::translate_coord_to(
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
 }
 
-tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the is_selected_noc1() flag.
-    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
-    if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
-        return translate_coord_to(core, CoordSystem::TRANSLATED);
+// Translates a chip coordinate to the correct device coordinates, returning a CoreCoord
+// Returns the correct pre-translation coordinates for the given architecture. Note that
+// the returned CoordSystem is not necessarily TRANSLATED — architecture-specific fixups
+// (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1 coordinates instead.
+// The key guarantee is that the returned coordinates will be correct for device access
+// on the given architecture.
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+    if (!noc_translation_enabled) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
+    // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
+    // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
+    if ((arch == tt::ARCH::WORMHOLE_B0) &&
+        (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    }
+
+    return translate_coord_to(core, CoordSystem::TRANSLATED);
+}
+
+// Convenience wrapper returning tt_xy_pair; the actual logic lives in
+// translate_chip_coord_to_translated_coord.
+tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
+    return translate_chip_coord_to_translated_coord(core);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {
@@ -460,19 +482,6 @@ void SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     soc_desc_info.eth_l1_size = device_descriptor_yaml["eth_l1_size"].as<uint32_t>();
     soc_desc_info.dram_bank_size = device_descriptor_yaml["dram_bank_size"].as<uint64_t>();
 
-    // Inlcude harvested cores directly in SocDescriptor if available.
-    if (device_descriptor_yaml["harvested_workers"].IsDefined()) {
-        harvested_workers = SocDescriptor::convert_to_tt_xy_pair(
-            device_descriptor_yaml["harvested_workers"].as<std::vector<std::string>>());
-    }
-    if (device_descriptor_yaml["harvested_eth"].IsDefined()) {
-        harvested_ethernet_cores = SocDescriptor::convert_to_tt_xy_pair(
-            device_descriptor_yaml["harvested_eth"].as<std::vector<std::string>>());
-    }
-    if (device_descriptor_yaml["harvested_dram"].IsDefined()) {
-        harvested_dram_cores = SocDescriptor::convert_dram_cores_from_yaml(device_descriptor_yaml, "harvested_dram");
-    }
-
     load_from_soc_desc_info(soc_desc_info);
 }
 
@@ -572,28 +581,12 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::PCIE);
     out << YAML::EndSeq;
 
-    out << YAML::Key << "harvested_dram" << YAML::Value << YAML::BeginSeq;
-    serialize_dram_cores(&out, get_harvested_dram_cores());
-    out << YAML::EndSeq;
-
     out << YAML::Key << "dram" << YAML::Value << YAML::BeginSeq;
     serialize_dram_cores(&out, get_dram_cores());
     out << YAML::EndSeq;
 
-    out << YAML::Key << "harvested_eth" << YAML::Value << YAML::BeginSeq;
-    for (const auto &eth : get_harvested_cores(CoreType::ETH)) {
-        write_coords(&out, eth);
-    }
-    out << YAML::EndSeq;
-
     out << YAML::Key << "eth" << YAML::Value << YAML::BeginSeq;
     write_core_locations(&out, CoreType::ETH);
-    out << YAML::EndSeq;
-
-    out << YAML::Key << "harvested_workers" << YAML::Value << YAML::BeginSeq;
-    for (const auto &worker : get_harvested_cores(CoreType::TENSIX)) {
-        write_coords(&out, worker);
-    }
     out << YAML::EndSeq;
 
     out << YAML::Key << "functional_workers" << YAML::Value << YAML::BeginSeq;
@@ -701,15 +694,6 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
     }
 
     const std::vector<CoreCoord> harvested_dram_cores = harvested_cores_map.at(CoreType::DRAM);
-    const tt_xy_pair harvested_dram_grid_size = harvested_grid_size_map.at(CoreType::DRAM);
-
-    harvested_dram_cores_core_coord.resize(harvested_dram_grid_size.x);
-    for (size_t bank = 0; bank < harvested_dram_grid_size.x; bank++) {
-        for (size_t noc_port = 0; noc_port < harvested_dram_grid_size.y; noc_port++) {
-            harvested_dram_cores_core_coord[bank].push_back(
-                harvested_dram_cores[bank * harvested_dram_grid_size.y + noc_port]);
-        }
-    }
 }
 
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(
@@ -801,10 +785,6 @@ tt_xy_pair SocDescriptor::get_harvested_grid_size(const CoreType core_type) cons
 }
 
 std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const { return dram_cores_core_coord; }
-
-std::vector<std::vector<CoreCoord>> SocDescriptor::get_harvested_dram_cores() const {
-    return harvested_dram_cores_core_coord;
-}
 
 uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
 

@@ -34,7 +34,7 @@ enum BoardType : uint32_t {
     UBB,
     UBB_WORMHOLE = UBB,
     UBB_BLACKHOLE,
-    QUASAR,
+    QUASAR_BOARD,
     UNKNOWN,
 };
 
@@ -50,7 +50,7 @@ static_assert(GALAXY == 8, "GALAXY must be 8");
 static_assert(UBB == 9, "UBB must be 9");
 static_assert(UBB_WORMHOLE == 9, "WH_UBB must equal UBB");
 static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
-static_assert(QUASAR == 11, "QUASAR must be 11");
+static_assert(QUASAR_BOARD == 11, "QUASAR must be 11");
 static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
 
 // Small performant hash combiner taken from boost library.
@@ -105,11 +105,10 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"p100", BoardType::P100},
     {"p150", BoardType::P150},
     {"p300", BoardType::P300},
-    {"galaxy", BoardType::GALAXY},
     {"ubb", BoardType::UBB},
     {"ubb_blackhole", BoardType::UBB_BLACKHOLE},
     {"ubb_wormhole", BoardType::UBB_WORMHOLE},
-    {"quasar", BoardType::QUASAR},
+    {"quasar", BoardType::QUASAR_BOARD},
     {"unknown", BoardType::UNKNOWN},
     // Aliases (input only).
     {"p150a", BoardType::P150},
@@ -128,11 +127,10 @@ inline const std::unordered_map<BoardType, std::string_view> board_type_canonica
     {BoardType::P100, "p100"},
     {BoardType::P150, "p150"},
     {BoardType::P300, "p300"},
-    {BoardType::GALAXY, "galaxy"},
     {BoardType::UBB, "ubb"},
     {BoardType::UBB_BLACKHOLE, "ubb_blackhole"},
     {BoardType::UBB_WORMHOLE, "ubb_wormhole"},
-    {BoardType::QUASAR, "quasar"},
+    {BoardType::QUASAR_BOARD, "quasar"},
     {BoardType::UNKNOWN, "unknown"},
 };
 
@@ -197,12 +195,12 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
             return 1;
         case BoardType::P300:
             return 2;
-        case BoardType::GALAXY:
-            return 1;
         // TODO: switch usage of UBB to UBB_WORMHOLE.
         case BoardType::UBB:
         case BoardType::UBB_BLACKHOLE:
             return 32;
+        case BoardType::QUASAR_BOARD:  // Mock device only
+            return 1;
         default:
             throw std::runtime_error("Unknown board type for number of chips calculation.");
     }
@@ -219,10 +217,10 @@ inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
     {0x46, BoardType::P300},
     {0x18, BoardType::N150},
     {0x14, BoardType::N300},
-    {0xB, BoardType::GALAXY},
     // TODO: move 0x35 constant to be equal to UBB_WORMHOLE once we delete UBB.
     {0x35, BoardType::UBB},
-    {0x47, BoardType::UBB_BLACKHOLE}};
+    {0x47, BoardType::UBB_BLACKHOLE},
+    {0x50, BoardType::QUASAR_BOARD}};  // Fictional board UPI for Quasar mock device
 
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
@@ -239,9 +237,8 @@ static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_u
     {BoardType::N150, 1},
     {BoardType::N300, 2},
     {BoardType::P100, 2},
-    {BoardType::P150, 0},
+    {BoardType::P150, 2},
     {BoardType::P300, 2},
-    {BoardType::GALAXY, 0},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 1},
 };
@@ -252,7 +249,6 @@ static const std::unordered_map<BoardType, uint32_t> expected_dram_harvested_uni
     {BoardType::P100, 1},
     {BoardType::P150, 0},
     {BoardType::P300, 0},
-    {BoardType::GALAXY, 0},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 0},
 };
@@ -263,7 +259,6 @@ static const std::unordered_map<BoardType, uint32_t> expected_eth_harvested_unit
     {BoardType::P100, 14},
     {BoardType::P150, 2},
     {BoardType::P300, 2},
-    {BoardType::GALAXY, 0},
     {BoardType::UBB, 0},
     {BoardType::UBB_BLACKHOLE, 2},
 };
@@ -298,6 +293,20 @@ enum class DramTrainingStatus : uint8_t {
     FAIL = 1,
     SUCCESS = 2,
 };
+
+inline std::string dram_training_status_to_str(DramTrainingStatus status) {
+    switch (status) {
+        case DramTrainingStatus::IN_PROGRESS:
+            return "IN_PROGRESS";
+        case DramTrainingStatus::FAIL:
+            return "FAIL";
+        case DramTrainingStatus::SUCCESS:
+            return "SUCCESS";
+        default:
+            return "UNKNOWN";
+    }
+}
+
 }  // namespace tt
 
 namespace std {

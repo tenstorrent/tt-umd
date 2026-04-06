@@ -26,6 +26,8 @@ public:
     void noc_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
+    void noc_broadcast(void* src, size_t size, uint64_t addr) override;
+
     void wait_for_non_mmio_flush() override;
 
     RemoteCommunication* get_remote_communication() const override;

@@ -103,6 +103,10 @@ void RemoteWormholeTTDevice::noc_multicast_write(
     }
 }
 
+void RemoteWormholeTTDevice::noc_broadcast(void *src, size_t size, uint64_t addr) {
+    throw std::runtime_error("NOC broadcast is not supported for remote Wormhole device.");
+}
+
 void RemoteWormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
     throw std::runtime_error("DMA write to device not supported for remote Wormhole device.");
 }

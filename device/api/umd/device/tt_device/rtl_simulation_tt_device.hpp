@@ -33,7 +33,6 @@ public:
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert);
 
     SocDescriptor* get_soc_descriptor() { return &soc_descriptor_; }
 
@@ -59,10 +58,10 @@ public:
     void dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets);
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
-    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
-    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) override;
+    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
+    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 

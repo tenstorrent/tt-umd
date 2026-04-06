@@ -36,22 +36,22 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13},
-          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20},
-          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11},
+          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13, package: deb},
+          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
+          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
-          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20},
-          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
+          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
-          {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13},
+          {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
           # Given that it's already tested out on ubuntu, version 17 is fine here.
-          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm},
           # Release-flags builds: mirror release.yml CMake flags (TT_UMD_BUILD_SIMULATION=OFF,
           # CMAKE_BUILD_TYPE=Release) to catch clang-tidy issues before merge that would only
           # surface in the release pipeline.
-          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, use_release_flags: true},
-          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, use_release_flags: true},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb, use_release_flags: true},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm, use_release_flags: true},
         ]
 
     name: >-
@@ -141,36 +141,20 @@ jobs:
           name: clang-tidy-config-${{ env.PLATFORM_SUFFIX }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
-      - name: Generate .deb package
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Generate ${{ matrix.image.package }} package
         working-directory: ${{ env.TT_UMD_DIR }}/build
+        shell: bash
         run: |
-          cpack -G DEB
+          PKG="${{ matrix.image.package }}"
+          cpack -G "${PKG^^}"
 
-      - name: Generate .rpm package
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        working-directory: ${{ env.TT_UMD_DIR }}/build
-        run: |
-          cpack -G RPM
-
-      - name: Upload DEB dev and runtime packages
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Upload ${{ matrix.image.package }} dev and runtime packages
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-packages-ubuntu-24.04-clang-20-release
           name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
           path: |
-            ${{ env.TT_UMD_DIR }}/build/*.deb
-          if-no-files-found: error
-
-      - name: Upload RPM dev and runtime packages
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        uses: actions/upload-artifact@v4
-        with:
-          # example: tt-umd-packages-ubuntu-24.04-clang-20-release
-          name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
-          path: |
-            ${{ env.TT_UMD_DIR }}/build/*.rpm
+            ${{ env.TT_UMD_DIR }}/build/*.${{ matrix.image.package }}
           if-no-files-found: error
 
       - name: Upload example config files
@@ -240,36 +224,20 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Generate .deb package for umd-python
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Generate ${{ matrix.image.package }} package for umd-python
         working-directory: ${{ env.TT_UMD_DIR }}/build
+        shell: bash
         run: |
-          cpack -G DEB
+          PKG="${{ matrix.image.package }}"
+          cpack -G "${PKG^^}"
 
-      - name: Upload .deb packages for umd-python
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Upload ${{ matrix.image.package }} packages for umd-python
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-python-ubuntu-24.04-clang-20-release
           name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
           path: |
-            ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
-          if-no-files-found: error
-
-      - name: Generate .rpm package for umd-python
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        working-directory: ${{ env.TT_UMD_DIR }}/build
-        run: |
-          cpack -G RPM
-
-      - name: Upload .rpm packages for umd-python
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        uses: actions/upload-artifact@v4
-        with:
-          # example: tt-umd-python-ubuntu-24.04-clang-20-release
-          name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
-          path: |
-            ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
+            ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
   build-manylinux-wheels:

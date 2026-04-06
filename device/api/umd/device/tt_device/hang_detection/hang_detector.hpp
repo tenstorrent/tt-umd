@@ -49,7 +49,6 @@ protected:
 private:
     // Arch-specific implementations.
     virtual uint32_t read_hang_check_reg_via_bar() = 0;
-    // Returns nullopt if the core coordinate for this NOC is not known.
     virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
 
     DeviceProtocol* protocol_;

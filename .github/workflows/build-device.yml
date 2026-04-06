@@ -78,7 +78,13 @@ jobs:
         run: |
           echo "CC=${{ matrix.image.compiler-c }}" >> $GITHUB_ENV
           echo "CXX=${{ matrix.image.compiler-cpp }}" >> $GITHUB_ENV
+          # Add release suffix to differentiate between the jobs which should use
+          # exactly the same flags the release process would use.
           RELEASE_SUFFIX="${{ matrix.image.use_release_flags && '-release' || '' }}"
+          # Build ID is common suffix, differentiating packages built per distro,
+          # compiler, and whether they used release cmake flags or not.
+          # This suffix should be used for all package artifacts so their names
+          # don't overlap for different configurations.
           echo "BUILD_ID=${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
@@ -325,7 +331,9 @@ jobs:
 
       - name: Set Build ID
         run: |
-          echo "BUILD_ID=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
+          # Note that BUILD ID doesn't include the option without the -release suffix
+          # as the above matrix which builds packages. We test only the release variants.
+          echo "BUILD_ID=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-release" >> $GITHUB_ENV
 
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4

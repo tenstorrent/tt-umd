@@ -68,7 +68,6 @@ target_sources(
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
-        pcie/device_memcpy.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
@@ -182,7 +181,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/utils/kmd_versions.hpp
-                api/umd/device/pcie/device_memcpy.hpp
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/pci_ids.h
                 api/umd/device/pcie/tlb_handle.hpp

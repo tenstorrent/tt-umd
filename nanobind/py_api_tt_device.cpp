@@ -340,9 +340,10 @@ void bind_tt_device(nb::module_ &m) {
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,
+               bool wait_for_done,
                // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
                // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
-               uint32_t arg0 = 0xffff,
+               uint32_t arg0,
                uint32_t arg1 = 0xffff,
                uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
@@ -371,9 +372,10 @@ void bind_tt_device(nb::module_ &m) {
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,
+               bool wait_for_done,
                // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
                // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
-               uint32_t arg0 = 0xffff,
+               uint32_t arg0,
                uint32_t arg1 = 0xffff,
                uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.

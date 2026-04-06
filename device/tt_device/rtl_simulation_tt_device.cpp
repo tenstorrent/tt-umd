@@ -64,13 +64,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
-RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
-
-void RtlSimulationTTDevice::start_device() {
-    // Communicator is already initialized in constructor.
-}
-
-void RtlSimulationTTDevice::close_device() { communicator_->shutdown(); }
+RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);

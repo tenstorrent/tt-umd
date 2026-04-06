@@ -510,8 +510,7 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
             "Get the SocDescriptor associated with this simulation device.")
-        .def("close_device", &TTSimTTDevice::close_device, "Close the simulation device.")
-        .def("start_device", &TTSimTTDevice::start_device, "Start the simulation device.")
+
         .def("get_clock", &TTSimTTDevice::get_clock, "Get the clock frequency.")
         .def("get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, "Get the minimum clock frequency.")
         .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");

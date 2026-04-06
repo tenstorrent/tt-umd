@@ -153,7 +153,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
-    switch (remote_communication->get_local_device()->get_arch()) {
+    switch (remote_communication->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }

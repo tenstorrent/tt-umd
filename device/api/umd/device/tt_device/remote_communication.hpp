@@ -53,6 +53,11 @@ public:
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
 
+    /**
+     * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
+     */
+    tt::ARCH get_arch() const { return arch_; };
+
 protected:
     void update_active_eth_core_idx();
 
@@ -63,6 +68,7 @@ protected:
     TTDevice* local_tt_device_;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
+    tt::ARCH arch_;
 };
 
 }  // namespace tt::umd

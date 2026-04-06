@@ -6,8 +6,6 @@
 
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 
-#include <tt-logger/tt-logger.hpp>
-
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"

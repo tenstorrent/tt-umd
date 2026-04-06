@@ -85,8 +85,9 @@ jobs:
           # compiler, and whether they used release cmake flags or not.
           # This suffix should be used for all package artifacts so their names
           # don't overlap for different configurations.
-          # Example: BUILD_ID=ubuntu-24.04-clang-20-release
-          echo "BUILD_ID=${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}" >> $GITHUB_ENV
+          # Example: PLATFORM_SUFFIX=ubuntu-24.04-clang-20-release
+          PLATFORM_SUFFIX="${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}"
+          echo "PLATFORM_SUFFIX=${PLATFORM_SUFFIX}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
       # Release-flags builds mirror the flags used in release.yml to catch clang-tidy issues early.
@@ -121,7 +122,7 @@ jobs:
         if: always()
         with:
           # example: clang-tidy-compile-commands-ubuntu-24.04-clang-20-release
-          name: clang-tidy-compile-commands-${{ env.BUILD_ID }}
+          name: clang-tidy-compile-commands-${{ env.PLATFORM_SUFFIX }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
       - name: Prepare clang-tidy config file for upload
@@ -137,7 +138,7 @@ jobs:
         if: always()
         with:
           # example: clang-tidy-config-ubuntu-24.04-clang-20-release
-          name: clang-tidy-config-${{ env.BUILD_ID }}
+          name: clang-tidy-config-${{ env.PLATFORM_SUFFIX }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
       - name: Generate .deb package
@@ -157,7 +158,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-packages-ubuntu-24.04-clang-20-release
-          name: tt-umd-packages-${{ env.BUILD_ID }}
+          name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.deb
           if-no-files-found: error
@@ -167,7 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-packages-ubuntu-24.04-clang-20-release
-          name: tt-umd-packages-${{ env.BUILD_ID }}
+          name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.rpm
           if-no-files-found: error
@@ -176,7 +177,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-examples-ubuntu-24.04-clang-20-release
-          name: tt-umd-examples-${{ env.BUILD_ID }}
+          name: tt-umd-examples-${{ env.PLATFORM_SUFFIX }}
           path: |
             ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
             ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
@@ -250,7 +251,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-python-ubuntu-24.04-clang-20-release
-          name: tt-umd-python-${{ env.BUILD_ID }}
+          name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
           if-no-files-found: error
@@ -266,7 +267,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # example: tt-umd-python-ubuntu-24.04-clang-20-release
-          name: tt-umd-python-${{ env.BUILD_ID }}
+          name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
           if-no-files-found: error
@@ -341,29 +342,29 @@ jobs:
         run: |
           # Note that BUILD ID doesn't include the option with the -release suffix
           # as the above matrix which builds packages. We test only one variant.
-          echo "BUILD_ID=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
+          echo "PLATFORM_SUFFIX=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
 
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
           # example: tt-umd-packages-ubuntu-24.04-clang-20
-          name: tt-umd-packages-${{ env.BUILD_ID }}
-          path: ./downloaded-artifact/tt-umd-packages-${{ env.BUILD_ID }}-package
+          name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-packages-${{ env.PLATFORM_SUFFIX }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
           # example: tt-umd-examples-ubuntu-24.04-clang-20
-          name: tt-umd-examples-${{ env.BUILD_ID }}
-          path: ./downloaded-artifact/tt-umd-examples-${{ env.BUILD_ID }}-example
+          name: tt-umd-examples-${{ env.PLATFORM_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-examples-${{ env.PLATFORM_SUFFIX }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
           # example: tt-umd-python-ubuntu-24.04-clang-20
-          name: tt-umd-python-${{ env.BUILD_ID }}
-          path: ./downloaded-artifact/tt-umd-python-${{ env.BUILD_ID }}-package
+          name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-python-${{ env.PLATFORM_SUFFIX }}-package
 
       - name: Run test on example and python with packages
         shell: bash
@@ -372,9 +373,9 @@ jobs:
           PKG_FMT="${{ matrix.build.package }}"
 
           # Directories from downloaded artifacts
-          PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${BUILD_ID}-package"
-          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${BUILD_ID}-package"
-          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${BUILD_ID}-example"
+          PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${PLATFORM_SUFFIX}-package"
+          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${PLATFORM_SUFFIX}-package"
+          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${PLATFORM_SUFFIX}-example"
 
           echo "Install .${PKG_FMT} packages from ${PACKAGE_DIR}"
           DEV_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \

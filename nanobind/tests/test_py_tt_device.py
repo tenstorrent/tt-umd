@@ -252,6 +252,7 @@ class TestTTDevice(unittest.TestCase):
 
         for dev_id in pci_ids:
             dev = tt_umd.TTDevice.create(dev_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
             arch = dev.get_arch()
             print(f"Testing arc_msg TEST increment on device {dev_id} with arch {arch}")
@@ -259,7 +260,7 @@ class TestTTDevice(unittest.TestCase):
             # Test out both arg passing styles (args list vs individual arg) to ensure both work correctly.
             # Wormhole accepts only two arguments. And both are passed packed into a single uint32 value.
             # What that means, is that the returned uint32 will contain both.
-            # On blackhole with new arc msg protocol, we have up to 8 arguments each being uint32. So the
+            # On blackhole with new arc msg protocol, we have up to 7 arguments each being uint32. So the
             # test message will only take the actual first argument into consideration.
             # The TEST message just increments the arg passed.
             random_arg = 42
@@ -275,9 +276,10 @@ class TestTTDevice(unittest.TestCase):
             self.assertEqual(return_3, expected_value)
 
             exit_code, return_3, return_4 = dev.arc_msg(0x90, args=[random_arg])
-            print(f"Call 1: exit_code={exit_code:#x}, return_3={return_3:#x}")
+            print(f"Call 2: exit_code={exit_code:#x}, return_3={return_3:#x}")
             self.assertEqual(exit_code, 0)
             self.assertEqual(return_3, expected_value)
+            dev.set_power_state(False)
 
     def test_get_chip_info(self):
         """Test get_chip_info method."""

@@ -16,7 +16,7 @@ on:
         default: ""
         description: >-
           Content-hash tag produced by docker-image.yml.
-          When empty the downstream jobs fall back to ":latest".
+          When empty or unset, downstream jobs use ":latest".
       log-params:
         required: false
         type: string
@@ -61,7 +61,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag }}
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -103,7 +103,7 @@ jobs:
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag }}
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -132,7 +132,7 @@ jobs:
       card: ${{ matrix.test-group.runs-on }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag }}
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}

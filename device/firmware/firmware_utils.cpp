@@ -4,8 +4,6 @@
 
 #include "umd/device/firmware/firmware_utils.hpp"
 
-#include <picosha2.h>
-
 #include <chrono>
 #include <cstddef>
 #include <cstdint>

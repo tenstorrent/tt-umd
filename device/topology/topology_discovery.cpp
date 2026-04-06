@@ -32,6 +32,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -142,6 +143,8 @@ void TopologyDiscovery::get_connected_devices() {
             continue;
         }
 
+        ChipId chip_id = get_next_chip_id();
+
         // When coming out of reset, devices can take on the order of minutes to become ready.
         tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
 
@@ -169,6 +172,7 @@ void TopologyDiscovery::get_connected_devices() {
 
         uint64_t asic_id = get_asic_id(tt_device.get());
         devices_to_discover.emplace(asic_id, std::move(tt_device));
+        asic_id_to_chip_id.emplace(asic_id, chip_id);
 
         log_debug(
             LogUMD,
@@ -177,6 +181,7 @@ void TopologyDiscovery::get_connected_devices() {
             device_id,
             asic_id);
     }
+    log_debug(LogUMD, "Initialized {} locally connected devices.", devices_to_discover.size());
 }
 
 void TopologyDiscovery::discover_remote_devices() {
@@ -186,6 +191,9 @@ void TopologyDiscovery::discover_remote_devices() {
         discovered_devices.insert(current_device_asic_id);
         remote_asic_id_to_mmio_device_id.emplace(current_device_asic_id, current_device_asic_id);
         active_eth_channels_per_device.emplace(current_device_asic_id, std::set<uint32_t>());
+    }
+    if (!options.discover_remote_devices) {
+        log_debug(LogUMD, "Discovering remote devices is disabled.");
     }
     while (!devices_to_discover.empty()) {
         auto it = devices_to_discover.begin();
@@ -295,8 +303,10 @@ void TopologyDiscovery::discover_remote_devices() {
                     eth_coord,
                     devices.at(gateway_device_id).get(),
                     active_eth_channels_per_device.at(gateway_device_id));
+                ChipId chip_id = get_next_chip_id();
 
                 devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
+                asic_id_to_chip_id.emplace(remote_asic_id, chip_id);
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
@@ -313,47 +323,18 @@ void TopologyDiscovery::discover_remote_devices() {
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
     std::unique_ptr<ClusterDescriptor> cluster_desc = std::make_unique<ClusterDescriptor>();
-    std::map<uint64_t, ChipId> asic_id_to_chip_id;
-    ChipId chip_id = 0;
-
-    if (!devices.empty() && devices.begin()->second->get_communication_device_type() == IODeviceType::PCIe) {
-        std::vector<std::pair<std::string, uint64_t>> sorted_device_bdfs;
-        for (const auto& [current_device_asic_id, tt_device] : devices) {
-            if (!tt_device->is_remote()) {
-                sorted_device_bdfs.emplace_back(
-                    tt_device->get_pci_device()->get_device_info().pci_bdf, current_device_asic_id);
-            }
-        }
-
-        std::sort(sorted_device_bdfs.begin(), sorted_device_bdfs.end());
-
-        for (const auto& [bdf, asic_id] : sorted_device_bdfs) {
-            log_debug(LogUMD, "Sorted device PCI BDF: {}, ASIC ID: {}", bdf, asic_id);
-
-            asic_id_to_chip_id.emplace(asic_id, chip_id);
-            cluster_desc->chip_unique_ids.emplace(chip_id, asic_id);
-            cluster_desc->chip_pci_bdfs.emplace(chip_id, bdf);
-            chip_id++;
-        }
-    } else {
-        for (const auto& [current_device_asic_id, tt_device] : devices) {
-            if (!tt_device->is_remote()) {
-                asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
-                cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
-                chip_id++;
-            }
-        }
-    }
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
-        if (tt_device->is_remote()) {
-            asic_id_to_chip_id.emplace(current_device_asic_id, chip_id);
-            cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
-            if (eth_coords.empty()) {
-                cluster_desc->closest_mmio_chip_cache[chip_id] =
-                    asic_id_to_chip_id.at(remote_asic_id_to_mmio_device_id.at(current_device_asic_id));
-            }
-            chip_id++;
+        ChipId chip_id = asic_id_to_chip_id[current_device_asic_id];
+        cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
+
+        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
+            cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
+        }
+
+        if (eth_coords.empty()) {
+            cluster_desc->closest_mmio_chip_cache[chip_id] =
+                asic_id_to_chip_id.at(remote_asic_id_to_mmio_device_id.at(current_device_asic_id));
         }
     }
 
@@ -515,6 +496,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
     auto timeout_left = timeout_ms;
+    log_debug(LogUMD, "Waiting on ethernet link training on device: {}", tt_device->get_communication_device_id());
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor(tt_device).get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair actual_eth_core = eth_core;
@@ -528,6 +510,11 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
 
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
+    log_debug(
+        LogUMD,
+        "Completed ethernet link training on device: {} after {} ms",
+        tt_device->get_communication_device_id(),
+        (timeout_ms - timeout_left).count());
 }
 
 bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {

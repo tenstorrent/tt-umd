@@ -62,9 +62,6 @@ public:
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void close_device();
-    void start_device();
-
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
     void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
@@ -78,12 +75,6 @@ public:
 
     SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
 
-    /**
-     * Get the architecture implementation.
-     * @return Pointer to architecture implementation
-     */
-    const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
-
     TLBManager *get_tlb_manager();
 
     uint64_t bar0_base = 0;
@@ -92,9 +83,6 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) override;
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
-
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
@@ -106,7 +94,6 @@ private:
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;
-    std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     uint32_t libttsim_pci_device_id;

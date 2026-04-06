@@ -35,12 +35,10 @@ protected:
         }
         tt_device.reset(sim_device);
         device.release();  // NOLINT(bugprone-unused-return-value)
-        tt_device->start_device();
     }
 
     void TearDown() override {
         if (tt_device) {
-            tt_device->close_device();
             tt_device.reset();
         }
     }

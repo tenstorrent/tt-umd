@@ -55,7 +55,7 @@ jobs:
         ]
 
     name: >-
-      Build device (${{ matrix.image.use_release_flags && 'release' || 'dev' }} flags)
+      Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
       on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     runs-on: tt-ubuntu-2204-large-stable
     env:

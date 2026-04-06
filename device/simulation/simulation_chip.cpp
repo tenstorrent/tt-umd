@@ -95,7 +95,7 @@ void SimulationChip::wait_for_non_mmio_flush() {}
 
 void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {}
 
 void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 

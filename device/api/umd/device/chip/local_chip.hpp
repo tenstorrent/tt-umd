@@ -35,7 +35,7 @@ public:
 
     bool is_mmio_capable() const override;
 
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     TTDevice* get_tt_device() override;
@@ -67,7 +67,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
     void deassert_risc_resets() override;
     int get_clock() override;
@@ -97,7 +97,7 @@ private:
 
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
-    void initialize_membars();
+    void initialize_membars(uint32_t dram_subchannel);
 
     void init_pcie_iatus();
 

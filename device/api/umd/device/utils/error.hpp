@@ -7,7 +7,23 @@
 #include <stdexcept>
 #include <string>
 
+#include "umd/device/utils/error_detail.hpp"
+
 namespace tt::umd::error {
+
+struct NoData {};
+
+struct RuntimeError : public UmdError<NoData> {
+    explicit RuntimeError(const std::string& message) : UmdError<NoData>(message, {}) {}
+};
+
+struct UnsupportedError : public UmdError<NoData> {
+    explicit UnsupportedError(const std::string& message) : UmdError<NoData>(message, {}) {}
+};
+
+struct NotApplicableError : public UmdError<NoData> {
+    explicit NotApplicableError(const std::string& message) : UmdError<NoData>(message, {}) {}
+};
 
 /**
  * @brief Exception thrown when a SIGBUS signal is intercepted.

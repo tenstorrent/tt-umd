@@ -36,6 +36,9 @@ uint32_t WormholeArcMessenger::send_message(
     }
 
     // Extract args (default to 0xFFFF if not provided).
+    // The two 16-bit args are packed into a single 32-bit word (arg0 | arg1 << 16) sent to firmware.
+    // The firmware treats the combined value 0xFFFFFFFF as a sentinel meaning "no argument provided",
+    // triggering default behavior for messages that don't require arguments.
     uint16_t arg0 = 0xFFFF;
     uint16_t arg1 = 0xFFFF;
 

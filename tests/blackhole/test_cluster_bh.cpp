@@ -504,9 +504,8 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
 }
 
 TEST(SiliconDriverBH, DebugDoubleWrite) {
-    // NOC register that counts the number of posted write requests received by a core.
-    // Streaming stores go through write-combining BAR and generate posted PCIe writes.
-    constexpr uint64_t NIU_SLV_POSTED_WR_REQ_RECEIVED = 0xffb202e0;
+    // NOC register that counts the number of nonposted write requests received by a core.
+    constexpr uint64_t NIU_SLV_NONPOSTED_WR_REQ_RECEIVED = 0xffb202e8;
 
     Cluster cluster;
     set_barrier_params(cluster);
@@ -520,14 +519,16 @@ TEST(SiliconDriverBH, DebugDoubleWrite) {
     uint32_t counter = 0;
 
     uint32_t base_reg_val;
-    cluster.read_from_device_reg(&base_reg_val, chip_id, tensix_core, NIU_SLV_POSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
+    cluster.read_from_device_reg(
+        &base_reg_val, chip_id, tensix_core, NIU_SLV_NONPOSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
 
     for (uint32_t i = 0; i < 100000; i++) {
         cluster.write_to_device(&data, sizeof(data), chip_id, tensix_core, addr);
         counter++;
 
         uint32_t reg_val;
-        cluster.read_from_device_reg(&reg_val, chip_id, tensix_core, NIU_SLV_POSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
+        cluster.read_from_device_reg(
+            &reg_val, chip_id, tensix_core, NIU_SLV_NONPOSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
 
         uint32_t diff = reg_val - base_reg_val;
 

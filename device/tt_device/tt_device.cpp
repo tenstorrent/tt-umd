@@ -77,7 +77,7 @@ TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     std::unique_ptr<architecture_implementation> architecture_impl) :
     communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
-    communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
+    communication_device_id_(remote_communication->get_communication_device_id()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));

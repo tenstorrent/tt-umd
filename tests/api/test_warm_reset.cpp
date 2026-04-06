@@ -85,6 +85,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::vector<uint8_t> readback_data(data.size(), 0);
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
     SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
@@ -114,6 +115,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device.reset();
 
     tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
     tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
@@ -123,6 +125,8 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
 
     ASSERT_EQ(data, readback_data);
+
+    tt_device->set_power_state(false);
 }
 
 bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, int device_id) {
@@ -162,6 +166,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
     for (int pci_device_id : pci_device_ids) {
         tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+        tt_devices[pci_device_id]->set_power_state(true);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -238,6 +243,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     for (int pci_device_id : pci_device_ids) {
         tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+        tt_devices[pci_device_id]->set_power_state(true);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -300,6 +306,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
             for (int pci_device_id : pci_device_ids) {
                 tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+                tt_devices[pci_device_id]->set_power_state(true);
 
                 tt_devices[pci_device_id]->init_tt_device();
 

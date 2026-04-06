@@ -19,6 +19,7 @@ class TestSocDescriptor(unittest.TestCase):
         # Test with all available devices
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
 
             print(f"\n=== Testing SocDescriptor on device {pci_id} ===")
@@ -94,6 +95,7 @@ class TestSocDescriptor(unittest.TestCase):
             all_cores = soc_descriptor.get_all_cores()
             print(f"Total cores: {len(all_cores)}")
             print(f"First 5 cores: {[str(c) for c in all_cores[:5]]}")
+            dev.set_power_state(False)
 
     def test_translate_coord_to(self):
         """Test translate_coord_to method with both overloads."""
@@ -104,6 +106,7 @@ class TestSocDescriptor(unittest.TestCase):
 
         for pci_id in pci_ids:
             dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
             dev.init_tt_device()
 
             print(f"\n=== Testing translate_coord_to on device {pci_id} ===")
@@ -115,6 +118,7 @@ class TestSocDescriptor(unittest.TestCase):
             )
             if len(tensix_cores) == 0:
                 print("No TENSIX cores found. Skipping translate_coord_to test.")
+                dev.set_power_state(False)
                 continue
 
             # Test first overload: translate_coord_to(CoreCoord, CoordSystem)
@@ -160,6 +164,7 @@ class TestSocDescriptor(unittest.TestCase):
                     target_coord_sys,
                     f"Translated core should have coord_system {target_coord_sys}",
                 )
+            dev.set_power_state(False)
 
 
 if __name__ == "__main__":

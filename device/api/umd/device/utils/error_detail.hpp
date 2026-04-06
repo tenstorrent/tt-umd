@@ -16,6 +16,19 @@
 #include <string>
 #include <vector>
 
+/**
+ * error_detail.hpp contains the UmdError and UmdException classes.
+ * The classes were designed carefully to conform to the following design goals:
+ * - Must be C++17.
+ * - No 3rd party dependencies.
+ * - Errors are easy to define, construct and it's easy to access their metadata.
+ * - Errors can easily be converted to exceptions.
+ * - Once exceptions will be removed in UMD, it is easy to convert them back to
+ *   errors by just removing the exception layer that was wrapping them.
+ * - Exceptions automatically capture stack trace, file and line information.
+ * - Exceptions display stack trace, file and line information through their interface.
+ */
+
 namespace tt::umd::error {
 /**
  * @brief Captures and demangles the current stack trace.
@@ -79,11 +92,11 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
 }
 
 /**
- * @brief Error object that pairs a message with structured error data.
- *
- * This template class represents an error condition with both a human-readable
- * message and structured data of type DATA_T. It is meant to be specialized
- * with a data class containing error metadata. Specialize UmdErrors in
+ * @brief Error object that pairs an error message with structured error data.
+
+ * This template class represents an error condition in UMD. The interface
+ * contains a human-readable error message and user-defined structured error
+ * metadata of type DATA_T. Specialized UmdErrors should be located in
  * /api/umd/device/utils/error.hpp. Constructors of specialized UmdError
  * classes should be implemented in /device/utils/error.cpp to reduce
  * dependencies.
@@ -155,17 +168,41 @@ public:
      * @param error The UmdError object containing the error message and data.
      * @param file Source file where the exception was thrown (typically __FILE__).
      * @param line Line number where the exception was thrown (typically __LINE__).
+     * @param condition Assert condition that failed, causing the exception.
      */
-    explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
-        std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
-        backtrace_ = tt::umd::error::get_stacktrace(64, 2);
+    explicit UmdException(
+        ERROR_T error, const std::string& file = "", uint32_t line = 0, const std::string& condition = "") :
+        std::runtime_error(error.message()), line_(line), file_(file), condition_(condition), error_(error) {
+        // Automatically capture stack trace on construction.
+        // Skip first two frames (get_stacktrace() and this constructor.).
+        backtrace_ = tt::umd::error::get_stacktrace(/*max_frames=*/64, /*skip=*/2);
         std::stringstream ss;
         ss << error_.message() << std::endl;
         ss << "Location: " << file_ << ":" << line_ << std::endl;
+        if (!condition_.empty()) {
+            ss << "Condition: " << condition_ << std::endl;
+        }
+
         for (size_t i = 0; i < backtrace_.size(); ++i) {
             ss << std::setw(2) << std::right << i + 1 << ". " << backtrace_[i] << std::endl;
         }
         what_output_ = ss.str();
+
+        /*
+            Example stack trace output:
+                Location: /tt-umd/device/topology/topology_discovery.cpp:491
+                1. tt::umd::TopologyDiscovery::verify_fw_bundle_version(tt::umd::TTDevice*)
+                2. tt::umd::TopologyDiscovery::get_connected_devices()
+                3. tt::umd::TopologyDiscovery::create_ethernet_map()
+                4. tt::umd::TopologyDiscovery::discover(tt::umd::TopologyDiscoveryOptions const&, tt::umd::IODeviceType,
+            std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+                5. tt::umd::Cluster::create_cluster_descriptor(std::__cxx11::basic_string<char, std::char_traits<char>,
+            std::allocator<char> > const&, tt::umd::IODeviceType, tt::umd::TopologyDiscoveryOptions const&)
+                6. ./build/tools/umd/topology(+0xbb0e4) [0x55c2986cc0e4]
+                7. /lib/x86_64-linux-gnu/libc.so.6(+0x29d90) [0x7f341a06cd90]
+                8. __libc_start_main
+                9. ./build/tools/umd/topology(+0xb9975) [0x55c2986ca975]
+        */
     }
 
     /**
@@ -197,6 +234,13 @@ public:
     uint32_t line() const noexcept { return line_; }
 
     /**
+     * @brief Gets the assert condition linked with the exception.
+     *
+     * @return Const reference to the condition string.
+     */
+    const std::string& condition() const noexcept { return condition_; }
+
+    /**
      * @brief Gets the captured stack trace.
      *
      * @return Const reference to vector of demangled stack frame strings.
@@ -208,6 +252,7 @@ private:
     std::string file_;                    ///< Source file where exception was thrown.
     std::vector<std::string> backtrace_;  ///< Captured and demangled stack trace.
     std::string what_output_;             ///< Formatted error message with all details.
+    std::string condition_;               ///< Optional assert condition.
     ERROR_T error_;                       ///< Wrapped UmdError object.
 };
 
@@ -222,11 +267,35 @@ private:
  * @param ... Arguments to forward to the error_type constructor.
  *
  */
-#define UMD_THROW(error_type, ...) \
-    (throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__))
+#define UMD_THROW(error_type, ...)                                                                   \
+    do {                                                                                             \
+        throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__); \
+    } while (0)
 
 /**
- * @brief Macro to conditionally throw a UmdException with automatic location tracking.
+ * @brief Macro to assert a condition and throw a UmdException if it fails.
+ *
+ * This macro evaluates a condition and throws a UmdException if the condition is false.
+ * The file and line information are automatically captured at the assertion site.
+ *
+ * @param condition Boolean expression; exception is thrown if false.
+ * @param error_type The type of UmdError to construct (e.g., UmdError<ETHHeartbeatFailureData>).
+ * @param ... Arguments to forward to the error_type constructor.
+ *
+ * Example:
+ * @code
+ * UMD_ASSERT(ptr != nullptr, UmdError<NullPointerData>, "Pointer must not be null", data);
+ * @endcode
+ */
+#define UMD_ASSERT(condition, error_type, ...)                                                                       \
+    do {                                                                                                             \
+        if (!(condition)) {                                                                                          \
+            throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__, #condition); \
+        }                                                                                                            \
+    } while (0)
+
+/**
+ * @brief Macro to either throw an UmdException or return an UmdError.
  *
  * This macro evaluates a condition and throws a UmdException if the condition is true.
  * If the condition is false, it returns the constructed error object without throwing.
@@ -238,10 +307,10 @@ private:
  *
  * Example:
  * @code
- * UMD_THROW_IF(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
+ * UMD_THROW_OR_RETURN(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
  * @endcode
  */
-#define UMD_THROW_IF(condition, error_type, ...)                                                               \
+#define UMD_THROW_OR_RETURN(condition, error_type, ...)                                                        \
     ((condition) ? throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__) \
                  : error_type(__VA_ARGS__))
 

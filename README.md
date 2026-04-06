@@ -142,7 +142,7 @@ cmake --build build
 
 #### Capturing a trace
 
-Launch the [Tracy server](https://github.com/tenstorrent/tracy), start the application you want to profile, then click connect
+Launch the [Tracy GUI](https://github.com/tenstorrent/tracy) locally, then on remote configure Port forwarding in VS Code for port 8086, start the application you want to profile on remote, then click Connect from GUI started locally. Alternatively, use `tracy-capture -o trace.tracy` to capture trace from the command line, then open the resulting file in the Tracy GUI.
 
 # Integration
 UMD can be consumed by downstream projects in multiple ways.

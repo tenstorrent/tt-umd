@@ -27,7 +27,7 @@ public:
     explicit JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices = {});
     ~JtagDevice();
 
-    static std::shared_ptr<JtagDevice> create(
+    static std::unique_ptr<JtagDevice> create(
         const std::filesystem::path& binary_directory = jtag_library_path,
         const std::unordered_set<int>& jtag_target_devices = {});
 

@@ -19,7 +19,7 @@ set_property(
 
 # ASan, LSan and UBSan do not conflict with each other and are each fast enough that we can combine them.
 # Saves us from an explosion of pipelines to test our code.
-set(asan_flags "-fsanitize=address -fsanitize=leak -fsanitize=undefined")
+set(asan_flags "-fsanitize=address -fsanitize=leak -fsanitize=undefined -fno-sanitize-recover=all")
 set(asan_compile_flags "${asan_flags} -fno-omit-frame-pointer")
 set(CMAKE_C_FLAGS_ASAN "${CMAKE_C_FLAGS_RELWITHDEBINFO} ${asan_compile_flags}")
 set(CMAKE_CXX_FLAGS_ASAN "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${asan_compile_flags}")

@@ -85,6 +85,7 @@ jobs:
           # compiler, and whether they used release cmake flags or not.
           # This suffix should be used for all package artifacts so their names
           # don't overlap for different configurations.
+          # Example: BUILD_ID=ubuntu-24.04-clang-20-release
           echo "BUILD_ID=${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
@@ -119,6 +120,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
+          # example: clang-tidy-compile-commands-ubuntu-24.04-clang-20-release
           name: clang-tidy-compile-commands-${{ env.BUILD_ID }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
@@ -134,6 +136,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
+          # example: clang-tidy-config-ubuntu-24.04-clang-20-release
           name: clang-tidy-config-${{ env.BUILD_ID }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
@@ -153,6 +156,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
+          # example: tt-umd-packages-ubuntu-24.04-clang-20-release
           name: tt-umd-packages-${{ env.BUILD_ID }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.deb
@@ -162,6 +166,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
+          # example: tt-umd-packages-ubuntu-24.04-clang-20-release
           name: tt-umd-packages-${{ env.BUILD_ID }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*.rpm
@@ -170,6 +175,7 @@ jobs:
       - name: Upload example config files
         uses: actions/upload-artifact@v4
         with:
+          # example: tt-umd-examples-ubuntu-24.04-clang-20-release
           name: tt-umd-examples-${{ env.BUILD_ID }}
           path: |
             ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
@@ -243,6 +249,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
         uses: actions/upload-artifact@v4
         with:
+          # example: tt-umd-python-ubuntu-24.04-clang-20-release
           name: tt-umd-python-${{ env.BUILD_ID }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
@@ -258,6 +265,7 @@ jobs:
         if: ${{ contains(matrix.image.distro, 'fedora-') }}
         uses: actions/upload-artifact@v4
         with:
+          # example: tt-umd-python-ubuntu-24.04-clang-20-release
           name: tt-umd-python-${{ env.BUILD_ID }}
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
@@ -331,19 +339,21 @@ jobs:
 
       - name: Set Build ID
         run: |
-          # Note that BUILD ID doesn't include the option without the -release suffix
-          # as the above matrix which builds packages. We test only the release variants.
-          echo "BUILD_ID=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-release" >> $GITHUB_ENV
+          # Note that BUILD ID doesn't include the option with the -release suffix
+          # as the above matrix which builds packages. We test only one variant.
+          echo "BUILD_ID=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
 
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
+          # example: tt-umd-packages-ubuntu-24.04-clang-20
           name: tt-umd-packages-${{ env.BUILD_ID }}
           path: ./downloaded-artifact/tt-umd-packages-${{ env.BUILD_ID }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
+          # example: tt-umd-examples-ubuntu-24.04-clang-20
           name: tt-umd-examples-${{ env.BUILD_ID }}
           path: ./downloaded-artifact/tt-umd-examples-${{ env.BUILD_ID }}-example
 
@@ -351,6 +361,7 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
+          # example: tt-umd-python-ubuntu-24.04-clang-20
           name: tt-umd-python-${{ env.BUILD_ID }}
           path: ./downloaded-artifact/tt-umd-python-${{ env.BUILD_ID }}-package
 

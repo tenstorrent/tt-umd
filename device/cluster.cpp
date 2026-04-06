@@ -842,6 +842,7 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>&
 }
 
 void Cluster::write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
@@ -851,19 +852,23 @@ void Cluster::write_to_device_reg(
 }
 
 void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
 void Cluster::dma_multicast_write(
     void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 
@@ -873,6 +878,7 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 
 void Cluster::noc_multicast_write(
     void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
     get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
 }
 

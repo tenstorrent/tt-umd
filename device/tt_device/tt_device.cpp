@@ -231,10 +231,12 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 
@@ -359,10 +361,12 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -378,6 +382,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -393,6 +398,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 

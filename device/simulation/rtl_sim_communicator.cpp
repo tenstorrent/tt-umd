@@ -57,9 +57,8 @@ RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_di
 RtlSimCommunicator::~RtlSimCommunicator() {
     if (notification_thread_running_.load()) {
         notification_thread_running_.store(false);
-        // Detach instead of join to avoid hanging if a user callback is stuck.
         if (notification_thread_.joinable()) {
-            notification_thread_.detach();
+            notification_thread_.join();
         }
     }
 
@@ -125,7 +124,7 @@ void RtlSimCommunicator::initialize() {
     nng_free(buf_ptr, buf_size);
 
     // Start notification handler thread.
-    log_info(tt::LogEmulationDriver, "Starting AXI RAM notification handler thread.");
+    log_info(tt::LogEmulationDriver, "Starting notification handler thread.");
     notification_thread_running_.store(true);
     notification_thread_ = std::thread(&RtlSimCommunicator::notification_handler_thread, this);
 }
@@ -133,12 +132,11 @@ void RtlSimCommunicator::initialize() {
 void RtlSimCommunicator::shutdown() {
     // Stop notification thread before shutting down communication.
     if (notification_thread_running_.load()) {
-        log_info(tt::LogEmulationDriver, "Stopping AXI RAM notification handler thread.");
+        log_info(tt::LogEmulationDriver, "Stopping notification handler thread.");
         notification_thread_running_.store(false);
         command_queue_cv_.notify_all();
-        // Detach instead of join to avoid hanging if a user callback is stuck.
         if (notification_thread_.joinable()) {
-            notification_thread_.detach();
+            notification_thread_.join();
         }
     }
 

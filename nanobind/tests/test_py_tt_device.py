@@ -372,3 +372,39 @@ class TestTTDevice(unittest.TestCase):
 
         # Verify the message passed through
         self.assertIn("This is a test exception from C++", str(cm.exception))
+
+    def test_hang_detection_api(self):
+        """Verify HangAction enum and hang detection methods on a healthy device."""
+        # Enum is reachable and has distinct members.
+        self.assertNotEqual(
+            tt_umd.TTDevice.HangAction.Throw,
+            tt_umd.TTDevice.HangAction.ReturnValue,
+        )
+
+        pci_ids = tt_umd.PCIDevice.enumerate_devices()
+        if len(pci_ids) == 0:
+            print("No PCI devices found.")
+            return
+
+        for pci_id in pci_ids:
+            dev = tt_umd.TTDevice.create(pci_id)
+            dev.set_power_state(True)
+            dev.init_tt_device()
+
+            if dev.is_remote():
+                print(f"Skipping remote device {pci_id}")
+                dev.set_power_state(False)
+                continue
+
+            # A healthy device should return False for all hang checks.
+            self.assertFalse(
+                dev.is_pcie_hung(action=tt_umd.TTDevice.HangAction.ReturnValue)
+            )
+            for noc in [tt_umd.NocId.NOC0, tt_umd.NocId.NOC1]:
+                self.assertFalse(
+                    dev.is_noc_hung(
+                        noc=noc, action=tt_umd.TTDevice.HangAction.ReturnValue
+                    )
+                )
+
+            dev.set_power_state(False)

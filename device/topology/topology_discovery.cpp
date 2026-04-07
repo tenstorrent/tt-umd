@@ -27,6 +27,7 @@
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -570,9 +571,10 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, tt_xy_pair et
     const auto second_start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+        uint32_t signature = (current_reading >> 16);
 
-        // Heartbeat must be in the format 0xABCDxxxx.
-        if ((current_reading >> 16) != 0xABCD) {
+        if (signature != erisc_firmware::BASE_FW_HEARTBEAT_SIGNATURE &&
+            signature != erisc_firmware::FABRIC_HEARTBEAT_SIGNATURE) {
             log_warning(
                 LogUMD,
                 "Read invalid heartbeat value: {:#x} from ETH core: {}, FW possibly corrupted.",

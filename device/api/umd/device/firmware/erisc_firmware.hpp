@@ -68,4 +68,7 @@ static const std::unordered_map<SemVer, HashedAddressRange> BH_ERISC_FW_HASHES =
     {{1, 7, 0}, {0x70000, 0xa6ec, "fe5620b007338f9c55854b1b76947c68dab63a5a1bfe8f4cbcfe1eb3620c4dc3"}},
 };
 
+constexpr uint32_t BASE_FW_HEARTBEAT_SIGNATURE = 0xABCD;
+constexpr uint32_t FABRIC_HEARTBEAT_SIGNATURE = 0xDCBA;
+
 }  // namespace tt::umd::erisc_firmware

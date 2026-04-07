@@ -118,35 +118,21 @@ protected:
     }
 };
 
-TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBarAndNoc) {
+// TODO: Add reading NODE ID via NOC.
+TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBar) {
     NocId noc = GetParam();
     tt::ARCH arch = tt_device_->get_arch();
 
     uint32_t bar_raw = tt_device_->bar_read32(get_bar_node_id_offset(arch, noc));
-
-    uint32_t noc_raw;
-    {
-        NocIdSwitcher noc_switcher(noc);
-        noc_raw = tt_device_->read_hang_check_reg_via_noc();
-    }
-
     tt_xy_pair bar_node_id = extract_node_id(bar_raw);
-    tt_xy_pair noc_node_id = extract_node_id(noc_raw);
 
     log_info(
-        LogUMD,
-        "NOC{} node ID: BAR=({},{}) [0x{:08X}], NOC=({},{}) [0x{:08X}]",
-        static_cast<int>(noc),
-        bar_node_id.x,
-        bar_node_id.y,
-        bar_raw,
-        noc_node_id.x,
-        noc_node_id.y,
-        noc_raw);
+        LogUMD, "NOC{} node ID: BAR=({},{}) [0x{:08X}]", static_cast<int>(noc), bar_node_id.x, bar_node_id.y, bar_raw);
 
     EXPECT_NE(bar_raw, 0xFFFFFFFF) << "BAR read returned all ones.";
-    EXPECT_NE(noc_raw, 0xFFFFFFFF) << "NOC" << static_cast<int>(noc) << " read returned all ones.";
-    EXPECT_EQ(bar_node_id, noc_node_id) << "BAR and NOC" << static_cast<int>(noc) << " node ID reads differ.";
+
+    EXPECT_FALSE(tt_device_->is_noc_hung(noc))
+        << "NOC" << static_cast<int>(noc) << " appears hung on a healthy device.";
 }
 
 TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {

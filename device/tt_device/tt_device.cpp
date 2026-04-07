@@ -206,23 +206,31 @@ RemoteInterface *TTDevice::get_remote_interface() {
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        // Jtag protocol uses different communication paths from pci therefore
-        // there's no need to check hang which is in this case pci-specific.
-        return;
+bool TTDevice::detect_hang_read(std::uint32_t data_read) {
+    if (!hang_detector_) {
+        throw std::runtime_error("HangDetector is not available for this device.");
     }
-    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
+    auto result = hang_detector_->is_pcie_hung(data_read);
+    if (!result.has_value()) {
+        log_warning(LogUMD, "PCIe hang detection is not supported for this device.");
+        return false;
+    }
+    if (result.value()) {
         throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
     }
+    return false;
 }
 
 bool TTDevice::is_noc_hung(NocId noc) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_noc_hung is not applicable for JTAG communication type.");
+    if (!hang_detector_) {
+        throw std::runtime_error("HangDetector is not available for this device.");
     }
-    NocIdSwitcher switcher(noc);
-    return (read_hang_check_reg_via_noc() == HANG_READ_VALUE);
+    auto result = hang_detector_->is_noc_hung(noc);
+    if (!result.has_value()) {
+        log_warning(LogUMD, "NOC hang detection is not supported for this device.");
+        return false;
+    }
+    return result.value();
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
@@ -286,7 +294,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         utils::check_timeout(
             start,
             timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
     }
 }
 

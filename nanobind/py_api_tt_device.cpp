@@ -332,7 +332,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t msg_code,
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -359,9 +359,11 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done,
+               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
+               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
                uint32_t arg0,
-               uint32_t arg1,
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t arg1 = 0xffff,
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -378,9 +380,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
             "milliseconds.")
@@ -389,9 +391,11 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done,
+               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
+               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
                uint32_t arg0,
-               uint32_t arg1,
-               uint32_t timeout = 1) -> std::tuple<int, int, int> {
+               uint32_t arg1 = 0xffff,
+               uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -408,9 +412,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 

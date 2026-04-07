@@ -98,6 +98,8 @@ public:
     /*
      * RemoteWormholeTTDevice uses RemoteCommunication and doesn't have an underlying I/O device,
      * so hang detection is done via the local TTDevice used by RemoteCommunication.
+     * For now, the API would never return true, but this is an intermediate step where old behavior is
+     * preserved, but the new behavior is supported through the follow-up PR (i.e. this is a temporary solution).
      */
     bool detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
     bool is_noc_hung(NocId noc);

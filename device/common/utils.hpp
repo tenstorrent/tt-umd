@@ -109,7 +109,7 @@ std::string to_hex_string(T value) {
  * @returns True if `timeout` amount of time has elapsed since `start_time`.
  */
 inline bool check_timeout(
-    const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) {
+    const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) noexcept {
     // A timeout of 0 can never time out.
     if (timeout.count() == 0) {
         return false;
@@ -232,8 +232,6 @@ public:
     }
 };
 
-}  // namespace tt::umd::utils
-
 constexpr bool is_arm_platform() {
 #if defined(__aarch64__) || defined(__arm__)
     return true;
@@ -249,3 +247,5 @@ constexpr bool is_riscv_platform() {
     return false;
 #endif
 }
+
+}  // namespace tt::umd::utils

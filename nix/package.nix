@@ -47,18 +47,18 @@ stdenv.mkDerivation {
   ];
 
   cmakeFlags = [
-    "-DCPM_LOCAL_PACKAGES_ONLY=ON"
+    (lib.cmakeBool "CPM_LOCAL_PACKAGES_ONLY" true)
     # Tell the build where to find header-only deps that CPM would normally download
-    "-Dpicosha2_SOURCE_DIR=${picosha2-src}"
-    "-Dumd_asio_SOURCE_DIR=${asio-src}"
+    (lib.cmakeFeature "picosha2_SOURCE_DIR" "${picosha2-src}")
+    (lib.cmakeFeature "umd_asio_SOURCE_DIR" "${asio-src}")
     # Disable optional components that pull in extra deps
-    "-DTT_UMD_BUILD_TESTS=OFF"
-    "-DTT_UMD_BUILD_SIMULATION=OFF"
-    "-DTT_UMD_BUILD_PYTHON=OFF"
-    "-DTT_UMD_BUILD_EXAMPLES=OFF"
-    "-DTT_UMD_BUILD_TOOLS=ON"
-    "-DTT_UMD_ENABLE_CLANG_TIDY=OFF"
-    "-DTT_UMD_ENABLE_TRACY=OFF"
+    (lib.cmakeBool "TT_UMD_BUILD_TESTS" false)
+    (lib.cmakeBool "TT_UMD_BUILD_SIMULATION" false)
+    (lib.cmakeBool "TT_UMD_BUILD_PYTHON" false)
+    (lib.cmakeBool "TT_UMD_BUILD_EXAMPLES" false)
+    (lib.cmakeBool "TT_UMD_BUILD_TOOLS" true)
+    (lib.cmakeBool "TT_UMD_ENABLE_CLANG_TIDY" false)
+    (lib.cmakeBool "TT_UMD_ENABLE_TRACY" false)
   ];
 
   meta = {

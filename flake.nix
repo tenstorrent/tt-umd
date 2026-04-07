@@ -58,14 +58,14 @@
             ];
 
             cmakeFlags = [
-              "-DTT_LOGGER_INSTALL=ON"
+              (pkgs.lib.cmakeBool "TT_LOGGER_INSTALL" true)
             ];
           };
         in
         {
           default = pkgs.callPackage ./nix/package.nix {
             inherit picosha2-src asio-src tt-logger;
-            nanobind = pkgs.python3Packages.nanobind;
+            inherit (pkgs.python3Packages) nanobind;
           };
         }
       );

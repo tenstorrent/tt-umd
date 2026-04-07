@@ -99,8 +99,8 @@ public:
      * @brief Controls what happens when a hang is confirmed.
      */
     enum class HangAction {
-        Throw,        ///< Throw std::runtime_error (default).
-        ReturnValue,  ///< Return instead of throwing.
+        THROW,   ///< Throw std::runtime_error (default).
+        RETURN,  ///< Return instead of throwing.
     };
 
     /**
@@ -117,7 +117,7 @@ public:
      * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
      * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
      */
-    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::Throw);
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
 
     /**
      * Check if NOC traffic to the device is hung.
@@ -131,7 +131,7 @@ public:
      * @return true if the NOC appears hung (only reachable with ReturnValue).
      * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
      */
-    bool is_noc_hung(NocId noc, HangAction action = HangAction::Throw);
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
     /**
      * DMA transfer from device to host.

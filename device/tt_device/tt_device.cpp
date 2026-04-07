@@ -216,7 +216,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
         return false;
     }
     if (result.value()) {
-        if (action == TTDevice::HangAction::Throw) {
+        if (action == TTDevice::HangAction::THROW) {
             throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
         }
         return true;
@@ -234,7 +234,7 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
         return false;
     }
     if (result.value()) {
-        if (action == TTDevice::HangAction::Throw) {
+        if (action == TTDevice::HangAction::THROW) {
             throw std::runtime_error(
                 fmt::format("NOC{} appears hung: you should reset the board.", static_cast<int>(noc)));
         }

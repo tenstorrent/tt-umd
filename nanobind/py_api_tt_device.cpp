@@ -130,8 +130,8 @@ void bind_tt_device(nb::module_ &m) {
     auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
 
     nb::enum_<TTDevice::HangAction>(tt_device_class, "HangAction")
-        .value("Throw", TTDevice::HangAction::Throw)
-        .value("ReturnValue", TTDevice::HangAction::ReturnValue);
+        .value("Throw", TTDevice::HangAction::THROW)
+        .value("ReturnValue", TTDevice::HangAction::RETURN);
 
     tt_device_class
         .def_static(
@@ -253,13 +253,13 @@ void bind_tt_device(nb::module_ &m) {
             "is_pcie_hung",
             &TTDevice::is_pcie_hung,
             nb::arg("data_read") = HANG_READ_VALUE,
-            nb::arg("action") = TTDevice::HangAction::Throw,
+            nb::arg("action") = TTDevice::HangAction::THROW,
             "Check if the PCIe communication is hung.")
         .def(
             "is_noc_hung",
             &TTDevice::is_noc_hung,
             nb::arg("noc"),
-            nb::arg("action") = TTDevice::HangAction::Throw,
+            nb::arg("action") = TTDevice::HangAction::THROW,
             "Check if the specified NOC is hung.")
         .def(
             "get_risc_reset_state",

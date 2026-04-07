@@ -217,7 +217,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     }
     if (result.value()) {
         if (action == TTDevice::HangAction::THROW) {
-            throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+            throw std::runtime_error("Read 0xffffffff from PCIe: you should reset the board.");
         }
         return true;
     }

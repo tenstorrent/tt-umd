@@ -53,7 +53,7 @@ private:
 
     DeviceProtocol* protocol_;
     PcieInterface* pcie_interface_;
-    bool is_local_protocol_;
+    bool is_mmio_protocol_;
     architecture_implementation* arch_impl_;
 };
 

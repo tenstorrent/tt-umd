@@ -87,11 +87,7 @@ TTSimTTDevice::TTSimTTDevice(
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
-TTSimTTDevice::~TTSimTTDevice() = default;
-
-void TTSimTTDevice::start_device() {}
-
-void TTSimTTDevice::close_device() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);

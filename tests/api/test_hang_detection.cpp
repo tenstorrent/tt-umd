@@ -118,7 +118,8 @@ protected:
     }
 };
 
-TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBarAndNoc) {
+// TODO: Add reading NODE ID via NOC.
+TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBar) {
     NocId noc = GetParam();
     tt::ARCH arch = tt_device_->get_arch();
 

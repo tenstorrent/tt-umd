@@ -17,14 +17,6 @@ struct RuntimeError : public UmdError<NoData> {
     explicit RuntimeError(const std::string& message) : UmdError<NoData>(message, {}) {}
 };
 
-struct UnsupportedError : public UmdError<NoData> {
-    explicit UnsupportedError(const std::string& message) : UmdError<NoData>(message, {}) {}
-};
-
-struct NotApplicableError : public UmdError<NoData> {
-    explicit NotApplicableError(const std::string& message) : UmdError<NoData>(message, {}) {}
-};
-
 /**
  * @brief Exception thrown when a SIGBUS signal is intercepted.
  * This indicates a hardware access error, likely due to a reset or

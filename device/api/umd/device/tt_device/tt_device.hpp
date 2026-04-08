@@ -87,10 +87,6 @@ public:
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
 
-    bool has_pcie_interface() const { return pcie_capabilities_ != nullptr; }
-
-    bool has_jtag_interface() const { return jtag_capabilities_ != nullptr; }
-
     tt::ARCH get_arch();
 
     /**

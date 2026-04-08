@@ -469,15 +469,6 @@ void bind_tt_device(nb::module_ &m) {
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            [](TTSimTTDevice &self, tt_xy_pair translated_core, bool deassert) {
-                self.send_tensix_risc_reset(
-                    translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
-            },
-            nb::arg("translated_core"),
-            nb::arg("deassert"),
-            "Send a Tensix RISC reset signal to the simulation device.")
-        .def(
-            "send_tensix_risc_reset_with_options",
             static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
                 &TTSimTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
@@ -521,15 +512,6 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            [](RtlSimulationTTDevice &self, tt_xy_pair translated_core, bool deassert) {
-                self.send_tensix_risc_reset(
-                    translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
-            },
-            nb::arg("translated_core"),
-            nb::arg("deassert"),
-            "Send a Tensix RISC reset signal to the RTL simulation device.")
-        .def(
-            "send_tensix_risc_reset_with_options",
             static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
                 &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),

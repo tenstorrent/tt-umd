@@ -607,6 +607,7 @@ PCIDevice::~PCIDevice() {
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
+        TracyFreeN(dma_buffer.buffer, "DMA");
         munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
     }
 }
@@ -912,6 +913,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
         dma_buffer.buffer_pa = iova;
         dma_buffer.completion_pa = iova + dma_buf_size;
         dma_buffer.size = dma_buf_size;
+        TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
 
         return true;
     } catch (...) {
@@ -954,6 +956,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
             dma_buffer.buffer_pa = dma_buf.out.physical_address;
             dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
             dma_buffer.size = dma_buf_size;
+            TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
             return true;
         }
     }

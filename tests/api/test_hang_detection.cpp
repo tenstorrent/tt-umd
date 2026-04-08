@@ -26,6 +26,7 @@
 
 using namespace tt;
 using namespace tt::umd;
+using namespace tt::umd::utils;
 
 class HangDetectionTest : public ::testing::Test {
 protected:
@@ -36,7 +37,7 @@ protected:
     std::unique_ptr<SocDescriptor> soc_desc_;
 
     void SetUp() override {
-        if (is_arm_platform()) {
+        if (utils::is_arm_platform()) {
             GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
         }
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();

@@ -68,7 +68,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
-    if (is_arm_platform()) {
+    if (utils::is_arm_platform()) {
         // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
         // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
         GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
@@ -395,7 +395,7 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
 }
 
 TEST(WarmResetTest, ClusterWarmReset) {
-    if constexpr (is_arm_platform()) {
+    if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();

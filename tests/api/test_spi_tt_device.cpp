@@ -70,6 +70,7 @@ SpiTestDevices setup_spi_test_devices() {
             EthCoord target_chip = cluster_desc->get_chip_locations().at(chip_id);
             auto remote_communication = RemoteCommunication::create_remote_communication(
                 local_tt_device.get(),
+                local_tt_device->get_communication_device_id(),
                 local_tt_device->get_arch(),
                 target_chip,
                 nullptr);  // nullptr for sysmem_manager

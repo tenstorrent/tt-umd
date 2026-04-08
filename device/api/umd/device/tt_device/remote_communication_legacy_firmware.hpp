@@ -16,7 +16,11 @@ class SysmemManager;
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
     RemoteCommunicationLegacyFirmware(
-        TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager = nullptr);
+        TTDevice* local_tt_device,
+        int communication_device_id,
+        tt::ARCH arch,
+        EthCoord target_chip,
+        SysmemManager* sysmem_manager = nullptr);
 
     void read_non_mmio(
         tt_xy_pair target_core,

@@ -42,8 +42,8 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
-    auto remote_communication =
-        RemoteCommunication::create_remote_communication(local_chip, local_chip->get_arch(), target_chip);
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip, local_chip->get_communication_device_id(), local_chip->get_arch(), target_chip);
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
     return TTDevice::create(std::move(remote_communication));
@@ -53,8 +53,8 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
 // remote transfer ethernet cores; caller must call set_remote_transfer_ethernet_cores.
 std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chip, int rack, int shelf, int x, int y) {
     EthCoord target_chip{0, x, y, rack, shelf};
-    auto remote_communication =
-        RemoteCommunication::create_remote_communication(local_chip, local_chip->get_arch(), target_chip);
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        local_chip, local_chip->get_communication_device_id(), local_chip->get_arch(), target_chip);
     return TTDevice::create(std::move(remote_communication));
 }
 

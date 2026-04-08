@@ -29,10 +29,15 @@ RemoteCommunication::RemoteCommunication(
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device, tt::ARCH arch, EthCoord target_chip, SysmemManager* sysmem_manager) {
+    TTDevice* local_tt_device,
+    int communication_device_id,
+    tt::ARCH arch,
+    EthCoord target_chip,
+    SysmemManager* sysmem_manager) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<RemoteCommunicationLegacyFirmware>(local_tt_device, target_chip, sysmem_manager);
+            return std::make_unique<RemoteCommunicationLegacyFirmware>(
+                local_tt_device, communication_device_id, arch, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:
             // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;

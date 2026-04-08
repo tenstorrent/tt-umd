@@ -35,6 +35,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
+        local_chip->get_tt_device()->get_communication_device_id(),
         local_chip->get_tt_device()->get_arch(),
         target_eth_coord,
         sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);
@@ -67,6 +68,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
         local_chip->get_tt_device(),
+        local_chip->get_tt_device()->get_communication_device_id(),
         local_chip->get_tt_device()->get_arch(),
         target_eth_coord,
         sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);

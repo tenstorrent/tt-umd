@@ -1,6 +1,7 @@
 set(UMD_MISC_TESTS_SRCS
     test_semver.cpp
     test_assert.cpp
+    test_errors.cpp
 )
 
 add_executable(umd_misc_tests ${UMD_MISC_TESTS_SRCS})

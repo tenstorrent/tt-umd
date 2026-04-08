@@ -22,6 +22,11 @@ on:
         required: false
         type: boolean
         default: true
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -69,7 +74,7 @@ jobs:
 
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
       - name: Print all params
@@ -94,6 +99,8 @@ jobs:
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
+            -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -124,7 +131,7 @@ jobs:
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -183,7 +190,7 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -207,6 +214,6 @@ jobs:
       - name: Upload kernels as artifacts
         uses: pyTooling/upload-artifact@v4
         with:
-          name: ttexalens-build
+          name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: |
             build

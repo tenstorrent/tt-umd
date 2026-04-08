@@ -1,0 +1,26 @@
+arch:
+  0: quasar
+chips:
+  {}
+chip_unique_ids:
+  0: 5497558138880
+ethernet_connections:
+  []
+ethernet_connections_to_remote_devices:
+  []
+chips_with_mmio:
+  - 0: 0
+harvesting:
+  0:
+    noc_translation: false
+    harvest_mask: 0
+    dram_harvesting_mask: 0
+    eth_harvesting_mask: 0
+    pcie_harvesting_mask: 0
+    l2cpu_harvesting_mask: 0
+boards:
+  -
+    - board_id: 5497558138880
+    - board_type: quasar
+    - chips:
+        - 0

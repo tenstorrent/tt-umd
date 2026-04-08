@@ -29,6 +29,7 @@ properties:
           - wormhole_b0
           - Wormhole # alternative name for wormhole_b0
           - blackhole
+          - quasar
     additionalProperties: false
 
   # Ethernet coordinates (WH only).
@@ -213,6 +214,7 @@ properties:
                   - p150
                   - p300
                   - ubb
+                  - quasar
                 description: Type of the board
             required: [board_type]
             additionalProperties: false

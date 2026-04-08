@@ -6,8 +6,9 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
-#include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
+#include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
+#include <sys/mman.h>    // for mmap, munmap
+#include <sys/stat.h>    // for fstat
 
 #include <cerrno>
 #include <cstddef>
@@ -27,6 +28,52 @@
 #include "hugepage.hpp"
 
 namespace tt::umd {
+
+// Try to mmap with 1GB hugepages first, then 2MB hugepages, then regular pages.
+// This is a performance optimization: hugepages reduce page fault overhead during allocation.
+// All three options are functionally correct when IOMMU is enabled.
+static void *mmap_with_hugepage_fallback(size_t size) {
+    constexpr size_t kHugepage1GiB = 1ULL << 30;
+    constexpr size_t kHugepage2MiB = 2ULL << 20;
+
+    void *addr = MAP_FAILED;
+
+    // Only attempt 1GiB hugepages when the size is a multiple of 1GiB.
+    if (size >= kHugepage1GiB && (size % kHugepage1GiB) == 0) {
+        addr = mmap(
+            nullptr,
+            size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_1GB | MAP_POPULATE,
+            -1,
+            0);
+        if (addr != MAP_FAILED) {
+            log_debug(LogUMD, "Allocated {:#x} bytes using 1GB hugepages.", size);
+            return addr;
+        }
+    }
+
+    // Only attempt 2MiB hugepages when the size is a multiple of 2MiB.
+    if (size >= kHugepage2MiB && (size % kHugepage2MiB) == 0) {
+        addr = mmap(
+            nullptr,
+            size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB | MAP_POPULATE,
+            -1,
+            0);
+        if (addr != MAP_FAILED) {
+            log_debug(LogUMD, "Allocated {:#x} bytes using 2MB hugepages.", size);
+            return addr;
+        }
+    }
+
+    addr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
+    if (addr != MAP_FAILED) {
+        log_debug(LogUMD, "Allocated {:#x} bytes using regular pages.", size);
+    }
+    return addr;
+}
 
 SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
     tlb_manager_ = tlb_manager;
@@ -278,8 +325,8 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
         TT_THROW("IOMMU is required for sysmem without hugepages.");
     }
 
-    log_info(LogUMD, "Allocating sysmem without hugepages (size: {:#x}).", iommu_mapping_size);
-    iommu_mapping = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    log_info(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
+    iommu_mapping = mmap_with_hugepage_fallback(size);
 
     if (iommu_mapping == MAP_FAILED) {
         TT_THROW(
@@ -348,8 +395,10 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
-    void *mapping =
-        mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
+    if (mapping == MAP_FAILED) {
+        TT_THROW("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size);
+    }
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }
 

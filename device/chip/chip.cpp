@@ -15,6 +15,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/driver_atomics.hpp"
@@ -56,11 +57,13 @@ void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_addres
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }
 
 void Chip::wait_chip_to_be_ready() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     wait_eth_cores_training();
     wait_dram_cores_training();
 }
 
 void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto timeout_left = timeout_ms;
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
@@ -79,6 +82,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
 }
 
 void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     TTDevice* tt_device = get_tt_device();
     const uint32_t dram_harvesting_mask = get_soc_descriptor().harvesting_masks.dram_harvesting_mask;
     const uint32_t chip_num_dram_channels = std::min(
@@ -115,9 +119,7 @@ void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& 
     TT_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
         "Cannot control soft reset on a non-tensix or harvested core");
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = static_cast<uint32_t>(valid);
-    get_tt_device()->set_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core), valid_val);
+    get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
 }
 
 // TODO: Remove this API once we switch to the new one.
@@ -134,50 +136,23 @@ RiscType Chip::get_risc_reset_state(CoreCoord core) {
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
-    uint32_t soft_reset_update =
-        get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
-    log_debug(
-        LogUMD,
-        "Asserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
-        core,
-        soft_reset_current_state,
-        soft_reset_update,
-        soft_reset_new);
-    get_tt_device()->set_risc_reset_state(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), soft_reset_new);
+    get_tt_device()->assert_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs);
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
-    uint32_t soft_reset_update =
-        get_tt_device()->get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
-    // The update variable should be applied in such a way that it clears the bits that are set in the selected_riscs.
-    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
-    uint32_t soft_reset_new_with_staggered_start =
-        soft_reset_new |
-        (staggered_start ? get_tt_device()->get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
-    log_debug(
-        LogUMD,
-        "Deasserting RISC reset for core {}, current state: {}, update: {}, new state: {}",
-        core,
-        soft_reset_current_state,
-        soft_reset_update,
-        soft_reset_new_with_staggered_start);
-    get_tt_device()->set_risc_reset_state(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), soft_reset_new_with_staggered_start);
+    get_tt_device()->deassert_risc_reset(
+        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
+    ZoneScopedC(tracy::Color::DarkRed);
     for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
         assert_risc_reset(core, selected_riscs);
     }
 }
 
 void Chip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
         deassert_risc_reset(core, selected_riscs, staggered_start);
     }
@@ -235,6 +210,7 @@ int Chip::arc_msg(
 }
 
 void Chip::set_power_state(DevicePowerState state) {
+    ZoneScopedN("UMD_Chip::set_power_state");
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);

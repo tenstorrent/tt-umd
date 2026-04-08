@@ -36,8 +36,8 @@ void TlbWindow::read_block_reconfigure(
 
     while (size > 0) {
         configure(config);
-        uint32_t tlb_size = get_size();
-        uint32_t transfer_size = std::min(size, tlb_size);
+        const size_t tlb_size = get_size();
+        const uint32_t transfer_size = std::min((size_t)size, tlb_size);
 
         read_block(0, buffer_addr, transfer_size);
 
@@ -62,9 +62,8 @@ void TlbWindow::write_block_reconfigure(
 
     while (size > 0) {
         configure(config);
-        uint32_t tlb_size = get_size();
-
-        uint32_t transfer_size = std::min(size, tlb_size);
+        const size_t tlb_size = get_size();
+        const uint32_t transfer_size = std::min((size_t)size, tlb_size);
 
         write_block(0, buffer_addr, transfer_size);
 

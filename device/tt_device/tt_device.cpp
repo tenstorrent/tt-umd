@@ -374,6 +374,32 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
     tt_driver_atomics::sfence();
 }
 
+void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = static_cast<uint32_t>(valid);
+    set_risc_reset_state(core, valid_val);
+}
+
+void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
+    TT_THROW("send_tensix_risc_reset without core is not supported at the TTDevice level");
+}
+
+void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+    uint32_t soft_reset_current_state = get_risc_reset_state(core);
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
+    set_risc_reset_state(core, soft_reset_new);
+}
+
+void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+    uint32_t soft_reset_current_state = get_risc_reset_state(core);
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
+    uint32_t soft_reset_new_with_staggered_start =
+        soft_reset_new | (staggered_start ? architecture_impl_->get_soft_reset_staggered_start() : 0);
+    set_risc_reset_state(core, soft_reset_new_with_staggered_start);
+}
+
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

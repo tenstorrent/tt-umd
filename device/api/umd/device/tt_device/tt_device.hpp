@@ -26,6 +26,8 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -376,6 +378,41 @@ public:
      * @param risc_flags bitmask of riscs to set soft reset for
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+
+    /**
+     * Send tensix risc reset for a specific core.
+     *
+     * @param core Core to reset, in translated coordinates
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Send tensix risc reset for all tensix cores.
+     *
+     * The base TTDevice implementation does not support this operation and throws.
+     * Subclasses may override to implement all-core reset semantics.
+     *
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Assert risc reset for a specific core.
+     *
+     * @param core Core to assert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to assert reset for
+     */
+    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+
+    /**
+     * Deassert risc reset for a specific core.
+     *
+     * @param core Core to deassert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to deassert reset for
+     * @param staggered_start Whether to use staggered start
+     */
+    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 

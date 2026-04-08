@@ -104,10 +104,6 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(
     }
 }
 
-void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
-    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
-}
-
 void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
     TT_THROW("send_tensix_risc_reset without core not supported for RTL simulation");
 }

@@ -167,11 +167,32 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
+// The nullptr check for capabilities in the APIs get_pci_device, get_jtag_device and get_remote_communication
+// is there because of retro-compatibility, i.e. we expect that this API can return a nullptr - unfortunately.
+// The alternatives are throwing an exception which breaks the previous behavior and would require significant
+// effort across client code to introduce try catch blocks. This should be a temporary solution until an API
+// change is done where tl::expected is introduced or at least std::optional so the validity of the returned value is
+// checked, and the information is not provided via an obscure nullptr.
+PCIDevice *TTDevice::get_pci_device() {
+    if (!pcie_capabilities_) {
+        return nullptr;
+    }
+    return get_pcie_interface()->get_pci_device();
+}
 
-JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
+JtagDevice *TTDevice::get_jtag_device() {
+    if (!jtag_capabilities_) {
+        return nullptr;
+    }
+    return get_jtag_interface()->get_jtag_device();
+}
 
-RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
+RemoteCommunication *TTDevice::get_remote_communication() {
+    if (!remote_capabilities_) {
+        return nullptr;
+    }
+    return get_remote_interface()->get_remote_communication();
+}
 
 void TTDevice::set_power_state(bool busy) {
     if (is_remote_tt_device || !pcie_capabilities_) {

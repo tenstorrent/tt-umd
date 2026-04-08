@@ -136,7 +136,7 @@ inline bool check_timeout(
     bool timed_out = check_timeout(start_time, timeout);
     if (timed_out) {
         auto error = UMD_THROW_OR_RETURN(action == TimeoutAction::Throw, error::RuntimeError, error_msg);
-        log_error(LogUMD, error.message());
+        log_warning(LogUMD, error.message());
     }
     return timed_out;
 }

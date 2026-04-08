@@ -8,6 +8,7 @@
 // TODO : tt-metal uses SysmemBuffer transitively through this header. Remove once tt-metal includes it directly.
 // Link to issue: https://github.com/tenstorrent/tt-umd/issues/2437.
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 
 namespace tt::umd {

@@ -339,7 +339,7 @@ void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOpti
     set_risc_reset_state(core, valid_val);
 }
 
-void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) {
+void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
     TT_THROW("send_tensix_risc_reset without core is not supported at the TTDevice level");
 }
 

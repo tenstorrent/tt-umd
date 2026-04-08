@@ -336,7 +336,7 @@ public:
      *
      * @param core Core to get soft reset for, in translated coordinates
      */
-    virtual uint32_t get_risc_reset_state(tt_xy_pair core);
+    uint32_t get_risc_reset_state(tt_xy_pair core);
 
     /**
      * Set the soft reset signal for the given riscs.
@@ -344,7 +344,7 @@ public:
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
      */
-    virtual void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
     /**
      * Send tensix risc reset for a specific core.
@@ -356,6 +356,9 @@ public:
 
     /**
      * Send tensix risc reset for all tensix cores.
+     *
+     * The base TTDevice implementation does not support this operation and throws.
+     * Subclasses may override to implement all-core reset semantics.
      *
      * @param soft_resets Soft reset options
      */

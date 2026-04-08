@@ -491,20 +491,14 @@ void bind_tt_device(nb::module_ &m) {
             "Send a Tensix RISC reset with specific soft reset options for all cores.")
         .def(
             "assert_risc_reset",
-            [](TTSimTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
-                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &TTSimTTDevice::assert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            [](TTSimTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs, bool staggered_start) {
-                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &TTSimTTDevice::deassert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
             "Deassert RISC reset for selected RISC cores on a given core.")
@@ -544,24 +538,14 @@ void bind_tt_device(nb::module_ &m) {
             "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
         .def(
             "assert_risc_reset",
-            [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
-                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &RtlSimulationTTDevice::assert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            [](RtlSimulationTTDevice &self,
-               uint32_t core_x,
-               uint32_t core_y,
-               RiscType selected_riscs,
-               bool staggered_start) {
-                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &RtlSimulationTTDevice::deassert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
             "Deassert RISC reset for selected RISC cores on a given core.")

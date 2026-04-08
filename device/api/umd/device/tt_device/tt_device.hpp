@@ -93,8 +93,43 @@ public:
 
     tt::ARCH get_arch();
 
-    bool detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    bool is_noc_hung(NocId noc);
+    /**
+     * @brief Controls what happens when a hang is confirmed.
+     */
+    enum class HangAction {
+        THROW,   ///< Throw std::runtime_error (default).
+        RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * Check if the PCIe communication is hung.
+     *
+     * Reads a known register over BAR and compares the result against the hang
+     * signature. If the device is not locally accessible (e.g. JTAG or remote),
+     * the check is skipped and false is returned.
+     *
+     * @param data_read  Value to compare against the hang signature. Defaults to
+     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   after any BAR read that returned a suspicious value.
+     * @param action     What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
+
+    /**
+     * Check if NOC traffic to the device is hung.
+     *
+     * Sends a read over the specified NOC and compares the result against the
+     * hang signature. Only meaningful for locally accessible devices; on remote
+     * devices the check is skipped and false is returned.
+     *
+     * @param noc     NOC to check (NOC0 or NOC1).
+     * @param action  What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the NOC appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
     /**
      * DMA transfer from device to host.
@@ -383,6 +418,8 @@ protected:
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
+
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
 

@@ -101,6 +101,10 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
+  run-ttsim-tests:
+    secrets: inherit
+    uses: ./.github/workflows/run-ttsim-tests.yml
+
   run-tooling-tests:
     secrets: inherit
     needs: build-tests

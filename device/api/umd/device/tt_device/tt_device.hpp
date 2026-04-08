@@ -421,8 +421,6 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
 
-    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
-
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;

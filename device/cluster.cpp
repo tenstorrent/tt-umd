@@ -46,6 +46,7 @@
 #include "api/umd/device/types/core_coordinates.hpp"
 #include "assert.hpp"
 #include "hugepage.hpp"
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
@@ -160,6 +161,7 @@ void Cluster::log_pci_device_summary() {
 }
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
@@ -203,7 +205,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const std::filesystem::path& simulator_directory) {
+    const std::filesystem::path& simulator_directory,
+    std::unique_ptr<TTDevice> tt_device) {
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
@@ -220,11 +223,16 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-        auto chip = LocalChip::create(
-            (cluster_desc->get_chips_with_mmio().at(chip_id)),
-            soc_desc,
-            num_host_mem_channels,
-            cluster_desc->io_device_type);
+        std::unique_ptr<LocalChip> chip;
+        if (tt_device != nullptr) {
+            chip = LocalChip::create(std::move(tt_device), soc_desc, num_host_mem_channels);
+        } else {
+            chip = LocalChip::create(
+                (cluster_desc->get_chips_with_mmio().at(chip_id)),
+                soc_desc,
+                num_host_mem_channels,
+                cluster_desc->io_device_type);
+        }
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
@@ -243,6 +251,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
 SocDescriptor Cluster::construct_soc_descriptor(
     const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+
     bool chip_in_cluster_descriptor =
         cluster_desc->get_all_chips().find(chip_id) != cluster_desc->get_all_chips().end();
 
@@ -312,6 +322,8 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 // Options is intentionally taken by value because it may be mutated when TT_UMD_BUILD_SIMULATION is enabled.
 // NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
 Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
+    ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
+    std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
             if (options.cluster_descriptor != nullptr) {
@@ -320,8 +332,10 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 break;
             }
 
-            cluster_desc = Cluster::create_cluster_descriptor(
-                options.sdesc_path, options.io_device_type, options.topology_discovery_options);
+            auto [desc, devices] = TopologyDiscovery::discover(
+                options.topology_discovery_options, options.io_device_type, options.sdesc_path);
+            cluster_desc = std::move(desc);
+            tt_devices = std::move(devices);
             break;
         }
         case ChipType::MOCK:
@@ -367,6 +381,14 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
         SocDescriptor soc_desc =
             construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
 
+        // Reuse TTDevice from topology discovery if available, avoiding duplicate device creation.
+        std::unique_ptr<TTDevice> tt_device;
+        auto it = tt_devices.find(chip_id);
+        if (it != tt_devices.end()) {
+            tt_device = std::move(it->second);
+            tt_devices.erase(it);
+        }
+
         add_chip(
             chip_id,
             options.chip_type,
@@ -376,7 +398,8 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 cluster_desc.get(),
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device,
-                options.simulator_directory));
+                options.simulator_directory,
+                std::move(tt_device)));
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
@@ -902,6 +925,7 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 }
 
 void Cluster::deassert_resets_and_set_power_state() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
     broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
@@ -921,6 +945,7 @@ void Cluster::deassert_resets_and_set_power_state() {
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
@@ -932,6 +957,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 }
 
 void Cluster::close_device() {
+    ZoneScopedC(tracy::Color::DarkRed);
     log_info(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
@@ -982,6 +1008,7 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     const std::string& sdesc_path,
     IODeviceType device_type,
     const TopologyDiscoveryOptions& topology_discovery_options) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
 }
 

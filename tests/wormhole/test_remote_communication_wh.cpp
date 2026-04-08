@@ -115,6 +115,7 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     ChipId local_chip_id = cluster_desc->get_closest_mmio_capable_chip(*remote_chip_id);
     int physical_device_id = cluster_desc->get_chips_with_mmio().at(local_chip_id);
     std::unique_ptr<TTDevice> local_tt_device = TTDevice::create(physical_device_id);
+    local_tt_device->set_power_state(true);
     local_tt_device->init_tt_device();
 
     SocDescriptor local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
@@ -165,4 +166,6 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
         ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex
                                                   << data_to_write[i] << " but got 0x" << data_read[i];
     }
+
+    local_tt_device->set_power_state(false);
 }

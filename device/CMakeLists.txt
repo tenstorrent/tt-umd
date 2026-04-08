@@ -36,9 +36,6 @@ else()
     message(STATUS "Building tt-umd library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
-# Alias for old name
-add_library(${PROJECT_NAME}::device ALIAS tt-umd)
-add_library(device ALIAS tt-umd)
 
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
@@ -85,6 +82,9 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
+        tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/wormhole_hang_detector.cpp
+        tt_device/hang_detection/blackhole_hang_detector.cpp
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
@@ -109,6 +109,7 @@ target_sources(
         noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
+        utils/error.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology/topology_discovery.cpp
@@ -212,6 +213,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
+                api/umd/device/tt_device/hang_detection/hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
@@ -234,7 +238,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/utils/common.hpp
-                api/umd/device/utils/exceptions.hpp
+                api/umd/device/utils/error_detail.hpp
+                api/umd/device/utils/error.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
@@ -311,7 +316,7 @@ endif()
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
     target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
-    message(STATUS "Tracy profiling enabled for device library")
+    message(STATUS "Tracy profiling enabled for tt-umd library")
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support

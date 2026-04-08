@@ -168,11 +168,10 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 // The nullptr check for capabilities in the APIs get_pci_device, get_jtag_device and get_remote_communication
-// is there because of retro-compatibility, i.e. we expect that this API can return a nullptr - unfortunately.
-// The alternatives are throwing an exception which breaks the previous behavior and would require significant
-// effort across client code to introduce try catch blocks. This should be a temporary solution until an API
-// change is done where tl::expected is introduced or at least std::optional so the validity of the returned value is
-// checked, and the information is not provided via an obscure nullptr.
+// exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
+// Throwing an exception would break existing behavior and require significant changes across client code.
+// This approach is intended as a temporary measure until the API is updated to use tl::expected or std::optional,
+// providing callers with an explicit way to check validity rather than relying on nullptr semantics.
 PCIDevice *TTDevice::get_pci_device() {
     if (!pcie_capabilities_) {
         return nullptr;

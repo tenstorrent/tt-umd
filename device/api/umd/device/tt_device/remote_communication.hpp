@@ -17,7 +17,8 @@ class SysmemManager;
 
 class RemoteCommunication {
 public:
-    RemoteCommunication(TTDevice* local_tt_device, tt::ARCH arch, SysmemManager* sysmem_manager = nullptr);
+    RemoteCommunication(
+        TTDevice* local_tt_device, int communication_device_id, tt::ARCH arch, SysmemManager* sysmem_manager = nullptr);
     virtual ~RemoteCommunication() = default;
 
     static std::unique_ptr<RemoteCommunication> create_remote_communication(

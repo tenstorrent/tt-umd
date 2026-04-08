@@ -19,10 +19,11 @@
 
 namespace tt::umd {
 
-RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, tt::ARCH arch, SysmemManager* sysmem_manager) :
+RemoteCommunication::RemoteCommunication(
+    TTDevice* local_tt_device, int communication_device_id, tt::ARCH arch, SysmemManager* sysmem_manager) :
     local_tt_device_(local_tt_device),
     arch_(arch),
-    communication_device_id_(local_tt_device_->get_communication_device_id()),
+    communication_device_id_(communication_device_id),
     sysmem_manager_(sysmem_manager) {
     lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_communication_device_id());
 }

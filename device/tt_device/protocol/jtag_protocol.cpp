@@ -16,11 +16,11 @@ JtagProtocol::JtagProtocol(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlin
 
 JtagProtocol::~JtagProtocol() = default;
 
-void JtagProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void JtagProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     jtag_device_->write(mmio_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
 }
 
-void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     jtag_device_->read(mmio_id_, mem_ptr, core.x, core.y, addr, size, is_selected_noc1() ? 1 : 0);
 }
 

@@ -31,8 +31,8 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create(
         const std::filesystem::path& simulator_directory, int num_host_mem_channels = 0);
 
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
 
     SocDescriptor* get_soc_descriptor() { return &soc_descriptor_; }
 

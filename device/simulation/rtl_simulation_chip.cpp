@@ -30,13 +30,13 @@ void RtlSimulationChip::start_device() {}
 
 void RtlSimulationChip::close_device() {}
 
-void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void RtlSimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_chip_coord_to_translated(core);
     tt_device_->write_to_device(src, translate_core, l1_dest, size);
 }
 
-void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_xy_pair translate_core = soc_descriptor_.translate_chip_coord_to_translated(core);
     tt_device_->read_from_device(dest, translate_core, l1_src, size);

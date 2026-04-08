@@ -162,8 +162,8 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid

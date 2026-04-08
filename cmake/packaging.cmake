@@ -64,7 +64,8 @@ set(CPACK_RPM_UMD_PYTHON_PACKAGE_NAME "umd-python")
 
 # Debian-specific defaults
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "support@tenstorrent.com")
-set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+# Enable automatic shlibdeps for runtime package only
+set(CPACK_DEBIAN_UMD_RUNTIME_PACKAGE_SHLIBDEPS ON)
 
 # Disable automatic shlibdeps for Python package since libtt-umd.so.0 is in a different component
 # The dependency is already handled via component dependencies (umd-python DEPENDS umd-runtime)

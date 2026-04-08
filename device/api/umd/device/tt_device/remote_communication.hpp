@@ -49,6 +49,7 @@ public:
     void set_remote_transfer_ethernet_cores(const std::unordered_set<tt_xy_pair>& cores);
 
     TTDevice* get_local_device();
+    int get_communication_device_id() const;
 
     // Get the active eth core that will be used for the next remote communication.
     // Which core is used for remote communication can change.
@@ -68,6 +69,8 @@ protected:
 
     TTDevice* local_tt_device_;
     tt::ARCH arch_;
+    // Needed for unique identification of MMIO protocol dependency.
+    int communication_device_id_ = -1;
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };

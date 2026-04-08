@@ -15,7 +15,7 @@ namespace tt::umd {
 HangDetector::HangDetector(DeviceProtocol* protocol, architecture_implementation* arch_impl) :
     protocol_(protocol),
     pcie_interface_(dynamic_cast<PcieInterface*>(protocol)),
-    is_local_protocol_(!dynamic_cast<RemoteInterface*>(protocol)),
+    is_mmio_protocol_(!dynamic_cast<RemoteInterface*>(protocol)),
     arch_impl_(arch_impl) {}
 
 std::optional<bool> HangDetector::is_pcie_hung(uint32_t data_read) {
@@ -29,7 +29,7 @@ std::optional<bool> HangDetector::is_pcie_hung(uint32_t data_read) {
 }
 
 std::optional<bool> HangDetector::is_noc_hung(NocId noc) {
-    if (!is_local_protocol_) {
+    if (!is_mmio_protocol_) {
         return std::nullopt;
     }
     NocIdSwitcher switcher(noc);

@@ -77,7 +77,7 @@ TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     std::unique_ptr<architecture_implementation> architecture_impl) :
     communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
-    communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
+    communication_device_id_(remote_communication->get_communication_device_id()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
@@ -167,11 +167,31 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
+// The nullptr check for capabilities in the APIs get_pci_device, get_jtag_device and get_remote_communication
+// exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
+// Throwing an exception would break existing behavior and require significant changes across client code.
+// This approach is intended as a temporary measure until the API is updated to use tl::expected or std::optional,
+// providing callers with an explicit way to check validity rather than relying on nullptr semantics.
+PCIDevice *TTDevice::get_pci_device() {
+    if (!pcie_capabilities_) {
+        return nullptr;
+    }
+    return get_pcie_interface()->get_pci_device();
+}
 
-JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
+JtagDevice *TTDevice::get_jtag_device() {
+    if (!jtag_capabilities_) {
+        return nullptr;
+    }
+    return get_jtag_interface()->get_jtag_device();
+}
 
-RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
+RemoteCommunication *TTDevice::get_remote_communication() {
+    if (!remote_capabilities_) {
+        return nullptr;
+    }
+    return get_remote_interface()->get_remote_communication();
+}
 
 void TTDevice::set_power_state(bool busy) {
     if (is_remote_tt_device || !pcie_capabilities_) {
@@ -205,7 +225,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-bool TTDevice::detect_hang_read(std::uint32_t data_read) {
+bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     if (!hang_detector_) {
         throw std::runtime_error("HangDetector is not available for this device.");
     }
@@ -215,12 +235,15 @@ bool TTDevice::detect_hang_read(std::uint32_t data_read) {
         return false;
     }
     if (result.value()) {
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+        if (action == TTDevice::HangAction::THROW) {
+            throw std::runtime_error("Read 0xffffffff from PCIe: you should reset the board.");
+        }
+        return true;
     }
     return false;
 }
 
-bool TTDevice::is_noc_hung(NocId noc) {
+bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     if (!hang_detector_) {
         throw std::runtime_error("HangDetector is not available for this device.");
     }
@@ -229,7 +252,14 @@ bool TTDevice::is_noc_hung(NocId noc) {
         log_warning(LogUMD, "NOC hang detection is not supported for this device.");
         return false;
     }
-    return result.value();
+    if (result.value()) {
+        if (action == TTDevice::HangAction::THROW) {
+            throw std::runtime_error(
+                fmt::format("NOC{} appears hung: you should reset the board.", static_cast<int>(noc)));
+        }
+        return true;
+    }
+    return false;
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

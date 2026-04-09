@@ -37,6 +37,16 @@ else()
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
 
+# Set version
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        VERSION
+            ${CMAKE_PROJECT_VERSION}
+        SOVERSION
+            ${CMAKE_PROJECT_VERSION_MAJOR}
+)
+
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
 if(COMMAND TT_ENABLE_UNITY_BUILD)
@@ -349,13 +359,18 @@ else()
     message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
 endif()
 
-# Add a custom command to copy the library to build/lib
-add_custom_command(
-    TARGET tt-umd
-    POST_BUILD
-    COMMAND
-        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
-    COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
-    COMMENT "Copying tt-umd library to build/lib"
-)
+if(TT_UMD_BUILD_STATIC)
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+else()
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+endif()

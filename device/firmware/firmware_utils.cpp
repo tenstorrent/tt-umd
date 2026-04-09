@@ -174,7 +174,7 @@ SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
             return SemVer(major, minor, patch);
         }
         default:
-            throw std::runtime_error("Getting ETH FW version is not supported for this device.");
+            UMD_THROW(error::RuntimeError, "Getting ETH FW version is not supported for this device.");
     }
 }
 

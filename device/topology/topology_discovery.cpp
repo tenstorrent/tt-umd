@@ -76,7 +76,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
         case tt::ARCH::BLACKHOLE:
             return std::make_unique<TopologyDiscoveryBlackhole>(options, io_device_type, soc_descriptor_path);
         default:
-            throw std::runtime_error(fmt::format("Unsupported architecture for topology discovery."));
+            UMD_THROW(error::RuntimeError, fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 

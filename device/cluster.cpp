@@ -216,7 +216,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
             "configuration to enable simulation device.");
 #endif
@@ -259,7 +260,8 @@ SocDescriptor Cluster::construct_soc_descriptor(
     // In case of SILICON chip type, this chip has to exist in the cluster descriptor. But it doesn't have to exist in
     // case of Mock or Simulation chip type.
     if (chip_type == ChipType::SILICON && !chip_in_cluster_descriptor) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
     }
 
@@ -293,11 +295,13 @@ SocDescriptor Cluster::construct_soc_descriptor(
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
         if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
-            throw std::runtime_error(fmt::format(
-                "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-                arch_to_str(soc_desc.arch),
-                chip_id,
-                arch_to_str(cluster_desc->get_arch(chip_id))));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Passed SOC descriptor has {} architecture, but Chip ID {} has {} architecture.",
+                    arch_to_str(soc_desc.arch),
+                    chip_id,
+                    arch_to_str(cluster_desc->get_arch(chip_id))));
         }
 
         return soc_desc;
@@ -373,7 +377,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             break;
         }
         default:
-            throw std::runtime_error("Unsupported chip type");
+            UMD_THROW(error::RuntimeError, "Unsupported chip type.");
     }
 
     // Construct all the required chips from the cluster descriptor.

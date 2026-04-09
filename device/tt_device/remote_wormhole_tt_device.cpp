@@ -30,7 +30,7 @@ RemoteWormholeTTDevice::RemoteWormholeTTDevice(std::unique_ptr<RemoteCommunicati
     } else if (local->has_jtag_interface()) {
         TTDevice::set_jtag_interface(local->get_jtag_interface());
     } else {
-        throw std::runtime_error("Local device has no available interface (PCIe or JTAG).");
+        UMD_THROW(error::RuntimeError, "Local device has no available interface (PCIe or JTAG).");
     }
     is_remote_tt_device = true;
 }
@@ -49,7 +49,7 @@ void RemoteWormholeTTDevice::wait_for_non_mmio_flush() {
 
 void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC APB address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     read_from_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
@@ -57,7 +57,7 @@ void RemoteWormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_
 
 void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC APB address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     write_to_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
@@ -65,7 +65,7 @@ void RemoteWormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_
 
 void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC CSM address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
     read_from_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
@@ -73,7 +73,7 @@ void RemoteWormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_
 
 void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC CSM address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
     write_to_device(
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
@@ -91,16 +91,16 @@ void RemoteWormholeTTDevice::noc_multicast_write(
 }
 
 void RemoteWormholeTTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA write to device not supported for remote Wormhole device.");
+    UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote Wormhole device.");
 }
 
 void RemoteWormholeTTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    throw std::runtime_error("DMA read from device not supported for remote Wormhole device.");
+    UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote Wormhole device.");
 }
 
 void RemoteWormholeTTDevice::dma_multicast_write(
     void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    throw std::runtime_error("DMA multicast write not supported for remote Wormhole device.");
+    UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote Wormhole device.");
 }
 
 }  // namespace tt::umd

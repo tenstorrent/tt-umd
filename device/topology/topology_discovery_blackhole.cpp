@@ -133,7 +133,8 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
 }
 
 tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    throw std::runtime_error(
+    UMD_THROW(
+        error::RuntimeError,
         "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
         "bug.");
 }
@@ -162,7 +163,8 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides

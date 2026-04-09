@@ -101,7 +101,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
         if (throw_on_arc_failure) {
-            throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
+            UMD_THROW(error::RuntimeError, fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
         } else {
             return TTDeviceInitResult::ARC_STARTUP_FAILED;
         }
@@ -162,7 +162,7 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
             return nullptr;
         }
         default:
-            throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
+            UMD_THROW(error::RuntimeError, "Remote TTDevice creation is not supported for this architecture.");
     }
 }
 
@@ -185,21 +185,21 @@ DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get();
 
 PcieInterface *TTDevice::get_pcie_interface() {
     if (!pcie_capabilities_) {
-        throw std::runtime_error("PCIe interface is not available for this device.");
+        UMD_THROW(error::RuntimeError, "PCIe interface is not available for this device.");
     }
     return pcie_capabilities_;
 }
 
 JtagInterface *TTDevice::get_jtag_interface() {
     if (!jtag_capabilities_) {
-        throw std::runtime_error("JTAG interface is not available for this device.");
+        UMD_THROW(error::RuntimeError, "JTAG interface is not available for this device.");
     }
     return jtag_capabilities_;
 }
 
 RemoteInterface *TTDevice::get_remote_interface() {
     if (!remote_capabilities_) {
-        throw std::runtime_error("Remote interface is not available for this device.");
+        UMD_THROW(error::RuntimeError, "Remote interface is not available for this device.");
     }
     return remote_capabilities_;
 }
@@ -208,7 +208,7 @@ tt::ARCH TTDevice::get_arch() { return arch; }
 
 bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     if (!hang_detector_) {
-        throw std::runtime_error("HangDetector is not available for this device.");
+        UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
     auto result = hang_detector_->is_pcie_hung(data_read);
     if (!result.has_value()) {
@@ -217,7 +217,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     }
     if (result.value()) {
         if (action == TTDevice::HangAction::THROW) {
-            throw std::runtime_error("Read 0xffffffff from PCIe: you should reset the board.");
+            UMD_THROW(error::RuntimeError, "Read 0xffffffff from PCIe: you should reset the board.");
         }
         return true;
     }
@@ -226,7 +226,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
 
 bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     if (!hang_detector_) {
-        throw std::runtime_error("HangDetector is not available for this device.");
+        UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
     auto result = hang_detector_->is_noc_hung(noc);
     if (!result.has_value()) {
@@ -235,7 +235,8 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     }
     if (result.value()) {
         if (action == TTDevice::HangAction::THROW) {
-            throw std::runtime_error(
+            UMD_THROW(
+                error::RuntimeError,
                 fmt::format("NOC{} appears hung: you should reset the board.", static_cast<int>(noc)));
         }
         return true;
@@ -257,15 +258,17 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    throw std::runtime_error("configure_iatu_region is not implemented for this device");
+    UMD_THROW(error::RuntimeError, "configure_iatu_region is not implemented for this device.");
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
-        throw std::runtime_error(fmt::format(
-            "Invalid DRAM channel index {}, maximum index for given architecture is {}",
-            dram_channel,
-            architecture_impl_->get_dram_banks_number() - 1));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
+                dram_channel,
+                architecture_impl_->get_dram_banks_number() - 1));
     }
     const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
     uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
@@ -290,10 +293,12 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 num_retrain_dram_core--;
             } else {
-                throw std::runtime_error(fmt::format(
-                    "DRAM training failed for channel {} after {} retrain attempts",
-                    dram_channel,
-                    MAX_DRAM_RETRAIN_ATTEMPTS));
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "DRAM training failed for channel {} after {} retrain attempts.",
+                        dram_channel,
+                        MAX_DRAM_RETRAIN_ATTEMPTS));
             }
         }
 

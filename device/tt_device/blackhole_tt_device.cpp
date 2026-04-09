@@ -34,16 +34,18 @@ namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api) {
-    arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
+    const bool noc_translation_enabled = BlackholeTTDevice::get_noc_translation_enabled();
+    arc_core = blackhole::get_arc_core(noc_translation_enabled, is_selected_noc1());
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
-        get_device_protocol(), get_architecture_implementation(), get_noc_translation_enabled()));
+        get_device_protocol(), get_architecture_implementation(), noc_translation_enabled));
 }
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
+    const bool noc_translation_enabled = BlackholeTTDevice::get_noc_translation_enabled();
+    arc_core = blackhole::get_arc_core(noc_translation_enabled, is_selected_noc1());
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
-        get_device_protocol(), get_architecture_implementation(), get_noc_translation_enabled()));
+        get_device_protocol(), get_architecture_implementation(), noc_translation_enabled));
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {

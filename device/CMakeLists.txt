@@ -42,15 +42,9 @@ set_target_properties(
     tt-umd
     PROPERTIES
         VERSION
-            ${TT_UMD_VERSION_CMAKE}
-)
-# SOVERSION should contain only the major component (e.g. 0.9.4 -> 0)
-string(REGEX REPLACE "^([0-9]+)\..*" "\\1" TT_UMD_SOVERSION ${TT_UMD_VERSION_CMAKE})
-set_target_properties(
-    tt-umd
-    PROPERTIES
+            ${CMAKE_PROJECT_VERSION}
         SOVERSION
-            ${TT_UMD_SOVERSION}
+            ${CMAKE_PROJECT_VERSION_MAJOR}
 )
 
 # Enable unity builds for faster compilation 

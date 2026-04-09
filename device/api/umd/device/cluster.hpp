@@ -40,6 +40,8 @@ class RemoteChip;
  * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
  * - Simulation is used for simulation runs.
  * - Mock is used for testing purposes, implementation of all functions is empty.
+ * - SWEmule uses software emulation via tt-emule with memory-backed I/O and no physical hardware.
+ *   Requires TT_UMD_BUILD_EMULE=ON at build time.
  */
 enum ChipType {
     SILICON,

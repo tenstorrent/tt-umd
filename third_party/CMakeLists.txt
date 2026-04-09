@@ -230,7 +230,7 @@ if(TT_UMD_BUILD_EMULE)
     CPMAddPackage(
         NAME tt_emule
         GITHUB_REPOSITORY tenstorrent/tt-emule
-        GIT_TAG main
+        GIT_TAG acf8473de76a3138086acfd3e48aa2748a025126
         SYSTEM YES
         EXCLUDE_FROM_ALL YES
     )

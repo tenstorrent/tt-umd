@@ -9,6 +9,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "tt_emule/device.hpp"
@@ -40,8 +41,10 @@ SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_desc
     // Allocate L1Pool for worker cores.
     // Use a generous count covering Tensix + Ethernet + Router + other non-DRAM cores,
     // since all non-DRAM cores go through the pool for consistent bitmask offset extraction.
-    // Add extra headroom for cores created via virtual coords that differ from physical coords.
+    // Add extra headroom for cores created via translated coords that differ from physical coords.
     size_t num_tensix = soc.get_cores(tt::CoreType::TENSIX).size();
+    // 128 is a safe upper bound on Tensix cores across known architectures (Wormhole=72,
+    // Blackhole~120). Used as fallback if SOC descriptor reports zero.
     size_t pool_size = (num_tensix > 0 ? num_tensix : 128) * 2;  // 2× headroom
     worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
 }
@@ -70,24 +73,30 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         core_to_slot_[core_xy] = slot;
     } else {
         // Pool exhausted — fall back to individual mmap (still MAP_32BIT via CoreRole::WORKER).
+        log_warning(
+            LogUMD,
+            "L1Pool exhausted (all {} slots used); core ({},{}) falling back to individual mmap",
+            worker_pool_->num_slots(),
+            core_xy.x,
+            core_xy.y);
         core = std::make_unique<tt_emule::Core>(coord, tt_emule::CoreRole::WORKER, static_cast<size_t>(l1_size_));
     }
 
-    auto* ptr = core.get();
+    tt_emule::Core* raw_ptr = core.get();
     cores_[core_xy] = std::move(core);
-    return ptr;
+    return raw_ptr;
 }
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     tt_xy_pair key(core.x, core.y);
-    auto* c = get_core(key);
-    std::memcpy(c->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
+    tt_emule::Core* target_core = get_core(key);
+    std::memcpy(target_core->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
     tt_xy_pair key(core.x, core.y);
-    auto* c = get_core(key);
-    std::memcpy(dest, c->l1_ptr(static_cast<uint32_t>(l1_src)), size);
+    tt_emule::Core* target_core = get_core(key);
+    std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
 }
 
 void SWEmuleChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -130,9 +139,15 @@ void SWEmuleChip::write_to_sysmem(uint16_t, const void*, uint64_t, uint32_t) {}
 
 void SWEmuleChip::read_from_sysmem(uint16_t, void*, uint64_t, uint32_t) {}
 
-// --- Multicast (no-op) ---
+// --- Multicast (not implemented) ---
 
-void SWEmuleChip::dma_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint64_t) {}
+void SWEmuleChip::dma_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint64_t) {
+    throw std::runtime_error("SWEmuleChip::dma_multicast_write is not implemented");
+}
+
+void SWEmuleChip::noc_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint64_t) {
+    throw std::runtime_error("SWEmuleChip::noc_multicast_write is not implemented");
+}
 
 // --- Barriers, resets, power (no-ops) ---
 

@@ -359,27 +359,18 @@ else()
     message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
 endif()
 
-# Add a custom command to copy the library to build/lib
-add_custom_command(
-    TARGET tt-umd
-    POST_BUILD
-    COMMAND
-        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
-    COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
-)
-if(NOT TT_UMD_BUILD_STATIC)
-    add_custom_command(
-        TARGET tt-umd
-        POST_BUILD
-        COMMAND
-            ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
-        COMMAND
-            ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:tt-umd>
-            ${CMAKE_BINARY_DIR}/lib/$<TARGET_SONAME_FILE_NAME:tt-umd>
-        COMMAND
-            ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:tt-umd>
-            ${CMAKE_BINARY_DIR}/lib/$<TARGET_LINKER_FILE_NAME:tt-umd>
-        COMMENT "Copying tt-umd library and symlinks to build/lib"
+if(TT_UMD_BUILD_STATIC)
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+else()
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
     )
 endif()

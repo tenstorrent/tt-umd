@@ -12,6 +12,9 @@ enum DEVICE_COMMAND : byte {
     NEO_DM_RESET_ASSERT = 8,
     NEO_DM_RESET_DEASSERT = 9,
     // AXI RAM notifications (remote → host).
+    // TODO: The simulator release currently sends these as tags 8 and 9, which conflict with
+    // NEO_DM_RESET_ASSERT and NEO_DM_RESET_DEASSERT. The simulator must be updated to use 10 and 11
+    // to match these values before this can work end-to-end.
     AXI_RAM_WRITE_NOTIFICATION = 10,
     AXI_RAM_READ_NOTIFICATION = 11,
 }

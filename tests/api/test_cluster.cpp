@@ -21,9 +21,11 @@
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
@@ -115,5 +117,44 @@ TEST(TestCluster, GetEthernetFirmware) {
         EXPECT_FALSE(eth_version.has_value());
     } else {
         EXPECT_TRUE(eth_version.has_value());
+    }
+}
+
+TEST(TestCluster, TestDifferentPowerModes) {
+    {
+        if (PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "Different power modes is supported only for Blackhole.";
+        }
+    }
+
+    {
+        TopologyDiscoveryOptions default_options;
+        auto [desc_default, devices_default] = TopologyDiscovery::discover(default_options);
+        for (auto& [chip_id, tt_device] : devices_default) {
+            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
+            std::cout << "Default mode - Chip " << chip_id << " power: " << power << std::endl;
+        }
+    }
+
+    {
+        TopologyDiscoveryOptions power_options;
+        power_options.low_power = true;
+        auto [desc_low_power, devices_low_power] = TopologyDiscovery::discover(power_options);
+        for (auto& [chip_id, tt_device] : devices_low_power) {
+            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
+            std::cout << "Low power mode - Chip " << chip_id << " power: " << power << std::endl;
+        }
+    }
+
+    {
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        for (ChipId chip_id : cluster->get_target_device_ids()) {
+            TTDevice* tt_device = cluster->get_tt_device(chip_id);
+            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
+            std::cout << "Cluster mode - Chip " << chip_id << " power: " << power << std::endl;
+        }
     }
 }

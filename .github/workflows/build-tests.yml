@@ -99,6 +99,8 @@ jobs:
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
+            -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."

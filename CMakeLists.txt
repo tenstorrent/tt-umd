@@ -124,10 +124,13 @@ if(TT_UMD_ENABLE_CLANG_TIDY)
 endif()
 
 # Enable all warnings and treat them as errors
+if(NOT DEFINED CMAKE_COMPILE_WARNING_AS_ERROR)
+    set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+endif()
+
 add_compile_options(
     "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
     -Wall
-    -Werror
     -Wno-sign-compare
 )
 

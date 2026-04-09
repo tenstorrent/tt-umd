@@ -32,6 +32,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
@@ -242,6 +243,7 @@ tt::ARCH PciDeviceInfo::get_arch() const {
 }
 
 std::vector<int> PCIDevice::enumerate_devices() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> device_ids;
     std::string path = "/dev/tenstorrent/";
 
@@ -387,10 +389,22 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
+static int open_pci_device(const std::string &device_path) {
+    // O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states.
+    int flags = O_RDWR | O_CLOEXEC;
+    if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE && PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) {
+        log_debug(LogUMD, fmt::format("Opening device {} in power aware mode.", device_path));
+        flags |= O_APPEND;
+    } else {
+        log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
+    }
+    return open(device_path.c_str(), flags);
+}
+
 PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open(device_path.c_str(), O_RDWR | O_CLOEXEC)),
+    pci_device_file_desc(open_pci_device(device_path)),
     info(read_device_info(pci_device_file_desc)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
@@ -412,7 +426,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
             KMD_MAP_TO_NOC.to_string());
     }
 
-    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle);
+    int extra_flags = (kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+    int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {
         if (tt_device_handle != nullptr) {
@@ -864,7 +879,7 @@ void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_dev
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
-    int fd = open(fmt::format("/dev/tenstorrent/{}", pci_device_num).c_str(), O_RDWR | O_CLOEXEC);
+    int fd = open_pci_device(fmt::format("/dev/tenstorrent/{}", pci_device_num));
     if (fd == -1) {
         TT_THROW("Coudln't open file descriptor for PCI device number: {}", pci_device_num);
     }
@@ -1003,6 +1018,33 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
+
+void PCIDevice::set_power_state(bool busy) {
+    if (arch != tt::ARCH::BLACKHOLE) {
+        return;
+    }
+
+    if (kmd_version < KMD_POWER_STATE) {
+        log_warning(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
+        return;
+    }
+
+    tenstorrent_power_state power_state{};
+    power_state.argsz = sizeof(power_state);
+    power_state.validity = TT_POWER_VALIDITY(4, 0);
+
+    if (busy) {
+        power_state.power_flags =
+            TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
+    } else {
+        power_state.power_flags = 0;
+    }
+
+    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_SET_POWER_STATE, &power_state) == -1) {
+        log_warning(
+            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(errno));
+    }
+}
 
 std::vector<int> PCIDevice::get_all_device_ids() {
     std::vector<int> device_ids;

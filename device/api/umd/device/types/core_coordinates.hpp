@@ -150,8 +150,8 @@ struct CoreCoord : public xy_pair {
         const CoordSystem coord_system = CoordSystem::LITERAL) :
         xy_pair(core), core_type(type), coord_system(coord_system) {}
 
-    CoreType core_type;
-    CoordSystem coord_system;
+    CoreType core_type = CoreType::UNSPECIFIED;
+    CoordSystem coord_system = CoordSystem::LITERAL;
 
     bool operator==(const CoreCoord& other) const {
         return this->x == other.x && this->y == other.y && this->core_type == other.core_type &&

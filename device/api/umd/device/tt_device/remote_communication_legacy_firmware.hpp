@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/types/cluster_types.hpp"
 
 namespace tt::umd {
 
@@ -16,7 +17,7 @@ class SysmemManager;
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
     RemoteCommunicationLegacyFirmware(
-        TTDevice* local_tt_device,
+        DeviceProtocol* local_protocol,
         int communication_device_id,
         tt::ARCH arch,
         EthCoord target_chip,
@@ -42,6 +43,9 @@ public:
 
 private:
     EthCoord target_chip;
+    DriverHostAddressParams host_address_params_;
+    DriverEthInterfaceParams eth_interface_params_;
+    DriverNocParams noc_params_;
 };
 
 }  // namespace tt::umd

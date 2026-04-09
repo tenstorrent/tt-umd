@@ -34,7 +34,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     ZoneScopedC(tracy::Color::DarkGreen);
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device(),
+        local_chip->get_tt_device()->get_device_protocol(),
         local_chip->get_tt_device()->get_communication_device_id(),
         local_chip->get_tt_device()->get_arch(),
         target_eth_coord,
@@ -67,7 +67,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
     ZoneScopedC(tracy::Color::DarkGreen);
     auto sysmem_manager = local_chip->get_sysmem_manager();
     auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device(),
+        local_chip->get_tt_device()->get_device_protocol(),
         local_chip->get_tt_device()->get_communication_device_id(),
         local_chip->get_tt_device()->get_arch(),
         target_eth_coord,

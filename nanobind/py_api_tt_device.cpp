@@ -121,7 +121,7 @@ void bind_tt_device(nb::module_ &m) {
                 self.set_remote_transfer_ethernet_cores(xy_cores);
             },
             nb::arg("cores"))
-        .def("get_local_device", &RemoteCommunication::get_local_device, nb::rv_policy::reference_internal)
+        .def("get_device_protocol", &RemoteCommunication::get_device_protocol, nb::rv_policy::reference_internal)
         .def("get_remote_transfer_ethernet_core", [](RemoteCommunication &self) -> std::tuple<int, int> {
             tt_xy_pair core = self.get_remote_transfer_ethernet_core();
             return std::make_tuple(core.x, core.y);

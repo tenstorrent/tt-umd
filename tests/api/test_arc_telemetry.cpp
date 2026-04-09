@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -72,7 +73,17 @@ TEST(TestTelemetry, RemoteTelemetry) {
     }
     auto remote_chip = umd_cluster->get_remote_chip(*remote_chips.begin());
     TTDevice* remote_device = remote_chip->get_tt_device();
-    TTDevice* local_device = remote_chip->get_remote_communication()->get_local_device();
+
+    auto mmio_id = remote_device->get_communication_device_id();
+    TTDevice* local_device = nullptr;
+    auto local_chips = umd_cluster->get_target_mmio_device_ids();
+    for (auto& local_chip_id : local_chips) {
+        auto local_chip = umd_cluster->get_local_chip(local_chip_id);
+        if (local_chip->get_tt_device()->get_communication_device_id() == mmio_id) {
+            local_device = local_chip->get_tt_device();
+        }
+    }
+
     ArcTelemetryReader* remote_telemetry = remote_device->get_arc_telemetry_reader();
     ArcTelemetryReader* local_telemetry = local_device->get_arc_telemetry_reader();
 

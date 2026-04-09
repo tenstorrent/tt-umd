@@ -57,7 +57,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
                                   : wormhole::ARC_CORES_NOC0[0];
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
-        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
+        TTDevice::get_remote_interface()->get_remote_communication()->get_device_protocol(),
         get_architecture_implementation()));
 }
 

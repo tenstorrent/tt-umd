@@ -85,7 +85,11 @@ std::unique_ptr<LocalChip> LocalChip::create(
     SysmemManager* sysmem_ptr =
         (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
     remote_communication = RemoteCommunication::create_remote_communication(
-        tt_device.get(), tt_device->get_communication_device_id(), tt_device->get_arch(), {0, 0, 0, 0}, sysmem_ptr);
+        tt_device->get_device_protocol(),
+        tt_device->get_communication_device_id(),
+        tt_device->get_arch(),
+        {0, 0, 0, 0},
+        sysmem_ptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,

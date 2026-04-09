@@ -20,16 +20,16 @@
 namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(
-    TTDevice* local_tt_device, int communication_device_id, tt::ARCH arch, SysmemManager* sysmem_manager) :
-    local_tt_device_(local_tt_device),
+    DeviceProtocol* local_protocol, int communication_device_id, tt::ARCH arch, SysmemManager* sysmem_manager) :
+    local_protocol_(local_protocol),
     arch_(arch),
     communication_device_id_(communication_device_id),
     sysmem_manager_(sysmem_manager) {
-    lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_communication_device_id());
+    lock_manager_.initialize_mutex(MutexType::NON_MMIO, communication_device_id_);
 }
 
 std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communication(
-    TTDevice* local_tt_device,
+    DeviceProtocol* local_protocol,
     int communication_device_id,
     tt::ARCH arch,
     EthCoord target_chip,
@@ -37,7 +37,7 @@ std::unique_ptr<RemoteCommunication> RemoteCommunication::create_remote_communic
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<RemoteCommunicationLegacyFirmware>(
-                local_tt_device, communication_device_id, arch, target_chip, sysmem_manager);
+                local_protocol, communication_device_id, arch, target_chip, sysmem_manager);
         case tt::ARCH::BLACKHOLE:
             // Remote communication is not implemented on driver level for Blackhole.
             return nullptr;
@@ -55,7 +55,7 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
     remote_transfer_eth_cores_.assign(remote_transfer_eth_cores.begin(), remote_transfer_eth_cores.end());
 }
 
-TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
+DeviceProtocol* RemoteCommunication::get_device_protocol() { return local_protocol_; }
 
 int RemoteCommunication::get_communication_device_id() const { return communication_device_id_; }
 

@@ -16,6 +16,7 @@
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
@@ -156,7 +157,7 @@ CoreCoord CoordinateManager::translate_coord_to(
 
 CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LITERAL) {
-        throw std::runtime_error("LITERAL is an invalid coord. system.");
+        return CoreCoord(core);
     }
     if (coord_system == CoordSystem::LOGICAL) {
         throw std::runtime_error("Coordinate is ambiguous for logical coord. system.");

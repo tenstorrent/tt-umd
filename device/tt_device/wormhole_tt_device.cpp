@@ -27,6 +27,8 @@
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -275,7 +277,7 @@ void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
     write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
 }
 
-bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
+void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -324,22 +326,25 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_error(LogUMD, "NoAccess error");
-                return false;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_error(LogUMD, "WatchdogTriggered error");
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code);
 
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
-                return true;
+                return;
 
             case STATUS_OLD_POST_CODE: {
                 bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
                                 bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
                 if (pc_idle) {
-                    return true;
+                    return;
                 }
                 break;
             }
@@ -365,8 +370,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         } else if (is_handling) {
             message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
         } else if (is_complete && !dma_request) {
-            // We only return true if the message says complete and DMA is idle.
-            return true;
+            // We only return if the message says complete and DMA is idle.
+            return;
         }
 
         auto elapsed = std::chrono::steady_clock::now() - start;
@@ -376,23 +381,29 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         if (elapsed < spin_limit) {
             // Optional: For 0ms timeouts, check manually here without strings.
             if (elapsed > timeout_ms) {
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    timeout_ms,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code,
+                    message_id);
             }
             continue;
         }
 
-        if (utils::check_timeout(
-                start,
+        if (utils::check_timeout(start, timeout_ms)) {
+            UMD_THROW(
+                error::ArcStartupError,
                 timeout_ms,
-                fmt::format(
-                    "ARC core {} startup timed out after: {}. Status: 0x{:x}, PostCode: 0x{:x}, MessageId 0x{:x}",
-                    arc_core.str(),
-                    timeout_ms.count(),
-                    bar_read_arc_reset_scratch_status,
-                    bar_read_arc_post_code,
-                    message_id),
-                utils::TimeoutAction::Return)) {
-            return false;
+                *this,
+                get_selected_noc_id(),
+                arc_core,
+                bar_read_arc_reset_scratch_status,
+                bar_read_arc_post_code,
+                message_id);
         }
 
         // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -

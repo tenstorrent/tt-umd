@@ -28,6 +28,8 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -172,16 +174,18 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
-    uint32_t arc_boot_status;
+void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+    uint32_t arc_boot_status = 0;
+    uint32_t arc_postcode = 0;
     const auto start = std::chrono::steady_clock::now();
     constexpr auto spin_limit = std::chrono::microseconds(1000);
     while (true) {
         read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+        read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
 
         // ARC started successfully.
         if ((arc_boot_status & 0x7) == 0x5) {
-            return true;
+            return;
         }
 
         auto elapsed = std::chrono::steady_clock::now() - start;
@@ -191,21 +195,27 @@ bool BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         if (elapsed < spin_limit) {
             // Optional: For 0ms timeouts, check manually here without strings.
             if (elapsed > timeout_ms) {
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    timeout_ms,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    arc_boot_status,
+                    arc_postcode);
             }
             continue;
         }
 
-        if (utils::check_timeout(
-                start,
+        if (utils::check_timeout(start, timeout_ms)) {
+            UMD_THROW(
+                error::ArcStartupError,
                 timeout_ms,
-                fmt::format(
-                    "ARC core {} startup timed out after: {}. Status: 0x{:x}",
-                    arc_core.str(),
-                    timeout_ms.count(),
-                    arc_boot_status),
-                utils::TimeoutAction::Return)) {
-            return false;
+                *this,
+                get_selected_noc_id(),
+                arc_core,
+                arc_boot_status,
+                arc_postcode);
         }
 
         // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -

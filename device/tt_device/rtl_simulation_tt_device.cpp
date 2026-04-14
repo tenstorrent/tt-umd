@@ -222,9 +222,8 @@ void RtlSimulationTTDevice::write_to_arc_csm(
     TT_THROW("write_to_arc_csm not supported for RTL simulation");
 }
 
-bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't have ARC cores in the same way.
-    return true;
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(

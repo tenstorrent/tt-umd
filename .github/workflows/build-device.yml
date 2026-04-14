@@ -240,6 +240,48 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
+  build-cross:
+    # Cross-compilation builds to guard against compiler regressions on non-x86 targets.
+    # The binaries are not run; the goal is only to verify the code compiles cleanly.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [
+          {name: aarch64, cc: aarch64-linux-gnu-gcc, cxx: aarch64-linux-gnu-g++},
+          {name: riscv64, cc: riscv64-linux-gnu-gcc, cxx: riscv64-linux-gnu-g++},
+        ]
+
+    name: Cross-compile for ${{ matrix.arch.name }}
+    runs-on: tt-ubuntu-2204-large-stable
+    container:
+      image: >-
+        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ${{ env.TT_UMD_DIR }}
+          submodules: recursive
+
+      - name: Select cross compiler
+        run: |
+          echo "CC=${{ matrix.arch.cc }}" >> $GITHUB_ENV
+          echo "CXX=${{ matrix.arch.cxx }}" >> $GITHUB_ENV
+
+      - name: Build for ${{ matrix.arch.name }}
+        run: |
+          cd ${{ env.TT_UMD_DIR_SHELL }}
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.arch.name }} \
+            -DTT_UMD_BUILD_TESTS=OFF \
+            -DTT_UMD_BUILD_SIMULATION=OFF \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.

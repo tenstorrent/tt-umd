@@ -21,6 +21,7 @@ inline std::string noc_to_str(NocId noc_id) noexcept {
         case NocId::SYSTEM_NOC:
             return "System NOC";
     }
+    return "";
 }
 
 // Set the NocId for the current thread.

@@ -391,9 +391,13 @@ TEST_P(TestNocValidity, VerifyNocTranslationHostSide) {
     auto [core_type, noc, use_harvested_cores] = GetParam();
     auto arch = get_cluster()->get_cluster_description()->get_arch(0);
 
-    // Skip ROUTER_ONLY on Blackhole - device-side mapping doesn't correlate with host-side.
+    // Skip ROUTER_ONLY on Blackhole. This test verifies NOC_NODE_ID and NOC_ID_LOGICAL registers
+    // (NOC_ID_TRANSLATED_OFFSET in blackhole_implementation.hpp) against host-side coordinate
+    // translations. For ROUTER_ONLY nodes, the NOC_ID_LOGICAL register does not report the correct
+    // translated coordinates — the actual translated values are hardcoded and differ from what the
+    // register returns.
     if (arch == ARCH::BLACKHOLE && core_type == CoreType::ROUTER_ONLY) {
-        GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
+        GTEST_SKIP() << "NOC_ID_LOGICAL register reports incorrect translated coordinates for ROUTER_ONLY";
     }
 
     // Skip ETH (NOC1) and PCIe (both NOCs) on Blackhole for harvested cores - well known problem:

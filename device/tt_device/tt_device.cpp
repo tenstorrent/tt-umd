@@ -96,32 +96,15 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
-        if (throw_on_arc_failure) {
-            throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
-        } else {
-            return TTDeviceInitResult::ARC_STARTUP_FAILED;
-        }
+        throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
     }
-    try {
-        arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
-    }
-    try {
-        telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
-    }
-    try {
-        firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
-    }
-    return TTDeviceInitResult::SUCCESSFUL;
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(

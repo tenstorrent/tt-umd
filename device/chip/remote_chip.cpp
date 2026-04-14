@@ -41,11 +41,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        throw std::runtime_error(
-            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
-    }
+    remote_tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -72,11 +68,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        throw std::runtime_error(
-            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
-    }
+    remote_tt_device->init_tt_device();
 
     return std::unique_ptr<RemoteChip>(
         new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));

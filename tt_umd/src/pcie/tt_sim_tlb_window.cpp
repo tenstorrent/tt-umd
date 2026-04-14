@@ -1,0 +1,82 @@
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "tt_umd/pcie/tt_sim_tlb_window.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <memory>
+
+#include "tt_umd/chip_helpers/simulation_tlb_manager.hpp"
+#include "tt_umd/pcie/tt_sim_tlb_handle.hpp"
+#include "tt_umd/simulation/tt_sim_communicator.hpp"
+#include "tt_umd/tt_device/tt_device.hpp"
+
+namespace tt::umd {
+
+TTSimTlbWindow::TTSimTlbWindow(
+    std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
+    TlbWindow(std::move(handle), config), sim_communicator_(communicator) {}
+
+void TTSimTlbWindow::write16(uint64_t offset, uint16_t value) {
+    validate(offset, sizeof(uint16_t));
+    sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), &value, sizeof(uint16_t));
+}
+
+uint16_t TTSimTlbWindow::read16(uint64_t offset) {
+    validate(offset, sizeof(uint16_t));
+    uint16_t value = 0;
+    sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), &value, sizeof(uint16_t));
+    return value;
+}
+
+void TTSimTlbWindow::write32(uint64_t offset, uint32_t value) {
+    validate(offset, sizeof(uint32_t));
+    sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), &value, sizeof(uint32_t));
+}
+
+uint32_t TTSimTlbWindow::read32(uint64_t offset) {
+    validate(offset, sizeof(uint32_t));
+    uint32_t value = 0;
+    sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), &value, sizeof(uint32_t));
+    return value;
+}
+
+void TTSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
+    validate(offset, size);
+    sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
+}
+
+void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
+    validate(offset, size);
+    sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
+}
+
+void TTSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size) {
+    validate(offset, size);
+    sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
+}
+
+void TTSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) {
+    validate(offset, size);
+    sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
+}
+
+uint64_t TTSimTlbWindow::get_physical_address(uint64_t offset) const {
+    // Get the base address from the TLB handle and add the offset
+    // This should give us the physical address in the simulated device memory space.
+    return reinterpret_cast<uint64_t>(tlb_handle->get_base()) + get_total_offset(offset);
+}
+
+void TTSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(offset, value); }
+
+uint16_t TTSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
+
+tt::ARCH TTSimTlbWindow::get_arch() const {
+    auto* sim_handle = dynamic_cast<TTSimTlbHandle*>(tlb_handle.get());
+    return sim_handle->get_tlb_manager()->get_tt_device()->get_arch();
+}
+
+}  // namespace tt::umd

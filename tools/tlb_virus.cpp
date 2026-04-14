@@ -18,11 +18,11 @@
 #include <vector>
 
 #include "common.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/tlb.hpp"
+#include "tt_umd/chip_helpers/tlb_manager.hpp"
+#include "tt_umd/pcie/pci_device.hpp"
+#include "tt_umd/tt_device/tt_device.hpp"
+#include "tt_umd/types/arch.hpp"
+#include "tt_umd/types/tlb.hpp"
 
 using namespace tt::umd;
 

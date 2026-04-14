@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/types/telemetry.hpp"
+#include "tt_umd/types/telemetry.hpp"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -25,11 +25,11 @@
 #include <vector>
 
 #include "common.hpp"
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
+#include "tt_umd/arc/arc_telemetry_reader.hpp"
+#include "tt_umd/firmware/firmware_info_provider.hpp"
+#include "tt_umd/topology/topology_discovery.hpp"
+#include "tt_umd/types/cluster_descriptor_types.hpp"
+#include "tt_umd/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 

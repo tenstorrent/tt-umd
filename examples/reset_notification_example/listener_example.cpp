@@ -8,7 +8,7 @@
 #include <string>
 #include <thread>
 
-#include "umd/device/warm_reset.hpp"
+#include "tt_umd/warm_reset.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -13,7 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/cluster.hpp"
+#include "tt_umd/cluster.hpp"
 
 using namespace tt;
 using namespace tt::umd;

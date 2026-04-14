@@ -20,9 +20,9 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/utils/lock_manager.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
+#include "tt_umd/pcie/pci_device.hpp"
+#include "tt_umd_common/utils/lock_manager.hpp"
+#include "tt_umd_common/utils/robust_mutex.hpp"
 
 using namespace tt::umd;
 

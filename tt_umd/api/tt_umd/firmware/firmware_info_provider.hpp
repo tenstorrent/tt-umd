@@ -1,0 +1,218 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <memory>
+#include <optional>
+
+#include "tt_umd/firmware/firmware_telemetry_mapping.hpp"
+#include "tt_umd/types/arch.hpp"
+#include "tt_umd/types/cluster_descriptor_types.hpp"
+#include "tt_umd/types/gddr_telemetry.hpp"
+#include "tt_umd_common/utils/semver.hpp"
+
+namespace tt::umd {
+class TTDevice;
+
+/*
+ * FirmwareInfoProvider is a data-driven class that abstracts away the details of specific firmware
+ * versions while maintaining backward compatibility. It provides information about the firmware
+ * running on the device, such as version, board ID, ethernet firmware version, ASIC temperature,
+ * and DRAM training status.
+ *
+ */
+class FirmwareInfoProvider final {
+public:
+    static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
+
+    FirmwareInfoProvider(TTDevice* tt_device);
+
+    ~FirmwareInfoProvider() = default;
+
+    FirmwareBundleVersion get_firmware_version() const;
+
+    static FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
+
+    /**
+     * This function should capture latest firmware version that is supported by the UMD.
+     * It is used to verify that the firmware running on the device is not newer than what UMD supports.
+     * The function is meant to change on every FW release, so we can keep track of supported features
+     * from new FW versions.
+     */
+    static FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
+
+    uint64_t get_board_id() const;
+
+    std::optional<uint32_t> get_eth_fw_version() const;
+
+    // TODO: remove semver suffix from this function when client code is changed to use SemVer directly.
+    // Remove version of the function that returns uint32_t accordingly.
+    std::optional<SemVer> get_eth_fw_version_semver() const;
+
+    std::optional<SemVer> get_gddr_fw_version() const;
+
+    std::optional<SemVer> get_cm_fw_version() const;
+
+    std::optional<SemVer> get_dm_app_fw_version() const;
+
+    std::optional<SemVer> get_dm_bl_fw_version() const;
+
+    std::optional<SemVer> get_tt_flash_version() const;
+
+    /*
+     * Get ASIC temperature in Celsius.
+     * @returns ASIC temperature [Celsius]
+     */
+    double get_asic_temperature() const;
+
+    /*
+     * Get AICLK in MHz.
+     * @returns AICLK [MHz]
+     */
+    std::optional<uint32_t> get_aiclk() const;
+
+    /*
+     * Get AXICLK in MHz.
+     * @returns AXICLK [MHz]
+     */
+    std::optional<uint32_t> get_axiclk() const;
+
+    /*
+     * Get ARCCLK in MHz.
+     * @returns ARCCLK [MHz]
+     */
+    std::optional<uint32_t> get_arcclk() const;
+
+    /*
+     * Get fan speed as a percentage (0-100), if fans are present and controllable by firmware.
+     * @returns Fan speed [percent]
+     */
+    std::optional<uint32_t> get_fan_speed() const;
+
+    /*
+     * Get fan speed in RPM, if fans are present and controllable by firmware.
+     * @returns Fan speed [RPM]
+     */
+    std::optional<uint32_t> get_fan_rpm() const;
+
+    /*
+     * Get TDP in watts.
+     * @returns TDP [W]
+     */
+    std::optional<uint32_t> get_tdp() const;
+
+    /*
+     * Get TDC in amps.
+     * @returns TDC [amps]
+     */
+    std::optional<uint32_t> get_tdc() const;
+
+    /*
+     * Get VCORE in mV.
+     * @returns VCORE [mV]
+     */
+    std::optional<uint32_t> get_vcore() const;
+
+    /*
+     * Get board temperature in Celsius.
+     * @returns Board temperature [Celsius]
+     */
+    std::optional<double> get_board_temperature() const;
+
+    /*
+     * Get thermal limit shutdown threshold in Celsius.
+     * @returns Thermal limit shutdown threshold [Celsius]
+     */
+    std::optional<double> get_thm_limit_shutdown() const;
+
+    /*
+     * Get board power limit in watts.
+     * @returns Board power limit [W]
+     */
+    std::optional<uint32_t> get_board_power_limit() const;
+
+    /*
+     * Get thermal limit throttle threshold in Celsius.
+     * @returns Thermal limit throttle threshold [Celsius]
+     */
+    std::optional<double> get_thm_limit_throttle() const;
+
+    /*
+     * Get thermal trip count.
+     * @returns Number of thermal trips that have occurred.
+     */
+    std::optional<uint32_t> get_therm_trip_count() const;
+
+    /*
+     * Get per-link ethernet heartbeat status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
+     */
+    std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+
+    /*
+     * Get per-link ethernet retrain status.
+     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
+     */
+    std::optional<std::vector<bool>> get_eth_retrain_status() const;
+
+    std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
+
+    uint32_t get_max_clock_freq() const;
+
+    uint8_t get_asic_location() const;
+
+    /*
+     * Get heartbeat from ARC core.
+     * If using current telemetry, the value is taken from TIMER_HEARTBEAT
+     * On legacy telemetry, the value is taken from ARC0_HEALTH
+     * @returns An integer that does not decrease on subsequent calls.
+     */
+    uint32_t get_heartbeat() const;
+
+    std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
+
+    std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const;
+
+    std::optional<uint16_t> get_dram_speed() const;
+
+    std::optional<double> get_current_max_dram_temperature() const;
+
+private:
+    /**
+     * Parse a 16-bit bitmask into a per-link boolean vector.
+     * Bit indices align with ETH channels (i.e. logical coordinates).
+     */
+    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
+
+    TTDevice* tt_device = nullptr;
+
+    FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
+
+    // Configuration map that drives the data-driven behavior.
+    FirmwareFeatures firmware_feature_map;
+
+    // Factory helpers for creating telemetry feature configuration maps.
+    static FirmwareFeatures create_firmware_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
+    static FirmwareFeatures create_18_4_new_telemetry_base();
+    static FirmwareFeatures create_wormhole_18_3_base();
+    static FirmwareFeatures create_wormhole_18_4_base();
+    static FirmwareFeatures create_blackhole_18_5_base();
+    static FirmwareFeatures create_wormhole_18_8_base();
+    static FirmwareFeatures create_blackhole_18_8_base();
+
+    // Engine methods for reading and transforming telemetry data.
+    uint32_t read_raw_telemetry(const FeatureKey& key) const;
+
+    bool is_feature_available(FirmwareFeature feature) const;
+
+    template <typename T>
+    std::optional<T> read_scalar(FirmwareFeature feature) const;
+};
+
+}  // namespace tt::umd

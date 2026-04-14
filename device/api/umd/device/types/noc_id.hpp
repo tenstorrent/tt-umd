@@ -5,11 +5,23 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace tt::umd {
 
 // NOC Identifiers that can be selected when communicating with the device.
 enum class NocId : uint8_t { DEFAULT_NOC = 0, NOC0 = 0, NOC1 = 1, SYSTEM_NOC = 2 };
+
+std::string noc_to_str(NocId noc_id) noexcept {
+    switch (noc_id) {
+        case NocId::NOC0:
+            return "NOC0";
+        case NocId::NOC1:
+            return "NOC1";
+        case NocId::SYSTEM_NOC:
+            return "System NOC";
+    }
+}
 
 // Set the NocId for the current thread.
 // All subsequent device communications from this thread will use the selected NocId.

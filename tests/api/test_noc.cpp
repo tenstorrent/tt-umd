@@ -169,7 +169,7 @@ public:
         cluster_->get_tt_device(chip)->read_from_device(
             &noc_translated_id_val, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
-        return extract_translated_coords_from_reg(noc_translated_id_val);
+        return extract_coords_from_reg(noc_translated_id_val);
     }
 
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
@@ -183,7 +183,7 @@ public:
         cluster_->read_from_device_reg(
             &noc_translated_id_val, chip, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
-        return extract_translated_coords_from_reg(noc_translated_id_val);
+        return extract_coords_from_reg(noc_translated_id_val);
     }
 
     // Wormhole-specific: Compute expected translated coordinate for DRAM cores.
@@ -298,13 +298,15 @@ private:
         return get_noc_port(tt_xy_pair(core.x, core.y), noc_index);
     }
 
-    // Read NOC translated ID register and extract x,y coordinates from the register value.
-    tt_xy_pair extract_translated_coords_from_reg(uint32_t noc_translated_id_val) {
+protected:
+    // Extract x,y coordinates from a NOC register value (same bit layout for node_id and translated_id).
+    tt_xy_pair extract_coords_from_reg(uint32_t noc_translated_id_val) {
         uint32_t translated_x = noc_translated_id_val & 0x3F;
         uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
         return tt_xy_pair(translated_x, translated_y);
     }
 
+private:
     static uint8_t get_noc_index(CoordSystem noc) { return (noc == CoordSystem::NOC0) ? 0 : 1; }
 
     // Wormhole-specific: Reorder NOC0 y-coordinates based on harvesting mask.
@@ -684,16 +686,12 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
 
         uint32_t noc_node_id_val;
         device->read_from_device(&noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val));
-
-        uint32_t x = noc_node_id_val & 0x3F;
-        uint32_t y = (noc_node_id_val >> 6) & 0x3F;
+        const auto [x, y] = extract_coords_from_reg(noc_node_id_val);
 
         uint32_t noc_translated_id_val;
         device->read_from_device(
             &noc_translated_id_val, translated, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
-
-        uint32_t translated_x = noc_translated_id_val & 0x3F;
-        uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
+        const auto [translated_x, translated_y] = extract_coords_from_reg(noc_translated_id_val);
 
         info += fmt::format(
             "TRANSLATED ({:>2},{:>2})  node_id=0x{:08x} ({},{})  translated_id=0x{:08x} ({},{})\n",

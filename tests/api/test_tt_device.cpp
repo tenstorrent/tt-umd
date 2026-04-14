@@ -263,23 +263,6 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 TEST(ApiTTDeviceTest, BroadcastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
-
-    const tt::ARCH arch = pci_devices_info.at(pci_device_ids[0]).get_arch();
-
-    // Cores to read back from after the broadcast — same subset used by MulticastIO.
-    // For WH, these are translated (virtual) tensix coordinates. For BH, raw NOC.
-    tt_xy_pair verify_start;
-    tt_xy_pair verify_end;
-
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        verify_start = {18, 18};
-        verify_end = {21, 21};
-    } else if (arch == tt::ARCH::BLACKHOLE) {
-        verify_start = {1, 2};
-        verify_end = {4, 6};
-    }
-
     uint64_t address = 0x0;
     std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
@@ -288,32 +271,30 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
-        // Zero out the verification cores before broadcasting.
+        ChipInfo chip_info = tt_device->get_chip_info();
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+        // Zero out all tensix cores before broadcasting.
         std::vector<uint8_t> zeros(data_write.size(), 0);
-        for (uint32_t x = verify_start.x; x <= verify_end.x; x++) {
-            for (uint32_t y = verify_start.y; y <= verify_end.y; y++) {
-                tt_device->write_to_device(zeros.data(), {x, y}, address, zeros.size());
-            }
+        for (const CoreCoord& core : tensix_cores) {
+            tt_device->write_to_device(zeros.data(), core, address, zeros.size());
         }
 
         // Verify zeros landed.
-        for (uint32_t x = verify_start.x; x <= verify_end.x; x++) {
-            for (uint32_t y = verify_start.y; y <= verify_end.y; y++) {
-                std::vector<uint8_t> readback(data_write.size(), 1);
-                tt_device->read_from_device(readback.data(), {x, y}, address, readback.size());
-                EXPECT_EQ(zeros, readback);
-            }
+        for (const CoreCoord& core : tensix_cores) {
+            std::vector<uint8_t> readback(data_write.size(), 1);
+            tt_device->read_from_device(readback.data(), core, address, readback.size());
+            EXPECT_EQ(zeros, readback);
         }
 
         tt_device->noc_broadcast(data_write.data(), data_write.size(), address);
 
-        // All verification cores should now have the broadcast data.
-        for (uint32_t x = verify_start.x; x <= verify_end.x; x++) {
-            for (uint32_t y = verify_start.y; y <= verify_end.y; y++) {
-                std::vector<uint8_t> readback(data_write.size());
-                tt_device->read_from_device(readback.data(), {x, y}, address, readback.size());
-                EXPECT_EQ(data_write, readback);
-            }
+        // All tensix cores should now have the broadcast data.
+        for (const CoreCoord& core : tensix_cores) {
+            std::vector<uint8_t> readback(data_write.size());
+            tt_device->read_from_device(readback.data(), core, address, readback.size());
+            EXPECT_EQ(data_write, readback);
         }
 
         tt_device->set_power_state(false);

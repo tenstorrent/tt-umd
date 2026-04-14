@@ -96,9 +96,16 @@ uint32_t WormholeTTDevice::get_clock() {
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
 void WormholeTTDevice::noc_broadcast(void *src, size_t size, uint64_t addr) {
-    // WH grid is 10x12. NOC controller occupies x=0, so broadcast starts at x=1.
-    // Translation has no effect on broadcast coordinates for WH; same range for NOC0 and NOC1.
-    noc_multicast_write(src, size, {1, 0}, {9, 11}, addr);
+    if (get_chip_info().noc_translation_enabled) {
+        // If NOC translation is enabled, we can use the regular NOC multicast write which will handle the translation
+        // for us.
+        noc_multicast_write(src, size, {18, 18}, {27, 25}, addr);
+        return;
+    } else {
+        // WH grid is 10x12. NOC controller occupies x=0, so broadcast starts at x=1.
+        // Translation has no effect on broadcast coordinates for WH; same range for NOC0 and NOC1.
+        noc_multicast_write(src, size, {1, 0}, {9, 11}, addr);
+    }
 }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

@@ -44,21 +44,27 @@ namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset) {
-    if constexpr (is_arm_platform()) {
+bool WarmReset::warm_reset(
+    std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
+    if constexpr (utils::is_arm_platform()) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
-        return;
+        return false;
     }
     // If pci_device_ids is empty, enumerate all devices.
     if (pci_device_ids.empty()) {
         pci_device_ids = PCIDevice::enumerate_devices();
     }
+    if (pci_device_ids.empty()) {
+        log_info(LogUMD, "No PCI devices found.");
+        return false;
+    }
+    bool reset_success = false;
 
     log_info(tt::LogUMD, "Notifying all listeners of impending warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
+        reset_success = warm_reset_arch_agnostic(pci_device_ids, reset_m3, m3_delay, secondary_bus_reset);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
         // Re-enumerate here as a safety net for potential race conditions where devices disappear
         // between the pre-reset notification and now. Clients are still guaranteed to receive the
@@ -69,25 +75,27 @@ void WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
         log_info(tt::LogUMD, "Starting reset for {} architecture.", arch_to_str(arch));
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
+                reset_success = warm_reset_wormhole_legacy(pci_device_ids, reset_m3);
                 break;
             case ARCH::BLACKHOLE:
                 if (reset_m3) {
                     log_warning(tt::LogUMD, "Reset M3 flag doesn't influence Blackhole reset.");
                 }
-                warm_reset_blackhole_legacy(pci_device_ids);
+                reset_success = warm_reset_blackhole_legacy(pci_device_ids);
                 break;
             default:
                 log_warning(tt::LogUMD, "Unknown architecture '{}'. Skipping reset actions.", arch_to_str(arch));
-                break;
+                reset_success = false;
         }
     }
 
     log_info(tt::LogUMD, "Notifying all listeners of completed warm reset.");
     WarmResetCommunication::Notifier::notify_all_listeners_post_reset();
+    return reset_success;
 }
 
-void WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset_chip_id(
+    const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
     std::vector<int> pci_ids;
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
     for (const auto& id : chip_ids) {
@@ -97,10 +105,14 @@ void WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_
         }
         pci_ids.push_back(enumerated_ids[id]);
     }
-    warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+    return warm_reset(pci_ids, reset_m3, secondary_bus_reset, m3_delay);
 }
 
-void WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset_pci_bdfs(
+    const std::vector<std::string>& pci_bdfs,
+    bool reset_m3,
+    bool secondary_bus_reset,
+    std::chrono::milliseconds m3_delay) {
     std::vector<int> pci_ids;
     std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
     for (const auto& [id, info] : pci_devices_info) {
@@ -109,7 +121,7 @@ void WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bo
         }
     }
 
-    warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+    return warm_reset(pci_ids, reset_m3, secondary_bus_reset, m3_delay);
 }
 
 int wait_for_pci_bdf_to_reappear(
@@ -163,7 +175,7 @@ int wait_for_pci_bdf_to_reappear(
     return interface_id;
 }
 
-void WarmReset::warm_reset_arch_agnostic(
+bool WarmReset::warm_reset_arch_agnostic(
     std::vector<int> pci_device_ids,
     bool reset_m3,
     std::chrono::milliseconds reset_m3_timeout,
@@ -214,14 +226,15 @@ void WarmReset::warm_reset_arch_agnostic(
         auto new_id = wait_for_pci_bdf_to_reappear(pci_bdf.second);
         if (new_id == -1) {
             log_error(tt::LogUMD, "Reset failed.");
-            return;
+            return false;
         }
     }
 
     PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
+    return true;
 }
 
-void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
+bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
 
@@ -268,12 +281,13 @@ void WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     }
 
     if (all_reset_bits_set) {
-        log_info(tt::LogUMD, "Reset succesfully completed.");
+        log_info(tt::LogUMD, "Reset successfully completed.");
     }
     PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
+    return all_reset_bits_set;
 }
 
-void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3) {
+bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool reset_m3) {
     bool reset_ok = true;
     static constexpr uint16_t default_arg_value = 0xFFFF;
     static constexpr uint32_t MSG_TYPE_ARC_STATE3 = 0xA3 | wormhole::ARC_MSG_COMMON_PREFIX;
@@ -345,9 +359,10 @@ void WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     if (reset_ok) {
         log_info(tt::LogUMD, "Reset successfully completed.");
     }
+    return reset_ok;
 }
 
-void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
+bool WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, int reset_time) {
     const std::string ipmi_tool_command{"sudo ipmitool raw 0x30 0x8b"};
     log_info(
         tt::LogUMD,
@@ -369,7 +384,7 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
 
     if (status == -1) {
         log_error(tt::LogUMD, "System call failed to execute: {}", strerror(errno));
-        return;
+        return false;
     }
 
     if (WIFEXITED(status)) {
@@ -378,21 +393,22 @@ void WarmReset::wormhole_ubb_ipmi_reset(int ubb_num, int dev_num, int op_mode, i
         if (exit_code == 0) {
             // Success: Exit code is 0.
             log_info(tt::LogUMD, "Reset successfully completed. Exit code: {}", exit_code);
-            return;
+            return true;
         }
 
         // Failure: Program exited normally but with a non-zero code.
         log_error(tt::LogUMD, "Reset error! Program exited with code: {}", exit_code);
-        return;
+        return false;
     }
 
     if (WIFSIGNALED(status)) {
         int signal_num = WTERMSIG(status);
         log_error(tt::LogUMD, "Reset failed! Program terminated by signal: {} ({})", signal_num, strsignal(signal_num));
-        return;
+        return false;
     }
 
     log_warning(tt::LogUMD, "Reset failed! Program terminated for an unknown reason (status: 0x{:x})", status);
+    return false;
 }
 
 void WarmReset::ubb_wait_for_driver_load(const std::chrono::milliseconds timeout_ms) {
@@ -412,17 +428,23 @@ void WarmReset::ubb_wait_for_driver_load(const std::chrono::milliseconds timeout
         tt::LogUMD, "Failed to find all {} PCIe devices, found: {}", NUMBER_OF_PCIE_DEVICES, pci_devices.size());
 }
 
-void WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
+bool WarmReset::ubb_warm_reset(const std::chrono::milliseconds timeout_ms) {
+    if (PCIDevice::enumerate_devices().empty()) {
+        log_info(LogUMD, "No PCI devices found.");
+        return false;
+    }
+
     static int constexpr UBB_NUM = 0xF;
     static int constexpr DEV_NUM = 0xFF;
     static int constexpr OP_MODE = 0x0;
     static int constexpr RESET_TIME = 0xF;
 
-    wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
+    const bool reset_success = wormhole_ubb_ipmi_reset(UBB_NUM, DEV_NUM, OP_MODE, RESET_TIME);
     log_debug(tt::LogUMD, "Waiting for 30 seconds after reset execution.");
     sleep(30);
     log_debug(tt::LogUMD, "30 seconds elapsed after reset execution.");
     ubb_wait_for_driver_load(timeout_ms);
+    return reset_success;
 }
 
 // Free helper function for extracting pid.
@@ -489,6 +511,7 @@ static std::vector<std::shared_ptr<asio::local::stream_protocol::socket>> get_co
 }
 
 static std::atomic<bool> keep_monitoring{false};
+static std::mutex io_mutex;
 static std::weak_ptr<asio::io_context> weak_io;
 
 bool WarmResetCommunication::Monitor::start_monitoring(
@@ -501,7 +524,10 @@ bool WarmResetCommunication::Monitor::start_monitoring(
     std::thread([on_cleanup_request = std::move(on_cleanup_request),
                  post_cleanup_request = std::move(post_cleanup_request)]() {
         auto io = std::make_shared<asio::io_context>();
-        weak_io = io;
+        {
+            std::lock_guard<std::mutex> lock(io_mutex);
+            weak_io = io;
+        }
         std::error_code ec;
 
         std::filesystem::create_directories(LISTENER_DIR, ec);
@@ -617,7 +643,12 @@ bool WarmResetCommunication::Monitor::start_monitoring(
 
 void WarmResetCommunication::Monitor::stop_monitoring() {
     keep_monitoring.store(false);
-    if (auto io = weak_io.lock()) {
+    std::shared_ptr<asio::io_context> io;
+    {
+        std::lock_guard<std::mutex> lock(io_mutex);
+        io = weak_io.lock();
+    }
+    if (io) {
         io->stop();
     }
 }

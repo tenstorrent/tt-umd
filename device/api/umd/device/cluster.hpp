@@ -64,19 +64,6 @@ struct ClusterOptions {
     uint32_t num_host_mem_ch_per_mmio_device = 0;
 
     /**
-     * If set to false, harvesting will be skipped for constructed soc descriptors.
-     */
-    bool perform_harvesting = true;
-
-    /**
-     * simulated_harvesting_masks is applied on all chips, then additionally simulated_harvesting_masks_per_chip for
-     * each chip. This way, both scenarios are supported: using the simulated masks without knowing device ids and
-     * setting specific simulated masks per device.
-     */
-    HarvestingMasks simulated_harvesting_masks = {};
-    std::unordered_map<ChipId, HarvestingMasks> simulated_harvesting_masks_per_chip;
-
-    /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
      * descriptor based on architecture will be used.
      */
@@ -725,21 +712,12 @@ private:
         ClusterDescriptor* cluster_desc,
         SocDescriptor& soc_desc,
         int num_host_mem_channels,
-        const std::filesystem::path& simulator_directory);
+        const std::filesystem::path& simulator_directory,
+        std::unique_ptr<TTDevice> tt_device = nullptr);
     SocDescriptor construct_soc_descriptor(
-        const std::string& soc_desc_path,
-        ChipId chip_id,
-        ChipType chip_type,
-        ClusterDescriptor* cluster_desc,
-        bool perform_harvesting,
-        HarvestingMasks& simulated_harvesting_masks);
+        const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
-    HarvestingMasks get_harvesting_masks(
-        ChipId chip_id,
-        ClusterDescriptor* cluster_desc,
-        bool perform_harvesting,
-        HarvestingMasks& simulated_harvesting_masks);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     // State variables.

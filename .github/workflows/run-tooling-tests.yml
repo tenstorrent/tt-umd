@@ -21,6 +21,11 @@ on:
         required: false
         type: string
         default: ""
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
 
 env:
   WHEEL_ARTIFACT_NAME: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
@@ -32,7 +37,7 @@ jobs:
     runs-on:
       - ${{ inputs.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
       options: --device /dev/tenstorrent
       volumes:
         - /dev/hugepages:/dev/hugepages

@@ -6,7 +6,6 @@ set(API_TESTS_SRCS
     test_device_io.cpp
     test_risc_program.cpp
     test_tlb_manager.cpp
-    test_software_harvesting.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
     test_tt_device.cpp
@@ -16,6 +15,7 @@ set(API_TESTS_SRCS
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
+    test_hang_detection.cpp
     test_tt_visible_devices.cpp
 )
 

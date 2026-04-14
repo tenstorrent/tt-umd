@@ -252,8 +252,7 @@ TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
     for (const ChipId chip_id : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
         ASSERT_NE(tt_device, nullptr) << "No TTDevice found for logical ID " << chip_id;
-        std::shared_ptr<PCIDevice> pci_device = tt_device->get_pci_device();
-        ASSERT_NE(pci_device, nullptr) << "No PCI device found for logical ID " << chip_id;
+        auto pci_device = tt_device->get_pci_device();
         ASSERT_LT(chip_id, enumerated_ids.size())
             << "Logical chip ID " << chip_id << " is out of bounds for enumerate_devices() result of size "
             << enumerated_ids.size();

@@ -87,7 +87,8 @@ private:
 // Helper function to detect if the cluster is a Galaxy configuration, including 4U and 6U configurations.
 inline bool is_galaxy_configuration(Cluster* cluster) {
     return !cluster->get_target_device_ids().empty() &&
-           cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB;
+           (cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_WORMHOLE ||
+            cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE);
 }
 
 inline bool has_remote_chips() {

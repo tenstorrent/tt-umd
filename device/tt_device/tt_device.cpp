@@ -104,8 +104,8 @@ void TTDevice::probe_arc() {
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     bool noc_hang_check_result =
-        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(true);
-    if (!noc_hang_check_result) {
+        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+    if (noc_hang_check_result) {
         UMD_THROW(error::RuntimeError, fmt::format("NOC{} is hung.", is_selected_noc1() ? "1" : "0"));
     }
     probe_arc();

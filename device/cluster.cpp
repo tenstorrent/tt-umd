@@ -110,7 +110,7 @@ void Cluster::log_device_summary() {
             // Currently no specific device logging needed for JTAG.
             break;
         default:
-            TT_THROW("Unknown device type for logging.");
+            UMD_THROW(error::RuntimeError, "Unknown device type for logging.");
             break;
     }
 }

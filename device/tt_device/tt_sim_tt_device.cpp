@@ -125,7 +125,7 @@ void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const Ten
         }
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
     } else {
-        TT_THROW("Missing implementation of reset for this chip.");
+        UMD_THROW(error::RuntimeError, "Missing implementation of reset for this chip.");
     }
 }
 

@@ -123,7 +123,7 @@ uint64_t grendel_implementation::get_noc_reg_base(
 uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        TT_THROW("TENSIX risc cores should not be used on Grendel architecture.");
+        UMD_THROW(error::RuntimeError, "TENSIX risc cores should not be used on Grendel architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

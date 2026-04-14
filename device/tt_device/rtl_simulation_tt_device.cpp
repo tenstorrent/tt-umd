@@ -128,12 +128,12 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
     } else {
-        TT_THROW("Invalid soft reset option.");
+        UMD_THROW(error::RuntimeError, "Invalid soft reset option.");
     }
 }
 
 void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    TT_THROW("send_tensix_risc_reset without core not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset without core not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
@@ -189,37 +189,37 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
 }
 
 void RtlSimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    TT_THROW("dma_d2h not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_d2h not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    TT_THROW("dma_d2h_zero_copy not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_d2h_zero_copy not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    TT_THROW("dma_h2d not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_h2d not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    TT_THROW("dma_h2d_zero_copy not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_h2d_zero_copy not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("read_from_arc_apb not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "read_from_arc_apb not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::write_to_arc_apb(
     const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("write_to_arc_apb not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "write_to_arc_apb not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("read_from_arc_csm not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "read_from_arc_csm not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::write_to_arc_csm(
     const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("write_to_arc_csm not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "write_to_arc_csm not supported for RTL simulation");
 }
 
 bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
@@ -240,12 +240,12 @@ EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pai
 
 uint32_t RtlSimulationTTDevice::get_clock() {
     // RTL simulation does not have an ARC processor, so clock frequency is not available.
-    TT_THROW("get_clock not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "get_clock not supported for RTL simulation");
 }
 
 uint32_t RtlSimulationTTDevice::get_min_clock_freq() {
     // RTL simulation does not have an ARC processor, so clock frequency is not available.
-    TT_THROW("get_min_clock_freq not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "get_min_clock_freq not supported for RTL simulation");
 }
 
 bool RtlSimulationTTDevice::get_noc_translation_enabled() {
@@ -255,7 +255,7 @@ bool RtlSimulationTTDevice::get_noc_translation_enabled() {
 
 void RtlSimulationTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    TT_THROW("dma_multicast_write not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_multicast_write not supported for RTL simulation");
 }
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {

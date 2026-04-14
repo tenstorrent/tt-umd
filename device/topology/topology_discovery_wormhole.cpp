@@ -263,7 +263,7 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             log_warning(LogUMD, message);
             return;
         }
-        TT_THROW(message);
+        UMD_THROW(error::RuntimeError, message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
         auto message = fmt::format(
             "Routing FW unexpectedly disabled on device {} core {}.",
@@ -273,7 +273,7 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             log_warning(LogUMD, message);
             return;
         }
-        TT_THROW(message);
+        UMD_THROW(error::RuntimeError, message);
     }
 }
 

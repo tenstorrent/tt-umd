@@ -38,7 +38,7 @@ SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator binary not found at: {}", simulator_directory_);
+        UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
 }
 
@@ -72,7 +72,7 @@ void SimulationChip::noc_multicast_write(
     void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
     // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
     // Until then, do individual writes to each core in the range.
@@ -140,7 +140,7 @@ int SimulationChip::get_host_channel_size(std::uint32_t channel) {
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
-        TT_THROW("sysmem_manager was not initialized for simulation device");
+        UMD_THROW(error::RuntimeError, "sysmem_manager was not initialized for simulation device");
     }
     mgr->write_to_sysmem(channel, src, sysmem_dest, size);
 }
@@ -148,7 +148,7 @@ void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
-        TT_THROW("sysmem_manager was not initialized for simulation device");
+        UMD_THROW(error::RuntimeError, "sysmem_manager was not initialized for simulation device");
     }
     mgr->read_from_sysmem(channel, dest, sysmem_src, size);
 }

@@ -26,6 +26,7 @@
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -405,9 +406,11 @@ void LocalChip::ethernet_broadcast_write(
     // Depending on the device type, the implementation may vary.
     // Currently JTAG doesn't support remote communication.
     if (!remote_communication_) {
-        TT_THROW(
-            "Ethernet remote transfer is currently not supported for {} devices.",
-            DeviceTypeToString.at(tt_device_->get_communication_device_type()));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Ethernet remote transfer is currently not supported for {} devices.",
+                DeviceTypeToString.at(tt_device_->get_communication_device_type())));
     }
 
     // target_chip and target_core are ignored when broadcast is enabled.
@@ -515,7 +518,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
             } else if (include_dram_in_l1_membar && core_from_soc.core_type == CoreType::DRAM) {
                 dram_to_sync.push_back(core);
             } else {
-                TT_THROW("Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
+                UMD_THROW(error::RuntimeError, "Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
             }
         }
         insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
@@ -605,12 +608,12 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window() {
 void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
 
     // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW("noc_multicast_write is only supported on PCIe devices.");
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported on PCIe devices.");
     }
 
     std::lock_guard<std::mutex> lock(wc_tlb_lock);

@@ -13,6 +13,7 @@
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -50,7 +51,8 @@ inline void send_command_to_simulation_host(SimulationHost &host, const flatbuff
 RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_directory) :
     simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator directory not found at: {}", simulator_directory_.string());
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Simulator directory not found at: {}", simulator_directory_.string()));
     }
 }
 
@@ -84,7 +86,7 @@ void RtlSimCommunicator::initialize() {
     uv_loop_t *loop = uv_default_loop();
     std::string simulator_path_string = simulator_directory_ / "run.sh";
     if (!std::filesystem::exists(simulator_path_string)) {
-        TT_THROW("Simulator binary not found at: {}", simulator_path_string);
+        UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_path_string));
     }
 
     uv_stdio_container_t child_stdio[3];
@@ -103,7 +105,7 @@ void RtlSimCommunicator::initialize() {
     uv_process_t child_p;
     int rv = uv_spawn(loop, &child_p, &child_options);
     if (rv) {
-        TT_THROW("Failed to spawn simulator process: {}", uv_strerror(rv));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to spawn simulator process: {}", uv_strerror(rv)));
     } else {
         log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
     }
@@ -157,7 +159,8 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
     // Get read response from the command queue (populated by notification thread).
     auto msg = wait_for_command_response();
     if (msg.data == nullptr || msg.size == 0) {
-        TT_THROW("Failed to receive response from device - notification thread may have stopped.");
+        UMD_THROW(
+            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
     }
 
     auto rd_resp_buf = GetDeviceRequestResponse(msg.data);

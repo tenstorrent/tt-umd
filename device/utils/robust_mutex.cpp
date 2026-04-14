@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "assert.hpp"
+#include "umd/device/utils/error.hpp"
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
 // These are only available when building with TSAN enabled.
@@ -375,7 +376,9 @@ void RobustMutex::unlock() {
     mutex_wrapper_ptr_->owner_pid = 0;
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
-        TT_THROW(fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("pthread_mutex_unlock failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     }
 }
 
@@ -398,16 +401,22 @@ std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seco
         // Previous owner crashed; recover the mutex so it can be used normally.
         int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
         if (err != 0) {
-            TT_THROW(fmt::format(
-                "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
         }
         record_acquisition();
         return std::nullopt;
     } else if (lock_res == EBUSY || lock_res == ETIMEDOUT) {
         return std::make_pair(mutex_wrapper_ptr_->owner_pid, mutex_wrapper_ptr_->owner_tid);
     } else {
-        TT_THROW(fmt::format(
-            "pthread_mutex_trylock/timedlock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "pthread_mutex_trylock/timedlock failed for mutex {} errno: {}",
+                mutex_name_,
+                std::to_string(lock_res)));
     }
 }
 
@@ -426,11 +435,14 @@ void RobustMutex::lock() {
         if (lock_res == EOWNERDEAD) {
             int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
             if (err != 0) {
-                TT_THROW(fmt::format(
-                    "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "pthread_mutex_consistent failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
             }
         } else if (lock_res != 0) {
-            TT_THROW(
+            UMD_THROW(
+                error::RuntimeError,
                 fmt::format("pthread_mutex_lock failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
         }
         record_acquisition();

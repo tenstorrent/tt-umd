@@ -630,7 +630,9 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
 
     NocIdSwitcher noc_switcher(NocId::NOC1);
 
-    // ROUTER_ONLY translated coordinates (== NOC0 for router cores).
+    // Translated coordinates should be NOC-independent, but for ROUTER_ONLY nodes this invariant
+    // does not hold. On NOC0 they match the standard translated values, while on NOC1 they differ.
+    // The expected NOC1 translated mapping is provided explicitly below.
     // clang-format off
     constexpr std::array<tt_xy_pair, 18> router_coords_noc1_translated = {{
         {15,  0},

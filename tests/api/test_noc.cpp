@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -632,28 +633,28 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
 
     // Translated coordinates should be NOC-independent, but for ROUTER_ONLY nodes this invariant
     // does not hold. On NOC0 they match the standard translated values, while on NOC1 they differ.
-    // The expected NOC1 translated mapping is provided explicitly below.
+    // The expected NOC1 -> translated mapping is provided explicitly below.
     // clang-format off
-    constexpr std::array<tt_xy_pair, 18> router_coords_noc1_translated = {{
-        {15,  0},
-        {13,  0},
-        {12,  0},
-        {11,  0},
-        {10,  0},
-        { 9,  0},
-        { 6,  0},
-        { 4,  0},
-        { 3,  0},
-        { 2,  0},
-        { 1,  0},
-        { 0,  0},
-        { 8,  1},
-        { 8, 10},
-        { 8,  8},
-        { 8,  6},
-        { 8,  4},
-        { 8, 11},
-    }};
+    const std::map<tt_xy_pair, tt_xy_pair> noc1_to_translated_router_only = {
+        {{15, 11}, {15,  0}},
+        {{13, 11}, {13,  0}},
+        {{12, 11}, {12,  0}},
+        {{11, 11}, {11,  0}},
+        {{10, 11}, {10,  0}},
+        {{ 9, 11}, { 9,  0}},
+        {{ 6, 11}, { 6,  0}},
+        {{ 4, 11}, { 4,  0}},
+        {{ 3, 11}, { 3,  0}},
+        {{ 2, 11}, { 2,  0}},
+        {{ 1, 11}, { 1,  0}},
+        {{ 0, 11}, { 0,  0}},
+        {{ 8, 10}, { 8,  1}},
+        {{ 8,  1}, { 8, 10}},
+        {{ 8,  3}, { 8,  8}},
+        {{ 8,  5}, { 8,  6}},
+        {{ 8,  7}, { 8,  4}},
+        {{ 8,  0}, { 8, 11}},
+    };
     // clang-format on
 
     const std::vector<CoreCoord>& noc1_cores =
@@ -667,12 +668,14 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
     const uint64_t noc_translated_id_reg_addr =
         arch_impl->get_noc_reg_base(CoreType::ROUTER_ONLY, 1, 0) + arch_impl->get_noc_node_translated_id_offset();
 
-    ASSERT_EQ(router_coords_noc1_translated.size(), noc1_cores.size());
+    ASSERT_EQ(noc1_to_translated_router_only.size(), noc1_cores.size());
 
     std::string info = "Chip " + std::to_string(chip) + " ROUTER_ONLY NOC1 via translated coords:\n";
-    for (size_t i = 0; i < router_coords_noc1_translated.size(); i++) {
-        const tt_xy_pair& translated = router_coords_noc1_translated[i];
-        const CoreCoord& noc1 = noc1_cores[i];
+    for (const CoreCoord& noc1 : noc1_cores) {
+        auto it = noc1_to_translated_router_only.find(tt_xy_pair(noc1.x, noc1.y));
+        ASSERT_NE(it, noc1_to_translated_router_only.end())
+            << "NOC1 coord (" << noc1.x << "," << noc1.y << ") not found in expected mapping";
+        const tt_xy_pair& translated = it->second;
 
         uint32_t noc_node_id_val;
         device->read_from_device(&noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val));
@@ -688,7 +691,7 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
         uint32_t translated_y = (noc_translated_id_val >> 6) & 0x3F;
 
         info += fmt::format(
-            "TRANSLATED ({:>2},{:>2})  node_id=0x{:08x} ({},{})  logical_id=0x{:08x} ({},{})\n",
+            "TRANSLATED ({:>2},{:>2})  node_id=0x{:08x} ({},{})  translated_id=0x{:08x} ({},{})\n",
             translated.x,
             translated.y,
             noc_node_id_val,
@@ -698,10 +701,10 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
             translated_x,
             translated_y);
 
-        EXPECT_EQ(x, noc1.x) << "node_id X mismatch at index " << i << " TRANSLATED (" << translated.x << ","
-                             << translated.y << ")";
-        EXPECT_EQ(y, noc1.y) << "node_id Y mismatch at index " << i << " TRANSLATED (" << translated.x << ","
-                             << translated.y << ")";
+        EXPECT_EQ(x, noc1.x) << "node_id X mismatch for NOC1 (" << noc1.x << "," << noc1.y << ") TRANSLATED ("
+                             << translated.x << "," << translated.y << ")";
+        EXPECT_EQ(y, noc1.y) << "node_id Y mismatch for NOC1 (" << noc1.x << "," << noc1.y << ") TRANSLATED ("
+                             << translated.x << "," << translated.y << ")";
     }
     log_info(tt::LogUMD, "{}", info);
 }

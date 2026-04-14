@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -32,7 +34,10 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
@@ -98,9 +103,14 @@ void TTDevice::probe_arc() {
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    bool noc_hang_check_result =
+        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(true);
+    if (!noc_hang_check_result) {
+        UMD_THROW(error::RuntimeError, fmt::format("NOC{} is hung.", is_selected_noc1() ? "1" : "0"));
+    }
     probe_arc();
     if (!wait_arc_core_start(timeout_ms)) {
-        throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
+        UMD_THROW(error::RuntimeError, fmt::format("ARC core {} failed to start.", arc_core.str()));
     }
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);

@@ -127,7 +127,13 @@ void bind_tt_device(nb::module_ &m) {
             return std::make_tuple(core.x, core.y);
         });
 
-    nb::class_<TTDevice>(m, "TTDevice")
+    auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
+
+    nb::enum_<TTDevice::HangAction>(tt_device_class, "HangAction")
+        .value("Throw", TTDevice::HangAction::THROW)
+        .value("ReturnValue", TTDevice::HangAction::RETURN);
+
+    tt_device_class
         .def_static(
             "create",
             static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
@@ -244,6 +250,18 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             "Write a 32-bit value to the specified address on bar0")
         .def(
+            "is_pcie_hung",
+            &TTDevice::is_pcie_hung,
+            nb::arg("data_read") = HANG_READ_VALUE,
+            nb::arg("action") = TTDevice::HangAction::THROW,
+            "Check if the PCIe communication is hung.")
+        .def(
+            "is_noc_hung",
+            &TTDevice::is_noc_hung,
+            nb::arg("noc"),
+            nb::arg("action") = TTDevice::HangAction::THROW,
+            "Check if the specified NOC is hung.")
+        .def(
             "get_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y) -> uint32_t {
                 tt_xy_pair core = {core_x, core_y};
@@ -314,7 +332,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t msg_code,
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -341,9 +359,11 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done,
+               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
+               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
                uint32_t arg0,
-               uint32_t arg1,
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t arg1 = 0xffff,
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -360,9 +380,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
             "milliseconds.")
@@ -371,9 +391,11 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done,
+               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
+               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
                uint32_t arg0,
-               uint32_t arg1,
-               uint32_t timeout = 1) -> std::tuple<int, int, int> {
+               uint32_t arg1 = 0xffff,
+               uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -390,9 +412,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
@@ -469,12 +491,6 @@ void bind_tt_device(nb::module_ &m) {
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, bool)>(&TTSimTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("deassert"),
-            "Send a Tensix RISC reset signal to the simulation device.")
-        .def(
-            "send_tensix_risc_reset_with_options",
             static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
                 &TTSimTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
@@ -488,20 +504,14 @@ void bind_tt_device(nb::module_ &m) {
             "Send a Tensix RISC reset with specific soft reset options for all cores.")
         .def(
             "assert_risc_reset",
-            [](TTSimTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
-                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &TTSimTTDevice::assert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            [](TTSimTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs, bool staggered_start) {
-                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &TTSimTTDevice::deassert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
             "Deassert RISC reset for selected RISC cores on a given core.")
@@ -510,8 +520,7 @@ void bind_tt_device(nb::module_ &m) {
             &TTSimTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
             "Get the SocDescriptor associated with this simulation device.")
-        .def("close_device", &TTSimTTDevice::close_device, "Close the simulation device.")
-        .def("start_device", &TTSimTTDevice::start_device, "Start the simulation device.")
+
         .def("get_clock", &TTSimTTDevice::get_clock, "Get the clock frequency.")
         .def("get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, "Get the minimum clock frequency.")
         .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");
@@ -525,13 +534,6 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, bool)>(
-                &RtlSimulationTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("deassert"),
-            "Send a Tensix RISC reset signal to the RTL simulation device.")
-        .def(
-            "send_tensix_risc_reset_with_options",
             static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
                 &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
@@ -540,24 +542,14 @@ void bind_tt_device(nb::module_ &m) {
             "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
         .def(
             "assert_risc_reset",
-            [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
-                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &RtlSimulationTTDevice::assert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            [](RtlSimulationTTDevice &self,
-               uint32_t core_x,
-               uint32_t core_y,
-               RiscType selected_riscs,
-               bool staggered_start) {
-                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &RtlSimulationTTDevice::deassert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
             "Deassert RISC reset for selected RISC cores on a given core.")

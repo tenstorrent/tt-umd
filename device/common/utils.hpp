@@ -4,12 +4,11 @@
 
 #pragma once
 
+#include <fmt/ranges.h>
 #include <unistd.h>
 
 #include <array>
 #include <chrono>
-#include <filesystem>
-#include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -17,7 +16,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "fmt/ranges.h"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd::utils {
 
@@ -102,13 +102,30 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
+/**
+ * Checks if `timeout` amount of time has elapsed since `start_time`.
+ * @param start_time Point in time when the measured event started.
+ * @param timeout Time expected for event to complete.
+ * @returns True if `timeout` amount of time has elapsed since `start_time`.
+ */
+inline bool check_timeout(
+    const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) noexcept {
+    // A timeout of 0 can never time out.
+    if (timeout.count() == 0) {
+        return false;
+    }
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
+    return elapsed > timeout;
+}
+
 enum class TimeoutAction { Throw, Return };
 
 /**
  * Throw std::runtime_error or return true if `timeout` amount of time has elapsed since `start_time`.
  * @param start_time Point in time when the measured event started.
  * @param timeout Time expected for event to complete.
- * @param error_msg Error message to log or pass to std::runtime_error.
+ * @param error_msg Error message to log or pass to RuntimeError.
  * @param action Decide which action (throw or return false) is done when timeout elapses.
  */
 inline bool check_timeout(
@@ -116,20 +133,12 @@ inline bool check_timeout(
     const std::chrono::milliseconds timeout,
     const std::string& error_msg,
     TimeoutAction action = TimeoutAction::Throw) {
-    // A timeout of 0 can never time out.
-    if (timeout.count() == 0) {
-        return false;
+    bool timed_out = check_timeout(start_time, timeout);
+    if (timed_out) {
+        auto error = UMD_THROW_OR_RETURN(action == TimeoutAction::Throw, error::RuntimeError, error_msg);
+        log_warning(LogUMD, error.message());
     }
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
-    if (elapsed > timeout) {
-        if (action == TimeoutAction::Throw) {
-            throw std::runtime_error(error_msg);
-        }
-        log_warning(LogUMD, error_msg);
-        return true;
-    }
-    return false;
+    return timed_out;
 }
 
 class MultiProcessPipe {
@@ -223,8 +232,6 @@ public:
     }
 };
 
-}  // namespace tt::umd::utils
-
 constexpr bool is_arm_platform() {
 #if defined(__aarch64__) || defined(__arm__)
     return true;
@@ -240,3 +247,5 @@ constexpr bool is_riscv_platform() {
     return false;
 #endif
 }
+
+}  // namespace tt::umd::utils

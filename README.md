@@ -73,6 +73,22 @@ export CC=gcc
 export CXX=g++
 ```
 
+#### Disabling -Werror
+
+By default, all warnings are treated as errors. This is controlled via the standard CMake variable
+[`CMAKE_COMPILE_WARNING_AS_ERROR`](https://cmake.org/cmake/help/latest/variable/CMAKE_COMPILE_WARNING_AS_ERROR.html).
+
+Systems with recent libc may cause the python package building to fail due python redefining some `*_SOURCES` macros
+to higher versions and GCC has no mean to disable the macro redefinition diagnostic.
+
+```bash
+# Plain CMake
+cmake -B build -G Ninja -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
+
+# Python build (scikit-build-core passes CMAKE_ARGS through to CMake)
+CMAKE_ARGS="-DCMAKE_COMPILE_WARNING_AS_ERROR=OFF" pip install .
+```
+
 #### Build debian dev package
 ```
 cmake --build build --target package

@@ -21,7 +21,8 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -36,6 +37,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool u
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
@@ -44,14 +46,18 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
-WormholeTTDevice::WormholeTTDevice() : TTDevice(std::make_unique<wormhole_implementation>()) {
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
+    TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>()) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
-    log_warning(tt::LogUMD, "Created WormholeTTDevice without an underlying I/O device (PCIe or JTAG).");
+    set_hang_detector(std::make_unique<WormholeHangDetector>(
+        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
+        get_architecture_implementation()));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -394,30 +400,6 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         // This prevents 100% CPU usage during longer hardware initialization.
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
-}
-
-bool WormholeTTDevice::is_hardware_hung() {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
-    }
-
-    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
-
-    return (node_id == HANG_READ_VALUE);
-}
-
-uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {
-    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
-    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
-    SocDescriptor soc_desc(get_arch(), get_chip_info());
-    // Read from ARC core because WH has a BAR-mapped node ID register only on the ARC tile.
-    // This keeps the BAR and NOC paths reading the same register for equivalence checking.
-    tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
-    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
-                    architecture_impl_->get_noc_node_id_offset();
-    uint32_t value = 0;
-    read_from_device(&value, arc_core, addr, sizeof(value));
-    return value;
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {

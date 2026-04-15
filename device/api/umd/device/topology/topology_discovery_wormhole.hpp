@@ -61,8 +61,6 @@ protected:
 
     void init_first_device(TTDevice* tt_device) override;
 
-    bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
-
     void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
     bool verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) override;

@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -77,6 +78,30 @@ inline std::string &ltrim(std::string &s, const char *t = ws) {
 
 // trim from both ends of string (right then left)
 inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtrim(s, t), t); }
+
+// clang-format off
+static const std::unordered_map<tt_xy_pair, tt_xy_pair> ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE = {
+    {{15, 11}, {15,  0}},
+    {{13, 11}, {13,  0}},
+    {{12, 11}, {12,  0}},
+    {{11, 11}, {11,  0}},
+    {{10, 11}, {10,  0}},
+    {{ 9, 11}, { 9,  0}},
+    {{ 6, 11}, { 6,  0}},
+    {{ 4, 11}, { 4,  0}},
+    {{ 3, 11}, { 3,  0}},
+    {{ 2, 11}, { 2,  0}},
+    {{ 1, 11}, { 1,  0}},
+    {{ 0, 11}, { 0,  0}},
+    {{ 8, 10}, { 8,  1}},
+    {{ 8,  1}, { 8, 10}},
+    {{ 8,  3}, { 8,  8}},
+    {{ 8,  5}, { 8,  6}},
+    {{ 8,  7}, { 8,  4}},
+    {{ 8,  0}, { 8, 11}},
+};
+
+// clang-format on
 
 tt_xy_pair SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &cores) {
     std::unordered_set<size_t> x;
@@ -211,6 +236,19 @@ CoreCoord SocDescriptor::translate_coord_to(
 CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
     if (!noc_translation_enabled) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    }
+
+    // For ROUTER_ONLY cores, the translated coordinate space differs depending on
+    // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
+    // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
+    // network resolve to the correct tile.
+    if ((arch == tt::ARCH::BLACKHOLE) && (core.core_type == CoreType::ROUTER_ONLY) && is_selected_noc1()) {
+        CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
+        CoreCoord translated_noc1_core = CoreCoord(
+            ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(static_cast<tt_xy_pair>(noc1_core)),
+            CoreType::ROUTER_ONLY,
+            CoordSystem::TRANSLATED);
+        return translated_noc1_core;
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system

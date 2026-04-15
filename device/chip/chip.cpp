@@ -68,15 +68,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = eth_core;
-        if (get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            // Translated space for ETH cores is different than NOC1 and wait_eth_core training is expecting NOC0
-            // coordinates.
-            actual_eth_core = get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0);
-        } else {
-            actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
-        }
-
+        tt_xy_pair actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
 }

@@ -212,13 +212,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto duration = std::chrono::milliseconds(0);
 
-    tt_xy_pair actual_eth_core = eth_core;
-    if (is_selected_noc1()) {
-        actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
-    }
-
     auto start = std::chrono::steady_clock::now();
-    while (read_eth_core_training_status(actual_eth_core) == EthTrainingStatus::IN_PROGRESS) {
+    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -236,8 +231,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     LogUMD,
                     "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
                     timeout_ms.count(),
-                    actual_eth_core.x,
-                    actual_eth_core.y);
+                    eth_core.x,
+                    eth_core.y);
                 break;
             }
         }

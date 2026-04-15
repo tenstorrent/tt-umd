@@ -132,12 +132,6 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
     return mangle_asic_id(board_id, asic_location);
 }
 
-tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    throw std::runtime_error(
-        "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
-        "bug.");
-}
-
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
         local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);

@@ -93,18 +93,6 @@ uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, tt_x
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
-tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    const uint32_t shelf_offset = 9;
-    uint32_t remote_id;
-    tt_device->read_from_device(
-        &remote_id,
-        {local_eth_core.x, local_eth_core.y},
-        EthAddresses::NODE_INFO + (4 * shelf_offset),
-        sizeof(uint32_t));
-
-    return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
-}
-
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
         throw std::runtime_error(
@@ -179,9 +167,18 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, 
     if (is_running_on_6u) {
         return get_remote_eth_id(tt_device, local_eth_core);
     }
-    tt_xy_pair remote_eth_core = get_remote_eth_core(tt_device, local_eth_core);
 
-    // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
+    const uint32_t shelf_offset = 9;
+    uint32_t remote_id;
+    tt_device->read_from_device(
+        &remote_id,
+        {local_eth_core.x, local_eth_core.y},
+        EthAddresses::NODE_INFO + (4 * shelf_offset),
+        sizeof(uint32_t));
+
+    tt_xy_pair remote_eth_core = tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
+
+    // We can use the local SoC descriptor to translate core to channel because there is no ETH harvesting on Wormhole.
     return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
 }
 

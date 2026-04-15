@@ -36,20 +36,27 @@ jobs:
       fail-fast: false
       matrix:
         image: [
-          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13},
-          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20},
-          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11},
+          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13, package: deb},
+          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
+          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
-          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20},
-          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11},
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
+          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
-          {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13},
+          {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
           # Given that it's already tested out on ubuntu, version 17 is fine here.
-          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm},
+          # Release-flags builds: mirror release.yml CMake flags (TT_UMD_BUILD_SIMULATION=OFF,
+          # CMAKE_BUILD_TYPE=Release) to catch clang-tidy issues before merge that would only
+          # surface in the release pipeline.
+          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb, use_release_flags: true},
+          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm, use_release_flags: true},
         ]
 
-    name: Build device for any arch on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
+    name: >-
+      Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
+      on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     runs-on: tt-ubuntu-2204-large-stable
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
@@ -71,17 +78,39 @@ jobs:
         run: |
           echo "CC=${{ matrix.image.compiler-c }}" >> $GITHUB_ENV
           echo "CXX=${{ matrix.image.compiler-cpp }}" >> $GITHUB_ENV
+          # Add release suffix to differentiate between the jobs which should use
+          # exactly the same flags the release process would use.
+          RELEASE_SUFFIX="${{ matrix.image.use_release_flags && '-release' || '' }}"
+          # Build ID is common suffix, differentiating packages built per distro,
+          # compiler, and whether they used release cmake flags or not.
+          # This suffix should be used for all package artifacts so their names
+          # don't overlap for different configurations.
+          # Example: PLATFORM_SUFFIX=ubuntu-24.04-clang-20-release
+          PLATFORM_SUFFIX="${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}"
+          echo "PLATFORM_SUFFIX=${PLATFORM_SUFFIX}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
+      # Release-flags builds mirror the flags used in release.yml to catch clang-tidy issues early.
       - name: Build All
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_ALL=ON \
-            -DTT_UMD_BUILD_PIP=ON \
-            -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-            -DTT_UMD_ENABLE_TRACY=ON
+          if [[ "${{ matrix.image.use_release_flags }}" == "true" ]]; then
+            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+              -DTT_UMD_BUILD_TESTS=OFF \
+              -DTT_UMD_BUILD_SIMULATION=OFF \
+              -DTT_UMD_BUILD_PIP=OFF \
+              -DTT_UMD_BUILD_PYTHON=ON \
+              -DTT_UMD_BUILD_EXAMPLES=OFF \
+              -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+              -DCMAKE_BUILD_TYPE=Release
+          else
+            cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+              -DTT_UMD_BUILD_ALL=ON \
+              -DTT_UMD_BUILD_PIP=ON \
+              -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+              -DTT_UMD_ENABLE_TRACY=ON
+          fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
@@ -92,8 +121,8 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: >
-            clang-tidy-compile-commands-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
+          # example: clang-tidy-compile-commands-ubuntu-24.04-clang-20-release
+          name: clang-tidy-compile-commands-${{ env.PLATFORM_SUFFIX }}
           path: ${{ env.TT_UMD_DIR }}/build/compile_commands.json
 
       - name: Prepare clang-tidy config file for upload
@@ -108,44 +137,31 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: >
-            clang-tidy-config-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
+          # example: clang-tidy-config-ubuntu-24.04-clang-20-release
+          name: clang-tidy-config-${{ env.PLATFORM_SUFFIX }}
           path: ${{ runner.temp }}/clang-tidy-build-config
 
-      - name: Generate .deb package
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Generate ${{ matrix.image.package }} package
         working-directory: ${{ env.TT_UMD_DIR }}/build
+        shell: bash
         run: |
-          cpack -G DEB
+          PKG="${{ matrix.image.package }}"
+          cpack -G "${PKG^^}"
 
-      - name: Generate .rpm package
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        working-directory: ${{ env.TT_UMD_DIR }}/build
-        run: |
-          cpack -G RPM
-
-      - name: Upload DEB dev and runtime packages
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Upload ${{ matrix.image.package }} dev and runtime packages
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-packages-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
+          # example: tt-umd-packages-ubuntu-24.04-clang-20-release
+          name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
           path: |
-            ${{ env.TT_UMD_DIR }}/build/*.deb
-          if-no-files-found: error
-
-      - name: Upload RPM dev and runtime packages
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: tt-umd-packages-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
-          path: |
-            ${{ env.TT_UMD_DIR }}/build/*.rpm
+            ${{ env.TT_UMD_DIR }}/build/*.${{ matrix.image.package }}
           if-no-files-found: error
 
       - name: Upload example config files
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-examples-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
+          # example: tt-umd-examples-ubuntu-24.04-clang-20-release
+          name: tt-umd-examples-${{ env.PLATFORM_SUFFIX }}
           path: |
             ${{ env.TT_UMD_DIR }}/cmake/example_client.cmake
             ${{ env.TT_UMD_DIR }}/cmake/CPM.cmake
@@ -208,34 +224,20 @@ jobs:
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 
-      - name: Generate .deb package for umd-python
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Generate ${{ matrix.image.package }} package for umd-python
         working-directory: ${{ env.TT_UMD_DIR }}/build
+        shell: bash
         run: |
-          cpack -G DEB
+          PKG="${{ matrix.image.package }}"
+          cpack -G "${PKG^^}"
 
-      - name: Upload .deb packages for umd-python
-        if: ${{ contains(matrix.image.distro, 'ubuntu-') }}
+      - name: Upload ${{ matrix.image.package }} packages for umd-python
         uses: actions/upload-artifact@v4
         with:
-          name: tt-umd-python-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
+          # example: tt-umd-python-ubuntu-24.04-clang-20-release
+          name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
           path: |
-            ${{ env.TT_UMD_DIR }}/build/*umd-python*.deb
-          if-no-files-found: error
-
-      - name: Generate .rpm package for umd-python
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        working-directory: ${{ env.TT_UMD_DIR }}/build
-        run: |
-          cpack -G RPM
-
-      - name: Upload .rpm packages for umd-python
-        if: ${{ contains(matrix.image.distro, 'fedora-') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: tt-umd-python-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}
-          path: |
-            ${{ env.TT_UMD_DIR }}/build/*umd-python*.rpm
+            ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
   build-manylinux-wheels:
@@ -303,40 +305,45 @@ jobs:
         with:
           path: tt-umd
           submodules: recursive
+
+      - name: Set Build ID
+        run: |
+          # Note that BUILD ID doesn't include the option with the -release suffix
+          # as the above matrix which builds packages. We test only one variant.
+          echo "PLATFORM_SUFFIX=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
+
       - name: Download Packages Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}
-          path: >-
-            ./downloaded-artifact/tt-umd-packages-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-package
+          # example: tt-umd-packages-ubuntu-24.04-clang-20
+          name: tt-umd-packages-${{ env.PLATFORM_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-packages-${{ env.PLATFORM_SUFFIX }}-package
 
       - name: Download Examples Artifact
         uses: actions/download-artifact@v4
         with:
-          name: tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}
-          path: >-
-            ./downloaded-artifact/tt-umd-examples-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-example
+          # example: tt-umd-examples-ubuntu-24.04-clang-20
+          name: tt-umd-examples-${{ env.PLATFORM_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-examples-${{ env.PLATFORM_SUFFIX }}-example
 
       - name: Download Python Packages Artifact
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}
-          path: >-
-            ./downloaded-artifact/tt-umd-python-${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}-package
+          # example: tt-umd-python-ubuntu-24.04-clang-20
+          name: tt-umd-python-${{ env.PLATFORM_SUFFIX }}
+          path: ./downloaded-artifact/tt-umd-python-${{ env.PLATFORM_SUFFIX }}-package
 
       - name: Run test on example and python with packages
         shell: bash
         run: |
           set -euo pipefail
           PKG_FMT="${{ matrix.build.package }}"
-          DISTRO_VER="${{ matrix.build.distro }}"
-          COMP="${{ matrix.build.compiler-c }}"
 
           # Directories from downloaded artifacts
-          PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${DISTRO_VER}-${COMP}-package"
-          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${DISTRO_VER}-${COMP}-package"
-          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${DISTRO_VER}-${COMP}-example"
+          PACKAGE_DIR="./downloaded-artifact/tt-umd-packages-${PLATFORM_SUFFIX}-package"
+          PY_PACKAGE_DIR="./downloaded-artifact/tt-umd-python-${PLATFORM_SUFFIX}-package"
+          EXAMPLE_DIR="./downloaded-artifact/tt-umd-examples-${PLATFORM_SUFFIX}-example"
 
           echo "Install .${PKG_FMT} packages from ${PACKAGE_DIR}"
           DEV_PKG="$(find "${PACKAGE_DIR}" -maxdepth 1 -type f \
@@ -374,7 +381,7 @@ jobs:
           mkdir -p ./cmake
           cp "${EXAMPLE_DIR}"/* ./cmake
 
-          echo "Build UMD examples (which are dependent on libdevice.so)"
+          echo "Build UMD examples (which are dependent on libtt-umd.so)"
           cd ./example_test
           cmake -B build -G Ninja
           cmake --build ./build

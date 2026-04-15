@@ -10,16 +10,28 @@
 #include "assert.hpp"
 #include "simulation_device_generated.h"
 #include "umd/device/pcie/pci_ids.h"
+#include "umd/device/pcie/tt_sim_tlb_handle.hpp"
+#include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(const std::filesystem::path& simulator_directory) {
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
+    const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, 0);
+    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    ChipInfo chip_info{};
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // We need to set this default harvesting mask for Blackhole so we could create SocDescriptor.
+        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used.
+        // without creating ClusterDescriptor, so we need to add it here as well.
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    }
+    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
+    return std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -32,8 +44,8 @@ TTSimTTDevice::TTSimTTDevice(
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
+    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -41,7 +53,12 @@ TTSimTTDevice::TTSimTTDevice(
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
     libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
-    log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
+    log_info(
+        tt::LogEmulationDriver,
+        "TTSimTTDevice chip_id={} PCI vendor_id=0x{:x} device_id=0x{:x}",
+        chip_id_,
+        vendor_id,
+        libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
@@ -58,36 +75,35 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<TTSimTlbManager>(this);
-    get_cached_tlb_window();
+    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+        this,
+        bar0_base,
+        architecture_impl_.get(),
+        [comm = communicator_.get()](
+            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
+            auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
+            return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
+        });
+    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
-TTSimTTDevice::~TTSimTTDevice() = default;
-
-void TTSimTTDevice::start_device() {}
-
-void TTSimTTDevice::close_device() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
-        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
-        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
+    if (cached_tlb_window_) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
+    } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
-        return;
     }
-
-    get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&
-        architecture_impl_->get_architecture() != ARCH::BLACKHOLE) {
-        // For architectures without TLB support in TTSim, write directly using tile_write_bytes.
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (cached_tlb_window_) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
     communicator_->advance_clock(10);
 }
@@ -174,14 +190,6 @@ void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size
     throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
 }
 
-void TTSimTTDevice::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) {
-    throw std::runtime_error("DMA operations are not supported in TTSim simulation device.");
-}
-
 void TTSimTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
     throw std::runtime_error("ARC APB access is not supported in TTSim simulation device.");
 }
@@ -244,29 +252,6 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
     uint64_t channel = paddr / (1ULL << 30);
     uint64_t offset = paddr % (1ULL << 30);
     sysmem_manager_->write_to_sysmem(channel, p, offset, size);
-}
-
-TlbWindow* TTSimTTDevice::get_cached_tlb_window() {
-    if (cached_tlb_window_ == nullptr) {
-        switch (architecture_impl_->get_architecture()) {
-            case ARCH::BLACKHOLE:
-                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 2 * (1 << 20));
-                break;
-            case ARCH::WORMHOLE_B0:
-                cached_tlb_window_ = tlb_manager_->allocate_tlb_window({}, TlbMapping::WC, 16 * (1 << 20));
-                break;
-            default: {
-                log_debug(
-                    LogUMD,
-                    fmt::format(
-                        "Architecture {} does not yet have support for TLB allocation.",
-                        tt::arch_to_str(architecture_impl_->get_architecture())));
-                return nullptr;
-            }
-        }
-    }
-
-    return cached_tlb_window_.get();
 }
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {

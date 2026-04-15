@@ -31,10 +31,11 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;
+using namespace tt::umd::error;
 
 // Small helper function to check if the ipmitool is ready.
 bool is_ipmitool_ready() {
@@ -67,7 +68,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
-    if (is_arm_platform()) {
+    if (utils::is_arm_platform()) {
         // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
         // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
         GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
@@ -84,6 +85,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     std::vector<uint8_t> readback_data(data.size(), 0);
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
     SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
@@ -95,7 +97,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
+        EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
     }
 
     WarmReset::warm_reset();
@@ -108,11 +110,12 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
 
     tt_device.reset();
 
     tt_device = TTDevice::create(pci_device_ids.at(0));
+    tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
     tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
@@ -122,6 +125,8 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
 
     ASSERT_EQ(data, readback_data);
+
+    tt_device->set_power_state(false);
 }
 
 bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, int device_id) {
@@ -161,6 +166,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
     for (int pci_device_id : pci_device_ids) {
         tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+        tt_devices[pci_device_id]->set_power_state(true);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -237,6 +243,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     for (int pci_device_id : pci_device_ids) {
         tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+        tt_devices[pci_device_id]->set_power_state(true);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -299,6 +306,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
             for (int pci_device_id : pci_device_ids) {
                 tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
+                tt_devices[pci_device_id]->set_power_state(true);
 
                 tt_devices[pci_device_id]->init_tt_device();
 
@@ -387,7 +395,7 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
 }
 
 TEST(WarmResetTest, ClusterWarmReset) {
-    if constexpr (is_arm_platform()) {
+    if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -414,7 +422,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
+        EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
     }
 
     WarmReset::warm_reset();
@@ -426,7 +434,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {

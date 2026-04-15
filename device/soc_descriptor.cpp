@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -37,22 +38,28 @@ namespace tt::umd {
 
 std::string format_node(tt_xy_pair xy) { return fmt::format("{}-{}", xy.x, xy.y); }
 
-tt_xy_pair format_node(std::string str) {
-    int x_coord;
-    int y_coord;
-    std::regex expr("([0-9]+)[-,xX]([0-9]+)");
-    std::smatch x_y_pair;
+tt_xy_pair format_node(const std::string &str) {
+    // Find the separator character.
+    size_t sep_pos = std::string::npos;
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (str[i] == '-') {
+            sep_pos = i;
+            break;
+        }
+    }
 
-    if (std::regex_search(str, x_y_pair, expr)) {
-        x_coord = std::stoi(x_y_pair[1]);
-        y_coord = std::stoi(x_y_pair[2]);
-    } else {
+    if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
         throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
     }
 
-    tt_xy_pair xy(x_coord, y_coord);
-
-    return xy;
+    try {
+        const char *str_cstr = str.c_str();
+        int x_coord = std::atoi(str_cstr);
+        int y_coord = std::atoi(str_cstr + sep_pos + 1);
+        return tt_xy_pair(x_coord, y_coord);
+    } catch (...) {
+        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+    }
 }
 
 const char *ws = " \t\n\r\f\v";
@@ -71,6 +78,30 @@ inline std::string &ltrim(std::string &s, const char *t = ws) {
 
 // trim from both ends of string (right then left)
 inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtrim(s, t), t); }
+
+// clang-format off
+static const std::unordered_map<tt_xy_pair, tt_xy_pair> ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE = {
+    {{15, 11}, {15,  0}},
+    {{13, 11}, {13,  0}},
+    {{12, 11}, {12,  0}},
+    {{11, 11}, {11,  0}},
+    {{10, 11}, {10,  0}},
+    {{ 9, 11}, { 9,  0}},
+    {{ 6, 11}, { 6,  0}},
+    {{ 4, 11}, { 4,  0}},
+    {{ 3, 11}, { 3,  0}},
+    {{ 2, 11}, { 2,  0}},
+    {{ 1, 11}, { 1,  0}},
+    {{ 0, 11}, { 0,  0}},
+    {{ 8, 10}, { 8,  1}},
+    {{ 8,  1}, { 8, 10}},
+    {{ 8,  3}, { 8,  8}},
+    {{ 8,  5}, { 8,  6}},
+    {{ 8,  7}, { 8,  4}},
+    {{ 8,  0}, { 8, 11}},
+};
+
+// clang-format on
 
 tt_xy_pair SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &cores) {
     std::unordered_set<size_t> x;
@@ -196,37 +227,45 @@ CoreCoord SocDescriptor::translate_coord_to(
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
 }
 
-tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    // Since NOC1 and translated coordinate space are the same for Tensix cores on Blackhole
-    // Tensix cores are always used in translated space. Other cores are used either in
-    // NOC1 or translated space depending on the is_selected_noc1() flag.
-    // On Wormhole Tensix can use NOC1 space if is_selected_noc1() is set to true.
-    if (noc_translation_enabled && (arch == tt::ARCH::BLACKHOLE)) {
-        return translate_coord_to(core, CoordSystem::TRANSLATED);
+// Translates a chip coordinate to the correct device coordinates, returning a CoreCoord
+// Returns the correct pre-translation coordinates for the given architecture. Note that
+// the returned CoordSystem is not necessarily TRANSLATED — architecture-specific fixups
+// (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1 coordinates instead.
+// The key guarantee is that the returned coordinates will be correct for device access
+// on the given architecture.
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+    if (!noc_translation_enabled) {
+        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    }
+
+    // For ROUTER_ONLY cores, the translated coordinate space differs depending on
+    // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
+    // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
+    // network resolve to the correct tile.
+    if ((arch == tt::ARCH::BLACKHOLE) && (core.core_type == CoreType::ROUTER_ONLY) && is_selected_noc1()) {
+        CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
+        CoreCoord translated_noc1_core = CoreCoord(
+            ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(static_cast<tt_xy_pair>(noc1_core)),
+            CoreType::ROUTER_ONLY,
+            CoordSystem::TRANSLATED);
+        return translated_noc1_core;
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
     // is not used (for now), and UMD is using NOC0/NOC1 (depending on the selected NOC).
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
-    if (noc_translation_enabled && (arch == tt::ARCH::WORMHOLE_B0) &&
+    if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::TRANSLATED);
+    return translate_coord_to(core, CoordSystem::TRANSLATED);
 }
 
-// Convenience wrapper around translate_chip_coord_to_translated that returns a CoreCoord
-// directly, preserving the core type and setting the coordinate system to TRANSLATED.
-//
-// Note: Unlike translate_coord_to, which provides straightforward coordinate mappings,
-// translate_chip_coord_to_translated applies additional architecture-specific adjustments
-// (e.g., Wormhole DRAM/ARC/PCIe cores falling back to NOC0/NOC1 instead of translated
-// coordinates). Ideally translate_coord_to would be sufficient, but the workarounds in
-// translate_chip_coord_to_translated are still needed until the underlying dependencies
-// are resolved (see comments in translate_chip_coord_to_translated for details).
-CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
-    return CoreCoord(translate_chip_coord_to_translated(core), core.core_type, CoordSystem::TRANSLATED);
+// Convenience wrapper returning tt_xy_pair; the actual logic lives in
+// translate_chip_coord_to_translated_coord.
+tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
+    return translate_chip_coord_to_translated_coord(core);
 }
 
 void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo &soc_desc_info) {

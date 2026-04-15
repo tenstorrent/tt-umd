@@ -43,6 +43,8 @@ public:
     virtual std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
         void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
+    uint64_t get_pcie_base() const { return pcie_base_; }
+
     static uint64_t get_pcie_base_for_arch(tt::ARCH arch);
 
 protected:
@@ -50,7 +52,8 @@ protected:
 
     TLBManager* tlb_manager_ = nullptr;
     TTDevice* tt_device_ = nullptr;
-    uint64_t pcie_base_;
+    // TODO: Properly initialize for SimulationSysmemManager.
+    uint64_t pcie_base_ = 0;
 
     std::vector<HugepageMapping> hugepage_mapping_per_channel;
     void* iommu_mapping = nullptr;

@@ -55,7 +55,7 @@ pip install .
 
 ### Build flow for C++ lib
 
-To build `libdevice.so`:
+To build `libtt-umd.so`:
 ```
 cmake -B build -G Ninja
 cmake --build build
@@ -71,6 +71,22 @@ To build with GCC, set these environment variables before invoking `cmake`:
 ```
 export CC=gcc
 export CXX=g++
+```
+
+#### Disabling -Werror
+
+By default, all warnings are treated as errors. This is controlled via the standard CMake variable
+[`CMAKE_COMPILE_WARNING_AS_ERROR`](https://cmake.org/cmake/help/latest/variable/CMAKE_COMPILE_WARNING_AS_ERROR.html).
+
+Systems with recent libc may cause the python package building to fail due python redefining some `*_SOURCES` macros
+to higher versions and GCC has no mean to disable the macro redefinition diagnostic.
+
+```bash
+# Plain CMake
+cmake -B build -G Ninja -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
+
+# Python build (scikit-build-core passes CMAKE_ARGS through to CMake)
+CMAKE_ARGS="-DCMAKE_COMPILE_WARNING_AS_ERROR=OFF" pip install .
 ```
 
 #### Build debian dev package
@@ -142,7 +158,7 @@ cmake --build build
 
 #### Capturing a trace
 
-Launch the [Tracy server](https://github.com/tenstorrent/tracy), start the application you want to profile, then click connect
+Launch the [Tracy GUI](https://github.com/tenstorrent/tracy) locally, then on remote configure Port forwarding in VS Code for port 8086, start the application you want to profile on remote, then click Connect from GUI started locally. Alternatively, use `tracy-capture -o trace.tracy` to capture trace from the command line, then open the resulting file in the Tracy GUI.
 
 # Integration
 UMD can be consumed by downstream projects in multiple ways.
@@ -151,7 +167,7 @@ UMD can be consumed by downstream projects in multiple ways.
 You can use tt_umd module by installing it in your current python environment
 
 ## From Source (CMake)
-You can link `libdevice.so` by linking against the `umd::device` target.
+You can link `libtt-umd.so` by linking against the `umd::tt-umd` target.
 
 ### Using CPM Package Manager
 ```

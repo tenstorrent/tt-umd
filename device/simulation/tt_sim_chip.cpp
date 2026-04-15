@@ -20,6 +20,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "tracy.hpp"
 
 namespace tt::umd {
 
@@ -38,9 +39,9 @@ TTSimChip::TTSimChip(
 
 TTSimChip::~TTSimChip() = default;
 
-void TTSimChip::start_device() { tt_device_->start_device(); }
+void TTSimChip::start_device() {}
 
-void TTSimChip::close_device() { tt_device_->close_device(); }
+void TTSimChip::close_device() {}
 
 void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
@@ -62,11 +63,13 @@ void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets
 }
 
 void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->assert_risc_reset(soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs);
 }
 
 void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->deassert_risc_reset(
         soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);

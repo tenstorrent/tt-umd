@@ -20,9 +20,7 @@
 namespace tt::umd {
 
 RemoteCommunication::RemoteCommunication(TTDevice* local_tt_device, SysmemManager* sysmem_manager) :
-    local_tt_device_(local_tt_device),
-    communication_device_id_(local_tt_device_->get_communication_device_id()),
-    sysmem_manager_(sysmem_manager) {
+    local_tt_device_(local_tt_device), sysmem_manager_(sysmem_manager) {
     lock_manager_.initialize_mutex(MutexType::NON_MMIO, local_tt_device->get_communication_device_id());
 }
 
@@ -49,8 +47,6 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
 }
 
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
-
-int RemoteCommunication::get_communication_device_id() const { return communication_device_id_; }
 
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {

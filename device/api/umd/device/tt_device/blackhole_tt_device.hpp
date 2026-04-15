@@ -45,9 +45,6 @@ public:
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
-    bool is_hardware_hung() override;
-    uint32_t read_hang_check_reg_via_noc() override;
-
     void noc_broadcast(void *src, size_t size, uint64_t addr) override;
 
 protected:

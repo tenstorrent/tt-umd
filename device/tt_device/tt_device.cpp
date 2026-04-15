@@ -27,6 +27,8 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
+#include "umd/device/tt_device/protocol/remote_protocol.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -70,6 +72,18 @@ TTDevice::TTDevice(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
+}
+
+TTDevice::TTDevice(
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    std::unique_ptr<architecture_implementation> architecture_impl) :
+    communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
+    communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()) {
+    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
+    remote_capabilities_ = remote_protocol.get();
+    device_protocol_ = std::move(remote_protocol);
 }
 
 TTDevice::TTDevice() = default;
@@ -154,16 +168,18 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
+PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
+
+JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
+
+RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
+
 void TTDevice::set_power_state(bool busy) {
     if (is_remote_tt_device || !pcie_capabilities_) {
         return;
     }
     get_pci_device()->set_power_state(busy);
 }
-
-PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
-
-JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
 
 DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 
@@ -181,25 +197,50 @@ JtagInterface *TTDevice::get_jtag_interface() {
     return jtag_capabilities_;
 }
 
-tt::ARCH TTDevice::get_arch() { return arch; }
-
-void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        // Jtag protocol uses different communication paths from pci therefore
-        // there's no need to check hang which is in this case pci-specific.
-        return;
+RemoteInterface *TTDevice::get_remote_interface() {
+    if (!remote_capabilities_) {
+        throw std::runtime_error("Remote interface is not available for this device.");
     }
-    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
-    }
+    return remote_capabilities_;
 }
 
-bool TTDevice::is_noc_hung(NocId noc) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_noc_hung is not applicable for JTAG communication type.");
+tt::ARCH TTDevice::get_arch() { return arch; }
+
+bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
+    if (!hang_detector_) {
+        throw std::runtime_error("HangDetector is not available for this device.");
     }
-    NocIdSwitcher switcher(noc);
-    return (read_hang_check_reg_via_noc() == HANG_READ_VALUE);
+    auto result = hang_detector_->is_pcie_hung(data_read);
+    if (!result.has_value()) {
+        log_warning(LogUMD, "PCIe hang detection is not supported for this device.");
+        return false;
+    }
+    if (result.value()) {
+        if (action == TTDevice::HangAction::THROW) {
+            throw std::runtime_error("Read 0xffffffff from PCIe: you should reset the board.");
+        }
+        return true;
+    }
+    return false;
+}
+
+bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
+    if (!hang_detector_) {
+        throw std::runtime_error("HangDetector is not available for this device.");
+    }
+    auto result = hang_detector_->is_noc_hung(noc);
+    if (!result.has_value()) {
+        log_warning(LogUMD, "NOC hang detection is not supported for this device.");
+        return false;
+    }
+    if (result.value()) {
+        if (action == TTDevice::HangAction::THROW) {
+            throw std::runtime_error(
+                fmt::format("NOC{} appears hung: you should reset the board.", static_cast<int>(noc)));
+        }
+        return true;
+    }
+    return false;
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
@@ -263,7 +304,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         utils::check_timeout(
             start,
             timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
     }
 }
 
@@ -331,6 +372,32 @@ uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
     write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
+}
+
+void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = static_cast<uint32_t>(valid);
+    set_risc_reset_state(core, valid_val);
+}
+
+void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
+    TT_THROW("send_tensix_risc_reset without core is not supported at the TTDevice level");
+}
+
+void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+    uint32_t soft_reset_current_state = get_risc_reset_state(core);
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
+    set_risc_reset_state(core, soft_reset_new);
+}
+
+void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+    uint32_t soft_reset_current_state = get_risc_reset_state(core);
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
+    uint32_t soft_reset_new_with_staggered_start =
+        soft_reset_new | (staggered_start ? architecture_impl_->get_soft_reset_staggered_start() : 0);
+    set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }

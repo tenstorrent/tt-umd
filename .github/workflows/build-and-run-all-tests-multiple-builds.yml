@@ -28,8 +28,21 @@ on:
     branches: ["main"]
 
 jobs:
+  # Ensure the Docker image for CI exists. If the Dockerfile (or its
+  # install scripts) changed on this branch the image is rebuilt and pushed
+  # with a content-hash tag.  Otherwise the existing image is reused.
+  ensure-image:
+    name: Ensure Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04
+
   build-and-run-all-tests:
     name: ""
+    needs: ensure-image
     secrets: inherit
     strategy:
       fail-fast: false
@@ -47,5 +60,6 @@ jobs:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
       timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

@@ -28,10 +28,47 @@ env:
   WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
+  ensure-ubuntu-2204-image:
+    name: Ensure ubuntu-22.04 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04
+
+  ensure-ubuntu-2404-image:
+    name: Ensure ubuntu-24.04 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04
+
+  ensure-fedora-39-image:
+    name: Ensure fedora-39 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: fedora-39
+
+  ensure-manylinux-image:
+    name: Ensure manylinux Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: manylinux
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
     strategy:
       fail-fast: false
       matrix:
@@ -65,7 +102,10 @@ jobs:
     container:
       image: >-
         harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
-        matrix.image.distro }}:latest
+        matrix.image.distro }}:${{
+        matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
+        matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
+        needs.ensure-fedora-39-image.outputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -286,6 +326,7 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    needs: ensure-manylinux-image
 
     name: Build umd manylinux wheel
     runs-on: tt-ubuntu-2204-large-stable
@@ -307,7 +348,9 @@ jobs:
         shell: bash
         env:
           # Use custom manylinux Docker image with all dependencies pre-installed
-          CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          CIBW_MANYLINUX_X86_64_IMAGE: >-
+            ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux:${{
+            needs.ensure-manylinux-image.outputs.image-tag }}
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -326,7 +369,7 @@ jobs:
             ${{ env.WHEEL_OUTPUT_DIR }}
 
   test-packages:
-    needs: build
+    needs: [build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
     strategy:
       fail-fast: false
@@ -340,7 +383,11 @@ jobs:
     name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.compiler-c }}
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.build.distro }}:latest
+      image: >-
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.build.distro }}:${{
+        matrix.build.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
+        matrix.build.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
+        needs.ensure-fedora-39-image.outputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v4

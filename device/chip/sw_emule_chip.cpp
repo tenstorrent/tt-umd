@@ -12,6 +12,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "assert.hpp"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 
@@ -99,6 +100,8 @@ void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, 
     std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
 }
 
+// Register I/O forwards to the same memory path — emulated cores have no distinct
+// register address space, so all offsets map into the same L1-backed storage.
 void SWEmuleChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }
@@ -108,10 +111,12 @@ void SWEmuleChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_
 }
 
 void SWEmuleChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
+    TT_ASSERT(size <= UINT32_MAX, "DMA write size {} exceeds uint32_t range", size);
     write_to_device(core, src, addr, static_cast<uint32_t>(size));
 }
 
 void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
+    TT_ASSERT(size <= UINT32_MAX, "DMA read size {} exceeds uint32_t range", size);
     read_from_device(core, dst, addr, static_cast<uint32_t>(size));
 }
 

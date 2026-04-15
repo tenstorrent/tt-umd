@@ -152,9 +152,13 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (is_running_on_6u) {
-        if (!is_running_on_6u) {
-            UMD_THROW(error::RuntimeError, "get_remote_eth_channel should not be called on non-6U configurations.");
-        }
+        uint32_t remote_eth_id;
+        tt_device->read_from_device(
+            &remote_eth_id,
+            local_eth_core,
+            EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
+            sizeof(uint32_t));
+        return remote_eth_id;
     }
 
     const uint32_t shelf_offset = 9;

@@ -40,8 +40,6 @@ protected:
 
     uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);
 
-    bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
-
     void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override {}
 
     std::unique_ptr<TTDevice> create_remote_device(

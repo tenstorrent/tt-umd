@@ -123,10 +123,8 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    tt_xy_pair translated_eth_core = get_soc_descriptor(tt_device).translate_coord_to(
-        local_eth_core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0, CoordSystem::TRANSLATED);
     uint8_t remote_eth_channel = 0;
-    tt_device->read_from_device(&remote_eth_channel, translated_eth_core, 0x7CFE2, sizeof(remote_eth_channel));
+    tt_device->read_from_device(&remote_eth_channel, local_eth_core, 0x7CFE2, sizeof(remote_eth_channel));
     return remote_eth_channel;
 }
 

@@ -18,6 +18,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -25,6 +26,8 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -94,15 +97,43 @@ public:
 
     tt::ARCH get_arch();
 
-    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
-    bool is_noc_hung(NocId noc);
     /**
-     * Reads the NOC node ID register via a NOC transaction (using the currently selected NOC).
-     *
-     * @return Raw register value. A return of HANG_READ_VALUE (0xFFFFFFFF) indicates the NOC is hung.
+     * @brief Controls what happens when a hang is confirmed.
      */
-    virtual uint32_t read_hang_check_reg_via_noc() = 0;
+    enum class HangAction {
+        THROW,   ///< Throw std::runtime_error (default).
+        RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * Check if the PCIe communication is hung.
+     *
+     * Reads a known register over BAR and compares the result against the hang
+     * signature. If the device is not locally accessible (e.g. JTAG or remote),
+     * the check is skipped and false is returned.
+     *
+     * @param data_read  Value to compare against the hang signature. Defaults to
+     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   after any BAR read that returned a suspicious value.
+     * @param action     What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
+
+    /**
+     * Check if NOC traffic to the device is hung.
+     *
+     * Sends a read over the specified NOC and compares the result against the
+     * hang signature. Only meaningful for locally accessible devices; on remote
+     * devices the check is skipped and false is returned.
+     *
+     * @param noc     NOC to check (NOC0 or NOC1).
+     * @param action  What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the NOC appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
     /**
      * DMA transfer from device to host.
@@ -348,6 +379,41 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
 
+    /**
+     * Send tensix risc reset for a specific core.
+     *
+     * @param core Core to reset, in translated coordinates
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Send tensix risc reset for all tensix cores.
+     *
+     * The base TTDevice implementation does not support this operation and throws.
+     * Subclasses may override to implement all-core reset semantics.
+     *
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Assert risc reset for a specific core.
+     *
+     * @param core Core to assert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to assert reset for
+     */
+    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+
+    /**
+     * Deassert risc reset for a specific core.
+     *
+     * @param core Core to deassert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to deassert reset for
+     * @param staggered_start Whether to use staggered start
+     */
+    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
@@ -398,6 +464,8 @@ protected:
 
     void set_jtag_interface(JtagInterface *jtag_interface) { jtag_capabilities_ = jtag_interface; }
 
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
@@ -406,6 +474,7 @@ private:
     void probe_arc();
 
     std::unique_ptr<DeviceProtocol> device_protocol_;
+    std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;

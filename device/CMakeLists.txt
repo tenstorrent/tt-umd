@@ -36,9 +36,16 @@ else()
     message(STATUS "Building tt-umd library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
-# Alias for old name
-add_library(${PROJECT_NAME}::device ALIAS tt-umd)
-add_library(device ALIAS tt-umd)
+
+# Set version
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        VERSION
+            ${CMAKE_PROJECT_VERSION}
+        SOVERSION
+            ${CMAKE_PROJECT_VERSION_MAJOR}
+)
 
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
@@ -68,7 +75,6 @@ target_sources(
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
-        pcie/device_memcpy.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
@@ -86,6 +92,9 @@ target_sources(
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/remote_wormhole_tt_device.cpp
+        tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/wormhole_hang_detector.cpp
+        tt_device/hang_detection/blackhole_hang_detector.cpp
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
@@ -182,7 +191,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/logging/config.hpp
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/utils/kmd_versions.hpp
-                api/umd/device/pcie/device_memcpy.hpp
                 api/umd/device/pcie/pci_device.hpp
                 api/umd/device/pcie/pci_ids.h
                 api/umd/device/pcie/tlb_handle.hpp
@@ -215,6 +223,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
+                api/umd/device/tt_device/hang_detection/hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
@@ -313,7 +324,7 @@ endif()
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
     target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
-    message(STATUS "Tracy profiling enabled for device library")
+    message(STATUS "Tracy profiling enabled for tt-umd library")
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support
@@ -347,13 +358,18 @@ else()
     message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
 endif()
 
-# Add a custom command to copy the library to build/lib
-add_custom_command(
-    TARGET tt-umd
-    POST_BUILD
-    COMMAND
-        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
-    COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
-    COMMENT "Copying tt-umd library to build/lib"
-)
+if(TT_UMD_BUILD_STATIC)
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+else()
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+endif()

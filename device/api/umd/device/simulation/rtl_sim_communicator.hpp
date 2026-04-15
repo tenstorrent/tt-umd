@@ -4,9 +4,14 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <mutex>
+#include <queue>
+#include <thread>
 
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -125,15 +130,70 @@ public:
      */
     SimulationHost &get_host() { return host_; }
 
+    // Callback for AXI RAM write: (address, data, size) -> write data into host memory.
+    using RamWriteCallback = std::function<void(uint64_t address, const void *data, uint32_t size)>;
+
+    // Callback for AXI RAM read: (address, data_out, size) -> read data from host memory into data_out.
+    using RamReadCallback = std::function<void(uint64_t address, void *data_out, uint32_t size)>;
+
+    /**
+     * Set callbacks for AXI RAM notifications from the simulator.
+     * These allow the caller to handle device-initiated reads/writes to host system memory.
+     *
+     * @param write_cb Called when the device writes to host RAM.
+     * @param read_cb Called when the device reads from host RAM.
+     */
+    void set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb);
+
+    // Structure for received messages queued by the notification thread.
+    struct ReceivedMessage {
+        void *data = nullptr;
+        size_t size = 0;
+    };
+
 private:
+    // Notification handler thread entry point.
+    // This thread is started with the simulation host, and receives all communication from the simulator.
+    // In its implementation, it will handle (call the right callbacks) the simulator initiated
+    // communication, like receiving host ram IO requests.
+    // If the received message is, in fact, a response to a previously send command from the simulator host,
+    // like a read request, it will just put it into command_queue, to be consumed by the operation waiting on a
+    // response.
+    void notification_handler_thread();
+
+    // Wait for a regular command response from the command queue.
+    // Command queue is filled up by notification_handler_thread. Operations that need to wait
+    // on a response from the simulator should call this function to consume a response from the
+    // said command queue.
+    ReceivedMessage wait_for_command_response();
+
+    // Handle AXI RAM write notification from the simulator.
+    void handle_ram_write_notification(const void *notification);
+
+    // Handle AXI RAM read notification from the simulator.
+    void handle_ram_read_notification(const void *notification);
+
     // Simulator directory path.
     std::filesystem::path simulator_directory_;
 
     // Simulation host for communication.
     SimulationHost host_;
 
-    // Thread safety.
+    // Thread safety for send operations.
     mutable std::mutex device_lock_;
+
+    // Notification handler thread.
+    std::thread notification_thread_;
+    std::atomic<bool> notification_thread_running_{false};
+
+    // Queue for regular command responses (non-notification messages).
+    std::queue<ReceivedMessage> command_queue_;
+    std::mutex command_queue_mutex_;
+    std::condition_variable command_queue_cv_;
+
+    // AXI RAM callbacks.
+    RamWriteCallback ram_write_callback_;
+    RamReadCallback ram_read_callback_;
 };
 
 }  // namespace tt::umd

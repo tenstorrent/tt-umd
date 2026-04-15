@@ -79,18 +79,6 @@ void RemoteWormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_
         mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
-void RemoteWormholeTTDevice::detect_hang_read(std::uint32_t data_read) {
-    get_remote_interface()->get_remote_communication()->get_local_device()->detect_hang_read(data_read);
-}
-
-bool RemoteWormholeTTDevice::is_hardware_hung() {
-    return get_remote_interface()->get_remote_communication()->get_local_device()->is_hardware_hung();
-}
-
-uint32_t RemoteWormholeTTDevice::read_hang_check_reg_via_noc() {
-    return get_remote_interface()->get_remote_communication()->get_local_device()->read_hang_check_reg_via_noc();
-}
-
 void RemoteWormholeTTDevice::noc_multicast_write(
     void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     // TODO: implement multicast over remote communication.

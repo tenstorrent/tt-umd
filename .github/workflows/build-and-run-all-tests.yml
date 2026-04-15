@@ -10,6 +10,13 @@ on:
       timeout:
         required: true
         type: number
+      docker-image-tag:
+        required: false
+        type: string
+        default: latest
+        description: >-
+          Content-hash tag produced by docker-image.yml.
+          When empty or unset, downstream jobs use ":latest".
       log-params:
         required: false
         type: string
@@ -54,6 +61,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -95,11 +103,16 @@ jobs:
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
+  run-ttsim-tests:
+    secrets: inherit
+    uses: ./.github/workflows/run-ttsim-tests.yml
 
   run-tooling-tests:
     secrets: inherit
@@ -123,6 +136,7 @@ jobs:
       card: ${{ matrix.test-group.runs-on }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}

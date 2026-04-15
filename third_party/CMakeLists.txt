@@ -185,6 +185,53 @@ CPMAddPackage(
 )
 
 ####################################################################################################################
+# expected
+####################################################################################################################
+if(NOT CPM_LOCAL_PACKAGES_ONLY)
+    CPMAddPackage(
+        NAME umd_expected
+        GITHUB_REPOSITORY TartanLlama/expected
+        GIT_TAG v1.1.0
+        SYSTEM YES
+        OPTIONS
+            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+        DOWNLOAD_ONLY YES
+    )
+endif()
+
+if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED umd_expected_SOURCE_DIR)
+    message(
+        FATAL_ERROR
+        "CPM_LOCAL_PACKAGES_ONLY is ON, but umd_expected_SOURCE_DIR is not defined. Please provide the path to the expected source."
+    )
+endif()
+
+if(umd_expected_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
+    # expected is header-only, create an interface library
+    add_library(umd_expected INTERFACE)
+    target_include_directories(
+        umd_expected
+        SYSTEM
+        INTERFACE
+            $<BUILD_INTERFACE:${umd_expected_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
+    )
+    add_library(tl::expected ALIAS umd_expected)
+
+    # Install the header-only library
+    if(NOT TT_UMD_BUILD_STATIC)
+        install(
+            TARGETS
+                umd_expected
+            EXPORT umdTargets
+            COMPONENT
+            umd-dev
+        )
+        install(DIRECTORY ${umd_expected_SOURCE_DIR}/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} COMPONENT umd-dev)
+    endif()
+endif()
+
+####################################################################################################################
 # picosha2
 ####################################################################################################################
 if(NOT CPM_LOCAL_PACKAGES_ONLY)

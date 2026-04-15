@@ -12,6 +12,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tl/expected.hpp>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
@@ -29,7 +30,8 @@ inline std::optional<std::string> get_env_var_value(const char* env_var_name) {
     return std::string(env_var);
 }
 
-inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(const std::string& input) {
+inline tl::expected<std::unordered_set<int>, error::RuntimeError> get_unordered_set_from_string(
+    const std::string& input) {
     std::unordered_set<int> result_set;
     std::stringstream ss(input);
     std::string token;
@@ -38,15 +40,14 @@ inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
         try {
             result_set.insert(std::stoi(token));
         } catch (const std::exception& e) {
-            throw std::runtime_error(
-                fmt::format("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what()));
+            return tl::unexpected(error::RuntimeError(
+                fmt::format("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what())));
         }
     }
 
     if (result_set.empty()) {
-        return std::nullopt;
+        return std::unordered_set<int>{};
     }
-
     return result_set;
 }
 

@@ -89,6 +89,14 @@ struct NocHangError : UmdError<NocHangData> {
     NocHangError(TTDevice& tt_device, NocId noc_id);
 };
 
+struct PcieHangData : TTDeviceData {
+    uint32_t data_read;
+};
+
+struct PcieHangError : UmdError<TTDeviceData> {
+    PcieHangError(TTDevice& tt_device, uint32_t data_read);
+};
+
 /**
  * @brief Exception thrown when a SIGBUS signal is intercepted.
  * This indicates a hardware access error, likely due to a reset or

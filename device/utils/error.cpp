@@ -22,6 +22,14 @@ TTDeviceData::TTDeviceData(TTDevice& tt_device, std::optional<uint64_t> discover
 NocHangError::NocHangError(TTDevice& tt_device, NocId noc_id) :
     UmdError<NocHangData>(fmt::format("{} is hung.", noc_to_str(noc_id)), {{tt_device}, noc_id}) {}
 
+PcieHangError::PcieHangError(TTDevice& tt_device, uint32_t data_read) :
+    UmdError<TTDeviceData>(
+        fmt::format(
+            "Read {:#x} over PCIe ID {}: the board should be reset.",
+            data_read,
+            tt_device.get_communication_device_id()),
+        {{tt_device}, data_read}) {}
+
 ArcStartupError::ArcStartupError(
     TTDevice& tt_device,
     NocId noc_id,

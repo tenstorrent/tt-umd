@@ -103,6 +103,9 @@ void TTDevice::probe_arc() {
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    if (has_pcie_interface()) {
+        is_pcie_hung();
+    }
     bool noc_hang_check_result =
         hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
     if (noc_hang_check_result) {
@@ -208,7 +211,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     }
     if (result.value()) {
         if (action == TTDevice::HangAction::THROW) {
-            throw std::runtime_error("Read 0xffffffff from PCIe: you should reset the board.");
+            UMD_THROW(error::PcieHangError, *this, data_read);
         }
         return true;
     }

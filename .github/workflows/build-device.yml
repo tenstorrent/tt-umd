@@ -284,6 +284,7 @@ jobs:
     # Cross-compilation builds to guard against compiler regressions on non-x86 targets.
     # The binaries are not run; the goal is only to verify the code compiles cleanly.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    needs: ensure-ubuntu-2204-image
     strategy:
       fail-fast: false
       matrix:
@@ -296,7 +297,8 @@ jobs:
     runs-on: tt-ubuntu-2204-large-stable
     container:
       image: >-
-        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:latest
+        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:${{
+        needs.ensure-ubuntu-2204-image.outputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v4

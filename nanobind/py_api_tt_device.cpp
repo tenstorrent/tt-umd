@@ -43,6 +43,11 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    if (!remote_communication) {
+        throw std::runtime_error(
+            std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
+            " architecture.");
+    }
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
     return TTDevice::create(std::move(remote_communication));
@@ -53,6 +58,11 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
 std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chip, int rack, int shelf, int x, int y) {
     EthCoord target_chip{0, x, y, rack, shelf};
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    if (!remote_communication) {
+        throw std::runtime_error(
+            std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
+            " architecture.");
+    }
     return TTDevice::create(std::move(remote_communication));
 }
 

@@ -20,6 +20,24 @@ grep -rl 'apt\.llvm\.org' /etc/apt/sources.list.d/ 2>/dev/null | grep '\.list$' 
         -e 's|^deb \[|deb [arch=amd64 |g' \
         -e 's|^deb http://apt\.llvm\.org|deb [arch=amd64] http://apt.llvm.org|g'
 
+# Pin main Ubuntu sources to amd64 only so that apt-get update does not try
+# to fetch arm64/riscv64 package lists from archive.ubuntu.com (which only
+# serves amd64/i386 and returns 404 for other architectures).
+sed -i \
+    -e 's|^deb http://archive.ubuntu.com|deb [arch=amd64] http://archive.ubuntu.com|g' \
+    -e 's|^deb http://security.ubuntu.com|deb [arch=amd64] http://security.ubuntu.com|g' \
+    /etc/apt/sources.list
+
+# Add ports.ubuntu.com as the package source for arm64 and riscv64.
+# ports.ubuntu.com is the canonical mirror for Ubuntu non-x86 architectures.
+UBUNTU_CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
+cat >> /etc/apt/sources.list <<EOF
+deb [arch=arm64,riscv64] http://ports.ubuntu.com/ubuntu-ports ${UBUNTU_CODENAME} main restricted universe multiverse
+deb [arch=arm64,riscv64] http://ports.ubuntu.com/ubuntu-ports ${UBUNTU_CODENAME}-updates main restricted universe multiverse
+deb [arch=arm64,riscv64] http://ports.ubuntu.com/ubuntu-ports ${UBUNTU_CODENAME}-backports main restricted universe multiverse
+deb [arch=arm64,riscv64] http://ports.ubuntu.com/ubuntu-ports ${UBUNTU_CODENAME}-security main restricted universe multiverse
+EOF
+
 # Enable cross-compilation target architectures.
 dpkg --add-architecture arm64
 dpkg --add-architecture riscv64

@@ -160,8 +160,7 @@ void TopologyDiscovery::get_connected_devices() {
         }
 
         const SocDescriptor& soc_desc = get_soc_descriptor(tt_device.get());
-        std::vector<CoreCoord> eth_cores =
-            soc_desc.get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
         for (const CoreCoord& eth_core : eth_cores) {
             tt_xy_pair translated_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
             uint64_t board_id = get_local_board_id(tt_device.get(), translated_eth_core);
@@ -211,8 +210,7 @@ void TopologyDiscovery::discover_remote_devices() {
         log_debug(LogUMD, "Discovering from ASIC ID: {}", current_device_asic_id);
 
         const SocDescriptor& soc_desc = get_soc_descriptor(tt_device);
-        std::vector<CoreCoord> eth_cores =
-            soc_desc.get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
         for (const CoreCoord& eth_core : eth_cores) {
             const uint32_t channel = soc_desc.get_eth_channel_for_core(eth_core);
             tt_xy_pair translated_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
@@ -429,8 +427,7 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     // one. If we have no ETH cores, we will use the board ID, since no other device can have the same board ID.
     // Using board ID should happen only for unconnected boards (N150, P150).
     const SocDescriptor& soc_desc = get_soc_descriptor(tt_device);
-    std::vector<CoreCoord> eth_cores =
-        soc_desc.get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
 
     for (const CoreCoord& eth_core : eth_cores) {
         tt_xy_pair translated_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);

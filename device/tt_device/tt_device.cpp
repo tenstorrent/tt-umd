@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -32,7 +34,10 @@
 #include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
@@ -96,32 +101,21 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    if (pcie_capabilities_ != nullptr) {
+        is_pcie_hung();
+    }
+    bool noc_hang_check_result =
+        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+    if (noc_hang_check_result) {
+        UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
+    }
     probe_arc();
-    if (!wait_arc_core_start(timeout_ms)) {
-        if (throw_on_arc_failure) {
-            throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
-        } else {
-            return TTDeviceInitResult::ARC_STARTUP_FAILED;
-        }
-    }
-    try {
-        arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
-    }
-    try {
-        telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
-    }
-    try {
-        firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
-    }
-    return TTDeviceInitResult::SUCCESSFUL;
+    wait_arc_core_start(timeout_ms);
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -217,7 +211,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     }
     if (result.value()) {
         if (action == TTDevice::HangAction::THROW) {
-            throw std::runtime_error("Read 0xffffffff from PCIe: you should reset the board.");
+            UMD_THROW(error::PcieHangError, *this, data_read);
         }
         return true;
     }

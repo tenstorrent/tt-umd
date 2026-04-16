@@ -44,7 +44,7 @@ SimulationChip::SimulationChip(
 
 // Base class implementations (common simple methods).
 void SimulationChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED)), soft_resets);
+    send_tensix_risc_reset(tt_xy_pair(soc_descriptor_.translate_chip_coord_to_translated(core)), soft_resets);
 }
 
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -76,8 +76,8 @@ void SimulationChip::noc_multicast_write(
     }
     // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
     // Until then, do individual writes to each core in the range.
-    const tt_xy_pair translated_start = soc_descriptor_.translate_coord_to(core_start, CoordSystem::TRANSLATED);
-    const tt_xy_pair translated_end = soc_descriptor_.translate_coord_to(core_end, CoordSystem::TRANSLATED);
+    const tt_xy_pair translated_start = soc_descriptor_.translate_chip_coord_to_translated(core_start);
+    const tt_xy_pair translated_end = soc_descriptor_.translate_chip_coord_to_translated(core_end);
     for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
         for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
             // Since we are doing set of unicasts, we must skip cores that are not actual Tensix cores.

@@ -36,11 +36,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     ZoneScopedC(tracy::Color::DarkGreen);
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
-    TTDeviceInitResult init_result = tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        throw std::runtime_error(fmt::format(
-            "Failed to initialize TTDevice for device {}: {}", physical_device_id, static_cast<int>(init_result)));
-    }
+    tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -60,11 +56,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
-    TTDeviceInitResult init_result = tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        throw std::runtime_error(fmt::format(
-            "Failed to initialize TTDevice for device {}: {}", physical_device_id, static_cast<int>(init_result)));
-    }
+    tt_device->init_tt_device();
 
     return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
 }

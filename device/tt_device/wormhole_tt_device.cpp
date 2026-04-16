@@ -223,8 +223,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     fmt::format(
                         "ETH training timed out after {} ms, on eth core {}, {}",
                         timeout_ms.count(),
-                        actual_eth_core.x,
-                        actual_eth_core.y));
+                        eth_core.x,
+                        eth_core.y));
             } else {
                 // We don't want to throw on 6u systems, but log a warning so it is visible.
                 log_warning(

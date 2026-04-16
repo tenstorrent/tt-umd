@@ -206,7 +206,7 @@ void TTSimTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offs
     throw std::runtime_error("ARC CSM access is not supported in TTSim simulation device.");
 }
 
-bool TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     throw std::runtime_error("Waiting for ARC core start is not supported in TTSim simulation device.");
 }
 

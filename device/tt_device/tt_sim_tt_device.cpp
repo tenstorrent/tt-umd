@@ -45,6 +45,7 @@ TTSimTTDevice::TTSimTTDevice(
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
+    arch = soc_descriptor_.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
@@ -228,7 +229,19 @@ uint32_t TTSimTTDevice::get_min_clock_freq() {
 }
 
 bool TTSimTTDevice::get_noc_translation_enabled() {
-    throw std::runtime_error("Getting NOC translation status is not supported in TTSim simulation device.");
+    // ttsim does not use NOC translation — return false so SocDescriptor can be constructed.
+    return false;
+}
+
+ChipInfo TTSimTTDevice::get_chip_info() {
+    // ttsim has no firmware_info_provider, so return defaults with the SocDescriptor's harvesting info.
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = false;
+    chip_info.harvesting_masks = soc_descriptor_.harvesting_masks;
+    chip_info.board_type = BoardType::UNKNOWN;
+    chip_info.board_id = 0;
+    chip_info.asic_location = 0;
+    return chip_info;
 }
 
 void TTSimTTDevice::dma_multicast_write(

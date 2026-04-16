@@ -48,22 +48,15 @@ ArcStartupError::ArcStartupError(
         {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id}) {}
 
 ArcStartupError::ArcStartupError(
-    std::chrono::milliseconds timeout,
     TTDevice& tt_device,
     NocId noc_id,
     xy_pair arc_core,
     uint32_t scratch_status,
     uint32_t postcode,
+    std::chrono::milliseconds timeout,
     std::optional<uint32_t> message_id) :
-    UmdError<ArcStartupData>(
-        fmt::format(
-            "ARC startup timed out after {} ms on core {} over {}: scratch_status={:#x}, postcode={:#x}{}",
-            timeout.count(),
-            arc_core.str(),
-            noc_to_str(noc_id),
-            scratch_status,
-            postcode,
-            message_id.has_value() ? fmt::format(", message_id={:#x}", message_id.value()) : ""),
-        {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id}) {}
+    ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id) {
+    message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
+}
 
 }  // namespace tt::umd::error

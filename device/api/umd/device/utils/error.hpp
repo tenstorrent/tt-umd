@@ -71,12 +71,12 @@ struct ArcStartupError : UmdError<ArcStartupData> {
         uint32_t postcode,
         std::optional<uint32_t> message_id = std::nullopt);
     ArcStartupError(
-        std::chrono::milliseconds timeout,
         TTDevice& tt_device,
         NocId noc_id,
         xy_pair arc_core,
         uint32_t scratch_status,
         uint32_t postcode,
+        std::chrono::milliseconds timeout,
         std::optional<uint32_t> message_id = std::nullopt);
 };
 

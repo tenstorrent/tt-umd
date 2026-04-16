@@ -197,12 +197,12 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             if (elapsed > timeout_ms) {
                 UMD_THROW(
                     error::ArcStartupError,
-                    timeout_ms,
                     *this,
                     get_selected_noc_id(),
                     arc_core,
                     arc_boot_status,
-                    arc_postcode);
+                    arc_postcode,
+                    timeout_ms);
             }
             continue;
         }
@@ -210,12 +210,12 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         if (utils::check_timeout(start, timeout_ms)) {
             UMD_THROW(
                 error::ArcStartupError,
-                timeout_ms,
                 *this,
                 get_selected_noc_id(),
                 arc_core,
                 arc_boot_status,
-                arc_postcode);
+                arc_postcode,
+                timeout_ms);
         }
 
         // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -

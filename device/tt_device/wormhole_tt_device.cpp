@@ -383,12 +383,12 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             if (elapsed > timeout_ms) {
                 UMD_THROW(
                     error::ArcStartupError,
-                    timeout_ms,
                     *this,
                     get_selected_noc_id(),
                     arc_core,
                     bar_read_arc_reset_scratch_status,
                     bar_read_arc_post_code,
+                    timeout_ms,
                     message_id);
             }
             continue;
@@ -397,12 +397,12 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         if (utils::check_timeout(start, timeout_ms)) {
             UMD_THROW(
                 error::ArcStartupError,
-                timeout_ms,
                 *this,
                 get_selected_noc_id(),
                 arc_core,
                 bar_read_arc_reset_scratch_status,
                 bar_read_arc_post_code,
+                timeout_ms,
                 message_id);
         }
 

@@ -742,3 +742,86 @@ TEST(CoordinateManager, CoordinateManagerBlackholeL2CPUHarvesting) {
     EXPECT_EQ(logical_l2cpu_3.x, 0);
     EXPECT_EQ(logical_l2cpu_3.y, 1);
 }
+
+// Test that translating from NOC0 to LITERAL and back to NOC0 preserves x and y coordinates for all core types.
+TEST(CoordinateManager, NOC0LiteralRoundTrip) {
+    std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
+        tt::ARCH::BLACKHOLE, true, {.eth_harvesting_mask = example_eth_harvesting_mask});
+
+    // Test all TENSIX cores.
+    const std::vector<tt_xy_pair>& tensix_cores = blackhole::TENSIX_CORES_NOC0;
+    for (const auto& tensix_core : tensix_cores) {
+        const CoreCoord noc0_coord = CoreCoord(tensix_core.x, tensix_core.y, CoreType::TENSIX, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all DRAM cores.
+    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(blackhole::DRAM_CORES_NOC0);
+    for (const auto& dram_core : dram_cores) {
+        const CoreCoord noc0_coord = CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all ETH cores.
+    const std::vector<tt_xy_pair>& eth_cores = blackhole::ETH_CORES_NOC0;
+    for (const auto& eth_core : eth_cores) {
+        const CoreCoord noc0_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all ARC cores.
+    const std::vector<tt_xy_pair>& arc_cores = blackhole::ARC_CORES_NOC0;
+    for (const auto& arc_core : arc_cores) {
+        const CoreCoord noc0_coord = CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all PCIE cores.
+    const std::vector<tt_xy_pair>& pcie_cores = blackhole::PCIE_CORES_NOC0;
+    for (const auto& pcie_core : pcie_cores) {
+        const CoreCoord noc0_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all SECURITY cores.
+    const std::vector<tt_xy_pair>& security_cores = blackhole::SECURITY_CORES_NOC0;
+    for (const auto& security_core : security_cores) {
+        const CoreCoord noc0_coord = CoreCoord(security_core.x, security_core.y, CoreType::SECURITY, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all L2CPU cores.
+    const std::vector<tt_xy_pair>& l2cpu_cores = blackhole::L2CPU_CORES_NOC0;
+    for (const auto& l2cpu_core : l2cpu_cores) {
+        const CoreCoord noc0_coord = CoreCoord(l2cpu_core.x, l2cpu_core.y, CoreType::L2CPU, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+}

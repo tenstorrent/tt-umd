@@ -416,3 +416,75 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoc1Noc0Mapping) {
     check_noc0_noc1_mapping(wormhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
     check_noc0_noc1_mapping(wormhole::PCIE_CORES_NOC0, PCIE_CORES_NOC1, CoreType::PCIE);
 }
+
+// Test that translating from NOC0 to LITERAL and back to NOC0 preserves x and y coordinates for all core types.
+TEST(CoordinateManager, CoordinateManagerWormholeNOC0LiteralRoundTrip) {
+    std::shared_ptr<CoordinateManager> coordinate_manager =
+        CoordinateManager::create_coordinate_manager(tt::ARCH::WORMHOLE_B0, true);
+
+    // Test all TENSIX cores.
+    const std::vector<tt_xy_pair>& tensix_cores = wormhole::TENSIX_CORES_NOC0;
+    for (const auto& tensix_core : tensix_cores) {
+        const CoreCoord noc0_coord = CoreCoord(tensix_core.x, tensix_core.y, CoreType::TENSIX, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all DRAM cores.
+    const std::vector<tt_xy_pair>& dram_cores = flatten_vector(wormhole::DRAM_CORES_NOC0);
+    for (const auto& dram_core : dram_cores) {
+        const CoreCoord noc0_coord = CoreCoord(dram_core.x, dram_core.y, CoreType::DRAM, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all ETH cores.
+    const std::vector<tt_xy_pair>& eth_cores = wormhole::ETH_CORES_NOC0;
+    for (const auto& eth_core : eth_cores) {
+        const CoreCoord noc0_coord = CoreCoord(eth_core.x, eth_core.y, CoreType::ETH, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all ARC cores.
+    const std::vector<tt_xy_pair>& arc_cores = wormhole::ARC_CORES_NOC0;
+    for (const auto& arc_core : arc_cores) {
+        const CoreCoord noc0_coord = CoreCoord(arc_core.x, arc_core.y, CoreType::ARC, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all PCIE cores.
+    const std::vector<tt_xy_pair>& pcie_cores = wormhole::PCIE_CORES_NOC0;
+    for (const auto& pcie_core : pcie_cores) {
+        const CoreCoord noc0_coord = CoreCoord(pcie_core.x, pcie_core.y, CoreType::PCIE, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+
+    // Test all ROUTER cores.
+    const std::vector<tt_xy_pair>& router_cores = wormhole::ROUTER_CORES_NOC0;
+    for (const auto& router_core : router_cores) {
+        const CoreCoord noc0_coord = CoreCoord(router_core.x, router_core.y, CoreType::ROUTER_ONLY, CoordSystem::NOC0);
+        const CoreCoord literal_coord = coordinate_manager->translate_coord_to(noc0_coord, CoordSystem::LITERAL);
+        const CoreCoord noc0_from_literal = coordinate_manager->translate_coord_to(literal_coord, CoordSystem::NOC0);
+
+        EXPECT_EQ(noc0_coord.x, noc0_from_literal.x);
+        EXPECT_EQ(noc0_coord.y, noc0_from_literal.y);
+    }
+}

@@ -103,7 +103,7 @@ void TTDevice::probe_arc() {
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (has_pcie_interface()) {
+    if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
     }
     bool noc_hang_check_result =

@@ -130,7 +130,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 }
 
 // Many threads open and close many clusters.
-TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
+TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -146,7 +146,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 }
 
 // Many threads start and stop many clusters.
-TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
+TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -185,7 +185,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
 }
 
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
-TEST(Multiprocess, DISABLED_WorkloadVSMonitor) {
+TEST(Multiprocess, WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     auto workload_thread = std::thread([&] {

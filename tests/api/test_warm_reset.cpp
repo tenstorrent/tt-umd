@@ -378,8 +378,6 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
 
     WarmReset::ubb_warm_reset();
 
-    cluster.reset();
-
     cluster = std::make_unique<Cluster>();
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
@@ -426,8 +424,6 @@ TEST(WarmResetTest, ClusterWarmReset) {
     }
 
     WarmReset::warm_reset();
-
-    cluster.reset();
 
     cluster = std::make_unique<Cluster>();
 
@@ -509,8 +505,6 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             break;
         }
     }
-
-    cluster.reset();
 
     cluster = std::make_unique<Cluster>();
     chip_id = *cluster->get_target_device_ids().begin();

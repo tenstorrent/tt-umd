@@ -261,7 +261,9 @@ void RobustMutex::open_shm_file() {
     // Restore old mask.
     umask(old_umask);
 
-    TT_ASSERT(shm_fd_ != -1, "shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+    if (shm_fd_ == -1) {
+        TT_THROW("shm_open failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+    }
 }
 
 bool RobustMutex::resize_shm_file() {

@@ -7,6 +7,7 @@
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
@@ -14,6 +15,7 @@
 #include <variant>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
@@ -179,6 +181,15 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     size_t dmabuf_size = dma_buffer.size;
+
+    const char* env_override = std::getenv("TT_DMA_BUF_SIZE");
+    if (env_override) {
+        size_t override_size = std::stoull(env_override);
+        if (override_size > 0) {
+            dmabuf_size = std::min(dmabuf_size, override_size);
+        }
+    }
+
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
     auto axi_address_base = pci_device_->get_architecture_implementation()
@@ -193,11 +204,23 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         size_t transfer_size = std::min({size, tlb_size, dmabuf_size});
 
         if (direction == DmaDirection::H2D) {
-            std::memcpy(dma_buffer.buffer, buf, transfer_size);
-            dma_h2d_transfer(static_cast<uint32_t>(axi_address), dma_buffer.buffer_pa, transfer_size);
+            {
+                ZoneScopedN("DMA::memcpyH2D");
+                std::memcpy(dma_buffer.buffer, buf, transfer_size);
+            }
+            {
+                ZoneScopedN("DMA::h2d_transfer");
+                dma_h2d_transfer(static_cast<uint32_t>(axi_address), dma_buffer.buffer_pa, transfer_size);
+            }
         } else {
-            dma_d2h_transfer(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
-            std::memcpy(buf, dma_buffer.buffer, transfer_size);
+            {
+                ZoneScopedN("DMA::d2h_transfer");
+                dma_d2h_transfer(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
+            }
+            {
+                ZoneScopedN("DMA::memcpyD2H");
+                std::memcpy(buf, dma_buffer.buffer, transfer_size);
+            }
         }
 
         size -= transfer_size;

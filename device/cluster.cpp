@@ -854,12 +854,12 @@ void Cluster::write_to_device_reg(
 }
 
 void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
-    ZoneScopedC(tracy::Color::MediumPurple);
+    // ZoneScopedC(tracy::Color::MediumPurple);.
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
-    ZoneScopedC(tracy::Color::MediumPurple);
+    // ZoneScopedC(tracy::Color::MediumPurple);.
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 

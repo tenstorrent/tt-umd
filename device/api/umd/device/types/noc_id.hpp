@@ -14,6 +14,7 @@ enum class NocId : uint8_t { DEFAULT_NOC = 0, NOC0 = 0, NOC1 = 1, SYSTEM_NOC = 2
 
 inline std::string noc_to_str(NocId noc_id) noexcept {
     switch (noc_id) {
+        // DEFAULT_NOC is missing because it will be removed once stateless NOC in the near future.
         case NocId::NOC0:
             return "NOC0";
         case NocId::NOC1:

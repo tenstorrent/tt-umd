@@ -90,3 +90,15 @@ jobs:
       - name: Run Python tests for tt-exalens app
         run: |
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
+
+      - name: Run Python tests for tt-exalens library (NOC1)
+        env:
+          TTEXALENS_TESTS_USE_NOC1: 1
+        run: |
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+
+      - name: Run Python tests for tt-exalens app (NOC1)
+        env:
+          TTEXALENS_TESTS_USE_NOC1: 1
+        run: |
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py

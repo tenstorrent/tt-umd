@@ -64,7 +64,18 @@ option(TT_UMD_BUILD_EMULE "Enable software emulation chip (SWEmuleChip)" OFF)
 set(TT_EMULE_PATH "" CACHE PATH "Local path to tt-emule source (overrides CPM fetch from GitHub)")
 
 if(TT_UMD_BUILD_EMULE AND TT_EMULE_PATH)
+    if(NOT EXISTS "${TT_EMULE_PATH}")
+        message(FATAL_ERROR "TT_EMULE_PATH is set to '${TT_EMULE_PATH}', but the directory does not exist.")
+    endif()
     set(CPM_tt_emule_SOURCE "${TT_EMULE_PATH}")
+endif()
+
+if(TT_UMD_BUILD_EMULE AND CPM_LOCAL_PACKAGES_ONLY AND NOT TT_EMULE_PATH)
+    message(
+        FATAL_ERROR
+        "CPM_LOCAL_PACKAGES_ONLY is ON and TT_UMD_BUILD_EMULE is ON, but TT_EMULE_PATH is not set. "
+        "Please provide the path to the tt-emule source via -DTT_EMULE_PATH=<path>."
+    )
 endif()
 
 # Prevent installation when building static libraries

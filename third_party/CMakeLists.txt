@@ -227,6 +227,8 @@ endif()
 # tt-emule (software emulation support)
 ############################################################################################################################
 if(TT_UMD_BUILD_EMULE)
+    # NOTE: CPM will fetch tt-emule from GitHub. If you don't have access to the
+    # tenstorrent/tt-emule repo, set TT_EMULE_PATH to a local checkout instead.
     CPMAddPackage(
         NAME tt_emule
         GITHUB_REPOSITORY tenstorrent/tt-emule

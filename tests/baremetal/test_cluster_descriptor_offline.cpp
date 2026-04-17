@@ -38,6 +38,16 @@ int count_connections(
     return count;
 }
 
+class ApiClusterDescriptorOfflineTest : public ::testing::Test {
+protected:
+    void TearDown() override {
+        // Always unset the environment variable after each test to avoid contamination.
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            FAIL() << "Failed to unset environment variable.";
+        }
+    }
+};
+
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
     for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
         std::cout << "Testing " << cluster_desc_yaml << std::endl;
@@ -122,7 +132,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
     }
 }
 
-TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
+TEST_F(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
 
@@ -172,9 +182,6 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
     // This is not serialized into yaml, but we'd expect it to also be constrained.
     EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
-    }
 }
 
 TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
@@ -229,7 +236,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
 }
 
-TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
+TEST_F(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
     // Load the 6u cluster descriptor (Galaxy-style with many chips per board).
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("6u_cluster_desc.yaml"));
@@ -280,11 +287,6 @@ TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
     for (ChipId chip = 0; chip < expected_chip_count; chip++) {
         EXPECT_TRUE(constrained_chips_tt.count(chip) > 0)
             << "Expected remapped chip " << chip << " not found in constrained descriptor";
-    }
-
-    // Clean up: unset TT_VISIBLE_DEVICES.
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
     }
 }
 

@@ -23,6 +23,8 @@ void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t a
 
 bool RemoteProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
+int RemoteProtocol::get_mmio_id() { return remote_communication_->get_local_device()->get_communication_device_id(); }
+
 RemoteCommunication* RemoteProtocol::get_remote_communication() { return remote_communication_.get(); }
 
 void RemoteProtocol::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }

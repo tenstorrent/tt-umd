@@ -129,7 +129,7 @@ uint32_t WormholeArcMessenger::send_message(
                 arg1));
     }
 
-    tt_device->detect_hang_read();
+    tt_device->is_pcie_hung();
 
     log_debug(
         LogUMD,

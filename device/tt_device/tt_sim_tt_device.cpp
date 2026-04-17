@@ -108,10 +108,6 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
     communicator_->advance_clock(10);
 }
 
-void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
-    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
-}
-
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
@@ -210,7 +206,7 @@ void TTSimTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offs
     throw std::runtime_error("ARC CSM access is not supported in TTSim simulation device.");
 }
 
-bool TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     throw std::runtime_error("Waiting for ARC core start is not supported in TTSim simulation device.");
 }
 

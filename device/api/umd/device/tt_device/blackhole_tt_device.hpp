@@ -21,8 +21,7 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) noexcept override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
 
     uint32_t get_clock() override;
 
@@ -44,9 +43,6 @@ public:
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-
-    bool is_hardware_hung() override;
-    uint32_t read_hang_check_reg_via_noc() override;
 
 protected:
     BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);

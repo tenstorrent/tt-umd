@@ -68,7 +68,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
                "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
     }
 
-    if (is_arm_platform()) {
+    if (utils::is_arm_platform()) {
         // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
         // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
         GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
@@ -97,7 +97,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(tt_device->detect_hang_read(), std::runtime_error);
+        EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
     }
 
     WarmReset::warm_reset();
@@ -110,7 +110,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
 
     tt_device.reset();
 
@@ -395,7 +395,7 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
 }
 
 TEST(WarmResetTest, ClusterWarmReset) {
-    if constexpr (is_arm_platform()) {
+    if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -422,7 +422,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(hanged_tt_device->detect_hang_read(), std::runtime_error);
+        EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
     }
 
     WarmReset::warm_reset();
@@ -434,7 +434,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
     // TODO: Comment this out after finding out how to detect hang reads on
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->detect_hang_read());.
+    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
 
     auto chip_ids = cluster->get_target_device_ids();
     for (auto& chip_id : chip_ids) {

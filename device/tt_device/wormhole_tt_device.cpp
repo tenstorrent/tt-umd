@@ -21,12 +21,14 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -37,6 +39,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool u
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
@@ -45,6 +48,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
@@ -53,6 +57,9 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    set_hang_detector(std::make_unique<WormholeHangDetector>(
+        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
+        get_architecture_implementation()));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -207,13 +214,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto duration = std::chrono::milliseconds(0);
 
-    tt_xy_pair actual_eth_core = eth_core;
-    if (is_selected_noc1()) {
-        actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
-    }
-
     auto start = std::chrono::steady_clock::now();
-    while (read_eth_core_training_status(actual_eth_core) == EthTrainingStatus::IN_PROGRESS) {
+    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -221,16 +223,16 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                 throw std::runtime_error(fmt::format(
                     "ETH training timed out after {} ms, on eth core {}, {}",
                     timeout_ms.count(),
-                    actual_eth_core.x,
-                    actual_eth_core.y));
+                    eth_core.x,
+                    eth_core.y));
             } else {
                 // We don't want to throw on 6u systems, but log a warning so it is visible.
                 log_warning(
                     LogUMD,
                     "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
                     timeout_ms.count(),
-                    actual_eth_core.x,
-                    actual_eth_core.y);
+                    eth_core.x,
+                    eth_core.y);
                 break;
             }
         }
@@ -270,7 +272,7 @@ void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
     write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
 }
 
-bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
+void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -319,22 +321,25 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_error(LogUMD, "NoAccess error");
-                return false;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_error(LogUMD, "WatchdogTriggered error");
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code);
 
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
-                return true;
+                return;
 
             case STATUS_OLD_POST_CODE: {
                 bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
                                 bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
                 if (pc_idle) {
-                    return true;
+                    return;
                 }
                 break;
             }
@@ -360,8 +365,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         } else if (is_handling) {
             message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
         } else if (is_complete && !dma_request) {
-            // We only return true if the message says complete and DMA is idle.
-            return true;
+            // We only return if the message says complete and DMA is idle.
+            return;
         }
 
         auto elapsed = std::chrono::steady_clock::now() - start;
@@ -371,23 +376,29 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         if (elapsed < spin_limit) {
             // Optional: For 0ms timeouts, check manually here without strings.
             if (elapsed > timeout_ms) {
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code,
+                    timeout_ms,
+                    message_id);
             }
             continue;
         }
 
-        if (utils::check_timeout(
-                start,
+        if (utils::check_timeout(start, timeout_ms)) {
+            UMD_THROW(
+                error::ArcStartupError,
+                *this,
+                get_selected_noc_id(),
+                arc_core,
+                bar_read_arc_reset_scratch_status,
+                bar_read_arc_post_code,
                 timeout_ms,
-                fmt::format(
-                    "ARC core {} startup timed out after: {}. Status: 0x{:x}, PostCode: 0x{:x}, MessageId 0x{:x}",
-                    arc_core.str(),
-                    timeout_ms.count(),
-                    bar_read_arc_reset_scratch_status,
-                    bar_read_arc_post_code,
-                    message_id),
-                utils::TimeoutAction::Return)) {
-            return false;
+                message_id);
         }
 
         // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
@@ -395,30 +406,6 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         // This prevents 100% CPU usage during longer hardware initialization.
         std::this_thread::sleep_for(std::chrono::microseconds(10));
     }
-}
-
-bool WormholeTTDevice::is_hardware_hung() {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_hardware_hung is not applicable for JTAG communication type.");
-    }
-
-    uint32_t node_id = bar_read32(get_architecture_implementation()->get_read_checking_offset());
-
-    return (node_id == HANG_READ_VALUE);
-}
-
-uint32_t WormholeTTDevice::read_hang_check_reg_via_noc() {
-    // TODO: SocDescriptor is rebuilt on every call; consider caching the translated core coordinate
-    // to avoid YAML parsing overhead on the hot path (detect_hang_read). TTDevice must remain stateless.
-    SocDescriptor soc_desc(get_arch(), get_chip_info());
-    // Read from ARC core because WH has a BAR-mapped node ID register only on the ARC tile.
-    // This keeps the BAR and NOC paths reading the same register for equivalence checking.
-    tt_xy_pair arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
-    uint64_t addr = architecture_impl_->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(get_selected_noc_id())) +
-                    architecture_impl_->get_noc_node_id_offset();
-    uint32_t value = 0;
-    read_from_device(&value, arc_core, addr, sizeof(value));
-    return value;
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {

@@ -468,7 +468,13 @@ void Cluster::refresh_cluster_description() {
 
     for (const ChipId chip_id : local_chip_ids_) {
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
-            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
+            const std::set<uint32_t> active_channels = cluster_desc->get_active_eth_channels(chip_id);
+            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(active_channels);
+            for (const ChipId remote_chip_id : remote_chip_ids_) {
+                if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == chip_id) {
+                    get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_channels);
+                }
+            }
         }
     }
 }

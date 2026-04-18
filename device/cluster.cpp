@@ -459,10 +459,53 @@ void Cluster::refresh_cluster_description() {
     if (options_.chip_type != ChipType::SILICON) {
         throw std::runtime_error("refresh_cluster_description is only supported for SILICON chip type.");
     }
+    if (options_.cluster_descriptor != nullptr) {
+        throw std::runtime_error(
+            "refresh_cluster_description is not supported when a custom cluster descriptor was provided.");
+    }
+    if (!options_.target_devices.empty()) {
+        throw std::runtime_error("refresh_cluster_description is not supported when target_devices is non-empty.");
+    }
 
-    cluster_desc = Cluster::create_cluster_descriptor(
+    // Build reverse map from unique ID to old chip ID before replacing the descriptor.
+    const auto& old_unique_ids = cluster_desc->get_chip_unique_ids();
+    std::unordered_map<uint64_t, ChipId> unique_id_to_old_chip_id;
+    for (const auto& [chip_id, uid] : old_unique_ids) {
+        unique_id_to_old_chip_id[uid] = chip_id;
+    }
+
+    auto new_cluster_desc = Cluster::create_cluster_descriptor(
         options_.sdesc_path, options_.io_device_type, options_.topology_discovery_options);
 
+    // Validate that the same physical chips are present by matching unique IDs.
+    const auto& new_unique_ids = new_cluster_desc->get_chip_unique_ids();
+    if (new_unique_ids.size() != old_unique_ids.size()) {
+        throw std::runtime_error(fmt::format(
+            "refresh_cluster_description: chip count changed from {} to {}. "
+            "Recreate the Cluster to reflect hardware changes.",
+            old_unique_ids.size(),
+            new_unique_ids.size()));
+    }
+
+    for (const auto& [new_chip_id, uid] : new_unique_ids) {
+        auto it = unique_id_to_old_chip_id.find(uid);
+        if (it == unique_id_to_old_chip_id.end()) {
+            throw std::runtime_error(fmt::format(
+                "refresh_cluster_description: chip with unique ID 0x{:016x} is present in the new "
+                "cluster descriptor but not in the old one. Recreate the Cluster to reflect hardware changes.",
+                uid));
+        }
+        if (it->second != new_chip_id) {
+            throw std::runtime_error(fmt::format(
+                "refresh_cluster_description: chip ID changed from {} to {} (unique ID 0x{:016x}). "
+                "Recreate the Cluster to reflect hardware changes.",
+                it->second,
+                new_chip_id,
+                uid));
+        }
+    }
+
+    cluster_desc = std::move(new_cluster_desc);
     eth_fw_version = cluster_desc->eth_fw_version;
     bcast_header_cache.clear();
 

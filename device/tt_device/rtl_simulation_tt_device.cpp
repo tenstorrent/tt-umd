@@ -46,10 +46,38 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
+    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
     arch = soc_descriptor_.arch;
+
+    // Register sysmem callbacks so the simulator can read/write host memory.
+    if (num_host_mem_channels > 0) {
+        SimulationSysmemManager* mgr = sysmem_manager_.get();
+        size_t num_channels = mgr->get_num_host_mem_channels();
+        communicator_->set_ram_callbacks(
+            // Write callback: simulator writes data into host sysmem.
+            [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
+                uint64_t pcie_base = mgr->get_pcie_base();
+                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                uint64_t offset = address - pcie_base;
+                uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
+                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                uint64_t offset_in_channel = offset % (1ULL << 30);
+                mgr->write_to_sysmem(channel, data, offset_in_channel, size);
+            },
+            // Read callback: simulator reads data from host sysmem.
+            [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
+                uint64_t pcie_base = mgr->get_pcie_base();
+                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                uint64_t offset = address - pcie_base;
+                uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
+                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                uint64_t offset_in_channel = offset % (1ULL << 30);
+                mgr->read_from_sysmem(channel, data_out, offset_in_channel, size);
+            });
+    }
+
     communicator_->initialize();
 
     tlb_manager_ = std::make_unique<SimulationTlbManager>(
@@ -64,13 +92,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
-RtlSimulationTTDevice::~RtlSimulationTTDevice() { close_device(); }
-
-void RtlSimulationTTDevice::start_device() {
-    // Communicator is already initialized in constructor.
-}
-
-void RtlSimulationTTDevice::close_device() { communicator_->shutdown(); }
+RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
@@ -108,10 +130,6 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(
     } else {
         TT_THROW("Invalid soft reset option.");
     }
-}
-
-void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
-    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
 }
 
 void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
@@ -204,9 +222,8 @@ void RtlSimulationTTDevice::write_to_arc_csm(
     TT_THROW("write_to_arc_csm not supported for RTL simulation");
 }
 
-bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't have ARC cores in the same way.
-    return true;
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(

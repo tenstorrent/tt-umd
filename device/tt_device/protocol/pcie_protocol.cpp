@@ -95,6 +95,8 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
 
 bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
 
+int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
+
 void PcieProtocol::noc_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     std::lock_guard<std::mutex> lock(io_lock_);

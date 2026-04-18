@@ -35,14 +35,8 @@ public:
 
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
     void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert);
 
     SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
-
-    bool is_hardware_hung() override { return false; }
-
-    /** Hang detection not implemented for simulator; returns 0 (not HANG_READ_VALUE). */
-    uint32_t read_hang_check_reg_via_noc() override { return 0; }
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
@@ -52,7 +46,7 @@ public:
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
@@ -62,13 +56,10 @@ public:
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void close_device();
-    void start_device();
-
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
-    void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
-    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
-    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets) override;
+    void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) override;
+    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
     /**
      * Get the TTSimCommunicator for low-level device operations.
@@ -77,12 +68,6 @@ public:
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
     SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
-
-    /**
-     * Get the architecture implementation.
-     * @return Pointer to architecture implementation
-     */
-    const architecture_implementation *get_architecture_impl() const { return architecture_impl_.get(); }
 
     TLBManager *get_tlb_manager();
 
@@ -103,7 +88,6 @@ private:
     std::filesystem::path simulator_directory_;
     SocDescriptor soc_descriptor_;
     ChipId chip_id_;
-    std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     uint32_t libttsim_pci_device_id;

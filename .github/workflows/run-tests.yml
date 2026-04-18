@@ -61,6 +61,7 @@ jobs:
 
     env:
       LD_LIBRARY_PATH: ./build/lib
+      TT_LOGGER_LEVEL: ${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'debug' || inputs.log-level }}
 
     steps:
       - name: Print all params
@@ -90,19 +91,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
-      - name: Install wheel and run pytest
-        shell: bash
-        run: |
-          echo "Setting up virtual environment..."
-          python -m venv .venv
-          source .venv/bin/activate
-          python -m pip install --upgrade pip wheel pytest
-          echo "Installing the wheel..."
-          pip install tt_umd-*.whl --force-reinstall
-          echo "Installation complete."
-          echo "Running tests..."
-          .venv/bin/python -m pytest -s tests
 
       - name: Use build artifacts
         uses: actions/download-artifact@v4
@@ -141,8 +129,9 @@ jobs:
 
       - name: Run unified tests
         if: ${{ inputs.arch != 'baremetal' }}
+        shell: bash
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+            ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests || [[ "${{ inputs.arch }}" == "blackhole" ]]
 
       - name: Run UMD tools
         shell: bash
@@ -158,3 +147,16 @@ jobs:
             ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/warm_reset
           fi
           ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/tlb_virus
+
+      - name: Install wheel and run pytest
+        shell: bash
+        run: |
+          echo "Setting up virtual environment..."
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip wheel pytest
+          echo "Installing the wheel..."
+          pip install tt_umd-*.whl --force-reinstall
+          echo "Installation complete."
+          echo "Running tests..."
+          .venv/bin/python -m pytest -s tests

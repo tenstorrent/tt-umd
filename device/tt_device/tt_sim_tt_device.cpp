@@ -44,8 +44,8 @@ TTSimTTDevice::TTSimTTDevice(
     simulator_directory_(simulator_directory),
     soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    architecture_impl_(architecture_implementation::create(soc_descriptor_.arch)),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
+    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -87,11 +87,7 @@ TTSimTTDevice::TTSimTTDevice(
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
-TTSimTTDevice::~TTSimTTDevice() = default;
-
-void TTSimTTDevice::start_device() {}
-
-void TTSimTTDevice::close_device() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
@@ -110,10 +106,6 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
     communicator_->advance_clock(10);
-}
-
-void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
-    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
@@ -214,7 +206,7 @@ void TTSimTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offs
     throw std::runtime_error("ARC CSM access is not supported in TTSim simulation device.");
 }
 
-bool TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     throw std::runtime_error("Waiting for ARC core start is not supported in TTSim simulation device.");
 }
 

@@ -323,6 +323,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 // NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
 Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
+    options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
@@ -453,6 +454,73 @@ void Cluster::deassert_risc_reset(
 }
 
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
+
+void Cluster::refresh_cluster_description() {
+    if (options_.chip_type != ChipType::SILICON) {
+        throw std::runtime_error("refresh_cluster_description is only supported for SILICON chip type.");
+    }
+    if (options_.cluster_descriptor != nullptr) {
+        throw std::runtime_error(
+            "refresh_cluster_description is not supported when a custom cluster descriptor was provided.");
+    }
+    if (!options_.target_devices.empty()) {
+        throw std::runtime_error("refresh_cluster_description is not supported when target_devices is non-empty.");
+    }
+
+    // Build reverse map from unique ID to old chip ID before replacing the descriptor.
+    const auto& old_unique_ids = cluster_desc->get_chip_unique_ids();
+    std::unordered_map<uint64_t, ChipId> unique_id_to_old_chip_id;
+    for (const auto& [chip_id, uid] : old_unique_ids) {
+        unique_id_to_old_chip_id[uid] = chip_id;
+    }
+
+    auto new_cluster_desc = Cluster::create_cluster_descriptor(
+        options_.sdesc_path, options_.io_device_type, options_.topology_discovery_options);
+
+    // Validate that the same physical chips are present by matching unique IDs.
+    const auto& new_unique_ids = new_cluster_desc->get_chip_unique_ids();
+    if (new_unique_ids.size() != old_unique_ids.size()) {
+        throw std::runtime_error(fmt::format(
+            "refresh_cluster_description: chip count changed from {} to {}. "
+            "Recreate the Cluster to reflect hardware changes.",
+            old_unique_ids.size(),
+            new_unique_ids.size()));
+    }
+
+    for (const auto& [new_chip_id, uid] : new_unique_ids) {
+        auto it = unique_id_to_old_chip_id.find(uid);
+        if (it == unique_id_to_old_chip_id.end()) {
+            throw std::runtime_error(fmt::format(
+                "refresh_cluster_description: chip with unique ID 0x{:016x} is present in the new "
+                "cluster descriptor but not in the old one. Recreate the Cluster to reflect hardware changes.",
+                uid));
+        }
+        if (it->second != new_chip_id) {
+            throw std::runtime_error(fmt::format(
+                "refresh_cluster_description: chip ID changed from {} to {} (unique ID 0x{:016x}). "
+                "Recreate the Cluster to reflect hardware changes.",
+                it->second,
+                new_chip_id,
+                uid));
+        }
+    }
+
+    cluster_desc = std::move(new_cluster_desc);
+    eth_fw_version = cluster_desc->eth_fw_version;
+    bcast_header_cache.clear();
+
+    for (const ChipId chip_id : local_chip_ids_) {
+        if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+            const std::set<uint32_t> active_channels = cluster_desc->get_active_eth_channels(chip_id);
+            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(active_channels);
+            for (const ChipId remote_chip_id : remote_chip_ids_) {
+                if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == chip_id) {
+                    get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_channels);
+                }
+            }
+        }
+    }
+}
 
 Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);

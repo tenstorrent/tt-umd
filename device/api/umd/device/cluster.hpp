@@ -142,8 +142,22 @@ public:
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
      * Consult ClusterDescriptor documentation for more information on the cluster descriptor.
+     *
+     * The returned pointer is valid only until the next call to refresh_cluster_description(), which replaces
+     * the underlying object. Do not retain this pointer across a refresh.
      */
     ClusterDescriptor* get_cluster_description();
+
+    /**
+     * Refresh the cluster descriptor by re-running topology discovery.
+     * This updates the cluster's view of the topology (e.g. firmware versions, ethernet connections)
+     * without recreating the chips and devices.
+     * Only supported for SILICON chip type.
+     *
+     * Any pointer previously obtained from get_cluster_description() is invalidated by this call.
+     * Callers must re-fetch the descriptor after refreshing.
+     */
+    void refresh_cluster_description();
 
     /**
      * Get set of chip ids for all chips in the cluster.
@@ -728,6 +742,9 @@ private:
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
+
+    // Options used to construct this cluster, needed to re-run topology discovery on refresh.
+    ClusterOptions options_;
 
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;

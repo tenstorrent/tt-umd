@@ -739,42 +739,27 @@ void Cluster::ethernet_broadcast_write(
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
-    if (use_ethernet_broadcast) {
-        // Broadcast through ERISC core supported.
-        std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
-            get_ethernet_broadcast_headers(chips_to_exclude);
-        // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
-        // broadcast headers on future/
-        std::uint32_t row_exclusion_mask = 0;
-        std::uint32_t col_exclusion_mask = 0;
-        for (const auto& row : rows_to_exclude) {
-            row_exclusion_mask |= 1 << row;
-        }
+    // Broadcast through ERISC core supported.
+    std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
+        get_ethernet_broadcast_headers(chips_to_exclude);
+    // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
+    // broadcast headers on future/
+    std::uint32_t row_exclusion_mask = 0;
+    std::uint32_t col_exclusion_mask = 0;
+    for (const auto& row : rows_to_exclude) {
+        row_exclusion_mask |= 1 << row;
+    }
 
-        for (const auto& col : cols_to_exclude) {
-            col_exclusion_mask |= 1 << (16 + col);
-        }
-        // Write broadcast block to device.
-        for (auto& mmio_group : broadcast_headers) {
-            for (auto& header : mmio_group.second) {
-                header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
-                header.at(4) |= row_exclusion_mask;
-                header.at(4) |= col_exclusion_mask;
-                get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
-            }
-        }
-    } else {
-        // Broadcast not supported. Implement this at the software level as a for loop.
-        for (const auto& chip : all_chip_ids_) {
-            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
-                continue;
-            }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
-                if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
-                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
-                }
-            }
+    for (const auto& col : cols_to_exclude) {
+        col_exclusion_mask |= 1 << (16 + col);
+    }
+    // Write broadcast block to device.
+    for (auto& mmio_group : broadcast_headers) {
+        for (auto& header : mmio_group.second) {
+            header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
+            header.at(4) |= row_exclusion_mask;
+            header.at(4) |= col_exclusion_mask;
+            get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
         }
     }
 }
@@ -786,6 +771,21 @@ void Cluster::broadcast_write_to_cluster(
     const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& columns_to_exclude) {
+    if (!use_ethernet_broadcast) {
+        // Broadcast not supported. Implement this at the software level as a for loop.
+        for (const auto& chip : all_chip_ids_) {
+            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
+                continue;
+            }
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
+                if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
+                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
+                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                }
+            }
+        }
+        return;
+    }
     if (arch_name == tt::ARCH::BLACKHOLE) {
         auto architecture_implementation = architecture_implementation::create(arch_name);
         if (columns_to_exclude.find(0) == columns_to_exclude.end() or

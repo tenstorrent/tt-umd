@@ -257,50 +257,6 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     cluster->close_device();
 }
 
-// TEST_F(TestDeviceIOFixture, TestMulticastWrite) {
-//     std::unique_ptr<Cluster> cluster = make_cluster();
-
-//     const tt_xy_pair grid_size = {8, 8};
-
-//     const CoreCoord start_tensix = CoreCoord(0, 0, CoreType::TENSIX, CoordSystem::LOGICAL);
-//     const CoreCoord end_tensix = CoreCoord(grid_size.x - 1, grid_size.y - 1, CoreType::TENSIX, CoordSystem::LOGICAL);
-
-//     const uint64_t address = 0;
-//     const size_t data_size = 256;
-//     std::vector<uint8_t> write_data(data_size, 0);
-//     for (std::size_t i = 0; i < data_size; i++) {
-//         write_data[i] = (uint8_t)i;
-//     }
-
-//     for (uint32_t x = 0; x < grid_size.x; x++) {
-//         for (uint32_t y = 0; y < grid_size.y; y++) {
-//             std::vector<uint8_t> zeros(data_size, 0);
-//             cluster->write_to_device(
-//                 zeros.data(), zeros.size(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address);
-
-//             std::vector<uint8_t> readback(data_size, 1);
-//             cluster->read_from_device(
-//                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address,
-//                 readback.size());
-
-//             EXPECT_EQ(zeros, readback);
-//         }
-//     }
-
-//     cluster->noc_multicast_write(write_data.data(), write_data.size(), 0, start_tensix, end_tensix, address);
-
-//     for (uint32_t x = 0; x < grid_size.x; x++) {
-//         for (uint32_t y = 0; y < grid_size.y; y++) {
-//             std::vector<uint8_t> readback(data_size, 0);
-//             cluster->read_from_device(
-//                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address,
-//                 readback.size());
-
-//             EXPECT_EQ(write_data, readback);
-//         }
-//     }
-// }
-
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     std::unique_ptr<Cluster> cluster = make_cluster();
 
@@ -347,6 +303,186 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
                 readback.data(), 0, CoreCoord(x, y, CoreType::TENSIX, CoordSystem::LOGICAL), address, readback.size());
 
             EXPECT_EQ(write_data, readback);
+        }
+    }
+}
+
+// Verifies that single-core NOC0 multicast writes reach only TENSIX cores and leave DRAM, ARC, ETH, etc. unchanged.
+// Uses the TTDevice interface directly with NOC0 coordinates.
+TEST_F(TestDeviceIOFixture, TestMulticastSkipsNonTensixCoresNOC0) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
+
+    constexpr uint64_t address = 0x100;
+    constexpr size_t num_words = 10;
+    constexpr size_t data_size = num_words * sizeof(uint32_t);
+
+    const std::vector<CoreType> core_types_to_test = {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC};
+
+    for (const ChipId chip_id : cluster->get_target_device_ids()) {
+        log_debug(
+            LogUMD,
+            "Testing single-core NOC0 multicast writes on chip {} remote: {}",
+            chip_id,
+            cluster->get_cluster_description()->is_chip_remote(chip_id));
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        // Pick one representative core per type in translated coords; skip types absent on this chip.
+        // CoreCoord extends tt_xy_pair, so it can be passed directly to TTDevice IO and multicast calls.
+        std::vector<CoreCoord> representative_cores;
+        for (const CoreType ct : core_types_to_test) {
+            const auto cores = soc_desc.get_cores(ct, CoordSystem::TRANSLATED);
+            if (!cores.empty()) {
+                representative_cores.push_back(cores[0]);
+            }
+        }
+
+        // Single-core multicast using NOC0 coordinates.
+        // Expected: a TENSIX core is updated when targeted; non-TENSIX cores are unaffected.
+        for (const CoreCoord& core : representative_cores) {
+            log_debug(LogUMD, "Single-core NOC0 multicast to core {} on chip {}", core.str(), chip_id);
+            std::vector<uint32_t> original(num_words);
+            tt_device->read_from_device(original.data(), core, address, data_size);
+
+            std::vector<uint32_t> write_data = original;
+            for (uint32_t& v : write_data) {
+                v++;
+            }
+
+            tt_xy_pair noc0_core = soc_desc.translate_coord_to(core, CoordSystem::NOC0);
+            tt_device->noc_multicast_write(write_data.data(), data_size, noc0_core, noc0_core, address);
+
+            std::vector<uint32_t> readback(num_words);
+            tt_device->read_from_device(readback.data(), core, address, data_size);
+
+            if (core.core_type == CoreType::TENSIX) {
+                EXPECT_EQ(write_data, readback) << "TENSIX core " << core.str() << " on chip " << chip_id
+                                                << " should have received the single-core NOC0 multicast write.";
+            } else {
+                EXPECT_EQ(original, readback)
+                    << "Non-TENSIX core " << core.str() << " on chip " << chip_id
+                    << " should not have been modified by the single-core NOC0 multicast write.";
+            }
+        }
+    }
+}
+
+// Verifies that single-core translated coordinate multicast writes reach only TENSIX cores and leave DRAM, ARC, ETH,
+// etc. unchanged. Uses the TTDevice interface directly with translated coordinates.
+TEST_F(TestDeviceIOFixture, TestMulticastSkipsNonTensixCoresTranslated) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
+
+    constexpr uint64_t address = 0x100;
+    constexpr size_t num_words = 10;
+    constexpr size_t data_size = num_words * sizeof(uint32_t);
+
+    const std::vector<CoreType> core_types_to_test = {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC};
+
+    for (const ChipId chip_id : cluster->get_target_device_ids()) {
+        log_debug(
+            LogUMD,
+            "Testing single-core translated multicast writes on chip {} remote: {}",
+            chip_id,
+            cluster->get_cluster_description()->is_chip_remote(chip_id));
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        // Pick one representative core per type in translated coords; skip types absent on this chip.
+        // CoreCoord extends tt_xy_pair, so it can be passed directly to TTDevice IO and multicast calls.
+        std::vector<CoreCoord> representative_cores;
+        for (const CoreType ct : core_types_to_test) {
+            const auto cores = soc_desc.get_cores(ct, CoordSystem::TRANSLATED);
+            if (!cores.empty()) {
+                representative_cores.push_back(cores[0]);
+            }
+        }
+
+        // Single-core multicast using translated coordinates.
+        // Expected: only TENSIX cores are updated; non-TENSIX cores remain unchanged.
+        for (const CoreCoord& core : representative_cores) {
+            log_debug(LogUMD, "Single-core translated multicast to core {} on chip {}", core.str(), chip_id);
+            std::vector<uint32_t> original(num_words);
+            tt_device->read_from_device(original.data(), core, address, data_size);
+
+            std::vector<uint32_t> write_data = original;
+            for (uint32_t& v : write_data) {
+                v++;
+            }
+
+            tt_device->noc_multicast_write(write_data.data(), data_size, core, core, address);
+
+            std::vector<uint32_t> readback(num_words);
+            tt_device->read_from_device(readback.data(), core, address, data_size);
+
+            if (core.core_type == CoreType::TENSIX) {
+                EXPECT_EQ(write_data, readback) << "TENSIX core " << core.str() << " on chip " << chip_id
+                                                << " should have received the single-core translated multicast write.";
+            } else {
+                EXPECT_EQ(original, readback)
+                    << "Non-TENSIX core " << core.str() << " on chip " << chip_id
+                    << " should not have been modified by the single-core translated multicast write.";
+            }
+        }
+    }
+}
+
+// Verifies that full chip-grid multicast writes reach only TENSIX cores and leave DRAM, ARC, ETH, etc. unchanged.
+// Uses the TTDevice interface directly with NOC0 coordinates for the full chip grid.
+TEST_F(TestDeviceIOFixture, TestMulticastSkipsNonTensixCoresChipGrid) {
+    std::unique_ptr<Cluster> cluster = make_cluster();
+
+    constexpr uint64_t address = 0x100;
+    constexpr size_t num_words = 10;
+    constexpr size_t data_size = num_words * sizeof(uint32_t);
+
+    const std::vector<CoreType> core_types_to_test = {CoreType::TENSIX, CoreType::DRAM, CoreType::ETH, CoreType::ARC};
+
+    for (const ChipId chip_id : cluster->get_target_device_ids()) {
+        log_debug(
+            LogUMD,
+            "Testing full chip-grid multicast writes on chip {} remote: {}",
+            chip_id,
+            cluster->get_cluster_description()->is_chip_remote(chip_id));
+        TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        // Pick one representative core per type in translated coords; skip types absent on this chip.
+        // CoreCoord extends tt_xy_pair, so it can be passed directly to TTDevice IO and multicast calls.
+        std::vector<CoreCoord> representative_cores;
+        for (const CoreType ct : core_types_to_test) {
+            const auto cores = soc_desc.get_cores(ct, CoordSystem::TRANSLATED);
+            if (!cores.empty()) {
+                representative_cores.push_back(cores[0]);
+            }
+        }
+
+        // Full chip-grid multicast using NOC0 coordinates.
+        // Expected: TENSIX representative is updated; all non-TENSIX representatives are unchanged.
+        for (const CoreCoord& core : representative_cores) {
+            log_debug(LogUMD, "Full chip-grid multicast to core {} on chip {}", core.str(), chip_id);
+
+            std::vector<uint32_t> original(num_words);
+            tt_device->read_from_device(original.data(), core, address, data_size);
+
+            std::vector<uint32_t> write_data = original;
+            for (uint32_t& v : write_data) {
+                v++;
+            }
+
+            tt_device->noc_multicast_write(
+                write_data.data(), data_size, {0, 0}, {soc_desc.grid_size.x - 1, soc_desc.grid_size.y - 1}, address);
+
+            std::vector<uint32_t> readback(num_words);
+            tt_device->read_from_device(readback.data(), core, address, data_size);
+
+            if (core.core_type == CoreType::TENSIX) {
+                EXPECT_EQ(write_data, readback) << "TENSIX core " << core.str() << " on chip " << chip_id
+                                                << " should have received the full chip-grid multicast write.";
+            } else {
+                EXPECT_EQ(original, readback)
+                    << "Non-TENSIX core " << core.str() << " on chip " << chip_id
+                    << " should not have been modified by the full chip-grid multicast write.";
+            }
         }
     }
 }

@@ -171,9 +171,9 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepSizes) {
 // buffer) and transfer (PCIe DMA engine) phases scale with chunk size.
 // Use with Tracy to see per-phase breakdown at each buffer size.
 TEST(MicrobenchmarkPCIeDMA, TensixSweepDmaBufferSizes) {
-    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_SweepDmaBuf").unit("byte").epochs(1).epochIterations(1);
+    auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_SweepDmaBuf").unit("byte").epochs(100).epochIterations(1);
     const uint64_t ADDRESS = 0x0;
-    const size_t TRANSFER_SIZE = ONE_MIB;
+    const size_t TRANSFER_SIZE = 1 * ONE_MIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
         GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
@@ -184,19 +184,58 @@ TEST(MicrobenchmarkPCIeDMA, TensixSweepDmaBufferSizes) {
     std::vector<uint8_t> pattern(TRANSFER_SIZE);
     std::vector<uint8_t> readback(TRANSFER_SIZE);
 
-    for (size_t dma_buf_size = 4 * ONE_KIB; dma_buf_size <= 2 * ONE_MIB; dma_buf_size *= 2) {
+    for (size_t dma_buf_size = 4 * ONE_KIB; dma_buf_size <= ONE_MIB; dma_buf_size *= 2) {
         std::string size_str = std::to_string(dma_buf_size);
         setenv("TT_DMA_BUF_SIZE", size_str.c_str(), 1);
 
-        bench.batch(TRANSFER_SIZE)
-            .name(fmt::format("DMA buf {}KB, write, {} bytes", dma_buf_size / ONE_KIB, TRANSFER_SIZE))
-            .run(
-                [&]() { cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS); });
         // bench.batch(TRANSFER_SIZE)
-        //     .name(fmt::format("DMA buf {}KB, read, {} bytes", dma_buf_size / ONE_KIB, TRANSFER_SIZE))
-        //     .run([&]() {
-        //         cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, tensix_core, ADDRESS);
+        //     .name(fmt::format("DMA buf {}KB, write, {} MB", dma_buf_size / ONE_KIB, TRANSFER_SIZE / ONE_MIB))
+        //     .run(
+        //         [&]() { cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
+        //         });
+        bench.batch(TRANSFER_SIZE)
+            .name(fmt::format("DMA buf {}KB, read, {} MB", dma_buf_size / ONE_KIB, TRANSFER_SIZE / ONE_MIB))
+            .run([&]() {
+                cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, tensix_core, ADDRESS);
+            });
+    }
+
+    unsetenv("TT_DMA_BUF_SIZE");
+    test::utils::export_results(bench);
+    cluster->set_power_state(DevicePowerState::LONG_IDLE);
+}
+
+// Transfers a fixed 16MB to DRAM while sweeping the DMA buffer size
+// (chunk size) via TT_DMA_BUF_SIZE. This isolates how copy (memcpy into DMA
+// buffer) and transfer (PCIe DMA engine) phases scale with chunk size.
+// Use with Tracy to see per-phase breakdown at each buffer size.
+TEST(MicrobenchmarkPCIeDMA, DRAMSweepDmaBufferSizes) {
+    auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_SweepDmaBuf").unit("byte").epochs(100).epochIterations(1);
+    const uint64_t ADDRESS = 0x0;
+    const size_t TRANSFER_SIZE = 16 * ONE_MIB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    if (cluster->get_cluster_description()->get_arch() == ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "Skipping PCIe DMA benchmarks for Blackhole.";
+    }
+    cluster->set_power_state(DevicePowerState::BUSY);
+    const CoreCoord dram_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::DRAM)[0];
+
+    std::vector<uint8_t> pattern(TRANSFER_SIZE);
+    std::vector<uint8_t> readback(TRANSFER_SIZE);
+
+    for (size_t dma_buf_size = 4 * ONE_KIB; dma_buf_size <= 16 * ONE_MIB; dma_buf_size *= 2) {
+        std::string size_str = std::to_string(dma_buf_size);
+        setenv("TT_DMA_BUF_SIZE", size_str.c_str(), 1);
+
+        // bench.batch(TRANSFER_SIZE)
+        //     .name(fmt::format("DMA buf {}KB, write, {} MB", dma_buf_size / ONE_KIB, TRANSFER_SIZE / ONE_MIB))
+        //     .run([&]() { cluster->dma_write_to_device(pattern.data(), pattern.size(), CHIP_ID, dram_core, ADDRESS);
         //     });
+        bench.batch(TRANSFER_SIZE)
+            .name(fmt::format("DMA buf {}KB, read, {} MB", dma_buf_size / ONE_KIB, TRANSFER_SIZE / ONE_MIB))
+            .run([&]() {
+                cluster->dma_read_from_device(readback.data(), readback.size(), CHIP_ID, dram_core, ADDRESS);
+            });
     }
 
     unsetenv("TT_DMA_BUF_SIZE");

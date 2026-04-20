@@ -17,4 +17,5 @@
 #define TracyFree(ptr)
 #define TracyAllocN(ptr, size, name)
 #define TracyFreeN(ptr, name)
+#define ZoneName(text, size)
 #endif

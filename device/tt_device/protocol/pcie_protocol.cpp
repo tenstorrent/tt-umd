@@ -11,6 +11,7 @@
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <variant>
 
@@ -205,20 +206,20 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
         if (direction == DmaDirection::H2D) {
             {
-                ZoneScopedN("DMA::memcpyH2D");
+                ZoneScopedNC("DMA::memcpy", tracy::Color::Cyan);
                 std::memcpy(dma_buffer.buffer, buf, transfer_size);
             }
             {
-                ZoneScopedN("DMA::h2d_transfer");
+                ZoneScopedNC("DMA::h2d_transfer", tracy::Color::Orange);
                 dma_h2d_transfer(static_cast<uint32_t>(axi_address), dma_buffer.buffer_pa, transfer_size);
             }
         } else {
             {
-                ZoneScopedN("DMA::d2h_transfer");
+                ZoneScopedNC("DMA::d2h_transfer", tracy::Color::Orange);
                 dma_d2h_transfer(dma_buffer.buffer_pa, static_cast<uint32_t>(axi_address), transfer_size);
             }
             {
-                ZoneScopedN("DMA::memcpyD2H");
+                ZoneScopedNC("DMA::memcpy", tracy::Color::Cyan);
                 std::memcpy(buf, dma_buffer.buffer, transfer_size);
             }
         }

@@ -78,6 +78,7 @@ target_sources(
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
+        ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp
@@ -185,6 +186,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/chip_helpers/simulation_tlb_manager.hpp
                 api/umd/device/cluster.hpp
+                api/umd/device/ethernet_broadcast.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
                 api/umd/device/logging/config.hpp

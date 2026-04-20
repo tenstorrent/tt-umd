@@ -19,6 +19,7 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/ethernet_broadcast.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
@@ -697,23 +698,12 @@ public:
     tlb_configuration get_tlb_configuration(const ChipId chip, const CoreCoord core);
 
 private:
+    friend class EthernetBroadcast;
+
     // Helper functions
     // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
-
-    // Communication Functions.
-    void ethernet_broadcast_write(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        uint64_t address,
-        const std::set<ChipId>& chips_to_exclude,
-        const std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& cols_to_exclude,
-        bool use_translated_coords);
-
-    std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
-        const std::set<ChipId>& chips_to_exclude);
 
     // Test functions.
     void log_device_summary();
@@ -746,9 +736,7 @@ private:
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;
 
-    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast = true;
-    bool use_translated_coords_for_eth_broadcast = true;
+    std::unique_ptr<EthernetBroadcast> ethernet_broadcast_;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;
 };

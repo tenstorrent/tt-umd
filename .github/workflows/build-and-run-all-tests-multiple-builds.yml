@@ -63,3 +63,14 @@ jobs:
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  # Smoke-test a Tracy-enabled build on silicon so Tracy regressions are caught before merge.
+  build-and-run-tracy-test:
+    name: Tracy
+    needs: ensure-image
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-tracy-test.yml
+    with:
+      ubuntu-docker-version: 'ubuntu-22.04'
+      timeout: 20
+      image-tag: ${{ needs.ensure-image.outputs.image-tag }}

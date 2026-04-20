@@ -1,0 +1,129 @@
+# Builds UMD with Tracy enabled and runs a smoke test on silicon
+# to catch regressions that only surface in Tracy-enabled builds.
+name: Build and run Tracy test
+
+on:
+  workflow_call:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
+  workflow_dispatch:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        description: 'The version of Ubuntu to build on'
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
+      timeout:
+        required: true
+        description: 'The timeout for the job in minutes'
+        type: number
+        default: 20
+
+env:
+  CC: clang-20
+  CXX: clang++-20
+  BUILD_OUTPUT_DIR: ./build
+  LIB_OUTPUT_DIR: ./build/lib
+  DEPS_OUTPUT_DIR: ./build/_deps
+  TEST_OUTPUT_DIR: ./build/test
+  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
+  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
+
+jobs:
+  build:
+    name: Build with Tracy (${{ inputs.ubuntu-docker-version }})
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on: tt-ubuntu-2204-large-stable
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
+    env:
+      # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
+      # This skips Tracy's runtime TSC check to prevent initialization failures.
+      TRACY_NO_INVARIANT_CHECK: 1
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build umd_tests with Tracy enabled
+        run: |
+          echo "Compiling the code with Tracy enabled..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=OFF \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=ON \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target umd_tests
+          echo "Compile complete."
+
+      # This is needed to preserve file permissions
+      # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss
+      - name: Tar build artifacts
+        shell: bash
+        run: |
+          tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
+            ${{ env.LIB_OUTPUT_DIR }} \
+            ${{ env.DEPS_OUTPUT_DIR }} \
+            ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
+            ${{ env.SOC_DESCRIPTORS_DIR }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-tracy-${{ inputs.ubuntu-docker-version }}
+          path: artifact.tar
+
+  test:
+    name: Run Tracy smoke test
+    needs: build
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - tt-ubuntu-2204-n150-stable
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+    env:
+      LD_LIBRARY_PATH: ./build/lib
+      TRACY_NO_INVARIANT_CHECK: 1
+
+    steps:
+      - name: Cleanup workspace directory from previous runs.
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      - name: Use build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts-tracy-${{ inputs.ubuntu-docker-version }}
+
+      - name: Untar build artifacts
+        shell: bash
+        run: tar xvf artifact.tar
+
+      - name: Run OpenAllSiliconChips with Tracy build
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_filter=ApiClusterTest.OpenAllSiliconChips

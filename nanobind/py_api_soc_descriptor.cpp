@@ -9,9 +9,9 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
 
 namespace nb = nanobind;
 

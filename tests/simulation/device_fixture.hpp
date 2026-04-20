@@ -13,8 +13,8 @@
 #include <stdexcept>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/simulation/rtl_simulation_chip.hpp"
-#include "umd/device/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/rtl_simulation_chip.hpp"
+#include "tt-umd/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
 

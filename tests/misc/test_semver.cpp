@@ -10,10 +10,10 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/arch.hpp"
-#include "umd/device/utils/semver.hpp"
+#include "tt-umd/firmware/erisc_firmware.hpp"
+#include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 using namespace tt::umd;
 

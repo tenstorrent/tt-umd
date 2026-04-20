@@ -12,7 +12,7 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/test_api_common.hpp"
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 
 using namespace tt;
 using namespace tt::umd;

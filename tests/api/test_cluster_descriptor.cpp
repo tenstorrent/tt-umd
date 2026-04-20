@@ -20,10 +20,10 @@
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
 
 using namespace tt;
 using namespace tt::umd;

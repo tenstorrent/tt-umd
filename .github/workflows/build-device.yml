@@ -23,7 +23,7 @@ env:
   LIB_OUTPUT_DIR: ./build/lib
   DEPS_OUTPUT_DIR: ./build/_deps
   TEST_OUTPUT_DIR: ./build/test
-  CREATE_MAP_BINARIES_DIR: ./device/bin/silicon
+  CREATE_MAP_BINARIES_DIR: ./tt-umd/bin/silicon
   INSTALL_OUTPUT_DIR: ./install
   WHEEL_OUTPUT_DIR: ./build/wheel
 

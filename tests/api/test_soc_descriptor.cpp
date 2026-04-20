@@ -18,7 +18,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;

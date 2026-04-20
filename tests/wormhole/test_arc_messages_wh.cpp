@@ -12,10 +12,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include "umd/device/arc/arc_messenger.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
+#include "tt-umd/arc/arc_messenger.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 
 using namespace tt::umd;
 

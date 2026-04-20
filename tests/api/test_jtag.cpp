@@ -16,15 +16,15 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/jtag/jtag.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/jtag/jtag.hpp"
+#include "tt-umd/jtag/jtag_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 
 using namespace tt;
 using namespace tt::umd;

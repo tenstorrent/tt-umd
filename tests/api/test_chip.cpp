@@ -16,9 +16,9 @@
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 
 using namespace tt;
 using namespace tt::umd;

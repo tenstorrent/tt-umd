@@ -14,12 +14,12 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/chip/local_chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
-#include "umd/device/types/cluster_types.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/chip/local_chip.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/tt_device/remote_communication_legacy_firmware.hpp"
+#include "tt-umd/types/cluster_types.hpp"
 #include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 

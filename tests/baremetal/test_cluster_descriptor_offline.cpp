@@ -21,8 +21,8 @@
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
 #include "utils.hpp"
 
 using namespace tt;

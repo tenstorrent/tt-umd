@@ -4,7 +4,7 @@
 
 #include <nanobind/nanobind.h>
 
-#include "umd/device/logging/config.hpp"
+#include "tt-umd/logging/config.hpp"
 
 namespace nb = nanobind;
 

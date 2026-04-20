@@ -11,10 +11,10 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/fetch_local_files.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/warm_reset.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
+#include "tt-umd/warm_reset.hpp"
 
 using namespace tt::umd;
 using namespace tt::umd::test::utils;

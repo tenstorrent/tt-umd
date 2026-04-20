@@ -8,9 +8,9 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/cluster_descriptor.hpp"
+#include "tt-umd/types/xy_pair.hpp"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/l1_address_map.h"
 

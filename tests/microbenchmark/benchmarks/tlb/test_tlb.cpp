@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 
 using namespace tt;
 using namespace tt::umd;

@@ -1,0 +1,121 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "tt-umd/firmware/firmware_utils.hpp"
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/firmware/erisc_firmware.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/telemetry.hpp"
+#include "tt-umd/types/wormhole_eth.hpp"
+#include "tt-umd/types/wormhole_telemetry.hpp"
+#include "tt-umd/utils/semver.hpp"
+
+namespace tt::umd {
+
+FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
+    if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
+            std::make_unique<SmBusArcTelemetryReader>(tt_device);
+
+        // Poll for a valid firmware version. If no valid version is found within 250ms,
+        // log a warning and return the last read value.
+        auto start = std::chrono::steady_clock::now();
+        auto timeout_duration = std::chrono::milliseconds(250);
+        while (std::chrono::steady_clock::now() - start < timeout_duration) {
+            auto fw_bundle_version =
+                smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION);
+            if (fw_bundle_version != 0) {
+                return FirmwareBundleVersion::from_firmware_bundle_tag(fw_bundle_version);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        log_warning(
+            tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
+        return FirmwareBundleVersion::from_firmware_bundle_tag(
+            smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+    }
+    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
+               ? FirmwareBundleVersion::from_firmware_bundle_tag(
+                     telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
+               : FirmwareBundleVersion(0, 0, 0);
+}
+
+SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {
+    return SemVer((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+SemVer get_cm_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return SemVer((telemetry_data >> 24) & 0xFF, (telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF);
+    }
+
+    return SemVer((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+SemVer get_dm_app_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return SemVer((telemetry_data >> 24) & 0xFF, (telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF);
+    }
+
+    return SemVer((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+SemVer get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return SemVer(0, 0, 0);
+    }
+
+    return SemVer((telemetry_data >> 16) & 0xFF, (telemetry_data >> 8) & 0xFF, telemetry_data & 0xFF);
+}
+
+SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch) {
+    if (arch == tt::ARCH::BLACKHOLE) {
+        return SemVer((telemetry_data >> 16) & 0xFFFF, telemetry_data & 0xFFFF, 0);
+    }
+
+    return SemVer(0, 0, 0);
+}
+
+SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0: {
+            uint32_t eth_fw_version_read;
+            tt_device->read_from_device(
+                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t));
+            return SemVer::from_wormhole_eth_firmware_tag(eth_fw_version_read);
+        }
+        case ARCH::BLACKHOLE: {
+            uint8_t major = 0;
+            uint8_t minor = 0;
+            uint8_t patch = 0;
+            tt_device->read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t));
+            return SemVer(major, minor, patch);
+        }
+        default:
+            throw std::runtime_error("Getting ETH FW version is not supported for this device.");
+    }
+}
+
+}  // namespace tt::umd

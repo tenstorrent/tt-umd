@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_io.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_io.hpp"
 
 using namespace tt::umd;
 

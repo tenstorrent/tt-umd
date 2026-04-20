@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/warm_reset.hpp"
+#include "tt-umd/warm_reset.hpp"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "common.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
+#include "tt-umd/topology/topology_discovery.hpp"
 
 using namespace tt::umd;
 

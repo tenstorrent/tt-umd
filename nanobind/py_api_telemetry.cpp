@@ -9,12 +9,12 @@
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/types/gddr_telemetry.hpp"
-#include "umd/device/types/telemetry.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/types/gddr_telemetry.hpp"
+#include "tt-umd/types/telemetry.hpp"
+#include "tt-umd/types/wormhole_telemetry.hpp"
 
 namespace nb = nanobind;
 

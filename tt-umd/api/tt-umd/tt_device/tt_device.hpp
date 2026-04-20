@@ -1,0 +1,460 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+#include <atomic>
+#include <chrono>
+#include <filesystem>
+#include <memory>
+#include <string_view>
+
+#include "tt-umd/arc/arc_messenger.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/arch/architecture_implementation.hpp"
+#include "tt-umd/chip_helpers/tlb_manager.hpp"
+#include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/jtag/jtag_device.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
+#include "tt-umd/tt_device/protocol/device_protocol.hpp"
+#include "tt-umd/tt_device/protocol/jtag_interface.hpp"
+#include "tt-umd/tt_device/protocol/pcie_interface.hpp"
+#include "tt-umd/tt_device/protocol/remote_interface.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/types/tensix_soft_reset_options.hpp"
+#include "tt-umd/utils/lock_manager.hpp"
+#include "tt-umd/utils/timeouts.hpp"
+
+namespace tt::umd {
+
+class ArcMessenger;
+class ArcTelemetryReader;
+class RemoteCommunication;
+
+// Represents the status of the ETH core.
+enum class EthTrainingStatus {
+    IN_PROGRESS = 0,
+    SUCCESS = 1,
+    FAIL = 2,
+    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
+};
+
+class TTDevice {
+public:
+    /**
+     * Creates a proper TTDevice object for the given device number.
+     * Jtag support can be enabled.
+     */
+    static std::unique_ptr<TTDevice> create(
+        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+
+    TTDevice(
+        std::unique_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
+    TTDevice(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+
+    virtual ~TTDevice() = default;
+
+    architecture_implementation *get_architecture_implementation();
+    PCIDevice *get_pci_device();
+    JtagDevice *get_jtag_device();
+    RemoteCommunication *get_remote_communication();
+
+    DeviceProtocol *get_device_protocol();
+    PcieInterface *get_pcie_interface();
+    JtagInterface *get_jtag_interface();
+    RemoteInterface *get_remote_interface();
+
+    tt::ARCH get_arch();
+
+    /**
+     * @brief Controls what happens when a hang is confirmed.
+     */
+    enum class HangAction {
+        THROW,   ///< Throw std::runtime_error (default).
+        RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * Check if the PCIe communication is hung.
+     *
+     * Reads a known register over BAR and compares the result against the hang
+     * signature. If the device is not locally accessible (e.g. JTAG or remote),
+     * the check is skipped and false is returned.
+     *
+     * @param data_read  Value to compare against the hang signature. Defaults to
+     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   after any BAR read that returned a suspicious value.
+     * @param action     What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
+
+    /**
+     * Check if NOC traffic to the device is hung.
+     *
+     * Sends a read over the specified NOC and compares the result against the
+     * hang signature. Only meaningful for locally accessible devices; on remote
+     * devices the check is skipped and false is returned.
+     *
+     * @param noc     NOC to check (NOC0 or NOC1).
+     * @param action  What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the NOC appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
+
+    /**
+     * DMA transfer from device to host.
+     *
+     * @param dst destination buffer
+     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
+
+    /**
+     * DMA transfer from device to host.
+     *
+     * @param dst destination buffer
+     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
+
+    /**
+     * DMA transfer from host to device.
+     *
+     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
+     * @param src source buffer
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
+
+    /**
+     * DMA transfer from host to device.
+     *
+     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
+     * @param src source buffer
+     * @param size number of bytes
+     * @throws std::runtime_error if the DMA transfer fails
+     */
+    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
+
+    // Read/write functions that always use same TLB entry. This is not supposed to be used
+    // on any code path that is performance critical. It is used to read/write the data needed
+    // to get the information to form cluster of chips, or just use base TTDevice functions.
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+
+    /**
+     * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
+     * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
+     * will ensure that the write will land on the correct cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    /**
+     * Read function that will send read message to the ARC core APB peripherals.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core APB peripherals
+     * @param size number of bytes
+     *
+     * NOTE: This function will read from APB peripherals. It will use the AXI interface to read the data if the chip is
+     * local/PCIe, while the remote chip will use the NOC interface to read the data. Blackhole has board configurations
+     * where the ARC is not available over AXI, hence in this situations, the NOC interface will be used even for local
+     * chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core APB peripherals.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core APB peripherals
+     * @param size number of bytes
+     *
+     * NOTE: This function will write to APB peripherals. It will use the AXI interface to write the data if the chip is
+     * local/PCIe, while the remote chip will use the NOC interface to write the data. Blackhole has board
+     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
+     * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Read function that will send read message to the ARC core CSM.
+     *
+     * @param mem_ptr pointer to memory which will receive the data
+     * @param arc_addr_offset address offset in ARC core CSM
+     * @param size number of bytes
+     *
+     * NOTE: This function will read from CSM. It will use the AXI interface to read the data if the chip is local/PCIe,
+     * while the remote chip will use the NOC interface to read the data. Blackhole has board
+     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
+     * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    /**
+     * Write function that will send write message to the ARC core CSM.
+     *
+     * @param mem_ptr pointer to memory from which the data is sent
+     * @param arc_addr_offset address offset in ARC core CSM
+     * @param size number of bytes
+     *
+     * NOTE: This function will write to CSM. It will use the AXI interface to write the data if the chip is local/PCIe,
+     * while the remote chip will use the NOC interface to write the data. Blackhole has board
+     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
+     * interface will be used even for local chips.
+     *
+     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
+     * https://github.com/tenstorrent/tt-isa-documentation
+     */
+    virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+
+    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
+
+    /**
+     * Configures a PCIe Address Translation Unit (iATU) region.
+     *
+     * Device software expects to be able to access memory that is shared with
+     * the host using the following NOC addresses at the PCIe core:
+     * - GS: 0x0
+     * - WH: 0x8_0000_0000
+     * - BH: 0x1000_0000_0000_0000
+     * Without iATU configuration, these map to host PA 0x0.
+     *
+     * While modern hardware supports IOMMU with flexible IOVA mapping, we must
+     * maintain the iATU configuration to satisfy software that has hard-coded
+     * the above NOC addresses rather than using driver-provided IOVAs.
+     *
+     * This interface is only intended to be used for configuring sysmem with
+     * either 1GB hugepages or a compatible scheme.
+     *
+     * @param region iATU region index (0-15)
+     * @param target DMA address (PA or IOVA) to map to
+     * @param region_size size of the mapping window; must be (1 << 30)
+     *
+     * NOTE: Programming the iATU from userspace is architecturally incorrect:
+     * - iATU should be managed by KMD to ensure proper cleanup on process exit
+     * - Multiple processes can corrupt each other's iATU configurations
+     * We should fix this!
+     */
+    virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
+
+    virtual ChipInfo get_chip_info();
+
+    FirmwareBundleVersion get_firmware_version();
+
+    /**
+     * Waits for ARC core to be fully ready for communication.
+     * Must be called before using ArcMessenger.
+     * This ensures the ARC core is completely initialized and operational.
+     */
+    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+
+    /**
+     * Waits for ETH core training to complete.
+     * @param eth_core Specific ETH core to wait on.
+     * @param timeout_ms Timeout in ms.
+     * @return Time taken in ms.
+     */
+    virtual std::chrono::milliseconds wait_eth_core_training(
+        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+
+    void wait_dram_channel_training(
+        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
+
+    void bar_write32(uint32_t addr, uint32_t data);
+
+    uint32_t bar_read32(uint32_t addr);
+
+    ArcMessenger *get_arc_messenger() const;
+
+    ArcTelemetryReader *get_arc_telemetry_reader() const;
+
+    tt_xy_pair get_arc_core() const;
+
+    FirmwareInfoProvider *get_firmware_info_provider() const;
+
+    /**
+     * Request full power domains from KMD (busy=true) or release them (busy=false).
+     * No-op for remote devices and on KMD versions older than 2.6.0.
+     *
+     * @param busy true to claim all power domains, false to release them.
+     */
+    virtual void set_power_state(bool busy);
+
+    virtual uint32_t get_clock() = 0;
+
+    uint32_t get_max_clock_freq();
+
+    virtual uint32_t get_min_clock_freq() = 0;
+
+    uint64_t get_board_id();
+
+    uint8_t get_asic_location();
+
+    BoardType get_board_type();
+
+    virtual bool get_noc_translation_enabled() = 0;
+
+    double get_asic_temperature();
+
+    virtual void wait_for_non_mmio_flush();
+
+    bool is_remote();
+
+    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+
+    uint64_t get_refclk_counter();
+
+    int get_communication_device_id() const;
+
+    IODeviceType get_communication_device_type() const;
+
+    /**
+     * Get the soft reset signal for the given riscs.
+     *
+     * @param core Core to get soft reset for, in translated coordinates
+     */
+    uint32_t get_risc_reset_state(tt_xy_pair core);
+
+    /**
+     * Set the soft reset signal for the given riscs.
+     *
+     * @param core Core to set soft reset for, in translated coordinates
+     * @param risc_flags bitmask of riscs to set soft reset for
+     */
+    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+
+    /**
+     * Send tensix risc reset for a specific core.
+     *
+     * @param core Core to reset, in translated coordinates
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Send tensix risc reset for all tensix cores.
+     *
+     * The base TTDevice implementation does not support this operation and throws.
+     * Subclasses may override to implement all-core reset semantics.
+     *
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Assert risc reset for a specific core.
+     *
+     * @param core Core to assert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to assert reset for
+     */
+    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+
+    /**
+     * Deassert risc reset for a specific core.
+     *
+     * @param core Core to deassert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to deassert reset for
+     * @param staggered_start Whether to use staggered start
+     */
+    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
+    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+
+    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+
+    static void set_sigbus_safe_handler(bool set_safe_handler);
+
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    /**
+     * Read the training status of the given ETH core.
+     *
+     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @return Training status
+     */
+    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+
+protected:
+    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
+    int communication_device_id_ = -1;
+    std::unique_ptr<architecture_implementation> architecture_impl_;
+    tt::ARCH arch = tt::ARCH::Invalid;
+    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    LockManager lock_manager;
+    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+
+    TTDevice();
+    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+
+    virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
+
+    virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
+
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+
+    bool is_remote_tt_device = false;
+
+    tt_xy_pair arc_core;
+
+private:
+    void probe_arc();
+
+    std::unique_ptr<DeviceProtocol> device_protocol_;
+    std::unique_ptr<HangDetector> hang_detector_;
+    PcieInterface *pcie_capabilities_ = nullptr;
+    JtagInterface *jtag_capabilities_ = nullptr;
+    RemoteInterface *remote_capabilities_ = nullptr;
+};
+
+}  // namespace tt::umd

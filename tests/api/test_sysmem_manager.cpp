@@ -12,7 +12,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 
 using namespace tt::umd;
 

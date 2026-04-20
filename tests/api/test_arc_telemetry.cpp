@@ -9,10 +9,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/chip/remote_chip.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/telemetry.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/chip/remote_chip.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/telemetry.hpp"
 
 using namespace tt;
 using namespace tt::umd;

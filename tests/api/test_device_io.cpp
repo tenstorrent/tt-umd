@@ -29,11 +29,11 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/warm_reset.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/warm_reset.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;

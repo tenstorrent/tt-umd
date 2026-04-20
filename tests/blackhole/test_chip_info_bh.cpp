@@ -7,7 +7,7 @@
 #include <memory>
 #include <vector>
 
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;

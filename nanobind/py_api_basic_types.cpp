@@ -7,13 +7,13 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/string_view.h>
 
-#include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/semver.hpp"
+#include "tt-umd/types/arch.hpp"
+#include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/types/tensix_soft_reset_options.hpp"
+#include "tt-umd/types/xy_pair.hpp"
+#include "tt-umd/utils/semver.hpp"
 
 namespace nb = nanobind;
 

@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 
 using namespace tt::umd;
 

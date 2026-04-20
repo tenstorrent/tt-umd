@@ -22,15 +22,15 @@
 #include <thread>
 #include <vector>
 
-#include "device/api/umd/device/warm_reset.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/utils/error.hpp"
+#include "tt-umd/warm_reset.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;

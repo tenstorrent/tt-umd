@@ -9,10 +9,10 @@
 #include <memory>
 #include <vector>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/types/tlb.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
+#include "tt-umd/types/tlb.hpp"
 
 using namespace tt;
 using namespace tt::umd;

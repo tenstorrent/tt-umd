@@ -7,7 +7,7 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
-#include "umd/device/warm_reset.hpp"
+#include "tt-umd/warm_reset.hpp"
 
 namespace nb = nanobind;
 

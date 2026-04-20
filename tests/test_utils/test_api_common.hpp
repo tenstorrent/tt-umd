@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/tensix_soft_reset_options.hpp"
 
 using namespace tt::umd;
 

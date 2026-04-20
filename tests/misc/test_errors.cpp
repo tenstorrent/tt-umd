@@ -8,7 +8,7 @@
 
 #include <stdexcept>
 
-#include "umd/device/utils/error_detail.hpp"
+#include "tt-umd/utils/error_detail.hpp"
 
 using namespace tt::umd::error;
 

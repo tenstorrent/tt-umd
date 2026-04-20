@@ -15,21 +15,21 @@
 
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/arc/spi_tt_device.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
-#include "umd/device/tt_device/simulation_device_factory.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
-#include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/utils/error.hpp"
+#include "tt-umd/arc/spi_tt_device.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/remote_communication.hpp"
+#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/tt_device/simulation_device_factory.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
+#include "tt-umd/types/core_coordinates.hpp"
+#include "tt-umd/types/risc_type.hpp"
+#include "tt-umd/types/tensix_soft_reset_options.hpp"
+#include "tt-umd/utils/error.hpp"
 namespace nb = nanobind;
 
 using namespace tt;

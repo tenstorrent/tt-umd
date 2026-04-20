@@ -18,7 +18,7 @@ It is important to note that this file is not utilized by UMD, and therefore, fu
 
 ## API changes
 
-At the moment, most of the API that needs to be reimplemented for custom SoC is located in the [cluster.h](../device/api/umd/device/cluster.h) file and in the [cluster_descriptor.h](../device/api/umd/device/cluster_descriptor.h). The files have header comments on all the functions which are the current contract with higher software stacks like tt-metal.
+At the moment, most of the API that needs to be reimplemented for custom SoC is located in the [cluster.h](../tt-umd/api/tt-umd/cluster.h) file and in the [cluster_descriptor.h](../tt-umd/api/tt-umd/cluster_descriptor.h). The files have header comments on all the functions which are the current contract with higher software stacks like tt-metal.
 
 The current implementation maintains a SocDescriptor for each chip. This functionality must also be implemented within the class derived from a custom Chip, as there is an API available to retrieve the descriptors.
 
@@ -29,7 +29,7 @@ For an example of how to create your SocDescriptor inside your constructor, you 
 #### tt_cluster.cpp
 
 Most of the interfacing with the UMD is done through this [tt_cluster.cpp](https://github.com/tenstorrent/tt-metal/blob/main/tt_metal/llrt/tt_cluster.cpp). To change the usage to a custom driver for custom device, one should exchange the creation of Cluster
-with the class having the same header. For instructions on what each of the functions represents and how to implement them, please see [cluster.h](../device/api/umd/device/cluster.h).
+with the class having the same header. For instructions on what each of the functions represents and how to implement them, please see [cluster.h](../tt-umd/api/tt-umd/cluster.h).
 
 #### soc_descriptor in tt_metal
 

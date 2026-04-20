@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/cluster_types.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/cluster_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;

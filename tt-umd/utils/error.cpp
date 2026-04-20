@@ -1,0 +1,62 @@
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "tt-umd/utils/error.hpp"
+
+#include <fmt/format.h>
+
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/noc_id.hpp"
+
+using namespace tt::umd;
+
+namespace tt::umd::error {
+
+TTDeviceData::TTDeviceData(TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id) :
+    io_device_type(tt_device.get_communication_device_type()),
+    chip_id(tt_device.get_communication_device_id()),
+    arch(tt_device.get_arch()),
+    discovery_unique_id(discovery_unique_id) {}
+
+NocHangError::NocHangError(TTDevice& tt_device, NocId noc_id) :
+    UmdError<NocHangData>(fmt::format("{} is hung.", noc_to_str(noc_id)), {{tt_device}, noc_id}) {}
+
+PcieHangError::PcieHangError(TTDevice& tt_device, uint32_t data_read) :
+    UmdError<TTDeviceData>(
+        fmt::format(
+            "Read {:#x} over PCIe ID {}: the board should be reset.",
+            data_read,
+            tt_device.get_communication_device_id()),
+        {{tt_device}, data_read}) {}
+
+ArcStartupError::ArcStartupError(
+    TTDevice& tt_device,
+    NocId noc_id,
+    xy_pair arc_core,
+    uint32_t scratch_status,
+    uint32_t postcode,
+    std::optional<uint32_t> message_id) :
+    UmdError<ArcStartupData>(
+        fmt::format(
+            "ARC startup error at core {} over {}: scratch_status={:#x}, postcode={:#x}{}",
+            arc_core.str(),
+            noc_to_str(noc_id),
+            scratch_status,
+            postcode,
+            message_id.has_value() ? fmt::format(", message_id={:#x}", message_id.value()) : ""),
+        {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id}) {}
+
+ArcStartupError::ArcStartupError(
+    TTDevice& tt_device,
+    NocId noc_id,
+    xy_pair arc_core,
+    uint32_t scratch_status,
+    uint32_t postcode,
+    std::chrono::milliseconds timeout,
+    std::optional<uint32_t> message_id) :
+    ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id) {
+    message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
+}
+
+}  // namespace tt::umd::error

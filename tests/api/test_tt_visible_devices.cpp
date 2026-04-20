@@ -18,8 +18,8 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;

@@ -1,0 +1,373 @@
+cmake_minimum_required(VERSION 3.16)
+
+set(POSITION_INDEPENDENT_CODE ON)
+include(CheckFunctionExists)
+
+if(TT_UMD_BUILD_SIMULATION)
+    set(FBS_FILE ${PROJECT_SOURCE_DIR}/tt-umd/simulation/simulation_device.fbs)
+    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
+    set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    set(FBS_DEPENDS "")
+    if(TARGET flatc)
+        set(FBS_DEPENDS flatc)
+    endif()
+    add_custom_command(
+        OUTPUT
+            ${FBS_GENERATED_HEADER}
+        COMMAND
+            flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
+        DEPENDS
+            ${FBS_DEPENDS}
+            ${FBS_FILE}
+        COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+        VERBATIM
+    )
+
+    # Add FlatBuffers header to the code analysis target
+    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    add_dependencies(umd_all_generated_files umd_device_generated_files)
+endif()
+
+if(TT_UMD_BUILD_STATIC)
+    add_library(tt-umd STATIC)
+    message(STATUS "Building tt-umd library as STATIC")
+else()
+    add_library(tt-umd SHARED)
+    message(STATUS "Building tt-umd library as SHARED")
+endif()
+add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
+
+# Set version
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        VERSION
+            ${CMAKE_PROJECT_VERSION}
+        SOVERSION
+            ${CMAKE_PROJECT_VERSION_MAJOR}
+)
+
+# Enable unity builds for faster compilation 
+# Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
+if(COMMAND TT_ENABLE_UNITY_BUILD)
+    tt_enable_unity_build(tt-umd)
+    # Exclude files that cause ODR violations due to conflicting eth_interface.h headers 
+    set_source_files_properties(
+        arch/wormhole_implementation.cpp
+        arch/blackhole_implementation.cpp
+        PROPERTIES
+            SKIP_UNITY_BUILD_INCLUSION
+                ON
+    )
+endif()
+
+target_sources(
+    tt-umd
+    PRIVATE
+        arch/architecture_implementation.cpp
+        chip/chip.cpp
+        chip/local_chip.cpp
+        chip/mock_chip.cpp
+        chip/remote_chip.cpp
+        chip_helpers/sysmem_manager.cpp
+        chip_helpers/simulation_sysmem_manager.cpp
+        chip_helpers/silicon_sysmem_manager.cpp
+        chip_helpers/sysmem_buffer.cpp
+        chip_helpers/tlb_manager.cpp
+        pcie/tlb_window.cpp
+        pcie/silicon_tlb_window.cpp
+        pcie/silicon_tlb_handle.cpp
+        cluster.cpp
+        coordinates/coordinate_manager.cpp
+        cpuset_lib.cpp
+        arch/wormhole_implementation.cpp
+        arch/blackhole_implementation.cpp
+        arch/grendel_implementation.cpp
+        hugepage.cpp
+        logging/config.cpp
+        pcie/pci_device.cpp
+        types/tlb.cpp
+        cluster_descriptor.cpp
+        tt_device/blackhole_tt_device.cpp
+        tt_device/tt_device.cpp
+        tt_device/wormhole_tt_device.cpp
+        tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/wormhole_hang_detector.cpp
+        tt_device/hang_detection/blackhole_hang_detector.cpp
+        tt_device/protocol/pcie_protocol.cpp
+        tt_device/protocol/jtag_protocol.cpp
+        tt_device/protocol/remote_protocol.cpp
+        tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
+        tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
+        firmware/firmware_info_provider.cpp
+        firmware/firmware_utils.cpp
+        types/tensix_soft_reset_options.cpp
+        types/risc_type.cpp
+        soc_descriptor.cpp
+        coordinates/wormhole_coordinate_manager.cpp
+        coordinates/blackhole_coordinate_manager.cpp
+        arc/arc_telemetry_reader.cpp
+        arc/wormhole_arc_telemetry_reader.cpp
+        arc/blackhole_arc_telemetry_reader.cpp
+        arc/smbus_arc_telemetry_reader.cpp
+        arc/arc_messenger.cpp
+        arc/wormhole_arc_messenger.cpp
+        arc/blackhole_arc_messenger.cpp
+        arc/blackhole_arc_message_queue.cpp
+        arc/spi_tt_device.cpp
+        noc_access.cpp
+        warm_reset.cpp
+        types/xy_pair.cpp
+        utils/error.cpp
+        utils/lock_manager.cpp
+        utils/robust_mutex.cpp
+        topology/topology_discovery.cpp
+        topology/topology_discovery_blackhole.cpp
+        topology/topology_discovery_wormhole.cpp
+        tt_device/remote_communication.cpp
+        tt_device/remote_communication_legacy_firmware.cpp
+        jtag/jtag_device.cpp
+        jtag/jtag.cpp
+        tt_kmd_lib/tt_kmd_lib.c
+        arc/wormhole_spi_tt_device.cpp
+        arc/blackhole_spi_tt_device.cpp
+)
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_sources(
+        tt-umd
+        PRIVATE
+            simulation/simulation_chip.cpp
+            simulation/tt_sim_chip.cpp
+            simulation/rtl_simulation_chip.cpp
+            simulation/simulation_host.cpp
+            simulation/tt_sim_communicator.cpp
+            simulation/rtl_sim_communicator.cpp
+            tt_device/rtl_simulation_tt_device.cpp
+            tt_device/tt_sim_tt_device.cpp
+            chip_helpers/simulation_tlb_manager.cpp
+            tt_device/simulation_device_factory.cpp
+            pcie/tt_sim_tlb_window.cpp
+            pcie/tt_sim_tlb_handle.cpp
+            pcie/rtl_sim_tlb_window.cpp
+            pcie/rtl_sim_tlb_handle.cpp
+            ${FBS_GENERATED_HEADER}
+    )
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
+endif()
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
+    target_sources(
+        tt-umd
+        PUBLIC
+            FILE_SET api
+            TYPE HEADERS
+            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
+            FILES
+                api/tt-umd/arch/architecture_implementation.hpp
+                api/tt-umd/arc/arc_messenger.hpp
+                api/tt-umd/arc/arc_telemetry_reader.hpp
+                api/tt-umd/arc/blackhole_arc_message_queue.hpp
+                api/tt-umd/arc/blackhole_arc_messenger.hpp
+                api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
+                api/tt-umd/arc/wormhole_arc_messenger.hpp
+                api/tt-umd/arc/wormhole_arc_telemetry_reader.hpp
+                api/tt-umd/coordinates/blackhole_coordinate_manager.hpp
+                api/tt-umd/arch/blackhole_implementation.hpp
+                api/tt-umd/chip/chip.hpp
+                api/tt-umd/chip/local_chip.hpp
+                api/tt-umd/chip/mock_chip.hpp
+                api/tt-umd/chip/remote_chip.hpp
+                api/tt-umd/chip_helpers/sysmem_manager.hpp
+                api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
+                api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp
+                api/tt-umd/chip_helpers/sysmem_buffer.hpp
+                api/tt-umd/chip_helpers/tlb_manager.hpp
+                api/tt-umd/chip_helpers/simulation_tlb_manager.hpp
+                api/tt-umd/cluster.hpp
+                api/tt-umd/coordinates/coordinate_manager.hpp
+                api/tt-umd/driver_atomics.hpp
+                api/tt-umd/logging/config.hpp
+                api/tt-umd/utils/lock_manager.hpp
+                api/tt-umd/utils/kmd_versions.hpp
+                api/tt-umd/pcie/pci_device.hpp
+                api/tt-umd/pcie/pci_ids.h
+                api/tt-umd/pcie/tlb_handle.hpp
+                api/tt-umd/pcie/silicon_tlb_handle.hpp
+                api/tt-umd/pcie/silicon_tlb_window.hpp
+                api/tt-umd/pcie/tlb_window.hpp
+                api/tt-umd/pcie/tt_sim_tlb_window.hpp
+                api/tt-umd/pcie/tt_sim_tlb_handle.hpp
+                api/tt-umd/pcie/rtl_sim_tlb_window.hpp
+                api/tt-umd/pcie/rtl_sim_tlb_handle.hpp
+                api/tt-umd/warm_reset.hpp
+                api/tt-umd/utils/semver.hpp
+                api/tt-umd/utils/robust_mutex.hpp
+                api/tt-umd/cluster_descriptor.hpp
+                api/tt-umd/types/core_coordinates.hpp
+                api/tt-umd/tt_device/blackhole_tt_device.hpp
+                api/tt-umd/tt_device/tt_device.hpp
+                api/tt-umd/tt_device/wormhole_tt_device.hpp
+                api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
+                api/tt-umd/tt_device/tt_sim_tt_device.hpp
+                api/tt-umd/tt_device/simulation_device_factory.hpp
+                api/tt-umd/tt_device/protocol/device_protocol.hpp
+                api/tt-umd/tt_device/protocol/pcie_interface.hpp
+                api/tt-umd/tt_device/protocol/pcie_protocol.hpp
+                api/tt-umd/tt_device/protocol/jtag_interface.hpp
+                api/tt-umd/tt_device/protocol/jtag_protocol.hpp
+                api/tt-umd/tt_device/protocol/remote_interface.hpp
+                api/tt-umd/tt_device/protocol/remote_protocol.hpp
+                api/tt-umd/tt_device/protocol/pcie_dma/dma_transfer.hpp
+                api/tt-umd/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
+                api/tt-umd/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
+                api/tt-umd/tt_device/hang_detection/hang_detector.hpp
+                api/tt-umd/tt_device/hang_detection/wormhole_hang_detector.hpp
+                api/tt-umd/tt_device/hang_detection/blackhole_hang_detector.hpp
+                api/tt-umd/tt_device/remote_communication.hpp
+                api/tt-umd/tt_device/remote_communication_legacy_firmware.hpp
+                api/tt-umd/firmware/firmware_info_provider.hpp
+                api/tt-umd/firmware/firmware_telemetry_mapping.hpp
+                api/tt-umd/firmware/firmware_utils.hpp
+                api/tt-umd/tt_io.hpp
+                api/tt-umd/types/tensix_soft_reset_options.hpp
+                api/tt-umd/types/noc_id.hpp
+                api/tt-umd/types/risc_type.hpp
+                api/tt-umd/simulation/simulation_chip.hpp
+                api/tt-umd/simulation/tt_sim_chip.hpp
+                api/tt-umd/simulation/rtl_simulation_chip.hpp
+                api/tt-umd/simulation/simulation_host.hpp
+                api/tt-umd/simulation/tt_sim_communicator.hpp
+                api/tt-umd/simulation/rtl_sim_communicator.hpp
+                api/tt-umd/soc_descriptor.hpp
+                api/tt-umd/topology/topology_discovery_blackhole.hpp
+                api/tt-umd/topology/topology_discovery_wormhole.hpp
+                api/tt-umd/topology/topology_discovery.hpp
+                api/tt-umd/topology/topology_utils.hpp
+                api/tt-umd/topology/topology_discovery_options.hpp
+                api/tt-umd/utils/common.hpp
+                api/tt-umd/utils/error_detail.hpp
+                api/tt-umd/utils/error.hpp
+                api/tt-umd/utils/timeouts.hpp
+                api/tt-umd/types/arch.hpp
+                api/tt-umd/types/blackhole_arc.hpp
+                api/tt-umd/types/blackhole_eth.hpp
+                api/tt-umd/types/cluster_descriptor_types.hpp
+                api/tt-umd/types/cluster_types.hpp
+                api/tt-umd/types/communication_protocol.hpp
+                api/tt-umd/types/core_coordinates.hpp
+                api/tt-umd/types/gddr_telemetry.hpp
+                api/tt-umd/types/telemetry.hpp
+                api/tt-umd/types/tlb.hpp
+                api/tt-umd/types/wormhole_dram.hpp
+                api/tt-umd/types/wormhole_eth.hpp
+                api/tt-umd/types/wormhole_telemetry.hpp
+                api/tt-umd/types/xy_pair.hpp
+                api/tt-umd/coordinates/wormhole_coordinate_manager.hpp
+                api/tt-umd/arch/wormhole_implementation.hpp
+                api/tt-umd/jtag/jtag_device.hpp
+                api/tt-umd/jtag/jtag.hpp
+                api/tt-umd/tt_kmd_lib/tt_kmd_lib.h
+                api/tt-umd/arch/grendel_implementation.hpp
+                api/tt-umd/arc/spi_tt_device.hpp
+    )
+endif()
+
+target_include_directories(
+    tt-umd
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
+    PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/common
+)
+
+target_link_libraries(
+    tt-umd
+    PRIVATE
+        umd::Firmware
+        hwloc
+        rt
+        spdlog::spdlog_header_only
+        fmt::fmt-header-only
+        tt-logger::tt-logger
+        yaml-cpp::yaml-cpp
+)
+
+target_link_libraries(tt-umd PRIVATE umd_asio_lib)
+
+check_function_exists(
+    backtrace
+    HAVE_BACKTRACE
+)
+
+if(NOT HAVE_BACKTRACE)
+    find_library(EXECINFO_LIB execinfo)
+    if(EXECINFO_LIB)
+        target_link_libraries(tt-umd PRIVATE ${EXECINFO_LIB})
+    endif()
+endif()
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_link_libraries(
+        tt-umd
+        PRIVATE
+            flatbuffers::flatbuffers
+            nng
+            uv_a
+    )
+endif()
+
+if(TT_UMD_ENABLE_TRACY)
+    target_link_libraries(tt-umd PRIVATE TracyClient)
+    target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
+    message(STATUS "Tracy profiling enabled for tt-umd library")
+endif()
+
+# Install functionality requires CMake 3.23+ for FILE_SET support
+# Skip install for static libraries as they are typically used for internal linking only
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
+    install(
+        TARGETS
+            tt-umd
+        EXPORT ${PROJECT_NAME}Targets
+        ARCHIVE
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT umd-dev
+        LIBRARY
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT umd-runtime
+        FILE_SET
+        api
+            DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+            COMPONENT umd-dev
+    )
+
+    install(
+        EXPORT ${PROJECT_NAME}Targets
+        FILE ${PROJECT_NAME}Targets.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+        NAMESPACE ${PROJECT_NAME}::
+        COMPONENT umd-dev
+    )
+else()
+    # Warn user that install functionality is not available
+    message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
+endif()
+
+if(TT_UMD_BUILD_STATIC)
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+else()
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+endif()

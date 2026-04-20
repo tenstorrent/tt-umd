@@ -14,11 +14,11 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arc/spi_tt_device.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
+#include "tt-umd/arc/spi_tt_device.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/soc_descriptor.hpp"
+#include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/arch.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;

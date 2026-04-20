@@ -18,7 +18,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
-#include "umd/device/cluster.hpp"
+#include "tt-umd/cluster.hpp"
 
 using namespace tt::umd;
 

@@ -21,11 +21,11 @@
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/telemetry.hpp"
+#include "tt-umd/arc/arc_telemetry_reader.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/cluster.hpp"
+#include "tt-umd/types/telemetry.hpp"
 #include "utils.hpp"
 
 using namespace tt::umd;

@@ -114,6 +114,9 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    // Note: The timeout passed is not accounted for when waiting for telemetry initialization, but this is expected
+    // to be very quick.
+    telemetry->wait_for_telemetry_initialized();
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
 }
 

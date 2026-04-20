@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <map>
 #include <unordered_set>
 
@@ -22,6 +23,12 @@ public:
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
+
+    // Wait until the telemetry table is fully populated by ARC firmware.
+    // FLASH_BUNDLE_VERSION is the last entry written by ARC, so a non-zero value
+    // guarantees all other entries are also present.
+    // Retries reinitializing the telemetry table until the entry appears or timeout expires.
+    virtual void wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms = std::chrono::milliseconds(1000));
 
 protected:
     ArcTelemetryReader(TTDevice* tt_device);

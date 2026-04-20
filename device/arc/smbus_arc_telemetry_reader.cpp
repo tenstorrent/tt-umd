@@ -4,11 +4,14 @@
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "noc_access.hpp"
+#include "tt-logger/tt-logger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -49,6 +52,20 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool SmBusArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_tag >= 0 && telemetry_tag < wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS;
+}
+
+void SmBusArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto poll_interval = std::chrono::milliseconds(10);
+
+    while (read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION) == 0) {
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            log_warning(
+                tt::LogUMD, "Timeout waiting for SMBus telemetry initialization (FW_BUNDLE_VERSION not populated).");
+            return;
+        }
+        std::this_thread::sleep_for(poll_interval);
+    }
 }
 
 }  // namespace tt::umd

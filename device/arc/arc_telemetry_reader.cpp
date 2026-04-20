@@ -6,9 +6,11 @@
 
 #include <fmt/core.h>
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 #include "tt-logger/tt-logger.hpp"
@@ -96,6 +98,26 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
+}
+
+void ArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto poll_interval = std::chrono::milliseconds(10);
+
+    while (!is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION) ||
+           read_entry(TelemetryTag::FLASH_BUNDLE_VERSION) == 0) {
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            log_warning(
+                tt::LogUMD, "Timeout waiting for ARC telemetry initialization (FLASH_BUNDLE_VERSION not populated).");
+            return;
+        }
+        std::this_thread::sleep_for(poll_interval);
+        telemetry_values.clear();
+        telemetry_offset.clear();
+        entry_count = 0;
+        get_telemetry_address();
+        initialize_telemetry();
+    }
 }
 
 }  // namespace tt::umd

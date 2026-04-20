@@ -54,6 +54,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/chip/sw_emule_chip.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -210,6 +211,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
+    if (chip_type == ChipType::SWEMULE) {
+#ifdef TT_UMD_BUILD_EMULE
+        return std::make_unique<SWEmuleChip>(soc_desc);
+#else
+        throw std::runtime_error(
+            "SWEMULE device is not supported in this build. Set '-DTT_UMD_BUILD_EMULE=ON' during cmake "
+            "configuration to enable software emulation device.");
+#endif
+    }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
@@ -315,7 +325,8 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::SWEMULE ||
+        cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -344,6 +355,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             break;
         }
         case ChipType::MOCK:
+        case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
             if (options.cluster_descriptor == nullptr) {
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
@@ -362,7 +374,8 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 // simulation.
                 bool is_ttsim_simulation =
                     (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
-                bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+                bool noc_translation_enabled = options.chip_type == ChipType::MOCK ||
+                                               options.chip_type == ChipType::SWEMULE || is_ttsim_simulation;
                 std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =
                     ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
 

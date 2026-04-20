@@ -44,9 +44,10 @@ std::unique_ptr<TTDevice> create_remote_tt_device(
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     if (!remote_communication) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
-            " architecture.");
+                " architecture.");
     }
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
@@ -59,9 +60,10 @@ std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chi
     EthCoord target_chip{0, x, y, rack, shelf};
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
     if (!remote_communication) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
-            " architecture.");
+                " architecture.");
     }
     return TTDevice::create(std::move(remote_communication));
 }
@@ -207,7 +209,7 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
                 -> void {
                 if (noc_id != 0) {
-                    throw std::runtime_error("noc_id must be 0");
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0");
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
@@ -295,7 +297,7 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
                 -> void {
                 if (noc_id != 0) {
-                    throw std::runtime_error("noc_id must be 0");
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());

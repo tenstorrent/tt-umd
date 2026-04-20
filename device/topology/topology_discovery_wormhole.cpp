@@ -107,7 +107,8 @@ tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, t
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
     if (!is_running_on_6u) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
     }
     uint32_t remote_eth_id;

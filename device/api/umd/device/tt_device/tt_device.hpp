@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 
+#include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"

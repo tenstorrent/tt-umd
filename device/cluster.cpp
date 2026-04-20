@@ -216,7 +216,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
             "configuration to enable simulation device.");
 #endif
@@ -259,7 +260,8 @@ SocDescriptor Cluster::construct_soc_descriptor(
     // In case of SILICON chip type, this chip has to exist in the cluster descriptor. But it doesn't have to exist in
     // case of Mock or Simulation chip type.
     if (chip_type == ChipType::SILICON && !chip_in_cluster_descriptor) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
     }
 
@@ -293,11 +295,13 @@ SocDescriptor Cluster::construct_soc_descriptor(
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
         if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
-            throw std::runtime_error(fmt::format(
-                "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-                arch_to_str(soc_desc.arch),
-                chip_id,
-                arch_to_str(cluster_desc->get_arch(chip_id))));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Passed SOC descriptor has {} architecture, but Chip ID {} has {} architecture.",
+                    arch_to_str(soc_desc.arch),
+                    chip_id,
+                    arch_to_str(cluster_desc->get_arch(chip_id))));
         }
 
         return soc_desc;
@@ -374,7 +378,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             break;
         }
         default:
-            throw std::runtime_error("Unsupported chip type");
+            UMD_THROW(error::RuntimeError, "Unsupported chip type.");
     }
 
     // Construct all the required chips from the cluster descriptor.
@@ -457,14 +461,16 @@ ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(
 
 void Cluster::refresh_cluster_description() {
     if (options_.chip_type != ChipType::SILICON) {
-        throw std::runtime_error("refresh_cluster_description is only supported for SILICON chip type.");
+        UMD_THROW(error::RuntimeError, "refresh_cluster_description() is only supported for SILICON chip type.");
     }
     if (options_.cluster_descriptor != nullptr) {
-        throw std::runtime_error(
-            "refresh_cluster_description is not supported when a custom cluster descriptor was provided.");
+        UMD_THROW(
+            error::RuntimeError,
+            "refresh_cluster_description() is not supported when a custom cluster descriptor was provided.");
     }
     if (!options_.target_devices.empty()) {
-        throw std::runtime_error("refresh_cluster_description is not supported when target_devices is non-empty.");
+        UMD_THROW(
+            error::RuntimeError, "refresh_cluster_description() is not supported when target_devices is non-empty.");
     }
 
     // Build reverse map from unique ID to old chip ID before replacing the descriptor.
@@ -480,28 +486,34 @@ void Cluster::refresh_cluster_description() {
     // Validate that the same physical chips are present by matching unique IDs.
     const auto& new_unique_ids = new_cluster_desc->get_chip_unique_ids();
     if (new_unique_ids.size() != old_unique_ids.size()) {
-        throw std::runtime_error(fmt::format(
-            "refresh_cluster_description: chip count changed from {} to {}. "
-            "Recreate the Cluster to reflect hardware changes.",
-            old_unique_ids.size(),
-            new_unique_ids.size()));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "refresh_cluster_description: chip count changed from {} to {}. "
+                "Recreate the Cluster to reflect hardware changes.",
+                old_unique_ids.size(),
+                new_unique_ids.size()));
     }
 
     for (const auto& [new_chip_id, uid] : new_unique_ids) {
         auto it = unique_id_to_old_chip_id.find(uid);
         if (it == unique_id_to_old_chip_id.end()) {
-            throw std::runtime_error(fmt::format(
-                "refresh_cluster_description: chip with unique ID 0x{:016x} is present in the new "
-                "cluster descriptor but not in the old one. Recreate the Cluster to reflect hardware changes.",
-                uid));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "refresh_cluster_description: chip with unique ID 0x{:016x} is present in the new "
+                    "cluster descriptor but not in the old one. Recreate the Cluster to reflect hardware changes.",
+                    uid));
         }
         if (it->second != new_chip_id) {
-            throw std::runtime_error(fmt::format(
-                "refresh_cluster_description: chip ID changed from {} to {} (unique ID 0x{:016x}). "
-                "Recreate the Cluster to reflect hardware changes.",
-                it->second,
-                new_chip_id,
-                uid));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "refresh_cluster_description: chip ID changed from {} to {} (unique ID 0x{:016x}). "
+                    "Recreate the Cluster to reflect hardware changes.",
+                    it->second,
+                    new_chip_id,
+                    uid));
         }
     }
 

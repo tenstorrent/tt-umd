@@ -261,11 +261,11 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
     get_pcie_interface()->write_regs(dest, src, word_len);
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 

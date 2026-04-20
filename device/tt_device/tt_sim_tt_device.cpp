@@ -89,7 +89,7 @@ TTSimTTDevice::TTSimTTDevice(
 
 TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
@@ -98,7 +98,7 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);

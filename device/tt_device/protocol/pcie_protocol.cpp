@@ -57,7 +57,7 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
     return cached_tlb_window_.get();
 }
 
-void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         write_to_device_impl<true>(mem_ptr, core, addr, size);
@@ -66,7 +66,7 @@ void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_
     }
 }
 
-void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         read_from_device_impl<true>(mem_ptr, core, addr, size);
@@ -76,7 +76,7 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 }
 
 template <bool safe>
-void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if constexpr (safe) {
         get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
     } else {
@@ -85,7 +85,7 @@ void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, ui
 }
 
 template <bool safe>
-void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if constexpr (safe) {
         get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
     } else {

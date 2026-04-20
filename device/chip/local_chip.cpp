@@ -262,7 +262,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     log_trace(
         LogUMD,
         "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
@@ -288,7 +288,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     }
 }
 
-void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     log_trace(
         LogUMD,
         "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",

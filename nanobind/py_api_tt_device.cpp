@@ -191,7 +191,7 @@ void bind_tt_device(nb::module_ &m) {
             "Write a 32-bit value to a core at the specified address")
         .def(
             "noc_read",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
                 self.read_from_device(buffer.data(), core, addr, size);
@@ -212,7 +212,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.read_from_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.read_from_device(data_ptr, core, addr, data_size);
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -226,7 +226,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.write_to_device(data_ptr, core, addr, data_size);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -279,7 +279,7 @@ void bind_tt_device(nb::module_ &m) {
             "The bit layout of this value corresponds to TensixSoftResetOptions; do not pass RiscType bits here.")
         .def(
             "dma_read_from_device",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
                 self.dma_read_from_device(buffer.data(), size, core, addr);
@@ -300,7 +300,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.dma_read_from_device(data_ptr, static_cast<uint32_t>(data_size), core, addr);
+                self.dma_read_from_device(data_ptr, data_size, core, addr);
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -314,7 +314,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.dma_write_to_device(data_ptr, static_cast<uint32_t>(data_size), core, addr);
+                self.dma_write_to_device(data_ptr, data_size, core, addr);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),

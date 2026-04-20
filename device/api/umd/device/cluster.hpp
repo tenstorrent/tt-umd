@@ -360,7 +360,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -373,7 +373,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).

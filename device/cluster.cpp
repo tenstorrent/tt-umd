@@ -909,7 +909,7 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>&
     get_chip(chip)->dram_membar(channels);
 }
 
-void Cluster::write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+void Cluster::write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
@@ -931,7 +931,7 @@ void Cluster::dma_multicast_write(
     get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
+void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size) {
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 

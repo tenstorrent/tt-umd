@@ -90,6 +90,7 @@ target_sources(
         cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
+        tt_device/tt_device_error.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/hang_detection/hang_detector.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
@@ -118,7 +119,6 @@ target_sources(
         noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
-        utils/error.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology/topology_discovery.cpp

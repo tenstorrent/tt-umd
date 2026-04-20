@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/utils/error.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 
 #include <fmt/format.h>
 

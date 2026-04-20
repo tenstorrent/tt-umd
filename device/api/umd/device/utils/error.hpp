@@ -43,6 +43,7 @@ struct RuntimeError : public UmdError<NoData> {
 };
 
 struct TTDeviceData {
+    TTDeviceData() = default;
     TTDeviceData(TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id = std::nullopt);
 
     IODeviceType io_device_type = IODeviceType::UNDEFINED;

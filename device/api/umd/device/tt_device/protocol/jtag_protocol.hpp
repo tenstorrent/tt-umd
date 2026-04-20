@@ -24,17 +24,18 @@ public:
     ~JtagProtocol() override;
 
     // DeviceProtocol interface.
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool write_to_core_range(
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) override;
+    int get_mmio_id() override;
 
     // JtagInterface.
     JtagDevice* get_jtag_device() override;
 
 private:
     std::unique_ptr<JtagDevice> jtag_device_;
-    int communication_device_id_;
+    int mmio_id_;
 };
 
 }  // namespace tt::umd

@@ -272,12 +272,12 @@ void SiliconTlbWindow::safe_read_block(uint64_t offset, void *data, size_t size)
 }
 
 void SiliconTlbWindow::safe_write_block_reconfigure(
-    const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
     execute_safe(&SiliconTlbWindow::write_block_reconfigure, mem_ptr, core, addr, size, ordering);
 }
 
 void SiliconTlbWindow::safe_read_block_reconfigure(
-    void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering) {
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
     execute_safe(&SiliconTlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, ordering);
 }
 

@@ -33,8 +33,8 @@ public:
     static std::unique_ptr<TTSimTTDevice> create(
         const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0, bool copy_sim_binary = false);
 
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
 
     SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
 
@@ -46,7 +46,7 @@ public:
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;

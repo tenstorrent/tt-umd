@@ -91,7 +91,6 @@ target_sources(
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
         tt_device/wormhole_tt_device.cpp
-        tt_device/remote_wormhole_tt_device.cpp
         tt_device/hang_detection/hang_detector.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
         tt_device/hang_detection/blackhole_hang_detector.cpp
@@ -208,8 +207,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/blackhole_tt_device.hpp
                 api/umd/device/tt_device/tt_device.hpp
+                api/umd/device/tt_device/tt_device_error.hpp
                 api/umd/device/tt_device/wormhole_tt_device.hpp
-                api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/simulation_device_factory.hpp
@@ -293,7 +292,6 @@ target_link_libraries(
         rt
         spdlog::spdlog_header_only
         fmt::fmt-header-only
-        picosha2::picosha2
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )

@@ -41,12 +41,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
-    }
+    remote_tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -73,12 +68,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
-    }
+    remote_tt_device->init_tt_device();
 
     return std::unique_ptr<RemoteChip>(
         new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
@@ -108,11 +98,11 @@ void RemoteChip::close_device() {
     }
 }
 
-void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_device_->write_to_device(src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
-void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_device_->read_from_device(dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size);
 }
 

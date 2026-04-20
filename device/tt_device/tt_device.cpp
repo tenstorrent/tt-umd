@@ -441,7 +441,7 @@ void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
     if (is_remote_tt_device) {
-        throw std::runtime_error("DMA write to device not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -459,7 +459,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
     if (is_remote_tt_device) {
-        throw std::runtime_error("DMA read from device not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -477,7 +477,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     if (is_remote_tt_device) {
-        throw std::runtime_error("DMA multicast write not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);

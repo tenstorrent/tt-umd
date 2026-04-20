@@ -363,7 +363,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     }
 
     if (reg_src % sizeof(uint32_t) != 0) {
-        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned");
+        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
     }
 
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);

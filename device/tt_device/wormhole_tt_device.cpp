@@ -210,7 +210,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
     if (is_remote_tt_device) {
         write_to_device(

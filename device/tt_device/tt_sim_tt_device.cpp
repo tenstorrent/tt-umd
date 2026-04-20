@@ -105,6 +105,8 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
+    // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
+    // in the absence of an API reliably called from all spin loops polling the device
     communicator_->advance_clock(1);
 }
 

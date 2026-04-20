@@ -48,8 +48,8 @@ public:
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
     // Memory I/O — backed by tt_emule::Core storage.
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;

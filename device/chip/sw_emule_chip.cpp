@@ -88,13 +88,13 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     return raw_ptr;
 }
 
-void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
     std::memcpy(target_core->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
 }
 
-void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
     std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
@@ -111,13 +111,11 @@ void SWEmuleChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_
 }
 
 void SWEmuleChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    TT_ASSERT(size <= UINT32_MAX, "DMA write size {} exceeds uint32_t range", size);
-    write_to_device(core, src, addr, static_cast<uint32_t>(size));
+    write_to_device(core, src, addr, size);
 }
 
 void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    TT_ASSERT(size <= UINT32_MAX, "DMA read size {} exceeds uint32_t range", size);
-    read_from_device(core, dst, addr, static_cast<uint32_t>(size));
+    read_from_device(core, dst, addr, size);
 }
 
 // --- Chip lifecycle / hardware accessors (no-ops) ---

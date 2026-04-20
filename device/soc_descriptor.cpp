@@ -209,6 +209,7 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         router_cores,
         security_cores,
         l2cpu_cores,
+        dispatch_cores,
         noc0_x_to_noc1_x,
         noc0_y_to_noc1_y);
     get_cores_and_grid_size_from_coordinate_manager();
@@ -358,6 +359,14 @@ void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptor
         l2cpu_cores.push_back(core_descriptor.coord);
     }
 
+    for (const auto &dispatch_core : soc_desc_info.dispatch_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = dispatch_core;
+        core_descriptor.type = CoreType::DISPATCH;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        dispatch_cores.push_back(core_descriptor.coord);
+    }
+
     noc0_x_to_noc1_x = soc_desc_info.noc0_x_to_noc1_x;
     noc0_y_to_noc1_y = soc_desc_info.noc0_y_to_noc1_y;
 }
@@ -382,6 +391,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = wormhole::ROUTER_CORES_NOC0,
                 .security_cores = wormhole::SECURITY_CORES_NOC0,
                 .l2cpu_cores = wormhole::L2CPU_CORES_NOC0,
+                .dispatch_cores = {},
                 .worker_l1_size = wormhole::TENSIX_L1_SIZE,
                 .eth_l1_size = wormhole::ETH_L1_SIZE,
                 .dram_bank_size = wormhole::DRAM_BANK_SIZE,
@@ -401,6 +411,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = blackhole::ROUTER_CORES_NOC0,
                 .security_cores = blackhole::SECURITY_CORES_NOC0,
                 .l2cpu_cores = blackhole::L2CPU_CORES_NOC0,
+                .dispatch_cores = {},
                 .worker_l1_size = blackhole::TENSIX_L1_SIZE,
                 .eth_l1_size = blackhole::ETH_L1_SIZE,
                 .dram_bank_size = blackhole::DRAM_BANK_SIZE,
@@ -420,6 +431,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = grendel::ROUTER_CORES_NOC0,
                 .security_cores = grendel::SECURITY_CORES_NOC0,
                 .l2cpu_cores = grendel::L2CPU_CORES_NOC0,
+                .dispatch_cores = grendel::DISPATCH_CORES_NOC0,
                 .worker_l1_size = grendel::TENSIX_L1_SIZE,
                 .eth_l1_size = grendel::ETH_L1_SIZE,
                 .dram_bank_size = grendel::DRAM_BANK_SIZE,
@@ -509,6 +521,11 @@ void SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
     if (device_descriptor_yaml["security"].IsDefined()) {
         soc_desc_info.security_cores =
             SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["security"].as<std::vector<std::string>>());
+    }
+
+    if (device_descriptor_yaml["dispatch"].IsDefined()) {
+        soc_desc_info.dispatch_cores =
+            SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["dispatch"].as<std::vector<std::string>>());
     }
 
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {
@@ -644,6 +661,10 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::L2CPU);
     out << YAML::EndSeq;
 
+    out << YAML::Key << "dispatch" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::DISPATCH);
+    out << YAML::EndSeq;
+
     // Fill in the rest that are static to our device.
     out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
@@ -708,11 +729,12 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
-          CoreType::L2CPU}) {
+          CoreType::L2CPU,
+          CoreType::DISPATCH}) {
         cores_map.insert({core_type, coordinate_manager->get_cores(core_type)});
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
-            core_type == CoreType::L2CPU) {
+            core_type == CoreType::L2CPU || core_type == CoreType::DISPATCH) {
             // Ethernet and Router cores aren't arranged in a grid, initializing as empty.
             grid_size_map.insert({core_type, empty});
             harvested_grid_size_map.insert({core_type, empty});
@@ -793,7 +815,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_syst
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
-          CoreType::L2CPU}) {
+          CoreType::L2CPU,
+          CoreType::DISPATCH}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -810,7 +833,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem 
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
-          CoreType::L2CPU}) {
+          CoreType::L2CPU,
+          CoreType::DISPATCH}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

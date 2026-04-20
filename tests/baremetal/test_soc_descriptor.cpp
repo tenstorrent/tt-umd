@@ -701,3 +701,35 @@ TEST(SocDescriptor, SerializeSimulatorQuasar) {
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
 }
+
+TEST(SocDescriptor, SocDescriptorWormholeNoDispatchCores) {
+    SocDescriptor soc_desc_yaml(
+        test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
+
+    SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+
+    EXPECT_EQ(soc_desc_arch.get_cores(CoreType::DISPATCH).size(), 0);
+}
+
+TEST(SocDescriptor, SocDescriptorBlackholeNoDispatchCores) {
+    SocDescriptor soc_desc_yaml(
+        test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml"),
+        {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
+
+    SocDescriptor soc_desc_arch(
+        tt::ARCH::BLACKHOLE,
+        {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
+
+    EXPECT_EQ(soc_desc_arch.get_cores(CoreType::DISPATCH).size(), 0);
+}
+
+TEST(SocDescriptor, SocDescriptorQuasarNoDispatchCores) {
+    SocDescriptor soc_desc_yaml(
+        test_utils::GetSocDescAbsPath("quasar_32_arch.yaml"), {.noc_translation_enabled = true});
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
+}

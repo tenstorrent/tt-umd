@@ -145,8 +145,15 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            // Reset all DM cores.
             communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            return;
+        }
+        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
+            communicator_->all_neo_dms_uncore_reset_assert();
+            return;
+        }
+        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
+            communicator_->neo_dm_uncore_reset_assert(core.x, core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
@@ -173,8 +180,15 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     // See the comment in assert_risc_reset for more details.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            // Reset all DM cores.
             communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            return;
+        }
+        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
+            communicator_->all_neo_dms_uncore_reset_deassert();
+            return;
+        }
+        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
+            communicator_->neo_dm_uncore_reset_deassert(core.x, core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.

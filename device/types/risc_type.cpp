@@ -111,6 +111,14 @@ std::string RiscTypeToString(RiscType value) {
         output += "DM7 | ";
     }
 
+    // Check NEO DM uncore reset flags.
+    if ((value & RiscType::ALL_NEO_DMS_UNCORE) != RiscType::NONE) {
+        output += "ALL_NEO_DMS_UNCORE | ";
+    }
+    if ((value & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
+        output += "NEO_DM_UNCORE | ";
+    }
+
     if (output.empty()) {
         output = "NONE";
     } else {

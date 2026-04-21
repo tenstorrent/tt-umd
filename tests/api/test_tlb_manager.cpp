@@ -12,11 +12,37 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_io.hpp"
 
 using namespace tt::umd;
+
+TEST(ApiTLBManager, OpenTlbWindow) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+        ChipInfo chip_info = tt_device->get_chip_info();
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+
+        auto any_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        std::unique_ptr<TlbWindow> window =
+            tlb_manager->open_tlb_window(any_core, 0, tlb_data::Relaxed, TlbMapping::WC);
+
+        EXPECT_NE(window, nullptr);
+        EXPECT_GT(window->get_size(), 0);
+
+        tt_device->set_power_state(false);
+    }
+}
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.
 TEST(ApiTLBManager, ManualTLBConfiguration) {

@@ -557,6 +557,11 @@ TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord cor
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }
 
+std::unique_ptr<TlbWindow> Cluster::open_tlb_window(
+    ChipId chip, CoreCoord core, uint64_t address, uint64_t ordering, TlbMapping mapping, size_t tlb_size) {
+    return get_chip(chip)->open_tlb_window(core, address, ordering, mapping, tlb_size);
+}
+
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
     for (auto& chip_id : local_chip_ids_) {

@@ -493,6 +493,28 @@ public:
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
+    /**
+     * Allocate and configure a TLB window in a single call.
+     * The caller owns the returned window and controls its lifetime.
+     * Can be called with just chip and core to reserve a TLB (address defaults to 0, ordering to Relaxed,
+     * mapping to WC, and tlb_size to 0 which auto-selects the best available size).
+     *
+     * @param chip Target chip ID.
+     * @param core Target core (any coordinate system).
+     * @param address Start address the TLB is mapped to. Default: 0.
+     * @param ordering Ordering mode (Relaxed, Strict, or Posted). Default: Relaxed.
+     * @param mapping TLB mapping type (WC or UC). Default: WC.
+     * @param tlb_size Requested TLB size in bytes. 0 means auto-select. Default: 0.
+     * @return A unique_ptr to the configured TlbWindow.
+     */
+    std::unique_ptr<TlbWindow> open_tlb_window(
+        ChipId chip,
+        CoreCoord core,
+        uint64_t address = 0,
+        uint64_t ordering = tlb_data::Relaxed,
+        TlbMapping mapping = TlbMapping::WC,
+        size_t tlb_size = 0);
+
     //---------- Functions for synchronization and memory barriers.
 
     /**

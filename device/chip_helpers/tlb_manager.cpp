@@ -94,6 +94,23 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 
+std::unique_ptr<TlbWindow> TLBManager::open_tlb_window(
+    tt_xy_pair core, uint64_t address, uint64_t ordering, TlbMapping mapping, size_t tlb_size) {
+    TT_ASSERT(
+        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
+        "Invalid ordering specified in TLBManager::open_tlb_window");
+
+    tlb_data config{};
+    config.local_offset = address;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
+
+    return allocate_tlb_window(config, mapping, tlb_size);
+}
+
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     if (tlb_size != 0) {

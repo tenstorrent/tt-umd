@@ -7,11 +7,13 @@
 #include <chrono>
 #include <unordered_set>
 
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -44,6 +46,17 @@ public:
     virtual TTDevice* get_tt_device() = 0;
     virtual SysmemManager* get_sysmem_manager() = 0;
     virtual TLBManager* get_tlb_manager() = 0;
+
+    // Allocate and configure a TLB window in a single call.
+    // Translates core to TRANSLATED coordinates and delegates to TLBManager.
+    // Can be called with just a core to reserve a TLB (address defaults to 0, ordering to Relaxed,
+    // mapping to WC, and tlb_size to 0 which auto-selects the best available size).
+    virtual std::unique_ptr<TlbWindow> open_tlb_window(
+        CoreCoord core,
+        uint64_t address = 0,
+        uint64_t ordering = tlb_data::Relaxed,
+        TlbMapping mapping = TlbMapping::WC,
+        size_t tlb_size = 0);
 
     virtual int get_num_host_channels() = 0;
     virtual int get_host_channel_size(std::uint32_t channel) = 0;

@@ -483,3 +483,68 @@ TEST(TestTlb, TLBStaticTensix) {
         EXPECT_EQ(readback[i], i);
     }
 }
+
+TEST(TestTlb, TestOpenTlbWindow) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const uint64_t tensix_addr = 0;
+    const ChipId chip = 0;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    uint32_t val = 0;
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    for (CoreCoord core : tensix_cores) {
+        cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr);
+        val++;
+    }
+
+    uint32_t value_check = 0;
+    for (CoreCoord core : tensix_cores) {
+        std::unique_ptr<TlbWindow> tlb_window =
+            cluster->open_tlb_window(chip, core, tensix_addr, tlb_data::Relaxed, TlbMapping::WC);
+
+        uint32_t readback_value = tlb_window->read32(0);
+        EXPECT_EQ(readback_value, value_check);
+        value_check++;
+    }
+}
+
+TEST(TestTlb, TestOpenTlbWindowReuse) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const uint64_t tensix_addr = 0;
+    const ChipId chip = 0;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+
+    uint32_t val = 0;
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    for (CoreCoord core : tensix_cores) {
+        cluster->write_to_device(&val, sizeof(uint32_t), chip, core, tensix_addr);
+        val++;
+    }
+
+    // Allocate a single window and reconfigure it for each core.
+    std::unique_ptr<TlbWindow> tlb_window =
+        cluster->open_tlb_window(chip, tensix_cores[0], tensix_addr, tlb_data::Relaxed, TlbMapping::WC);
+
+    uint32_t value_check = 0;
+    for (CoreCoord core : tensix_cores) {
+        tlb_data config{};
+        config.local_offset = 0;
+        config.x_end = core.x;
+        config.y_end = core.y;
+        config.ordering = tlb_data::Relaxed;
+
+        tlb_window->configure(config);
+
+        uint32_t readback_value = tlb_window->read32(0);
+        EXPECT_EQ(readback_value, value_check);
+        value_check++;
+    }
+}

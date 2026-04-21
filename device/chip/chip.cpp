@@ -18,6 +18,7 @@
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
@@ -262,6 +263,12 @@ void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, Cor
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr);
+}
+
+std::unique_ptr<TlbWindow> Chip::open_tlb_window(
+    CoreCoord core, uint64_t address, uint64_t ordering, TlbMapping mapping, size_t tlb_size) {
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    return get_tlb_manager()->open_tlb_window(translated_core, address, ordering, mapping, tlb_size);
 }
 
 }  // namespace tt::umd

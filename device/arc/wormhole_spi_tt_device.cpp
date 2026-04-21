@@ -105,9 +105,10 @@ uint32_t WormholeSPITTDevice::get_clock() {
         FirmwareBundleVersion fw_version = device_->get_firmware_version();
 
         if (fw_version < FirmwareBundleVersion(18, 7, 0)) {
-            throw std::runtime_error(
+            UMD_THROW(
+                error::RuntimeError,
                 "Firmware version " + fw_version.to_string() +
-                " is too old to support TelemetryTag::ARCCLK. Minimum required version is 18.7.0");
+                    " is too old to support TelemetryTag::ARCCLK. Minimum required version is 18.7.0.");
         }
 
         try {
@@ -288,7 +289,9 @@ void WormholeSPITTDevice::unlock() {
 
 void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     if (addr + size > wormhole::SPI_ROM_SIZE) {
-        throw std::runtime_error("SPI read out of bounds");
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("SPI read out of bounds: {:#x} + {} > {:#x}", addr, size, wormhole::SPI_ROM_SIZE));
     }
     if (size == 0) {
         return;
@@ -296,14 +299,14 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
 
     auto* messenger = device_->get_arc_messenger();
     if (!messenger) {
-        throw std::runtime_error("ARC messenger not available for SPI read on Wormhole.");
+        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI read on Wormhole.");
     }
 
     std::vector<uint32_t> ret(1);
     uint32_t rc = messenger->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR), ret);
     if (rc != 0 || ret.empty()) {
-        throw std::runtime_error("Failed to get SPI dump address on Wormhole.");
+        UMD_THROW(error::RuntimeError, "Failed to get SPI dump address on Wormhole.");
     }
 
     uint32_t spi_dump_addr_offset = ret[0];
@@ -349,7 +352,7 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
 
     auto* messenger = device_->get_arc_messenger();
     if (!messenger) {
-        throw std::runtime_error("ARC messenger not available for SPI write on Wormhole.");
+        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI write on Wormhole.");
     }
 
     uint32_t clock_div = get_clock();
@@ -370,7 +373,7 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
             ret);
         if (rc != 0 || ret.empty()) {
-            throw std::runtime_error("Failed to get SPI dump address on Wormhole.");
+            UMD_THROW(error::RuntimeError, "Failed to get SPI dump address on Wormhole.");
         }
 
         uint32_t spi_dump_addr_offset = ret[0];

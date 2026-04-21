@@ -65,7 +65,7 @@ void SimulationChip::dma_read_from_device(void* dst, size_t size, CoreCoord core
 
 void SimulationChip::dma_multicast_write(
     void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    throw std::runtime_error("dma_multicast_write is not supported in SimulationChip.");
+    UMD_THROW(error::RuntimeError, "dma_multicast_write is not supported in SimulationChip.");
 }
 
 void SimulationChip::noc_multicast_write(
@@ -154,17 +154,17 @@ void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sys
 }
 
 int SimulationChip::get_numa_node() {
-    throw std::runtime_error("SimulationChip::get_numa_node is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "SimulationChip::get_numa_node is not available for this chip.");
 }
 
 TTDevice* SimulationChip::get_tt_device() {
-    throw std::runtime_error("SimulationChip::get_tt_device is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "SimulationChip::get_tt_device is not available for this chip.");
 }
 
 SysmemManager* SimulationChip::get_sysmem_manager() { return nullptr; }
 
 TLBManager* SimulationChip::get_tlb_manager() {
-    throw std::runtime_error("SimulationChip::get_tlb_manager is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "SimulationChip::get_tlb_manager is not available for this chip.");
 }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}

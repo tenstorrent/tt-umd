@@ -138,7 +138,8 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
@@ -210,20 +211,6 @@ bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device,
             expected_eth_fw_version->to_string(),
             eth_fw_version.to_string());
         eth_fw_problem = true;
-    }
-
-    if (options.perform_eth_fw_hash_check) {
-        auto hash_check = verify_eth_fw_integrity(tt_device, eth_core, eth_fw_version);
-        if (hash_check.has_value() && !hash_check.value()) {
-            log_warning(
-                LogUMD,
-                "ETH FW hash check failed for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
-                current_device_asic_id,
-                eth_core.str(),
-                expected_eth_fw_version->to_string(),
-                eth_fw_version.to_string());
-            eth_fw_problem = true;
-        }
     }
 
     return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;

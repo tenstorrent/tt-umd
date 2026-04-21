@@ -11,6 +11,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -343,7 +344,7 @@ public:
     uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(grendel::arc_message_type::TEST); }
 
     uint32_t get_arc_csm_bar0_mailbox_offset() const override {
-        throw std::runtime_error("Not implemented for Grendel arch");
+        UMD_THROW(error::RuntimeError, "Not implemented for Grendel architecture.");
     }
 
     uint32_t get_arc_axi_apb_peripheral_offset() const override { return grendel::ARC_APB_BAR0_XBAR_OFFSET_START; }
@@ -377,18 +378,15 @@ public:
     uint32_t get_dynamic_tlb_2m_size() const override { return grendel::DYNAMIC_TLB_2M_SIZE; }
 
     uint32_t get_dynamic_tlb_16m_base() const override {
-        throw std::runtime_error("No 16MB TLBs for Grendel arch");
-        return 0;
+        UMD_THROW(error::RuntimeError, "No 16MB TLB size in Grendel architecture.");
     }
 
     uint32_t get_dynamic_tlb_16m_size() const override {
-        throw std::runtime_error("No 16MB TLBs for Grendel arch");
-        return 0;
+        UMD_THROW(error::RuntimeError, "No 16MB TLB size in Grendel architecture.");
     }
 
     uint32_t get_dynamic_tlb_16m_cfg_addr() const override {
-        throw std::runtime_error("No 16MB TLBs for Grendel arch");
-        return 0;
+        UMD_THROW(error::RuntimeError, "No 16MB TLB size in Grendel architecture.");
     }
 
     uint32_t get_mem_large_read_tlb() const override { return grendel::MEM_LARGE_READ_TLB; }
@@ -402,8 +400,7 @@ public:
     uint32_t get_reg_tlb() const override { return grendel::REG_TLB; }
 
     uint32_t get_tlb_base_index_16m() const override {
-        throw std::runtime_error("No 16MB TLBs for Grendel arch");
-        return 0;
+        UMD_THROW(error::RuntimeError, "No 16MB TLB size in Grendel architecture.");
     }
 
     uint32_t get_tensix_soft_reset_addr() const override { return grendel::TENSIX_SOFT_RESET_ADDR; }
@@ -425,7 +422,7 @@ public:
     uint64_t get_arc_apb_noc_base_address() const override { return grendel::ARC_NOC_XBAR_ADDRESS_START; }
 
     uint64_t get_arc_csm_noc_base_address() const override {
-        throw std::runtime_error("CSM fetch base address not implemented for Grendel.");
+        UMD_THROW(error::RuntimeError, "CSM fetch base address not implemented for Grendel architecture.");
     }
 
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {

@@ -65,9 +65,9 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+    SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager *get_tlb_manager();
+    TLBManager *get_tlb_manager() override;
 
     uint64_t bar0_base = 0;
 

@@ -9,6 +9,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -38,7 +39,8 @@ inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
         try {
             result_set.insert(std::stoi(token));
         } catch (const std::exception& e) {
-            throw std::runtime_error(
+            UMD_THROW(
+                error::RuntimeError,
                 fmt::format("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what()));
         }
     }
@@ -161,7 +163,9 @@ public:
                     close(child_pipes[j][PIPE_WRITE]);
                 }
                 errno = saved_errno;
-                throw std::runtime_error("Failed to create synchronization pipe");
+                UMD_THROW(
+                    error::RuntimeError,
+                    "Failed to create synchronization pipe. errno: {}" + std::string(std::strerror(saved_errno)));
             }
         }
     }

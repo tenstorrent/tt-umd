@@ -107,15 +107,17 @@ uint64_t grendel_implementation::get_noc_reg_base(
                 return noc_pair.second;
             }
         }
-    } else {
+        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
+    } else if (noc == 1) {
         for (const auto& noc_pair : grendel::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
             if (noc_pair.first == core_type) {
                 return noc_pair.second;
             }
         }
+        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
     }
 
-    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+    UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
 }
 
 uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) const {

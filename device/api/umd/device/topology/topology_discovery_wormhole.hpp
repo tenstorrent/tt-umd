@@ -46,10 +46,6 @@ protected:
 
     std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
-    tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
-
-    uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
-
     uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
     uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
@@ -60,8 +56,6 @@ protected:
     bool is_using_eth_coords() override;
 
     void init_first_device(TTDevice* tt_device) override;
-
-    bool is_eth_trained(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 
     void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) override;
 

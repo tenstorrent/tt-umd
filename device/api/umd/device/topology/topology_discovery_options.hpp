@@ -75,13 +75,6 @@ struct TopologyDiscoveryOptions {
     bool wait_on_ethernet_link_training = true;
 
     /**
-     * @brief If true, performs a hash check on the Ethernet firmware to ensure its integrity.
-     * This is a more rigorous check than just comparing version numbers.
-     * Defaults to false.
-     */
-    bool perform_eth_fw_hash_check = false;
-
-    /**
      * @brief If true, enables Ethernet link retraining on 6U machines when training fails.
      * When enabled, failed Ethernet links will be retrained up to a configured number of attempts.
      * Defaults to false.

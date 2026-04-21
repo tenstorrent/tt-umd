@@ -68,15 +68,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = eth_core;
-        if (get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
-            // Translated space for ETH cores is different than NOC1 and wait_eth_core training is expecting NOC0
-            // coordinates.
-            actual_eth_core = get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::NOC0);
-        } else {
-            actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
-        }
-
+        tt_xy_pair actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
 }
@@ -105,8 +97,10 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
     while (msg_success != 1) {
         if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            throw std::runtime_error(fmt::format(
-                "Timed out after waiting {} milliseconds for for DRAM to finish training", timeout_ms.count()));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Timed out after waiting {} milliseconds for for DRAM to finish training.", timeout_ms.count()));
         }
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
@@ -174,7 +168,7 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
             break;
         }
         default:
-            throw std::runtime_error("Unrecognized power state.");
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
     }
     return msg;
 }

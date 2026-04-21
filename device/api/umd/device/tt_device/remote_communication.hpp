@@ -61,6 +61,7 @@ protected:
     bool flush_non_mmio_ = false;
 
     TTDevice* local_tt_device_;
+
     LockManager lock_manager_;
     SysmemManager* sysmem_manager_;
 };

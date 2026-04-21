@@ -58,7 +58,7 @@ TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
         return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
     } else {
-        throw std::runtime_error(fmt::format("TLB window for core ({}, {}) not found.", core.x, core.y));
+        UMD_THROW(error::RuntimeError, fmt::format("TLB window for core ({}, {}) not found.", core.x, core.y));
     }
 }
 
@@ -77,7 +77,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
 
 Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     if (!is_tlb_mapped(core)) {
-        throw std::runtime_error(fmt::format("TLBs not initialized for core: {}", core.str()));
+        UMD_THROW(error::RuntimeError, fmt::format("TLBs not initialized for core: {}", core.str()));
     }
 
     auto tlb_index = map_core_to_tlb_.at(core);
@@ -114,7 +114,7 @@ std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
         }
     }
 
-    throw std::runtime_error(fmt::format("Failed to allocate TLB window."));
+    UMD_THROW(error::RuntimeError, fmt::format("Failed to allocate TLB window."));
 }
 
 void TLBManager::clear_mapped_tlbs() {

@@ -17,7 +17,7 @@
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "wormhole/eth_interface.h"

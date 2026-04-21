@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip/local_chip.hpp"
-
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -12,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tt-umd-workload/chip/local_chip.hpp>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>

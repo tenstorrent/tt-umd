@@ -12,7 +12,7 @@
 #include <tuple>
 #include <vector>
 
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";

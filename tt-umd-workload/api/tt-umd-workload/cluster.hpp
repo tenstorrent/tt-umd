@@ -16,8 +16,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "tt-umd/chip/chip.hpp"
-#include "tt-umd/chip/remote_chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd-workload/chip/remote_chip.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

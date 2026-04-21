@@ -26,10 +26,10 @@
 
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/firmware/erisc_firmware.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/types/tensix_soft_reset_options.hpp"

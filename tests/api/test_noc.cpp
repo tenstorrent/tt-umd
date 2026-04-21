@@ -13,8 +13,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "tt-umd/types/noc_id.hpp"

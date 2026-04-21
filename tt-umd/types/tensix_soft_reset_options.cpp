@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <string>
 
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {

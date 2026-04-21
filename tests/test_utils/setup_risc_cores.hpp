@@ -5,7 +5,7 @@
 #pragma once
 
 #include "assembly_programs_for_tests.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/utils/robust_mutex.hpp"
 
 using namespace tt;

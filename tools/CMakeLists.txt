@@ -17,6 +17,7 @@ target_link_libraries(
     tools_common
     INTERFACE
         umd::tt-umd
+        umd::tt-umd-workload
         tt-logger::tt-logger
         cxxopts::cxxopts
 )

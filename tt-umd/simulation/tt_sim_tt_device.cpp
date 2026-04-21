@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/simulation/tt_sim_tt_device.hpp"
 
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
@@ -12,7 +12,6 @@
 #include "tt-umd/pcie/pci_ids.h"
 #include "tt-umd/pcie/tt_sim_tlb_handle.hpp"
 #include "tt-umd/pcie/tt_sim_tlb_window.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
 
@@ -20,7 +19,9 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
-    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    auto soc_desc_path = (simulator_directory.extension() == ".so")
+                             ? (simulator_directory.parent_path() / "soc_descriptor.yaml")
+                             : (simulator_directory / "soc_descriptor.yaml");
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {

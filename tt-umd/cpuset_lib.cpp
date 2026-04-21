@@ -24,8 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "tt-umd/cluster.hpp"
-
 namespace tt::cpuset {
 
 namespace fs = std::filesystem;

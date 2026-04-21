@@ -2,14 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/chip/chip.hpp"
-
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
+#include <tt-umd-workload/chip/chip.hpp>
 #include <utility>
 #include <vector>
 

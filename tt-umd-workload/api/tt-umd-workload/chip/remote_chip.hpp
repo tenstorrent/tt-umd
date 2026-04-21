@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
 // TODO : tt-metal uses SysmemBuffer transitively through this header. Remove once tt-metal includes it directly.
 // Link to issue: https://github.com/tenstorrent/tt-umd/issues/2437.
 #include "tt-umd/chip_helpers/sysmem_buffer.hpp"

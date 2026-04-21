@@ -22,7 +22,7 @@
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"

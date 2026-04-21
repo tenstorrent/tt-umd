@@ -14,9 +14,9 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip/local_chip.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/tt_device/remote_communication_legacy_firmware.hpp"
 #include "tt-umd/types/cluster_types.hpp"

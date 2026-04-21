@@ -14,8 +14,8 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arc/spi_tt_device.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"

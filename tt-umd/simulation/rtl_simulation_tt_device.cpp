@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd/simulation/rtl_simulation_tt_device.hpp"
 
 #include <array>
 #include <filesystem>
@@ -11,7 +11,6 @@
 #include "assert.hpp"
 #include "tt-umd/pcie/rtl_sim_tlb_handle.hpp"
 #include "tt-umd/pcie/rtl_sim_tlb_window.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 
 namespace tt::umd {
 
@@ -32,7 +31,9 @@ static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
-    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    auto soc_desc_path = (simulator_directory.extension() == ".so")
+                             ? (simulator_directory.parent_path() / "soc_descriptor.yaml")
+                             : (simulator_directory / "soc_descriptor.yaml");
     SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
     return std::make_unique<RtlSimulationTTDevice>(
         simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);

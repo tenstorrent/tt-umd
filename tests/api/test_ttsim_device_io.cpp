@@ -13,10 +13,10 @@
 #include <memory>
 #include <vector>
 
-#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/simulation_device_factory.hpp"
 #include "tt-umd/simulation/tt_sim_communicator.hpp"
-#include "tt-umd/tt_device/simulation_device_factory.hpp"
-#include "tt-umd/tt_device/tt_sim_tt_device.hpp"
+#include "tt-umd/simulation/tt_sim_tt_device.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 
 namespace tt::umd {

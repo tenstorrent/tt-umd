@@ -12,8 +12,8 @@
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/types/cluster_types.hpp"
 
 using namespace tt;

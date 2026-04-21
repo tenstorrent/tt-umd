@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
 #include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/tlb_manager.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"

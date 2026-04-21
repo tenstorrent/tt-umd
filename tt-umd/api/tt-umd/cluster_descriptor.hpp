@@ -15,10 +15,10 @@
 #include <unordered_set>
 #include <vector>
 
-#include "tt-umd/chip/chip.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
+#include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/semver.hpp"
 

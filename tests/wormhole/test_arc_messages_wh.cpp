@@ -12,9 +12,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arc/arc_messenger.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 
 using namespace tt::umd;

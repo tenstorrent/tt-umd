@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/jtag/jtag.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"

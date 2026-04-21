@@ -65,10 +65,6 @@ target_sources(
     tt-umd
     PRIVATE
         arch/architecture_implementation.cpp
-        chip/chip.cpp
-        chip/local_chip.cpp
-        chip/mock_chip.cpp
-        chip/remote_chip.cpp
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
@@ -77,7 +73,6 @@ target_sources(
         pcie/tlb_window.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
-        cluster.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp
@@ -137,16 +132,13 @@ if(TT_UMD_BUILD_SIMULATION)
     target_sources(
         tt-umd
         PRIVATE
-            simulation/simulation_chip.cpp
-            simulation/tt_sim_chip.cpp
-            simulation/rtl_simulation_chip.cpp
-            simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
-            tt_device/rtl_simulation_tt_device.cpp
-            tt_device/tt_sim_tt_device.cpp
+            simulation/rtl_simulation_tt_device.cpp
+            simulation/tt_sim_tt_device.cpp
+            simulation/simulation_host.cpp
             chip_helpers/simulation_tlb_manager.cpp
-            tt_device/simulation_device_factory.cpp
+            simulation/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
             pcie/rtl_sim_tlb_window.cpp
@@ -174,17 +166,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arc/wormhole_arc_telemetry_reader.hpp
                 api/tt-umd/coordinates/blackhole_coordinate_manager.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
-                api/tt-umd/chip/chip.hpp
-                api/tt-umd/chip/local_chip.hpp
-                api/tt-umd/chip/mock_chip.hpp
-                api/tt-umd/chip/remote_chip.hpp
                 api/tt-umd/chip_helpers/sysmem_manager.hpp
                 api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/silicon_sysmem_manager.hpp
                 api/tt-umd/chip_helpers/sysmem_buffer.hpp
                 api/tt-umd/chip_helpers/tlb_manager.hpp
                 api/tt-umd/chip_helpers/simulation_tlb_manager.hpp
-                api/tt-umd/cluster.hpp
                 api/tt-umd/coordinates/coordinate_manager.hpp
                 api/tt-umd/driver_atomics.hpp
                 api/tt-umd/logging/config.hpp
@@ -208,9 +195,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/blackhole_tt_device.hpp
                 api/tt-umd/tt_device/tt_device.hpp
                 api/tt-umd/tt_device/wormhole_tt_device.hpp
-                api/tt-umd/tt_device/rtl_simulation_tt_device.hpp
-                api/tt-umd/tt_device/tt_sim_tt_device.hpp
-                api/tt-umd/tt_device/simulation_device_factory.hpp
+                api/tt-umd/simulation/rtl_simulation_tt_device.hpp
+                api/tt-umd/simulation/tt_sim_tt_device.hpp
+                api/tt-umd/simulation/simulation_device_factory.hpp
+                api/tt-umd/simulation/tt_sim_communicator.hpp
+                api/tt-umd/simulation/rtl_sim_communicator.hpp
+                api/tt-umd/simulation/simulation_host.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
                 api/tt-umd/tt_device/protocol/pcie_protocol.hpp
@@ -233,12 +223,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/tensix_soft_reset_options.hpp
                 api/tt-umd/types/noc_id.hpp
                 api/tt-umd/types/risc_type.hpp
-                api/tt-umd/simulation/simulation_chip.hpp
-                api/tt-umd/simulation/tt_sim_chip.hpp
-                api/tt-umd/simulation/rtl_simulation_chip.hpp
-                api/tt-umd/simulation/simulation_host.hpp
-                api/tt-umd/simulation/tt_sim_communicator.hpp
-                api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/soc_descriptor.hpp
                 api/tt-umd/topology/topology_discovery_blackhole.hpp
                 api/tt-umd/topology/topology_discovery_wormhole.hpp

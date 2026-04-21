@@ -10,7 +10,6 @@
 #include <unordered_set>
 
 #include "assert.hpp"
-#include "tt-umd/chip/local_chip.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/topology/topology_utils.hpp"
 #include "tt-umd/tt_device/remote_communication_legacy_firmware.hpp"

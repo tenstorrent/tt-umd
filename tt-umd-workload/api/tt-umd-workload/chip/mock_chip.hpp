@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "tt-umd/chip/chip.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
 
 namespace tt::umd {
 class MockChip : public Chip {

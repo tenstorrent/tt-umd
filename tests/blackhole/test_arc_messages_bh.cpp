@@ -10,10 +10,10 @@
 #include <thread>
 #include <vector>
 
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arc/arc_messenger.hpp"
 #include "tt-umd/arc/blackhole_arc_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 
 using namespace tt::umd;

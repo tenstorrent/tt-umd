@@ -9,7 +9,6 @@
 #include <tuple>
 
 #include "assert.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"

@@ -19,8 +19,8 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/utils/semver.hpp"
 

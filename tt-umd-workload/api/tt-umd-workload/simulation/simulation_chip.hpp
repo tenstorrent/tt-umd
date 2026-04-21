@@ -9,8 +9,8 @@
 #include <mutex>
 #include <vector>
 
-#include "tt-umd/chip/chip.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/chip/chip.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/utils/lock_manager.hpp"
 
 namespace tt::umd {

@@ -13,7 +13,7 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
-#include "tt-umd/chip/local_chip.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/topology/topology_utils.hpp"
 #include "tt-umd/utils/common.hpp"

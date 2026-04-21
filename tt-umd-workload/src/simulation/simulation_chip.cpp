@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/simulation_chip.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "tt-umd/simulation/rtl_simulation_chip.hpp"
-#include "tt-umd/simulation/tt_sim_chip.hpp"
+#include "tt-umd-workload/simulation/rtl_simulation_chip.hpp"
+#include "tt-umd-workload/simulation/tt_sim_chip.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "utils.hpp"
 

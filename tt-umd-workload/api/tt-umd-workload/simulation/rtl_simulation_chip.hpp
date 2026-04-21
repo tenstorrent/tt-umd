@@ -8,8 +8,8 @@
 #include <filesystem>
 #include <memory>
 
-#include "tt-umd/simulation/simulation_chip.hpp"
-#include "tt-umd/tt_device/rtl_simulation_tt_device.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
+#include "tt-umd/simulation/rtl_simulation_tt_device.hpp"
 
 namespace tt::umd {
 

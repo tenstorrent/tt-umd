@@ -16,7 +16,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/host_mem_address_map.h"

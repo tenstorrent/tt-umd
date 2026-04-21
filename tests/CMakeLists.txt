@@ -2,6 +2,7 @@ add_library(test_common INTERFACE)
 target_link_libraries(
     test_common
     INTERFACE
+        umd::tt-umd-workload
         umd::tt-umd
         umd::Firmware
         gtest_main
@@ -18,6 +19,7 @@ target_include_directories(
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
         "$<TARGET_PROPERTY:umd::tt-umd,INCLUDE_DIRECTORIES>"
+        "$<TARGET_PROPERTY:umd::tt-umd-workload,INCLUDE_DIRECTORIES>"
 )
 target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 

@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "tt-umd/cluster.hpp"
+#include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/types/tlb.hpp"

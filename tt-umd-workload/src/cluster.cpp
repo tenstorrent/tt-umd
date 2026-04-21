@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "api/tt-umd/cluster.hpp"
-
 #include <dirent.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>  // Needed to format vectors
@@ -36,6 +34,7 @@
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <tt-umd-workload/cluster.hpp>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -43,23 +42,21 @@
 #include <utility>
 #include <vector>
 
-#include "api/tt-umd/types/core_coordinates.hpp"
 #include "assert.hpp"
 #include "hugepage.hpp"
 #include "tracy.hpp"
+#include "tt-umd-workload/chip/local_chip.hpp"
+#include "tt-umd-workload/chip/mock_chip.hpp"
+#include "tt-umd-workload/chip/remote_chip.hpp"
+#include "tt-umd-workload/simulation/simulation_chip.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip/local_chip.hpp"
-#include "tt-umd/chip/mock_chip.hpp"
-#include "tt-umd/chip/remote_chip.hpp"
 #include "tt-umd/chip_helpers/tlb_manager.hpp"
-#include "tt-umd/cluster.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/firmware/erisc_firmware.hpp"
-#include "tt-umd/simulation/simulation_chip.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_discovery_blackhole.hpp"

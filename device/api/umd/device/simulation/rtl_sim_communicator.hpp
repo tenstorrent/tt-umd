@@ -124,6 +124,32 @@ public:
     void neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t dm_index);
 
     /**
+     * Assert uncore reset for all NEO DM cores across all tensix cores.
+     */
+    void all_neo_dms_uncore_reset_assert();
+
+    /**
+     * Deassert uncore reset for all NEO DM cores across all tensix cores.
+     */
+    void all_neo_dms_uncore_reset_deassert();
+
+    /**
+     * Assert uncore reset for NEO DM cores on a specific tensix core.
+     *
+     * @param x Core X coordinate.
+     * @param y Core Y coordinate.
+     */
+    void neo_dm_uncore_reset_assert(uint32_t x, uint32_t y);
+
+    /**
+     * Deassert uncore reset for NEO DM cores on a specific tensix core.
+     *
+     * @param x Core X coordinate.
+     * @param y Core Y coordinate.
+     */
+    void neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y);
+
+    /**
      * Get the simulation host reference.
      *
      * @return Reference to the SimulationHost

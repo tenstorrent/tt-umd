@@ -235,6 +235,34 @@ void RtlSimCommunicator::neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t 
         host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, core, dm_index));
 }
 
+void RtlSimCommunicator::all_neo_dms_uncore_reset_assert() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_uncore_reset_assert signal.");
+    tt_xy_pair core = {0, 0};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_ASSERT, core));
+}
+
+void RtlSimCommunicator::all_neo_dms_uncore_reset_deassert() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_uncore_reset_deassert signal.");
+    tt_xy_pair core = {0, 0};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_DEASSERT, core));
+}
+
+void RtlSimCommunicator::neo_dm_uncore_reset_assert(uint32_t x, uint32_t y) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending neo_dm_uncore_reset_assert signal to core ({}, {}).", x, y);
+    tt_xy_pair core = {x, y};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_ASSERT, core));
+}
+
+void RtlSimCommunicator::neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending neo_dm_uncore_reset_deassert signal to core ({}, {}).", x, y);
+    tt_xy_pair core = {x, y};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_DEASSERT, core));
+}
+
 void RtlSimCommunicator::set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb) {
     ram_write_callback_ = std::move(write_cb);
     ram_read_callback_ = std::move(read_cb);

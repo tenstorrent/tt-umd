@@ -8,7 +8,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
@@ -367,193 +366,35 @@ void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
-    size_t dmabuf_size = get_pci_device()->get_dma_buffer().size;
-    const char *env = std::getenv("TT_DMA_BUF_SIZE");
-    if (env) {
-        size_t override_size = std::stoull(env);
-        if (override_size > 0) {
-            dmabuf_size = std::min(dmabuf_size, override_size);
-        }
+    // ZoneScopedC(tracy::Color::MediumPurple);.
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+
+    // Returns true if DMA transfer succeeded, false if DMA is not available.
+    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr);
+    if (dma_success) {
+        return;
     }
 
-    auto do_dma_write = [&]() {
-        auto pcie_dma_lock =
-            lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-        bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr);
-        if (dma_success) {
-            return;
-        }
-        pcie_dma_lock.unlock();
-        write_to_device(src, core, addr, size);
-    };
-
-    switch (dmabuf_size / 1024) {
-        case 4: {
-            ZoneScopedNC("dma_write 4", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 8: {
-            ZoneScopedNC("dma_write 8", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 16: {
-            ZoneScopedNC("dma_write 16", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 32: {
-            ZoneScopedNC("dma_write 32", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 64: {
-            ZoneScopedNC("dma_write 64", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 128: {
-            ZoneScopedNC("dma_write 128", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 256: {
-            ZoneScopedNC("dma_write 256", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 512: {
-            ZoneScopedNC("dma_write 512", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 1024: {
-            ZoneScopedNC("dma_write 1024", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 2048: {
-            ZoneScopedNC("dma_write 2048", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 4096: {
-            ZoneScopedNC("dma_write 4096", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 8192: {
-            ZoneScopedNC("dma_write 8192", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        case 16384: {
-            ZoneScopedNC("dma_write 16384", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-        default: {
-            ZoneScopedNC("dma_write", tracy::Color::MediumPurple);
-            do_dma_write();
-            break;
-        }
-    }
+    // DMA unavailable, fall back to regular write.
+    pcie_dma_lock.unlock();
+    write_to_device(src, core, addr, size);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    size_t dmabuf_size = get_pci_device()->get_dma_buffer().size;
-    const char *env = std::getenv("TT_DMA_BUF_SIZE");
-    if (env) {
-        size_t override_size = std::stoull(env);
-        if (override_size > 0) {
-            dmabuf_size = std::min(dmabuf_size, override_size);
-        }
+    // ZoneScopedC(tracy::Color::MediumPurple);.
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+
+    // Returns true if DMA transfer succeeded, false if DMA is not available.
+    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr);
+    if (dma_success) {
+        return;
     }
 
-    auto do_dma_read = [&]() {
-        auto pcie_dma_lock =
-            lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
-        bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr);
-        if (dma_success) {
-            return;
-        }
-        pcie_dma_lock.unlock();
-        read_from_device(dst, core, addr, size);
-    };
-
-    switch (dmabuf_size / 1024) {
-        case 4: {
-            ZoneScopedNC("dma_read 4KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 8: {
-            ZoneScopedNC("dma_read 8KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 16: {
-            ZoneScopedNC("dma_read 16KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 32: {
-            ZoneScopedNC("dma_read 32KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 64: {
-            ZoneScopedNC("dma_read 64KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 128: {
-            ZoneScopedNC("dma_read 128KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 256: {
-            ZoneScopedNC("dma_read 256KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 512: {
-            ZoneScopedNC("dma_read 512KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 1024: {
-            ZoneScopedNC("dma_read 1024KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 2048: {
-            ZoneScopedNC("dma_read 2048KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 4096: {
-            ZoneScopedNC("dma_read 4096KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 8192: {
-            ZoneScopedNC("dma_read 8192KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        case 16384: {
-            ZoneScopedNC("dma_read 16384KB", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-        default: {
-            ZoneScopedNC("dma_read", tracy::Color::MediumPurple);
-            do_dma_read();
-            break;
-        }
-    }
+    // DMA unavailable, fall back to regular read.
+    pcie_dma_lock.unlock();
+    read_from_device(dst, core, addr, size);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

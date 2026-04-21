@@ -35,6 +35,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <tracy/Tracy.hpp>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <type_traits>
@@ -854,13 +855,160 @@ void Cluster::write_to_device_reg(
 }
 
 void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
-    // ZoneScopedC(tracy::Color::MediumPurple);.
-    get_chip(chip)->dma_write_to_device(src, size, core, addr);
+    // ZoneScoped;.
+    const char* env = std::getenv("TT_DMA_BUF_SIZE");
+    size_t dmabuf_kb = env ? std::stoull(env) / 1024 : 0;
+    switch (dmabuf_kb) {
+        case 4: {
+            ZoneScopedNC("dma_write 4KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 8: {
+            ZoneScopedNC("dma_write 8KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 16: {
+            ZoneScopedNC("dma_write 16KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 32: {
+            ZoneScopedNC("dma_write 32KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 64: {
+            ZoneScopedNC("dma_write 64KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 128: {
+            ZoneScopedNC("dma_write 128KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 256: {
+            ZoneScopedNC("dma_write 256KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 512: {
+            ZoneScopedNC("dma_write 512KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 1024: {
+            ZoneScopedNC("dma_write 1024KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 2048: {
+            ZoneScopedNC("dma_write 2048KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 4096: {
+            ZoneScopedNC("dma_write 4096KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 8192: {
+            ZoneScopedNC("dma_write 8192KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        case 16384: {
+            ZoneScopedNC("dma_write 16384KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+        default: {
+            ZoneScopedNC("dma_write", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_write_to_device(src, size, core, addr);
+            break;
+        }
+    }
+
+    // get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
-    // ZoneScopedC(tracy::Color::MediumPurple);.
-    get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+    const char* env = std::getenv("TT_DMA_BUF_SIZE");
+    size_t dmabuf_kb = env ? std::stoull(env) / 1024 : 0;
+    switch (dmabuf_kb) {
+        case 4: {
+            ZoneScopedNC("dma_read 4KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 8: {
+            ZoneScopedNC("dma_read 8KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 16: {
+            ZoneScopedNC("dma_read 16KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 32: {
+            ZoneScopedNC("dma_read 32KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 64: {
+            ZoneScopedNC("dma_read 64KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 128: {
+            ZoneScopedNC("dma_read 128KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 256: {
+            ZoneScopedNC("dma_read 256KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 512: {
+            ZoneScopedNC("dma_read 512KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 1024: {
+            ZoneScopedNC("dma_read 1024KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 2048: {
+            ZoneScopedNC("dma_read 2048KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 4096: {
+            ZoneScopedNC("dma_read 4096KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 8192: {
+            ZoneScopedNC("dma_read 8192KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        case 16384: {
+            ZoneScopedNC("dma_read 16384KB", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+        default: {
+            ZoneScopedNC("dma_read", tracy::Color::MediumPurple);
+            get_chip(chip)->dma_read_from_device(dst, size, core, addr);
+            break;
+        }
+    }
 }
 
 void Cluster::dma_multicast_write(

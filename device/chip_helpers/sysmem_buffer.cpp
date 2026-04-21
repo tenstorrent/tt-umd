@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <tracy/Tracy.hpp>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
@@ -34,7 +35,7 @@ SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buff
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    ZoneScopedC(tracy::Color::Yellow);
+    ZoneScoped;
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
@@ -77,7 +78,10 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
         size_t transfer_size = std::min({size, tlb_size});
 
-        tt_device_->dma_h2d_zero_copy(axi_address, buffer, transfer_size);
+        {
+            ZoneScopedN("dma_h2d_zero_copy");
+            tt_device_->dma_h2d_zero_copy(axi_address, buffer, transfer_size);
+        }
 
         size -= transfer_size;
         addr += transfer_size;
@@ -90,7 +94,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    ZoneScopedC(tracy::Color::Yellow);
+    ZoneScoped;
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
@@ -132,7 +136,10 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
         auto tlb_size = tlb_window->get_size();
         size_t transfer_size = std::min({size, tlb_size});
 
-        tt_device_->dma_d2h_zero_copy(buffer, axi_address, transfer_size);
+        {
+            ZoneScopedN("dma_d2h_zero_copy");
+            tt_device_->dma_d2h_zero_copy(buffer, axi_address, transfer_size);
+        }
 
         size -= transfer_size;
         addr += transfer_size;

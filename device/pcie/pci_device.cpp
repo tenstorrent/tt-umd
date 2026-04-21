@@ -10,6 +10,7 @@
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdint>
@@ -986,6 +987,14 @@ void PCIDevice::allocate_pcie_dma_buffer() {
         dma_buf_size = 16 * one_mb;
     } else {
         dma_buf_size = 2 * one_mb;
+    }
+
+    const char *env_override = std::getenv("TT_DMA_BUF_SIZE");
+    if (env_override) {
+        size_t requested = std::stoull(env_override);
+        if (requested > 0) {
+            dma_buf_size = static_cast<uint32_t>(std::min<size_t>(requested, dma_buf_size));
+        }
     }
 
     while (dma_buf_size >= page_size) {

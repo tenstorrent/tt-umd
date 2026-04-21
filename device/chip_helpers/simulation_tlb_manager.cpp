@@ -230,7 +230,10 @@ const architecture_implementation* SimulationTlbManager::get_architecture_impl()
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
-    // Quasar has no TLB size list; use a large virtual TLB so the communicator handles all I/O.
+    // Quasar has no real TLBs; the communicator handles all I/O underneath.
+    // The size here is a dummy value — it just needs to be large enough so that
+    // TlbWindow::validate doesn't reject any valid access (size 0 would cause
+    // division by zero in RtlSimTlbHandle::configure).
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     switch (architecture_) {
         case tt::ARCH::BLACKHOLE:

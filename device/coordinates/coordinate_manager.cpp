@@ -133,6 +133,12 @@ void CoordinateManager::identity_map_noc0_cores() {
 
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
+    if (core_coord.coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "Cannot translate from LITERAL coord system.");
+    }
+    if (target_coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "Cannot translate to LITERAL coord system.");
+    }
     auto noc0_coord_it = to_noc0_map.find(core_coord);
     if (noc0_coord_it == to_noc0_map.end()) {
         UMD_THROW(
@@ -163,7 +169,7 @@ CoreCoord CoordinateManager::translate_coord_to(
 
 CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LITERAL) {
-        return CoreCoord(core);
+        UMD_THROW(error::RuntimeError, "LITERAL coords are not used in CoordinateManager.");
     }
     if (coord_system == CoordSystem::LOGICAL) {
         UMD_THROW(error::RuntimeError, "Coordinate is ambiguous for logical coordinate system.");

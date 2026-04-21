@@ -17,6 +17,8 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -179,6 +181,12 @@ CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSyst
 
 CoreCoord CoordinateManager::translate_coord_to(
     const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
+    if (input_coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "Cannot translate from LITERAL coord system.");
+    }
+    if (target_coord_system == CoordSystem::LITERAL) {
+        return CoreCoord(core);
+    }
     CoreCoord core_coord = get_coord_at(core, input_coord_system);
     return translate_coord_to(core_coord, target_coord_system);
 }

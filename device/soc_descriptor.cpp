@@ -223,13 +223,6 @@ CoreCoord SocDescriptor::get_coord_at(const tt_xy_pair core, const CoordSystem c
 
 CoreCoord SocDescriptor::translate_coord_to(
     const tt_xy_pair core_location, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
-    if (input_coord_system == CoordSystem::LITERAL) {
-        TT_THROW("Cannot translate from LITERAL coord system");
-    }
-    if (target_coord_system == CoordSystem::LITERAL) {
-        return CoreCoord(core_location);
-    }
-
     return coordinate_manager->translate_coord_to(core_location, input_coord_system, target_coord_system);
 }
 
@@ -240,6 +233,9 @@ CoreCoord SocDescriptor::translate_coord_to(
 // The key guarantee is that the returned coordinates will be correct for device access
 // on the given architecture.
 CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+    if (core.coord_system == CoordSystem::LITERAL) {
+        return xy_pair(core.x, core.y);
+    }
     if (!noc_translation_enabled) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
@@ -271,9 +267,6 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
 // Convenience wrapper returning tt_xy_pair; the actual logic lives in
 // translate_chip_coord_to_translated_coord.
 tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    if (core.coord_system == CoordSystem::LITERAL) {
-        return tt_xy_pair(core.x, core.y);
-    }
     return translate_chip_coord_to_translated_coord(core);
 }
 

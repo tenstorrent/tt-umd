@@ -90,12 +90,6 @@ protected:
 
     virtual std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    // local_eth_core should be in NoC 0 coordinates.
-    virtual tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
-
-    // local_eth_core should be in NoC 0 coordinates.
-    virtual uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
-
     virtual uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
 
     // API exposed as a temporary workaround for issue: https://tenstorrent.atlassian.net/browse/SYS-2064.

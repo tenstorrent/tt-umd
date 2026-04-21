@@ -23,6 +23,7 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -93,33 +94,6 @@ uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, tt_x
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
-tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    const uint32_t shelf_offset = 9;
-    uint32_t remote_id;
-    tt_device->read_from_device(
-        &remote_id,
-        {local_eth_core.x, local_eth_core.y},
-        EthAddresses::NODE_INFO + (4 * shelf_offset),
-        sizeof(uint32_t));
-
-    return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
-}
-
-uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    if (!is_running_on_6u) {
-        UMD_THROW(
-            error::RuntimeError,
-            "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
-    }
-    uint32_t remote_eth_id;
-    tt_device->read_from_device(
-        &remote_eth_id,
-        local_eth_core,
-        EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
-        sizeof(uint32_t));
-    return remote_eth_id;
-}
-
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t current_device_eth_coord_info;
     tt_device->read_from_device(
@@ -177,13 +151,13 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    if (is_running_on_6u) {
-        return get_remote_eth_id(tt_device, local_eth_core);
-    }
-    tt_xy_pair remote_eth_core = get_remote_eth_core(tt_device, local_eth_core);
-
-    // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
-    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+    uint32_t remote_eth_id;
+    tt_device->read_from_device(
+        &remote_eth_id,
+        local_eth_core,
+        EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
+        sizeof(uint32_t));
+    return remote_eth_id;
 }
 
 uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {

@@ -25,6 +25,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -140,10 +141,10 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     std::unique_ptr<RemoteCommunication> remote_communication =
         RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
     remote_communication->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor(gateway_device)
-            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
+        gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            gateway_eth_channels, CoordSystem::TRANSLATED));
     std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
+    remote_tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor_path);
     if (options.wait_on_ethernet_link_training) {
         wait_eth_cores_training(remote_tt_device.get());
     }
@@ -238,7 +239,7 @@ bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, tt_xy_
     tt_device->read_from_device(
         &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
     const uint32_t channel =
-        get_soc_descriptor(tt_device).translate_coord_to(eth_core, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).y;
+        tt_device->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).y;
     return (port_disable_mask >> channel) & 1;
 }
 
@@ -266,9 +267,8 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
         for (const auto& [asic_id, tt_device] : devices_to_discover) {
             auto* wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
-            for (const CoreCoord& eth_core :
-                 get_soc_descriptor(tt_device.get())
-                     .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
+            for (const CoreCoord& eth_core : tt_device->get_soc_descriptor().get_cores(
+                     CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
                 EthTrainingStatus status = tt_device->read_eth_core_training_status(eth_core);
                 bool should_retrain = (status == EthTrainingStatus::FAIL) ||
                                       (RETRAIN_UNCONNECTED && status == EthTrainingStatus::NOT_CONNECTED);

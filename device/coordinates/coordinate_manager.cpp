@@ -443,7 +443,7 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType 
         case CoreType::L2CPU:
             return l2cpu_cores;
         default:
-            UMD_THROW(error::RuntimeError, "Core type is not supported for getting noc0 pairs");
+            UMD_THROW(error::RuntimeError, "Core type is not supported for getting NOC0 pairs.");
     }
 }
 

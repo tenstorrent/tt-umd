@@ -204,13 +204,6 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
-    const auto* arch_impl = get_architecture_impl();
-    if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
-        (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
-        UMD_THROW(
-            error::RuntimeError, "TLBs of 1MB and 2MB are not supported in simulation for Wormhole architecture.");
-    }
-
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");

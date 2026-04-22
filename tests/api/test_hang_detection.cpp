@@ -22,6 +22,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -89,7 +90,7 @@ private:
             case tt::ARCH::BLACKHOLE:
                 return BH_NOC_HANG_ADDR;
             default:
-                TT_THROW("Invalid architecture: {}.", arch);
+                UMD_THROW(error::RuntimeError, fmt::format("Invalid architecture: {}.", arch));
         }
     }
 };
@@ -115,7 +116,7 @@ protected:
                 (noc == NocId::NOC0) ? blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR : blackhole::NIU_CFG_NOC1_BAR_PCIE_ADDR;
             return niu_base + blackhole::NOC_NODE_ID_OFFSET;
         }
-        TT_THROW("Unsupported architecture.");
+        UMD_THROW(error::RuntimeError, "Unsupported architecture.");
     }
 };
 

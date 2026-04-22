@@ -89,7 +89,7 @@ TTSimTTDevice::TTSimTTDevice(
 
 TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
@@ -98,14 +98,16 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
-    communicator_->advance_clock(10);
+    // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
+    // in the absence of an API reliably called from all spin loops polling the device
+    communicator_->advance_clock(1);
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
@@ -206,7 +208,7 @@ void TTSimTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offs
     UMD_THROW(error::RuntimeError, "ARC CSM access is not supported in TTSim simulation device.");
 }
 
-bool TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     UMD_THROW(error::RuntimeError, "Waiting for ARC core start is not supported in TTSim simulation device.");
 }
 

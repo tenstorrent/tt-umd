@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -27,6 +26,8 @@
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -55,6 +56,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
         TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
         get_architecture_implementation()));
@@ -140,6 +142,11 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
+    if (is_remote_tt_device) {
+        read_from_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        return;
+    }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->read(
             communication_device_id_,
@@ -157,6 +164,11 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
 void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
+    }
+    if (is_remote_tt_device) {
+        write_to_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->write(
@@ -176,6 +188,11 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
+    if (is_remote_tt_device) {
+        read_from_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        return;
+    }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->read(
             communication_device_id_,
@@ -192,7 +209,12 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
+    }
+    if (is_remote_tt_device) {
+        write_to_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->write(
@@ -212,13 +234,8 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto duration = std::chrono::milliseconds(0);
 
-    tt_xy_pair actual_eth_core = eth_core;
-    if (is_selected_noc1()) {
-        actual_eth_core = tt_xy_pair(wormhole::NOC0_X_TO_NOC1_X[eth_core.x], wormhole::NOC0_Y_TO_NOC1_Y[eth_core.y]);
-    }
-
     auto start = std::chrono::steady_clock::now();
-    while (read_eth_core_training_status(actual_eth_core) == EthTrainingStatus::IN_PROGRESS) {
+    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
@@ -228,16 +245,16 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     fmt::format(
                         "ETH training timed out after {} ms, on eth core {}, {}",
                         timeout_ms.count(),
-                        actual_eth_core.x,
-                        actual_eth_core.y));
+                        eth_core.x,
+                        eth_core.y));
             } else {
                 // We don't want to throw on 6u systems, but log a warning so it is visible.
                 log_warning(
                     LogUMD,
                     "ETH training timed out after {} ms, on eth core {}, {}. Continuing for UBB board.",
                     timeout_ms.count(),
-                    actual_eth_core.x,
-                    actual_eth_core.y);
+                    eth_core.x,
+                    eth_core.y);
                 break;
             }
         }
@@ -277,7 +294,7 @@ void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
     write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
 }
 
-bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) noexcept {
+void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -326,22 +343,25 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
         switch (bar_read_arc_reset_scratch_status) {
             case STATUS_NO_ACCESS:
-                log_error(LogUMD, "NoAccess error");
-                return false;
             case STATUS_WATCHDOG_TRIGGERED:
-                log_error(LogUMD, "WatchdogTriggered error");
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code);
 
             case STATUS_INIT_DONE_1:
             case STATUS_INIT_DONE_2:
-                return true;
+                return;
 
             case STATUS_OLD_POST_CODE: {
                 bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
                                (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
                                 bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
                 if (pc_idle) {
-                    return true;
+                    return;
                 }
                 break;
             }
@@ -367,8 +387,8 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         } else if (is_handling) {
             message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
         } else if (is_complete && !dma_request) {
-            // We only return true if the message says complete and DMA is idle.
-            return true;
+            // We only return if the message says complete and DMA is idle.
+            return;
         }
 
         auto elapsed = std::chrono::steady_clock::now() - start;
@@ -378,23 +398,29 @@ bool WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
         if (elapsed < spin_limit) {
             // Optional: For 0ms timeouts, check manually here without strings.
             if (elapsed > timeout_ms) {
-                return false;
+                UMD_THROW(
+                    error::ArcStartupError,
+                    *this,
+                    get_selected_noc_id(),
+                    arc_core,
+                    bar_read_arc_reset_scratch_status,
+                    bar_read_arc_post_code,
+                    timeout_ms,
+                    message_id);
             }
             continue;
         }
 
-        if (utils::check_timeout(
-                start,
+        if (utils::check_timeout(start, timeout_ms)) {
+            UMD_THROW(
+                error::ArcStartupError,
+                *this,
+                get_selected_noc_id(),
+                arc_core,
+                bar_read_arc_reset_scratch_status,
+                bar_read_arc_post_code,
                 timeout_ms,
-                fmt::format(
-                    "ARC core {} startup timed out after: {}. Status: 0x{:x}, PostCode: 0x{:x}, MessageId 0x{:x}",
-                    arc_core.str(),
-                    timeout_ms.count(),
-                    bar_read_arc_reset_scratch_status,
-                    bar_read_arc_post_code,
-                    message_id),
-                utils::TimeoutAction::Return)) {
-            return false;
+                message_id);
         }
 
         // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -

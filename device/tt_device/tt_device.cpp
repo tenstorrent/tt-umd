@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -29,10 +31,12 @@
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
@@ -96,32 +100,21 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    if (pcie_capabilities_ != nullptr) {
+        is_pcie_hung();
+    }
+    bool noc_hang_check_result =
+        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+    if (noc_hang_check_result) {
+        UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
+    }
     probe_arc();
-    if (!wait_arc_core_start(timeout_ms)) {
-        if (throw_on_arc_failure) {
-            UMD_THROW(error::RuntimeError, fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
-        } else {
-            return TTDeviceInitResult::ARC_STARTUP_FAILED;
-        }
-    }
-    try {
-        arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
-    }
-    try {
-        telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
-    }
-    try {
-        firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
-    }
-    return TTDeviceInitResult::SUCCESSFUL;
+    wait_arc_core_start(timeout_ms);
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -156,7 +149,7 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             return nullptr;
@@ -168,11 +161,31 @@ std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> 
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
+// The nullptr check for capabilities in the APIs get_pci_device, get_jtag_device and get_remote_communication
+// exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
+// Throwing an exception would break existing behavior and require significant changes across client code.
+// This approach is intended as a temporary measure until the API is updated to use tl::expected or std::optional,
+// providing callers with an explicit way to check validity rather than relying on nullptr semantics.
+PCIDevice *TTDevice::get_pci_device() {
+    if (!pcie_capabilities_) {
+        return nullptr;
+    }
+    return get_pcie_interface()->get_pci_device();
+}
 
-JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
+JtagDevice *TTDevice::get_jtag_device() {
+    if (!jtag_capabilities_) {
+        return nullptr;
+    }
+    return get_jtag_interface()->get_jtag_device();
+}
 
-RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
+RemoteCommunication *TTDevice::get_remote_communication() {
+    if (!remote_capabilities_) {
+        return nullptr;
+    }
+    return get_remote_interface()->get_remote_communication();
+}
 
 void TTDevice::set_power_state(bool busy) {
     if (is_remote_tt_device || !pcie_capabilities_) {
@@ -217,7 +230,7 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     }
     if (result.value()) {
         if (action == TTDevice::HangAction::THROW) {
-            UMD_THROW(error::RuntimeError, "Read 0xffffffff from PCIe: you should reset the board.");
+            UMD_THROW(error::PcieHangError, *this, data_read);
         }
         return true;
     }
@@ -249,11 +262,11 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
     get_pcie_interface()->write_regs(dest, src, word_len);
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 
@@ -325,7 +338,12 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firm
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
-void TTDevice::wait_for_non_mmio_flush() {}
+void TTDevice::wait_for_non_mmio_flush() {
+    if (!remote_capabilities_) {
+        return;
+    }
+    get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
+}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
@@ -408,10 +426,23 @@ void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_risc
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (is_remote_tt_device) {
+        // Remote devices don't have direct NOC multicast support.
+        // Fallback to unicast for all cores in the range.
+        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
+            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
+                write_to_device(src, tt_xy_pair(x, y), addr, size);
+            }
+        }
+        return;
+    }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -427,6 +458,9 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -442,6 +476,9 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 

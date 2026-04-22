@@ -37,13 +37,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     ZoneScopedC(tracy::Color::DarkGreen);
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
-    TTDeviceInitResult init_result = tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Failed to initialize TTDevice for device {}: {}", physical_device_id, static_cast<int>(init_result)));
-    }
+    tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -63,13 +57,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
     auto tt_device = TTDevice::create(physical_device_id, device_type);
-    TTDeviceInitResult init_result = tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Failed to initialize TTDevice for device {}: {}", physical_device_id, static_cast<int>(init_result)));
-    }
+    tt_device->init_tt_device();
 
     return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
 }
@@ -275,7 +263,7 @@ void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_s
     sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     log_trace(
         LogUMD,
         "Chip::write_to_device to {} dev {} core {} at 0x{:x} size: {}",
@@ -301,7 +289,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     }
 }
 
-void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     log_trace(
         LogUMD,
         "Chip::read_from_device from {} device {} core {} at 0x{:x} size: {}",
@@ -376,7 +364,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     }
 
     if (reg_src % sizeof(uint32_t) != 0) {
-        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned");
+        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
     }
 
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);

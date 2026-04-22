@@ -23,8 +23,8 @@ class DeviceProtocol {
 public:
     virtual ~DeviceProtocol() = default;
 
-    virtual void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) = 0;
-    virtual void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) = 0;
+    virtual void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) = 0;
+    virtual void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) = 0;
 
     // [[nodiscard]] tells the compiler that the return value should not be ignored.
     // This ensures the caller handles the software fallback
@@ -32,6 +32,9 @@ public:
     // @return true if the hardware multicast was performed, false if the caller must do a software unicast fallback.
     [[nodiscard]] virtual bool write_to_core_range(
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) = 0;
+
+    // Returns the MMIO device ID, used to uniquely identify both the device and its associated protocol instance.
+    virtual int get_mmio_id() = 0;
 };
 
 }  // namespace tt::umd

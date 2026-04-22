@@ -49,7 +49,7 @@ tt_xy_pair format_node(const std::string &str) {
     }
 
     if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
-        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate: {}", str));
     }
 
     try {
@@ -58,7 +58,7 @@ tt_xy_pair format_node(const std::string &str) {
         int y_coord = std::atoi(str_cstr + sep_pos + 1);
         return tt_xy_pair(x_coord, y_coord);
     } catch (...) {
-        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate:  {}", str));
     }
 }
 
@@ -176,19 +176,19 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
     // Either have two separate enums or completely remove the check here.
     // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
     // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-    //     throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
+    //     UMD_THROW(error::RuntimeError, "P100 card should always have PCIe core (2, 0) harvested.");
     // }
 
     if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        throw std::runtime_error("P150 card should always have PCIE core (11, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P150 card should always have PCIe core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 0 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        throw std::runtime_error("P300 card left chip should always have PCIE core (11, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P300 card left chip should always have PCIe core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 1 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-        throw std::runtime_error("P300 card right chip should always have PCIE core (2, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P300 card right chip should always have PCIe core (2, 0) harvested.");
     }
 
     pcie_grid_size = SocDescriptor::calculate_grid_size(pcie_cores);
@@ -428,7 +428,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
             break;
         }
         default:
-            throw std::runtime_error("Invalid architecture for creating SocDescriptorInfo.");
+            UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocDescriptorInfo.");
     }
 }
 
@@ -527,8 +527,9 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        throw std::runtime_error(
-            fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Error: SoC descriptor file does not exist at path: {}", device_descriptor_path));
     }
     fdesc.close();
 
@@ -773,7 +774,7 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
     const CoreType core_type, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LOGICAL) {
-        throw std::runtime_error("Harvested cores are not supported for logical coordinates");
+        UMD_THROW(error::RuntimeError, "Harvested cores are not supported for logical coordinates.");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
     if (coord_system != CoordSystem::NOC0) {

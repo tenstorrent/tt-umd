@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 
+#include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -78,12 +79,6 @@ public:
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
-
-    // Temporary queries used by RemoteWormholeTTDevice to probe the local device's interfaces.
-    // These will be removed once RemoteWormholeTTDevice is replaced by RemoteProtocol.
-    bool has_pcie_interface() const { return pcie_capabilities_ != nullptr; }
-
-    bool has_jtag_interface() const { return jtag_capabilities_ != nullptr; }
 
     tt::ARCH get_arch();
 
@@ -168,8 +163,8 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -446,12 +441,6 @@ protected:
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
-
-    // Temporary setters used by RemoteWormholeTTDevice to borrow the local device's interfaces.
-    // Remove once RemoteWormholeTTDevice is replaced by RemoteProtocol.
-    void set_pcie_interface(PcieInterface *pcie_interface) { pcie_capabilities_ = pcie_interface; }
-
-    void set_jtag_interface(JtagInterface *jtag_interface) { jtag_capabilities_ = jtag_interface; }
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
 

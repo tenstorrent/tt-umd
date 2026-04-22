@@ -19,6 +19,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -425,6 +426,11 @@ public:
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
+    const SocDescriptor &get_soc_descriptor() const;
+    // Assigns default SocDescriptor.
+    void construct_soc_descriptor();
+    void construct_soc_descriptor(const std::string &soc_descriptor_path);
+
 protected:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
@@ -434,6 +440,7 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);

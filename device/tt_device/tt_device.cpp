@@ -115,6 +115,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    construct_soc_descriptor();
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -505,4 +506,11 @@ void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
 }
 
+const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
+
+void TTDevice::construct_soc_descriptor() { soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info()); }
+
+void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
+    soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
+}
 }  // namespace tt::umd

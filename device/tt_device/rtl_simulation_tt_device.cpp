@@ -144,6 +144,12 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL) {
+            communicator_->all_tensix_reset_assert(core.x, core.y);
+            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_neo_dms_uncore_reset_assert();
+            return;
+        }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
             communicator_->all_neo_dms_reset_assert(core.x, core.y);
             return;
@@ -179,6 +185,12 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
+        if (selected_riscs == RiscType::ALL) {
+            communicator_->all_neo_dms_uncore_reset_deassert();
+            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            communicator_->all_tensix_reset_deassert(core.x, core.y);
+            return;
+        }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
             communicator_->all_neo_dms_reset_deassert(core.x, core.y);
             return;

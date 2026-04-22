@@ -44,7 +44,7 @@ TTSimTTDevice::TTSimTTDevice(
     simulator_directory_(simulator_directory),
     chip_id_(chip_id),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
-    soc_descriptor_ = soc_descriptor;
+    set_soc_descriptor(soc_descriptor);
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     communicator_->initialize();
     initialize_sysmem_functions();

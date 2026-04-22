@@ -341,7 +341,9 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    void init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
+        const std::string &soc_descriptor_path = "");
 
     uint64_t get_refclk_counter();
 
@@ -426,7 +428,7 @@ public:
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
-    const virtual SocDescriptor &get_soc_descriptor() const;
+    const SocDescriptor &get_soc_descriptor() const;
 
 protected:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
@@ -437,7 +439,6 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
@@ -453,12 +454,13 @@ protected:
     tt_xy_pair arc_core;
 
     // Assigns default SocDescriptor.
-    void construct_soc_descriptor();
-    void construct_soc_descriptor(const std::string &soc_descriptor_path);
+    void construct_soc_descriptor(const std::string &soc_descriptor_path = "");
+    void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
     void probe_arc();
 
+    std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;

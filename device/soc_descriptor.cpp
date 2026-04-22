@@ -735,7 +735,7 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
             core_type == CoreType::L2CPU || core_type == CoreType::DISPATCH) {
-            // Ethernet and Router cores aren't arranged in a grid, initializing as empty.
+            // Ethernet, Router, Security, L2CPU, and Dispatch cores aren't arranged in a grid, initializing as empty.
             grid_size_map.insert({core_type, empty});
             harvested_grid_size_map.insert({core_type, empty});
             continue;

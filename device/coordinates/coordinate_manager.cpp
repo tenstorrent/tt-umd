@@ -130,6 +130,11 @@ void CoordinateManager::identity_map_noc0_cores() {
         const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::L2CPU, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
+
+    for (auto& core : dispatch_cores) {
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::DISPATCH, CoordSystem::NOC0);
+        add_core_translation(core_coord, core);
+    }
 }
 
 CoreCoord CoordinateManager::translate_coord_to(
@@ -317,6 +322,8 @@ void CoordinateManager::translate_l2cpu_coords() {
 }
 
 void CoordinateManager::translate_dispatch_coords() {
+    // Just do identity mapping for translated DISPATCH coordinates.
+    // No logical coordinates available for DISPATCH cores.
     for (tt_xy_pair dispatch_core : dispatch_cores) {
         CoreCoord translated_coord = CoreCoord(dispatch_core, CoreType::DISPATCH, CoordSystem::TRANSLATED);
 
@@ -780,6 +787,7 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
     map_noc0_to_noc1_cores(router_cores, CoreType::ROUTER_ONLY);
     map_noc0_to_noc1_cores(security_cores, CoreType::SECURITY);
     map_noc0_to_noc1_cores(l2cpu_cores, CoreType::L2CPU);
+    map_noc0_to_noc1_cores(dispatch_cores, CoreType::DISPATCH);
 }
 
 }  // namespace tt::umd

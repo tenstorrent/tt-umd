@@ -67,6 +67,9 @@ static void test_read_write_all_tensix_cores_impl(
             cluster->write_to_device(vector_to_write.data(), data_size, 0, core, address);
             cluster->l1_membar(0, {core});
             test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, data_size);
+            // NOTE: A bug in Blackhole. On L1 address range 0x10-0x13 any uint32_t value written reads back as 0 on the
+            // first iteration of this loop, mostly on Tensixes in translated column 11. This is fixed by skipping this
+            // address with reserved_size.
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";
             readback_vec.clear();

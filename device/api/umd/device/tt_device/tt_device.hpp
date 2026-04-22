@@ -426,10 +426,7 @@ public:
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
-    const SocDescriptor &get_soc_descriptor() const;
-    // Assigns default SocDescriptor.
-    void construct_soc_descriptor();
-    void construct_soc_descriptor(const std::string &soc_descriptor_path);
+    const virtual SocDescriptor &get_soc_descriptor() const;
 
 protected:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
@@ -454,6 +451,10 @@ protected:
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
+
+    // Assigns default SocDescriptor.
+    void construct_soc_descriptor();
+    void construct_soc_descriptor(const std::string &soc_descriptor_path);
 
 private:
     void probe_arc();

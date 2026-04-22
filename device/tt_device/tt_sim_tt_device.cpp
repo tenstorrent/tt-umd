@@ -36,16 +36,16 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
 
 TTSimTTDevice::TTSimTTDevice(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
     communicator_(std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary)),
     simulator_directory_(simulator_directory),
-    soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
-    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    soc_descriptor_ = soc_descriptor;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -132,7 +132,7 @@ void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const Ten
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const tt_xy_pair core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+    for (const tt_xy_pair core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         send_tensix_risc_reset(core, soft_resets);
     }
 }

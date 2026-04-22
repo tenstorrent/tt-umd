@@ -94,7 +94,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 
-void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     if (cached_tlb_window_) {
@@ -104,7 +104,7 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     }
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
@@ -258,7 +258,7 @@ void RtlSimulationTTDevice::dma_multicast_write(
 }
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
+    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
 
 TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }

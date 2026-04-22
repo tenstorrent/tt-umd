@@ -74,6 +74,8 @@ inline std::vector<std::string> GetAllSocDescs() {
              "wormhole_b0_8x10.yaml",
              "wormhole_b0_one_dram_one_tensix_no_eth.yaml",
              "quasar_32_arch.yaml",
+             "quasar_simulation_1x3.yaml",
+             "quasar_simulation_2x3.yaml",
          }) {
         soc_desc_names.push_back(GetSocDescAbsPath(soc_desc_name));
     }

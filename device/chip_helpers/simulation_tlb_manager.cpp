@@ -193,7 +193,8 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
             return bar0_base_ + (static_cast<uint64_t>(tlb_index) * tlb_2mb_size_);
         } else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
             // 4GB TLBs are in BAR4, not BAR0 for Blackhole
-            throw std::runtime_error("4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
+            UMD_THROW(
+                error::RuntimeError, "4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
         }
     }
 
@@ -203,15 +204,9 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
-    const auto* arch_impl = get_architecture_impl();
-    if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
-        (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
-        throw std::runtime_error("TLBs of 1MB and 2MB are not supported in simulation for Wormhole architecture.");
-    }
-
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
-        throw std::runtime_error("No available TLB of requested size");
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
 
     size_t actual_tlb_size = get_tlb_size_from_index(tlb_index);

@@ -14,6 +14,9 @@
 #include <vector>
 
 #include "assert.hpp"
+#include "umd/device/utils/error.hpp"
+
+using namespace tt::umd;
 
 /*static*/ DlHandle Jtag::handle;
 
@@ -52,7 +55,7 @@ void* Jtag::load_function(const char* name) {
         const char* dlsym_error = dlerror();
         if (dlsym_error) {
             std::cerr << "Cannot load symbol: " << dlsym_error << '\n';
-            throw std::runtime_error("Failed to load function");
+            UMD_THROW(error::RuntimeError, fmt::format("Failed to load function {}. dlerror: {}", name, dlsym_error));
         }
         func_map[name] = funcPtr;
     }

@@ -171,7 +171,7 @@ private:
     // Mock ASIC ID assigned to unhealthy devices whose ASIC ID can't be determined.
     static constexpr uint64_t UNHEALTHY_ASIC_ID_PREFIX = 0xDEADDEAD;
 
-    static uint64_t get_unhealthy_asic_id(ChipId chip_id) { return chip_id | (UNHEALTHY_ASIC_ID_PREFIX << 32); }
+    static uint64_t generate_unhealthy_asic_id(ChipId chip_id) { return chip_id | (UNHEALTHY_ASIC_ID_PREFIX << 32); }
 
     static bool is_marked_unhealthy(uint64_t asic_id) { return (asic_id >> 32) == (UNHEALTHY_ASIC_ID_PREFIX); }
 };

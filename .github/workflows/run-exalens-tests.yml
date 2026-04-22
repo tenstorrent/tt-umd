@@ -95,6 +95,7 @@ jobs:
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
         run: |
+          python3 tt-exalens.py & # HACK
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
       - name: Run Python tests for tt-exalens app (NOC1)

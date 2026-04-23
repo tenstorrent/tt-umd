@@ -67,9 +67,6 @@ static void test_read_write_all_tensix_cores_impl(
             cluster->write_to_device(vector_to_write.data(), data_size, 0, core, address);
             cluster->l1_membar(0, {core});
             test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, data_size);
-            // NOTE: A bug in Blackhole. On L1 address range 0x10-0x13 any uint32_t value written reads back as 0 on the
-            // first iteration of this loop, mostly on Tensixes in translated column 11. This is fixed by skipping this
-            // address with reserved_size.
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";
             readback_vec.clear();
@@ -98,6 +95,8 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
 
 // Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
 void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
+    // NOTE: On Blackhole CMFW >19.3, TENSIX cores reserve address 0x10 for ARC writing throttle state
+    // that is consumed by kernels. We need to skip ahead of this address to prevent failing these checks.
     test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
 

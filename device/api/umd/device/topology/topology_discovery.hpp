@@ -123,7 +123,6 @@ protected:
 
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices_to_discover;
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices;
-    SocDescriptor get_soc_descriptor(TTDevice* tt_device);
     std::unordered_map<uint64_t, ChipId> asic_id_to_chip_id;
 
     std::unordered_map<uint64_t, EthCoord> eth_coords;
@@ -160,9 +159,6 @@ protected:
     std::optional<FirmwareBundleVersion> first_fw_bundle_version;
 
 private:
-    // Hack used to cache SocDescriptors.
-    std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
-
     // Next available ChipId.
     ChipId next_chip_id = 0;
 

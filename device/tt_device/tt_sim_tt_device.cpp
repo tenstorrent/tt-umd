@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
@@ -13,6 +15,7 @@
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -36,16 +39,16 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
 
 TTSimTTDevice::TTSimTTDevice(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
     communicator_(std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary)),
     simulator_directory_(simulator_directory),
-    soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
-    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    set_soc_descriptor(soc_descriptor);
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -127,12 +130,12 @@ void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const Ten
         }
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
     } else {
-        TT_THROW("Missing implementation of reset for this chip.");
+        UMD_THROW(error::RuntimeError, "Missing implementation of reset for this chip.");
     }
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const tt_xy_pair core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+    for (const tt_xy_pair core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         send_tensix_risc_reset(core, soft_resets);
     }
 }

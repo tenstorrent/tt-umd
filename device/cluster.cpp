@@ -76,6 +76,7 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
@@ -112,7 +113,7 @@ void Cluster::log_device_summary() {
             // Currently no specific device logging needed for JTAG.
             break;
         default:
-            TT_THROW("Unknown device type for logging.");
+            UMD_THROW(error::RuntimeError, "Unknown device type for logging.");
             break;
     }
 }

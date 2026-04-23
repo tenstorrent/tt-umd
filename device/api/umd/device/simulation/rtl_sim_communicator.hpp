@@ -14,7 +14,6 @@
 #include <thread>
 
 #include "umd/device/simulation/simulation_host.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

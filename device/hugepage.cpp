@@ -20,6 +20,7 @@
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -38,7 +39,9 @@ uint32_t get_num_hugepages() {
         num_hugepages = std::stoi(value);
         log_debug(LogUMD, "Parsed num_hugepages: {} from {}", num_hugepages, nr_hugepages_path);
     } else {
-        TT_THROW(fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("{} - Cannot open {}. errno: {}", __FUNCTION__, nr_hugepages_path, std::strerror(errno)));
     }
 
     return num_hugepages;
@@ -133,7 +136,9 @@ std::string find_hugepage_dir(std::size_t pagesize) {
                         break;
                     default:
                         // Should never reach here as regex only matches [KMGT].
-                        TT_THROW("Unexpected page size suffix: {}", pagesize_match[2].str());
+                        UMD_THROW(
+                            error::RuntimeError,
+                            fmt::format("Unexpected page size suffix: {}", pagesize_match[2].str()));
                 }
 
                 if (mount_page_size == pagesize) {

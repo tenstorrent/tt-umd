@@ -33,15 +33,7 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
 
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
-    // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_device, {0, 0, 0, 0});
-    remote_communication->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor(gateway_device)
-            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
-    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
-    return remote_tt_device;
+    return nullptr;
 }
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
@@ -165,7 +157,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
         CoreCoord logical_coord =
-            get_soc_descriptor(remote_device_ptr).translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
+            remote_device_ptr->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
 
         ethernet_connections_fixed.insert({{local_device, local_channel}, {remote_device, logical_coord.y}});
     }

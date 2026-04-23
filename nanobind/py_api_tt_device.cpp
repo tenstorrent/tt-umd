@@ -143,7 +143,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("use_safe_api") = true,
             nb::rv_policy::take_ownership)
         .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"))
-        .def("init_tt_device", &TTDevice::init_tt_device, nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT)
+        .def(
+            "init_tt_device",
+            &TTDevice::init_tt_device,
+            nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
+            nb::arg("soc_descriptor_path") = "")
+        .def("get_soc_descriptor", &TTDevice::get_soc_descriptor)
         .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)

@@ -95,6 +95,8 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
 
 // Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
 void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
+    // NOTE: On Blackhole CMFW >19.3, TENSIX cores reserve address 0x10 for ARC writing throttle state
+    // that is consumed by kernels. We need to skip ahead of this address to prevent failing these checks.
     test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
 
@@ -107,7 +109,7 @@ TEST(Multiprocess, MultipleClusters) {
     }
     for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Running IO for cluster " << i << std::endl;
-        test_read_write_all_tensix_cores(clusters[i].get(), i);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
         std::cout << "Finished IO for cluster " << i << std::endl;
     }
 }
@@ -120,7 +122,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Running IO for thread " << i << " inside cluster." << std::endl;
-            test_read_write_all_tensix_cores(cluster.get(), i);
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
             std::cout << "Finished read/write test for cluster " << i << std::endl;
         }));
     }
@@ -154,7 +156,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
             std::cout << "Creating cluster " << i << std::endl;
             std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
             std::cout << "Running IO for cluster " << i << std::endl;
-            test_read_write_all_tensix_cores(cluster.get(), i);
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
             std::cout << "Finished IO for cluster " << i << std::endl;
         }));
     }
@@ -192,7 +194,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
         std::cout << "Creating workload cluster" << std::endl;
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
         std::cout << "Running IO for workload cluster" << std::endl;
-        test_read_write_all_tensix_cores(cluster.get(), 0);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), 0);
         std::cout << "Finished IO for workload cluster" << std::endl;
     });
 
@@ -260,7 +262,7 @@ TEST(Multiprocess, LongLivedMonitor) {
         std::cout << "Creating cluster " << i << std::endl;
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
         std::cout << "Running IO for cluster " << i << std::endl;
-        test_read_write_all_tensix_cores(cluster.get(), i);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
         std::cout << "Finished IO for cluster " << i << std::endl;
     }
 

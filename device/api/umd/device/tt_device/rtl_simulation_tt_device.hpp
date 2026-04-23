@@ -23,7 +23,7 @@ class RtlSimulationTTDevice : public TTDevice {
 public:
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels = 0);
     ~RtlSimulationTTDevice();
@@ -33,8 +33,6 @@ public:
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-
-    SocDescriptor* get_soc_descriptor() { return &soc_descriptor_; }
 
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
@@ -73,7 +71,6 @@ private:
     std::recursive_mutex device_lock;
 
     std::filesystem::path simulator_directory_;
-    SocDescriptor soc_descriptor_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::unique_ptr<SimulationTlbManager> tlb_manager_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;

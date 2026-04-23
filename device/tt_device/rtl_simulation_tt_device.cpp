@@ -40,16 +40,16 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
-    soc_descriptor_(std::move(soc_descriptor)),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
-    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
-    arch = soc_descriptor_.arch;
+    set_soc_descriptor(soc_descriptor);
+    architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
+    arch = get_soc_descriptor().arch;
 
     // Register sysmem callbacks so the simulator can read/write host memory.
     if (num_host_mem_channels > 0) {
@@ -140,7 +140,7 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
-    if (soc_descriptor_.arch == tt::ARCH::QUASAR) {
+    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
             // Reset all DM cores.
             communicator_->all_neo_dms_reset_assert(core.x, core.y);
@@ -154,7 +154,7 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         }
     }
 
-    if (soc_descriptor_.arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
@@ -168,7 +168,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
-    if (soc_descriptor_.arch == tt::ARCH::QUASAR) {
+    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
             // Reset all DM cores.
             communicator_->all_neo_dms_reset_deassert(core.x, core.y);
@@ -182,7 +182,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
         }
     }
 
-    if (soc_descriptor_.arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         communicator_->all_tensix_reset_deassert(core.x, core.y);
     }

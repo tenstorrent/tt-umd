@@ -4,6 +4,8 @@
 
 #include "umd/device/simulation/simulation_chip.hpp"
 
+#include <fmt/format.h>
+
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
@@ -11,7 +13,7 @@
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "utils.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -38,7 +40,7 @@ SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
     Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator binary not found at: {}", simulator_directory_);
+        UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
 }
 
@@ -72,7 +74,7 @@ void SimulationChip::noc_multicast_write(
     void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
     // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
     // Until then, do individual writes to each core in the range.
@@ -119,7 +121,7 @@ int SimulationChip::arc_msg(
 int SimulationChip::get_num_host_channels() {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
-        log_warning(LogUMD, "sysmem_manager was not initialized for simulation device");
+        log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");
         return 0;
     }
     return mgr->get_num_host_mem_channels();
@@ -128,7 +130,7 @@ int SimulationChip::get_num_host_channels() {
 int SimulationChip::get_host_channel_size(std::uint32_t channel) {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
-        log_warning(LogUMD, "sysmem_manager was not initialized for simulation device");
+        log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");
         return 0;
     }
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
@@ -140,7 +142,7 @@ int SimulationChip::get_host_channel_size(std::uint32_t channel) {
 void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
-        TT_THROW("sysmem_manager was not initialized for simulation device");
+        UMD_THROW(error::RuntimeError, "SysmemManager was not initialized for simulation device.");
     }
     mgr->write_to_sysmem(channel, src, sysmem_dest, size);
 }
@@ -148,23 +150,23 @@ void SimulationChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t
 void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     SysmemManager* mgr = get_sysmem_manager();
     if (!mgr) {
-        TT_THROW("sysmem_manager was not initialized for simulation device");
+        UMD_THROW(error::RuntimeError, "SysmemManager was not initialized for simulation device.");
     }
     mgr->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 int SimulationChip::get_numa_node() {
-    UMD_THROW(error::RuntimeError, "SimulationChip::get_numa_node is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "SimulationChip::get_numa_node() is not available for this chip.");
 }
 
 TTDevice* SimulationChip::get_tt_device() {
-    UMD_THROW(error::RuntimeError, "SimulationChip::get_tt_device is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "SimulationChip::get_tt_device() is not available for this chip.");
 }
 
 SysmemManager* SimulationChip::get_sysmem_manager() { return nullptr; }
 
 TLBManager* SimulationChip::get_tlb_manager() {
-    UMD_THROW(error::RuntimeError, "SimulationChip::get_tlb_manager is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "SimulationChip::get_tlb_manager() is not available for this chip.");
 }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}

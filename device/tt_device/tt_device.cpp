@@ -406,7 +406,7 @@ void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOpti
 }
 
 void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
-    TT_THROW("send_tensix_risc_reset without core is not supported at the TTDevice level");
+    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core is not supported at the TTDevice level.");
 }
 
 void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

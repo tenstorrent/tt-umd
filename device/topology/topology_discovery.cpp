@@ -55,7 +55,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
         }
         case IODeviceType::JTAG: {
             if (current_arch == tt::ARCH::BLACKHOLE) {
-                TT_THROW("Blackhole architecture is not yet supported over JTAG interface.");
+                UMD_THROW(error::RuntimeError, "Blackhole architecture is not yet supported over JTAG interface.");
             }
 
             auto jtag_device = JtagDevice::create();
@@ -66,7 +66,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             break;
         }
         default:
-            TT_THROW("Unsupported device type for topology discovery");
+            UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
     }
 
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
@@ -126,7 +126,7 @@ void TopologyDiscovery::get_connected_devices() {
             break;
         }
         default:
-            TT_THROW("Unsupported device type.");
+            UMD_THROW(error::RuntimeError, "Unsupported device type.");
     }
 
     for (auto& device_id : local_device_ids) {
@@ -235,7 +235,7 @@ void TopologyDiscovery::discover_remote_devices() {
                         translated_eth_core.str(),
                         get_eth_postcode(tt_device, translated_eth_core));
                     if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                        TT_THROW(msg);
+                        UMD_THROW(error::RuntimeError, msg);
                     } else {
                         log_warning(LogUMD, msg);
                         continue;
@@ -454,7 +454,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
                 first_fw_bundle_version->to_string(),
                 fw_bundle_version.to_string());
             if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW) {
-                TT_THROW(mismatch_msg);
+                UMD_THROW(error::RuntimeError, mismatch_msg);
             } else {
                 log_warning(LogUMD, mismatch_msg);
                 return;
@@ -484,7 +484,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
             minimum_compatible_fw_bundle_version.to_string(),
             arch_to_str(arch));
         if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW) {
-            TT_THROW(cmfw_unsupported_msg);
+            UMD_THROW(error::RuntimeError, cmfw_unsupported_msg);
         } else {
             return;
         }

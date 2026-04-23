@@ -4,6 +4,8 @@
 
 #include "umd/device/chip/chip.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -22,6 +24,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -254,7 +257,7 @@ void Chip::wait_for_aiclk_value(
 void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
         dst,

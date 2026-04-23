@@ -4,6 +4,8 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <stdexcept>
 #include <tuple>
@@ -11,6 +13,7 @@
 #include "assert.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/error.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"

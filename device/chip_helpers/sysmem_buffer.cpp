@@ -4,6 +4,8 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -12,10 +14,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 

@@ -4,6 +4,8 @@
 
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -21,6 +23,7 @@
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

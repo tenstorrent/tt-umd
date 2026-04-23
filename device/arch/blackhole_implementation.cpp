@@ -4,12 +4,13 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
-#include "assert.hpp"
 #include "blackhole/eth_interface.h"
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"

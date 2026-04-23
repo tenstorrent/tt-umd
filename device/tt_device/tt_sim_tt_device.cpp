@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
@@ -13,6 +15,7 @@
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 

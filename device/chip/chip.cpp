@@ -4,6 +4,8 @@
 
 #include "umd/device/chip/chip.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -22,6 +24,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {

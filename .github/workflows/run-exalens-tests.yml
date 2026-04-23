@@ -102,7 +102,9 @@ jobs:
           # oscillate between high power and low power mode, causing some
           # transient hangs on NOC1.
           python3 tt-exalens.py > /dev/null 2>&1 &
+          EXALENS_PID=$!
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+          kill $EXALENS_PID 2>/dev/null || true
 
       - name: Run Python tests for tt-exalens app (NOC1)
         env:

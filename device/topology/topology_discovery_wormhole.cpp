@@ -143,12 +143,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     remote_communication->set_remote_transfer_ethernet_cores(
         gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             gateway_eth_channels, CoordSystem::TRANSLATED));
-    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor_path);
-    if (options.wait_on_ethernet_link_training) {
-        wait_eth_cores_training(remote_tt_device.get());
-    }
-    return remote_tt_device;
+    return TTDevice::create(std::move(remote_communication));
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {

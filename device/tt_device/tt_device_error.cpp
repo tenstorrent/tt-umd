@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 
 using namespace tt::umd;
@@ -20,7 +21,9 @@ TTDeviceData::TTDeviceData(TTDevice& tt_device, std::optional<uint64_t> discover
     discovery_unique_id(discovery_unique_id) {}
 
 NocHangError::NocHangError(TTDevice& tt_device, NocId noc_id) :
-    UmdError<NocHangData>(fmt::format("{} is hung.", noc_to_str(noc_id)), {{tt_device}, noc_id}) {}
+    UmdError<NocHangData>(fmt::format("{} is hung", noc_to_str(noc_id)), {{tt_device}, noc_id}) {
+    message().append(fmt::format(" on {} device ID {}.", DeviceTypeToString.at(data().io_device_type), data().chip_id));
+}
 
 PcieHangError::PcieHangError(TTDevice& tt_device, uint32_t data_read) :
     UmdError<TTDeviceData>(

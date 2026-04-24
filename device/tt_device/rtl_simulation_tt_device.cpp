@@ -47,8 +47,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     ChipId chip_id,
     int num_host_mem_channels) :
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
-    simulator_directory_(simulator_directory),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    simulator_directory_(simulator_directory) {
+    auto sim_sysmem = std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch);
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
     architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
@@ -56,7 +56,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
     // Register sysmem callbacks so the simulator can read/write host memory.
     if (num_host_mem_channels > 0) {
-        SimulationSysmemManager* mgr = sysmem_manager_.get();
+        SimulationSysmemManager* mgr = sim_sysmem.get();
         size_t num_channels = mgr->get_num_host_mem_channels();
         communicator_->set_ram_callbacks(
             // Write callback: simulator writes data into host sysmem.
@@ -97,6 +97,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         });
     cached_tlb_window_ = sim_tlb->allocate_default_tlb_window();
     tlb_manager_ = std::move(sim_tlb);
+    sysmem_manager_ = std::move(sim_sysmem);
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }

@@ -59,8 +59,6 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
-
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
@@ -69,7 +67,6 @@ private:
     std::recursive_mutex device_lock;
 
     std::filesystem::path simulator_directory_;
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

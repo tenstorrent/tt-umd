@@ -66,8 +66,6 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
-
     uint64_t bar0_base = 0;
 
 protected:
@@ -84,7 +82,6 @@ private:
 
     std::filesystem::path simulator_directory_;
     ChipId chip_id_;
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 
     uint32_t libttsim_pci_device_id;
 

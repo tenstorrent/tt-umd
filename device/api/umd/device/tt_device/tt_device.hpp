@@ -406,7 +406,7 @@ public:
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
-    virtual SysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+    SysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
 
     // Returns nullptr for non-PCIe communication paths (JTAG, Remote).
     // Ownership is unified at this base: derived classes populate tlb_manager_

@@ -45,8 +45,8 @@ TTSimTTDevice::TTSimTTDevice(
     int num_host_mem_channels) :
     communicator_(std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary)),
     simulator_directory_(simulator_directory),
-    chip_id_(chip_id),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    chip_id_(chip_id) {
+    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch);
     set_soc_descriptor(soc_descriptor);
     // Populate the base-class arch field from the soc descriptor. TTSim does not go through
     // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream

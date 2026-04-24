@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <unordered_set>
@@ -52,6 +53,11 @@ protected:
     void discover_remote_devices();
 
     std::unique_ptr<ClusterDescriptor> fill_cluster_descriptor_info();
+
+    void process_discovered_device(
+        std::unique_ptr<TTDevice> tt_device,
+        std::optional<uint64_t> asic_id = std::nullopt,
+        std::optional<uint64_t> board_id = std::nullopt);
 
     virtual void wait_eth_cores_training(
         TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);

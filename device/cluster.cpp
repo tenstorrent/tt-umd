@@ -395,6 +395,16 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             UMD_THROW(error::RuntimeError, "Unsupported chip type.");
     }
 
+    if (!options.num_host_mem_ch_per_mmio_device.has_value()) {
+        auto grouped_chips = cluster_desc->get_chips_grouped_by_closest_mmio();
+        uint32_t max_chips_per_mmio = 0;
+        for (const auto& [mmio_device_id, chips] : grouped_chips) {
+            max_chips_per_mmio = std::max(max_chips_per_mmio, static_cast<uint32_t>(chips.size()));
+        }
+        options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
+        log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
+    }
+
     // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         SocDescriptor soc_desc =
@@ -416,12 +426,12 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 options.chip_type,
                 cluster_desc.get(),
                 soc_desc,
-                options.num_host_mem_ch_per_mmio_device,
+                options.num_host_mem_ch_per_mmio_device.value(),
                 options.simulator_directory,
                 std::move(tt_device)));
     }
 
-    construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
+    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

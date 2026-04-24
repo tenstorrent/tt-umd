@@ -62,8 +62,10 @@ struct ClusterOptions {
 
     /**
      * Number of host memory channels (hugepages) per MMIO device.
+     * If not provided, the value is determined automatically by determining the max
+     * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    uint32_t num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc

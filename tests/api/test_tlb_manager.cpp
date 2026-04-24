@@ -12,9 +12,9 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_io.hpp"
 
 using namespace tt::umd;
 
@@ -45,10 +45,8 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         // TODO: Maybe accept tlb_index only?
         uint64_t address_l1_to_write = 0;
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
-        // Writing to TLB over Writer class.
-        // TODO: This should be converted to AbstractIO writer.
-        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_translated_core);
-        writer.write(address_l1_to_write, buffer_to_write[0]);
+        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
+        window->write_register(address_l1_to_write, buffer_to_write.data(), buffer_to_write.size());
 
         tt_device->set_power_state(false);
     }

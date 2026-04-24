@@ -51,6 +51,7 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
+    ChipInfo get_chip_info() override;
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 

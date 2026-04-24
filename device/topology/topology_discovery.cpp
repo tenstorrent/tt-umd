@@ -187,7 +187,6 @@ void TopologyDiscovery::process_discovered_device(
 
     devices_to_discover.emplace(asic_id.value(), std::move(tt_device));
     asic_id_to_chip_id.emplace(asic_id.value(), chip_id);
-    remote_asic_id_to_mmio_device_id.emplace(asic_id.value(), device_id);
     active_eth_channels_per_device.emplace(asic_id.value(), std::set<uint32_t>());
 }
 
@@ -221,6 +220,7 @@ void TopologyDiscovery::discover_remote_devices() {
     std::set<uint64_t> discovered_devices = {};
     for (const auto& [current_device_asic_id, tt_device] : devices_to_discover) {
         discovered_devices.insert(current_device_asic_id);
+        remote_asic_id_to_gateway_device_asic_id.emplace(current_device_asic_id, current_device_asic_id);
     }
     if (!options.discover_remote_devices) {
         log_debug(LogUMD, "Discovering remote devices is disabled.");
@@ -339,6 +339,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 std::unique_ptr<TTDevice> remote_device = create_remote_device(
                     eth_coord, tt_device, active_eth_channels_per_device.at(current_device_asic_id));
                 process_discovered_device(std::move(remote_device), remote_asic_id, remote_board_id);
+                remote_asic_id_to_gateway_device_asic_id.emplace(remote_asic_id, current_device_asic_id);
                 discovered_devices.insert(remote_asic_id);
             } else {
                 log_debug(
@@ -372,7 +373,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
         if (eth_coords.empty()) {
             cluster_desc->closest_mmio_chip_cache[chip_id] =
-                asic_id_to_chip_id.at(remote_asic_id_to_mmio_device_id.at(current_device_asic_id));
+                asic_id_to_chip_id.at(remote_asic_id_to_gateway_device_asic_id.at(current_device_asic_id));
         }
     }
 

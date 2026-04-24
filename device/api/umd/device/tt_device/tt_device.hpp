@@ -404,7 +404,7 @@ public:
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
-    virtual TLBManager *get_tlb_manager() { return nullptr; }
+    virtual TLBManager *get_tlb_manager() { return tlb_manager_.get(); }
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
@@ -444,6 +444,7 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    std::unique_ptr<TLBManager> tlb_manager_;
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);

@@ -64,15 +64,13 @@ std::unique_ptr<LocalChip> LocalChip::create(
 
 std::unique_ptr<LocalChip> LocalChip::create(
     std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels) {
-    std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
     std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
     // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (tt_device->get_pci_device() != nullptr) {
-        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device->get_tlb_manager(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =
@@ -82,7 +80,6 @@ std::unique_ptr<LocalChip> LocalChip::create(
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
         std::move(tt_device),
-        std::move(tlb_manager),
         std::move(sysmem_manager),
         std::move(remote_communication),
         num_host_mem_channels));
@@ -91,18 +88,16 @@ std::unique_ptr<LocalChip> LocalChip::create(
 LocalChip::LocalChip(
     SocDescriptor soc_descriptor,
     std::unique_ptr<TTDevice> tt_device,
-    std::unique_ptr<TLBManager> tlb_manager,
     std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
     int num_host_mem_channels) :
     Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
-    tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
     wait_chip_to_be_ready();
-    if (tlb_manager_ != nullptr) {
+    if (tt_device_->get_tlb_manager() != nullptr) {
         initialize_default_chip_mutexes();
     }
 }
@@ -115,7 +110,6 @@ LocalChip::~LocalChip() {
     cached_uc_tlb_window.reset();
     remote_communication_.reset();
     sysmem_manager_.reset();
-    tlb_manager_.reset();
     tt_device_.reset();
 }
 
@@ -162,7 +156,7 @@ TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
+TLBManager* LocalChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
@@ -195,8 +189,8 @@ void LocalChip::close_device() {
         if (sysmem_manager_) {
             sysmem_manager_->unpin_or_unmap_sysmem();
         }
-        if (tlb_manager_) {
-            tlb_manager_->clear_mapped_tlbs();
+        if (tt_device_->get_tlb_manager()) {
+            tt_device_->get_tlb_manager()->clear_mapped_tlbs();
         }
     }
     chip_started_lock_.reset();
@@ -280,8 +274,9 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         return;
     }
 
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
+    TLBManager* tlb_manager = tt_device_->get_tlb_manager();
+    if (tlb_manager->is_tlb_mapped(translated_core, l1_dest, size)) {
+        TlbWindow* tlb_window = tlb_manager->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
@@ -305,8 +300,9 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tt_device_->read_from_device(dest, translated_core, l1_src, size);
         return;
     }
-    if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
+    TLBManager* tlb_manager = tt_device_->get_tlb_manager();
+    if (tlb_manager->is_tlb_mapped(translated_core, l1_src, size)) {
+        TlbWindow* tlb_window = tlb_manager->get_tlb_window(translated_core);
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);

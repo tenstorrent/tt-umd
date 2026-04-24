@@ -64,6 +64,7 @@ TTDevice::TTDevice(
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
+    tlb_manager_ = std::make_unique<TLBManager>(this);
 }
 
 TTDevice::TTDevice(

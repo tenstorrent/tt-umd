@@ -4,6 +4,8 @@
 
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -21,6 +23,7 @@
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -29,7 +32,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     if (telemetry == nullptr) {
-        TT_THROW("No telemetry reader present in tt_device.");
+        UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
     }
 
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
@@ -42,7 +45,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         case ARCH::BLACKHOLE:
             return std::make_unique<FirmwareInfoProvider>(tt_device);
         default:
-            TT_THROW("Unsupported architecture for firmware info provider.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
     }
 }
 
@@ -62,7 +65,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
             }
             return create_blackhole_18_8_base();
         default:
-            TT_THROW("Unsupported architecture for telemetry feature map.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for telemetry feature map.");
     }
 }
 
@@ -302,7 +305,7 @@ FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { retur
             return FirmwareBundleVersion(18, 5, 0);
         }
         default:
-            TT_THROW("Unsupported architecture for firmware info provider.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
     }
 }
 

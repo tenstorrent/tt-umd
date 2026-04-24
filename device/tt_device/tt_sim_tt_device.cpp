@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
@@ -13,6 +15,7 @@
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -36,16 +39,20 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
 
 TTSimTTDevice::TTSimTTDevice(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
     communicator_(std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary)),
     simulator_directory_(simulator_directory),
-    soc_descriptor_(std::move(soc_descriptor)),
     chip_id_(chip_id),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
-    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    set_soc_descriptor(soc_descriptor);
+    // Populate the base-class arch field from the soc descriptor. TTSim does not go through
+    // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream
+    // consumers (e.g. tt-exalens constructing a SocDescriptor from the device) see the wrong arch.
+    arch = soc_descriptor.arch;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -96,6 +103,13 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
+    // Advance the sim on host writes. Without this, sequences like "load BRISC ELF, deassert
+    // BRISC, write first command mailbox" all sit at the same simulated timestamp — BRISC never
+    // gets cycles to finish its CRT init before the command mailbox write, so BRISC's clear of
+    // brisc_command_buffer at startup clobbers the host's command and the handshake hangs. The
+    // floor guarantees that a tiny 4-byte deassert write still gives the newly-started core
+    // enough cycles to make meaningful progress before the next host operation lands.
+    communicator_->advance_clock(std::max<uint32_t>(1000, size));
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
@@ -127,12 +141,12 @@ void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const Ten
         }
         write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
     } else {
-        TT_THROW("Missing implementation of reset for this chip.");
+        UMD_THROW(error::RuntimeError, "Missing implementation of reset for this chip.");
     }
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const tt_xy_pair core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+    for (const tt_xy_pair core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         send_tensix_risc_reset(core, soft_resets);
     }
 }
@@ -230,7 +244,20 @@ uint32_t TTSimTTDevice::get_min_clock_freq() {
 }
 
 bool TTSimTTDevice::get_noc_translation_enabled() {
-    UMD_THROW(error::RuntimeError, "Getting NOC translation status is not supported in TTSim simulation device.");
+    // TTSim operates on logical/virtual coordinates end-to-end; NOC translation is never applied.
+    return false;
+}
+
+ChipInfo TTSimTTDevice::get_chip_info() {
+    // No firmware_info_provider on the simulator; mirror the defaults used inside
+    // TTSimTTDevice::create(). BH SocDescriptor construction rejects an empty eth_harvesting_mask
+    // ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so apply the same 0x120
+    // default here. Keep in sync with create() above.
+    ChipInfo chip_info{};
+    if (arch == tt::ARCH::BLACKHOLE) {
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    }
+    return chip_info;
 }
 
 void TTSimTTDevice::dma_multicast_write(

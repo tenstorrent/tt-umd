@@ -62,9 +62,9 @@ protected:
 
 // Write a pattern via the TLB path, read it back via tile_rd_bytes and compare.
 TEST_F(TTSimDeviceIOFixture, WriteToDeviceReadByTileRdBytes) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 1024;
     constexpr uint64_t addr = 0x100;
@@ -81,9 +81,9 @@ TEST_F(TTSimDeviceIOFixture, WriteToDeviceReadByTileRdBytes) {
 
 // Write zeros via TLB then a pattern via TLB; confirm tile_rd_bytes sees each state.
 TEST_F(TTSimDeviceIOFixture, WriteToDeviceZeroThenPatternReadByTileRdBytes) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 256;
     constexpr uint64_t addr = 0x200;
@@ -108,9 +108,9 @@ TEST_F(TTSimDeviceIOFixture, WriteToDeviceZeroThenPatternReadByTileRdBytes) {
 
 // Large write (4 KB) via TLB path, read back via tile_rd_bytes.
 TEST_F(TTSimDeviceIOFixture, LargeWriteToDeviceReadByTileRdBytes) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 4 * 1024;
     constexpr uint64_t addr = 0x0;
@@ -131,9 +131,9 @@ TEST_F(TTSimDeviceIOFixture, LargeWriteToDeviceReadByTileRdBytes) {
 
 // Write a pattern via tile_wr_bytes, read it back via read_from_device and compare.
 TEST_F(TTSimDeviceIOFixture, TileWrBytesReadByReadFromDevice) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 1024;
     constexpr uint64_t addr = 0x300;
@@ -150,9 +150,9 @@ TEST_F(TTSimDeviceIOFixture, TileWrBytesReadByReadFromDevice) {
 
 // Write zeros via tile_wr_bytes then a pattern; confirm read_from_device sees each state.
 TEST_F(TTSimDeviceIOFixture, TileWrBytesZeroThenPatternReadByReadFromDevice) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 256;
     constexpr uint64_t addr = 0x400;
@@ -177,9 +177,9 @@ TEST_F(TTSimDeviceIOFixture, TileWrBytesZeroThenPatternReadByReadFromDevice) {
 
 // Large write (4 KB) via tile_wr_bytes, read back via read_from_device.
 TEST_F(TTSimDeviceIOFixture, LargeTileWrBytesReadByReadFromDevice) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 4 * 1024;
     constexpr uint64_t addr = 0x0;
@@ -200,9 +200,9 @@ TEST_F(TTSimDeviceIOFixture, LargeTileWrBytesReadByReadFromDevice) {
 
 // Write via TLB; both read_from_device and tile_rd_bytes must return the same data.
 TEST_F(TTSimDeviceIOFixture, WriteToDeviceBothReadsConsistent) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 256;
     constexpr uint64_t addr = 0x500;
@@ -223,9 +223,9 @@ TEST_F(TTSimDeviceIOFixture, WriteToDeviceBothReadsConsistent) {
 
 // Write via tile_wr_bytes; both read_from_device and tile_rd_bytes must return the same data.
 TEST_F(TTSimDeviceIOFixture, TileWrBytesBothReadsConsistent) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 256;
     constexpr uint64_t addr = 0x600;
@@ -251,15 +251,15 @@ TEST_F(TTSimDeviceIOFixture, TileWrBytesBothReadsConsistent) {
 // Write to the first N TENSIX cores alternating between the two write APIs;
 // verify that both read APIs agree with what was written on every core.
 TEST_F(TTSimDeviceIOFixture, MultiCoreAlternatingAPIsConsistent) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
 
     const size_t num_cores = std::min(tensix_cores.size(), size_t(4));
     constexpr size_t data_size = 128;
     constexpr uint64_t addr = 0x700;
 
     for (size_t i = 0; i < num_cores; i++) {
-        const tt_xy_pair core = soc->translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
+        const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
 
         auto write_data = make_pattern(data_size, [i](size_t j) { return (i * 50 + j) % 256; });
 
@@ -284,8 +284,8 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreAlternatingAPIsConsistent) {
 // Write distinct data to multiple cores via write_to_device, read back via
 // tile_rd_bytes; confirm no data bleed between cores.
 TEST_F(TTSimDeviceIOFixture, MultiCoreWriteToDeviceReadByTileRdBytesNoBleed) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
 
     const size_t num_cores = std::min(tensix_cores.size(), size_t(4));
     constexpr size_t data_size = 64;
@@ -294,14 +294,14 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreWriteToDeviceReadByTileRdBytesNoBleed) {
     // Write distinct patterns to each core.
     std::vector<std::vector<uint8_t>> all_patterns(num_cores);
     for (size_t i = 0; i < num_cores; i++) {
-        const tt_xy_pair core = soc->translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
+        const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
         all_patterns[i] = make_pattern(data_size, [i](size_t j) { return (i * 31 + j) % 256; });
         tt_device->write_to_device(all_patterns[i].data(), core, addr, data_size);
     }
 
     // Read back and verify each core still holds its own pattern.
     for (size_t i = 0; i < num_cores; i++) {
-        const tt_xy_pair core = soc->translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
+        const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
         std::vector<uint8_t> read_data(data_size, 0);
         tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, read_data.data(), data_size);
         EXPECT_EQ(all_patterns[i], read_data) << "Data bleed detected on core index " << i;
@@ -311,8 +311,8 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreWriteToDeviceReadByTileRdBytesNoBleed) {
 // Write distinct data to multiple cores via tile_wr_bytes, read back via
 // read_from_device; confirm no data bleed between cores.
 TEST_F(TTSimDeviceIOFixture, MultiCoreTileWrBytesReadByReadFromDeviceNoBleed) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
 
     const size_t num_cores = std::min(tensix_cores.size(), size_t(4));
     constexpr size_t data_size = 64;
@@ -321,14 +321,14 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreTileWrBytesReadByReadFromDeviceNoBleed) {
     // Write distinct patterns to each core.
     std::vector<std::vector<uint8_t>> all_patterns(num_cores);
     for (size_t i = 0; i < num_cores; i++) {
-        const tt_xy_pair core = soc->translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
+        const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
         all_patterns[i] = make_pattern(data_size, [i](size_t j) { return (i * 41 + j * 3) % 256; });
         tt_device->get_communicator()->tile_write_bytes(core.x, core.y, addr, all_patterns[i].data(), data_size);
     }
 
     // Read back and verify each core still holds its own pattern.
     for (size_t i = 0; i < num_cores; i++) {
-        const tt_xy_pair core = soc->translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
+        const tt_xy_pair core = soc.translate_coord_to(tensix_cores[i], CoordSystem::TRANSLATED);
         std::vector<uint8_t> read_data(data_size, 0);
         tt_device->read_from_device(read_data.data(), core, addr, data_size);
         EXPECT_EQ(all_patterns[i], read_data) << "Data bleed detected on core index " << i;
@@ -342,9 +342,9 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreTileWrBytesReadByReadFromDeviceNoBleed) {
 // Repeatedly write a pattern then zeros via alternating APIs across several
 // address offsets, confirming both read APIs agree at each step.
 TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
-    const SocDescriptor* soc = tt_device->get_soc_descriptor();
-    auto tensix_cores = soc->get_cores(CoreType::TENSIX);
-    const tt_xy_pair core = soc->translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t data_size = 40;
     constexpr uint32_t num_loops = 10;

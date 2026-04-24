@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -117,7 +116,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     }
 
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("configure_iatu_region is redundant for JTAG communication type.");
+        UMD_THROW(error::RuntimeError, "configure_iatu_region is redundant for JTAG communication type.");
     }
 
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 0 * 4, region_id_to_use);
@@ -432,7 +431,7 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    TT_THROW("DRAM retraining is not supported on WormholeTTDevice.");
+    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
 }
 
 }  // namespace tt::umd

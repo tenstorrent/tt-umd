@@ -26,6 +26,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
@@ -100,7 +101,7 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const std::string &soc_descriptor_path) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
@@ -115,6 +116,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    construct_soc_descriptor(soc_descriptor_path);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -404,7 +406,7 @@ void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOpti
 }
 
 void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
-    TT_THROW("send_tensix_risc_reset without core is not supported at the TTDevice level");
+    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core is not supported at the TTDevice level.");
 }
 
 void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
@@ -503,6 +505,23 @@ void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 
 void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
+}
+
+const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
+
+void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
+    if (soc_descriptor_path.empty()) {
+        soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info());
+    } else {
+        soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
+    }
+}
+
+void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
+    if (soc_descriptor_.has_value()) {
+        UMD_THROW(error::RuntimeError, "SocDescriptor cannot be re-assgined to TTDevice.");
+    }
+    soc_descriptor_ = soc_descriptor;
 }
 
 }  // namespace tt::umd

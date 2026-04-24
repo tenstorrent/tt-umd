@@ -34,6 +34,7 @@
 #include "assert.hpp"
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -309,9 +310,11 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
                 }
             }
             if (!matched_bdf_pattern) {
-                TT_THROW(
-                    "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
-                    device_token);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
+                        device_token));
             }
             continue;
         }
@@ -327,16 +330,22 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
                 log_debug(
                     LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
             } else {
-                TT_THROW(
-                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
-                    "the cluster.",
-                    device_token);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs "
+                        "in "
+                        "the cluster.",
+                        device_token));
             }
         } else {
-            TT_THROW(
-                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
-                "part of the BDF string.",
-                device_token);
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either "
+                    "integers or "
+                    "part of the BDF string.",
+                    device_token));
         }
     }
 
@@ -971,13 +980,13 @@ BoardType ClusterDescriptor::get_board_type(ChipId chip_id) const {
 tt::ARCH ClusterDescriptor::get_arch() const {
     const std::unordered_set<ChipId> &chips = get_all_chips();
     if (chips.empty()) {
-        TT_THROW("Unable to determine architecture because no chips were detected.");
+        UMD_THROW(error::RuntimeError, "Unable to determine architecture because no chips were detected.");
     }
 
     // We already validated that all chips have the same arch.
     tt::ARCH arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
-        TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+        UMD_THROW(error::RuntimeError, fmt::format("Chip {} has invalid architecture.", *chips.begin()));
     }
     return arch;
 }
@@ -1242,12 +1251,12 @@ bool ClusterDescriptor::verify_same_architecture() {
     if (!chips.empty()) {
         tt::ARCH arch = get_arch(*chips.begin());
         if (arch == tt::ARCH::Invalid) {
-            TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+            UMD_THROW(error::RuntimeError, fmt::format("Chip {} has invalid architecture.", *chips.begin()));
         }
         bool all_same_arch =
             std::all_of(chips.begin(), chips.end(), [&](ChipId chip_id) { return this->get_arch(chip_id) == arch; });
         if (!all_same_arch) {
-            TT_THROW("Chips with differing architectures detected. This is unsupported.");
+            UMD_THROW(error::RuntimeError, "Chips with differing architectures detected. This is unsupported.");
         }
     }
 

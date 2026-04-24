@@ -91,16 +91,17 @@ jobs:
         run: |
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
 
+      # HACK: By running tt-exalens application in the background
+      # (python3 tt-exalens.py > /dev/null 2>&1 &), we prevent KMD from
+      # setting the devices to low power mode.
+      # Exalens tests recreate context very often, which causes KMD to
+      # oscillate between high power and low power mode, causing some
+      # transient hangs on NOC1.
       - name: Run Python tests for tt-exalens library (NOC1)
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
         shell: bash
         run: |
-          # HACK: By running tt-exalens application in the background,
-          # we prevent KMD from setting the devices to low power mode.
-          # Exalens tests recreate context very often, which causes KMD to
-          # oscillate between high power and low power mode, causing some
-          # transient hangs on NOC1.
           python3 tt-exalens.py > /dev/null 2>&1 &
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
@@ -108,4 +109,5 @@ jobs:
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
         run: |
+          python3 tt-exalens.py > /dev/null 2>&1 &
           python3 -m unittest discover -v -t . -s test/app -p *test*.py

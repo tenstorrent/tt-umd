@@ -34,6 +34,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -460,8 +461,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             ethernet_connection_remote.first, ethernet_connection_remote.second};
     }
 
-    const uint32_t num_eth_channels = devices.begin()->second->get_soc_descriptor().get_cores(CoreType::ETH).size();
     for (const auto& [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
+        if (is_marked_unhealthy(current_chip_asic_id)) {
+            continue;
+        }
+        const uint32_t num_eth_channels =
+            devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
         ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);

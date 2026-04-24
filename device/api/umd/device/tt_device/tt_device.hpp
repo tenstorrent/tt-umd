@@ -14,6 +14,7 @@
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -38,7 +39,6 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
-class SimulationSysmemManager;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {
@@ -55,13 +55,17 @@ public:
      * Jtag support can be enabled.
      */
     static std::unique_ptr<TTDevice> create(
-        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
+        int device_number,
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_safe_api = false,
+        int num_host_mem_channels = 0);
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<architecture_implementation> architecture_impl,
-        bool use_safe_api);
+        bool use_safe_api,
+        int num_host_mem_channels = 0);
     TTDevice(
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
@@ -402,7 +406,7 @@ public:
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
-    virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
+    virtual SysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
 
     // Returns nullptr for non-PCIe communication paths (JTAG, Remote).
     // Ownership is unified at this base: derived classes populate tlb_manager_
@@ -476,13 +480,17 @@ private:
     RemoteInterface *remote_capabilities_ = nullptr;
 
 protected:
-    // MUST be the last-declared member so it is destroyed first (reverse declaration order).
-    // The owned TLBManager destroys cached TlbWindows on teardown:
-    //  - Silicon: SiliconTlbHandle::free_tlb() dereferences PCIDevice held by device_protocol_,
-    //    so tlb_manager_ must die before device_protocol_.
-    //  - Simulation: SimulationTlbManager caches a raw architecture_implementation* obtained
-    //    from architecture_impl_.get(), so tlb_manager_ must die before architecture_impl_.
+    // These two MUST be the last-declared members. Reverse-declaration destruction order is
+    // load-bearing for both:
+    //  - tlb_manager_ destroys cached TlbWindows; on silicon SiliconTlbHandle::free_tlb()
+    //    dereferences the PCIDevice held by device_protocol_, and on simulation
+    //    SimulationTlbManager caches a raw architecture_implementation* from
+    //    architecture_impl_.get(). So tlb_manager_ must die before both.
+    //  - sysmem_manager_ holds a raw TLBManager* (SiliconSysmemManager) used during its
+    //    dtor (unpin/unmap), so sysmem_manager_ must die before tlb_manager_ — i.e.
+    //    declared after tlb_manager_ here.
     std::unique_ptr<TLBManager> tlb_manager_;
+    std::unique_ptr<SysmemManager> sysmem_manager_;
 };
 
 }  // namespace tt::umd

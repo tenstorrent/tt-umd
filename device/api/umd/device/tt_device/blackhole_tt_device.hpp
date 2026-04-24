@@ -45,7 +45,7 @@ public:
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
 protected:
-    BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
+    BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, int num_host_mem_channels = 0);
     BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     virtual bool is_arc_available_over_axi();
@@ -58,7 +58,8 @@ protected:
 private:
     int get_pcie_x_coordinate();
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number, IODeviceType device_type, bool use_safe_api, int num_host_mem_channels);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

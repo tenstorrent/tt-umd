@@ -46,14 +46,15 @@ public:
     ~WormholeTTDevice() override = default;
 
 protected:
-    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
+    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, int num_host_mem_channels = 0);
     WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
     WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number, IODeviceType device_type, bool use_safe_api, int num_host_mem_channels);
     friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 };
 }  // namespace tt::umd

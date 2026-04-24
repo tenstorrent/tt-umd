@@ -36,7 +36,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
+    auto tt_device = TTDevice::create(physical_device_id, device_type, /*use_safe_api=*/false, num_host_mem_channels);
     tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
@@ -56,7 +56,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // Create TTDevice and make sure the arc is ready so we can read its telemetry.
     // physical_device_id is not actually physical for JTAG devices here.
     // It represents the index within a vector of jlink devices discovered by JtagDevice.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
+    auto tt_device = TTDevice::create(physical_device_id, device_type, /*use_safe_api=*/false, num_host_mem_channels);
     tt_device->init_tt_device();
 
     return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
@@ -64,35 +64,25 @@ std::unique_ptr<LocalChip> LocalChip::create(
 
 std::unique_ptr<LocalChip> LocalChip::create(
     std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels) {
-    std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
     std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
-    // The variables below are only needed when using PCIe.
-    // JTAG(currently the only communication protocol other than PCIe) has no use of them.
-    if (tt_device->get_pci_device() != nullptr) {
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device->get_tlb_manager(), num_host_mem_channels);
-    }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =
-        (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
+        (tt_device->get_sysmem_manager() != nullptr && tt_device->get_sysmem_manager()->get_num_host_mem_channels() > 0)
+            ? tt_device->get_sysmem_manager()
+            : nullptr;
     remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
-    return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
-        std::move(tt_device),
-        std::move(sysmem_manager),
-        std::move(remote_communication),
-        num_host_mem_channels));
+    return std::unique_ptr<LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), std::move(remote_communication), num_host_mem_channels));
 }
 
 LocalChip::LocalChip(
     SocDescriptor soc_descriptor,
     std::unique_ptr<TTDevice> tt_device,
-    std::unique_ptr<SysmemManager> sysmem_manager,
     std::unique_ptr<RemoteCommunication> remote_communication,
     int num_host_mem_channels) :
     Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
-    sysmem_manager_(std::move(sysmem_manager)),
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
@@ -109,7 +99,6 @@ LocalChip::~LocalChip() {
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     remote_communication_.reset();
-    sysmem_manager_.reset();
     tt_device_.reset();
 }
 
@@ -154,7 +143,7 @@ void LocalChip::initialize_membars() {
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
+SysmemManager* LocalChip::get_sysmem_manager() { return tt_device_->get_sysmem_manager(); }
 
 TLBManager* LocalChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
 
@@ -170,7 +159,7 @@ void LocalChip::start_device() {
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
     chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
-    sysmem_manager_->pin_or_map_sysmem_to_device();
+    tt_device_->get_sysmem_manager()->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();
@@ -186,8 +175,8 @@ void LocalChip::close_device() {
         set_power_state(DevicePowerState::LONG_IDLE);
         assert_risc_reset(RiscType::ALL);
         // Unmapping might be needed even in the case chip was reset due to kmd mappings.
-        if (sysmem_manager_) {
-            sysmem_manager_->unpin_or_unmap_sysmem();
+        if (tt_device_->get_sysmem_manager()) {
+            tt_device_->get_sysmem_manager()->unpin_or_unmap_sysmem();
         }
         if (auto* tlb_manager = tt_device_->get_tlb_manager()) {
             tlb_manager->clear_mapped_tlbs();
@@ -197,10 +186,11 @@ void LocalChip::close_device() {
 };
 
 int LocalChip::get_num_host_channels() {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    SysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    // log_warning instead of throw because even though sysmem_manager may not be initialized in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (!sysmem_manager) {
         log_warning(
             LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
@@ -208,14 +198,15 @@ int LocalChip::get_num_host_channels() {
         return 0;
     }
 
-    return sysmem_manager_->get_num_host_mem_channels();
+    return sysmem_manager->get_num_host_mem_channels();
 }
 
 int LocalChip::get_host_channel_size(std::uint32_t channel) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    SysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    // log_warning instead of throw because even though sysmem_manager may not be initialized in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (!sysmem_manager) {
         log_warning(
             LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
@@ -224,37 +215,39 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
     }
 
     TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
-    HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    HugepageMapping hugepage_map = sysmem_manager->get_hugepage_mapping(channel);
     TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 
 void LocalChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    SysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    // log_warning instead of throw because even though sysmem_manager may not be initialized in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (!sysmem_manager) {
         log_warning(
             LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
     }
-    sysmem_manager_->write_to_sysmem(channel, src, sysmem_dest, size);
+    sysmem_manager->write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
 void LocalChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    // log_warning instead of throw because even though sysmem_manager_ may not be initialized in all cases,
+    SysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
+    // log_warning instead of throw because even though sysmem_manager may not be initialized in all cases,
     // the program should still work. It removes the need for refactoring the whole code in case
     // pcie device breaks or isn't present.
-    if (!sysmem_manager_) {
+    if (!sysmem_manager) {
         log_warning(
             LogUMD,
             "sysmem_manager was not initialized for {} communication protocol",
             DeviceTypeToString.at(tt_device_->get_communication_device_type()));
         return;
     }
-    sysmem_manager_->read_from_sysmem(channel, dest, sysmem_src, size);
+    sysmem_manager->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
 void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
@@ -427,9 +420,10 @@ std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int
 
 void LocalChip::init_pcie_iatus() {
     ZoneScopedC(tracy::Color::DarkGreen);
+    SysmemManager* sysmem_manager = tt_device_->get_sysmem_manager();
     // TODO: this should go away soon; KMD knows how to do this at page pinning time.
-    for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
-        HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
+    for (size_t channel = 0; channel < sysmem_manager->get_num_host_mem_channels(); channel++) {
+        HugepageMapping hugepage_map = sysmem_manager->get_hugepage_mapping(channel);
         size_t region_size = hugepage_map.mapping_size;
 
         if (!hugepage_map.mapping) {

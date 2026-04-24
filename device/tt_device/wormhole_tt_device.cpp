@@ -32,8 +32,9 @@
 
 namespace tt::umd {
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
+WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, int num_host_mem_channels) :
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api, num_host_mem_channels) {
     arc_core = is_selected_noc1() ? tt_xy_pair(
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])

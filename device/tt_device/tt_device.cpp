@@ -21,6 +21,7 @@
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -51,7 +52,8 @@ namespace tt::umd {
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device,
     std::unique_ptr<architecture_implementation> architecture_impl,
-    bool use_safe_api) :
+    bool use_safe_api,
+    int num_host_mem_channels) :
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
@@ -65,6 +67,7 @@ TTDevice::TTDevice(
         set_sigbus_safe_handler(true);
     }
     tlb_manager_ = std::make_unique<TLBManager>(this);
+    sysmem_manager_ = std::make_unique<SiliconSysmemManager>(tlb_manager_.get(), num_host_mem_channels);
 }
 
 TTDevice::TTDevice(
@@ -121,7 +124,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
-    int device_number, IODeviceType device_type, bool use_safe_api) {
+    int device_number, IODeviceType device_type, bool use_safe_api, int num_host_mem_channels) {
     ZoneScopedC(tracy::Color::DarkGreen);
     // TODO make abstract IO handler inside TTDevice.
     if (device_type == IODeviceType::JTAG) {
@@ -141,9 +144,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
 
     switch (pci_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
+            return std::unique_ptr<WormholeTTDevice>(
+                new WormholeTTDevice(std::move(pci_device), use_safe_api, num_host_mem_channels));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
+            return std::unique_ptr<BlackholeTTDevice>(
+                new BlackholeTTDevice(std::move(pci_device), use_safe_api, num_host_mem_channels));
         default:
             return nullptr;
     }

@@ -34,8 +34,9 @@
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api) {
+BlackholeTTDevice::BlackholeTTDevice(
+    std::unique_ptr<PCIDevice> pci_device, bool use_safe_api, int num_host_mem_channels) :
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api, num_host_mem_channels) {
     arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));

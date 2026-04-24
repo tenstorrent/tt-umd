@@ -116,14 +116,12 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;
-    tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
+    tt_device->read_from_device(&remote_id, eth_core, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
 
     eth_coord.rack = remote_id & 0xFF;
     eth_coord.shelf = (remote_id >> 8) & 0xFF;
 
-    tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
+    tt_device->read_from_device(&remote_id, eth_core, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
 
     eth_coord.x = (remote_id >> 16) & 0x3F;
     eth_coord.y = (remote_id >> 22) & 0x3F;

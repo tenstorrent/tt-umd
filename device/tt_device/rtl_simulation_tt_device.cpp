@@ -83,7 +83,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
     communicator_->initialize();
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+    auto sim_tlb = std::make_unique<SimulationTlbManager>(
         this,
         /*bar0_base=*/0,
         architecture_impl_.get(),
@@ -92,7 +92,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
             auto handle = RtlSimTlbHandle::create(mgr, id, sz, map);
             return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
         });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    cached_tlb_window_ = sim_tlb->allocate_default_tlb_window();
+    tlb_manager_ = std::move(sim_tlb);
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
@@ -289,7 +290,5 @@ void RtlSimulationTTDevice::dma_multicast_write(
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
-
-TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

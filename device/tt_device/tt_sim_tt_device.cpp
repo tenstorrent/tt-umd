@@ -82,7 +82,7 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+    auto sim_tlb = std::make_unique<SimulationTlbManager>(
         this,
         bar0_base,
         architecture_impl_.get(),
@@ -91,7 +91,8 @@ TTSimTTDevice::TTSimTTDevice(
             auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
             return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
         });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    cached_tlb_window_ = sim_tlb->allocate_default_tlb_window();
+    tlb_manager_ = std::move(sim_tlb);
 }
 
 TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
@@ -286,7 +287,5 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
 }
-
-TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

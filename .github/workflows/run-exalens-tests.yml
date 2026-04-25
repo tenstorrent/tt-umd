@@ -150,7 +150,7 @@ jobs:
         run: |
           /tmp/hold_power 0 &
           HOLD_POWER_PID=$!
-          sleep 2
+          sleep 5
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
           kill $HOLD_POWER_PID 2>/dev/null || true
 
@@ -161,6 +161,6 @@ jobs:
         run: |
           /tmp/hold_power 0 &
           HOLD_POWER_PID=$!
-          sleep 2
+          sleep 5
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
           kill $HOLD_POWER_PID 2>/dev/null || true

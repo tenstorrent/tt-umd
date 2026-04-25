@@ -118,6 +118,7 @@ jobs:
               __u8 reserved0;
               __u8 validity;
               __u16 power_flags;
+              __u16 power_settings[14];
           };
           int main(int argc, char *argv[]) {
               int dev = argc > 1 ? atoi(argv[1]) : 0;

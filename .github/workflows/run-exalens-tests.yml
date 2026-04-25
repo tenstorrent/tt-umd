@@ -53,6 +53,7 @@ jobs:
           echo run-exalens-tests - card: ${{ inputs.card }}
           echo run-exalens-tests - build-type: ${{ inputs.build-type }}
           echo run-exalens-tests - log-level: ${{ inputs.log-level }}
+          echo run-exalens-tests - kmd-version: $(cat /sys/module/tenstorrent/version)
 
       - name: Cleanup workspace directory from previous runs.
         run: |

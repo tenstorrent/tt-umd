@@ -104,7 +104,7 @@ jobs:
         run: |
           python3 tt-exalens.py > /dev/null 2>&1 &
           EXALENS_PID=$!
-          sleep 2
+          sleep 5
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
           kill $EXALENS_PID 2>/dev/null || true
 
@@ -114,6 +114,6 @@ jobs:
         run: |
           python3 tt-exalens.py > /dev/null 2>&1 &
           EXALENS_PID=$!
-          sleep 2
+          sleep 5
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
           kill $EXALENS_PID 2>/dev/null || true

@@ -91,30 +91,74 @@ jobs:
         run: |
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
 
-      # HACK: By running tt-exalens application in the background
-      # (python3 tt-exalens.py > /dev/null 2>&1 &), we prevent KMD from
-      # setting the devices to low power mode.
-      # Exalens tests recreate context very often, which causes KMD to
-      # oscillate between high power and low power mode, causing some
-      # transient hangs on NOC1.
+      # HACK: Exalens tests rapidly create/destroy UMD contexts, each of
+      # which calls set_power_state(false) on destruction. In the gap
+      # between tests, KMD may clock-gate tensix, making NOC1 reads to
+      # 0xffb121b0 time out. We compile and run a small program that opens
+      # the device in power-aware mode and holds set_power_state(true) via
+      # ioctl for the duration of the NOC1 tests.
+      - name: Build hold_power helper
+        shell: bash
+        run: |
+          cat > /tmp/hold_power.c << 'CEOF'
+          #include <fcntl.h>
+          #include <stdio.h>
+          #include <stdlib.h>
+          #include <string.h>
+          #include <sys/ioctl.h>
+          #include <linux/types.h>
+          #include <linux/ioctl.h>
+          #include <unistd.h>
+          #define TENSTORRENT_IOCTL_MAGIC 0xFA
+          #define TENSTORRENT_IOCTL_SET_POWER_STATE _IO(TENSTORRENT_IOCTL_MAGIC, 15)
+          struct tenstorrent_power_state {
+              __u32 argsz;
+              __u32 flags;
+              __u8 reserved0;
+              __u8 validity;
+              __u16 power_flags;
+          };
+          int main(int argc, char *argv[]) {
+              int dev = argc > 1 ? atoi(argv[1]) : 0;
+              char path[64];
+              snprintf(path, sizeof(path), "/dev/tenstorrent/%d", dev);
+              int fd = open(path, O_RDWR | O_CLOEXEC | O_APPEND);
+              if (fd < 0) { perror("open"); return 1; }
+              struct tenstorrent_power_state ps = {0};
+              ps.argsz = sizeof(ps);
+              ps.validity = (4 & 0xF);
+              ps.power_flags = (1U << 1) | (1U << 2) | (1U << 3);
+              if (ioctl(fd, TENSTORRENT_IOCTL_SET_POWER_STATE, &ps) < 0) {
+                  perror("ioctl SET_POWER_STATE");
+                  close(fd);
+                  return 1;
+              }
+              fprintf(stderr, "Holding device %d in high power.\n", dev);
+              pause();
+              close(fd);
+              return 0;
+          }
+          CEOF
+          gcc -o /tmp/hold_power /tmp/hold_power.c
+
       - name: Run Python tests for tt-exalens library (NOC1)
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
         shell: bash
         run: |
-          python3 -c "import os, signal; os.open('/dev/tenstorrent/0', os.O_RDWR | os.O_CLOEXEC); signal.pause()" &
-          LEGACY_FD_PID=$!
+          /tmp/hold_power 0 &
+          HOLD_POWER_PID=$!
           sleep 2
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
-          kill $LEGACY_FD_PID 2>/dev/null || true
+          kill $HOLD_POWER_PID 2>/dev/null || true
 
       - name: Run Python tests for tt-exalens app (NOC1)
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
         shell: bash
         run: |
-          python3 -c "import os, signal; os.open('/dev/tenstorrent/0', os.O_RDWR | os.O_CLOEXEC); signal.pause()" &
-          LEGACY_FD_PID=$!
+          /tmp/hold_power 0 &
+          HOLD_POWER_PID=$!
           sleep 2
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
-          kill $LEGACY_FD_PID 2>/dev/null || true
+          kill $HOLD_POWER_PID 2>/dev/null || true

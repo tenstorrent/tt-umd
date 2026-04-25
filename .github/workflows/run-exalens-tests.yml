@@ -102,18 +102,19 @@ jobs:
           TTEXALENS_TESTS_USE_NOC1: 1
         shell: bash
         run: |
-          python3 tt-exalens.py > /dev/null 2>&1 &
-          EXALENS_PID=$!
-          sleep 5
+          python3 -c "import os, signal; os.open('/dev/tenstorrent/0', os.O_RDWR | os.O_CLOEXEC); signal.pause()" &
+          LEGACY_FD_PID=$!
+          sleep 2
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
-          kill $EXALENS_PID 2>/dev/null || true
+          kill $LEGACY_FD_PID 2>/dev/null || true
 
       - name: Run Python tests for tt-exalens app (NOC1)
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
+        shell: bash
         run: |
-          python3 tt-exalens.py > /dev/null 2>&1 &
-          EXALENS_PID=$!
-          sleep 5
+          python3 -c "import os, signal; os.open('/dev/tenstorrent/0', os.O_RDWR | os.O_CLOEXEC); signal.pause()" &
+          LEGACY_FD_PID=$!
+          sleep 2
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
-          kill $EXALENS_PID 2>/dev/null || true
+          kill $LEGACY_FD_PID 2>/dev/null || true

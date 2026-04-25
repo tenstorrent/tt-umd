@@ -83,22 +83,13 @@ jobs:
         run: |
           pip install tt_umd-*.whl --force-reinstall
 
-      # MITIGATION: Look as the HACK explanation in the lower part of the file.
-      # The behavior was never observed on NOC0, but if it's a race condition,
-      # it may just be very hard to hit.
       - name: Run Python tests for tt-exalens library
         run: |
-          python3 tt-exalens.py > /dev/null 2>&1 &
-          EXALENS_PID=$!
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
-          kill $EXALENS_PID 2>/dev/null || true
 
       - name: Run Python tests for tt-exalens app
         run: |
-          python3 tt-exalens.py > /dev/null 2>&1 &
-          EXALENS_PID=$!
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
-          kill $EXALENS_PID 2>/dev/null || true
 
       # HACK: By running tt-exalens application in the background
       # (python3 tt-exalens.py > /dev/null 2>&1 &), we prevent KMD from

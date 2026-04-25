@@ -403,14 +403,9 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
 }
 
 static int open_pci_device(const std::string &device_path) {
-    // O_APPEND opts out of legacy mode in KMD >= 2.6.0, allowing the device to enter low-power idle states.
+    // Force legacy mode (no O_APPEND) to test if O_APPEND causes NOC1 issues.
     int flags = O_RDWR | O_CLOEXEC;
-    if (PCIDevice::read_kmd_version() >= KMD_POWER_STATE && PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) {
-        log_debug(LogUMD, fmt::format("Opening device {} in power aware mode.", device_path));
-        flags |= O_APPEND;
-    } else {
-        log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
-    }
+    log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
     return open(device_path.c_str(), flags);
 }
 
@@ -442,7 +437,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
             KMD_MAP_TO_NOC.to_string());
     }
 
-    int extra_flags = (kmd_version >= KMD_POWER_STATE) ? O_APPEND : 0;
+    int extra_flags = 0;
     int ret_code = tt_device_open(device_path.c_str(), &tt_device_handle, extra_flags);
 
     if (ret_code != 0) {

@@ -303,10 +303,27 @@ void TopologyDiscovery::discover_remote_devices() {
                     translated_eth_core.str());
                 uint64_t gateway_device_id = remote_asic_id_to_mmio_device_id.at(current_device_asic_id);
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, translated_eth_core);
-                std::unique_ptr<TTDevice> remote_device = create_remote_device(
-                    eth_coord,
-                    devices.at(gateway_device_id).get(),
-                    active_eth_channels_per_device.at(gateway_device_id));
+                std::unique_ptr<TTDevice> remote_device;
+                try {
+                    remote_device = create_remote_device(
+                        eth_coord,
+                        devices.at(gateway_device_id).get(),
+                        active_eth_channels_per_device.at(gateway_device_id));
+                } catch (const std::exception& e) {
+                    // Remote device unreachable via ETH relay (e.g., stuck in fabric firmware after
+                    // abnormal teardown). Mark as discovered so we don't retry from other ETH cores,
+                    // but skip adding it to devices_to_discover. The process that left the device in
+                    // a bad state is responsible for cleanup; this process will see a reduced topology.
+                    log_warning(
+                        LogUMD,
+                        "FIX AQ: Failed to init remote device ASIC ID {} via gateway {}: {}. "
+                        "Skipping — remote device unreachable (relay timeout or stuck firmware).",
+                        remote_asic_id,
+                        gateway_device_id,
+                        e.what());
+                    discovered_devices.insert(remote_asic_id);
+                    continue;
+                }
                 ChipId chip_id = get_next_chip_id();
 
                 devices_to_discover.emplace(remote_asic_id, std::move(remote_device));

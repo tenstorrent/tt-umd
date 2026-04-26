@@ -332,6 +332,23 @@ void TopologyDiscovery::discover_remote_devices() {
                 discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
             } else {
+                // FIX AQ-2 (#42429): Skip ETH connections to devices that were unreachable
+                // during discovery.  FIX AQ marks skipped devices as discovered (to avoid
+                // redundant retry) but does NOT add them to asic_id_to_chip_id.
+                // Without this guard, fill_cluster_descriptor_info() calls
+                // asic_id_to_chip_id.at(remote_asic_id) on a missing key and throws
+                // std::out_of_range, crashing the next test's fixture constructor.
+                if (asic_id_to_chip_id.find(remote_asic_id) == asic_id_to_chip_id.end()) {
+                    log_warning(
+                        LogUMD,
+                        "FIX AQ-2: Skipping ETH connection to unreachable device ASIC ID {} "
+                        "(not in asic_id_to_chip_id — skipped by FIX AQ during discovery). "
+                        "Connection from device {} chan {} will be omitted from cluster descriptor.",
+                        remote_asic_id,
+                        current_device_asic_id,
+                        channel);
+                    continue;
+                }
                 log_debug(
                     LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, translated_eth_core.str());
                 ethernet_connections.push_back(

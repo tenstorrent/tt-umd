@@ -269,6 +269,26 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
+            // FIX W (#42429): Before attempting relay through this ETH channel, verify its
+            // firmware is alive with a single fast PCIe read. Channels left in a crashed
+            // state (e.g., 0xDEADECE7) by abnormal fabric teardown won't service relay
+            // requests — the relay write completes (PCIe) but no ACK ever comes, causing
+            // an infinite hang that our relay-timeout catch (FIX AQ) cannot intercept.
+            // Live ETH firmware always maintains the 0xABCD____ heartbeat pattern.
+            {
+                uint32_t gateway_heartbeat = get_eth_heartbeat(tt_device, translated_eth_core);
+                if ((gateway_heartbeat >> 16) != 0xABCD) {
+                    log_warning(
+                        LogUMD,
+                        "FIX W: Gateway ETH core {} on device ASIC ID {} has dead firmware "
+                        "(heartbeat={:#x}). Skipping — relay through this channel would hang.",
+                        translated_eth_core.str(),
+                        current_device_asic_id,
+                        gateway_heartbeat);
+                    continue;
+                }
+            }
+
             verify_routing_firmware_state(tt_device, translated_eth_core);
 
             log_debug(

@@ -1017,7 +1017,7 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 void Cluster::deassert_resets_and_set_power_state() {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
+    // broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();

@@ -235,6 +235,27 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto duration = std::chrono::milliseconds(0);
 
+    // FIX X (#42429): EthTrainingStatus::IN_PROGRESS == 0, which is also the zero-
+    // initialized L1 state. ETH cores that were force-reset during fabric teardown
+    // (Phase 2.5) run the quiesce kernel — not real ETH firmware. The quiesce kernel
+    // never writes ETH_TRAIN_STATUS_ADDR, so it stays 0 (IN_PROGRESS) indefinitely.
+    // Waiting on these cores would silently hang for ETH_TRAINING_TIMEOUT (900 s).
+    // Live WH ETH firmware always maintains the 0xABCDxxxx heartbeat pattern. If the
+    // top 16 bits are not 0xABCD, no real ETH firmware is running — skip the wait.
+    {
+        uint32_t heartbeat = 0;
+        read_from_device(&heartbeat, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));
+        if ((heartbeat >> 16) != 0xABCD) {
+            log_debug(
+                LogUMD,
+                "FIX X: ETH core {} has no live ETH firmware (heartbeat={:#010x}). "
+                "Skipping training wait — core is not doing ETH training.",
+                eth_core.str(),
+                heartbeat);
+            return duration;
+        }
+    }
+
     auto start = std::chrono::steady_clock::now();
     while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();

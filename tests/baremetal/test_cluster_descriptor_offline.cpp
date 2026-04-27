@@ -38,7 +38,7 @@ int count_connections(
     return count;
 }
 
-class ApiClusterDescriptorOfflineTest : public ::testing::Test {
+class TEST_FApiClusterDescriptorOfflineTestSetEnv : public ::testing::Test {
 protected:
     void TearDown() override {
         // Always unset the environment variable after each test to avoid contamination.
@@ -132,7 +132,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
     }
 }
 
-TEST_F(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
+TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, ConstrainedTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
 
@@ -236,7 +236,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
 }
 
-TEST_F(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
+TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, NoBoardExpansion) {
     // Load the 6u cluster descriptor (Galaxy-style with many chips per board).
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("6u_cluster_desc.yaml"));

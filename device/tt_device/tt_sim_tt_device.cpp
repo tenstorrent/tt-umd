@@ -82,6 +82,9 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
+    // Local typed handle: allocate_default_tlb_window() is SimulationTlbManager-only,
+    // so we keep the derived type until after the call, then upcast into the
+    // base-owned tlb_manager_ via implicit unique_ptr<Derived> -> unique_ptr<Base>.
     auto sim_tlb = std::make_unique<SimulationTlbManager>(
         this,
         bar0_base,

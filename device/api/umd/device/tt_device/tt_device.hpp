@@ -404,6 +404,9 @@ public:
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
+    // Returns nullptr for non-PCIe communication paths (JTAG, Remote).
+    // Ownership is unified at this base: derived classes populate tlb_manager_
+    // directly rather than overriding this accessor (the accessor is non-virtual).
     TLBManager *get_tlb_manager() { return tlb_manager_.get(); }
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
@@ -444,6 +447,10 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    // MUST be declared after architecture_impl_: SimulationTlbManager (a TLBManager
+    // subclass) caches a raw architecture_implementation* obtained from
+    // architecture_impl_.get(). Reverse-declaration destruction order ensures
+    // tlb_manager_ is torn down while architecture_impl_ is still alive.
     std::unique_ptr<TLBManager> tlb_manager_;
 
     TTDevice();

@@ -4,6 +4,8 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -12,10 +14,10 @@
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -35,9 +37,11 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        TT_THROW(
-            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
-            tt_device_->get_pci_device()->get_device_num());
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+                tt_device_->get_pci_device()->get_device_num()));
     }
 
     validate(offset);
@@ -90,9 +94,11 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        TT_THROW(
-            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
-            tt_device_->get_pci_device()->get_device_num());
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+                tt_device_->get_pci_device()->get_device_num()));
     }
 
     validate(offset);
@@ -168,7 +174,9 @@ uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
 
 void SysmemBuffer::validate(const size_t offset) const {
     if (offset >= buffer_size_) {
-        TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {:#x}", offset, buffer_size_);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Offset {:#x} is out of bounds for SysmemBuffer of size {:#x}", offset, buffer_size_));
     }
 }
 

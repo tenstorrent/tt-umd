@@ -14,7 +14,6 @@
 
 namespace tt::umd {
 
-class Writer;
 class TTDevice;
 
 class TLBManager {
@@ -27,7 +26,6 @@ public:
     bool is_tlb_mapped(tt_xy_pair core);
     bool is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_in_bytes);
 
-    Writer get_static_tlb_writer(tt_xy_pair core);
     tlb_configuration get_tlb_configuration(tt_xy_pair core);
 
     // TODO: the following members will be moved to private once enough stuff is moved out of cluster.

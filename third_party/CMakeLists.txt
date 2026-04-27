@@ -185,35 +185,6 @@ CPMAddPackage(
 )
 
 ####################################################################################################################
-# picosha2
-####################################################################################################################
-if(NOT CPM_LOCAL_PACKAGES_ONLY)
-    CPMAddPackage(
-        NAME picosha2
-        GITHUB_REPOSITORY okdshin/PicoSHA2
-        GIT_TAG v1.0.1
-        SYSTEM YES
-        OPTIONS
-            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-        DOWNLOAD_ONLY YES
-    )
-endif()
-
-if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED picosha2_SOURCE_DIR)
-    message(
-        FATAL_ERROR
-        "CPM_LOCAL_PACKAGES_ONLY is ON, but picosha2_SOURCE_DIR is not defined. Please provide the path to the PicoSHA2 source."
-    )
-endif()
-
-if(picosha2_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
-    # picosha2 is header-only, create an interface library
-    add_library(picosha2 INTERFACE)
-    target_include_directories(picosha2 SYSTEM INTERFACE ${picosha2_SOURCE_DIR})
-    add_library(picosha2::picosha2 ALIAS picosha2)
-endif()
-
-####################################################################################################################
 # asio (Standalone)
 ####################################################################################################################
 if(NOT CPM_LOCAL_PACKAGES_ONLY)
@@ -249,5 +220,20 @@ if(TT_UMD_ENABLE_TRACY)
         SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
+endif()
+
+############################################################################################################################
+# tt-emule (software emulation support)
+############################################################################################################################
+if(TT_UMD_BUILD_EMULE)
+    # NOTE: CPM will fetch tt-emule from GitHub. If you don't have access to the
+    # tenstorrent/tt-emule repo, set TT_EMULE_PATH to a local checkout instead.
+    CPMAddPackage(
+        NAME tt_emule
+        GITHUB_REPOSITORY tenstorrent/tt-emule
+        GIT_TAG acf8473de76a3138086acfd3e48aa2748a025126
+        SYSTEM YES
+        EXCLUDE_FROM_ALL YES
     )
 endif()

@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -24,15 +26,18 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
@@ -96,32 +101,22 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, bool throw_on_arc_failure) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const std::string &soc_descriptor_path) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    if (pcie_capabilities_ != nullptr) {
+        is_pcie_hung();
+    }
+    bool noc_hang_check_result =
+        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+    if (noc_hang_check_result) {
+        UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
+    }
     probe_arc();
-    if (!wait_arc_core_start(timeout_ms)) {
-        if (throw_on_arc_failure) {
-            throw std::runtime_error(fmt::format("ARC core ({}, {}) failed to start.", arc_core.x, arc_core.y));
-        } else {
-            return TTDeviceInitResult::ARC_STARTUP_FAILED;
-        }
-    }
-    try {
-        arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE;
-    }
-    try {
-        telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE;
-    }
-    try {
-        firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    } catch (const std::runtime_error &e) {
-        return TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE;
-    }
-    return TTDeviceInitResult::SUCCESSFUL;
+    wait_arc_core_start(timeout_ms);
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    construct_soc_descriptor(soc_descriptor_path);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -156,23 +151,43 @@ TTDeviceInitResult TTDevice::init_tt_device(const std::chrono::milliseconds time
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            return std::unique_ptr<RemoteWormholeTTDevice>(new RemoteWormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
         case tt::ARCH::BLACKHOLE: {
             return nullptr;
         }
         default:
-            throw std::runtime_error("Remote TTDevice creation is not supported for this architecture.");
+            UMD_THROW(error::RuntimeError, "Remote TTDevice creation is not supported for this architecture.");
     }
 }
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-PCIDevice *TTDevice::get_pci_device() { return get_pcie_interface()->get_pci_device(); }
+// The nullptr check for capabilities in the APIs get_pci_device, get_jtag_device and get_remote_communication
+// exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
+// Throwing an exception would break existing behavior and require significant changes across client code.
+// This approach is intended as a temporary measure until the API is updated to use tl::expected or std::optional,
+// providing callers with an explicit way to check validity rather than relying on nullptr semantics.
+PCIDevice *TTDevice::get_pci_device() {
+    if (!pcie_capabilities_) {
+        return nullptr;
+    }
+    return get_pcie_interface()->get_pci_device();
+}
 
-JtagDevice *TTDevice::get_jtag_device() { return get_jtag_interface()->get_jtag_device(); }
+JtagDevice *TTDevice::get_jtag_device() {
+    if (!jtag_capabilities_) {
+        return nullptr;
+    }
+    return get_jtag_interface()->get_jtag_device();
+}
 
-RemoteCommunication *TTDevice::get_remote_communication() { return get_remote_interface()->get_remote_communication(); }
+RemoteCommunication *TTDevice::get_remote_communication() {
+    if (!remote_capabilities_) {
+        return nullptr;
+    }
+    return get_remote_interface()->get_remote_communication();
+}
 
 void TTDevice::set_power_state(bool busy) {
     if (is_remote_tt_device || !pcie_capabilities_) {
@@ -185,44 +200,63 @@ DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get();
 
 PcieInterface *TTDevice::get_pcie_interface() {
     if (!pcie_capabilities_) {
-        throw std::runtime_error("PCIe interface is not available for this device.");
+        UMD_THROW(error::RuntimeError, "PCIe interface is not available for this device.");
     }
     return pcie_capabilities_;
 }
 
 JtagInterface *TTDevice::get_jtag_interface() {
     if (!jtag_capabilities_) {
-        throw std::runtime_error("JTAG interface is not available for this device.");
+        UMD_THROW(error::RuntimeError, "JTAG interface is not available for this device.");
     }
     return jtag_capabilities_;
 }
 
 RemoteInterface *TTDevice::get_remote_interface() {
     if (!remote_capabilities_) {
-        throw std::runtime_error("Remote interface is not available for this device.");
+        UMD_THROW(error::RuntimeError, "Remote interface is not available for this device.");
     }
     return remote_capabilities_;
 }
 
 tt::ARCH TTDevice::get_arch() { return arch; }
 
-void TTDevice::detect_hang_read(std::uint32_t data_read) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        // Jtag protocol uses different communication paths from pci therefore
-        // there's no need to check hang which is in this case pci-specific.
-        return;
+bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
+    if (!hang_detector_) {
+        UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
-    if (data_read == HANG_READ_VALUE && is_hardware_hung()) {
-        throw std::runtime_error("Read 0xffffffff from PCIE: you should reset the board.");
+    auto result = hang_detector_->is_pcie_hung(data_read);
+    if (!result.has_value()) {
+        log_warning(LogUMD, "PCIe hang detection is not supported for this device.");
+        return false;
     }
+    if (result.value()) {
+        if (action == TTDevice::HangAction::THROW) {
+            UMD_THROW(error::PcieHangError, *this, data_read);
+        }
+        return true;
+    }
+    return false;
 }
 
-bool TTDevice::is_noc_hung(NocId noc) {
-    if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("is_noc_hung is not applicable for JTAG communication type.");
+bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
+    if (!hang_detector_) {
+        UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
-    NocIdSwitcher switcher(noc);
-    return (read_hang_check_reg_via_noc() == HANG_READ_VALUE);
+    auto result = hang_detector_->is_noc_hung(noc);
+    if (!result.has_value()) {
+        log_warning(LogUMD, "NOC hang detection is not supported for this device.");
+        return false;
+    }
+    if (result.value()) {
+        if (action == TTDevice::HangAction::THROW) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("NOC{} appears hung: you should reset the board.", static_cast<int>(noc)));
+        }
+        return true;
+    }
+    return false;
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
@@ -230,24 +264,26 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
     get_pcie_interface()->write_regs(dest, src, word_len);
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
-    throw std::runtime_error("configure_iatu_region is not implemented for this device");
+    UMD_THROW(error::RuntimeError, "configure_iatu_region is not implemented for this device.");
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
-        throw std::runtime_error(fmt::format(
-            "Invalid DRAM channel index {}, maximum index for given architecture is {}",
-            dram_channel,
-            architecture_impl_->get_dram_banks_number() - 1));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
+                dram_channel,
+                architecture_impl_->get_dram_banks_number() - 1));
     }
     const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
     uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
@@ -272,10 +308,12 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
                 std::this_thread::sleep_for(std::chrono::milliseconds(1000));
                 num_retrain_dram_core--;
             } else {
-                throw std::runtime_error(fmt::format(
-                    "DRAM training failed for channel {} after {} retrain attempts",
-                    dram_channel,
-                    MAX_DRAM_RETRAIN_ATTEMPTS));
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "DRAM training failed for channel {} after {} retrain attempts.",
+                        dram_channel,
+                        MAX_DRAM_RETRAIN_ATTEMPTS));
             }
         }
 
@@ -286,7 +324,7 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
         utils::check_timeout(
             start,
             timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms));
+            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
     }
 }
 
@@ -302,7 +340,12 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firm
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
-void TTDevice::wait_for_non_mmio_flush() {}
+void TTDevice::wait_for_non_mmio_flush() {
+    if (!remote_capabilities_) {
+        return;
+    }
+    get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
+}
 
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
@@ -356,13 +399,52 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
     tt_driver_atomics::sfence();
 }
 
+void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
+    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
+    uint32_t valid_val = static_cast<uint32_t>(valid);
+    set_risc_reset_state(core, valid_val);
+}
+
+void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
+    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core is not supported at the TTDevice level.");
+}
+
+void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+    uint32_t soft_reset_current_state = get_risc_reset_state(core);
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
+    set_risc_reset_state(core, soft_reset_new);
+}
+
+void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+    uint32_t soft_reset_current_state = get_risc_reset_state(core);
+    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
+    uint32_t soft_reset_new_with_staggered_start =
+        soft_reset_new | (staggered_start ? architecture_impl_->get_soft_reset_staggered_start() : 0);
+    set_risc_reset_state(core, soft_reset_new_with_staggered_start);
+}
+
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (is_remote_tt_device) {
+        // Remote devices don't have direct NOC multicast support.
+        // Fallback to unicast for all cores in the range.
+        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
+            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
+                write_to_device(src, tt_xy_pair(x, y), addr, size);
+            }
+        }
+        return;
+    }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -378,6 +460,9 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -393,6 +478,9 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
+    }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
@@ -417,6 +505,23 @@ void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 
 void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
+}
+
+const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
+
+void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
+    if (soc_descriptor_path.empty()) {
+        soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info());
+    } else {
+        soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
+    }
+}
+
+void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
+    if (soc_descriptor_.has_value()) {
+        UMD_THROW(error::RuntimeError, "SocDescriptor cannot be re-assgined to TTDevice.");
+    }
+    soc_descriptor_ = soc_descriptor;
 }
 
 }  // namespace tt::umd

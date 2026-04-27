@@ -77,8 +77,8 @@ public:
     void close_device() override = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override = 0;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;

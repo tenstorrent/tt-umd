@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <array>
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
@@ -12,6 +14,7 @@
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -40,16 +43,44 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,
-    SocDescriptor soc_descriptor,
+    const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
     simulator_directory_(simulator_directory),
-    soc_descriptor_(std::move(soc_descriptor)),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor_.arch)) {
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
-    architecture_impl_ = architecture_implementation::create(soc_descriptor_.arch);
-    arch = soc_descriptor_.arch;
+    set_soc_descriptor(soc_descriptor);
+    architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
+    arch = get_soc_descriptor().arch;
+
+    // Register sysmem callbacks so the simulator can read/write host memory.
+    if (num_host_mem_channels > 0) {
+        SimulationSysmemManager* mgr = sysmem_manager_.get();
+        size_t num_channels = mgr->get_num_host_mem_channels();
+        communicator_->set_ram_callbacks(
+            // Write callback: simulator writes data into host sysmem.
+            [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
+                uint64_t pcie_base = mgr->get_pcie_base();
+                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                uint64_t offset = address - pcie_base;
+                uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
+                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                uint64_t offset_in_channel = offset % (1ULL << 30);
+                mgr->write_to_sysmem(channel, data, offset_in_channel, size);
+            },
+            // Read callback: simulator reads data from host sysmem.
+            [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
+                uint64_t pcie_base = mgr->get_pcie_base();
+                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                uint64_t offset = address - pcie_base;
+                uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
+                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                uint64_t offset_in_channel = offset % (1ULL << 30);
+                mgr->read_from_sysmem(channel, data_out, offset_in_channel, size);
+            });
+    }
+
     communicator_->initialize();
 
     tlb_manager_ = std::make_unique<SimulationTlbManager>(
@@ -66,7 +97,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 
-void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
     if (cached_tlb_window_) {
@@ -76,7 +107,7 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     }
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
@@ -100,23 +131,19 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(
         log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
         communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
     } else {
-        TT_THROW("Invalid soft reset option.");
+        UMD_THROW(error::RuntimeError, "Invalid soft reset option.");
     }
 }
 
-void RtlSimulationTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, bool deassert) {
-    send_tensix_risc_reset(translated_core, deassert ? TENSIX_DEASSERT_SOFT_RESET : TENSIX_ASSERT_SOFT_RESET);
-}
-
 void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    TT_THROW("send_tensix_risc_reset without core not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
+    log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
-    if (soc_descriptor_.arch == tt::ARCH::QUASAR) {
+    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
             // Reset all DM cores.
             communicator_->all_neo_dms_reset_assert(core.x, core.y);
@@ -130,7 +157,7 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         }
     }
 
-    if (soc_descriptor_.arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
@@ -144,7 +171,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
-    if (soc_descriptor_.arch == tt::ARCH::QUASAR) {
+    if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
             // Reset all DM cores.
             communicator_->all_neo_dms_reset_deassert(core.x, core.y);
@@ -158,49 +185,48 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
         }
     }
 
-    if (soc_descriptor_.arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         communicator_->all_tensix_reset_deassert(core.x, core.y);
     }
 }
 
 void RtlSimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    TT_THROW("dma_d2h not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_d2h() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    TT_THROW("dma_d2h_zero_copy not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_d2h_zero_copy() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    TT_THROW("dma_h2d not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_h2d() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    TT_THROW("dma_h2d_zero_copy not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_h2d_zero_copy() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("read_from_arc_apb not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "read_from_arc_apb() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_apb(
     const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("write_to_arc_apb not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "write_to_arc_apb() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("read_from_arc_csm not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "read_from_arc_csm() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::write_to_arc_csm(
     const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    TT_THROW("write_to_arc_csm not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "write_to_arc_csm() not supported for RTL simulation.");
 }
 
-bool RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't have ARC cores in the same way.
-    return true;
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
@@ -216,12 +242,12 @@ EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pai
 
 uint32_t RtlSimulationTTDevice::get_clock() {
     // RTL simulation does not have an ARC processor, so clock frequency is not available.
-    TT_THROW("get_clock not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "get_clock() not supported for RTL simulation.");
 }
 
 uint32_t RtlSimulationTTDevice::get_min_clock_freq() {
     // RTL simulation does not have an ARC processor, so clock frequency is not available.
-    TT_THROW("get_min_clock_freq not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "get_min_clock_freq() not supported for RTL simulation.");
 }
 
 bool RtlSimulationTTDevice::get_noc_translation_enabled() {
@@ -231,11 +257,11 @@ bool RtlSimulationTTDevice::get_noc_translation_enabled() {
 
 void RtlSimulationTTDevice::dma_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    TT_THROW("dma_multicast_write not supported for RTL simulation");
+    UMD_THROW(error::RuntimeError, "dma_multicast_write() not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    throw std::runtime_error("DRAM retraining is not supported in RTL simulation device.");
+    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
 
 TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }

@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -48,7 +49,7 @@ tt_xy_pair format_node(const std::string &str) {
     }
 
     if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
-        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate: {}", str));
     }
 
     try {
@@ -57,7 +58,7 @@ tt_xy_pair format_node(const std::string &str) {
         int y_coord = std::atoi(str_cstr + sep_pos + 1);
         return tt_xy_pair(x_coord, y_coord);
     } catch (...) {
-        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate:  {}", str));
     }
 }
 
@@ -77,6 +78,30 @@ inline std::string &ltrim(std::string &s, const char *t = ws) {
 
 // trim from both ends of string (right then left)
 inline std::string &trim(std::string &s, const char *t = ws) { return ltrim(rtrim(s, t), t); }
+
+// clang-format off
+static const std::unordered_map<tt_xy_pair, tt_xy_pair> ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE = {
+    {{15, 11}, {15,  0}},
+    {{13, 11}, {13,  0}},
+    {{12, 11}, {12,  0}},
+    {{11, 11}, {11,  0}},
+    {{10, 11}, {10,  0}},
+    {{ 9, 11}, { 9,  0}},
+    {{ 6, 11}, { 6,  0}},
+    {{ 4, 11}, { 4,  0}},
+    {{ 3, 11}, { 3,  0}},
+    {{ 2, 11}, { 2,  0}},
+    {{ 1, 11}, { 1,  0}},
+    {{ 0, 11}, { 0,  0}},
+    {{ 8, 10}, { 8,  1}},
+    {{ 8,  1}, { 8, 10}},
+    {{ 8,  3}, { 8,  8}},
+    {{ 8,  5}, { 8,  6}},
+    {{ 8,  7}, { 8,  4}},
+    {{ 8,  0}, { 8, 11}},
+};
+
+// clang-format on
 
 tt_xy_pair SocDescriptor::calculate_grid_size(const std::vector<tt_xy_pair> &cores) {
     std::unordered_set<size_t> x;
@@ -151,19 +176,19 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
     // Either have two separate enums or completely remove the check here.
     // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
     // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-    //     throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
+    //     UMD_THROW(error::RuntimeError, "P100 card should always have PCIe core (2, 0) harvested.");
     // }
 
     if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        throw std::runtime_error("P150 card should always have PCIE core (11, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P150 card should always have PCIe core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 0 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        throw std::runtime_error("P300 card left chip should always have PCIE core (11, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P300 card left chip should always have PCIe core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 1 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-        throw std::runtime_error("P300 card right chip should always have PCIE core (2, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P300 card right chip should always have PCIe core (2, 0) harvested.");
     }
 
     pcie_grid_size = SocDescriptor::calculate_grid_size(pcie_cores);
@@ -211,6 +236,19 @@ CoreCoord SocDescriptor::translate_coord_to(
 CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
     if (!noc_translation_enabled) {
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    }
+
+    // For ROUTER_ONLY cores, the translated coordinate space differs depending on
+    // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
+    // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
+    // network resolve to the correct tile.
+    if ((arch == tt::ARCH::BLACKHOLE) && (core.core_type == CoreType::ROUTER_ONLY) && is_selected_noc1()) {
+        CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
+        CoreCoord translated_noc1_core = CoreCoord(
+            ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(static_cast<tt_xy_pair>(noc1_core)),
+            CoreType::ROUTER_ONLY,
+            CoordSystem::TRANSLATED);
+        return translated_noc1_core;
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
@@ -390,7 +428,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
             break;
         }
         default:
-            throw std::runtime_error("Invalid architecture for creating SocDescriptorInfo.");
+            UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocDescriptorInfo.");
     }
 }
 
@@ -489,8 +527,9 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        throw std::runtime_error(
-            fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Error: SoC descriptor file does not exist at path: {}", device_descriptor_path));
     }
     fdesc.close();
 
@@ -735,7 +774,7 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
     const CoreType core_type, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LOGICAL) {
-        throw std::runtime_error("Harvested cores are not supported for logical coordinates");
+        UMD_THROW(error::RuntimeError, "Harvested cores are not supported for logical coordinates.");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
     if (coord_system != CoordSystem::NOC0) {

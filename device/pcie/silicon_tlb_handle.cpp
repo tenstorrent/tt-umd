@@ -15,6 +15,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -29,7 +30,9 @@ SiliconTlbHandle::SiliconTlbHandle(PCIDevice& pci_device, size_t size, const Tlb
         tt_device, size, tlb_mapping_ == TlbMapping::UC ? TT_MMIO_CACHE_MODE_UC : TT_MMIO_CACHE_MODE_WC, &tlb_handle_);
 
     if (ret_code != 0) {
-        TT_THROW("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("tt_tlb_alloc failed with error code {} for TLB size {}.", ret_code, size));
     }
 
     tt_tlb_get_id(tlb_handle_, reinterpret_cast<uint32_t*>(&tlb_id_));

@@ -21,7 +21,10 @@ harvested_workers:
   []
 
 router_only:
-  [1-2, 2-2]
+  []
+
+dispatch:
+  [1-2]
 
 worker_l1_size:
   4194304

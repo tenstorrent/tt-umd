@@ -31,6 +31,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 // #include "l1_address_map.h"
@@ -750,6 +751,9 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
 std::vector<CoreCoord> SocDescriptor::get_cores(
     const CoreType core_type, const CoordSystem coord_system, std::optional<uint32_t> channel) const {
     auto cores_map_it = cores_map.find(core_type);
+    if (cores_map_it == cores_map.end()) {
+        UMD_THROW(error::RuntimeError, fmt::format("Invalid core type {} for get_cores().", to_str(core_type)));
+    }
     std::vector<CoreCoord> cores = cores_map_it->second;
 
     // Filter cores by channel if specified.
@@ -779,6 +783,10 @@ std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
         UMD_THROW(error::RuntimeError, "Harvested cores are not supported for logical coordinates.");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
+    if (harvested_cores_map_it == harvested_cores_map.end()) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Invalid core type {} for get_harvested_cores().", to_str(core_type)));
+    }
     if (coord_system != CoordSystem::NOC0) {
         return translate_coordinates(harvested_cores_map_it->second, coord_system);
     }
@@ -819,9 +827,18 @@ std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem 
     return all_harvested_cores;
 }
 
-tt_xy_pair SocDescriptor::get_grid_size(const CoreType core_type) const { return grid_size_map.at(core_type); }
+tt_xy_pair SocDescriptor::get_grid_size(const CoreType core_type) const {
+    if (grid_size_map.find(core_type) == grid_size_map.end()) {
+        UMD_THROW(error::RuntimeError, fmt::format("Cannot get grid size for core type {}.", to_str(core_type)));
+    }
+    return grid_size_map.at(core_type);
+}
 
 tt_xy_pair SocDescriptor::get_harvested_grid_size(const CoreType core_type) const {
+    if (harvested_grid_size_map.find(core_type) == harvested_grid_size_map.end()) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Cannot get harvested grid size for core type {}.", to_str(core_type)));
+    }
     return harvested_grid_size_map.at(core_type);
 }
 

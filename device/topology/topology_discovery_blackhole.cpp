@@ -152,7 +152,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto& [local_device, local_channel] = eth_connections_original.first;
         auto& [remote_device, remote_channel] = eth_connections_original.second;
 
-        TTDevice* remote_device_ptr = get_tt_device(remote_device);
+        TTDevice* remote_device_ptr = devices.at(remote_device).get();
 
         auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);

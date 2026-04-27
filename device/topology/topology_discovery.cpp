@@ -14,7 +14,6 @@
 #include <numeric>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -23,8 +22,6 @@
 
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
-#include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -485,13 +482,6 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     cluster_desc->verify_cluster_descriptor_info();
     return cluster_desc;
-}
-
-TTDevice* TopologyDiscovery::get_tt_device(const uint64_t asic_id) {
-    if (devices_to_discover.find(asic_id) != devices_to_discover.end()) {
-        return devices_to_discover.at(asic_id).get();
-    }
-    return devices.at(asic_id).get();
 }
 
 uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {

@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -50,7 +49,6 @@ public:
 protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 
-    TLBManager* tlb_manager_ = nullptr;
     TTDevice* tt_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.
     uint64_t pcie_base_ = 0;

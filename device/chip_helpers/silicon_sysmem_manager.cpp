@@ -75,10 +75,9 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
-SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
-    tlb_manager_ = tlb_manager;
-    tt_device_ = tlb_manager_->get_tt_device();
-    pcie_base_ = get_pcie_base_for_arch(tlb_manager->get_tt_device()->get_arch());
+SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) {
+    tt_device_ = tt_device;
+    pcie_base_ = get_pcie_base_for_arch(tt_device->get_arch());
     TT_ASSERT(
         num_host_mem_channels <= 4,
         "Only 4 host memory channels are supported per device, but {} requested.",
@@ -310,7 +309,6 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
 
     constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
     const size_t size = num_fake_mem_channels * HUGEPAGE_REGION_SIZE;
-    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
 
     // Caclulate the size of the mapping in order to avoid overlap with PCIE registers on WH.
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) {
@@ -409,7 +407,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc);
 }
 
 }  // namespace tt::umd

@@ -7,10 +7,13 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+
+class TTDevice;
+class PCIDevice;
 
 /**
  * SysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
@@ -42,12 +45,12 @@ public:
      *                          |<--- buffer_size -->|
      *                  |<----- mapped_buffer_size ----->|
      *
-     * @param tlb_manager Pointer to the TLBManager that manages the TLB entries for this buffer.
+     * @param tt_device Pointer to the TTDevice that owns this buffer.
      * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
-    SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
     ~SysmemBuffer();
 
     /**
@@ -114,7 +117,8 @@ private:
 
     TlbWindow* get_cached_tlb_window();
 
-    TLBManager* tlb_manager_;
+    TTDevice* tt_device_;
+    PCIDevice* pci_device_;
 
     // Virtual address in process addr space.
     void* buffer_va_;

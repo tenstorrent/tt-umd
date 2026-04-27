@@ -25,10 +25,8 @@ TEST(ApiSysmemManager, BasicIO) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(true);
 
-        std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-
         // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), 1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tt_device.get(), 1);
 
         sysmem->pin_or_map_sysmem_to_device();
 

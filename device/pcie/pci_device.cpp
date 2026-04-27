@@ -290,7 +290,7 @@ std::vector<int> PCIDevice::enumerate_devices() {
                     filtered_device_ids.insert(device_id);
                     log_debug(
                         LogUMD,
-                        "Added device id {} with BDF {} because of token filter {}.",
+                        "Added device ID {} with BDF {} because of pattern: {}",
                         device_id,
                         bdf_to_device_id.first,
                         device_token);
@@ -301,11 +301,7 @@ std::vector<int> PCIDevice::enumerate_devices() {
             if (!matched_bdf_pattern) {
                 UMD_THROW(
                     error::RuntimeError,
-                    fmt::format(
-                        "Invalid BDF identifier in TT_VISIBLE_DEVICES: {}. Valid device identifiers are either "
-                        "integers or "
-                        "part of the BDF string.",
-                        device_token));
+                    fmt::format("BDF pattern in TT_VISIBLE_DEVICES: {} did not match any devices.", device_token));
             }
 
             continue;

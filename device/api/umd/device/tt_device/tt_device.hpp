@@ -447,11 +447,6 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    // MUST be declared after architecture_impl_: SimulationTlbManager (a TLBManager
-    // subclass) caches a raw architecture_implementation* obtained from
-    // architecture_impl_.get(). Reverse-declaration destruction order ensures
-    // tlb_manager_ is torn down while architecture_impl_ is still alive.
-    std::unique_ptr<TLBManager> tlb_manager_;
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
@@ -479,6 +474,15 @@ private:
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
+
+protected:
+    // MUST be the last-declared member so it is destroyed first (reverse declaration order).
+    // The owned TLBManager destroys cached TlbWindows on teardown:
+    //  - Silicon: SiliconTlbHandle::free_tlb() dereferences PCIDevice held by device_protocol_,
+    //    so tlb_manager_ must die before device_protocol_.
+    //  - Simulation: SimulationTlbManager caches a raw architecture_implementation* obtained
+    //    from architecture_impl_.get(), so tlb_manager_ must die before architecture_impl_.
+    std::unique_ptr<TLBManager> tlb_manager_;
 };
 
 }  // namespace tt::umd

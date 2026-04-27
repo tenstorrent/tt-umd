@@ -57,6 +57,11 @@ on:
           - Debug
           - ASan
           - TSan
+      build-tracy:
+        required: false
+        description: 'Also build a Tracy-enabled variant'
+        type: boolean
+        default: false
 
 
 env:

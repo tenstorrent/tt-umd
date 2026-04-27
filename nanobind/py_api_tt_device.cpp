@@ -557,7 +557,31 @@ void bind_tt_device(nb::module_ &m) {
             "get_soc_descriptor",
             &RtlSimulationTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
-            "Get the SocDescriptor associated with this RTL simulation device.");
+            "Get the SocDescriptor associated with this RTL simulation device.")
+        .def(
+            "smn_read",
+            [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size)
+                -> nb::bytes {
+                std::vector<uint8_t> buffer(size);
+                self.get_communicator()->smn_tile_read_bytes(core_x, core_y, addr, buffer.data(), size);
+                return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("size"),
+            "Read arbitrary-length data from a core via SMN at the specified address")
+        .def(
+            "smn_write",
+            [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
+                self.get_communicator()->smn_tile_write_bytes(
+                    core_x, core_y, addr, data.c_str(), static_cast<uint32_t>(data.size()));
+            },
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write arbitrary-length data to a core via SMN at the specified address");
 #endif
 
     m.def(

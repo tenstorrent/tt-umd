@@ -181,41 +181,6 @@ public:
     void set_barrier_address_params(const BarrierAddressParams& barrier_address_params);
 
     /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
-     * This API is going to be deprecated when all UMD clients transition to CoreCoord API.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_size TLB size that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        ChipId logical_device_id,
-        tt_xy_pair core,
-        size_t tlb_size,
-        uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
-
-    /**
-     * Configure a TLB to point to a specific core and an address within that core. Should be done for Static TLBs.
-     * If the device uses another mechanism for providing access to the host, this can be ignored.
-     *
-     * @param logical_device_id Logical Device being targeted.
-     * @param core The TLB will be programmed to point to this core.
-     * @param tlb_size TLB size that will be programmed.
-     * @param address Start address TLB is mapped to.
-     * @param ordering Ordering mode for the TLB.
-     */
-    void configure_tlb(
-        ChipId logical_device_id,
-        CoreCoord core,
-        size_t tlb_size,
-        uint64_t address,
-        uint64_t ordering = tlb_data::Relaxed);
-
-    /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
      * use a subset of cores from the active_eth_cores_per_chip set for all host->cluster non-MMIO transfers. If this
      * function is not called, UMD will use a default set of ethernet core indices for these transfers (0 through 5). If

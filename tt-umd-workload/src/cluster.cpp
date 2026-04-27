@@ -480,24 +480,6 @@ tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord co
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
-// TODO: These configure_tlb APIs are soon going away.
-void Cluster::configure_tlb(
-    ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    configure_tlb(
-        logical_device_id,
-        get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
-        tlb_size,
-        address,
-        ordering);
-}
-
-void Cluster::configure_tlb(
-    ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
-    tt_xy_pair translated_core =
-        get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
-    get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
-}
-
 void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint16_t channel) const {
     HugepageMapping hugepage_map = get_chip(src_device_id)->get_sysmem_manager()->get_hugepage_mapping(channel);
     if (hugepage_map.mapping != nullptr) {

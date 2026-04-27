@@ -165,9 +165,4 @@ if(TT_UMD_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
-if(TT_UMD_BUILD_TESTS)
-    message(STATUS "Building ${PROJECT_NAME} with Tests")
-    add_subdirectory(tests)
-endif(TT_UMD_BUILD_TESTS)
-
 include(packaging)

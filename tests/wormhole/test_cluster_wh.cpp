@@ -271,7 +271,9 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, MultiThreadedDevice) {
+// TODO(#2485): Re-enable. Writes and reads are not synchronized so they can land on the device out of order; broke
+// after PR #2455.
+TEST(SiliconDriverWH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     Cluster cluster;

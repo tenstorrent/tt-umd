@@ -13,11 +13,11 @@ namespace tt::umd {
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {}
 
-void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 

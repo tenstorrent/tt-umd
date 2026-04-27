@@ -417,3 +417,9 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
         }
     }
 }
+
+TEST(RefreshClusterDescriptionTest, ThrowsForNonSiliconChipType) {
+    auto cluster_desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+    Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()});
+    EXPECT_THROW(cluster.refresh_cluster_description(), std::runtime_error);
+}

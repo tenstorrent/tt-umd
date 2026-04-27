@@ -69,6 +69,7 @@ target_sources(
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
+        $<$<BOOL:${TT_UMD_BUILD_EMULE}>:chip/sw_emule_chip.cpp>
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
@@ -90,6 +91,7 @@ target_sources(
         cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
+        tt_device/tt_device_error.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/hang_detection/hang_detector.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
@@ -118,7 +120,6 @@ target_sources(
         noc_access.cpp
         warm_reset.cpp
         types/xy_pair.cpp
-        utils/error.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
         topology/topology_discovery.cpp
@@ -156,6 +157,11 @@ if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
+if(TT_UMD_BUILD_EMULE)
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
+    target_link_libraries(tt-umd PRIVATE tt-emule::headers)
+endif()
+
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     target_sources(
         tt-umd
@@ -177,6 +183,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
                 api/umd/device/chip/mock_chip.hpp
+                api/umd/device/chip/sw_emule_chip.hpp
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp
                 api/umd/device/chip_helpers/simulation_sysmem_manager.hpp
@@ -207,6 +214,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/blackhole_tt_device.hpp
                 api/umd/device/tt_device/tt_device.hpp
+                api/umd/device/tt_device/tt_device_error.hpp
                 api/umd/device/tt_device/wormhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
@@ -229,7 +237,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp

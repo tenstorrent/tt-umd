@@ -61,7 +61,8 @@ void bind_topology_discovery(nb::module_& m) {
             "get_board_id_for_chip",
             &ClusterDescriptor::get_board_id_for_chip,
             nb::arg("chip"),
-            "Get board ID for a chip");
+            "Get board ID for a chip")
+        .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices);
 
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 
@@ -75,6 +76,7 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("eth_fw_mismatch_action", &TopologyDiscoveryOptions::eth_fw_mismatch_action)
         .def_rw("unexpected_routing_firmware_config", &TopologyDiscoveryOptions::unexpected_routing_firmware_config)
         .def_rw("eth_fw_heartbeat_failure", &TopologyDiscoveryOptions::eth_fw_heartbeat_failure)
+        .def_rw("device_init_failure_action", &TopologyDiscoveryOptions::device_init_failure_action)
         .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
         .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
         .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)

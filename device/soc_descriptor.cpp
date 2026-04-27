@@ -49,7 +49,7 @@ tt_xy_pair format_node(const std::string &str) {
     }
 
     if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
-        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate: {}", str));
     }
 
     try {
@@ -58,7 +58,7 @@ tt_xy_pair format_node(const std::string &str) {
         int y_coord = std::atoi(str_cstr + sep_pos + 1);
         return tt_xy_pair(x_coord, y_coord);
     } catch (...) {
-        throw std::runtime_error(fmt::format("Could not parse the core id: {}", str));
+        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate:  {}", str));
     }
 }
 
@@ -176,19 +176,19 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
     // Either have two separate enums or completely remove the check here.
     // PCIE harvesting mask 0x1 corresponds to (2, 0) and 0x2 corresponds to (11, 0).
     // if (board_type == BoardType::P100 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-    //     throw std::runtime_error("P100 card should always have PCIE core (2, 0) harvested.");
+    //     UMD_THROW(error::RuntimeError, "P100 card should always have PCIe core (2, 0) harvested.");
     // }
 
     if (board_type == BoardType::P150 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        throw std::runtime_error("P150 card should always have PCIE core (11, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P150 card should always have PCIe core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 0 && harvesting_masks.pcie_harvesting_mask != 0x2) {
-        throw std::runtime_error("P300 card left chip should always have PCIE core (11, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P300 card left chip should always have PCIe core (11, 0) harvested.");
     }
 
     if (board_type == BoardType::P300 && asic_location == 1 && harvesting_masks.pcie_harvesting_mask != 0x1) {
-        throw std::runtime_error("P300 card right chip should always have PCIE core (2, 0) harvested.");
+        UMD_THROW(error::RuntimeError, "P300 card right chip should always have PCIe core (2, 0) harvested.");
     }
 
     pcie_grid_size = SocDescriptor::calculate_grid_size(pcie_cores);
@@ -209,6 +209,7 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         router_cores,
         security_cores,
         l2cpu_cores,
+        dispatch_cores,
         noc0_x_to_noc1_x,
         noc0_y_to_noc1_y);
     get_cores_and_grid_size_from_coordinate_manager();
@@ -358,6 +359,14 @@ void SocDescriptor::load_core_descriptors_from_soc_desc_info(const SocDescriptor
         l2cpu_cores.push_back(core_descriptor.coord);
     }
 
+    for (const auto &dispatch_core : soc_desc_info.dispatch_cores) {
+        CoreDescriptor core_descriptor;
+        core_descriptor.coord = dispatch_core;
+        core_descriptor.type = CoreType::DISPATCH;
+        cores.insert({core_descriptor.coord, core_descriptor});
+        dispatch_cores.push_back(core_descriptor.coord);
+    }
+
     noc0_x_to_noc1_x = soc_desc_info.noc0_x_to_noc1_x;
     noc0_y_to_noc1_y = soc_desc_info.noc0_y_to_noc1_y;
 }
@@ -382,6 +391,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = wormhole::ROUTER_CORES_NOC0,
                 .security_cores = wormhole::SECURITY_CORES_NOC0,
                 .l2cpu_cores = wormhole::L2CPU_CORES_NOC0,
+                .dispatch_cores = {},
                 .worker_l1_size = wormhole::TENSIX_L1_SIZE,
                 .eth_l1_size = wormhole::ETH_L1_SIZE,
                 .dram_bank_size = wormhole::DRAM_BANK_SIZE,
@@ -401,6 +411,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = blackhole::ROUTER_CORES_NOC0,
                 .security_cores = blackhole::SECURITY_CORES_NOC0,
                 .l2cpu_cores = blackhole::L2CPU_CORES_NOC0,
+                .dispatch_cores = {},
                 .worker_l1_size = blackhole::TENSIX_L1_SIZE,
                 .eth_l1_size = blackhole::ETH_L1_SIZE,
                 .dram_bank_size = blackhole::DRAM_BANK_SIZE,
@@ -420,6 +431,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
                 .router_cores = grendel::ROUTER_CORES_NOC0,
                 .security_cores = grendel::SECURITY_CORES_NOC0,
                 .l2cpu_cores = grendel::L2CPU_CORES_NOC0,
+                .dispatch_cores = grendel::DISPATCH_CORES_NOC0,
                 .worker_l1_size = grendel::TENSIX_L1_SIZE,
                 .eth_l1_size = grendel::ETH_L1_SIZE,
                 .dram_bank_size = grendel::DRAM_BANK_SIZE,
@@ -428,7 +440,7 @@ SocDescriptorInfo SocDescriptor::get_soc_descriptor_info(tt::ARCH arch) {
             break;
         }
         default:
-            throw std::runtime_error("Invalid architecture for creating SocDescriptorInfo.");
+            UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocDescriptorInfo.");
     }
 }
 
@@ -511,6 +523,11 @@ void SocDescriptor::load_from_yaml(YAML::Node &device_descriptor_yaml) {
             SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["security"].as<std::vector<std::string>>());
     }
 
+    if (device_descriptor_yaml["dispatch"].IsDefined()) {
+        soc_desc_info.dispatch_cores =
+            SocDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["dispatch"].as<std::vector<std::string>>());
+    }
+
     if (device_descriptor_yaml["noc0_x_to_noc1_x"].IsDefined()) {
         soc_desc_info.noc0_x_to_noc1_x = device_descriptor_yaml["noc0_x_to_noc1_x"].as<std::vector<uint32_t>>();
         soc_desc_info.noc0_y_to_noc1_y = device_descriptor_yaml["noc0_y_to_noc1_y"].as<std::vector<uint32_t>>();
@@ -527,8 +544,9 @@ SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo
     noc_translation_enabled(chip_info.noc_translation_enabled), harvesting_masks(chip_info.harvesting_masks) {
     std::ifstream fdesc(device_descriptor_path);
     if (fdesc.fail()) {
-        throw std::runtime_error(
-            fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Error: SoC descriptor file does not exist at path: {}", device_descriptor_path));
     }
     fdesc.close();
 
@@ -643,6 +661,10 @@ std::string SocDescriptor::serialize() const {
     write_core_locations(&out, CoreType::L2CPU);
     out << YAML::EndSeq;
 
+    out << YAML::Key << "dispatch" << YAML::Value << YAML::BeginSeq;
+    write_core_locations(&out, CoreType::DISPATCH);
+    out << YAML::EndSeq;
+
     // Fill in the rest that are static to our device.
     out << YAML::Key << "worker_l1_size" << YAML::Value << worker_l1_size;
     out << YAML::Key << "dram_bank_size" << YAML::Value << dram_bank_size;
@@ -707,12 +729,13 @@ void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
-          CoreType::L2CPU}) {
+          CoreType::L2CPU,
+          CoreType::DISPATCH}) {
         cores_map.insert({core_type, coordinate_manager->get_cores(core_type)});
         harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
         if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
-            core_type == CoreType::L2CPU) {
-            // Ethernet and Router cores aren't arranged in a grid, initializing as empty.
+            core_type == CoreType::L2CPU || core_type == CoreType::DISPATCH) {
+            // Ethernet, Router, Security, L2CPU, and Dispatch cores aren't arranged in a grid, initializing as empty.
             grid_size_map.insert({core_type, empty});
             harvested_grid_size_map.insert({core_type, empty});
             continue;
@@ -773,7 +796,7 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
 std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
     const CoreType core_type, const CoordSystem coord_system) const {
     if (coord_system == CoordSystem::LOGICAL) {
-        throw std::runtime_error("Harvested cores are not supported for logical coordinates");
+        UMD_THROW(error::RuntimeError, "Harvested cores are not supported for logical coordinates.");
     }
     auto harvested_cores_map_it = harvested_cores_map.find(core_type);
     if (coord_system != CoordSystem::NOC0) {
@@ -792,7 +815,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_syst
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
-          CoreType::L2CPU}) {
+          CoreType::L2CPU,
+          CoreType::DISPATCH}) {
         auto cores = get_cores(core_type, coord_system);
         all_cores.insert(all_cores.end(), cores.begin(), cores.end());
     }
@@ -809,7 +833,8 @@ std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem 
           CoreType::PCIE,
           CoreType::ROUTER_ONLY,
           CoreType::SECURITY,
-          CoreType::L2CPU}) {
+          CoreType::L2CPU,
+          CoreType::DISPATCH}) {
         auto harvested_cores = get_harvested_cores(core_type, coord_system);
         all_harvested_cores.insert(all_harvested_cores.end(), harvested_cores.begin(), harvested_cores.end());
     }

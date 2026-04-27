@@ -33,14 +33,14 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
         ChipId any_remote_chip = *remote_chips.begin();
         const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_remote_chip);
         CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_remote_chip, core), std::runtime_error);
+        EXPECT_THROW(umd_cluster->get_static_tlb_window(any_remote_chip, core), std::runtime_error);
     }
 
     // Expect to throw for non configured mmio chip.
     ChipId any_mmio_chip = *umd_cluster->get_target_mmio_device_ids().begin();
     const SocDescriptor& soc_desc = umd_cluster->get_soc_descriptor(any_mmio_chip);
     CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core), std::runtime_error);
+    EXPECT_THROW(umd_cluster->get_static_tlb_window(any_mmio_chip, core), std::runtime_error);
 
     std::int32_t c_zero_address = 0;
 
@@ -54,15 +54,15 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
     }
 
     // Expect not to throw for now configured mmio chip, same one as before.
-    EXPECT_NO_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, core));
+    EXPECT_NO_THROW(umd_cluster->get_static_tlb_window(any_mmio_chip, core));
 
     // Expect to throw for non worker cores.
     CoreCoord dram_core = soc_desc.get_dram_cores()[0][0];
-    EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, dram_core), std::runtime_error);
+    EXPECT_THROW(umd_cluster->get_static_tlb_window(any_mmio_chip, dram_core), std::runtime_error);
     auto eth_cores = soc_desc.get_cores(CoreType::ETH);
     if (!eth_cores.empty()) {
         CoreCoord eth_core = eth_cores[0];
-        EXPECT_THROW(umd_cluster->get_static_tlb_writer(any_mmio_chip, eth_core), std::runtime_error);
+        EXPECT_THROW(umd_cluster->get_static_tlb_window(any_mmio_chip, eth_core), std::runtime_error);
     }
 }
 

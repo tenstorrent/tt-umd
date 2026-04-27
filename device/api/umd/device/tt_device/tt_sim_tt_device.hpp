@@ -24,7 +24,7 @@ class TTSimTTDevice : public TTDevice {
 public:
     TTSimTTDevice(
         const std::filesystem::path &simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor &soc_descriptor,
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0);
@@ -33,10 +33,8 @@ public:
     static std::unique_ptr<TTSimTTDevice> create(
         const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0, bool copy_sim_binary = false);
 
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-
-    SocDescriptor *get_soc_descriptor() { return &soc_descriptor_; }
+    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
@@ -53,6 +51,7 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
+    ChipInfo get_chip_info() override;
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
@@ -67,9 +66,9 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager *get_sysmem_manager() { return sysmem_manager_.get(); }
+    SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager *get_tlb_manager();
+    TLBManager *get_tlb_manager() override;
 
     uint64_t bar0_base = 0;
 
@@ -86,7 +85,6 @@ private:
     std::recursive_mutex device_lock;
 
     std::filesystem::path simulator_directory_;
-    SocDescriptor soc_descriptor_;
     ChipId chip_id_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 

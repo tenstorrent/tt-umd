@@ -322,17 +322,19 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     log_info(LogUMD, "Initializing iommu for sysmem (size: {:#x}).", iommu_mapping_size);
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
-        TT_THROW("IOMMU is required for sysmem without hugepages.");
+        UMD_THROW(error::RuntimeError, "IOMMU is required for sysmem without hugepages.");
     }
 
     log_info(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
     iommu_mapping = mmap_with_hugepage_fallback(size);
 
     if (iommu_mapping == MAP_FAILED) {
-        TT_THROW(
-            "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
-            size,
-            strerror(errno));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
+                size,
+                strerror(errno)));
     }
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
@@ -362,7 +364,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
     if (map_buffer_to_noc && !noc_address.has_value()) {
-        TT_THROW("NOC address is not set for sysmem buffer.");
+        UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
     }
 
     if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
@@ -370,7 +372,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
         log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        TT_THROW("Proceeding could lead to undefined behavior");
+        UMD_THROW(error::RuntimeError, "Proceeding could lead to undefined behavior");
     }
 
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
@@ -397,7 +399,9 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
     if (mapping == MAP_FAILED) {
-        TT_THROW("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }

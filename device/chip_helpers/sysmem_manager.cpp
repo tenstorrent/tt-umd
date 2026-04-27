@@ -27,6 +27,7 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
         "write_buffer: Hugepages are not allocated ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         channel);
+    TT_ASSERT(hugepage_map.mapping_size != 0, "Hugepage mapping size is 0 for channel {}.", channel);
 
     TT_ASSERT(
         size <= hugepage_map.mapping_size,
@@ -52,6 +53,7 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
         "read_buffer: Hugepages are not allocated ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         channel);
+    TT_ASSERT(hugepage_map.mapping_size != 0, "Hugepage mapping size is 0 for channel {}.", channel);
 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 

@@ -29,6 +29,7 @@ enum class CoreType {
     ROUTER_ONLY,
     SECURITY,
     L2CPU,
+    DISPATCH,
     // TODO: this keeps compatibility with existing code in SocDescriptor
     // but it won't be needed later on
     HARVESTED,
@@ -68,6 +69,8 @@ static inline std::string to_str(const CoreType core_type) {
             return "SECURITY";
         case CoreType::L2CPU:
             return "L2CPU";
+        case CoreType::DISPATCH:
+            return "DISPATCH";
         case CoreType::HARVESTED:
             return "HARVESTED";
         case CoreType::ETH:

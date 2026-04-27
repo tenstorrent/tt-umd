@@ -13,8 +13,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "tt-umd/coordinates/blackhole_coordinate_manager.hpp"
-#include "tt-umd/coordinates/wormhole_coordinate_manager.hpp"
+#include "blackhole_coordinate_manager.hpp"
+#include "wormhole_coordinate_manager.hpp"
 
 namespace tt::umd {
 

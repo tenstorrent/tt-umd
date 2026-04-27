@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/coordinates/blackhole_coordinate_manager.hpp"
+#include "blackhole_coordinate_manager.hpp"
 
 #include <algorithm>
 #include <cstddef>

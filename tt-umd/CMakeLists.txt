@@ -71,7 +71,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arc/arc_messenger.hpp
                 api/tt-umd/arc/arc_telemetry_reader.hpp
                 api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
-                api/tt-umd/coordinates/blackhole_coordinate_manager.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/chip_helpers/sysmem_manager.hpp
                 api/tt-umd/chip_helpers/simulation_sysmem_manager.hpp
@@ -154,7 +153,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/wormhole_eth.hpp
                 api/tt-umd/types/wormhole_telemetry.hpp
                 api/tt-umd/types/xy_pair.hpp
-                api/tt-umd/coordinates/wormhole_coordinate_manager.hpp
                 api/tt-umd/arch/wormhole_implementation.hpp
                 api/tt-umd/jtag/jtag_device.hpp
                 api/tt-umd/jtag/jtag.hpp

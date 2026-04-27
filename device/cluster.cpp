@@ -64,6 +64,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
@@ -1098,7 +1099,12 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     IODeviceType device_type,
     const TopologyDiscoveryOptions& topology_discovery_options) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
+    auto adjusted_topology_options = topology_discovery_options;
+    if (adjusted_topology_options.device_init_failure_action != TopologyDiscoveryOptions::Action::THROW) {
+        log_warning(LogUMD, "Ignoring device init. failures is not supported in Cluster. Overriding to THROW.");
+        adjusted_topology_options.device_init_failure_action = TopologyDiscoveryOptions::Action::THROW;
+    }
+    return TopologyDiscovery::discover(adjusted_topology_options, device_type, sdesc_path).first;
 }
 
 }  // namespace tt::umd

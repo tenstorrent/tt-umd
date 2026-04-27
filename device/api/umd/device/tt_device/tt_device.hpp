@@ -39,6 +39,7 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class SimulationSysmemManager;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {
@@ -406,6 +407,10 @@ public:
      * @param staggered_start Whether to use staggered start
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
+    virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
+
+    virtual TLBManager *get_tlb_manager() { return nullptr; }
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 

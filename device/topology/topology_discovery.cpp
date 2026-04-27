@@ -29,11 +29,13 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/utils/error.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -105,8 +107,9 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     }
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->create_ethernet_map();
     // Resort devices by ChipID instead of internal unique identifiers.
-    for (auto& [chip_id, unique_id] : cluster_desc->chip_unique_ids) {
-        devices[chip_id] = std::move(td->devices.at(unique_id));
+    for (auto& [unique_id, device] : td->devices) {
+        ChipId chip_id = td->asic_id_to_chip_id[unique_id];
+        devices[chip_id] = std::move(device);
     }
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
@@ -146,7 +149,25 @@ void TopologyDiscovery::get_connected_devices() {
         ChipId chip_id = get_next_chip_id();
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_descriptor_path);
+        try {
+            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_descriptor_path);
+        } catch (error::UmdBaseException& err) {
+            if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+                throw;
+            }
+            log_warning(LogUMD, err.message());
+            uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
+            devices_to_discover.emplace(asic_id, std::move(tt_device));
+            asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+            log_warning(
+                LogUMD,
+                "Discovered unhealthy {} device w/ MMIO, ID: {}, mocked ASIC ID: {}",
+                DeviceTypeToString.at(io_device_type),
+                device_id,
+                asic_id);
+            continue;
+        }
 
         verify_fw_bundle_version(tt_device.get());
 
@@ -176,12 +197,12 @@ void TopologyDiscovery::get_connected_devices() {
 
         log_debug(
             LogUMD,
-            "Discovered {} device w/ MMIO, ID: {}, ASIC ID {}",
+            "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
             DeviceTypeToString.at(io_device_type),
             device_id,
             asic_id);
     }
-    log_debug(LogUMD, "Initialized {} locally connected devices.", devices_to_discover.size());
+    log_debug(LogUMD, "Discovered {} locally connected device(s).", devices_to_discover.size());
 }
 
 void TopologyDiscovery::discover_remote_devices() {
@@ -200,6 +221,12 @@ void TopologyDiscovery::discover_remote_devices() {
         uint64_t current_device_asic_id = it->first;
         devices.emplace(current_device_asic_id, std::move(it->second));
         devices_to_discover.erase(it);
+
+        // Skip discovery from unhealthy devices.
+        if (is_marked_unhealthy(current_device_asic_id)) {
+            continue;
+        }
+
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
         verify_fw_bundle_version(tt_device);
@@ -309,11 +336,40 @@ void TopologyDiscovery::discover_remote_devices() {
                     active_eth_channels_per_device.at(gateway_device_id));
                 ChipId chip_id = get_next_chip_id();
 
-                devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
+                bool device_init_failed = false;
+                try {
+                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor_path);
+                } catch (error::UmdBaseException& err) {
+                    if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+                        throw;
+                    }
+                    device_init_failed = true;
+                    log_warning(LogUMD, err.message());
+
+                    uint64_t mock_asic_id = generate_unhealthy_asic_id(chip_id);
+                    devices_to_discover.emplace(mock_asic_id, std::move(remote_device));
+                    asic_id_to_chip_id.emplace(mock_asic_id, chip_id);
+
+                    log_warning(
+                        LogUMD,
+                        "Discovered remote device ASIC ID: {} is unhealthy. Assigned mock ASIC ID: {}",
+                        remote_asic_id,
+                        mock_asic_id);
+                }
+                if (!device_init_failed) {
+                    if (options.wait_on_ethernet_link_training) {
+                        wait_eth_cores_training(remote_device.get());
+                    }
+                    // Put device in discovery queue only if it is healthy.
+                    devices_to_discover.emplace(remote_asic_id, std::move(remote_device));
+                }
+
+                // These actions are safe for both healthy and unhealthy devices.
                 asic_id_to_chip_id.emplace(remote_asic_id, chip_id);
                 active_eth_channels_per_device.emplace(remote_asic_id, std::set<uint32_t>());
-                discovered_devices.insert(remote_asic_id);
                 remote_asic_id_to_mmio_device_id.emplace(remote_asic_id, gateway_device_id);
+                // This will prevent attempting init. of an unhealthy device over another ETH core.
+                discovered_devices.insert(remote_asic_id);
             } else {
                 log_debug(
                     LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, translated_eth_core.str());
@@ -332,6 +388,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId chip_id = asic_id_to_chip_id[current_device_asic_id];
+
+        if (is_marked_unhealthy(current_device_asic_id)) {
+            cluster_desc->unhealthy_devices.push_back(chip_id);
+            continue;
+        }
+
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
 
         if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
@@ -346,6 +408,13 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
+
+        // Cluster descriptor is not designed to contain partial information about devices,
+        // so we cannot add information about unhealthy devices.
+        if (is_marked_unhealthy(current_device_asic_id)) {
+            continue;
+        }
+
         cluster_desc->all_chips.insert(current_chip_id);
         cluster_desc->chip_arch.insert({current_chip_id, tt_device->get_arch()});
 
@@ -392,8 +461,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             ethernet_connection_remote.first, ethernet_connection_remote.second};
     }
 
-    const uint32_t num_eth_channels = devices.begin()->second->get_soc_descriptor().get_cores(CoreType::ETH).size();
     for (const auto& [current_chip_asic_id, active_eth_channels] : active_eth_channels_per_device) {
+        if (is_marked_unhealthy(current_chip_asic_id)) {
+            continue;
+        }
+        const uint32_t num_eth_channels =
+            devices.at(current_chip_asic_id)->get_soc_descriptor().get_cores(CoreType::ETH).size();
         ChipId current_chip_id = asic_id_to_chip_id.at(current_chip_asic_id);
         for (int i = 0; i < num_eth_channels; i++) {
             cluster_desc->idle_eth_channels[current_chip_id].insert(i);

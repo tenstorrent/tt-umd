@@ -83,6 +83,10 @@ enum class RiscType : std::uint64_t {
     ALL_NEO_TRISCS = ALL_NEO0_TRISCS | ALL_NEO1_TRISCS | ALL_NEO2_TRISCS | ALL_NEO3_TRISCS,
     ALL_NEO_DMS = DM0 | DM1 | DM2 | DM3 | DM4 | DM5 | DM6 | DM7,
     ALL_NEO = ALL_NEO_TRISCS | ALL_NEO_DMS,
+
+    // Uncore reset flags for NEO DM cores.
+    ALL_NEO_DMS_UNCORE = 1ULL << 32,
+    NEO_DM_UNCORE = 1ULL << 33,
 };
 
 std::string RiscTypeToString(RiscType value);

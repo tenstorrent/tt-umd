@@ -114,10 +114,6 @@ protected:
 
     virtual void verify_routing_firmware_state(TTDevice* tt_device, const tt_xy_pair eth_core) = 0;
 
-    // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
-    // does not take harvesting into consideration. This function will be overridden just for Blackhole.
-    virtual void patch_eth_connections();
-
     virtual void retrain_eth_cores() = 0;
 
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices_to_discover;

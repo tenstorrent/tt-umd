@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "api/tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/coordinates/coordinate_manager.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "tt-umd/coordinates/blackhole_coordinate_manager.hpp"
-#include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/coordinates/wormhole_coordinate_manager.hpp"
 
 namespace tt::umd {

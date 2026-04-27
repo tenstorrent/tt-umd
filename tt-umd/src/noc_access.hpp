@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "api/tt-umd/types/noc_id.hpp"
+#include "tt-umd/types/noc_id.hpp"
 
 namespace tt::umd {
 

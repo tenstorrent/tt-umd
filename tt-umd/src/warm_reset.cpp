@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "api/tt-umd/warm_reset.hpp"
+#include "tt-umd/warm_reset.hpp"
 
 #include <fmt/color.h>
 #include <glob.h>
@@ -31,10 +31,10 @@
 #include <utility>
 #include <vector>
 
-#include "api/tt-umd/arch/blackhole_implementation.hpp"
-#include "api/tt-umd/arch/grendel_implementation.hpp"
-#include "api/tt-umd/arch/wormhole_implementation.hpp"
-#include "api/tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/arch/grendel_implementation.hpp"
+#include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/utils/error.hpp"

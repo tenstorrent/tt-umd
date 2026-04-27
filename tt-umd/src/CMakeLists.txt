@@ -1,0 +1,93 @@
+target_sources(
+    tt-umd
+    PRIVATE
+        arch/architecture_implementation.cpp
+        chip_helpers/sysmem_manager.cpp
+        chip_helpers/simulation_sysmem_manager.cpp
+        chip_helpers/silicon_sysmem_manager.cpp
+        chip_helpers/sysmem_buffer.cpp
+        chip_helpers/tlb_manager.cpp
+        pcie/tlb_window.cpp
+        pcie/silicon_tlb_window.cpp
+        pcie/silicon_tlb_handle.cpp
+        coordinates/coordinate_manager.cpp
+        cpuset_lib.cpp
+        arch/wormhole_implementation.cpp
+        arch/blackhole_implementation.cpp
+        arch/grendel_implementation.cpp
+        hugepage.cpp
+        logging/config.cpp
+        pcie/pci_device.cpp
+        types/tlb.cpp
+        cluster_descriptor.cpp
+        tt_device/blackhole_tt_device.cpp
+        tt_device/tt_device.cpp
+        tt_device/wormhole_tt_device.cpp
+        tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/wormhole_hang_detector.cpp
+        tt_device/hang_detection/blackhole_hang_detector.cpp
+        tt_device/protocol/pcie_protocol.cpp
+        tt_device/protocol/jtag_protocol.cpp
+        tt_device/protocol/remote_protocol.cpp
+        tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
+        tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
+        firmware/firmware_info_provider.cpp
+        firmware/firmware_utils.cpp
+        types/tensix_soft_reset_options.cpp
+        types/risc_type.cpp
+        soc_descriptor.cpp
+        coordinates/wormhole_coordinate_manager.cpp
+        coordinates/blackhole_coordinate_manager.cpp
+        arc/arc_telemetry_reader.cpp
+        arc/wormhole_arc_telemetry_reader.cpp
+        arc/blackhole_arc_telemetry_reader.cpp
+        arc/smbus_arc_telemetry_reader.cpp
+        arc/arc_messenger.cpp
+        arc/wormhole_arc_messenger.cpp
+        arc/blackhole_arc_messenger.cpp
+        arc/blackhole_arc_message_queue.cpp
+        arc/spi_tt_device.cpp
+        noc_access.cpp
+        warm_reset.cpp
+        types/xy_pair.cpp
+        utils/error.cpp
+        utils/lock_manager.cpp
+        utils/robust_mutex.cpp
+        topology/topology_discovery.cpp
+        topology/topology_discovery_blackhole.cpp
+        topology/topology_discovery_wormhole.cpp
+        tt_device/remote_communication.cpp
+        tt_device/remote_communication_legacy_firmware.cpp
+        jtag/jtag_device.cpp
+        jtag/jtag.cpp
+        tt_kmd_lib/tt_kmd_lib.c
+        arc/wormhole_spi_tt_device.cpp
+        arc/blackhole_spi_tt_device.cpp
+)
+
+if(TT_UMD_BUILD_SIMULATION)
+    target_sources(
+        tt-umd
+        PRIVATE
+            simulation/tt_sim_communicator.cpp
+            simulation/rtl_sim_communicator.cpp
+            simulation/rtl_simulation_tt_device.cpp
+            simulation/tt_sim_tt_device.cpp
+            simulation/simulation_host.cpp
+            chip_helpers/simulation_tlb_manager.cpp
+            simulation/simulation_device_factory.cpp
+            pcie/tt_sim_tlb_window.cpp
+            pcie/tt_sim_tlb_handle.cpp
+            pcie/rtl_sim_tlb_window.cpp
+            pcie/rtl_sim_tlb_handle.cpp
+            ${FBS_GENERATED_HEADER}
+    )
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
+endif()
+
+target_include_directories(
+    tt-umd
+    PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/common>
+)

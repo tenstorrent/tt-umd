@@ -52,8 +52,8 @@ target_include_directories(
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
     PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../tt-umd>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../tt-umd/common>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../tt-umd/src>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../tt-umd/src/common>
 )
 
 target_link_libraries(

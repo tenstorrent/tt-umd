@@ -25,7 +25,6 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
-#include "tt-umd/arc/blackhole_arc_telemetry_reader.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"

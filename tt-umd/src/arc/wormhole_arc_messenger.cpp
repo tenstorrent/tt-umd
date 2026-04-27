@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/arc/wormhole_arc_messenger.hpp"
+#include "wormhole_arc_messenger.hpp"
 
 #include <fmt/ranges.h>
 

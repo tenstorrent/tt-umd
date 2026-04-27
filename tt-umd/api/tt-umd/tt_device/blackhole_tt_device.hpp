@@ -8,7 +8,6 @@
 #include <mutex>
 #include <set>
 
-#include "tt-umd/arc/blackhole_arc_telemetry_reader.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
 #include "tt-umd/utils/timeouts.hpp"

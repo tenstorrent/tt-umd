@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/arc/wormhole_spi_tt_device.hpp"
+#include "wormhole_spi_tt_device.hpp"
 
 #include <algorithm>
 #include <cmath>

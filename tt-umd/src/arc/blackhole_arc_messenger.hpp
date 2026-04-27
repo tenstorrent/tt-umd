@@ -4,8 +4,8 @@
 
 #pragma once
 
+#include "blackhole_arc_message_queue.hpp"
 #include "tt-umd/arc/arc_messenger.hpp"
-#include "tt-umd/arc/blackhole_arc_message_queue.hpp"
 #include "tt-umd/utils/timeouts.hpp"
 
 namespace tt::umd {

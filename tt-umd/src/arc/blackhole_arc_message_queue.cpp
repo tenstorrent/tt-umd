@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/arc/blackhole_arc_message_queue.hpp"
+#include "blackhole_arc_message_queue.hpp"
 
 #include <array>
 #include <chrono>

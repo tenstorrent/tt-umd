@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/arc/blackhole_arc_messenger.hpp"
+#include "blackhole_arc_messenger.hpp"
 
 #include <fmt/ranges.h>
 

@@ -8,10 +8,10 @@
 #include <memory>
 #include <stdexcept>
 
-#include "tt-umd/arc/blackhole_spi_tt_device.hpp"
-#include "tt-umd/arc/wormhole_spi_tt_device.hpp"
+#include "blackhole_spi_tt_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
+#include "wormhole_spi_tt_device.hpp"
 
 namespace tt::umd {
 

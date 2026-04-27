@@ -70,11 +70,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/arch/architecture_implementation.hpp
                 api/tt-umd/arc/arc_messenger.hpp
                 api/tt-umd/arc/arc_telemetry_reader.hpp
-                api/tt-umd/arc/blackhole_arc_message_queue.hpp
-                api/tt-umd/arc/blackhole_arc_messenger.hpp
                 api/tt-umd/arc/smbus_arc_telemetry_reader.hpp
-                api/tt-umd/arc/wormhole_arc_messenger.hpp
-                api/tt-umd/arc/wormhole_arc_telemetry_reader.hpp
                 api/tt-umd/coordinates/blackhole_coordinate_manager.hpp
                 api/tt-umd/arch/blackhole_implementation.hpp
                 api/tt-umd/chip_helpers/sysmem_manager.hpp

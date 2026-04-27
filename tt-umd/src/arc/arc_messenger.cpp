@@ -10,10 +10,10 @@
 #include <stdexcept>
 #include <vector>
 
-#include "tt-umd/arc/blackhole_arc_messenger.hpp"
-#include "tt-umd/arc/wormhole_arc_messenger.hpp"
+#include "blackhole_arc_messenger.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/common.hpp"
+#include "wormhole_arc_messenger.hpp"
 
 namespace tt::umd {
 

@@ -11,13 +11,13 @@
 #include <stdexcept>
 #include <vector>
 
+#include "blackhole_arc_telemetry_reader.hpp"
 #include "tt-logger/tt-logger.hpp"
-#include "tt-umd/arc/blackhole_arc_telemetry_reader.hpp"
 #include "tt-umd/arc/smbus_arc_telemetry_reader.hpp"
-#include "tt-umd/arc/wormhole_arc_telemetry_reader.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/types/wormhole_telemetry.hpp"
 #include "tt-umd/utils/semver.hpp"
+#include "wormhole_arc_telemetry_reader.hpp"
 
 namespace tt::umd {
 

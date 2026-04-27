@@ -18,8 +18,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "arc/blackhole_spi_tt_device.hpp"
 #include "noc_access.hpp"
-#include "tt-umd/arc/blackhole_spi_tt_device.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"

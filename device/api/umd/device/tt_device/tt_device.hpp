@@ -269,8 +269,6 @@ public:
      */
     virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
-    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
-
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
      *

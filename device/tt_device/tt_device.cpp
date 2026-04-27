@@ -295,10 +295,6 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
-    get_pcie_interface()->write_regs(dest, src, word_len);
-}
-
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
     device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());

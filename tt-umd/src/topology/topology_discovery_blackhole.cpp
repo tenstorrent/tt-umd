@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/topology/topology_discovery_blackhole.hpp"
+#include "topology_discovery_blackhole.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -18,12 +18,12 @@
 #include "tt-umd/firmware/erisc_firmware.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
-#include "tt-umd/tt_device/blackhole_tt_device.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/semver.hpp"
+#include "tt_device/blackhole_tt_device.hpp"
 
 namespace tt::umd {
 

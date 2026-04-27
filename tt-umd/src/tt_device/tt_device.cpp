@@ -18,7 +18,11 @@
 #include <vector>
 
 #include "assert.hpp"
+#include "blackhole_tt_device.hpp"
 #include "noc_access.hpp"
+#include "protocol/jtag_protocol.hpp"
+#include "protocol/pcie_protocol.hpp"
+#include "protocol/remote_protocol.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arc/arc_messenger.hpp"
 #include "tt-umd/driver_atomics.hpp"
@@ -26,12 +30,7 @@
 #include "tt-umd/jtag/jtag_device.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/silicon_tlb_window.hpp"
-#include "tt-umd/tt_device/blackhole_tt_device.hpp"
-#include "tt-umd/tt_device/protocol/jtag_protocol.hpp"
-#include "tt-umd/tt_device/protocol/pcie_protocol.hpp"
-#include "tt-umd/tt_device/protocol/remote_protocol.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
-#include "tt-umd/tt_device/wormhole_tt_device.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/noc_id.hpp"
 #include "tt-umd/types/telemetry.hpp"
@@ -40,6 +39,7 @@
 #include "tt-umd/utils/lock_manager.hpp"
 #include "tt-umd/utils/semver.hpp"
 #include "utils.hpp"
+#include "wormhole_tt_device.hpp"
 
 namespace tt::umd {
 

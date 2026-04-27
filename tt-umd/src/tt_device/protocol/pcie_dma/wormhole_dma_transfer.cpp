@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
+#include "wormhole_dma_transfer.hpp"
 
 #include <chrono>
 #include <stdexcept>

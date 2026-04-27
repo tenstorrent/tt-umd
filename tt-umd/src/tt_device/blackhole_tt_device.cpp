@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/blackhole_tt_device.hpp"
+#include "blackhole_tt_device.hpp"
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -23,13 +23,13 @@
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
-#include "tt-umd/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"
 #include "tt-umd/types/telemetry.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/utils/error_detail.hpp"
+#include "tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

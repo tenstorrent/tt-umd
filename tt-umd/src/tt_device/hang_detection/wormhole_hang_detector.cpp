@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/tt_device/hang_detection/wormhole_hang_detector.hpp"
+#include "wormhole_hang_detector.hpp"
 
 #include "noc_access.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"

@@ -59,8 +59,6 @@
 #include "tt-umd/firmware/erisc_firmware.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
-#include "tt-umd/topology/topology_discovery_blackhole.hpp"
-#include "tt-umd/topology/topology_discovery_wormhole.hpp"
 #include "tt-umd/topology/topology_utils.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"

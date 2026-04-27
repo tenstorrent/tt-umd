@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/tt_device/protocol/pcie_protocol.hpp"
+#include "pcie_protocol.hpp"
 
 #include <algorithm>
 #include <cstring>

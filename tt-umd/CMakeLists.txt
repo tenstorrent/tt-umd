@@ -98,9 +98,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/utils/robust_mutex.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
-                api/tt-umd/tt_device/blackhole_tt_device.hpp
                 api/tt-umd/tt_device/tt_device.hpp
-                api/tt-umd/tt_device/wormhole_tt_device.hpp
                 api/tt-umd/simulation/rtl_simulation_tt_device.hpp
                 api/tt-umd/simulation/tt_sim_tt_device.hpp
                 api/tt-umd/simulation/simulation_device_factory.hpp
@@ -108,18 +106,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/simulation/rtl_sim_communicator.hpp
                 api/tt-umd/simulation/simulation_host.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
-                api/tt-umd/tt_device/protocol/pcie_interface.hpp
-                api/tt-umd/tt_device/protocol/pcie_protocol.hpp
-                api/tt-umd/tt_device/protocol/jtag_interface.hpp
-                api/tt-umd/tt_device/protocol/jtag_protocol.hpp
-                api/tt-umd/tt_device/protocol/remote_interface.hpp
-                api/tt-umd/tt_device/protocol/remote_protocol.hpp
-                api/tt-umd/tt_device/protocol/pcie_dma/dma_transfer.hpp
-                api/tt-umd/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
-                api/tt-umd/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
-                api/tt-umd/tt_device/hang_detection/hang_detector.hpp
-                api/tt-umd/tt_device/hang_detection/wormhole_hang_detector.hpp
-                api/tt-umd/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/tt-umd/tt_device/remote_communication.hpp
                 api/tt-umd/tt_device/remote_communication_legacy_firmware.hpp
                 api/tt-umd/firmware/firmware_info_provider.hpp
@@ -130,8 +116,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/noc_id.hpp
                 api/tt-umd/types/risc_type.hpp
                 api/tt-umd/soc_descriptor.hpp
-                api/tt-umd/topology/topology_discovery_blackhole.hpp
-                api/tt-umd/topology/topology_discovery_wormhole.hpp
                 api/tt-umd/topology/topology_discovery.hpp
                 api/tt-umd/topology/topology_utils.hpp
                 api/tt-umd/topology/topology_discovery_options.hpp

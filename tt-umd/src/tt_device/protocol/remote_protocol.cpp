@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/tt_device/protocol/remote_protocol.hpp"
+#include "remote_protocol.hpp"
 
 #include "tt-umd/tt_device/remote_communication.hpp"
 

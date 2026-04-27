@@ -23,11 +23,11 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "topology_discovery_blackhole.hpp"
+#include "topology_discovery_wormhole.hpp"
 #include "tracy.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
-#include "tt-umd/topology/topology_discovery_blackhole.hpp"
-#include "tt-umd/topology/topology_discovery_wormhole.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/cluster_descriptor_types.hpp"

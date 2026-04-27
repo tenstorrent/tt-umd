@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#include "tt-umd/tt_device/hang_detection/blackhole_hang_detector.hpp"
+#include "blackhole_hang_detector.hpp"
 
 #include "noc_access.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"

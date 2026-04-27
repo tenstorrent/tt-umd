@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/topology/topology_discovery_wormhole.hpp"
+#include "topology_discovery_wormhole.hpp"
 
 #include <fmt/format.h>
 
@@ -20,10 +20,10 @@
 #include "tt-umd/firmware/firmware_utils.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
-#include "tt-umd/tt_device/wormhole_tt_device.hpp"
 #include "tt-umd/types/wormhole_eth.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 #include "tt-umd/utils/semver.hpp"
+#include "tt_device/wormhole_tt_device.hpp"
 
 namespace tt::umd {
 

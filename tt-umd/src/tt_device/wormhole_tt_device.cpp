@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/tt_device/wormhole_tt_device.hpp"
+#include "wormhole_tt_device.hpp"
 
 #include <chrono>
 #include <cstddef>
@@ -17,11 +17,11 @@
 #include <vector>
 
 #include "assert.hpp"
+#include "hang_detection/wormhole_hang_detector.hpp"
 #include "noc_access.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
 #include "tt-umd/jtag/jtag_device.hpp"
-#include "tt-umd/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/types/communication_protocol.hpp"
 #include "tt-umd/types/wormhole_eth.hpp"

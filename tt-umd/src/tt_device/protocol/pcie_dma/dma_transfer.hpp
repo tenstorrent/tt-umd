@@ -7,8 +7,8 @@
 
 #include <variant>
 
-#include "tt-umd/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
-#include "tt-umd/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
+#include "blackhole_dma_transfer.hpp"
+#include "wormhole_dma_transfer.hpp"
 
 namespace tt::umd {
 

@@ -32,6 +32,8 @@ public:
 
     SimulationTlbManager* get_tlb_manager() const { return manager_; }
 
+    tt::ARCH get_arch() const override;
+
 private:
     RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping);
 

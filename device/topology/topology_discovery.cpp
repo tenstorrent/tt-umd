@@ -257,6 +257,35 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
+            // FIX NU (#42429): Capture the local EthCoord for this MMIO device using a direct
+            // PCIe read from NODE_INFO, BEFORE any relay-safety guards (FIX W heartbeat check,
+            // eth_heartbeat_running, verify_eth_core_fw_version) that may `continue` past this
+            // point. get_local_eth_coord() only issues a PCIe read — it is unconditionally safe
+            // even when ETH firmware is in FABRIC/STARTED mode or otherwise dead.
+            //
+            // Without this, a device whose ALL ETH channels fail the FIX W heartbeat check
+            // (e.g., every ERISC left in FABRIC mode by a prior job) never has its EthCoord
+            // stored in eth_coords. fill_cluster_descriptor_info() then skips populating
+            // chip_locations for that device, causing get_physical_chip_id_from_eth_coord() to
+            // TT_FATAL when a test YAML references that chip by EthCoord.
+            if (is_using_eth_coords() && eth_coords.find(current_device_asic_id) == eth_coords.end()) {
+                auto local_eth_coord = get_local_eth_coord(tt_device, translated_eth_core);
+                if (local_eth_coord.has_value()) {
+                    eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
+                    log_debug(
+                        LogUMD,
+                        "FIX NU: Captured EthCoord for MMIO device ASIC ID {} from ETH core {} "
+                        "before relay-safety guards: ({},{},{},{},{})",
+                        current_device_asic_id,
+                        translated_eth_core.str(),
+                        local_eth_coord.value().cluster_id,
+                        local_eth_coord.value().x,
+                        local_eth_coord.value().y,
+                        local_eth_coord.value().rack,
+                        local_eth_coord.value().shelf);
+                }
+            }
+
             // FIX W (#42429): Before attempting relay through this ETH channel, verify its
             // firmware is alive with a single fast PCIe read. Channels left in a crashed
             // state (e.g., 0xDEADECE7) by abnormal fabric teardown won't service relay
@@ -305,18 +334,6 @@ void TopologyDiscovery::discover_remote_devices() {
                     translated_eth_core.str());
 
                 continue;
-            }
-
-            if (is_using_eth_coords() && eth_coords.find(current_device_asic_id) == eth_coords.end()) {
-                auto local_eth_coord = get_local_eth_coord(tt_device, translated_eth_core);
-                if (local_eth_coord.has_value()) {
-                    eth_coords.emplace(current_device_asic_id, local_eth_coord.value());
-                    log_debug(
-                        LogUMD,
-                        "Device ASIC ID: {} has ETH coord: {}",
-                        current_device_asic_id,
-                        local_eth_coord.value());
-                }
             }
 
             if (!is_eth_trained(tt_device, translated_eth_core)) {

@@ -18,6 +18,23 @@
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 
+// Weak no-op fallbacks for the ASan poisoning bridge. tt-emule provides
+// strong definitions of these in src/kernel_runner.cpp; when an executable
+// links tt-emule (directly or via libtt_metal.so), those override these. UMD
+// libraries and standalone tools that don't pull in tt-emule fall back to
+// these no-ops — correct behavior, because there's no ASan poisoning context
+// to act on without tt-emule's L1Pool / Core memory management.
+//
+// Without these, libtt-umd.so has unresolved references to
+// __emule_buffer_alloc/free (introduced by SWEmuleChip::initialize_asan_poison
+// and get_core's poison hook). Tools like tt-metal's tools/scaleout/* and
+// UMD's own diagnostic tools that link libtt-umd.so without tt-emule fail
+// the link.
+extern "C" {
+__attribute__((weak)) void __emule_buffer_alloc(uint8_t*, std::size_t) {}
+__attribute__((weak)) void __emule_buffer_free(uint8_t*, std::size_t) {}
+}
+
 namespace tt::umd {
 
 // SOC-derived DRAM bank size, captured at the most recent SWEmuleChip

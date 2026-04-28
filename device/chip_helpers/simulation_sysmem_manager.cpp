@@ -18,6 +18,7 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tracy.hpp"
 
 namespace tt::umd {
 
@@ -27,6 +28,7 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
 }
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+    ZoneScopedC(tracy::Color::Yellow);
     if (num_host_mem_channels == 0) {
         return true;
     }
@@ -65,6 +67,7 @@ bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
 void SimulationSysmemManager::unpin_or_unmap_sysmem() {
+    ZoneScopedC(tracy::Color::Yellow);
     hugepage_mapping_per_channel.clear();
     if (system_memory_ != nullptr) {
         munmap(system_memory_, system_memory_size_);

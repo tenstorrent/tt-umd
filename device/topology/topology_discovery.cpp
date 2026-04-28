@@ -389,6 +389,13 @@ void TopologyDiscovery::discover_remote_devices() {
                         remote_asic_id,
                         remote_asic_id_to_mmio_device_id.at(current_device_asic_id),
                         err.what());
+                    // FIX NT (#42429): Preserve the EthCoord for this unhealthy device so that
+                    // chip_locations remains complete even when topology discovery degrades.
+                    // Without this, get_physical_chip_id_from_eth_coord() TT_FATALs when the
+                    // YAML config references a chip that was skipped by FIX AQ.
+                    if (is_using_eth_coords() && eth_coord.has_value()) {
+                        eth_coords.emplace(remote_asic_id, eth_coord.value());
+                    }
                     discovered_devices.insert(remote_asic_id);
                     continue;
                 }
@@ -533,6 +540,36 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     cluster_desc->io_device_type = io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->merge_cluster_ids();
+
+    // FIX NT (#42429): Populate chip_locations for FIX-AQ-skipped unhealthy remote devices.
+    // These devices are not in `devices` (they never entered devices_to_discover) but they
+    // ARE in asic_id_to_chip_id and have their EthCoord stored in eth_coords (added by the
+    // FIX NT block in the FIX AQ catch above).  Without this, get_physical_chip_id_from_eth_coord()
+    // TT_FATALs when a test YAML references a chip that FIX AQ skipped.
+    //
+    // This block runs AFTER merge_cluster_ids() so the hardware-read cluster_id (e.g. 0 for T3K)
+    // is preserved as-is in chip_locations, rather than being overwritten with the DisjointSet
+    // representative (which would be the unhealthy chip's own chip_id, mismatching YAML lookups).
+    if (is_using_eth_coords()) {
+        for (const auto& [asic_id, chip_id] : asic_id_to_chip_id) {
+            if (devices.find(asic_id) == devices.end() && eth_coords.count(asic_id)) {
+                const EthCoord& ec = eth_coords.at(asic_id);
+                cluster_desc->chip_locations.insert({chip_id, ec});
+                cluster_desc->coords_to_chip_ids[ec.rack][ec.shelf][ec.y][ec.x] = chip_id;
+                log_warning(
+                    LogUMD,
+                    "FIX NT: Added chip_locations entry for unhealthy chip {} (ASIC ID {}) "
+                    "at EthCoord ({},{},{},{},{}) — topology degraded but coord mapping preserved.",
+                    chip_id,
+                    asic_id,
+                    ec.cluster_id,
+                    ec.x,
+                    ec.y,
+                    ec.rack,
+                    ec.shelf);
+            }
+        }
+    }
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 

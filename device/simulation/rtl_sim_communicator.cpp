@@ -21,6 +21,7 @@
 #include "simulation_device_generated.h"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/noc_access.hpp"
 
 namespace tt::umd {
 
@@ -55,8 +56,8 @@ inline void send_command_to_simulation_host(SimulationHost &host, const flatbuff
 
 }  // namespace
 
-RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_directory) :
-    simulator_directory_(simulator_directory) {
+RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_directory, tt::ARCH arch) :
+    simulator_directory_(simulator_directory), arch_(arch) {
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(
             error::RuntimeError, fmt::format("Simulator directory not found at: {}", simulator_directory_.string()));
@@ -155,12 +156,22 @@ void RtlSimCommunicator::shutdown() {
 }
 
 void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    NocId noc_id = get_selected_noc_id();
+
+    if (noc_id == NocId::SYSTEM_NOC && arch_ != tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
+    }
+    if (noc_id == NocId::NOC1 && arch_ == tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
+    }
+
     {
         std::lock_guard<std::mutex> lock(device_lock_);
         tt_xy_pair core = {x, y};
 
         // Send read request.
-        send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
+        DEVICE_COMMAND command = (noc_id == NocId::SYSTEM_NOC) ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
+        send_command_to_simulation_host(host_, create_flatbuffer(command, {0}, core, addr, size));
     }
 
     // Get read response from the command queue (populated by notification thread).
@@ -184,6 +195,15 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
 }
 
 void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    NocId noc_id = get_selected_noc_id();
+
+    if (noc_id == NocId::SYSTEM_NOC && arch_ != tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
+    }
+    if (noc_id == NocId::NOC1 && arch_ == tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
+    }
+
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
 
@@ -192,38 +212,11 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     const auto *data_ptr = static_cast<const uint32_t *>(data);
     std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
 
-    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
+    // Send write request.
+    DEVICE_COMMAND command = (noc_id == NocId::SYSTEM_NOC) ? DEVICE_COMMAND_SMN_WRITE : DEVICE_COMMAND_WRITE;
+    send_command_to_simulation_host(host_, create_flatbuffer(command, data_vec, core, addr));
 }
 
-void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock_);
-    tt_xy_pair core = {x, y};
-    void *rd_resp;
-
-    // Send SMN read request.
-    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_SMN_READ, {0}, core, addr, size));
-
-    // Get read response.
-    size_t rd_rsp_sz = host_.recv_from_device(&rd_resp);
-    auto rd_resp_buf = GetDeviceRequestResponse(rd_resp);
-
-    log_debug(tt::LogEmulationDriver, "Device SMN reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
-
-    std::memcpy(data, rd_resp_buf->data()->data(), rd_resp_buf->data()->size() * sizeof(uint32_t));
-    nng_free(rd_resp, rd_rsp_sz);
-}
-
-void RtlSimCommunicator::smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
-    std::lock_guard<std::mutex> lock(device_lock_);
-    log_debug(tt::LogEmulationDriver, "Device SMN writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
-
-    tt_xy_pair core = {x, y};
-    const uint32_t num_elements = size / sizeof(uint32_t);
-    const auto *data_ptr = static_cast<const uint32_t *>(data);
-    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
-
-    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_SMN_WRITE, data_vec, core, addr));
-}
 
 void RtlSimCommunicator::all_tensix_reset_assert(uint32_t x, uint32_t y) {
     std::lock_guard<std::mutex> lock(device_lock_);

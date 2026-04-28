@@ -56,7 +56,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     int num_host_mem_channels) :
-    communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)),
+    communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory, soc_descriptor.arch)),
     simulator_directory_(simulator_directory),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");

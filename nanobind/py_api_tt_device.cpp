@@ -16,6 +16,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/arc/spi_tt_device.hpp"
+#include "umd/device/noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -563,7 +564,8 @@ void bind_tt_device(nb::module_ &m) {
             [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size)
                 -> nb::bytes {
                 std::vector<uint8_t> buffer(size);
-                self.get_communicator()->smn_tile_read_bytes(core_x, core_y, addr, buffer.data(), size);
+                NocIdSwitcher switcher(NocId::SYSTEM_NOC);
+                self.get_communicator()->tile_read_bytes(core_x, core_y, addr, buffer.data(), size);
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
             nb::arg("core_x"),
@@ -574,7 +576,8 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "smn_write",
             [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
-                self.get_communicator()->smn_tile_write_bytes(
+                NocIdSwitcher switcher(NocId::SYSTEM_NOC);
+                self.get_communicator()->tile_write_bytes(
                     core_x, core_y, addr, data.c_str(), static_cast<uint32_t>(data.size()));
             },
             nb::arg("core_x"),

@@ -31,8 +31,6 @@
 
 namespace tt::umd {
 
-class ClusterDescriptor;
-
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
 public:

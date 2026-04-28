@@ -17,16 +17,19 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tracy.hpp"
 
 namespace tt::umd {
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
         "write_buffer: Hugepages are not allocated ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         channel);
+    TT_ASSERT(hugepage_map.mapping_size != 0, "Hugepage mapping size is 0 for channel {}.", channel);
 
     TT_ASSERT(
         size <= hugepage_map.mapping_size,
@@ -46,12 +49,14 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 }
 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
+    ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
     TT_ASSERT(
         hugepage_map.mapping,
         "read_buffer: Hugepages are not allocated ch: {}."
         " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
         channel);
+    TT_ASSERT(hugepage_map.mapping_size != 0, "Hugepage mapping size is 0 for channel {}.", channel);
 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 

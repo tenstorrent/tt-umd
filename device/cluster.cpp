@@ -54,6 +54,7 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/chip/sw_emule_chip.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -63,6 +64,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/topology/topology_discovery_wormhole.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/types/arch.hpp"
@@ -74,6 +76,7 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
@@ -110,7 +113,7 @@ void Cluster::log_device_summary() {
             // Currently no specific device logging needed for JTAG.
             break;
         default:
-            TT_THROW("Unknown device type for logging.");
+            UMD_THROW(error::RuntimeError, "Unknown device type for logging.");
             break;
     }
 }
@@ -210,13 +213,23 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
+    if (chip_type == ChipType::SWEMULE) {
+#ifdef TT_UMD_BUILD_EMULE
+        return std::make_unique<SWEmuleChip>(soc_desc);
+#else
+        throw std::runtime_error(
+            "SWEMULE device is not supported in this build. Set '-DTT_UMD_BUILD_EMULE=ON' during cmake "
+            "configuration to enable software emulation device.");
+#endif
+    }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
             "configuration to enable simulation device.");
 #endif
@@ -259,7 +272,8 @@ SocDescriptor Cluster::construct_soc_descriptor(
     // In case of SILICON chip type, this chip has to exist in the cluster descriptor. But it doesn't have to exist in
     // case of Mock or Simulation chip type.
     if (chip_type == ChipType::SILICON && !chip_in_cluster_descriptor) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("Chip {} not found in cluster descriptor. Cannot create device.", chip_id));
     }
 
@@ -293,11 +307,13 @@ SocDescriptor Cluster::construct_soc_descriptor(
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
         if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
-            throw std::runtime_error(fmt::format(
-                "Passed soc descriptor has {} arch, but for chip id {} has arch {}",
-                arch_to_str(soc_desc.arch),
-                chip_id,
-                arch_to_str(cluster_desc->get_arch(chip_id))));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Passed SOC descriptor has {} architecture, but Chip ID {} has {} architecture.",
+                    arch_to_str(soc_desc.arch),
+                    chip_id,
+                    arch_to_str(cluster_desc->get_arch(chip_id))));
         }
 
         return soc_desc;
@@ -311,7 +327,8 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         chip_id);
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::SWEMULE ||
+        cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -340,6 +357,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             break;
         }
         case ChipType::MOCK:
+        case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
             if (options.cluster_descriptor == nullptr) {
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
@@ -358,7 +376,8 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 // simulation.
                 bool is_ttsim_simulation =
                     (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
-                bool noc_translation_enabled = options.chip_type == ChipType::MOCK || is_ttsim_simulation;
+                bool noc_translation_enabled = options.chip_type == ChipType::MOCK ||
+                                               options.chip_type == ChipType::SWEMULE || is_ttsim_simulation;
                 std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =
                     ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
 
@@ -374,7 +393,17 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             break;
         }
         default:
-            throw std::runtime_error("Unsupported chip type");
+            UMD_THROW(error::RuntimeError, "Unsupported chip type.");
+    }
+
+    if (!options.num_host_mem_ch_per_mmio_device.has_value()) {
+        auto grouped_chips = cluster_desc->get_chips_grouped_by_closest_mmio();
+        uint32_t max_chips_per_mmio = 0;
+        for (const auto& [mmio_device_id, chips] : grouped_chips) {
+            max_chips_per_mmio = std::max(max_chips_per_mmio, static_cast<uint32_t>(chips.size()));
+        }
+        options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
+        log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
     }
 
     // Construct all the required chips from the cluster descriptor.
@@ -398,12 +427,12 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 options.chip_type,
                 cluster_desc.get(),
                 soc_desc,
-                options.num_host_mem_ch_per_mmio_device,
+                options.num_host_mem_ch_per_mmio_device.value(),
                 options.simulator_directory,
                 std::move(tt_device)));
     }
 
-    construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);
+    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -457,14 +486,16 @@ ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(
 
 void Cluster::refresh_cluster_description() {
     if (options_.chip_type != ChipType::SILICON) {
-        throw std::runtime_error("refresh_cluster_description is only supported for SILICON chip type.");
+        UMD_THROW(error::RuntimeError, "refresh_cluster_description() is only supported for SILICON chip type.");
     }
     if (options_.cluster_descriptor != nullptr) {
-        throw std::runtime_error(
-            "refresh_cluster_description is not supported when a custom cluster descriptor was provided.");
+        UMD_THROW(
+            error::RuntimeError,
+            "refresh_cluster_description() is not supported when a custom cluster descriptor was provided.");
     }
     if (!options_.target_devices.empty()) {
-        throw std::runtime_error("refresh_cluster_description is not supported when target_devices is non-empty.");
+        UMD_THROW(
+            error::RuntimeError, "refresh_cluster_description() is not supported when target_devices is non-empty.");
     }
 
     // Build reverse map from unique ID to old chip ID before replacing the descriptor.
@@ -480,28 +511,34 @@ void Cluster::refresh_cluster_description() {
     // Validate that the same physical chips are present by matching unique IDs.
     const auto& new_unique_ids = new_cluster_desc->get_chip_unique_ids();
     if (new_unique_ids.size() != old_unique_ids.size()) {
-        throw std::runtime_error(fmt::format(
-            "refresh_cluster_description: chip count changed from {} to {}. "
-            "Recreate the Cluster to reflect hardware changes.",
-            old_unique_ids.size(),
-            new_unique_ids.size()));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "refresh_cluster_description: chip count changed from {} to {}. "
+                "Recreate the Cluster to reflect hardware changes.",
+                old_unique_ids.size(),
+                new_unique_ids.size()));
     }
 
     for (const auto& [new_chip_id, uid] : new_unique_ids) {
         auto it = unique_id_to_old_chip_id.find(uid);
         if (it == unique_id_to_old_chip_id.end()) {
-            throw std::runtime_error(fmt::format(
-                "refresh_cluster_description: chip with unique ID 0x{:016x} is present in the new "
-                "cluster descriptor but not in the old one. Recreate the Cluster to reflect hardware changes.",
-                uid));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "refresh_cluster_description: chip with unique ID 0x{:016x} is present in the new "
+                    "cluster descriptor but not in the old one. Recreate the Cluster to reflect hardware changes.",
+                    uid));
         }
         if (it->second != new_chip_id) {
-            throw std::runtime_error(fmt::format(
-                "refresh_cluster_description: chip ID changed from {} to {} (unique ID 0x{:016x}). "
-                "Recreate the Cluster to reflect hardware changes.",
-                it->second,
-                new_chip_id,
-                uid));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "refresh_cluster_description: chip ID changed from {} to {} (unique ID 0x{:016x}). "
+                    "Recreate the Cluster to reflect hardware changes.",
+                    it->second,
+                    new_chip_id,
+                    uid));
         }
     }
 
@@ -520,11 +557,6 @@ void Cluster::refresh_cluster_description() {
             }
         }
     }
-}
-
-Writer Cluster::get_static_tlb_writer(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
-    return get_tlb_manager(chip)->get_static_tlb_writer(translated_core);
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
@@ -909,7 +941,7 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>&
     get_chip(chip)->dram_membar(channels);
 }
 
-void Cluster::write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+void Cluster::write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
@@ -931,7 +963,7 @@ void Cluster::dma_multicast_write(
     get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size) {
+void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size) {
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 
@@ -1077,7 +1109,12 @@ std::unique_ptr<ClusterDescriptor> Cluster::create_cluster_descriptor(
     IODeviceType device_type,
     const TopologyDiscoveryOptions& topology_discovery_options) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    return TopologyDiscovery::discover(topology_discovery_options, device_type, sdesc_path).first;
+    auto adjusted_topology_options = topology_discovery_options;
+    if (adjusted_topology_options.device_init_failure_action != TopologyDiscoveryOptions::Action::THROW) {
+        log_warning(LogUMD, "Ignoring device init. failures is not supported in Cluster. Overriding to THROW.");
+        adjusted_topology_options.device_init_failure_action = TopologyDiscoveryOptions::Action::THROW;
+    }
+    return TopologyDiscovery::discover(adjusted_topology_options, device_type, sdesc_path).first;
 }
 
 }  // namespace tt::umd

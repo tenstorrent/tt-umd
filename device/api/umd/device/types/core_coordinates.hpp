@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include <cstdint>
+#include <sstream>
 
 #include "umd/device/types/xy_pair.hpp"
 
@@ -29,12 +30,14 @@ enum class CoreType {
     ROUTER_ONLY,
     SECURITY,
     L2CPU,
+    DISPATCH,
     // TODO: this keeps compatibility with existing code in SocDescriptor
     // but it won't be needed later on
     HARVESTED,
     ETH,
     WORKER,
     COUNT,
+    UNSPECIFIED,
 };
 
 /*
@@ -46,6 +49,8 @@ enum class CoordSystem : std::uint8_t {
     NOC0,
     TRANSLATED,
     NOC1,
+    LITERAL,  // LITERAL is not an actual coordinate system. It just means not to perform any operations on the
+              // coordinates.
 };
 
 static inline std::string to_str(const CoreType core_type) {
@@ -68,14 +73,47 @@ static inline std::string to_str(const CoreType core_type) {
             return "SECURITY";
         case CoreType::L2CPU:
             return "L2CPU";
+        case CoreType::DISPATCH:
+            return "DISPATCH";
         case CoreType::HARVESTED:
             return "HARVESTED";
         case CoreType::ETH:
             return "ETH";
         case CoreType::WORKER:
             return "WORKER";
+        case CoreType::UNSPECIFIED:
+            return "UNSPECIFIED";
         default:
             return "UNKNOWN";
+    }
+}
+
+// Core type shorthands are used in stringifying CoreCoord.
+static inline char type_shorthand(const CoreType type) {
+    switch (type) {
+        case CoreType::ARC:
+            return 'a';
+        case CoreType::DRAM:
+            return 'd';
+        case CoreType::ACTIVE_ETH:
+        case CoreType::IDLE_ETH:
+        case CoreType::ETH:
+            return 'e';
+        case CoreType::PCIE:
+            return 'p';
+        case CoreType::TENSIX:
+        case CoreType::WORKER:
+            return 't';
+        case CoreType::ROUTER_ONLY:
+            return 'r';
+        case CoreType::SECURITY:
+            return 's';
+        case CoreType::L2CPU:
+            return 'l';
+        case CoreType::UNSPECIFIED:
+            return '\0';
+        default:
+            return '?';
     }
 }
 
@@ -89,6 +127,8 @@ static inline std::string to_str(const CoordSystem coord_system) {
             return "TRANSLATED";
         case CoordSystem::NOC1:
             return "NOC1";
+        case CoordSystem::LITERAL:
+            return "LITERAL";
         default:
             return "UNKNOWN";
     }
@@ -97,17 +137,24 @@ static inline std::string to_str(const CoordSystem coord_system) {
 // TODO: There is a conflicting declaration in tt_metal for CoreCoord. We need to remove that one before we can move
 // this CoreCoord to tt namespace.
 namespace umd {
-struct CoreCoord : public tt_xy_pair {
+struct CoreCoord : public xy_pair {
     CoreCoord() = default;
 
-    CoreCoord(const size_t x, const size_t y, const CoreType type, const CoordSystem coord_system) :
-        tt_xy_pair(x, y), core_type(type), coord_system(coord_system) {}
+    constexpr CoreCoord(
+        const size_t x,
+        const size_t y,
+        const CoreType type = CoreType::UNSPECIFIED,
+        const CoordSystem coord_system = CoordSystem::LITERAL) :
+        xy_pair(x, y), core_type(type), coord_system(coord_system) {}
 
-    CoreCoord(const tt_xy_pair core, const CoreType type, const CoordSystem coord_system) :
-        tt_xy_pair(core), core_type(type), coord_system(coord_system) {}
+    constexpr CoreCoord(
+        const xy_pair core,
+        const CoreType type = CoreType::UNSPECIFIED,
+        const CoordSystem coord_system = CoordSystem::LITERAL) :
+        xy_pair(core), core_type(type), coord_system(coord_system) {}
 
-    CoreType core_type;
-    CoordSystem coord_system;
+    CoreType core_type = CoreType::UNSPECIFIED;
+    CoordSystem coord_system = CoordSystem::LITERAL;
 
     bool operator==(const CoreCoord& other) const {
         return this->x == other.x && this->y == other.y && this->core_type == other.core_type &&
@@ -115,32 +162,42 @@ struct CoreCoord : public tt_xy_pair {
     }
 
     bool operator<(const CoreCoord& o) const {
-        if (x < o.x) {
-            return true;
+        if (x != o.x) {
+            return x < o.x;
         }
-        if (x > o.x) {
-            return false;
+        if (y != o.y) {
+            return y < o.y;
         }
-        if (y < o.y) {
-            return true;
-        }
-        if (y > o.y) {
-            return false;
-        }
-        if (core_type < o.core_type) {
-            return true;
-        }
-        if (core_type > o.core_type) {
-            return false;
+        if (core_type != o.core_type) {
+            return core_type < o.core_type;
         }
         return coord_system < o.coord_system;
     }
 
     std::string str() const {
-        return "CoreCoord: (" + std::to_string(x) + ", " + std::to_string(y) + ", " + to_str(core_type) + ", " +
-               to_str(coord_system) + ")";
+        if (coord_system == CoordSystem::LITERAL) {
+            return tt_xy_pair::str();
+        }
+        std::stringstream ss;
+        char shorthand = type_shorthand(core_type);
+        if (shorthand != '\0') {
+            ss << shorthand;
+        }
+        ss << x << '-' << y;
+        ss << ' ' << '(' << to_str(coord_system) << ')';
+        return ss.str();
     }
 };
+
+// Comparison operators for CoreCoord with xy_pair to resolve ambiguity.
+constexpr bool operator==(const umd::CoreCoord& a, const xy_pair& b) { return a.x == b.x && a.y == b.y; }
+
+constexpr bool operator==(const xy_pair& a, const umd::CoreCoord& b) { return a.x == b.x && a.y == b.y; }
+
+constexpr bool operator!=(const umd::CoreCoord& a, const xy_pair& b) { return !(a == b); }
+
+constexpr bool operator!=(const xy_pair& a, const umd::CoreCoord& b) { return !(a == b); }
+
 }  // namespace umd
 
 }  // namespace tt

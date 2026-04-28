@@ -12,12 +12,12 @@
 namespace tt {
 
 struct xy_pair {
-    constexpr xy_pair() : x{}, y{} {}
+    constexpr xy_pair() = default;
 
     constexpr xy_pair(std::size_t x, std::size_t y) : x(x), y(y) {}
 
-    std::size_t x;
-    std::size_t y;
+    std::size_t x = 0;
+    std::size_t y = 0;
 
     std::string str() const;
 };

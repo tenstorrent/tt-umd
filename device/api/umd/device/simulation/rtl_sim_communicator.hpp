@@ -14,7 +14,6 @@
 #include <thread>
 
 #include "umd/device/simulation/simulation_host.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -122,6 +121,32 @@ public:
      * @param dm_index DM core index (0-7)
      */
     void neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t dm_index);
+
+    /**
+     * Assert uncore reset for all NEO DM cores across all tensix cores.
+     */
+    void all_neo_dms_uncore_reset_assert();
+
+    /**
+     * Deassert uncore reset for all NEO DM cores across all tensix cores.
+     */
+    void all_neo_dms_uncore_reset_deassert();
+
+    /**
+     * Assert uncore reset for NEO DM cores on a specific tensix core.
+     *
+     * @param x Core X coordinate.
+     * @param y Core Y coordinate.
+     */
+    void neo_dm_uncore_reset_assert(uint32_t x, uint32_t y);
+
+    /**
+     * Deassert uncore reset for NEO DM cores on a specific tensix core.
+     *
+     * @param x Core X coordinate.
+     * @param y Core Y coordinate.
+     */
+    void neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y);
 
     /**
      * Get the simulation host reference.

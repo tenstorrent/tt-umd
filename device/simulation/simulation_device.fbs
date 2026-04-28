@@ -17,6 +17,10 @@ enum DEVICE_COMMAND : byte {
     // to match these values before this can work end-to-end.
     AXI_RAM_WRITE_NOTIFICATION = 10,
     AXI_RAM_READ_NOTIFICATION = 11,
+    ALL_NEO_DMS_UNCORE_RESET_DEASSERT = 14,
+    ALL_NEO_DMS_UNCORE_RESET_ASSERT = 15,
+    NEO_DM_UNCORE_RESET_ASSERT = 16,
+    NEO_DM_UNCORE_RESET_DEASSERT = 17,
 }
 
 struct tt_vcs_core {

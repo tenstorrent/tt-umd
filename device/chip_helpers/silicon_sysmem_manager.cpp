@@ -26,6 +26,7 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tracy.hpp"
 
 namespace tt::umd {
 
@@ -88,6 +89,7 @@ SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num
 }
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
+    ZoneScopedC(tracy::Color::Yellow);
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
         return pin_or_map_iommu();
     } else {
@@ -98,6 +100,7 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
 SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+    ZoneScopedC(tracy::Color::Yellow);
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
         return init_iommu(num_host_mem_channels);
     } else {
@@ -106,11 +109,13 @@ bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 }
 
 void SiliconSysmemManager::unpin_or_unmap_sysmem() {
+    ZoneScopedC(tracy::Color::Yellow);
     // This will unmap the iommu buffer if it was mapped through kmd.
     sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that HugepageMappings are faked, so don't unmap them.
+        TracyFreeN(iommu_mapping, "Sysmem");
         munmap(iommu_mapping, iommu_mapping_size);
         iommu_mapping = nullptr;
     } else {
@@ -128,6 +133,7 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
             if (HugepageMapping.mapping) {
                 // Note that we mmap full hugepage, but don't map it filly to NOC.
                 // So the hack for 4th hugepage channel is not present in this branch.
+                TracyFreeN(HugepageMapping.mapping, "Hugepage");
                 munmap(HugepageMapping.mapping, HugepageMapping.mapping_size);
             }
         }
@@ -234,6 +240,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         }
 
         hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, 0};
+        TracyAllocN(mapping, hugepage_size, "Hugepage");
     }
 
     return success;
@@ -322,18 +329,21 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
     log_info(LogUMD, "Initializing iommu for sysmem (size: {:#x}).", iommu_mapping_size);
 
     if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
-        TT_THROW("IOMMU is required for sysmem without hugepages.");
+        UMD_THROW(error::RuntimeError, "IOMMU is required for sysmem without hugepages.");
     }
 
     log_info(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
     iommu_mapping = mmap_with_hugepage_fallback(size);
 
     if (iommu_mapping == MAP_FAILED) {
-        TT_THROW(
-            "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
-            size,
-            strerror(errno));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
+                size,
+                strerror(errno)));
     }
+    TracyAllocN(iommu_mapping, iommu_mapping_size, "Sysmem");
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
@@ -362,7 +372,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
     if (map_buffer_to_noc && !noc_address.has_value()) {
-        TT_THROW("NOC address is not set for sysmem buffer.");
+        UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
     }
 
     if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
@@ -370,7 +380,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
         log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        TT_THROW("Proceeding could lead to undefined behavior");
+        UMD_THROW(error::RuntimeError, "Proceeding could lead to undefined behavior");
     }
 
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
@@ -395,9 +405,12 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
+    ZoneScopedC(tracy::Color::Yellow);
     void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
     if (mapping == MAP_FAILED) {
-        TT_THROW("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }

@@ -97,10 +97,7 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
 
  * This template class represents an error condition in UMD. The interface
  * contains a human-readable error message and user-defined structured error
- * metadata of type DATA_T. Specialized UmdErrors should be located in
- * /api/umd/device/utils/error.hpp. Constructors of specialized UmdError
- * classes should be implemented in /device/utils/error.cpp to reduce
- * dependencies.
+ * metadata of type DATA_T.
  *
  * @tparam DATA_T Type of the structured error data.
  */

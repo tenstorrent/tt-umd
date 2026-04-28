@@ -21,7 +21,6 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -40,11 +39,14 @@ class RemoteChip;
  * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
  * - Simulation is used for simulation runs.
  * - Mock is used for testing purposes, implementation of all functions is empty.
+ * - SWEmule uses software emulation via tt-emule with memory-backed I/O and no physical hardware.
+ *   Requires TT_UMD_BUILD_EMULE=ON at build time.
  */
 enum ChipType {
     SILICON,
     SIMULATION,
     MOCK,
+    SWEMULE,
 };
 
 /**
@@ -60,8 +62,10 @@ struct ClusterOptions {
 
     /**
      * Number of host memory channels (hugepages) per MMIO device.
+     * If not provided, the value is determined automatically by determining the max
+     * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    uint32_t num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -360,7 +364,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -373,7 +377,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -464,18 +468,6 @@ public:
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
         std::set<uint32_t>& columns_to_exclude);
-
-    /**
-     * Provide fast write access to a statically-mapped TLB.
-     * It is the caller's responsibility to ensure that
-     * - the target has a static TLB mapping configured.
-     * - the mapping is unchanged during the lifetime of the returned object.
-     * - the Cluster instance outlives the returned object.
-     * - use of the returned object is congruent with the target's TLB setup.
-     *
-     * @param target The target chip and core to write to.
-     */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
 
     /**
      * Provide fast read/write access to a statically-mapped TLB.

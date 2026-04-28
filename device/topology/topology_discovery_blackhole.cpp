@@ -33,15 +33,7 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
 
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
-    // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_device, {0, 0, 0, 0});
-    remote_communication->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor(gateway_device)
-            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
-    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
-    return remote_tt_device;
+    return nullptr;
 }
 
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
@@ -122,20 +114,10 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
     return mangle_asic_id(board_id, asic_location);
 }
 
-tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    throw std::runtime_error(
-        "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
-        "bug.");
-}
-
-uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    uint8_t remote_eth_id;
-    tt_device->read_from_device(&remote_eth_id, local_eth_core, 0x7CFE2, sizeof(remote_eth_id));
-    return remote_eth_id;
-}
-
 uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    return get_remote_eth_id(tt_device, local_eth_core);
+    uint8_t remote_eth_channel = 0;
+    tt_device->read_from_device(&remote_eth_channel, local_eth_core, 0x7CFE2, sizeof(remote_eth_channel));
+    return remote_eth_channel;
 }
 
 uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
@@ -148,7 +130,8 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
@@ -174,7 +157,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
         CoreCoord logical_coord =
-            get_soc_descriptor(remote_device_ptr).translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
+            remote_device_ptr->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
 
         ethernet_connections_fixed.insert({{local_device, local_channel}, {remote_device, logical_coord.y}});
     }

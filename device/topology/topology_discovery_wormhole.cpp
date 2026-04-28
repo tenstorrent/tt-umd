@@ -23,7 +23,9 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -93,32 +95,6 @@ uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, tt_x
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
-tt_xy_pair TopologyDiscoveryWormhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    const uint32_t shelf_offset = 9;
-    uint32_t remote_id;
-    tt_device->read_from_device(
-        &remote_id,
-        {local_eth_core.x, local_eth_core.y},
-        EthAddresses::NODE_INFO + (4 * shelf_offset),
-        sizeof(uint32_t));
-
-    return tt_xy_pair{(remote_id >> 4) & 0x3F, (remote_id >> 10) & 0x3F};
-}
-
-uint32_t TopologyDiscoveryWormhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    if (!is_running_on_6u) {
-        throw std::runtime_error(
-            "get_remote_eth_id should not be called on non-6U configurations. This message likely indicates a bug.");
-    }
-    uint32_t remote_eth_id;
-    tt_device->read_from_device(
-        &remote_eth_id,
-        local_eth_core,
-        EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
-        sizeof(uint32_t));
-    return remote_eth_id;
-}
-
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
     uint32_t current_device_eth_coord_info;
     tt_device->read_from_device(
@@ -140,14 +116,12 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;
-    tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
+    tt_device->read_from_device(&remote_id, eth_core, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
 
     eth_coord.rack = remote_id & 0xFF;
     eth_coord.shelf = (remote_id >> 8) & 0xFF;
 
-    tt_device->read_from_device(
-        &remote_id, {eth_core.x, eth_core.y}, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
+    tt_device->read_from_device(&remote_id, eth_core, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
 
     eth_coord.x = (remote_id >> 16) & 0x3F;
     eth_coord.y = (remote_id >> 22) & 0x3F;
@@ -165,24 +139,19 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     std::unique_ptr<RemoteCommunication> remote_communication =
         RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
     remote_communication->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor(gateway_device)
-            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
-    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
-    if (options.wait_on_ethernet_link_training) {
-        wait_eth_cores_training(remote_tt_device.get());
-    }
-    return remote_tt_device;
+        gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            gateway_eth_channels, CoordSystem::TRANSLATED));
+    return TTDevice::create(std::move(remote_communication));
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    if (is_running_on_6u) {
-        return get_remote_eth_id(tt_device, local_eth_core);
-    }
-    tt_xy_pair remote_eth_core = get_remote_eth_core(tt_device, local_eth_core);
-
-    // TODO(pjanevski): explain in comment why we are using chip instead of remote chip.
-    return get_soc_descriptor(tt_device).translate_coord_to(remote_eth_core, CoordSystem::NOC0, CoordSystem::LOGICAL).y;
+    uint32_t remote_eth_id;
+    tt_device->read_from_device(
+        &remote_eth_id,
+        local_eth_core,
+        EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
+        sizeof(uint32_t));
+    return remote_eth_id;
 }
 
 uint32_t TopologyDiscoveryWormhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
@@ -244,7 +213,7 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             log_warning(LogUMD, message);
             return;
         }
-        TT_THROW(message);
+        UMD_THROW(error::RuntimeError, message);
     } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
         auto message = fmt::format(
             "Routing FW unexpectedly disabled on device {} core {}.",
@@ -254,7 +223,7 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
             log_warning(LogUMD, message);
             return;
         }
-        TT_THROW(message);
+        UMD_THROW(error::RuntimeError, message);
     }
 }
 
@@ -263,7 +232,7 @@ bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, tt_xy_
     tt_device->read_from_device(
         &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
     const uint32_t channel =
-        get_soc_descriptor(tt_device).translate_coord_to(eth_core, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).y;
+        tt_device->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).y;
     return (port_disable_mask >> channel) & 1;
 }
 
@@ -291,9 +260,8 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
         for (const auto& [asic_id, tt_device] : devices_to_discover) {
             auto* wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
 
-            for (const CoreCoord& eth_core :
-                 get_soc_descriptor(tt_device.get())
-                     .get_cores(CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
+            for (const CoreCoord& eth_core : tt_device->get_soc_descriptor().get_cores(
+                     CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
                 EthTrainingStatus status = tt_device->read_eth_core_training_status(eth_core);
                 bool should_retrain = (status == EthTrainingStatus::FAIL) ||
                                       (RETRAIN_UNCONNECTED && status == EthTrainingStatus::NOT_CONNECTED);

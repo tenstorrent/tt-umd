@@ -43,12 +43,12 @@ void TTSimChip::start_device() {}
 
 void TTSimChip::close_device() {}
 
-void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->write_to_device(src, soc_descriptor_.translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
-void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->read_from_device(dest, soc_descriptor_.translate_chip_coord_to_translated(core), l1_src, size);
 }

@@ -28,13 +28,14 @@ uint32_t WormholeArcMessenger::send_message(
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
-        log_error(LogUMD, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        log_error(LogUMD, "Malformed message. msg_code is {:#x} but should be 0xaa..", msg_code);
     }
 
     // Validate that only 2 args are passed for Wormhole.
     if (args.size() > 2) {
-        throw std::runtime_error(
-            fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size()));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided.", args.size()));
     }
 
     // Extract args (default to 0xFFFF if not provided).
@@ -46,16 +47,18 @@ uint32_t WormholeArcMessenger::send_message(
 
     if (!args.empty()) {
         if (args[0] > 0xFFFF) {
-            throw std::runtime_error(
-                fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Argument 0 is {:#x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole.", args[0]));
         }
         arg0 = static_cast<uint16_t>(args[0]);
     }
 
     if (args.size() >= 2) {
         if (args[1] > 0xFFFF) {
-            throw std::runtime_error(
-                fmt::format("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[1]));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Argument 1 is {:#x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole.", args[1]));
         }
         arg1 = static_cast<uint16_t>(args[1]);
     }

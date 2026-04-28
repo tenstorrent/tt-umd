@@ -61,6 +61,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
+      build-tracy: true
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
@@ -168,3 +169,13 @@ jobs:
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
+  run-tracy:
+    secrets: inherit
+    needs: build-tests
+    uses: ./.github/workflows/run-tracy-test.yml
+    with:
+      ubuntu-docker-version: 'ubuntu-22.04'
+      build-type: ${{ inputs.build-type }}
+      timeout: 20
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}

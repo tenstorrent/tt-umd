@@ -92,7 +92,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // send to core 15, 15 which will hang the NOC
-    tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
+    tt_device->write_to_device(data.data(), xy_pair{15, 15}, address, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
@@ -417,7 +417,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     // send data to core 15, 15 which will hang the NOC
     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
-    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
+    hanged_tt_device->write_to_device(data.data(), xy_pair{15, 15}, 0, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {

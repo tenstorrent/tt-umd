@@ -35,10 +35,10 @@ public:
 
     // Shared higher-level methods that use the virtual methods above.
     virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
 
     virtual void write_block_reconfigure(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
 
     virtual void noc_multicast_write_reconfigure(
         void* dst,
@@ -65,10 +65,10 @@ public:
     virtual void safe_read_block(uint64_t offset, void* data, size_t size);
 
     virtual void safe_write_block_reconfigure(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_noc_multicast_write_reconfigure(
         void* dst,

@@ -977,15 +977,6 @@ void PCIDevice::allocate_pcie_dma_buffer() {
     // an interrupt.
 
     uint32_t dma_buf_size = 512 * 1024;  // 512 KB
-
-    // TT_DMA_BUF_SIZE env var overrides the default if explicitly set.
-    const char *dma_buf_size_env = std::getenv("TT_DMA_BUF_SIZE");
-    if (dma_buf_size_env) {
-        uint64_t override_size = std::stoull(dma_buf_size_env);
-        if (override_size > 0) {
-            dma_buf_size = static_cast<uint32_t>(override_size);
-        }
-    }
     static const uint32_t page_size = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
 
     while (dma_buf_size >= page_size) {

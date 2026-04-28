@@ -10,11 +10,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -136,7 +134,6 @@ public:
 private:
     void init_from_arch_descriptor(const ChipInfo& chip_info);
     void create_coordinate_manager(const BoardType board_type, const uint8_t asic_location);
-    void get_cores_and_grid_size_from_coordinate_manager();
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 
@@ -155,14 +152,6 @@ private:
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
-    std::map<CoreType, std::vector<CoreCoord>> cores_map;
-    std::map<CoreType, tt_xy_pair> grid_size_map;
-    std::map<CoreType, std::vector<CoreCoord>> harvested_cores_map;
-    std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
-
-    // DRAM cores are kept in additional vector struct since one DRAM bank
-    // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
-    std::vector<std::vector<CoreCoord>> dram_cores_core_coord;
 };
 
 }  // namespace tt::umd

@@ -51,16 +51,16 @@ private:
         uint8_t* host_va;
     };
 
-    // Mapped/allocated SysmemBuffers live above the maximum 4-channel layout so they can never
-    // collide with channel regions, regardless of how many channels were requested.
-    static constexpr uint64_t kMappedBufferRegionBase = 4ULL << 30;
-
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
 
     std::mutex regions_mutex_;
     std::vector<PaddrRegion> paddr_regions_;
-    uint64_t next_alloc_paddr_ = kMappedBufferRegionBase;
+    // Mapped/allocated SysmemBuffers live immediately above the channel region. The TTSim
+    // simulator's translate_pci_dma_addr only handles paddrs in the lower NOC range, so we
+    // can't simply park them above the maximum 4-channel layout; we start at the first paddr
+    // not occupied by an enabled channel. With 0 channels (the typical TTSim case) this is 0.
+    uint64_t next_alloc_paddr_ = 0;
 };
 
 }  // namespace tt::umd

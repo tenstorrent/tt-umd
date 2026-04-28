@@ -120,20 +120,32 @@ TEST(ApiSimulationSysmemManager, MapSysmemBufferReturnsBuffer) {
 }
 
 TEST(ApiSimulationSysmemManager, NocAddrAssignedAboveChannelRegion) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(0, tt::ARCH::WORMHOLE_B0);
-    const uint64_t pcie_base = sysmem->get_pcie_base();
-    const size_t size = 1 << 20;
+    // With no channels, the mapped-buffer region starts at paddr 0 (NOC pcie_base).
+    {
+        auto sysmem = std::make_unique<SimulationSysmemManager>(0, tt::ARCH::WORMHOLE_B0);
+        const uint64_t pcie_base = sysmem->get_pcie_base();
+        const size_t size = 1 << 20;
 
-    auto first = sysmem->allocate_sysmem_buffer(size, /*map_to_noc=*/true);
-    auto second = sysmem->allocate_sysmem_buffer(size, /*map_to_noc=*/true);
+        auto first = sysmem->allocate_sysmem_buffer(size, /*map_to_noc=*/true);
+        auto second = sysmem->allocate_sysmem_buffer(size, /*map_to_noc=*/true);
 
-    ASSERT_TRUE(first->get_noc_addr().has_value());
-    ASSERT_TRUE(second->get_noc_addr().has_value());
+        ASSERT_TRUE(first->get_noc_addr().has_value());
+        ASSERT_TRUE(second->get_noc_addr().has_value());
 
-    // First buffer sits at the start of the mapped-buffer region (4 GiB above pcie_base).
-    EXPECT_EQ(first->get_noc_addr().value(), pcie_base + (4ULL << 30));
-    // Second buffer follows immediately after.
-    EXPECT_EQ(second->get_noc_addr().value(), first->get_noc_addr().value() + size);
+        EXPECT_EQ(first->get_noc_addr().value(), pcie_base);
+        EXPECT_EQ(second->get_noc_addr().value(), first->get_noc_addr().value() + size);
+    }
+
+    // With 2 channels, mapped buffers start at the first paddr slot above the channel region.
+    {
+        auto sysmem = std::make_unique<SimulationSysmemManager>(2, tt::ARCH::WORMHOLE_B0);
+        const uint64_t pcie_base = sysmem->get_pcie_base();
+        const size_t size = 1 << 20;
+
+        auto first = sysmem->allocate_sysmem_buffer(size, /*map_to_noc=*/true);
+        ASSERT_TRUE(first->get_noc_addr().has_value());
+        EXPECT_EQ(first->get_noc_addr().value(), pcie_base + (2ULL << 30));
+    }
 }
 
 TEST(ApiSimulationSysmemManager, MapToNocFalseHidesNocAddr) {

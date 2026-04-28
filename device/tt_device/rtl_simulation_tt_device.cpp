@@ -84,7 +84,6 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_->initialize();
 
     tlb_manager_ = std::make_unique<SimulationTlbManager>(
-        this,
         /*bar0_base=*/0,
         architecture_impl_.get(),
         [comm = communicator_.get()](
@@ -289,7 +288,5 @@ void RtlSimulationTTDevice::dma_multicast_write(
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
-
-TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

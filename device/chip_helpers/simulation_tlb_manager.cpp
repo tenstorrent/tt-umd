@@ -6,24 +6,19 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <memory>
-#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
 SimulationTlbManager::SimulationTlbManager(
-    TTDevice* tt_device, uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
-    TLBManager(tt_device), bar0_base_(bar0_base), arch_impl_(arch_impl), factory_(std::move(factory)) {
+    uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
+    bar0_base_(bar0_base), arch_impl_(arch_impl), factory_(std::move(factory)) {
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
 }

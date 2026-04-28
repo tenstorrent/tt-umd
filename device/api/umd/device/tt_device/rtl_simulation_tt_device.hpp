@@ -61,8 +61,6 @@ public:
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager* get_tlb_manager() override;
-
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 

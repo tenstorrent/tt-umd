@@ -9,7 +9,7 @@
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 
 namespace tt::umd {
 
@@ -23,16 +23,12 @@ class SimulationTlbManager;
 using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
     SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
 
-class SimulationTlbManager : public TLBManager {
+class SimulationTlbManager {
 public:
-    SimulationTlbManager(
-        TTDevice* tt_device,
-        uint64_t bar0_base,
-        const architecture_implementation* arch_impl,
-        TlbWindowFactory factory);
+    SimulationTlbManager(uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
-        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;
+        tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
 
     /**
      * Allocate a TLB window with a default size based on the device architecture.

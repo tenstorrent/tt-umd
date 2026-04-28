@@ -68,8 +68,6 @@ public:
 
     SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager *get_tlb_manager() override;
-
     uint64_t bar0_base = 0;
 
 protected:

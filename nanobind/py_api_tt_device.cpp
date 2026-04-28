@@ -557,8 +557,7 @@ void bind_tt_device(nb::module_ &m) {
             "get_soc_descriptor",
             &RtlSimulationTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
-            "Get the SocDescriptor associated with this RTL simulation device.")
-        ;
+            "Get the SocDescriptor associated with this RTL simulation device.");
 #endif
 
     m.def(

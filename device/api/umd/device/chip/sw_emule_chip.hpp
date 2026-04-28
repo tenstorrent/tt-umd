@@ -83,6 +83,12 @@ public:
 
     uint64_t dram_bank_size() const { return dram_bank_size_; }
 
+    // SOC-derived DRAM bank size, captured at the most recent SWEmuleChip
+    // construction. Used by the JIT bridge function `__emule_dram_ptr` to
+    // bounds-check raw DRAM offsets without per-thread state. Returns 0 when
+    // no SWEmuleChip has been constructed yet.
+    static uint64_t active_dram_bank_size();
+
     // Get the tt_emule::Core for a given physical core coordinate.
     // Lazy-creates with appropriate role (WORKER or DRAM) and size.
     tt_emule::Core* get_core(tt_xy_pair core_xy);

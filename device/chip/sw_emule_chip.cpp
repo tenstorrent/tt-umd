@@ -5,6 +5,7 @@
 #include "umd/device/chip/sw_emule_chip.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <set>
 #include <stdexcept>
@@ -18,6 +19,18 @@
 
 namespace tt::umd {
 
+// SOC-derived DRAM bank size, captured at the most recent SWEmuleChip
+// construction. The JIT bridge function `__emule_dram_ptr` reads this for
+// bounds checking. Atomic for thread safety; assumes a single architecture
+// per process (multi-arch fan-out would need per-chip lookup instead).
+namespace {
+std::atomic<uint64_t> g_active_dram_bank_size{0};
+}
+
+uint64_t SWEmuleChip::active_dram_bank_size() {
+    return g_active_dram_bank_size.load(std::memory_order_acquire);
+}
+
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
@@ -30,6 +43,7 @@ SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_desc
     // offsets up to 1 GB within a 2 GB bank, so capping below bank size causes
     // writes to segfault.  Overcommit means only touched pages use physical RAM.
     dram_bank_size_ = soc.dram_bank_size;
+    g_active_dram_bank_size.store(dram_bank_size_, std::memory_order_release);
 
     // Build DRAM core lookup table from SOC descriptor.
     auto dram_cores = soc.get_dram_cores();
@@ -47,7 +61,9 @@ SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_desc
     // 128 is a safe upper bound on Tensix cores across known architectures (Wormhole=72,
     // Blackhole~120). Used as fallback if SOC descriptor reports zero.
     size_t pool_size = (num_tensix > 0 ? num_tensix : 128) * 2;  // 2× headroom
-    worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
+    // Pass l1_size_ as the live region per slot so the unused 1 MB tail of each
+    // 2 MB slot is poisoned under ASan — kernels writing past L1_SIZE trip immediately.
+    worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size, static_cast<size_t>(l1_size_));
 }
 
 bool SWEmuleChip::is_dram_core(tt_xy_pair core_xy) const { return dram_core_to_channel_.count(core_xy) > 0; }

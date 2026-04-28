@@ -404,6 +404,36 @@ TEST_F(TTSimDeviceIOFixture, SysmemBufferReadViaPcieNocSeesHostVa) {
         << "read_from_device(pcie_core, noc_addr) did not return sysmem buffer host VA contents";
 }
 
+// User-allocated buffer mapped via map_sysmem_buffer must also be reachable via NOC.
+TEST_F(TTSimDeviceIOFixture, MapSysmemBufferRoutesToHostVa) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto pcie_cores = soc.get_cores(CoreType::PCIE);
+    if (pcie_cores.empty()) {
+        GTEST_SKIP() << "No PCIE cores in SoC descriptor.";
+    }
+    const tt_xy_pair pcie_core = soc.translate_coord_to(pcie_cores.at(0), CoordSystem::TRANSLATED);
+
+    SimulationSysmemManager* sysmem = tt_device->get_sysmem_manager();
+    ASSERT_NE(sysmem, nullptr);
+
+    constexpr size_t data_size = 4096;
+    std::vector<uint8_t> backing(data_size, 0);
+    auto buffer = sysmem->map_sysmem_buffer(backing.data(), data_size, /*map_to_noc=*/true);
+    ASSERT_NE(buffer, nullptr);
+    ASSERT_TRUE(buffer->get_noc_addr().has_value());
+    EXPECT_EQ(buffer->get_buffer_va(), backing.data());
+
+    auto write_data = make_pattern(data_size, [](size_t i) { return (i * 11 + 5) % 256; });
+    tt_device->write_to_device(write_data.data(), pcie_core, buffer->get_noc_addr().value(), data_size);
+
+    EXPECT_EQ(0, std::memcmp(backing.data(), write_data.data(), data_size))
+        << "write_to_device(pcie_core, noc_addr) did not land in user-mapped buffer";
+
+    std::vector<uint8_t> read_data(data_size, 0);
+    tt_device->read_from_device(read_data.data(), pcie_core, buffer->get_noc_addr().value(), data_size);
+    EXPECT_EQ(write_data, read_data) << "read_from_device(pcie_core, noc_addr) did not see mapped-buffer contents";
+}
+
 // Two buffers must route independently — writes to one must not bleed into the other.
 TEST_F(TTSimDeviceIOFixture, MultipleSysmemBuffersRouteIndependently) {
     const SocDescriptor& soc = tt_device->get_soc_descriptor();

@@ -34,6 +34,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
@@ -268,8 +269,18 @@ void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, s
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
+void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+}
+
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     device_protocol_->write_to_device(mem_ptr, core, addr, size);
+}
+
+void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -394,9 +405,19 @@ uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     return tensix_risc_state;
 }
 
+uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    return get_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core));
+}
+
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
     write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
+}
+
+void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    set_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core), risc_flags);
 }
 
 void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
@@ -433,12 +454,22 @@ void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start
         // Fallback to unicast for all cores in the range.
         for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
             for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
-                write_to_device(src, tt_xy_pair(x, y), addr, size);
+                write_to_device(src, xy_pair(x, y), addr, size);
             }
         }
         return;
     }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
+}
+
+void TTDevice::noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    noc_multicast_write(
+        src,
+        size,
+        soc_desc.translate_chip_coord_to_translated(core_start),
+        soc_desc.translate_chip_coord_to_translated(core_end),
+        addr);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {

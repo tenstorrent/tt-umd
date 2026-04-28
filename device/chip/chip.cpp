@@ -127,8 +127,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 }
 
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core);
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 

@@ -62,6 +62,9 @@ public:
 
     virtual void wait_for_non_mmio_flush() = 0;
 
+    // FIX AE (#42429): Mark relay path as broken so flush operations return immediately.
+    virtual void mark_relay_broken() {};
+
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;

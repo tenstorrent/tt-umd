@@ -555,6 +555,12 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 }
 
 void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {
+    // FIX AE (#42429): If relay is broken, skip the flush entirely instead of polling
+    // dead ERISC CMD queues for up to 5 seconds.
+    if (relay_broken_) {
+        flush_non_mmio_ = false;
+        return;
+    }
     if (flush_non_mmio_) {
         TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
 

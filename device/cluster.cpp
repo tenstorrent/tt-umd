@@ -637,6 +637,11 @@ RemoteChip* Cluster::get_remote_chip(ChipId device_id) const {
 
 void Cluster::wait_for_non_mmio_flush(const ChipId chip_id) { get_chip(chip_id)->wait_for_non_mmio_flush(); }
 
+void Cluster::mark_relay_broken(const ChipId chip_id) {
+    log_info(LogUMD, "FIX AE: Marking relay broken for chip {}", chip_id);
+    get_chip(chip_id)->mark_relay_broken();
+}
+
 void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {
         chip->wait_for_non_mmio_flush();

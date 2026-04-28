@@ -533,6 +533,15 @@ public:
      */
     void wait_for_non_mmio_flush(const ChipId chip_id);
 
+    /**
+     * FIX AE (#42429): Mark the relay path for a remote chip as broken.
+     * After this call, wait_for_non_mmio_flush() for this chip returns immediately
+     * instead of polling dead ERISC CMD queues (which would block for up to 5 seconds).
+     *
+     * @param chip_id Remote chip whose relay path is broken.
+     */
+    void mark_relay_broken(const ChipId chip_id);
+
     //---------- IO functions for host memory. Write and read functions, and getting host memory info.
 
     /**

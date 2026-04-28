@@ -257,6 +257,28 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
+            // FIX W (#42429): Before attempting relay through this ETH channel, verify its
+            // firmware is alive with a single fast PCIe read. Channels left in a crashed
+            // state (e.g., 0xDEADECE7) by abnormal fabric teardown won't service relay
+            // requests — the relay write completes (PCIe) but no ACK ever comes, causing
+            // an infinite hang that our relay-timeout catch (FIX AQ) cannot intercept.
+            // Live ETH firmware always maintains the 0xABCD____ heartbeat pattern.
+            // This check runs regardless of eth_fw_heartbeat_failure option — a dead gateway
+            // channel must be skipped unconditionally to prevent relay hangs.
+            {
+                uint32_t gateway_heartbeat = get_eth_heartbeat(tt_device, translated_eth_core);
+                if ((gateway_heartbeat >> 16) != 0xABCD) {
+                    log_warning(
+                        LogUMD,
+                        "FIX W: Gateway ETH core {} on device ASIC ID {} has dead firmware "
+                        "(heartbeat={:#x}). Skipping — relay through this channel would hang.",
+                        translated_eth_core.str(),
+                        current_device_asic_id,
+                        gateway_heartbeat);
+                    continue;
+                }
+            }
+
             // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
             // Note that even checking can slow down the CI enough for it to time out.
             if (options.eth_fw_heartbeat_failure != TopologyDiscoveryOptions::Action::THROW) {
@@ -343,23 +365,32 @@ void TopologyDiscovery::discover_remote_devices() {
 
                 bool device_init_failed = false;
                 try {
-                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor_path);
-                } catch (error::UmdBaseException& err) {
-                    if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
-                        throw;
-                    }
-                    device_init_failed = true;
-                    log_warning(LogUMD, err.message());
-
-                    uint64_t mock_asic_id = generate_unhealthy_asic_id(chip_id);
-                    devices_to_discover.emplace(mock_asic_id, std::move(remote_device));
-                    asic_id_to_chip_id.emplace(mock_asic_id, chip_id);
-
+                    // FIX AU (#42429): Use a short ARC timeout during topology discovery probing.
+                    // Default ARC_STARTUP_TIMEOUT (300s) causes multi-minute hangs when the MMIO
+                    // ETH relay cores were PCIe-reset by a prior teardown.  A healthy remote ARC
+                    // responds via relay in <<100ms.  NON_MMIO_RW_TIMEOUT (5s) is generous for a
+                    // healthy chip, short enough to fail fast on a stuck one.  The exception
+                    // propagates to the FIX AQ catch block below, which marks the device skipped.
+                    remote_device->init_tt_device(timeout::NON_MMIO_RW_TIMEOUT, soc_descriptor_path);
+                } catch (const std::exception& err) {
+                    // FIX AQ (#42429): Remote device unreachable via ETH relay (e.g., non-MMIO
+                    // ERISC stuck in FABRIC/STARTED mode after abnormal teardown).  Mark as
+                    // discovered so we don't retry from other ETH cores, but skip adding it to
+                    // devices_to_discover.  The process that left the device in a bad state is
+                    // responsible for cleanup; this process will see a reduced topology.
+                    // We catch std::exception (not UmdBaseException) so relay-timeout and relay-dead
+                    // failures are both handled without re-throwing, regardless of
+                    // device_init_failure_action (Cluster::create_cluster_descriptor forces THROW,
+                    // which would otherwise bypass the upstream unhealthy-device handling).
                     log_warning(
                         LogUMD,
-                        "Discovered remote device ASIC ID: {} is unhealthy. Assigned mock ASIC ID: {}",
+                        "FIX AQ: Failed to init remote device ASIC ID {} via gateway {}: {}. "
+                        "Skipping — remote device unreachable (relay timeout or stuck firmware).",
                         remote_asic_id,
-                        mock_asic_id);
+                        remote_asic_id_to_mmio_device_id.at(current_device_asic_id),
+                        err.what());
+                    discovered_devices.insert(remote_asic_id);
+                    continue;
                 }
                 if (!device_init_failed) {
                     if (options.wait_on_ethernet_link_training) {
@@ -376,6 +407,23 @@ void TopologyDiscovery::discover_remote_devices() {
                 // This will prevent attempting init. of an unhealthy device over another ETH core.
                 discovered_devices.insert(remote_asic_id);
             } else {
+                // FIX AQ-2 (#42429): Skip ETH connections to devices that were unreachable
+                // during discovery.  FIX AQ marks skipped devices as discovered (to avoid
+                // redundant retry) but does NOT add them to asic_id_to_chip_id.
+                // Without this guard, fill_cluster_descriptor_info() calls
+                // asic_id_to_chip_id.at(remote_asic_id) on a missing key and throws
+                // std::out_of_range, crashing the next test's fixture constructor.
+                if (asic_id_to_chip_id.find(remote_asic_id) == asic_id_to_chip_id.end()) {
+                    log_warning(
+                        LogUMD,
+                        "FIX AQ-2: Skipping ETH connection to unreachable device ASIC ID {} "
+                        "(not in asic_id_to_chip_id — skipped by FIX AQ during discovery). "
+                        "Connection from device {} chan {} will be omitted from cluster descriptor.",
+                        remote_asic_id,
+                        current_device_asic_id,
+                        channel);
+                    continue;
+                }
                 log_debug(
                     LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, translated_eth_core.str());
                 ethernet_connections.push_back(

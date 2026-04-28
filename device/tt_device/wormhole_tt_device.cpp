@@ -234,10 +234,40 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
     auto duration = std::chrono::milliseconds(0);
 
+    // FIX X (#42429): EthTrainingStatus::IN_PROGRESS == 0 is indistinguishable from
+    // zero-initialized L1 (the state ETH L1 is in after a force-reset). ETH cores
+    // that went through Phase 2.5 force-reset during fabric teardown run the quiesce
+    // kernel — not real ETH firmware. The quiesce kernel never writes
+    // ETH_TRAIN_STATUS_ADDR, so it stays 0 (IN_PROGRESS) indefinitely.  Waiting on
+    // these cores would silently hang for up to ETH_TRAINING_TIMEOUT (900 s).
+    //
+    // Detection: live WH ETH firmware always maintains 0xABCDxxxx in the heartbeat
+    // register. If after 2000 ms of IN_PROGRESS the heartbeat is still not 0xABCD,
+    // the core is not running real ETH firmware and will never complete training.
+    //
+    // We wait 2000 ms before checking because ETH firmware writes the heartbeat
+    // shortly after startup; checking immediately would race with fresh boots where
+    // the heartbeat has not yet been written.
+    constexpr auto heartbeat_check_after_ms = std::chrono::milliseconds(2000);
+
     auto start = std::chrono::steady_clock::now();
     while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
         auto end = std::chrono::steady_clock::now();
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        if (duration >= heartbeat_check_after_ms) {
+            uint32_t heartbeat = 0;
+            read_from_device(&heartbeat, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));
+            if ((heartbeat >> 16) != 0xABCD) {
+                log_debug(
+                    LogUMD,
+                    "FIX X: ETH core {} still IN_PROGRESS after {}ms but heartbeat={:#010x} (not "
+                    "0xABCDxxxx — no live ETH firmware). Skipping training wait.",
+                    eth_core.str(),
+                    duration.count(),
+                    heartbeat);
+                return duration;
+            }
+        }
         if (duration > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
                 UMD_THROW(

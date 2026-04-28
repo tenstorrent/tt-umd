@@ -10,9 +10,12 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <memory>
 #include <vector>
 
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
@@ -333,6 +336,101 @@ TEST_F(TTSimDeviceIOFixture, MultiCoreTileWrBytesReadByReadFromDeviceNoBleed) {
         tt_device->read_from_device(read_data.data(), core, addr, data_size);
         EXPECT_EQ(all_patterns[i], read_data) << "Data bleed detected on core index " << i;
     }
+}
+
+// ---------------------------------------------------------------------------
+// Repeated write/read cycles (mirrors DynamicTLB_RW style)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// SysmemBuffer NOC routing: writes/reads to pcie_core at a buffer's NOC address
+// must reach (or come from) the host VA backing that buffer. This is the
+// device-initiated path that SimulationSysmemManager's paddr-region routing
+// is responsible for.
+// ---------------------------------------------------------------------------
+
+// Write a pattern to PCIE core at the buffer's NOC address; expect the data to
+// land in the host VA returned by get_buffer_va().
+TEST_F(TTSimDeviceIOFixture, SysmemBufferWriteViaPcieNocReachesHostVa) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto pcie_cores = soc.get_cores(CoreType::PCIE);
+    if (pcie_cores.empty()) {
+        GTEST_SKIP() << "No PCIE cores in SoC descriptor; cannot exercise NOC->host routing.";
+    }
+    const tt_xy_pair pcie_core = soc.translate_coord_to(pcie_cores.at(0), CoordSystem::TRANSLATED);
+
+    SimulationSysmemManager* sysmem = tt_device->get_sysmem_manager();
+    ASSERT_NE(sysmem, nullptr);
+
+    constexpr size_t data_size = 4096;
+    auto buffer = sysmem->allocate_sysmem_buffer(data_size, /*map_to_noc=*/true);
+    ASSERT_NE(buffer, nullptr);
+    ASSERT_TRUE(buffer->get_noc_addr().has_value());
+
+    std::memset(buffer->get_buffer_va(), 0, data_size);
+
+    auto write_data = make_pattern(data_size, [](size_t i) { return i % 256; });
+    tt_device->write_to_device(write_data.data(), pcie_core, buffer->get_noc_addr().value(), data_size);
+
+    EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), write_data.data(), data_size))
+        << "write_to_device(pcie_core, noc_addr) did not land in sysmem buffer host VA";
+}
+
+// Place a pattern directly in the buffer's host VA, then read it back through
+// PCIE core at the buffer's NOC address.
+TEST_F(TTSimDeviceIOFixture, SysmemBufferReadViaPcieNocSeesHostVa) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto pcie_cores = soc.get_cores(CoreType::PCIE);
+    if (pcie_cores.empty()) {
+        GTEST_SKIP() << "No PCIE cores in SoC descriptor; cannot exercise host->NOC routing.";
+    }
+    const tt_xy_pair pcie_core = soc.translate_coord_to(pcie_cores.at(0), CoordSystem::TRANSLATED);
+
+    SimulationSysmemManager* sysmem = tt_device->get_sysmem_manager();
+    ASSERT_NE(sysmem, nullptr);
+
+    constexpr size_t data_size = 4096;
+    auto buffer = sysmem->allocate_sysmem_buffer(data_size, /*map_to_noc=*/true);
+    ASSERT_NE(buffer, nullptr);
+    ASSERT_TRUE(buffer->get_noc_addr().has_value());
+
+    auto pattern = make_pattern(data_size, [](size_t i) { return (i * 7 + 3) % 256; });
+    std::memcpy(buffer->get_buffer_va(), pattern.data(), data_size);
+
+    std::vector<uint8_t> read_data(data_size, 0);
+    tt_device->read_from_device(read_data.data(), pcie_core, buffer->get_noc_addr().value(), data_size);
+
+    EXPECT_EQ(pattern, read_data)
+        << "read_from_device(pcie_core, noc_addr) did not return sysmem buffer host VA contents";
+}
+
+// Two buffers must route independently — writes to one must not bleed into the other.
+TEST_F(TTSimDeviceIOFixture, MultipleSysmemBuffersRouteIndependently) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    auto pcie_cores = soc.get_cores(CoreType::PCIE);
+    if (pcie_cores.empty()) {
+        GTEST_SKIP() << "No PCIE cores in SoC descriptor.";
+    }
+    const tt_xy_pair pcie_core = soc.translate_coord_to(pcie_cores.at(0), CoordSystem::TRANSLATED);
+
+    SimulationSysmemManager* sysmem = tt_device->get_sysmem_manager();
+
+    constexpr size_t data_size = 1024;
+    auto buf_a = sysmem->allocate_sysmem_buffer(data_size, /*map_to_noc=*/true);
+    auto buf_b = sysmem->allocate_sysmem_buffer(data_size, /*map_to_noc=*/true);
+    ASSERT_NE(buf_a->get_noc_addr().value(), buf_b->get_noc_addr().value());
+
+    std::memset(buf_a->get_buffer_va(), 0, data_size);
+    std::memset(buf_b->get_buffer_va(), 0, data_size);
+
+    auto pattern_a = make_pattern(data_size, [](size_t i) { return (i + 0xA0) % 256; });
+    auto pattern_b = make_pattern(data_size, [](size_t i) { return (i + 0xB0) % 256; });
+
+    tt_device->write_to_device(pattern_a.data(), pcie_core, buf_a->get_noc_addr().value(), data_size);
+    tt_device->write_to_device(pattern_b.data(), pcie_core, buf_b->get_noc_addr().value(), data_size);
+
+    EXPECT_EQ(0, std::memcmp(buf_a->get_buffer_va(), pattern_a.data(), data_size));
+    EXPECT_EQ(0, std::memcmp(buf_b->get_buffer_va(), pattern_b.data(), data_size));
 }
 
 // ---------------------------------------------------------------------------

@@ -69,6 +69,11 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         // pcie_base_ before issuing pci_dma callbacks, so paddr space starts at 0.
         paddr_regions_.push_back({i * (1ULL << 30), i * (1ULL << 30) + channel_size, channel_va});
     }
+    // Mapped/allocated buffers begin in the first paddr slot not reserved for a channel.
+    // We reserve a full 1 GiB slot per channel (matching the simulator's channel layout),
+    // even when channel 3 has the 256 MiB carveout — that 256 MiB is left unused so we
+    // don't have to special-case the boundary.
+    next_alloc_paddr_ = static_cast<uint64_t>(num_host_mem_channels) * (1ULL << 30);
 
     return true;
 }

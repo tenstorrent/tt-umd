@@ -28,8 +28,21 @@ on:
     branches: ["main"]
 
 jobs:
+  # Ensure the Docker image for CI exists. If the Dockerfile (or its
+  # install scripts) changed on this branch the image is rebuilt and pushed
+  # with a content-hash tag.  Otherwise the existing image is reused.
+  ensure-image:
+    name: Ensure Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04
+
   build-and-run-all-tests:
     name: ""
+    needs: ensure-image
     secrets: inherit
     strategy:
       fail-fast: false
@@ -40,12 +53,13 @@ jobs:
         # We run both ASan and TSan build on push events to main. TSan is slower but catches hard race condition bugs.
         # When workflow is requested, all the requested build-types are run.
         build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
-                                 github.event_name == 'push' && '["ASan", "TSan"]' ||
+                                 github.event_name == 'push' && '["Release", "ASan", "TSan"]' ||
                                  github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
       build-type: ${{ matrix.build-type }}
       # Debug and TSan builds are slower, so give them more time to run.
       timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

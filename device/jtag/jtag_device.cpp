@@ -19,6 +19,7 @@
 #include "assert.hpp"
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;
@@ -63,7 +64,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     }
 }
 
-/* static */ std::shared_ptr<JtagDevice> JtagDevice::create(
+/* static */ std::unique_ptr<JtagDevice> JtagDevice::create(
     const std::filesystem::path& binary_directory, const std::unordered_set<int>& jtag_target_devices) {
     std::filesystem::path actual_path = binary_directory;
 
@@ -80,7 +81,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
     }
 
     std::unique_ptr<Jtag> jtag = std::make_unique<Jtag>(actual_path.c_str());
-    std::shared_ptr<JtagDevice> jtag_device = std::make_shared<JtagDevice>(std::move(jtag), jtag_target_devices);
+    std::unique_ptr<JtagDevice> jtag_device = std::make_unique<JtagDevice>(std::move(jtag), jtag_target_devices);
 
     // Check that all chips are of the same type.
     auto arch = jtag_device->get_jtag_arch(0);
@@ -88,7 +89,7 @@ JtagDevice::JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_s
         auto new_arch = jtag_device->get_jtag_arch(i);
 
         if (arch != new_arch) {
-            TT_THROW("Jtag ERROR: Not all devices have the same architecture.");
+            UMD_THROW(error::RuntimeError, "Jtag ERROR: Not all devices have the same architecture.");
         }
     }
 
@@ -114,11 +115,13 @@ std::optional<uint32_t> JtagDevice::get_efuse_harvesting(uint8_t chip_id) const 
 
 void JtagDevice::select_device(uint8_t chip_id) {
     if (chip_id >= get_device_cnt()) {
-        TT_THROW(
-            "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
-            "There are currently {} registered devices.",
-            chip_id,
-            get_device_cnt());
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
+                "There are currently {} registered devices.",
+                chip_id,
+                get_device_cnt()));
     }
 
     if (!curr_device_idx.has_value() || *curr_device_idx != chip_id) {
@@ -126,7 +129,9 @@ void JtagDevice::select_device(uint8_t chip_id) {
 
         // Underlying JTAG library uses unix-style status returns. Success is represented by 0.
         if (jtag->open_jlink_by_serial_wrapper(jlink_devices[chip_id])) {
-            TT_THROW("JtagDevice::select_device: Failed to open JTAG device with chip_id {}", chip_id);
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("JtagDevice::select_device: Failed to open JTAG device with chip_id {}", chip_id));
         }
         curr_device_idx = chip_id;
     }
@@ -225,7 +230,10 @@ void JtagDevice::write(
 
         auto read_result = read32(chip_id, noc_x, noc_y, addr, noc_id);
         if (!read_result) {
-            TT_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr));
         }
 
         uint8_t* data_bytes = reinterpret_cast<uint8_t*>(&(*read_result));
@@ -263,7 +271,10 @@ void JtagDevice::read(
         // JTAG protocol doesn't require address alignment to word size (4 bytes).
         auto result = read32(chip_id, noc_x, noc_y, addr, noc_id);
         if (!result) {
-            TT_THROW("JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr);
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "JTAG read32 failed for device {} at core ({},{}) address 0x{:x}", chip_id, noc_x, noc_y, addr));
         }
         uint32_t data = *result;
         std::memcpy(buffer_addr, &data, transfer_size);
@@ -295,11 +306,13 @@ std::optional<uint8_t> JtagDevice::get_current_device_idx() const { return curr_
 
 int JtagDevice::get_device_id(uint8_t chip_id) const {
     if (chip_id >= get_device_cnt()) {
-        TT_THROW(
-            "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
-            "There are currently {} registered devices.",
-            chip_id,
-            get_device_cnt());
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "JtagDevice::get_device_id: Device with chip_id {} doesn't exist. "
+                "There are currently {} registered devices.",
+                chip_id,
+                get_device_cnt()));
     }
     return jlink_devices[chip_id];
 }

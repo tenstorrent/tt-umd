@@ -35,9 +35,12 @@ void SmBusArcTelemetryReader::get_telemetry_address() {
 
 uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     if (!is_entry_available(telemetry_tag)) {
-        throw std::runtime_error(fmt::format(
-            "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
-            telemetry_tag));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is "
+                "available.",
+                telemetry_tag));
     }
 
     uint32_t telemetry_value;

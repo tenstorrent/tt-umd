@@ -50,8 +50,8 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
@@ -82,8 +82,7 @@ private:
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+        std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

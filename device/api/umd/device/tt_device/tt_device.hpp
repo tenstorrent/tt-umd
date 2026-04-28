@@ -10,6 +10,7 @@
 #include <memory>
 #include <string_view>
 
+#include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -18,9 +19,18 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
+#include "umd/device/tt_device/protocol/jtag_interface.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -29,16 +39,7 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
-
-enum class TTDeviceInitResult {
-    UNKNOWN = 0,
-    UNINITIALIZED,
-    ARC_STARTUP_FAILED,
-    ARC_MESSENGER_UNAVAILABLE,
-    ARC_TELEMETRY_UNAVAILABLE,
-    FIRMWARE_INFO_PROVIDER_UNAVAILABLE,
-    SUCCESSFUL,
-};
+class SimulationSysmemManager;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {
@@ -56,35 +57,71 @@ public:
      */
     static std::unique_ptr<TTDevice> create(
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(
-        std::unique_ptr<RemoteCommunication> remote_communication, bool use_safe_api = false);
+    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
     TTDevice(
-        std::shared_ptr<PCIDevice> pci_device,
+        std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<architecture_implementation> architecture_impl,
         bool use_safe_api);
     TTDevice(
-        std::shared_ptr<JtagDevice> jtag_device,
+        std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
         std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
-    std::shared_ptr<PCIDevice> get_pci_device();
-    std::shared_ptr<JtagDevice> get_jtag_device();
+    PCIDevice *get_pci_device();
+    JtagDevice *get_jtag_device();
+    RemoteCommunication *get_remote_communication();
+
+    DeviceProtocol *get_device_protocol();
+    PcieInterface *get_pcie_interface();
+    JtagInterface *get_jtag_interface();
+    RemoteInterface *get_remote_interface();
 
     tt::ARCH get_arch();
 
-    virtual void detect_hang_read(uint32_t data_read = HANG_READ_VALUE);
-    virtual bool is_hardware_hung() = 0;
-    bool is_noc_hung(NocId noc);
     /**
-     * Reads the NOC node ID register via a NOC transaction (using the currently selected NOC).
-     *
-     * @return Raw register value. A return of HANG_READ_VALUE (0xFFFFFFFF) indicates the NOC is hung.
+     * @brief Controls what happens when a hang is confirmed.
      */
-    virtual uint32_t read_hang_check_reg_via_noc() = 0;
+    enum class HangAction {
+        THROW,   ///< Throw std::runtime_error (default).
+        RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * Check if the PCIe communication is hung.
+     *
+     * Reads a known register over BAR and compares the result against the hang
+     * signature. If the device is not locally accessible (e.g. JTAG or remote),
+     * the check is skipped and false is returned.
+     *
+     * @param data_read  Value to compare against the hang signature. Defaults to
+     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   after any BAR read that returned a suspicious value.
+     * @param action     What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
+
+    /**
+     * Check if NOC traffic to the device is hung.
+     *
+     * Sends a read over the specified NOC and compares the result against the
+     * hang signature. Only meaningful for locally accessible devices; on remote
+     * devices the check is skipped and false is returned.
+     *
+     * @param noc     NOC to check (NOC0 or NOC1).
+     * @param action  What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the NOC appears hung (only reachable with ReturnValue).
+     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     */
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
     /**
      * DMA transfer from device to host.
@@ -129,21 +166,24 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
      * will ensure that the write will land on the correct cores.
      *
-     * @param dst pointer to memory from which the data is sent
+     * @param src pointer to memory from which the data is sent
      * @param size number of bytes
      * @param core_start starting core coordinates (x,y) of the multicast write
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -252,7 +292,7 @@ public:
      * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual bool wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -277,8 +317,6 @@ public:
     tt_xy_pair get_arc_core() const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
-
-    virtual RemoteCommunication *get_remote_communication() const { return nullptr; }
 
     /**
      * Request full power domains from KMD (busy=true) or release them (busy=false).
@@ -308,8 +346,9 @@ public:
 
     bool is_remote();
 
-    TTDeviceInitResult init_tt_device(
-        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, bool throw_on_arc_failure = true);
+    void init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
+        const std::string &soc_descriptor_path = "");
 
     uint64_t get_refclk_counter();
 
@@ -323,6 +362,7 @@ public:
      * @param core Core to get soft reset for, in translated coordinates
      */
     uint32_t get_risc_reset_state(tt_xy_pair core);
+    uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
      * Set the soft reset signal for the given riscs.
@@ -331,6 +371,46 @@ public:
      * @param risc_flags bitmask of riscs to set soft reset for
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+    void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
+
+    /**
+     * Send tensix risc reset for a specific core.
+     *
+     * @param core Core to reset, in translated coordinates
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Send tensix risc reset for all tensix cores.
+     *
+     * The base TTDevice implementation does not support this operation and throws.
+     * Subclasses may override to implement all-core reset semantics.
+     *
+     * @param soft_resets Soft reset options
+     */
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * Assert risc reset for a specific core.
+     *
+     * @param core Core to assert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to assert reset for
+     */
+    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+
+    /**
+     * Deassert risc reset for a specific core.
+     *
+     * @param core Core to deassert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to deassert reset for
+     * @param staggered_start Whether to use staggered start
+     */
+    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
+    virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
+
+    virtual TLBManager *get_tlb_manager() { return nullptr; }
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
@@ -359,9 +439,9 @@ public:
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
+    const SocDescriptor &get_soc_descriptor() const;
+
 protected:
-    std::shared_ptr<PCIDevice> pci_device_;
-    std::shared_ptr<JtagDevice> jtag_device_;
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
@@ -378,54 +458,25 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+
     bool is_remote_tt_device = false;
 
     tt_xy_pair arc_core;
 
-    virtual size_t get_pcie_dma_tlb_size() const { return 16 * 1024 * 1024; }
-
-    /**
-     * Device-specific DMA transfer from device to host.
-     * This method performs the actual hardware-specific DMA transfer.
-     *
-     * @param dst destination host address
-     * @param src device AXI address
-     * @param size number of bytes
-     * @throws std::runtime_error if the transfer is not supported or fails
-     */
-    virtual void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) = 0;
-
-    /**
-     * Device-specific DMA transfer from host to device.
-     * This method performs the actual hardware-specific DMA transfer.
-     *
-     * @param dst device AXI address
-     * @param src source host address
-     * @param size number of bytes
-     * @throws std::runtime_error if the transfer fails
-     */
-    virtual void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) = 0;
+    // Assigns default SocDescriptor.
+    void construct_soc_descriptor(const std::string &soc_descriptor_path = "");
+    void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
     void probe_arc();
 
-    TlbWindow *get_cached_tlb_window();
-
-    TlbWindow *get_cached_pcie_dma_tlb_window(tlb_data config);
-
-    template <bool safe>
-    void write_to_device_impl(const void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    template <bool safe>
-    void read_from_device_impl(void *mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
-
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
-
-    std::unique_ptr<TlbWindow> cached_pcie_dma_tlb_window = nullptr;
-
-    std::mutex tt_device_io_lock;
-
-    bool use_safe_api_ = false;
+    std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    std::unique_ptr<DeviceProtocol> device_protocol_;
+    std::unique_ptr<HangDetector> hang_detector_;
+    PcieInterface *pcie_capabilities_ = nullptr;
+    JtagInterface *jtag_capabilities_ = nullptr;
+    RemoteInterface *remote_capabilities_ = nullptr;
 };
 
 }  // namespace tt::umd

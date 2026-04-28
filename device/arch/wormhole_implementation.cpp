@@ -4,6 +4,8 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <stdexcept>
 #include <tuple>
@@ -11,6 +13,7 @@
 #include "assert.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/error.hpp"
 #include "wormhole/eth_interface.h"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
@@ -118,7 +121,8 @@ uint64_t wormhole_implementation::get_noc_reg_base(
                 return noc_pair.second;
             }
         }
-    } else {
+        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
+    } else if (noc == 1) {
         for (const auto& noc_pair : wormhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
             if (noc_pair.first == core_type) {
                 if (core_type == CoreType::DRAM) {
@@ -128,15 +132,16 @@ uint64_t wormhole_implementation::get_noc_reg_base(
                 return noc_pair.second;
             }
         }
+        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
     }
 
-    throw std::runtime_error("Invalid core type or NOC for getting NOC register addr base.");
+    UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
 }
 
 uint32_t wormhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        TT_THROW("NEO risc cores should not be used on Wormhole architecture.");
+        UMD_THROW(error::RuntimeError, "NEO risc cores should not be used on Wormhole architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

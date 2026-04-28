@@ -23,8 +23,15 @@ struct TestError : UmdError<TestErrorData> {
 
 TEST(UmdException, Macros) {
     EXPECT_THROW(UMD_THROW(TestError, 200), UmdException<TestError>);
-    EXPECT_THROW(UMD_THROW_IF(true, TestError, 200), UmdException<TestError>);
-    EXPECT_NO_THROW(UMD_THROW_IF(false, TestError, 200));
+    EXPECT_THROW(UMD_ASSERT(false, TestError), UmdException<TestError>);
+    EXPECT_NO_THROW(UMD_ASSERT(true, TestError));
+
+    // UMD_THROW_OR_RETURN is used when the erroneous condition is already hit.
+    // It either throws an exception, or returns the equivalent error, whose metadata can be accessed.
+    EXPECT_THROW(UMD_THROW_OR_RETURN(true, TestError, 200), UmdException<TestError>);
+    EXPECT_NO_THROW(UMD_THROW_OR_RETURN(false, TestError, 200));
+    auto error = UMD_THROW_OR_RETURN(false, TestError, 200);
+    EXPECT_EQ(error.data().cookie, 200);
 }
 
 TEST(UmdException, ExceptionData) {
@@ -46,15 +53,26 @@ TEST(UmdException, ExceptionData) {
     }
 }
 
+// Tests that UmdException can be caught as both its specific type (UmdException<TestError>) and as its base types
+// (UmdBaseException, std::runtime_error) in nested try-catch blocks, verifying the exception message remains
+// consistent.
 TEST(UmdException, DeepCatch) {
     bool caught_umd_error = false;
     std::string umd_error_what;
+    std::string umd_error_message;
     try {
         try {
-            UMD_THROW(TestError);
-        } catch (UmdException<TestError> &error) {
-            caught_umd_error = true;
-            umd_error_what = error.what();
+            try {
+                UMD_THROW(TestError);
+            } catch (UmdException<TestError> &error) {
+                caught_umd_error = true;
+                umd_error_what = error.what();
+                umd_error_message = error.error().message();
+                throw;
+            }
+        } catch (UmdBaseException &base_error) {
+            EXPECT_EQ(umd_error_message, base_error.message());
+            EXPECT_EQ(umd_error_what, base_error.what());
             throw;
         }
     } catch (std::runtime_error &runtime_error) {
@@ -64,4 +82,16 @@ TEST(UmdException, DeepCatch) {
         FAIL();
     }
     ASSERT_TRUE(caught_umd_error);
+}
+
+TEST(UmdException, AssertCondition) {
+    try {
+        // 1 == 2 is a failing assert condition. This test verifies the condition
+        // string remains the same as the assert condition in code.
+        UMD_ASSERT(1 == 2, TestError);
+        FAIL();
+    } catch (UmdException<TestError> &error) {
+        EXPECT_EQ("1 == 2", error.condition());
+        std::cout << error.what() << std::endl;
+    }
 }

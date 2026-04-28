@@ -33,6 +33,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .value("HARVESTED", CoreType::HARVESTED)
         .value("ETH", CoreType::ETH)
         .value("WORKER", CoreType::WORKER)
+        .value("UNSPECIFIED", CoreType::UNSPECIFIED)
         .def("__str__", [](CoreType ct) { return to_str(ct); })
         .def("__repr__", [](CoreType ct) { return "CoreType." + to_str(ct); });
 
@@ -42,6 +43,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .value("NOC0", CoordSystem::NOC0)
         .value("TRANSLATED", CoordSystem::TRANSLATED)
         .value("NOC1", CoordSystem::NOC1)
+        .value("LITERAL", CoordSystem::LITERAL)
         .def("__str__", [](CoordSystem cs) { return to_str(cs); })
         .def("__repr__", [](CoordSystem cs) { return "CoordSystem." + to_str(cs); });
 

@@ -19,7 +19,6 @@
 #include "tracy.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 
@@ -42,11 +41,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        throw std::runtime_error(
-            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
-    }
+    remote_tt_device->init_tt_device();
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
@@ -73,11 +68,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
         local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             remote_transfer_eth_channels, CoordSystem::TRANSLATED));
     auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    TTDeviceInitResult init_result = remote_tt_device->init_tt_device();
-    if (init_result != TTDeviceInitResult::SUCCESSFUL) {
-        throw std::runtime_error(
-            fmt::format("Failed to initialize remote TTDevice: {}", static_cast<int>(init_result)));
-    }
+    remote_tt_device->init_tt_device();
 
     return std::unique_ptr<RemoteChip>(
         new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
@@ -86,21 +77,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(
 RemoteChip::RemoteChip(
     SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), std::move(soc_descriptor)), local_chip_(local_chip) {
-    // Architectural design issue - this dynamic_cast reveals a leaky abstraction.
-    // The base TTDevice interface should provide access to RemoteCommunication directly,
-    // rather than requiring knowledge of the concrete RemoteWormholeTTDevice type.
-    // This violates the Liskov Substitution Principle and creates tight coupling.
-    // Consider either:
-    //   1. Adding get_remote_communication() to the TTDevice base interface (probably not)
-    //   2. Restructuring the inheritance hierarchy to eliminate this dependency
-    //   3. Using composition instead of inheritance for remote communication
-    // ToDo: Figure out a proper way to make an abstraction to redesign this.
-    if (local_chip->get_tt_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        remote_communication_ =
-            dynamic_cast<RemoteWormholeTTDevice*>(remote_tt_device.get())->get_remote_communication();
-    } else {
-        remote_communication_ = nullptr;
-    }
+    remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();
 }
@@ -121,11 +98,11 @@ void RemoteChip::close_device() {
     }
 }
 
-void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_device_->write_to_device(src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
-void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_device_->read_from_device(dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size);
 }
 
@@ -138,15 +115,15 @@ void RemoteChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_s
 }
 
 void RemoteChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    throw std::runtime_error("RemoteChip::dma_write_to_device is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::dma_write_to_device is not available for this chip.");
 }
 
 void RemoteChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    throw std::runtime_error("RemoteChip::dma_read_from_device is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::dma_read_from_device is not available for this chip.");
 }
 
 void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    throw std::runtime_error("RemoteChip::dma_multicast_write is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::dma_multicast_write is not available for this chip.");
 }
 
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
@@ -164,19 +141,19 @@ int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 int RemoteChip::get_num_host_channels() { return 0; }
 
 int RemoteChip::get_host_channel_size(std::uint32_t channel) {
-    throw std::runtime_error("There are no host channels available.");
+    UMD_THROW(error::RuntimeError, "There are no host channels available.");
 }
 
 void RemoteChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    throw std::runtime_error("RemoteChip::write_to_sysmem is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::write_to_sysmem is not available for this chip.");
 }
 
 void RemoteChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    throw std::runtime_error("RemoteChip::read_from_sysmem is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::read_from_sysmem is not available for this chip.");
 }
 
 int RemoteChip::get_numa_node() {
-    throw std::runtime_error("RemoteChip::get_numa_node is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::get_numa_node is not available for this chip.");
 }
 
 void RemoteChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
@@ -192,11 +169,11 @@ void RemoteChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& ch
 TTDevice* RemoteChip::get_tt_device() { return tt_device_.get(); }
 
 SysmemManager* RemoteChip::get_sysmem_manager() {
-    throw std::runtime_error("RemoteChip::get_sysmem_manager is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::get_sysmem_manager is not available for this chip.");
 }
 
 TLBManager* RemoteChip::get_tlb_manager() {
-    throw std::runtime_error("RemoteChip::get_tlb_manager is not available for this chip.");
+    UMD_THROW(error::RuntimeError, "RemoteChip::get_tlb_manager is not available for this chip.");
 }
 
 RemoteCommunication* RemoteChip::get_remote_communication() { return remote_communication_; }

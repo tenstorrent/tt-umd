@@ -10,8 +10,15 @@
 #include <stdexcept>
 
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+// TODO: This is a temporary implementation, and ought to be replaced with a
+// driver-based technique that can take advantage of multiple channels and
+// interrupts.  With a driver-based implementation we can also avoid the need to
+// memcpy into/out of a buffer, although exposing zero-copy DMA functionality to
+// the application will require IOMMU support.  One day...
 
 void WormholeDmaTransfer::d2h_transfer(
     volatile uint8_t* bar2, DmaBuffer& dma_buffer, uint64_t dst, uint32_t src, size_t size) {
@@ -66,7 +73,7 @@ void WormholeDmaTransfer::d2h_transfer(
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout");
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
 }
@@ -124,7 +131,7 @@ void WormholeDmaTransfer::h2d_transfer(
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout");
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
 }

@@ -107,6 +107,11 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+TEST(TestCluster, RefreshClusterDescriptionDoesNotThrow) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    EXPECT_NO_THROW(cluster->refresh_cluster_description());
+}
+
 TEST(TestCluster, GetEthernetFirmware) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 

@@ -21,8 +21,7 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) noexcept override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
 
     uint32_t get_clock() override;
 
@@ -45,12 +44,9 @@ public:
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
-    bool is_hardware_hung() override;
-    uint32_t read_hang_check_reg_via_noc() override;
-
 protected:
-    BlackholeTTDevice(std::shared_ptr<PCIDevice> pci_device, bool use_safe_api);
-    BlackholeTTDevice(std::shared_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
+    BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
 
     virtual bool is_arc_available_over_axi();
 
@@ -59,14 +55,7 @@ protected:
     // Number of retrain attempts is chosen based on syseng team testing.
     uint32_t get_max_dram_retrain_attempts() const override { return 3; }
 
-    size_t get_pcie_dma_tlb_size() const override { return 2 * 1024 * 1024; }
-
-    void dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) override;
-    void dma_h2d_transfer(const uint32_t dst, const uint64_t src, const size_t size) override;
-
 private:
-    std::mutex dma_mutex_;
-
     int get_pcie_x_coordinate();
 
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);

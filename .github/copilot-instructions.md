@@ -70,8 +70,10 @@ pre-commit run --files <file1> <file2>
 - **C++ Standard**: C++17
 - **Formatting**: clang-format (config in `.clang-format`)
 - **Linting**: clang-tidy (config in `.clang-tidy`)
+- **Exceptions**: Always prefer UMD_THROW() and UMD_ASSERT() with appropriate custom error types. Never use pure throws in the umd library. If there is no custom error type, use error::RuntimeError.
 
 Follow the existing style in the file you're modifying.
+
 
 ## When Fixing Static Analysis Issues
 
@@ -109,6 +111,6 @@ Consider:
 **Division by zero**
 - Add check before division: `if (divisor != 0) { ... }`
 - Use ternary with default: `divisor != 0 ? x / divisor : default_value`
-- Assert if zero is a programming error: `TT_ASSERT(divisor != 0)`
+- Assert if zero is a programming error: `UMD_ASSERT(divisor != 0)`
 - Use `std::max(divisor, 1)` if 1 is a safe minimum
 

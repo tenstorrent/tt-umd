@@ -31,7 +31,7 @@ inline size_t get_number_of_dram_modules(const ARCH arch) {
         case ARCH::BLACKHOLE:
             return static_cast<size_t>(GddrModule::NUM_OF_BLACKHOLE_MODULES);
         default:
-            throw std::runtime_error("Unsupported architecture for DRAM module count.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for DRAM module count.");
     }
 }
 

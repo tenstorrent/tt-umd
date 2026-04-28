@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -96,10 +97,7 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
 
  * This template class represents an error condition in UMD. The interface
  * contains a human-readable error message and user-defined structured error
- * metadata of type DATA_T. Specialized UmdErrors should be located in
- * /api/umd/device/utils/error.hpp. Constructors of specialized UmdError
- * classes should be implemented in /device/utils/error.cpp to reduce
- * dependencies.
+ * metadata of type DATA_T.
  *
  * @tparam DATA_T Type of the structured error data.
  */
@@ -147,6 +145,20 @@ private:
     DATA_T error_data_;    ///< Structured error data.
 };
 
+class UmdBaseException : public std::runtime_error {
+public:
+    explicit UmdBaseException(const std::string& what) : std::runtime_error(what) {}
+
+    /**
+     * @brief This returns an error message string without the stack trace,
+     * which has to be present in the overriden what() method for the
+     * automatic stack trace.
+     *
+     * @return Simple error message string.
+     */
+    const char* message() const noexcept { return std::runtime_error::what(); }
+};
+
 /**
  * @brief Exception wrapper that adds location and stack trace information to UmdError.
  *
@@ -157,7 +169,7 @@ private:
  * @tparam ERROR_T Type of the UmdError object being wrapped (e.g., UmdError<ETHHeartbeatFailureData>).
  */
 template <typename ERROR_T>
-class UmdException : public std::runtime_error {
+class UmdException : public UmdBaseException {
 public:
     /**
      * @brief Constructs an exception with error details, location, and stack trace.
@@ -168,15 +180,21 @@ public:
      * @param error The UmdError object containing the error message and data.
      * @param file Source file where the exception was thrown (typically __FILE__).
      * @param line Line number where the exception was thrown (typically __LINE__).
+     * @param condition Assert condition that failed, causing the exception.
      */
-    explicit UmdException(ERROR_T error, const std::string& file = "", uint32_t line = 0) :
-        std::runtime_error(error.message()), line_(line), file_(file), error_(error) {
+    explicit UmdException(
+        ERROR_T error, const std::string& file = "", uint32_t line = 0, const std::string& condition = "") :
+        UmdBaseException(error.message()), line_(line), file_(file), condition_(condition), error_(error) {
         // Automatically capture stack trace on construction.
         // Skip first two frames (get_stacktrace() and this constructor.).
         backtrace_ = tt::umd::error::get_stacktrace(/*max_frames=*/64, /*skip=*/2);
         std::stringstream ss;
         ss << error_.message() << std::endl;
         ss << "Location: " << file_ << ":" << line_ << std::endl;
+        if (!condition_.empty()) {
+            ss << "Condition: " << condition_ << std::endl;
+        }
+
         for (size_t i = 0; i < backtrace_.size(); ++i) {
             ss << std::setw(2) << std::right << i + 1 << ". " << backtrace_[i] << std::endl;
         }
@@ -228,6 +246,13 @@ public:
     uint32_t line() const noexcept { return line_; }
 
     /**
+     * @brief Gets the assert condition linked with the exception.
+     *
+     * @return Const reference to the condition string.
+     */
+    const std::string& condition() const noexcept { return condition_; }
+
+    /**
      * @brief Gets the captured stack trace.
      *
      * @return Const reference to vector of demangled stack frame strings.
@@ -239,6 +264,7 @@ private:
     std::string file_;                    ///< Source file where exception was thrown.
     std::vector<std::string> backtrace_;  ///< Captured and demangled stack trace.
     std::string what_output_;             ///< Formatted error message with all details.
+    std::string condition_;               ///< Optional assert condition.
     ERROR_T error_;                       ///< Wrapped UmdError object.
 };
 
@@ -253,11 +279,35 @@ private:
  * @param ... Arguments to forward to the error_type constructor.
  *
  */
-#define UMD_THROW(error_type, ...) \
-    (throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__))
+#define UMD_THROW(error_type, ...)                                                                   \
+    do {                                                                                             \
+        throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__); \
+    } while (0)
 
 /**
- * @brief Macro to conditionally throw a UmdException with automatic location tracking.
+ * @brief Macro to assert a condition and throw a UmdException if it fails.
+ *
+ * This macro evaluates a condition and throws a UmdException if the condition is false.
+ * The file and line information are automatically captured at the assertion site.
+ *
+ * @param condition Boolean expression; exception is thrown if false.
+ * @param error_type The type of UmdError to construct (e.g., UmdError<ETHHeartbeatFailureData>).
+ * @param ... Arguments to forward to the error_type constructor.
+ *
+ * Example:
+ * @code
+ * UMD_ASSERT(ptr != nullptr, UmdError<NullPointerData>, "Pointer must not be null", data);
+ * @endcode
+ */
+#define UMD_ASSERT(condition, error_type, ...)                                                                       \
+    do {                                                                                                             \
+        if (!(condition)) {                                                                                          \
+            throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__, #condition); \
+        }                                                                                                            \
+    } while (0)
+
+/**
+ * @brief Macro to either throw an UmdException or return an UmdError.
  *
  * This macro evaluates a condition and throws a UmdException if the condition is true.
  * If the condition is false, it returns the constructed error object without throwing.
@@ -269,10 +319,10 @@ private:
  *
  * Example:
  * @code
- * UMD_THROW_IF(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
+ * UMD_THROW_OR_RETURN(heartbeat_timeout, UmdError<ETHHeartbeatFailureData>, "Timeout", data);
  * @endcode
  */
-#define UMD_THROW_IF(condition, error_type, ...)                                                               \
+#define UMD_THROW_OR_RETURN(condition, error_type, ...)                                                        \
     ((condition) ? throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__) \
                  : error_type(__VA_ARGS__))
 

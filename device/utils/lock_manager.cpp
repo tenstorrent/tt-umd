@@ -10,6 +10,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 
+#include "umd/device/utils/error.hpp"
+
 namespace tt::umd {
 
 void LockManager::initialize_mutex(MutexType mutex_type) {
@@ -78,7 +80,7 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
 
 std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
-        throw std::runtime_error("Mutex not initialized: " + mutex_name);
+        UMD_THROW(error::RuntimeError, "Mutex not initialized: " + mutex_name);
     }
     return std::unique_lock(mutexes.at(mutex_name));
 }

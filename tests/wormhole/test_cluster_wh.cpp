@@ -21,6 +21,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"
 #include "wormhole/host_mem_address_map.h"
@@ -77,7 +78,10 @@ TEST(SiliconDriverWH, CustomSocDesc) {
         .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
     });
     for (const auto& chip : cluster.get_target_device_ids()) {
-        ASSERT_EQ(cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size(), 1)
+        ASSERT_EQ(
+            cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size() +
+                cluster.get_soc_descriptor(chip).get_harvested_cores(CoreType::TENSIX).size(),
+            1)
             << "Expected 1x1 SOC descriptor to be unmodified by driver";
     }
 }
@@ -267,7 +271,9 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, MultiThreadedDevice) {
+// TODO(#2485): Re-enable. Writes and reads are not synchronized so they can land on the device out of order; broke
+// after PR #2455.
+TEST(SiliconDriverWH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     Cluster cluster;

@@ -21,10 +21,10 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
@@ -35,25 +35,36 @@ namespace nb = nanobind;
 using namespace tt;
 using namespace tt::umd;
 
-// Helper function for easy creation of RemoteWormholeTTDevice.
-std::unique_ptr<TTDevice> create_remote_wormhole_tt_device(
+// Helper function for easy creation of a remote TTDevice.
+std::unique_ptr<TTDevice> create_remote_tt_device(
     TTDevice *local_chip, ClusterDescriptor *cluster_descriptor, ChipId remote_chip_id) {
     // Note: this chip id has to match the local_chip passed. Figure out if there's a better way to do this.
     ChipId local_chip_id = cluster_descriptor->get_closest_mmio_capable_chip(remote_chip_id);
     EthCoord target_chip = cluster_descriptor->get_chip_locations().at(remote_chip_id);
     SocDescriptor local_soc_descriptor = SocDescriptor(local_chip->get_arch(), local_chip->get_chip_info());
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    if (!remote_communication) {
+        UMD_THROW(
+            error::RuntimeError,
+            std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
+                " architecture.");
+    }
     remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
         cluster_descriptor->get_active_eth_channels(local_chip_id), CoordSystem::TRANSLATED));
     return TTDevice::create(std::move(remote_communication));
 }
 
-// Create remote wormhole device from explicit EthCoord (rack, shelf, x, y). Does not set
+// Create remote TTDevice from explicit EthCoord (rack, shelf, x, y). Does not set
 // remote transfer ethernet cores; caller must call set_remote_transfer_ethernet_cores.
-std::unique_ptr<TTDevice> create_remote_wormhole_tt_device_from_coord(
-    TTDevice *local_chip, int rack, int shelf, int x, int y) {
+std::unique_ptr<TTDevice> create_remote_tt_device_from_coord(TTDevice *local_chip, int rack, int shelf, int x, int y) {
     EthCoord target_chip{0, x, y, rack, shelf};
     auto remote_communication = RemoteCommunication::create_remote_communication(local_chip, target_chip);
+    if (!remote_communication) {
+        UMD_THROW(
+            error::RuntimeError,
+            std::string("Remote communication is not supported for ") + arch_to_str(local_chip->get_arch()) +
+                " architecture.");
+    }
     return TTDevice::create(std::move(remote_communication));
 }
 
@@ -81,15 +92,6 @@ void bind_tt_device(nb::module_ &m) {
         .def_ro("pci_function", &PciDeviceInfo::pci_function)
         .def_ro("pci_bdf", &PciDeviceInfo::pci_bdf)
         .def("get_arch", &PciDeviceInfo::get_arch);
-
-    nb::enum_<TTDeviceInitResult>(m, "TTDeviceInitResult")
-        .value("UNKNOWN", TTDeviceInitResult::UNKNOWN)
-        .value("UNINITIALIZED", TTDeviceInitResult::UNINITIALIZED)
-        .value("ARC_STARTUP_FAILED", TTDeviceInitResult::ARC_STARTUP_FAILED)
-        .value("ARC_MESSENGER_UNAVAILABLE", TTDeviceInitResult::ARC_MESSENGER_UNAVAILABLE)
-        .value("ARC_TELEMETRY_UNAVAILABLE", TTDeviceInitResult::ARC_TELEMETRY_UNAVAILABLE)
-        .value("FIRMWARE_INFO_PROVIDER_UNAVAILABLE", TTDeviceInitResult::FIRMWARE_INFO_PROVIDER_UNAVAILABLE)
-        .value("SUCCESSFUL", TTDeviceInitResult::SUCCESSFUL);
 
     nb::class_<PCIDevice>(m, "PCIDevice")
         .def(nb::init<int>())
@@ -126,7 +128,13 @@ void bind_tt_device(nb::module_ &m) {
             return std::make_tuple(core.x, core.y);
         });
 
-    nb::class_<TTDevice>(m, "TTDevice")
+    auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
+
+    nb::enum_<TTDevice::HangAction>(tt_device_class, "HangAction")
+        .value("Throw", TTDevice::HangAction::THROW)
+        .value("ReturnValue", TTDevice::HangAction::RETURN);
+
+    tt_device_class
         .def_static(
             "create",
             static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
@@ -139,7 +147,8 @@ void bind_tt_device(nb::module_ &m) {
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("throw_on_arc_failure") = true)
+            nb::arg("soc_descriptor_path") = "")
+        .def("get_soc_descriptor", &TTDevice::get_soc_descriptor)
         .def("get_chip_info", &TTDevice::get_chip_info)
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch)
@@ -189,7 +198,7 @@ void bind_tt_device(nb::module_ &m) {
             "Write a 32-bit value to a core at the specified address")
         .def(
             "noc_read",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
                 self.read_from_device(buffer.data(), core, addr, size);
@@ -205,12 +214,12 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
                 -> void {
                 if (noc_id != 0) {
-                    throw std::runtime_error("noc_id must be 0");
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0");
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.read_from_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.read_from_device(data_ptr, core, addr, data_size);
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -224,7 +233,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.write_to_device(data_ptr, core, addr, data_size);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -242,6 +251,18 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("data"),
             "Write a 32-bit value to the specified address on bar0")
+        .def(
+            "is_pcie_hung",
+            &TTDevice::is_pcie_hung,
+            nb::arg("data_read") = HANG_READ_VALUE,
+            nb::arg("action") = TTDevice::HangAction::THROW,
+            "Check if the PCIe communication is hung.")
+        .def(
+            "is_noc_hung",
+            &TTDevice::is_noc_hung,
+            nb::arg("noc"),
+            nb::arg("action") = TTDevice::HangAction::THROW,
+            "Check if the specified NOC is hung.")
         .def(
             "get_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y) -> uint32_t {
@@ -265,7 +286,7 @@ void bind_tt_device(nb::module_ &m) {
             "The bit layout of this value corresponds to TensixSoftResetOptions; do not pass RiscType bits here.")
         .def(
             "dma_read_from_device",
-            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t size) -> nb::bytes {
+            [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
                 self.dma_read_from_device(buffer.data(), size, core, addr);
@@ -281,12 +302,12 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
                 -> void {
                 if (noc_id != 0) {
-                    throw std::runtime_error("noc_id must be 0");
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.dma_read_from_device(data_ptr, static_cast<uint32_t>(data_size), core, addr);
+                self.dma_read_from_device(data_ptr, data_size, core, addr);
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -300,7 +321,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.dma_write_to_device(data_ptr, static_cast<uint32_t>(data_size), core, addr);
+                self.dma_write_to_device(data_ptr, data_size, core, addr);
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -313,7 +334,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t msg_code,
                bool wait_for_done = true,
                std::vector<uint32_t> args = {},
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -340,9 +361,11 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done,
+               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
+               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
                uint32_t arg0,
-               uint32_t arg1,
-               uint32_t timeout_ms = 1000) -> std::tuple<int, int, int> {
+               uint32_t arg1 = 0xffff,
+               uint32_t timeout_ms = 1000) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -359,9 +382,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout_ms") = 1000,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in "
             "milliseconds.")
@@ -370,9 +393,11 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self,
                uint32_t msg_code,
                bool wait_for_done,
+               // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
+               // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
                uint32_t arg0,
-               uint32_t arg1,
-               uint32_t timeout = 1) -> std::tuple<int, int, int> {
+               uint32_t arg1 = 0xffff,
+               uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
                 if (!wait_for_done) {
                     log_warning(
@@ -389,9 +414,9 @@ void bind_tt_device(nb::module_ &m) {
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
-            nb::arg("wait_for_done"),
-            nb::arg("arg0"),
-            nb::arg("arg1"),
+            nb::arg("wait_for_done") = true,
+            nb::arg("arg0") = 0xffff,
+            nb::arg("arg1") = 0xffff,
             nb::arg("timeout") = 1,
             "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
 
@@ -443,8 +468,6 @@ void bind_tt_device(nb::module_ &m) {
             "Get firmware bundle version from SPI (Blackhole only). "
             "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
 
-    nb::class_<RemoteWormholeTTDevice, TTDevice>(m, "RemoteWormholeTTDevice");
-
 #ifdef TT_UMD_BUILD_SIMULATION
     // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
     m.def(
@@ -458,6 +481,50 @@ void bind_tt_device(nb::module_ &m) {
         "If the path ends with '.so', creates a TTSimTTDevice (functional simulator). "
         "Otherwise, creates an RtlSimulationTTDevice (RTL simulator).");
 
+    nb::class_<TTSimTTDevice, TTDevice>(m, "TTSimTTDevice")
+        .def_static(
+            "create",
+            &TTSimTTDevice::create,
+            nb::arg("simulator_directory"),
+            nb::arg("num_host_mem_channels") = 0,
+            nb::arg("copy_sim_binary") = false,
+            "Creates a TTSimTTDevice for functional simulation communication.")
+        .def(
+            "send_tensix_risc_reset",
+            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
+                &TTSimTTDevice::send_tensix_risc_reset),
+            nb::arg("translated_core"),
+            nb::arg("soft_resets"),
+            "Send a Tensix RISC reset with specific soft reset options for a single core.")
+        .def(
+            "send_tensix_risc_reset_all",
+            static_cast<void (TTSimTTDevice::*)(const TensixSoftResetOptions &)>(
+                &TTSimTTDevice::send_tensix_risc_reset),
+            nb::arg("soft_resets"),
+            "Send a Tensix RISC reset with specific soft reset options for all cores.")
+        .def(
+            "assert_risc_reset",
+            &TTSimTTDevice::assert_risc_reset,
+            nb::arg("core"),
+            nb::arg("selected_riscs"),
+            "Assert RISC reset for selected RISC cores on a given core.")
+        .def(
+            "deassert_risc_reset",
+            &TTSimTTDevice::deassert_risc_reset,
+            nb::arg("core"),
+            nb::arg("selected_riscs"),
+            nb::arg("staggered_start") = false,
+            "Deassert RISC reset for selected RISC cores on a given core.")
+        .def(
+            "get_soc_descriptor",
+            &TTSimTTDevice::get_soc_descriptor,
+            nb::rv_policy::reference_internal,
+            "Get the SocDescriptor associated with this simulation device.")
+
+        .def("get_clock", &TTSimTTDevice::get_clock, "Get the clock frequency.")
+        .def("get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, "Get the minimum clock frequency.")
+        .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");
+
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
         .def_static(
             "create",
@@ -467,13 +534,6 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
-            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, bool)>(
-                &RtlSimulationTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("deassert"),
-            "Send a Tensix RISC reset signal to the RTL simulation device.")
-        .def(
-            "send_tensix_risc_reset_with_options",
             static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
                 &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
@@ -482,24 +542,14 @@ void bind_tt_device(nb::module_ &m) {
             "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
         .def(
             "assert_risc_reset",
-            [](RtlSimulationTTDevice &self, uint32_t core_x, uint32_t core_y, RiscType selected_riscs) {
-                self.assert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &RtlSimulationTTDevice::assert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            [](RtlSimulationTTDevice &self,
-               uint32_t core_x,
-               uint32_t core_y,
-               RiscType selected_riscs,
-               bool staggered_start) {
-                self.deassert_risc_reset(tt_xy_pair{core_x, core_y}, selected_riscs, staggered_start);
-            },
-            nb::arg("core_x"),
-            nb::arg("core_y"),
+            &RtlSimulationTTDevice::deassert_risc_reset,
+            nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
             "Deassert RISC reset for selected RISC cores on a given core.")
@@ -511,23 +561,45 @@ void bind_tt_device(nb::module_ &m) {
 #endif
 
     m.def(
-        "create_remote_wormhole_tt_device",
-        &create_remote_wormhole_tt_device,
+        "create_remote_tt_device",
+        &create_remote_tt_device,
         nb::arg("local_chip"),
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
         nb::rv_policy::take_ownership,
-        "Creates a RemoteWormholeTTDevice for communication with a remote chip.");
+        "Creates a remote TTDevice for communication with a remote chip.");
+
+    // Keep the old name as an alias for backwards compatibility.
+    m.def(
+        "create_remote_wormhole_tt_device",
+        &create_remote_tt_device,
+        nb::arg("local_chip"),
+        nb::arg("cluster_descriptor"),
+        nb::arg("remote_chip_id"),
+        nb::rv_policy::take_ownership,
+        "Deprecated: use create_remote_tt_device instead.");
 
     m.def(
-        "create_remote_wormhole_tt_device_from_coord",
-        &create_remote_wormhole_tt_device_from_coord,
+        "create_remote_tt_device_from_coord",
+        &create_remote_tt_device_from_coord,
         nb::arg("local_chip"),
         nb::arg("rack"),
         nb::arg("shelf"),
         nb::arg("x"),
         nb::arg("y"),
         nb::rv_policy::take_ownership,
-        "Creates a RemoteWormholeTTDevice for communication with a remote chip at (rack, shelf, x, y). "
+        "Creates a remote TTDevice for communication with a remote chip at (rack, shelf, x, y). "
         "Does not set remote transfer ethernet cores; caller must set them explicitly.");
+
+    // Keep the old name as an alias for backwards compatibility.
+    m.def(
+        "create_remote_wormhole_tt_device_from_coord",
+        &create_remote_tt_device_from_coord,
+        nb::arg("local_chip"),
+        nb::arg("rack"),
+        nb::arg("shelf"),
+        nb::arg("x"),
+        nb::arg("y"),
+        nb::rv_policy::take_ownership,
+        "Deprecated: use create_remote_tt_device_from_coord instead.");
 }

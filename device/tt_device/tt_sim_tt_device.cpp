@@ -4,6 +4,9 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
+#include <fmt/format.h>
+
+#include <cstring>
 #include <filesystem>
 #include <tt-logger/tt-logger.hpp>
 
@@ -224,15 +227,25 @@ void TTSimTTDevice::initialize_sysmem_functions() {
 }
 
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
-    uint64_t channel = paddr / (1ULL << 30);
-    uint64_t offset = paddr % (1ULL << 30);
-    sysmem_manager_->read_from_sysmem(channel, p, offset, size);
+    uint8_t* host_va = sysmem_manager_->find_paddr_host_va(paddr, size);
+    if (host_va == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "TTSim pci_dma_read_bytes: no registered sysmem region covers paddr {:#x} size {}.", paddr, size));
+    }
+    std::memcpy(p, host_va, size);
 }
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
-    uint64_t channel = paddr / (1ULL << 30);
-    uint64_t offset = paddr % (1ULL << 30);
-    sysmem_manager_->write_to_sysmem(channel, p, offset, size);
+    uint8_t* host_va = sysmem_manager_->find_paddr_host_va(paddr, size);
+    if (host_va == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "TTSim pci_dma_write_bytes: no registered sysmem region covers paddr {:#x} size {}.", paddr, size));
+    }
+    std::memcpy(host_va, p, size);
 }
 
 TlbWindow* TTSimTTDevice::get_cached_tlb_window() {

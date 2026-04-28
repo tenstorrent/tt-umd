@@ -170,6 +170,7 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
         tt_xy_pair core = {x, y};
 
         // Send read request.
+        // System NOC only available with aether-main-v2026.W10.1_smn_support tag and 2x3_SMU config
         DEVICE_COMMAND command = (noc_id == NocId::SYSTEM_NOC) ? DEVICE_COMMAND_SMN_READ : DEVICE_COMMAND_READ;
         send_command_to_simulation_host(host_, create_flatbuffer(command, {0}, core, addr, size));
     }
@@ -213,6 +214,7 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
 
     // Send write request.
+    // System NOC only available with aether-main-v2026.W10.1_smn_support tag and 2x3_SMU config
     DEVICE_COMMAND command = (noc_id == NocId::SYSTEM_NOC) ? DEVICE_COMMAND_SMN_WRITE : DEVICE_COMMAND_WRITE;
     send_command_to_simulation_host(host_, create_flatbuffer(command, data_vec, core, addr));
 }

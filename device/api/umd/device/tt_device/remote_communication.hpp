@@ -53,12 +53,19 @@ public:
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
 
+    // FIX AE (#42429): Mark the relay path through this remote communication as broken.
+    // When set, wait_for_non_mmio_flush() returns immediately instead of polling dead
+    // ERISC CMD queues for up to 5 seconds.
+    void set_relay_broken() { relay_broken_ = true; }
+    bool is_relay_broken() const { return relay_broken_; }
+
 protected:
     void update_active_eth_core_idx();
 
     std::vector<tt_xy_pair> remote_transfer_eth_cores_;
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
+    bool relay_broken_ = false;
 
     TTDevice* local_tt_device_;
 

@@ -59,6 +59,7 @@ public:
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
+    void mark_relay_broken() override;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;

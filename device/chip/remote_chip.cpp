@@ -128,6 +128,8 @@ void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_star
 
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
+void RemoteChip::mark_relay_broken() { remote_communication_->set_relay_broken(); }
+
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
 void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }

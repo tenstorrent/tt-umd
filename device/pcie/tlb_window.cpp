@@ -5,8 +5,6 @@
 #include "umd/device/pcie/tlb_window.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <utility>

@@ -24,7 +24,6 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <new>
 #include <optional>
 #include <string>
 #include <string_view>

@@ -26,6 +26,7 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 
 namespace tt::umd {
 

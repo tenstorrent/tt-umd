@@ -14,9 +14,9 @@
 #include <variant>
 
 #include "noc_access.hpp"
+#include "pcie/silicon_tlb_window.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/pcie/silicon_tlb_window.hpp"
 
 namespace tt::umd {
 

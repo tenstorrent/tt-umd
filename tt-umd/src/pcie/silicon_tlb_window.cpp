@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "pcie/silicon_tlb_window.hpp"
 
 #include <unistd.h>
 

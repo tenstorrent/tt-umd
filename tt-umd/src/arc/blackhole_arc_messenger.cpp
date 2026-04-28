@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 
 namespace tt::umd {

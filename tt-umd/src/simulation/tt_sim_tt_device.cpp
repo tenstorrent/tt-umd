@@ -8,10 +8,11 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
+#include "pcie/tt_sim_tlb_handle.hpp"
+#include "pcie/tt_sim_tlb_window.hpp"
+#include "simulation/tt_sim_communicator.hpp"
 #include "simulation_device_generated.h"
 #include "tt-umd/pcie/pci_ids.h"
-#include "tt-umd/pcie/tt_sim_tlb_handle.hpp"
-#include "tt-umd/pcie/tt_sim_tlb_window.hpp"
 
 namespace tt::umd {
 

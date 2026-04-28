@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/simulation_device_factory.hpp"
+#include "simulation/simulation_device_factory.hpp"
 
 #include "tt-umd/simulation/rtl_simulation_tt_device.hpp"
 #include "tt-umd/simulation/tt_sim_tt_device.hpp"

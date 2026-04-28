@@ -10,7 +10,7 @@
 #include <optional>
 #include <unordered_set>
 
-#include "tt-umd/jtag/jtag.hpp"
+#include "jtag/jtag.hpp"
 #include "tt-umd/types/arch.hpp"
 
 typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;

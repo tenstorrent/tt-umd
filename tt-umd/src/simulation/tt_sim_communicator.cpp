@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/simulation/tt_sim_communicator.hpp"
+#include "simulation/tt_sim_communicator.hpp"
 
 #include <dlfcn.h>
 #include <fcntl.h>

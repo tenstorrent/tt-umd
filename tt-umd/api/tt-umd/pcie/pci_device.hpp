@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "tt-umd/arch/architecture_implementation.hpp"
-#include "tt-umd/pcie/silicon_tlb_handle.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/tt_kmd_lib/tt_kmd_lib.h"
 #include "tt-umd/types/arch.hpp"

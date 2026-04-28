@@ -57,6 +57,7 @@
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/firmware/erisc_firmware.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/topology/topology_utils.hpp"

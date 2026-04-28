@@ -32,6 +32,7 @@
 
 #include "assert.hpp"
 #include "ioctl.h"
+#include "pcie/silicon_tlb_handle.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/tt_kmd_lib/tt_kmd_lib.h"

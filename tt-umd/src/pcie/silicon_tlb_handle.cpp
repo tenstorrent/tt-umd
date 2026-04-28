@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/pcie/silicon_tlb_handle.hpp"
+#include "pcie/silicon_tlb_handle.hpp"
 
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -15,6 +15,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "tt-umd/pcie/pci_device.hpp"
+#include "tt-umd/tt_kmd_lib/tt_kmd_lib.h"
 
 namespace tt::umd {
 

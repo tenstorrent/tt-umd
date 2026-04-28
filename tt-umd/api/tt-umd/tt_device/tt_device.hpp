@@ -15,8 +15,6 @@
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/chip_helpers/tlb_manager.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
-#include "tt-umd/jtag/jtag_device.hpp"
-#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/tt_device/hang_detection/hang_detector.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
@@ -36,6 +34,8 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class PCIDevice;
+class JtagDevice;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {

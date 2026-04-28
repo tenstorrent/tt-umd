@@ -9,8 +9,9 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "tt-umd/pcie/rtl_sim_tlb_handle.hpp"
-#include "tt-umd/pcie/rtl_sim_tlb_window.hpp"
+#include "pcie/rtl_sim_tlb_handle.hpp"
+#include "pcie/rtl_sim_tlb_window.hpp"
+#include "simulation/rtl_sim_communicator.hpp"
 
 namespace tt::umd {
 

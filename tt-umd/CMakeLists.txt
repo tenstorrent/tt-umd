@@ -86,25 +86,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/pcie/pci_device.hpp
                 api/tt-umd/pcie/pci_ids.h
                 api/tt-umd/pcie/tlb_handle.hpp
-                api/tt-umd/pcie/silicon_tlb_handle.hpp
-                api/tt-umd/pcie/silicon_tlb_window.hpp
                 api/tt-umd/pcie/tlb_window.hpp
-                api/tt-umd/pcie/tt_sim_tlb_window.hpp
-                api/tt-umd/pcie/tt_sim_tlb_handle.hpp
-                api/tt-umd/pcie/rtl_sim_tlb_window.hpp
-                api/tt-umd/pcie/rtl_sim_tlb_handle.hpp
                 api/tt-umd/warm_reset.hpp
                 api/tt-umd/utils/semver.hpp
                 api/tt-umd/utils/robust_mutex.hpp
                 api/tt-umd/cluster_descriptor.hpp
                 api/tt-umd/types/core_coordinates.hpp
                 api/tt-umd/tt_device/tt_device.hpp
-                api/tt-umd/simulation/rtl_simulation_tt_device.hpp
-                api/tt-umd/simulation/tt_sim_tt_device.hpp
-                api/tt-umd/simulation/simulation_device_factory.hpp
-                api/tt-umd/simulation/tt_sim_communicator.hpp
-                api/tt-umd/simulation/rtl_sim_communicator.hpp
-                api/tt-umd/simulation/simulation_host.hpp
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/remote_communication.hpp
                 api/tt-umd/tt_device/remote_communication_legacy_firmware.hpp
@@ -138,9 +126,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/types/wormhole_telemetry.hpp
                 api/tt-umd/types/xy_pair.hpp
                 api/tt-umd/arch/wormhole_implementation.hpp
-                api/tt-umd/jtag/jtag_device.hpp
-                api/tt-umd/jtag/jtag.hpp
-                api/tt-umd/tt_kmd_lib/tt_kmd_lib.h
                 api/tt-umd/arch/grendel_implementation.hpp
                 api/tt-umd/arc/spi_tt_device.hpp
     )

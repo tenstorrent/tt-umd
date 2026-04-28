@@ -13,7 +13,7 @@
 #include <queue>
 #include <thread>
 
-#include "tt-umd/simulation/simulation_host.hpp"
+#include "simulation/simulation_host.hpp"
 #include "tt-umd/types/xy_pair.hpp"
 
 namespace tt::umd {

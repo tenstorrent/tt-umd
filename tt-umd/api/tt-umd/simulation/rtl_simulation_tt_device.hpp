@@ -10,7 +10,6 @@
 
 #include "tt-umd/chip_helpers/simulation_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/simulation_tlb_manager.hpp"
-#include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/tensix_soft_reset_options.hpp"

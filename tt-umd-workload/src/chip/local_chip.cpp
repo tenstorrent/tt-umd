@@ -18,12 +18,13 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
+#include "pcie/silicon_tlb_window.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/tlb_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
-#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 
 namespace tt::umd {

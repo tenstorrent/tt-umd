@@ -6,8 +6,8 @@
 
 #include "jtag_protocol.hpp"
 
+#include "jtag/jtag_device.hpp"
 #include "noc_access.hpp"
-#include "tt-umd/jtag/jtag_device.hpp"
 
 namespace tt::umd {
 

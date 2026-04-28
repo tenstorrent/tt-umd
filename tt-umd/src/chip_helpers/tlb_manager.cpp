@@ -15,7 +15,8 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
-#include "tt-umd/pcie/silicon_tlb_window.hpp"
+#include "pcie/silicon_tlb_window.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/tt_io.hpp"
 #include "tt-umd/types/tlb.hpp"

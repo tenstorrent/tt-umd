@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/jtag/jtag.hpp"
+#include "jtag/jtag.hpp"
 
 #include <cstdint>
 #include <filesystem>

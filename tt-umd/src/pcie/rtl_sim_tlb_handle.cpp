@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-umd/pcie/rtl_sim_tlb_handle.hpp"
+#include "rtl_sim_tlb_handle.hpp"
 
 #include <cstddef>
 #include <cstdint>

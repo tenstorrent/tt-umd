@@ -19,9 +19,9 @@
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
-#include "tt-umd/simulation/rtl_simulation_tt_device.hpp"
-#include "tt-umd/simulation/simulation_device_factory.hpp"
-#include "tt-umd/simulation/tt_sim_tt_device.hpp"
+// #include "tt-umd/simulation/rtl_simulation_tt_device.hpp"
+// #include "tt-umd/simulation/simulation_device_factory.hpp"
+// #include "tt-umd/simulation/tt_sim_tt_device.hpp"
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
@@ -462,95 +462,7 @@ void bind_tt_device(nb::module_ &m) {
             "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
-    m.def(
-        "create_simulation_tt_device",
-        &create_simulation_tt_device,
-        nb::arg("simulator_path"),
-        nb::arg("num_host_mem_channels") = 0,
-        nb::arg("copy_sim_binary") = false,
-        nb::rv_policy::take_ownership,
-        "Creates a simulation TTDevice from a simulator path. "
-        "If the path ends with '.so', creates a TTSimTTDevice (functional simulator). "
-        "Otherwise, creates an RtlSimulationTTDevice (RTL simulator).");
 
-    nb::class_<TTSimTTDevice, TTDevice>(m, "TTSimTTDevice")
-        .def_static(
-            "create",
-            &TTSimTTDevice::create,
-            nb::arg("simulator_directory"),
-            nb::arg("num_host_mem_channels") = 0,
-            nb::arg("copy_sim_binary") = false,
-            "Creates a TTSimTTDevice for functional simulation communication.")
-        .def(
-            "send_tensix_risc_reset",
-            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
-                &TTSimTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("soft_resets"),
-            "Send a Tensix RISC reset with specific soft reset options for a single core.")
-        .def(
-            "send_tensix_risc_reset_all",
-            static_cast<void (TTSimTTDevice::*)(const TensixSoftResetOptions &)>(
-                &TTSimTTDevice::send_tensix_risc_reset),
-            nb::arg("soft_resets"),
-            "Send a Tensix RISC reset with specific soft reset options for all cores.")
-        .def(
-            "assert_risc_reset",
-            &TTSimTTDevice::assert_risc_reset,
-            nb::arg("core"),
-            nb::arg("selected_riscs"),
-            "Assert RISC reset for selected RISC cores on a given core.")
-        .def(
-            "deassert_risc_reset",
-            &TTSimTTDevice::deassert_risc_reset,
-            nb::arg("core"),
-            nb::arg("selected_riscs"),
-            nb::arg("staggered_start") = false,
-            "Deassert RISC reset for selected RISC cores on a given core.")
-        .def(
-            "get_soc_descriptor",
-            &TTSimTTDevice::get_soc_descriptor,
-            nb::rv_policy::reference_internal,
-            "Get the SocDescriptor associated with this simulation device.")
-
-        .def("get_clock", &TTSimTTDevice::get_clock, "Get the clock frequency.")
-        .def("get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, "Get the minimum clock frequency.")
-        .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");
-
-    nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
-        .def_static(
-            "create",
-            &RtlSimulationTTDevice::create,
-            nb::arg("simulator_directory"),
-            nb::arg("num_host_mem_channels") = 0,
-            "Creates an RtlSimulationTTDevice for RTL simulation communication.")
-        .def(
-            "send_tensix_risc_reset",
-            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
-                &RtlSimulationTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("soft_resets"),
-            "Send a Tensix RISC reset with specific soft reset options for a single core. "
-            "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
-        .def(
-            "assert_risc_reset",
-            &RtlSimulationTTDevice::assert_risc_reset,
-            nb::arg("core"),
-            nb::arg("selected_riscs"),
-            "Assert RISC reset for selected RISC cores on a given core.")
-        .def(
-            "deassert_risc_reset",
-            &RtlSimulationTTDevice::deassert_risc_reset,
-            nb::arg("core"),
-            nb::arg("selected_riscs"),
-            nb::arg("staggered_start") = false,
-            "Deassert RISC reset for selected RISC cores on a given core.")
-        .def(
-            "get_soc_descriptor",
-            &RtlSimulationTTDevice::get_soc_descriptor,
-            nb::rv_policy::reference_internal,
-            "Get the SocDescriptor associated with this RTL simulation device.");
 #endif
 
     m.def(

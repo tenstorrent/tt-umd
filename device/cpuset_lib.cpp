@@ -4,7 +4,6 @@
 
 #include "cpuset_lib.hpp"
 
-#include <fmt/base.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <fmt/std.h>

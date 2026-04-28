@@ -202,7 +202,6 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         arch_desc_->get_dispatch_cores(),
         arch_desc_->get_noc0_x_to_noc1_x(),
         arch_desc_->get_noc0_y_to_noc1_y());
-    get_cores_and_grid_size_from_coordinate_manager();
 }
 
 SocDescriptor::SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) {
@@ -451,44 +450,6 @@ std::filesystem::path SocDescriptor::get_default_soc_descriptor_file_path() {
     return soc_path;
 }
 
-void SocDescriptor::get_cores_and_grid_size_from_coordinate_manager() {
-    const tt_xy_pair empty = {0, 0};
-    for (const auto &core_type :
-         {CoreType::TENSIX,
-          CoreType::DRAM,
-          CoreType::ETH,
-          CoreType::ARC,
-          CoreType::PCIE,
-          CoreType::ROUTER_ONLY,
-          CoreType::SECURITY,
-          CoreType::L2CPU,
-          CoreType::DISPATCH}) {
-        cores_map.insert({core_type, coordinate_manager->get_cores(core_type)});
-        harvested_cores_map.insert({core_type, coordinate_manager->get_harvested_cores(core_type)});
-        if (core_type == CoreType::ETH || core_type == CoreType::ROUTER_ONLY || core_type == CoreType::SECURITY ||
-            core_type == CoreType::L2CPU || core_type == CoreType::DISPATCH) {
-            // Ethernet, Router, Security, L2CPU, and Dispatch cores aren't arranged in a grid, initializing as empty.
-            grid_size_map.insert({core_type, empty});
-            harvested_grid_size_map.insert({core_type, empty});
-            continue;
-        }
-        grid_size_map.insert({core_type, coordinate_manager->get_grid_size(core_type)});
-        harvested_grid_size_map.insert({core_type, coordinate_manager->get_harvested_grid_size(core_type)});
-    }
-
-    const std::vector<CoreCoord> dram_cores = cores_map.at(CoreType::DRAM);
-    const tt_xy_pair dram_grid_size = grid_size_map.at(CoreType::DRAM);
-
-    dram_cores_core_coord.resize(dram_grid_size.x);
-    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
-        for (size_t noc_port = 0; noc_port < dram_grid_size.y; noc_port++) {
-            dram_cores_core_coord[bank].push_back(dram_cores[bank * dram_grid_size.y + noc_port]);
-        }
-    }
-
-    const std::vector<CoreCoord> harvested_dram_cores = harvested_cores_map.at(CoreType::DRAM);
-}
-
 std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     const std::vector<CoreCoord> &noc0_cores, const CoordSystem coord_system) const {
     std::vector<CoreCoord> translated_cores;
@@ -501,11 +462,7 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
 
 std::vector<CoreCoord> SocDescriptor::get_cores(
     const CoreType core_type, const CoordSystem coord_system, std::optional<uint32_t> channel) const {
-    auto cores_map_it = cores_map.find(core_type);
-    if (cores_map_it == cores_map.end()) {
-        UMD_THROW(error::RuntimeError, fmt::format("Invalid core type {} for get_cores().", to_str(core_type)));
-    }
-    std::vector<CoreCoord> cores = cores_map_it->second;
+    std::vector<CoreCoord> cores = coordinate_manager->get_cores(core_type);
 
     // Filter cores by channel if specified.
     // At this time, only applicable for DRAM cores.
@@ -533,15 +490,11 @@ std::vector<CoreCoord> SocDescriptor::get_harvested_cores(
     if (coord_system == CoordSystem::LOGICAL) {
         UMD_THROW(error::RuntimeError, "Harvested cores are not supported for logical coordinates.");
     }
-    auto harvested_cores_map_it = harvested_cores_map.find(core_type);
-    if (harvested_cores_map_it == harvested_cores_map.end()) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Invalid core type {} for get_harvested_cores().", to_str(core_type)));
-    }
+    std::vector<CoreCoord> harvested_cores = coordinate_manager->get_harvested_cores(core_type);
     if (coord_system != CoordSystem::NOC0) {
-        return translate_coordinates(harvested_cores_map_it->second, coord_system);
+        return translate_coordinates(harvested_cores, coord_system);
     }
-    return harvested_cores_map_it->second;
+    return harvested_cores;
 }
 
 std::vector<CoreCoord> SocDescriptor::get_all_cores(const CoordSystem coord_system) const {
@@ -581,21 +534,25 @@ std::vector<CoreCoord> SocDescriptor::get_all_harvested_cores(const CoordSystem 
 }
 
 tt_xy_pair SocDescriptor::get_grid_size(const CoreType core_type) const {
-    if (grid_size_map.find(core_type) == grid_size_map.end()) {
-        UMD_THROW(error::RuntimeError, fmt::format("Cannot get grid size for core type {}.", to_str(core_type)));
-    }
-    return grid_size_map.at(core_type);
+    return coordinate_manager->get_grid_size(core_type);
 }
 
 tt_xy_pair SocDescriptor::get_harvested_grid_size(const CoreType core_type) const {
-    if (harvested_grid_size_map.find(core_type) == harvested_grid_size_map.end()) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Cannot get harvested grid size for core type {}.", to_str(core_type)));
-    }
-    return harvested_grid_size_map.at(core_type);
+    return coordinate_manager->get_harvested_grid_size(core_type);
 }
 
-std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const { return dram_cores_core_coord; }
+std::vector<std::vector<CoreCoord>> SocDescriptor::get_dram_cores() const {
+    const std::vector<CoreCoord> dram_cores = coordinate_manager->get_cores(CoreType::DRAM);
+    const tt_xy_pair dram_grid_size = coordinate_manager->get_grid_size(CoreType::DRAM);
+
+    std::vector<std::vector<CoreCoord>> dram_cores_per_bank(dram_grid_size.x);
+    for (size_t bank = 0; bank < dram_grid_size.x; bank++) {
+        for (size_t noc_port = 0; noc_port < dram_grid_size.y; noc_port++) {
+            dram_cores_per_bank[bank].push_back(dram_cores[bank * dram_grid_size.y + noc_port]);
+        }
+    }
+    return dram_cores_per_bank;
+}
 
 uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager->get_num_eth_channels(); }
 

@@ -581,6 +581,13 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
             return arc_grid_size;
         case CoreType::PCIE:
             return pcie_grid_size;
+        case CoreType::ETH:
+        case CoreType::ROUTER_ONLY:
+        case CoreType::SECURITY:
+        case CoreType::L2CPU:
+        case CoreType::DISPATCH:
+            // These cores are not arranged in a regular grid.
+            return {0, 0};
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_grid_size().");
     }
@@ -621,6 +628,12 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
             return get_harvested_dram_grid_size();
         case CoreType::ARC:
         case CoreType::PCIE:
+        case CoreType::ETH:
+        case CoreType::ROUTER_ONLY:
+        case CoreType::SECURITY:
+        case CoreType::L2CPU:
+        case CoreType::DISPATCH:
+            // These cores are not arranged in a regular grid.
             return {0, 0};
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_harvested_grid_size().");

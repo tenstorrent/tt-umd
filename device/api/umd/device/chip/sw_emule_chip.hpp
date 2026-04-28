@@ -93,6 +93,27 @@ public:
     // Lazy-creates with appropriate role (WORKER or DRAM) and size.
     tt_emule::Core* get_core(tt_xy_pair core_xy);
 
+    // Resolve a (channel-or-virtual) coord + DRAM-vs-L1 to the emulated Core
+    // that backs it.
+    //   - is_dram == true:  coord.x is the DRAM channel id; we look up the
+    //                       registered DRAM core for that channel.
+    //   - is_dram == false: caller has already translated logical -> virtual
+    //                       worker NOC coord via IDevice::virtual_core_from_logical_core
+    //                       (kept out of the UMD layer to avoid a tt-metalium
+    //                       include dependency); we look it up in cores_.
+    // Returns nullptr if no emulated core exists for the resolved (x,y).
+    tt_emule::Core* core_for_logical(CoreCoord coord, bool is_dram);
+
+    // Initial-poison every existing core's allocator-managed L1 / DRAM region.
+    // Called once after the AllocatorConfig is known so that the firmware-
+    // reserved region [0, *_unreserved_base) stays valid for tt-metal's direct
+    // write_to_device, while [*_unreserved_base, *_size) is poisoned until the
+    // allocator hands a buffer out (Task 9 in PLAN_asan_allocator_integration.md).
+    //
+    // Also stores the unreserved bases so cores lazy-created later via
+    // get_core() inherit the same poisoning.
+    void initialize_asan_poison(uint32_t l1_unreserved, uint32_t dram_unreserved);
+
 private:
     // Is this core coordinate a DRAM core?
     bool is_dram_core(tt_xy_pair core_xy) const;
@@ -115,6 +136,13 @@ private:
 
     uint32_t l1_size_;
     uint64_t dram_bank_size_;
+
+    // ASan: bases of the allocator-managed regions, supplied via
+    // initialize_asan_poison(). Stored so lazy-created cores inherit the same
+    // poisoning. Sentinel UINT32_MAX = "not initialized; do nothing" — keeps
+    // get_core() a no-op for poison purposes when ASan isn't in use.
+    uint32_t l1_unreserved_base_ = UINT32_MAX;
+    uint32_t dram_unreserved_base_ = UINT32_MAX;
 };
 
 }  // namespace tt::umd

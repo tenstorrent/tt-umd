@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "assert.hpp"
+#include "tt_emule/asan_bridge.h"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 
@@ -101,7 +102,65 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 
     tt_emule::Core* raw_ptr = core.get();
     cores_[core_xy] = std::move(core);
+
+    // ASan: if initialize_asan_poison() was already called, poison this newly-
+    // created core's allocator-managed region too. Sentinel UINT32_MAX means
+    // "ASan poisoning not active" — keep get_core() side-effect-free.
+    if (raw_ptr->role() == tt_emule::CoreRole::WORKER) {
+        if (l1_unreserved_base_ != UINT32_MAX && l1_unreserved_base_ < l1_size_) {
+            __emule_buffer_free(raw_ptr->l1_data() + l1_unreserved_base_, l1_size_ - l1_unreserved_base_);
+        }
+    } else {
+        if (dram_unreserved_base_ != UINT32_MAX && dram_unreserved_base_ < dram_bank_size_) {
+            __emule_buffer_free(
+                raw_ptr->l1_data() + dram_unreserved_base_,
+                static_cast<std::size_t>(dram_bank_size_ - dram_unreserved_base_));
+        }
+    }
+
     return raw_ptr;
+}
+
+tt_emule::Core* SWEmuleChip::core_for_logical(CoreCoord coord, bool is_dram) {
+    if (is_dram) {
+        // coord.x is the DRAM channel id — look up the registered DRAM core.
+        for (const auto& [xy, channel] : dram_core_to_channel_) {
+            if (channel == coord.x) {
+                std::lock_guard<std::mutex> lock(core_mutex_);
+                auto it = cores_.find(xy);
+                return it == cores_.end() ? nullptr : it->second.get();
+            }
+        }
+        return nullptr;
+    }
+    // Worker: coord is already the virtual NOC coord (caller did the
+    // logical->virtual translation via IDevice).
+    std::lock_guard<std::mutex> lock(core_mutex_);
+    auto it = cores_.find(tt_xy_pair(coord.x, coord.y));
+    return it == cores_.end() ? nullptr : it->second.get();
+}
+
+void SWEmuleChip::initialize_asan_poison(uint32_t l1_unreserved, uint32_t dram_unreserved) {
+    std::lock_guard<std::mutex> lock(core_mutex_);
+    // Store the bases so cores lazy-created later via get_core() inherit
+    // the same poisoning.
+    l1_unreserved_base_ = l1_unreserved;
+    dram_unreserved_base_ = dram_unreserved;
+
+    for (auto& [xy, core_uptr] : cores_) {
+        tt_emule::Core* core = core_uptr.get();
+        uint8_t* base = core->l1_data();
+        if (core->role() == tt_emule::CoreRole::WORKER) {
+            if (l1_unreserved < l1_size_) {
+                __emule_buffer_free(base + l1_unreserved, l1_size_ - l1_unreserved);
+            }
+        } else {
+            if (dram_unreserved < dram_bank_size_) {
+                __emule_buffer_free(
+                    base + dram_unreserved, static_cast<std::size_t>(dram_bank_size_ - dram_unreserved));
+            }
+        }
+    }
 }
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {

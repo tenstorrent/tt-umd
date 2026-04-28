@@ -4,8 +4,7 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
-#include <stddef.h>
-
+#include <cstddef>
 #include <iterator>
 #include <memory>
 #include <optional>

@@ -10,27 +10,7 @@
 #include <unistd.h>
 
 #include <algorithm>
-#include <asio/associated_cancellation_slot.hpp>
-#include <asio/async_result.hpp>
-#include <asio/basic_stream_socket.hpp>
-#include <asio/basic_waitable_timer.hpp>
-#include <asio/buffer.hpp>
-#include <asio/detail/handler_cont_helpers.hpp>
-#include <asio/detail/impl/epoll_reactor.hpp>
-#include <asio/detail/impl/reactive_socket_service_base.ipp>
-#include <asio/detail/impl/scheduler.ipp>
-#include <asio/detail/impl/service_registry.hpp>
-#include <asio/execution/context_as.hpp>
-#include <asio/execution/prefer_only.hpp>
-#include <asio/impl/any_io_executor.ipp>
-#include <asio/impl/io_context.hpp>
-#include <asio/impl/io_context.ipp>
-#include <asio/impl/write.hpp>
-#include <asio/io_context.hpp>
-#include <asio/local/detail/impl/endpoint.ipp>
-#include <asio/local/stream_protocol.hpp>
-#include <asio/socket_base.hpp>
-#include <asio/steady_timer.hpp>
+#include <asio.hpp>
 #include <atomic>
 #include <cerrno>
 #include <charconv>  // for std::from_chars

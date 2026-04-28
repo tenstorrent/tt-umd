@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <stddef.h>
 
 #include <cassert>

@@ -4,7 +4,6 @@
 
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 
-#include <stdio.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -13,6 +12,7 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <memory>

@@ -5,8 +5,7 @@
 #include "umd/device/soc_descriptor.hpp"
 
 #include <fmt/format.h>
-#include <yaml-cpp/emitter.h>
-#include <yaml-cpp/emittermanip.h>
+#include <yaml-cpp/yaml.h>
 
 #include <cstddef>
 #include <cstdint>

@@ -5,11 +5,11 @@
 #include "umd/device/jtag/jtag_device.hpp"
 
 #include <fmt/format.h>
-#include <limits.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>

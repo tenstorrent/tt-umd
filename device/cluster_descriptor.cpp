@@ -5,15 +5,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 
 #include <fmt/format.h>
-#include <yaml-cpp/emitter.h>
-#include <yaml-cpp/emittermanip.h>
-#include <yaml-cpp/node/detail/impl.h>
-#include <yaml-cpp/node/detail/iterator.h>
-#include <yaml-cpp/node/detail/iterator_fwd.h>
-#include <yaml-cpp/node/impl.h>
-#include <yaml-cpp/node/iterator.h>
-#include <yaml-cpp/node/node.h>
-#include <yaml-cpp/node/parse.h>
+#include <yaml-cpp/yaml.h>
 
 #include <algorithm>
 #include <cstddef>

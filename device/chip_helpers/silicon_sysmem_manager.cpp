@@ -6,7 +6,6 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
-#include <bits/mman-map-flags-generic.h>
 #include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap

@@ -128,7 +128,7 @@ uint32_t WormholeArcMessenger::send_message(
             fmt::format(
                 "Timed out after waiting {} ms for ARC to respond. Message code 0x{:x} with arguments 0x{:x} and "
                 "0x{:x}",
-                timeout_ms,
+                timeout_ms.count(),
                 msg_code,
                 arg0,
                 arg1));

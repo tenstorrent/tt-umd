@@ -5,12 +5,7 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 
 #include <fmt/format.h>
-#include <yaml-cpp/node/detail/impl.h>
-#include <yaml-cpp/node/detail/iterator.h>
-#include <yaml-cpp/node/impl.h>
-#include <yaml-cpp/node/iterator.h>
-#include <yaml-cpp/node/node.h>
-#include <yaml-cpp/node/parse.h>
+#include <yaml-cpp/yaml.h>
 
 #include <fstream>
 #include <set>

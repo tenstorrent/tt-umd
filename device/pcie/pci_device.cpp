@@ -403,7 +403,8 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
 }
 
 static int open_pci_device(const std::string &device_path) {
-    // Force legacy mode (no O_APPEND) to test if O_APPEND causes NOC1 issues.
+    // O_APPEND is temporarily disabled to investigate NOC1 issues. See
+    // https://github.com/tenstorrent/tt-umd/issues/2531.
     int flags = O_RDWR | O_CLOEXEC;
     log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
     return open(device_path.c_str(), flags);

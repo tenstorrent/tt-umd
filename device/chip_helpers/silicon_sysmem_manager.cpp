@@ -6,27 +6,38 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
+#include <bits/mman-map-flags-generic.h>
+#include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap
 #include <sys/stat.h>    // for fstat
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <ostream>
+#include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <vector>
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
 #include "tracy.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <stddef.h>
+
+#include <cstdint>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 

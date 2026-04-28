@@ -5,9 +5,15 @@
  */
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
+#include <string>
+
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 namespace tt::umd {
+class TLBManager;
 
 // Don't use the top 256MB of the 4th hugepage region on WH.  Two reasons:
 // 1. There are PCIE PHY registers at the top

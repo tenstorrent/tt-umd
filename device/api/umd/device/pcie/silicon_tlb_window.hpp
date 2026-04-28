@@ -4,12 +4,18 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include <cstddef>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class TlbHandle;
 
 /**
  * Silicon TlbWindow implementation that performs direct memory access

@@ -5,10 +5,15 @@
  */
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

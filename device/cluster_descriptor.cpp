@@ -5,7 +5,15 @@
 #include "umd/device/cluster_descriptor.hpp"
 
 #include <fmt/format.h>
-#include <yaml-cpp/yaml.h>
+#include <yaml-cpp/emitter.h>
+#include <yaml-cpp/emittermanip.h>
+#include <yaml-cpp/node/detail/impl.h>
+#include <yaml-cpp/node/detail/iterator.h>
+#include <yaml-cpp/node/detail/iterator_fwd.h>
+#include <yaml-cpp/node/impl.h>
+#include <yaml-cpp/node/iterator.h>
+#include <yaml-cpp/node/node.h>
+#include <yaml-cpp/node/parse.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -13,12 +21,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
@@ -27,14 +33,14 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/arch/blackhole_implementation.hpp"
-#include "api/umd/device/arch/grendel_implementation.hpp"
-#include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <nng/nng.h>
+#include <stddef.h>
+
 #include <cstdint>
 #include <memory>
 #include <vector>

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #include <chrono>
 #include <cstdint>
 #include <memory>
@@ -12,8 +14,14 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class JtagDevice;
+class PCIDevice;
+class RemoteCommunication;
+enum class IODeviceType;
+
 class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;

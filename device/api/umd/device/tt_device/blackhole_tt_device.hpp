@@ -4,16 +4,24 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <chrono>
+#include <memory>
 #include <mutex>
 #include <set>
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class JtagDevice;
+class PCIDevice;
+enum class IODeviceType;
 
 class BlackholeTTDevice : public TTDevice {
 public:

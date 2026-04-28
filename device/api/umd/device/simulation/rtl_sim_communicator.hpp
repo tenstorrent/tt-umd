@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>

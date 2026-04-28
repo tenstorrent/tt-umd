@@ -8,26 +8,29 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <stdexcept>
+#include <memory>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
 #include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+enum class TensixSoftResetOptions : std::uint32_t;
 
 Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
     set_default_params(soc_descriptor_.arch);

@@ -4,11 +4,10 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
-#include <cstdint>
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "tt-logger/tt-logger.hpp"
@@ -16,7 +15,10 @@
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

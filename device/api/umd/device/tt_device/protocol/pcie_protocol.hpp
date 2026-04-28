@@ -5,6 +5,9 @@
  */
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -13,6 +16,11 @@
 #include "umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 

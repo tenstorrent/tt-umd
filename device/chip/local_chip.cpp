@@ -4,15 +4,15 @@
 
 #include "umd/device/chip/local_chip.hpp"
 
-#include <cstddef>
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <set>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -20,13 +20,24 @@
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

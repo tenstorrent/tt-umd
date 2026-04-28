@@ -4,19 +4,21 @@
 
 #include "api/umd/device/coordinates/coordinate_manager.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/error_detail.hpp"
 

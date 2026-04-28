@@ -5,6 +5,8 @@
 #pragma once
 
 #include <pthread.h>
+#include <stddef.h>
+#include <sys/types.h>
 
 #include <chrono>
 #include <cstdint>

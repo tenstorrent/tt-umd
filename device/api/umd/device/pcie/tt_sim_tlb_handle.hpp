@@ -15,6 +15,7 @@
 namespace tt::umd {
 
 class SimulationTlbManager;
+enum TlbMapping : uint8_t;
 
 /**
  * Simulation-specific TlbHandle that inherits from TlbHandle but bypasses hardware operations.

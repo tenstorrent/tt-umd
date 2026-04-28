@@ -7,15 +7,14 @@
 #include <fmt/format.h>
 
 #include <cstdint>
-#include <stdexcept>
-#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
 #include "blackhole/eth_interface.h"
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
-#include "umd/device/cluster.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH

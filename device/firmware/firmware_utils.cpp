@@ -5,28 +5,21 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <iterator>
 #include <memory>
-#include <optional>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

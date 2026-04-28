@@ -1,0 +1,6 @@
+[
+  # Map fmt internal headers to the main public header
+  { "include": ["\"base.h\"", "private", "<fmt/format.h>", "public"] },
+  { "include": ["<fmt/base.h>", "private", "<fmt/format.h>", "public"] },
+  { "include": ["\"fmt/base.h\"", "private", "<fmt/format.h>", "public"] },
+]

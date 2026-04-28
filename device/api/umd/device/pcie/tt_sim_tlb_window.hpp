@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <memory>
 
 #include "umd/device/pcie/tlb_window.hpp"
@@ -12,6 +15,8 @@ namespace tt::umd {
 
 // Forward declaration.
 class TTSimCommunicator;
+class TlbHandle;
+struct tlb_data;
 
 /**
  * Simulation TlbWindow implementation that uses TTSimCommunicator

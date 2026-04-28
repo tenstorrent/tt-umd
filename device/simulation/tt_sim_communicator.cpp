@@ -14,10 +14,12 @@
 
 #include <cerrno>
 #include <cstring>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
-#include "assert.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 // NOLINTBEGIN.
 #define DLSYM_FUNCTION(func_name)                                                                           \

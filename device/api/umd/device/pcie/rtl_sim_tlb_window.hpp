@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <memory>
 
 #include "umd/device/pcie/tlb_window.hpp"
@@ -11,6 +14,8 @@
 namespace tt::umd {
 
 class RtlSimCommunicator;
+class TlbHandle;
+struct tlb_data;
 
 /**
  * RTL simulation TlbWindow implementation that translates TLB-based memory access

@@ -4,16 +4,25 @@
 
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 
+#include <flatbuffers/buffer.h>
+#include <flatbuffers/flatbuffer_builder.h>
+#include <flatbuffers/vector.h>
+#include <fmt/format.h>
 #include <nng/nng.h>
 #include <uv.h>
 
 #include <cstring>
+#include <exception>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
 #include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

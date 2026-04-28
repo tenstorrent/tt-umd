@@ -5,9 +5,15 @@
  */
 #pragma once
 
+#include <stdint.h>
+
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class DeviceProtocol;
+class architecture_implementation;
+enum class NocId : uint8_t;
 
 // Wormhole variant: reads BAR and NOC node ID from the ARC tile.
 class WormholeHangDetector : public HangDetector {

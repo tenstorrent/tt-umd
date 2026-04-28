@@ -4,22 +4,22 @@
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <exception>
+#include <fmt/format.h>
+
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 SimulationTlbManager::SimulationTlbManager(
     TTDevice* tt_device, uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :

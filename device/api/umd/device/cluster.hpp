@@ -4,35 +4,54 @@
 
 #pragma once
 #include <fmt/core.h>
+#include <stddef.h>
 
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
 class ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
+class PCIDevice;
+class TLBManager;
+class TlbWindow;
 
 /**
  * Chip type to create under the Cluster class.

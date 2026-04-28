@@ -6,21 +6,20 @@
 
 #include <fmt/format.h>
 
-#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <stdexcept>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -28,22 +27,28 @@
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/robust_mutex.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
+enum class RiscType : std::uint64_t;
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);

@@ -8,6 +8,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 class BlackholeArcTelemetryReader : public ArcTelemetryReader {
 public:

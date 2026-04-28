@@ -4,28 +4,36 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
-#include <cstdint>
+#include <stddef.h>
+
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
-#include "noc_access.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/tt_device/blackhole_tt_device.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
+enum class IODeviceType;
 
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :

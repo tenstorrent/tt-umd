@@ -5,13 +5,10 @@
 #include "cpuset_lib.hpp"
 
 #include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
-#include <fmt/std.h>     // Needed to format thread_id
+#include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
-#include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,8 +20,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
-
-#include "umd/device/cluster.hpp"
 
 namespace tt::cpuset {
 

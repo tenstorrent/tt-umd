@@ -4,10 +4,16 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include <chrono>
+#include <vector>
+
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 class WormholeArcMessenger : public ArcMessenger {
 public:

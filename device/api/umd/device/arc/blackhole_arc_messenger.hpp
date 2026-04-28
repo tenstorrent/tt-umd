@@ -4,11 +4,18 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include <chrono>
+#include <memory>
+#include <vector>
+
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 class BlackholeArcMessenger : public ArcMessenger {
 public:

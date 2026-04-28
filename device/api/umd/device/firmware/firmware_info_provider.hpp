@@ -4,14 +4,21 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 class TTDevice;

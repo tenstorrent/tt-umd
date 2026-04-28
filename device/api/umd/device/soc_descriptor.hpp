@@ -10,10 +10,13 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "umd/device/coordinates/coordinate_manager.hpp"
@@ -21,8 +24,11 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class CoordinateManager;
+class SocArchDescriptor;
 
 tt_xy_pair format_node(const std::string& str);
 

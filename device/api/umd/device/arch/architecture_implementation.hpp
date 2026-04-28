@@ -4,10 +4,14 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "umd/device/types/arch.hpp"
@@ -16,6 +20,10 @@
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+enum class CoreType;
+}  // namespace tt
 
 namespace tt::umd {
 

@@ -4,20 +4,13 @@
 
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 
-#include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
-
-#include <cstddef>
-#include <cstdint>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <tt-logger/tt-logger.hpp>
 
 #include "assert.hpp"
-#include "cpuset_lib.hpp"
-#include "hugepage.hpp"
 #include "tracy.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 

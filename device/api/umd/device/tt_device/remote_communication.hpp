@@ -4,15 +4,27 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include <chrono>
+#include <memory>
 #include <set>
 #include <unordered_set>
+#include <vector>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+struct EthCoord;
+}  // namespace tt
 
 namespace tt::umd {
 
 class SysmemManager;
+class TTDevice;
 
 class RemoteCommunication {
 public:

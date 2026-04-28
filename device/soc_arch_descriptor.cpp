@@ -4,8 +4,13 @@
 
 #include "umd/device/soc_arch_descriptor.hpp"
 
-#include <fmt/core.h>
-#include <yaml-cpp/yaml.h>
+#include <fmt/format.h>
+#include <yaml-cpp/node/detail/impl.h>
+#include <yaml-cpp/node/detail/iterator.h>
+#include <yaml-cpp/node/impl.h>
+#include <yaml-cpp/node/iterator.h>
+#include <yaml-cpp/node/node.h>
+#include <yaml-cpp/node/parse.h>
 
 #include <fstream>
 #include <set>
@@ -18,6 +23,7 @@
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 

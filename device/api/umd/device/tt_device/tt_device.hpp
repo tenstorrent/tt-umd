@@ -4,11 +4,17 @@
 
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 #include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
@@ -25,13 +31,16 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -40,6 +49,16 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class JtagDevice;
+class JtagInterface;
+class PCIDevice;
+class PcieInterface;
+class RemoteInterface;
+class TLBManager;
+enum class NocId : uint8_t;
+enum class RiscType : std::uint64_t;
+enum class TensixSoftResetOptions : std::uint32_t;
+struct CoreCoord;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {

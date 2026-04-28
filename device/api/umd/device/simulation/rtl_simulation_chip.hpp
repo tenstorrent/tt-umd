@@ -4,14 +4,20 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class SocDescriptor;
 
 // RTL simulation implementation using subprocess and flatbuffer communication.
 class RtlSimulationChip : public SimulationChip {

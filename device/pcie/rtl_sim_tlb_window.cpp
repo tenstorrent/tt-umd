@@ -4,13 +4,14 @@
 
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 
-#include <cstddef>
-#include <cstdint>
+#include <utility>
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 

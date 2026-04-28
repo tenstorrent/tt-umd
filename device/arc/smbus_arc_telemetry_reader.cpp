@@ -4,13 +4,19 @@
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 
-#include <cstdint>
-#include <stdexcept>
+#include <fmt/format.h>
+
+#include <string>
 #include <vector>
 
 #include "noc_access.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

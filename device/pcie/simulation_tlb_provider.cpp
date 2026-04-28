@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/pcie/simulation_tlb_provider.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -16,14 +16,14 @@
 
 namespace tt::umd {
 
-SimulationTlbManager::SimulationTlbManager(
+SimulationTlbProvider::SimulationTlbProvider(
     uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
     bar0_base_(bar0_base), arch_impl_(arch_impl), factory_(std::move(factory)) {
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
 }
 
-int SimulationTlbManager::allocate_tlb_index(size_t size) {
+int SimulationTlbProvider::allocate_tlb_index(size_t size) {
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     if (size == 0) {
@@ -100,7 +100,7 @@ int SimulationTlbManager::allocate_tlb_index(size_t size) {
     return -1;  // No available TLB
 }
 
-void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
+void SimulationTlbProvider::deallocate_tlb_index(int tlb_index) {
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -138,7 +138,7 @@ void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
     }
 }
 
-size_t SimulationTlbManager::get_tlb_size_from_index(int tlb_index) {
+size_t SimulationTlbProvider::get_tlb_size_from_index(int tlb_index) {
     // Check 1MB TLBs (Wormhole only).
     if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
         return tlb_1mb_size_;
@@ -163,7 +163,7 @@ size_t SimulationTlbManager::get_tlb_size_from_index(int tlb_index) {
     return 0;
 }
 
-uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
+uint64_t SimulationTlbProvider::get_tlb_address_from_index(int tlb_index) {
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         // Wormhole B0 address calculation.
         if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
@@ -197,7 +197,7 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
     return 0;
 }
 
-std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
+std::unique_ptr<TlbWindow> SimulationTlbProvider::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
@@ -209,17 +209,17 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     return factory_(this, tlb_index, actual_tlb_size, mapping, config);
 }
 
-uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
+uint64_t SimulationTlbProvider::get_tlb_reg_address_from_index(int tlb_index) {
     // TLB configuration registers start at this offset from BAR0 base.
     static constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
     return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;
 }
 
-const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
+const architecture_implementation* SimulationTlbProvider::get_architecture_impl() const { return arch_impl_; }
 
-tt::ARCH SimulationTlbManager::get_arch() const { return architecture_; }
+tt::ARCH SimulationTlbProvider::get_arch() const { return architecture_; }
 
-std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
+std::unique_ptr<TlbWindow> SimulationTlbProvider::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     // Quasar has no real TLBs; the communicator handles all I/O underneath.
@@ -243,7 +243,7 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     }
 }
 
-void SimulationTlbManager::initialize_architecture_config() {
+void SimulationTlbProvider::initialize_architecture_config() {
     architecture_ = get_architecture_impl()->get_architecture();
 
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {

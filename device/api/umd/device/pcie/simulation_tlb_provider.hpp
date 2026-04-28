@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-class SimulationTlbManager;
+class SimulationTlbProvider;
 
 /**
  * Factory function type for creating TlbWindow instances.
@@ -21,11 +21,11 @@ class SimulationTlbManager;
  * that creates the appropriate TlbHandle + TlbWindow combination.
  */
 using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
-    SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
+    SimulationTlbProvider* manager, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
 
-class SimulationTlbManager {
+class SimulationTlbProvider {
 public:
-    SimulationTlbManager(uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory);
+    SimulationTlbProvider(uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);

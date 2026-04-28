@@ -9,11 +9,11 @@
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/pcie/simulation_tlb_provider.hpp"
 
 namespace tt::umd {
 
-RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping) :
+RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbProvider* manager, int tlb_id, size_t size, TlbMapping mapping) :
     manager_(manager) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
@@ -34,7 +34,7 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size
 }
 
 std::unique_ptr<RtlSimTlbHandle> RtlSimTlbHandle::create(
-    SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping) {
+    SimulationTlbProvider* manager, int tlb_id, size_t size, TlbMapping mapping) {
     return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(manager, tlb_id, size, mapping));
 }
 

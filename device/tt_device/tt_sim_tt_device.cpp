@@ -82,11 +82,11 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
+    tlb_manager_ = std::make_unique<SimulationTlbProvider>(
         bar0_base,
         architecture_impl_.get(),
         [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
+            SimulationTlbProvider* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
             auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
             return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
         });

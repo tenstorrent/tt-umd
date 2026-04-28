@@ -9,7 +9,7 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/pcie/simulation_tlb_provider.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -70,7 +70,7 @@ private:
 
     std::filesystem::path simulator_directory_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
-    std::unique_ptr<SimulationTlbManager> tlb_manager_;
+    std::unique_ptr<SimulationTlbProvider> tlb_manager_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

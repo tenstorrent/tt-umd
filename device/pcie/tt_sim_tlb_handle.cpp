@@ -12,16 +12,16 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/pcie/simulation_tlb_provider.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 
 namespace tt::umd {
 
 // Forward declaration to avoid circular dependency.
-class SimulationTlbManager;
+class SimulationTlbProvider;
 
 TTSimTlbHandle::TTSimTlbHandle(
-    SimulationTlbManager* manager,
+    SimulationTlbProvider* manager,
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
@@ -46,7 +46,7 @@ TTSimTlbHandle::TTSimTlbHandle(
 }
 
 std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
-    SimulationTlbManager* manager,
+    SimulationTlbProvider* manager,
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,

@@ -7,8 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
+#include "umd/device/pcie/simulation_tlb_provider.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 

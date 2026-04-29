@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -14,6 +15,8 @@ namespace tt::umd {
 // Hugepages must be 1GB in size
 // It's important that this is 64 bits, so that it doesn't overflow when multiplied to 4.
 const uint64_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
+
+const uint32_t MAX_HOST_MEM_CHANNELS = 4;
 
 // Get number of 1GB host hugepages installed.
 uint32_t get_num_hugepages();

@@ -4,21 +4,19 @@
 
 #include "umd/device/simulation/simulation_host.hpp"
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include <cassert>
 #include <cstdlib>
-#include <filesystem>
-#include <iomanip>
+#include <cstring>
 #include <random>
 #include <sstream>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
-#include <typeinfo>
 
 #include "assert.hpp"
 
@@ -123,15 +121,33 @@ void SimulationHost::send_to_device(uint8_t *buf, size_t buf_size) {
     }
 }
 
-size_t SimulationHost::recv_from_device(void **data_ptr) {
+size_t SimulationHost::recv_from_device(void **data_ptr) { return recv_from_device(data_ptr, NNG_DURATION_INFINITE); }
+
+size_t SimulationHost::recv_from_device(void **data_ptr, int timeout_ms) {
     int rv;
-    size_t data_size;
-    log_debug(tt::LogEmulationDriver, "Receiving messsage from remote..");
-    rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
-    log_debug(tt::LogEmulationDriver, "Message received.");
+    size_t data_size = 0;
+
+    log_debug(tt::LogEmulationDriver, "Receiving message from remote with timeout {}ms..", timeout_ms);
+
+    // Set receive timeout.
+    rv = nng_socket_set_ms(*host_socket, NNG_OPT_RECVTIMEO, timeout_ms);
     if (rv != 0) {
-        log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
+        log_error(tt::LogEmulationDriver, "Failed to set receive timeout: {}", nng_strerror(rv));
+        return 0;
     }
+
+    // Receive with timeout.
+    rv = nng_recv(*host_socket, data_ptr, &data_size, NNG_FLAG_ALLOC);
+
+    if (rv == NNG_ETIMEDOUT) {
+        log_debug(tt::LogEmulationDriver, "Receive timed out after {}ms.", timeout_ms);
+        return 0;
+    } else if (rv != 0) {
+        log_info(tt::LogEmulationDriver, "Failed to receive message from remote: {}", nng_strerror(rv));
+        return 0;
+    }
+
+    log_debug(tt::LogEmulationDriver, "Message received.");
     return data_size;
 }
 

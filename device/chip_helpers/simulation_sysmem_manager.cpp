@@ -4,20 +4,23 @@
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 
+#include <fmt/format.h>
 #include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
 
-#include <cstddef>
-#include <cstdint>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <memory>
-#include <tt-logger/tt-logger.hpp>
+#include <string>
+#include <vector>
 
 #include "assert.hpp"
-#include "cpuset_lib.hpp"
-#include "hugepage.hpp"
+#include "tracy.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
@@ -27,14 +30,17 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
 }
 
 bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+    ZoneScopedC(tracy::Color::Yellow);
     if (num_host_mem_channels == 0) {
         return true;
     }
 
     if (num_host_mem_channels > 4) {
-        TT_THROW(
-            "SimulationSysmemManager::init_hugepages: num_host_mem_channels {} exceeds max supported 4 channels.",
-            num_host_mem_channels);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "SimulationSysmemManager::init_hugepages: num_host_mem_channels {} exceeds max supported 4 channels.",
+                num_host_mem_channels));
     }
 
     uint64_t total_size = num_host_mem_channels * (1ULL << 30);
@@ -46,6 +52,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     system_memory_ =
         static_cast<uint8_t *>(mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
     TT_ASSERT(system_memory_ != MAP_FAILED, "system_memory mmap() failed");
+    madvise(system_memory_, total_size, MADV_HUGEPAGE);
     system_memory_size_ = total_size;
 
     for (int i = 0; i < num_host_mem_channels; i++) {
@@ -62,6 +69,7 @@ bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
 void SimulationSysmemManager::unpin_or_unmap_sysmem() {
+    ZoneScopedC(tracy::Color::Yellow);
     hugepage_mapping_per_channel.clear();
     if (system_memory_ != nullptr) {
         munmap(system_memory_, system_memory_size_);

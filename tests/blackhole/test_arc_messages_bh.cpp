@@ -7,13 +7,14 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <thread>
 #include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
-#include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 
 using namespace tt::umd;
@@ -37,11 +38,35 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     }
 }
 
+TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+
+        // TEST (0x90) increments the argument and returns it in word[1] of the response.
+        unsigned int random_arg = 42;
+        std::vector<uint32_t> return_values;
+        uint32_t exit_code =
+            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST, return_values, {random_arg});
+
+        EXPECT_EQ(exit_code, 0);
+        ASSERT_FALSE(return_values.empty());
+        EXPECT_EQ(return_values[0], random_arg + 1);
+
+        tt_device->set_power_state(false);
+    }
+}
+
 TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
 
         std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
 
@@ -52,6 +77,8 @@ TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
         EXPECT_EQ(exit_code, 0);
         ASSERT_FALSE(return_values.empty());
         EXPECT_GT(return_values[0], 0u);
+
+        tt_device->set_power_state(false);
     }
 }
 

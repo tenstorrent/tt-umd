@@ -24,6 +24,9 @@ functional_workers:
 router_only:
   [0-2]
 
+dispatch:
+  []
+
 worker_l1_size:
   1499136
 

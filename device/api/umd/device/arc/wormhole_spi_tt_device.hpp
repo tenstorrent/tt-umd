@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include "umd/device/arc/spi_tt_device.hpp"
 
 namespace tt::umd {

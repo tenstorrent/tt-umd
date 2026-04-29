@@ -4,16 +4,20 @@
 
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+
 #include <chrono>
-#include <cstdint>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
-#include "noc_access.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -26,31 +30,37 @@ uint32_t WormholeArcMessenger::send_message(
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms) {
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
-        log_error(LogUMD, "Malformed message. msg_code is 0x{:x} but should be 0xaa..", msg_code);
+        log_error(LogUMD, "Malformed message. msg_code is {:#x} but should be 0xaa..", msg_code);
     }
 
     // Validate that only 2 args are passed for Wormhole.
     if (args.size() > 2) {
-        throw std::runtime_error(
-            fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided", args.size()));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Wormhole ARC messenger only supports 2 arguments, but {} were provided.", args.size()));
     }
 
-    // Extract args (default to 0 if not provided).
-    uint16_t arg0 = 0;
-    uint16_t arg1 = 0;
+    // Extract args (default to 0xFFFF if not provided).
+    // The two 16-bit args are packed into a single 32-bit word (arg0 | arg1 << 16) sent to firmware.
+    // The firmware treats the combined value 0xFFFFFFFF as a sentinel meaning "no argument provided",
+    // triggering default behavior for messages that don't require arguments.
+    uint16_t arg0 = 0xFFFF;
+    uint16_t arg1 = 0xFFFF;
 
     if (!args.empty()) {
         if (args[0] > 0xFFFF) {
-            throw std::runtime_error(
-                fmt::format("Argument 0 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[0]));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Argument 0 is {:#x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole.", args[0]));
         }
         arg0 = static_cast<uint16_t>(args[0]);
     }
 
     if (args.size() >= 2) {
         if (args[1] > 0xFFFF) {
-            throw std::runtime_error(
-                fmt::format("Argument 1 is 0x{:x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole", args[1]));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Argument 1 is {:#x}, which exceeds uint16_t maximum (0xFFFF) for Wormhole.", args[1]));
         }
         arg1 = static_cast<uint16_t>(args[1]);
     }
@@ -113,10 +123,27 @@ uint32_t WormholeArcMessenger::send_message(
         }
 
         utils::check_timeout(
-            start, timeout_ms, fmt::format("Timed out after waiting {} ms for ARC to respond", timeout_ms));
+            start,
+            timeout_ms,
+            fmt::format(
+                "Timed out after waiting {} ms for ARC to respond. Message code 0x{:x} with arguments 0x{:x} and "
+                "0x{:x}",
+                timeout_ms.count(),
+                msg_code,
+                arg0,
+                arg1));
     }
 
-    tt_device->detect_hang_read();
+    tt_device->is_pcie_hung();
+
+    log_debug(
+        LogUMD,
+        "ARC message 0x{:x} completed with exit code 0x{:x} and return values {} on device {}",
+        msg_code,
+        exit_code,
+        fmt::join(return_values, ","),
+        tt_device->get_communication_device_id());
+
     return exit_code;
 }
 

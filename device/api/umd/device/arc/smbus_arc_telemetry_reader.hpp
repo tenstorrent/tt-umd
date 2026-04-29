@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <unordered_set>
 
@@ -13,6 +14,7 @@
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:

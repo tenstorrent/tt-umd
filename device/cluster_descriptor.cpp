@@ -13,12 +13,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
@@ -27,13 +25,14 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/arch/blackhole_implementation.hpp"
-#include "api/umd/device/arch/grendel_implementation.hpp"
-#include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
 #include "assert.hpp"
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -113,15 +112,16 @@ ChipId ClusterDescriptor::get_closest_mmio_capable_chip(const ChipId chip) {
         }
     }
 
-    throw std::runtime_error(fmt::format("Closest mmio capable chip not found for chip {}.", chip));
+    UMD_THROW(error::RuntimeError, fmt::format("Closest MMIO capable chip not found for chip {}.", chip));
 }
 
 std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml(
     const std::string &cluster_descriptor_file_path) {
     std::ifstream fdesc(cluster_descriptor_file_path);
     if (fdesc.fail()) {
-        throw std::runtime_error(fmt::format(
-            "Error: cluster connectivity descriptor file {} does not exist!", cluster_descriptor_file_path));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Cluster descriptor file does not exist at path: {}", cluster_descriptor_file_path));
     }
     std::stringstream buffer;
     buffer << fdesc.rdbuf();
@@ -308,9 +308,11 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
                 }
             }
             if (!matched_bdf_pattern) {
-                TT_THROW(
-                    "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
-                    device_token);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
+                        device_token));
             }
             continue;
         }
@@ -326,16 +328,22 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
                 log_debug(
                     LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
             } else {
-                TT_THROW(
-                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
-                    "the cluster.",
-                    device_token);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs "
+                        "in "
+                        "the cluster.",
+                        device_token));
             }
         } else {
-            TT_THROW(
-                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
-                "part of the BDF string.",
-                device_token);
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either "
+                    "integers or "
+                    "part of the BDF string.",
+                    device_token));
         }
     }
 
@@ -761,12 +769,12 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     if (yaml["boards"]) {
         YAML::Node boardsNode = yaml["boards"];
         if (!boardsNode || !boardsNode.IsSequence()) {
-            throw std::runtime_error("Invalid or missing 'boards' node.");
+            UMD_THROW(error::RuntimeError, "Invalid or missing 'boards' node.");
         }
 
         for (const auto &boardEntry : boardsNode) {
             if (!boardEntry.IsSequence() || boardEntry.size() != 3) {
-                throw std::runtime_error("Each board entry should be a sequence of 3 maps.");
+                UMD_THROW(error::RuntimeError, "Each board entry should be a sequence of 3 maps.");
             }
 
             uint64_t board_id = boardEntry[0]["board_id"].as<std::uint64_t>();
@@ -811,9 +819,9 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
 
             // Enforce '0x' prefix.
             if (bus_str.substr(0, 2) != "0x") {
-                std::string msg =
-                    "Bus string without 0x prefix for chip " + std::to_string(chip) + ": \"" + bus_str + "\"";
-                throw std::runtime_error(msg);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Bus string without 0x prefix for chip {}: \"{}\"", chip, bus_str));
             }
             bus_str = bus_str.substr(2);
 
@@ -837,7 +845,8 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
 
             // make sure chip is mmio mapped
             if (chips_with_mmio.find(chip) == chips_with_mmio.end()) {
-                throw std::runtime_error(fmt::format("Chip {} has PCI BDF specified but is not mmio mapped.", chip));
+                UMD_THROW(
+                    error::RuntimeError, fmt::format("Chip {} has PCI BDF specified but is not MMIO mapped.", chip));
             }
 
             chip_pci_bdfs.insert({chip, bdf_str});
@@ -969,13 +978,13 @@ BoardType ClusterDescriptor::get_board_type(ChipId chip_id) const {
 tt::ARCH ClusterDescriptor::get_arch() const {
     const std::unordered_set<ChipId> &chips = get_all_chips();
     if (chips.empty()) {
-        TT_THROW("Unable to determine architecture because no chips were detected.");
+        UMD_THROW(error::RuntimeError, "Unable to determine architecture because no chips were detected.");
     }
 
     // We already validated that all chips have the same arch.
     tt::ARCH arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
-        TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+        UMD_THROW(error::RuntimeError, fmt::format("Chip {} has invalid architecture.", *chips.begin()));
     }
     return arch;
 }
@@ -1184,7 +1193,8 @@ HarvestingMasks ClusterDescriptor::get_harvesting_masks(ChipId chip_id) const {
 
 void ClusterDescriptor::add_chip_to_board(ChipId chip_id, uint64_t board_id) {
     if (chip_to_board_id.find(chip_id) != chip_to_board_id.end() && chip_to_board_id[chip_id] != board_id) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("Chip {} is already mapped to board {:#x}", chip_id, chip_to_board_id[chip_id]));
     }
     chip_to_board_id[chip_id] = board_id;
@@ -1196,7 +1206,7 @@ uint64_t ClusterDescriptor::get_board_id_for_chip(const ChipId chip) const {
     if (it != chip_to_board_id.end()) {
         return it->second;
     }
-    throw std::runtime_error(fmt::format("Chip to board mapping for chip {} not found.", chip));
+    UMD_THROW(error::RuntimeError, fmt::format("Chip to board mapping for chip {} not found.", chip));
 }
 
 std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t board_id) const {
@@ -1204,7 +1214,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t boa
     if (it != board_to_chips.end()) {
         return it->second;
     }
-    throw std::runtime_error(fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
+    UMD_THROW(error::RuntimeError, fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }
 
 bool ClusterDescriptor::verify_board_info_for_chips() {
@@ -1239,12 +1249,12 @@ bool ClusterDescriptor::verify_same_architecture() {
     if (!chips.empty()) {
         tt::ARCH arch = get_arch(*chips.begin());
         if (arch == tt::ARCH::Invalid) {
-            TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+            UMD_THROW(error::RuntimeError, fmt::format("Chip {} has invalid architecture.", *chips.begin()));
         }
         bool all_same_arch =
             std::all_of(chips.begin(), chips.end(), [&](ChipId chip_id) { return this->get_arch(chip_id) == arch; });
         if (!all_same_arch) {
-            TT_THROW("Chips with differing architectures detected. This is unsupported.");
+            UMD_THROW(error::RuntimeError, "Chips with differing architectures detected. This is unsupported.");
         }
     }
 

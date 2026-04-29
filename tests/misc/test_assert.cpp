@@ -5,7 +5,6 @@
 #include <gtest/gtest.h>
 
 #include <functional>
-#include <ostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -157,14 +156,6 @@ TEST(Assert, MismatchedPlaceholders) {
 }
 
 TEST(Assert, MacroIntegration) {
-    try {
-        TT_THROW("Error with value {}", 42);
-        FAIL() << "Expected exception";
-    } catch (const std::runtime_error& e) {
-        std::string error_msg = e.what();
-        EXPECT_TRUE(error_msg.find("Error with value 42") != std::string::npos);
-    }
-
     try {
         TT_ASSERT(false, "Assertion failed with value {}", 123);
         FAIL() << "Expected exception";

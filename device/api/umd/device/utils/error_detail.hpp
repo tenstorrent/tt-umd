@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <iomanip>
 #include <memory>
 #include <sstream>
@@ -96,10 +97,7 @@ static inline std::vector<std::string> get_stacktrace(uint32_t max_frames = 64, 
 
  * This template class represents an error condition in UMD. The interface
  * contains a human-readable error message and user-defined structured error
- * metadata of type DATA_T. Specialized UmdErrors should be located in
- * /api/umd/device/utils/error.hpp. Constructors of specialized UmdError
- * classes should be implemented in /device/utils/error.cpp to reduce
- * dependencies.
+ * metadata of type DATA_T.
  *
  * @tparam DATA_T Type of the structured error data.
  */
@@ -147,6 +145,20 @@ private:
     DATA_T error_data_;    ///< Structured error data.
 };
 
+class UmdBaseException : public std::runtime_error {
+public:
+    explicit UmdBaseException(const std::string& what) : std::runtime_error(what) {}
+
+    /**
+     * @brief This returns an error message string without the stack trace,
+     * which has to be present in the overriden what() method for the
+     * automatic stack trace.
+     *
+     * @return Simple error message string.
+     */
+    const char* message() const noexcept { return std::runtime_error::what(); }
+};
+
 /**
  * @brief Exception wrapper that adds location and stack trace information to UmdError.
  *
@@ -157,7 +169,7 @@ private:
  * @tparam ERROR_T Type of the UmdError object being wrapped (e.g., UmdError<ETHHeartbeatFailureData>).
  */
 template <typename ERROR_T>
-class UmdException : public std::runtime_error {
+class UmdException : public UmdBaseException {
 public:
     /**
      * @brief Constructs an exception with error details, location, and stack trace.
@@ -172,7 +184,7 @@ public:
      */
     explicit UmdException(
         ERROR_T error, const std::string& file = "", uint32_t line = 0, const std::string& condition = "") :
-        std::runtime_error(error.message()), line_(line), file_(file), condition_(condition), error_(error) {
+        UmdBaseException(error.message()), line_(line), file_(file), condition_(condition), error_(error) {
         // Automatically capture stack trace on construction.
         // Skip first two frames (get_stacktrace() and this constructor.).
         backtrace_ = tt::umd::error::get_stacktrace(/*max_frames=*/64, /*skip=*/2);

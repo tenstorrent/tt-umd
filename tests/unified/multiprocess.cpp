@@ -3,22 +3,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
-#include <iterator>
 #include <memory>
-#include <ostream>
+#include <optional>
+#include <set>
+#include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 
@@ -95,6 +106,8 @@ void test_read_write_all_tensix_cores(Cluster* cluster, int thread_id) {
 
 // Same intention as test_read_write_all_tensix_cores, but without modifying first 128 bytes.
 void test_read_write_all_tensix_cores_with_reserved_bytes_at_start(Cluster* cluster, int thread_id) {
+    // NOTE: On Blackhole CMFW >19.3, TENSIX cores reserve address 0x10 for ARC writing throttle state
+    // that is consumed by kernels. We need to skip ahead of this address to prevent failing these checks.
     test_read_write_all_tensix_cores_impl(cluster, thread_id, NUM_OF_BYTES_RESERVED, true);
 }
 
@@ -107,7 +120,7 @@ TEST(Multiprocess, MultipleClusters) {
     }
     for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Running IO for cluster " << i << std::endl;
-        test_read_write_all_tensix_cores(clusters[i].get(), i);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(clusters[i].get(), i);
         std::cout << "Finished IO for cluster " << i << std::endl;
     }
 }
@@ -120,7 +133,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Running IO for thread " << i << " inside cluster." << std::endl;
-            test_read_write_all_tensix_cores(cluster.get(), i);
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
             std::cout << "Finished read/write test for cluster " << i << std::endl;
         }));
     }
@@ -130,7 +143,7 @@ TEST(Multiprocess, MultipleThreadsSingleCluster) {
 }
 
 // Many threads open and close many clusters.
-TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
+TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -146,7 +159,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersCreation) {
 }
 
 // Many threads start and stop many clusters.
-TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
+TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -154,7 +167,7 @@ TEST(Multiprocess, DISABLED_MultipleThreadsMultipleClustersRunning) {
             std::cout << "Creating cluster " << i << std::endl;
             std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
             std::cout << "Running IO for cluster " << i << std::endl;
-            test_read_write_all_tensix_cores(cluster.get(), i);
+            test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
             std::cout << "Finished IO for cluster " << i << std::endl;
         }));
     }
@@ -185,14 +198,14 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
 }
 
 // Simulation of one device running a full workload, while others use low level TTDevice functionality.
-TEST(Multiprocess, DISABLED_WorkloadVSMonitor) {
+TEST(Multiprocess, WorkloadVSMonitor) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     auto workload_thread = std::thread([&] {
         std::cout << "Creating workload cluster" << std::endl;
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
         std::cout << "Running IO for workload cluster" << std::endl;
-        test_read_write_all_tensix_cores(cluster.get(), 0);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), 0);
         std::cout << "Finished IO for workload cluster" << std::endl;
     });
 
@@ -260,7 +273,7 @@ TEST(Multiprocess, LongLivedMonitor) {
         std::cout << "Creating cluster " << i << std::endl;
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
         std::cout << "Running IO for cluster " << i << std::endl;
-        test_read_write_all_tensix_cores(cluster.get(), i);
+        test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
         std::cout << "Finished IO for cluster " << i << std::endl;
     }
 

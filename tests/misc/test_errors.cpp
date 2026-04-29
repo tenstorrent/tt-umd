@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <fmt/format.h>
-#include <gtest/gtest-spi.h>
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <iostream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "umd/device/utils/error_detail.hpp"
 
@@ -53,17 +56,26 @@ TEST(UmdException, ExceptionData) {
     }
 }
 
-// Tests that UmdException can be caught as both its specific type (UmdException<TestError>) and as its base type
-// (std::runtime_error) in nested try-catch blocks, verifying the exception message remains consistent.
+// Tests that UmdException can be caught as both its specific type (UmdException<TestError>) and as its base types
+// (UmdBaseException, std::runtime_error) in nested try-catch blocks, verifying the exception message remains
+// consistent.
 TEST(UmdException, DeepCatch) {
     bool caught_umd_error = false;
     std::string umd_error_what;
+    std::string umd_error_message;
     try {
         try {
-            UMD_THROW(TestError);
-        } catch (UmdException<TestError> &error) {
-            caught_umd_error = true;
-            umd_error_what = error.what();
+            try {
+                UMD_THROW(TestError);
+            } catch (UmdException<TestError> &error) {
+                caught_umd_error = true;
+                umd_error_what = error.what();
+                umd_error_message = error.error().message();
+                throw;
+            }
+        } catch (UmdBaseException &base_error) {
+            EXPECT_EQ(umd_error_message, base_error.message());
+            EXPECT_EQ(umd_error_what, base_error.what());
             throw;
         }
     } catch (std::runtime_error &runtime_error) {

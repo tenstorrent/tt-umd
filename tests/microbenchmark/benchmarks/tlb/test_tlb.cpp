@@ -2,17 +2,22 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 #include <nanobench.h>
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tlb.hpp"
 
 using namespace tt;
 using namespace tt::umd;

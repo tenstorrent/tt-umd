@@ -4,16 +4,27 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/tlb.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
 class SimulationTlbManager;
+class TTDevice;
+class architecture_implementation;
 
 /**
  * Factory function type for creating TlbWindow instances.
@@ -74,6 +85,8 @@ public:
      * @return Pointer to architecture implementation
      */
     const architecture_implementation* get_architecture_impl() const;
+
+    tt::ARCH get_arch() const;
 
 private:
     /**

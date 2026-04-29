@@ -8,17 +8,22 @@
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
-#include <ostream>
+#include <memory>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/cluster.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/common.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -700,4 +705,87 @@ TEST(SocDescriptor, SerializeSimulatorQuasar) {
         file_path.string(),
         {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
          .harvesting_masks = soc_descriptor.harvesting_masks});
+}
+
+TEST(SocDescriptor, SocDescriptorWormholeNoDispatchCores) {
+    SocDescriptor soc_desc_yaml(
+        test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"), {.noc_translation_enabled = true});
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
+
+    SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+
+    EXPECT_EQ(soc_desc_arch.get_cores(CoreType::DISPATCH).size(), 0);
+}
+
+TEST(SocDescriptor, SocDescriptorBlackholeNoDispatchCores) {
+    SocDescriptor soc_desc_yaml(
+        test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml"),
+        {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
+
+    SocDescriptor soc_desc_arch(
+        tt::ARCH::BLACKHOLE,
+        {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
+
+    EXPECT_EQ(soc_desc_arch.get_cores(CoreType::DISPATCH).size(), 0);
+}
+
+TEST(SocDescriptor, SocDescriptorQuasarNoDispatchCores) {
+    SocDescriptor soc_desc_yaml(
+        test_utils::GetSocDescAbsPath("quasar_32_arch.yaml"), {.noc_translation_enabled = true});
+
+    EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
+}
+
+TEST(CoordinateManager, DispatchCoreCoordinateTranslation) {
+    // Until Quasar dispatch core coordinates are finalized, exercise the DISPATCH translation
+    // plumbing with a synthetic CoordinateManager containing a single dispatch core. This guards
+    // the NOC0 identity mapping and the NOC0 -> NOC1 mapping for DISPATCH against regressions
+    // that would only surface once DISPATCH_CORES_NOC0 becomes non-empty on real hardware.
+    const tt_xy_pair dispatch_noc0 = {5, 5};
+    const std::vector<tt_xy_pair> dispatch_cores = {dispatch_noc0};
+
+    // Identity NOC0 <-> NOC1 mapping (Quasar is assumed to have identical NOC0/NOC1 layouts for now).
+    const std::vector<uint32_t> noc0_to_noc1 = {0, 1, 2, 3, 4, 5, 6};
+
+    std::shared_ptr<CoordinateManager> coordinate_manager = CoordinateManager::create_coordinate_manager(
+        tt::ARCH::BLACKHOLE,
+        /*noc_translation_enabled=*/false,
+        HarvestingMasks{},
+        /*tensix_grid_size=*/{0, 0},
+        /*tensix_cores=*/{},
+        /*dram_grid_size=*/{0, 0},
+        /*dram_cores=*/{},
+        /*eth_cores=*/{},
+        /*arc_grid_size=*/{0, 0},
+        /*arc_cores=*/{},
+        /*pcie_grid_size=*/{0, 0},
+        /*pcie_cores=*/{},
+        /*router_cores=*/{},
+        /*security_cores=*/{},
+        /*l2cpu_cores=*/{},
+        dispatch_cores,
+        noc0_to_noc1,
+        noc0_to_noc1);
+
+    const std::vector<CoreCoord> returned = coordinate_manager->get_cores(CoreType::DISPATCH);
+    ASSERT_EQ(returned.size(), 1);
+    EXPECT_EQ(returned[0], CoreCoord(dispatch_noc0.x, dispatch_noc0.y, CoreType::DISPATCH, CoordSystem::NOC0));
+
+    const CoreCoord dispatch_noc0_coord =
+        CoreCoord(dispatch_noc0.x, dispatch_noc0.y, CoreType::DISPATCH, CoordSystem::NOC0);
+
+    // NOC0 -> TRANSLATED (identity for DISPATCH, since there are no logical coordinates).
+    const CoreCoord translated = coordinate_manager->translate_coord_to(dispatch_noc0_coord, CoordSystem::TRANSLATED);
+    EXPECT_EQ(translated.core_type, CoreType::DISPATCH);
+    EXPECT_EQ(translated.x, dispatch_noc0.x);
+    EXPECT_EQ(translated.y, dispatch_noc0.y);
+
+    // NOC0 -> NOC1 (identity because we supplied an identity NOC0->NOC1 table).
+    const CoreCoord noc1 = coordinate_manager->translate_coord_to(dispatch_noc0_coord, CoordSystem::NOC1);
+    EXPECT_EQ(noc1.core_type, CoreType::DISPATCH);
+    EXPECT_EQ(noc1.x, noc0_to_noc1[dispatch_noc0.x]);
+    EXPECT_EQ(noc1.y, noc0_to_noc1[dispatch_noc0.y]);
 }

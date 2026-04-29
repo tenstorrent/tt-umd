@@ -7,15 +7,17 @@
 #include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 
 #include <chrono>
-#include <stdexcept>
+#include <string>
 
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
 void BlackholeDmaTransfer::d2h_transfer(
     volatile uint8_t* /*bar2*/, DmaBuffer& /*dma_buffer*/, uint64_t /*dst*/, uint32_t /*src*/, size_t /*size*/) {
-    throw std::runtime_error("D2H DMA transfer is not supported on Blackhole.");
+    UMD_THROW(error::RuntimeError, "D2H DMA transfer is not supported on Blackhole.");
 }
 
 void BlackholeDmaTransfer::h2d_transfer(
@@ -74,7 +76,7 @@ void BlackholeDmaTransfer::h2d_transfer(
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout.");
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
 }

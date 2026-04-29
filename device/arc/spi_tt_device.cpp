@@ -6,18 +6,20 @@
 #include <fmt/format.h>
 
 #include <memory>
-#include <stdexcept>
+#include <string>
 
 #include "umd/device/arc/blackhole_spi_tt_device.hpp"
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
 std::unique_ptr<SPITTDevice> SPITTDevice::create(TTDevice *device) {
     if (device == nullptr) {
-        throw std::runtime_error("SPITTDevice: device pointer cannot be null");
+        UMD_THROW(error::RuntimeError, "SPITTDevice: device pointer cannot be null.");
     }
 
     switch (device->get_arch()) {
@@ -26,20 +28,23 @@ std::unique_ptr<SPITTDevice> SPITTDevice::create(TTDevice *device) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<WormholeSPITTDevice>(device);
         default:
-            throw std::runtime_error(
-                fmt::format("SPI operations are not supported for {} architecture.", device->get_arch()));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("SPI operations are not supported for {} architecture.", arch_to_str(device->get_arch())));
     }
 }
 
 SPITTDevice::SPITTDevice(TTDevice *device) : device_(device) {
     if (device_ == nullptr) {
-        throw std::runtime_error("SPITTDevice: device pointer cannot be null");
+        UMD_THROW(error::RuntimeError, "SPITTDevice: device pointer cannot be null.");
     }
 }
 
 uint32_t SPITTDevice::get_spi_fw_bundle_version() {
-    throw std::runtime_error(
-        fmt::format("get_spi_fw_bundle_version is not supported for {} architecture.", device_->get_arch()));
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format(
+            "get_spi_fw_bundle_version is not supported for {} architecture.", arch_to_str(device_->get_arch())));
 }
 
 }  // namespace tt::umd

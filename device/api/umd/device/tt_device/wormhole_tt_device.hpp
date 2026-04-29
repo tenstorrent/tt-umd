@@ -5,6 +5,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -12,14 +13,19 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class JtagDevice;
+class PCIDevice;
+class RemoteCommunication;
+enum class IODeviceType;
+
 class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    bool wait_arc_core_start(
-        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) noexcept override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
 
     uint32_t get_clock() override;
 
@@ -44,9 +50,6 @@ public:
 
     void retrain_eth_core(tt_xy_pair eth_core);
 
-    bool is_hardware_hung() override;
-    uint32_t read_hang_check_reg_via_noc() override;
-
     ~WormholeTTDevice() override = default;
 
 protected:
@@ -58,5 +61,6 @@ protected:
 
 private:
     friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
 };
 }  // namespace tt::umd

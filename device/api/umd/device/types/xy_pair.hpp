@@ -6,18 +6,21 @@
 
 #include <string>
 // TODO: To be removed once this is fixed in tt_metal.
+#include <cstddef>
 #include <deque>
+#include <functional>
+#include <string_view>
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {
 
 struct xy_pair {
-    constexpr xy_pair() : x{}, y{} {}
+    constexpr xy_pair() = default;
 
     constexpr xy_pair(std::size_t x, std::size_t y) : x(x), y(y) {}
 
-    std::size_t x;
-    std::size_t y;
+    std::size_t x = 0;
+    std::size_t y = 0;
 
     std::string str() const;
 };

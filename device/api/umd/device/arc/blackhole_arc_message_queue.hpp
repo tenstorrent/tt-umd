@@ -4,9 +4,22 @@
 
 #pragma once
 
+#include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <tuple>
+#include <vector>
+
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
+
+namespace tt::umd::blackhole {
+enum class ArcMessageType : uint8_t;
+}  // namespace tt::umd::blackhole
 
 using namespace tt::umd::blackhole;
 

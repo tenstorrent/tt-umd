@@ -27,6 +27,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
@@ -38,6 +39,7 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class SimulationSysmemManager;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {
@@ -166,6 +168,8 @@ public:
     // to get the information to form cluster of chips, or just use base TTDevice functions.
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -179,6 +183,7 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -357,6 +362,7 @@ public:
      * @param core Core to get soft reset for, in translated coordinates
      */
     uint32_t get_risc_reset_state(tt_xy_pair core);
+    uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
      * Set the soft reset signal for the given riscs.
@@ -365,6 +371,7 @@ public:
      * @param risc_flags bitmask of riscs to set soft reset for
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+    void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
      * Send tensix risc reset for a specific core.
@@ -400,6 +407,10 @@ public:
      * @param staggered_start Whether to use staggered start
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+
+    virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
+
+    virtual TLBManager *get_tlb_manager() { return nullptr; }
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 

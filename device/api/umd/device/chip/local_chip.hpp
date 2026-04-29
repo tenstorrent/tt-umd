@@ -82,8 +82,7 @@ private:
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+        std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

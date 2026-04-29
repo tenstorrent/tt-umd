@@ -1,0 +1,64 @@
+# Run a Tracy-build smoke test on silicon to catch regressions that only surface
+# in Tracy-enabled builds. Consumes the -tracy artifact produced by build-tests.yml.
+name: Run Tracy Test
+
+on:
+  workflow_call:
+    inputs:
+      ubuntu-docker-version:
+        required: true
+        type: string
+      build-type:
+        required: true
+        type: string
+      timeout:
+        required: true
+        type: number
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
+
+env:
+  BUILD_OUTPUT_DIR: ./build
+  TEST_OUTPUT_DIR: ./build/test
+
+jobs:
+  test:
+    name: Run Tracy smoke test (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - tt-ubuntu-2204-n150-stable
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+    env:
+      LD_LIBRARY_PATH: ./build/lib
+      # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
+      TRACY_NO_INVARIANT_CHECK: 1
+
+    steps:
+      - name: Cleanup workspace directory from previous runs.
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      - name: Use Tracy build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}-tracy
+
+      - name: Untar build artifacts
+        shell: bash
+        run: tar xvf artifact.tar
+
+      - name: Run OpenAllSiliconChips with Tracy build
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests --gtest_filter=ApiClusterTest.OpenAllSiliconChips

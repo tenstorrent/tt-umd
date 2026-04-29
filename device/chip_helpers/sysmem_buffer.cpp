@@ -15,6 +15,7 @@
 #include <tuple>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/error.hpp"
@@ -31,9 +32,11 @@ SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buff
         device_io_addr_ = pci_device->map_for_dma(buffer_va_, mapped_buffer_size_);
         noc_addr_ = std::nullopt;
     }
+    TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Yellow);
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
@@ -91,6 +94,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Yellow);
     TTDevice* tt_device_ = tlb_manager_->get_tt_device();
 
     if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
@@ -147,6 +151,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 }
 
 SysmemBuffer::~SysmemBuffer() {
+    TracyFreeN(buffer_va_, "SysmemBuffer");
     try {
         tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {

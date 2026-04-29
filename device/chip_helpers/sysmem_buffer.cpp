@@ -33,7 +33,6 @@ SysmemBuffer::SysmemBuffer(
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
     on_destroy_(std::move(on_destroy)) {
-    TracyAllocN(buffer_va_, buffer_size_, "SysmemBuffer");
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
@@ -146,7 +145,6 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 }
 
 SysmemBuffer::~SysmemBuffer() {
-    TracyFreeN(buffer_va_, "SysmemBuffer");
     if (on_destroy_) {
         try {
             on_destroy_();

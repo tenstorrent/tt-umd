@@ -23,9 +23,7 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
-#include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -75,7 +73,6 @@ bool SimulationSysmemManager::pin_or_map_sysmem_to_device() { return true; }
 SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::unpin_or_unmap_sysmem(); }
 
 void SimulationSysmemManager::unpin_or_unmap_sysmem() {
-    ZoneScopedC(tracy::Color::Yellow);
     {
         std::lock_guard<std::mutex> lock(regions_mutex_);
         paddr_regions_.clear();
@@ -93,9 +90,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     void *buffer =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
     if (buffer == MAP_FAILED) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Failed to mmap simulation sysmem buffer of size {:#x}.", sysmem_buffer_size));
+        TT_THROW("Failed to mmap simulation sysmem buffer of size {:#x}.", sysmem_buffer_size);
     }
 
     uint64_t paddr_start;

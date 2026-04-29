@@ -229,10 +229,7 @@ void TTSimTTDevice::initialize_sysmem_functions() {
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
     uint8_t* host_va = sysmem_manager_->find_paddr_host_va(paddr, size);
     if (host_va == nullptr) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "TTSim pci_dma_read_bytes: no registered sysmem region covers paddr {:#x} size {}.", paddr, size));
+        TT_THROW("TTSim pci_dma_read_bytes: no registered sysmem region covers paddr {:#x} size {}.", paddr, size);
     }
     std::memcpy(p, host_va, size);
 }
@@ -240,10 +237,7 @@ void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
     uint8_t* host_va = sysmem_manager_->find_paddr_host_va(paddr, size);
     if (host_va == nullptr) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "TTSim pci_dma_write_bytes: no registered sysmem region covers paddr {:#x} size {}.", paddr, size));
+        TT_THROW("TTSim pci_dma_write_bytes: no registered sysmem region covers paddr {:#x} size {}.", paddr, size);
     }
     std::memcpy(host_va, p, size);
 }

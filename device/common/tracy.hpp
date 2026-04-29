@@ -11,8 +11,8 @@
 #else
 #define ZoneScoped
 #define ZoneScopedN(name)
-#define ZoneScopedNC(name, color)
 #define ZoneScopedC(color)
+#define ZoneScopedNC(name, color)
 #define TracyAlloc(ptr, size)
 #define TracyFree(ptr)
 #define TracyAllocN(ptr, size, name)

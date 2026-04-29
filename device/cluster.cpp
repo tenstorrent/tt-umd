@@ -561,6 +561,7 @@ tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord co
 // TODO: These configure_tlb APIs are soon going away.
 void Cluster::configure_tlb(
     ChipId logical_device_id, tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
+    ZoneScopedC(tracy::Color::Cyan);
     configure_tlb(
         logical_device_id,
         get_soc_descriptor(logical_device_id).get_coord_at(core, CoordSystem::TRANSLATED),
@@ -571,6 +572,7 @@ void Cluster::configure_tlb(
 
 void Cluster::configure_tlb(
     ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
+    ZoneScopedC(tracy::Color::Cyan);
     tt_xy_pair translated_core =
         get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);

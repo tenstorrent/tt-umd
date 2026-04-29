@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -29,6 +30,7 @@ SimulationTlbManager::SimulationTlbManager(
 }
 
 int SimulationTlbManager::allocate_tlb_index(size_t size) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     if (size == 0) {
@@ -106,6 +108,7 @@ int SimulationTlbManager::allocate_tlb_index(size_t size) {
 }
 
 void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -204,6 +207,8 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    ZoneScopedC(tracy::Color::Cyan);
+
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");

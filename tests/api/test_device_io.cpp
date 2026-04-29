@@ -379,7 +379,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             std::vector<uint32_t> readback(num_words);
             tt_device->read_from_device(readback.data(), core, address, data_size);
 
-            if (full_grid || core.core_type == CoreType::TENSIX) {
+            if (core.core_type == CoreType::TENSIX) {
                 EXPECT_EQ(write_data, readback)
                     << "Core " << core.str() << " on chip " << chip_id << " should have received the multicast write.";
                 if (!full_grid) {

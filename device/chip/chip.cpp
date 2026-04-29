@@ -299,4 +299,8 @@ void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, Cor
         addr);
 }
 
+void Chip::noc_multicast_write(void* dst, size_t size, uint64_t addr) {
+    get_tt_device()->noc_multicast_write(dst, size, addr);
+}
+
 }  // namespace tt::umd

@@ -11,16 +11,14 @@
 
 namespace tt::umd {
 
-class SimulationTlbManager;
 class architecture_implementation;
 
 /**
- * Factory function type for creating TlbWindow instances.
- * Different simulation backends (TTSim, RTL sim) provide their own factory
- * that creates the appropriate TlbHandle + TlbWindow combination.
+ * Backend-specific builder that wraps a TlbHandle in the appropriate TlbWindow
+ * subclass (e.g. TTSimTlbWindow, RtlSimTlbWindow) and applies the supplied config.
  */
-using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
-    SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
+using TlbWindowBuilder =
+    std::function<std::unique_ptr<TlbWindow>(std::unique_ptr<TlbHandle> handle, const tlb_data& config)>;
 
 class SimulationTlbManager : public TLBManager {
 public:
@@ -28,7 +26,8 @@ public:
         TTDevice* tt_device,
         uint64_t bar0_base,
         const architecture_implementation* arch_impl,
-        TlbWindowFactory factory);
+        TlbHandleFactory handle_factory,
+        TlbWindowBuilder window_builder);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;
@@ -39,20 +38,11 @@ public:
      */
     std::unique_ptr<TlbWindow> allocate_default_tlb_window();
 
-    // The methods below forward to the underlying SimulationTlbAllocator. They are
-    // exposed on SimulationTlbManager for back-compat with simulation TlbHandle
-    // subclasses that hold a SimulationTlbManager* back-pointer.
-
-    int allocate_tlb_index(size_t size);
-    void deallocate_tlb_index(int tlb_index);
-    size_t get_tlb_size_from_index(int tlb_index);
-    uint64_t get_tlb_address_from_index(int tlb_index);
-    uint64_t get_tlb_reg_address_from_index(int tlb_index);
-    const architecture_implementation* get_architecture_impl() const;
+    SimulationTlbAllocator& get_allocator() { return allocator_; }
 
 private:
     SimulationTlbAllocator allocator_;
-    TlbWindowFactory factory_;
+    TlbWindowBuilder window_builder_;
 };
 
 }  // namespace tt::umd

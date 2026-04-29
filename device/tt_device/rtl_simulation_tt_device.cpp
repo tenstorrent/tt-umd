@@ -87,11 +87,11 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         this,
         /*bar0_base=*/0,
         architecture_impl_.get(),
-        [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
-            auto handle = RtlSimTlbHandle::create(mgr, id, sz, map);
-            return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
-        });
+        [](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map) -> std::unique_ptr<TlbHandle> {
+            return RtlSimTlbHandle::create(alloc, id, sz, map);
+        },
+        [comm = communicator_.get()](std::unique_ptr<TlbHandle> handle, const tlb_data& cfg)
+            -> std::unique_ptr<TlbWindow> { return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg); });
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 

@@ -6,25 +6,46 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <vector>
 
+#include "umd/device/chip_helpers/tlb_allocator.hpp"
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 
 class architecture_implementation;
+class SimulationTlbAllocator;
+
+/**
+ * Backend-specific factory: builds a TlbHandle for a given index.
+ * Different sim backends (TTSim, RTL sim) provide their own factory.
+ */
+using TlbHandleFactory = std::function<std::unique_ptr<TlbHandle>(
+    SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping)>;
 
 /**
  * In-process allocator for simulation TLB indices.
  *
  * Tracks which TLB indices are allocated per size class, and computes BAR0-relative
  * addresses for a given index. Counterpart to KMD-managed allocation on silicon —
- * no knowledge of TlbHandle / TlbWindow types.
+ * allocate() returns a fully-built TlbHandle by combining the index allocation with
+ * a backend-supplied TlbHandleFactory.
  */
-class SimulationTlbAllocator {
+class SimulationTlbAllocator : public TlbAllocator {
 public:
-    SimulationTlbAllocator(uint64_t bar0_base, const architecture_implementation* arch_impl);
+    SimulationTlbAllocator(
+        uint64_t bar0_base, const architecture_implementation* arch_impl, TlbHandleFactory handle_factory);
+
+    std::unique_ptr<TlbHandle> allocate(size_t size, TlbMapping mapping) override;
+
+    /**
+     * Build a handle for an explicit (non-allocated) TLB index. Used by simulation
+     * backends like Quasar that do not back windows with real TLBs but still need
+     * a handle. Bypasses bitmap allocation entirely.
+     */
+    std::unique_ptr<TlbHandle> build_handle_for_index(int tlb_index, size_t size, TlbMapping mapping);
 
     /**
      * Allocate a TLB index that fits the requested size. If size is 0, allocate
@@ -62,6 +83,7 @@ private:
 
     uint64_t bar0_base_ = 0;
     const architecture_implementation* arch_impl_ = nullptr;
+    TlbHandleFactory handle_factory_;
 
     // Architecture-specific TLB configuration.
     tt::ARCH architecture_;

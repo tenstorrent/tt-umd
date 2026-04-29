@@ -5,17 +5,35 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
 #include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
-SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, const architecture_implementation* arch_impl) :
-    bar0_base_(bar0_base), arch_impl_(arch_impl) {
+SimulationTlbAllocator::SimulationTlbAllocator(
+    uint64_t bar0_base, const architecture_implementation* arch_impl, TlbHandleFactory handle_factory) :
+    bar0_base_(bar0_base), arch_impl_(arch_impl), handle_factory_(std::move(handle_factory)) {
     initialize_architecture_config();
+}
+
+std::unique_ptr<TlbHandle> SimulationTlbAllocator::allocate(size_t size, TlbMapping mapping) {
+    int tlb_index = allocate_tlb_index(size);
+    if (tlb_index == -1) {
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
+    }
+    size_t actual_size = get_tlb_size_from_index(tlb_index);
+    return handle_factory_(this, tlb_index, actual_size, mapping);
+}
+
+std::unique_ptr<TlbHandle> SimulationTlbAllocator::build_handle_for_index(
+    int tlb_index, size_t size, TlbMapping mapping) {
+    return handle_factory_(this, tlb_index, size, mapping);
 }
 
 int SimulationTlbAllocator::allocate_tlb_index(size_t size) {

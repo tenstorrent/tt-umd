@@ -76,7 +76,7 @@ uint16_t TTSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
 
 tt::ARCH TTSimTlbWindow::get_arch() const {
     auto* sim_handle = dynamic_cast<TTSimTlbHandle*>(tlb_handle.get());
-    return sim_handle->get_tlb_manager()->get_tt_device()->get_arch();
+    return sim_handle->get_tlb_allocator()->get_architecture_impl()->get_architecture();
 }
 
 }  // namespace tt::umd

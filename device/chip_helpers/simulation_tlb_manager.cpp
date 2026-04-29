@@ -15,19 +15,19 @@
 namespace tt::umd {
 
 SimulationTlbManager::SimulationTlbManager(
-    TTDevice* tt_device, uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
-    TLBManager(tt_device), allocator_(bar0_base, arch_impl), factory_(std::move(factory)) {}
+    TTDevice* tt_device,
+    uint64_t bar0_base,
+    const architecture_implementation* arch_impl,
+    TlbHandleFactory handle_factory,
+    TlbWindowBuilder window_builder) :
+    TLBManager(tt_device),
+    allocator_(bar0_base, arch_impl, std::move(handle_factory)),
+    window_builder_(std::move(window_builder)) {}
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
-    int tlb_index = allocator_.allocate_tlb_index(tlb_size);
-    if (tlb_index == -1) {
-        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
-    }
-
-    size_t actual_tlb_size = allocator_.get_tlb_size_from_index(tlb_index);
-
-    return factory_(this, tlb_index, actual_tlb_size, mapping, config);
+    auto handle = allocator_.allocate(tlb_size, mapping);
+    return window_builder_(std::move(handle), config);
 }
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
@@ -44,8 +44,10 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
         case tt::ARCH::WORMHOLE_B0:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
-        case tt::ARCH::QUASAR:
-            return factory_(this, 0, SIZE_4GB, TlbMapping::WC, {});
+        case tt::ARCH::QUASAR: {
+            auto handle = allocator_.build_handle_for_index(0, SIZE_4GB, TlbMapping::WC);
+            return window_builder_(std::move(handle), {});
+        }
         default:
             log_debug(
                 LogUMD,
@@ -53,26 +55,6 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
                 tt::arch_to_str(architecture));
             return nullptr;
     }
-}
-
-int SimulationTlbManager::allocate_tlb_index(size_t size) { return allocator_.allocate_tlb_index(size); }
-
-void SimulationTlbManager::deallocate_tlb_index(int tlb_index) { allocator_.deallocate_tlb_index(tlb_index); }
-
-size_t SimulationTlbManager::get_tlb_size_from_index(int tlb_index) {
-    return allocator_.get_tlb_size_from_index(tlb_index);
-}
-
-uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
-    return allocator_.get_tlb_address_from_index(tlb_index);
-}
-
-uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
-    return allocator_.get_tlb_reg_address_from_index(tlb_index);
-}
-
-const architecture_implementation* SimulationTlbManager::get_architecture_impl() const {
-    return allocator_.get_architecture_impl();
 }
 
 }  // namespace tt::umd

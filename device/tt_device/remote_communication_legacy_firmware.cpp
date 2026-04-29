@@ -173,6 +173,12 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                     eth_interface_params.remote_update_ptr_size_bytes,
                 DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
+
+            // FIX AF (#42429): relay CMD queue may be full due to accumulated unacknowledged writes
+            // from prior close_device() calls with relay_broken_=true. Mirror write_to_non_mmio()
+            // which has always had this check — read_non_mmio() was missing it, causing an indefinite
+            // spin when the relay ERISC is dead and the queue never drains.
+            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         }
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;

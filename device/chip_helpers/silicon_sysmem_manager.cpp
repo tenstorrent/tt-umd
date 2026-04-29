@@ -18,10 +18,12 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <utility>
 
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
@@ -418,7 +420,40 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
+
+    // KMD's pin/map ioctls require page-aligned VAs and sizes. Round buffer down to the page
+    // boundary, round size up, and remember the offset so we can return user-facing addresses
+    // (device_io_addr/noc_addr at user offset 0) to the SysmemBuffer.
+    static const auto page_size = sysconf(_SC_PAGESIZE);
+    const uint64_t user_va = reinterpret_cast<uint64_t>(buffer);
+    const uint64_t aligned_va_int = user_va & ~(page_size - 1);
+    const uint64_t offset_from_aligned = user_va - aligned_va_int;
+    const size_t mapped_size = (sysmem_buffer_size + offset_from_aligned + page_size - 1) & ~(page_size - 1);
+    void *aligned_va = reinterpret_cast<void *>(aligned_va_int);
+
+    PCIDevice *pci_device = tt_device_->get_pci_device();
+    uint64_t device_io_addr;
+    std::optional<uint64_t> noc_addr;
+    if (map_to_noc) {
+        auto [noc_aligned, dev_io_aligned] = pci_device->map_buffer_to_noc(aligned_va, mapped_size);
+        device_io_addr = dev_io_aligned + offset_from_aligned;
+        noc_addr = noc_aligned + offset_from_aligned;
+    } else {
+        device_io_addr = pci_device->map_for_dma(aligned_va, mapped_size) + offset_from_aligned;
+        noc_addr = std::nullopt;
+    }
+
+    auto on_destroy = [pci_device, aligned_va, mapped_size, device_io_addr]() {
+        try {
+            pci_device->unmap_for_dma(aligned_va, mapped_size);
+        } catch (...) {
+            log_warning(
+                LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_size, device_io_addr);
+        }
+    };
+
+    return std::make_unique<SysmemBuffer>(
+        tlb_manager_, buffer, sysmem_buffer_size, device_io_addr, noc_addr, std::move(on_destroy));
 }
 
 }  // namespace tt::umd

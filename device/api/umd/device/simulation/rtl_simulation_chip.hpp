@@ -10,6 +10,7 @@
 #include <memory>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -47,6 +48,7 @@ public:
 
 private:
     std::unique_ptr<RtlSimulationTTDevice> tt_device_;
+    std::unique_ptr<TLBManager> tlb_manager_;
 };
 
 }  // namespace tt::umd

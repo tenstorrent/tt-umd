@@ -16,7 +16,7 @@
 #include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
@@ -95,16 +95,46 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
-        this,
-        bar0_base,
-        architecture_impl_.get(),
-        [comm = communicator_.get()](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
-            -> std::unique_ptr<TlbWindow> {
-            auto handle = TTSimTlbHandle::create(alloc, comm, id, sz, map);
-            return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
-        });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    tlb_allocator_ = std::make_unique<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
+
+    // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
+    // all I/O underneath. The 4GB size for Quasar is a dummy value — it just needs to be large
+    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
+    // division by zero in TLB handle configure).
+    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
+    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            break;
+        case tt::ARCH::WORMHOLE_B0:
+            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            break;
+        case tt::ARCH::QUASAR: {
+            // Bypass the bitmap allocator with a fixed index; Quasar has no real TLBs.
+            auto handle =
+                TTSimTlbHandle::create(tlb_allocator_.get(), communicator_.get(), 0, SIZE_4GB, TlbMapping::WC);
+            cached_tlb_window_ = std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), tlb_data{});
+            break;
+        }
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
+                tt::arch_to_str(arch));
+            break;
+    }
+}
+
+std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
+    if (tlb_index == -1) {
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
+    }
+    size_t actual_size = tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    auto handle = TTSimTlbHandle::create(tlb_allocator_.get(), communicator_.get(), tlb_index, actual_size, mapping);
+    return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
 TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
@@ -298,12 +328,6 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
-}
-
-TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
-
-std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    return tlb_manager_->allocate_tlb_window(config, mapping, size);
 }
 
 }  // namespace tt::umd

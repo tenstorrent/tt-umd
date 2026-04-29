@@ -428,14 +428,13 @@ public:
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
-    virtual TLBManager *get_tlb_manager() { return nullptr; }
-
     /**
      * Allocate a TlbWindow for use by callers (typically TLBManager).
      *
      * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
      * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
-     * subclasses override this to allocate from their backend-specific path.
+     * subclasses override this to allocate from their in-process bitmap and
+     * build the appropriate sim-backend TlbWindow.
      *
      * @param config tlb_data configuration applied to the new window.
      * @param mapping UC or WC.

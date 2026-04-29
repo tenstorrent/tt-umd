@@ -80,6 +80,9 @@ public:
 
     TLBManager *get_tlb_manager() override;
 
+    std::unique_ptr<TlbWindow> get_io_window(
+        tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0) override;
+
     uint64_t bar0_base = 0;
 
 protected:

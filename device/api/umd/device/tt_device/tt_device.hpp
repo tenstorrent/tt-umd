@@ -430,6 +430,20 @@ public:
 
     virtual TLBManager *get_tlb_manager() { return nullptr; }
 
+    /**
+     * Allocate a TlbWindow for use by callers (typically TLBManager).
+     *
+     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
+     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
+     * subclasses override this to allocate from their backend-specific path.
+     *
+     * @param config tlb_data configuration applied to the new window.
+     * @param mapping UC or WC.
+     * @param size Requested TLB size in bytes (0 means try arch-supported sizes in order).
+     */
+    virtual std::unique_ptr<TlbWindow> get_io_window(
+        tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
+
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);

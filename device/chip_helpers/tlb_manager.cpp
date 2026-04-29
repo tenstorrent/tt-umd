@@ -49,7 +49,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     log_debug(
         LogUMD,
         "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
-        tt_device_->get_pci_device()->get_device_num(),
+        tt_device_->get_communication_device_id(),
         core.str(),
         tlb_size,
         address,
@@ -92,25 +92,7 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     ZoneScopedC(tracy::Color::Cyan);
-    if (tlb_size != 0) {
-        return std::make_unique<SiliconTlbWindow>(
-            tt_device_->get_pci_device()->allocate_tlb(tlb_size, mapping), config);
-    }
-
-    const std::vector<size_t>& possible_arch_sizes = tt_device_->get_architecture_implementation()->get_tlb_sizes();
-
-    for (const auto& size : possible_arch_sizes) {
-        std::unique_ptr<TlbWindow> tlb_window = nullptr;
-        try {
-            tlb_window =
-                std::make_unique<SiliconTlbWindow>(tt_device_->get_pci_device()->allocate_tlb(size, mapping), config);
-            return tlb_window;
-        } catch (const std::exception& e) {
-            log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", size, e.what());
-        }
-    }
-
-    UMD_THROW(error::RuntimeError, fmt::format("Failed to allocate TLB window."));
+    return tt_device_->get_io_window(config, mapping, tlb_size);
 }
 
 void TLBManager::clear_mapped_tlbs() {

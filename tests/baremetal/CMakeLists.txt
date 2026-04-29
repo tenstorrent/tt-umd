@@ -14,6 +14,9 @@ target_link_libraries(baremetal_tests PRIVATE test_common)
 if(TT_UMD_BUILD_EMULE)
     target_sources(baremetal_tests PRIVATE test_sw_emule_chip.cpp)
 endif()
+if(TT_UMD_BUILD_SIMULATION)
+    target_sources(baremetal_tests PRIVATE test_simulation_tlb_allocator.cpp)
+endif()
 set_target_properties(
     baremetal_tests
     PROPERTIES

@@ -524,8 +524,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    //
-    std::vector<uint32_t> broadcast_sizes = {16384};
+    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
     std::set<uint32_t> rows_to_exclude = {0, 3, 5, 6, 8, 9};
     std::set<uint32_t> cols_to_exclude = {0, 5};

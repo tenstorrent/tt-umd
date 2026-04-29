@@ -12,10 +12,16 @@
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <string>
+#include <utility>
 
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {

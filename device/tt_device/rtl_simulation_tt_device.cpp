@@ -4,17 +4,29 @@
 
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
-#include <fmt/format.h>
-
 #include <array>
 #include <filesystem>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <utility>
 
 #include "assert.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

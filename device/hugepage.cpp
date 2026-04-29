@@ -4,8 +4,10 @@
 
 #include "hugepage.hpp"
 
-#include <fcntl.h>     // for O_RDWR and other constants
+#include <fcntl.h>  // for O_RDWR and other constants
+#include <fmt/format.h>
 #include <sys/stat.h>  // for umask
+#include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -13,6 +15,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <regex>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -21,6 +24,7 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

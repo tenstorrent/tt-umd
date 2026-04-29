@@ -4,12 +4,8 @@
 
 // This file holds Cluster specific API examples.
 
-#include <fmt/format.h>
-#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <cstring>
@@ -18,23 +14,25 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/warm_reset.hpp"
-#include "utils.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
 

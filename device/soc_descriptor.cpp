@@ -4,14 +4,15 @@
 
 #include "umd/device/soc_descriptor.hpp"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <initializer_list>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -23,12 +24,12 @@
 
 #include "assert.hpp"
 #include "noc_access.hpp"
-#include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "utils.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

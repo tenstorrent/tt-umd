@@ -15,6 +15,10 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
+namespace tt {
+enum class CoreType;
+}  // namespace tt
+
 namespace YAML {
 class Node;
 }

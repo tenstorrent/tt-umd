@@ -4,11 +4,12 @@
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 
-#include <cstddef>
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <exception>
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -16,9 +17,14 @@
 #include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

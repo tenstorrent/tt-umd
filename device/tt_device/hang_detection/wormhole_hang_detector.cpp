@@ -6,10 +6,14 @@
 
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 
-#include "noc_access.hpp"
+#include <vector>
+
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 namespace tt::umd {
 

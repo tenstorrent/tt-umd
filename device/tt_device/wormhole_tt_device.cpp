@@ -4,27 +4,34 @@
 
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
-#include <mutex>
-#include <stdexcept>
+#include <optional>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
 #include "noc_access.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/error_detail.hpp"

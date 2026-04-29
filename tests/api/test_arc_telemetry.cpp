@@ -6,13 +6,20 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;

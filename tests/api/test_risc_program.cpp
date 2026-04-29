@@ -4,37 +4,30 @@
 
 // This file holds RISC processor specific API tests for brisc, ncrisc, and other RISC cores.
 
-#include <fmt/format.h>
-#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
-#include <iostream>
 #include <memory>
 #include <optional>
-#include <random>
-#include <sstream>
-#include <stdexcept>
+#include <set>
 #include <string>
-#include <unordered_map>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 
+#include "test_utils/assembly_programs_for_tests.hpp"
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/warm_reset.hpp"
-#include "utils.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 
 using namespace tt::umd;
 

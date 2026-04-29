@@ -5,10 +5,13 @@
  */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

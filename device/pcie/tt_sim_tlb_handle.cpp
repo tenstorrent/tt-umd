@@ -9,16 +9,17 @@
 #include <cstring>
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
-
-// Forward declaration to avoid circular dependency.
-class SimulationTlbManager;
 
 TTSimTlbHandle::TTSimTlbHandle(
     SimulationTlbManager* manager,

@@ -5,10 +5,11 @@
 #include "umd/device/types/tlb.hpp"
 
 #include <cstdint>
-#include <stdexcept>
+#include <string>
 #include <utility>
 
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

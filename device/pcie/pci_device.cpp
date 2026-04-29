@@ -4,28 +4,27 @@
 
 #include "umd/device/pcie/pci_device.hpp"
 
-#include <fcntl.h>      // for ::open
-#include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
+#include <fcntl.h>  // for ::open
+#include <fmt/format.h>
 #include <sys/ioctl.h>  // for ioctl
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
-#include <cctype>
 #include <cerrno>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>  // for memcpy
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <ios>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -34,9 +33,12 @@
 #include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/pci_ids.h"
+#include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 

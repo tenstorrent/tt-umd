@@ -8,15 +8,19 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "assert.hpp"
 #include "noc_access.hpp"
-#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 

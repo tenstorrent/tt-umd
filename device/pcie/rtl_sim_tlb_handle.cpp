@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 

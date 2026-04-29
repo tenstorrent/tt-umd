@@ -14,6 +14,7 @@
 namespace tt::umd {
 
 class SimulationTlbManager;
+enum TlbMapping : uint8_t;
 
 /**
  * RTL simulation TlbHandle that stores TLB configuration in software only.

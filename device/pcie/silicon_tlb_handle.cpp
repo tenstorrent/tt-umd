@@ -4,19 +4,16 @@
 
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 
-#include <sys/ioctl.h>
-#include <sys/mman.h>
+#include <fmt/format.h>
 
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
-#include <tt-logger/tt-logger.hpp>
+#include <string>
 
-#include "assert.hpp"
-#include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

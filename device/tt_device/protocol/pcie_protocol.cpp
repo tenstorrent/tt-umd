@@ -87,18 +87,18 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 template <bool safe>
 void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
+        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
-        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size);
+        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     }
 }
 
 template <bool safe>
 void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
+        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size);
+        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     }
 }
 
@@ -111,10 +111,10 @@ void PcieProtocol::noc_multicast_write(
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, tlb_data::Strict);
+            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Strict);
     } else {
         get_cached_tlb_window()->noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, tlb_data::Strict);
+            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Strict);
     }
 }
 

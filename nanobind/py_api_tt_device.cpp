@@ -108,7 +108,15 @@ void bind_tt_device(nb::module_ &m) {
         .def_static(
             "is_arch_agnostic_reset_supported",
             &PCIDevice::is_arch_agnostic_reset_supported,
-            "Check if KMD supports arch agnostic reset.");
+            "Check if KMD supports arch agnostic reset.")
+        .def_static(
+            "get_device_processes",
+            &PCIDevice::get_device_processes,
+            "Get list of processes with open file descriptors to Tenstorrent devices.");
+
+    nb::class_<DeviceProcess>(m, "DeviceProcess")
+        .def_ro("pid", &DeviceProcess::pid)
+        .def_ro("device", &DeviceProcess::device);
 
     nb::class_<RemoteCommunication>(m, "RemoteCommunication")
         .def(

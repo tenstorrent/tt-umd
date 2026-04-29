@@ -47,6 +47,11 @@ struct PciDeviceInfo {
     // onto this struct as methods?  e.g. current_link_width etc.
 };
 
+struct DeviceProcess {
+    pid_t pid;
+    int device;
+};
+
 struct DmaBuffer {
     uint8_t *buffer = nullptr;
     uint8_t *completion = nullptr;
@@ -137,6 +142,13 @@ public:
      * @return a map of PCI device numbers (/dev/tenstorrent/N) to PciDeviceInfo
      */
     static std::map<int, PciDeviceInfo> enumerate_devices_info();
+
+    /**
+     * @return a list of (pid, device) pairs for all processes with open file descriptors
+     * to Tenstorrent devices, read from /proc/driver/tenstorrent/N/pids.
+     * Deduplicated per (pid, device). Sorted by (device, pid).
+     */
+    static std::vector<DeviceProcess> get_device_processes();
 
     /**
      * Returns the PCI device ID for the given UMD logical ID (index into enumerate_devices()).

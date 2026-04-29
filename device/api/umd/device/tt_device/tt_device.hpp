@@ -36,7 +36,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -405,24 +404,6 @@ public:
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
-
-    /**
-     * Send tensix risc reset for a specific core.
-     *
-     * @param core Core to reset, in translated coordinates
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
-
-    /**
-     * Send tensix risc reset for all tensix cores.
-     *
-     * The base TTDevice implementation does not support this operation and throws.
-     * Subclasses may override to implement all-core reset semantics.
-     *
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
 
     /**
      * Assert risc reset for a specific core.

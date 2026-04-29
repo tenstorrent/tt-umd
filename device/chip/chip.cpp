@@ -114,22 +114,6 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     }
 }
 
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    UMD_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        error::RuntimeError,
-        "Cannot control soft reset on a non-tensix or harvested core");
-    get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
-    }
-}
-
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
     uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core);
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);

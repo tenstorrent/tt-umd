@@ -453,16 +453,6 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     set_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core), risc_flags);
 }
 
-void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = static_cast<uint32_t>(valid);
-    set_risc_reset_state(core, valid_val);
-}
-
-void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
-    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core is not supported at the TTDevice level.");
-}
-
 void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);

@@ -17,7 +17,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -61,8 +60,6 @@ public:
     void dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 

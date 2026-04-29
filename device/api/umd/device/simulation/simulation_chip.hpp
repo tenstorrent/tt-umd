@@ -74,7 +74,6 @@ public:
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
-    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
     void set_power_state(DevicePowerState state) override;
@@ -97,8 +96,6 @@ public:
     void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override = 0;
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override = 0;
 
-    virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override = 0;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
 

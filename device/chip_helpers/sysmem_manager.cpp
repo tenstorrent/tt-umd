@@ -4,6 +4,8 @@
 
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 
+#include <fmt/format.h>
+
 #include <cstring>
 #include <tt-logger/tt-logger.hpp>
 
@@ -11,24 +13,30 @@
 #include "tracy.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
     ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    TT_ASSERT(
+    UMD_ASSERT(
         hugepage_map.mapping,
-        "write_buffer: Hugepages are not allocated ch: {}."
-        " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        channel);
-    TT_ASSERT(hugepage_map.mapping_size != 0, "Hugepage mapping size is 0 for channel {}.", channel);
+        error::RuntimeError,
+        fmt::format(
+            "write_buffer: Hugepages are not allocated ch: {}."
+            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+            channel));
+    UMD_ASSERT(
+        hugepage_map.mapping_size != 0,
+        error::RuntimeError,
+        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
 
-    TT_ASSERT(
+    UMD_ASSERT(
         size <= hugepage_map.mapping_size,
-        "write_buffer data has larger size {} than destination buffer {}",
-        size,
-        hugepage_map.mapping_size);
+        error::RuntimeError,
+        fmt::format(
+            "write_buffer data has larger size {} than destination buffer {}", size, hugepage_map.mapping_size));
     log_debug(
         LogUMD,
         "Using hugepage mapping at address {:p} offset {} chan {} size {}",
@@ -44,12 +52,17 @@ void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t 
 void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysmem_src, uint32_t size) {
     ZoneScopedC(tracy::Color::Yellow);
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);
-    TT_ASSERT(
+    UMD_ASSERT(
         hugepage_map.mapping,
-        "read_buffer: Hugepages are not allocated ch: {}."
-        " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
-        channel);
-    TT_ASSERT(hugepage_map.mapping_size != 0, "Hugepage mapping size is 0 for channel {}.", channel);
+        error::RuntimeError,
+        fmt::format(
+            "read_buffer: Hugepages are not allocated ch: {}."
+            " - Ensure sufficient number of Hugepages installed per device (1 per host mem ch, per device)",
+            channel));
+    UMD_ASSERT(
+        hugepage_map.mapping_size != 0,
+        error::RuntimeError,
+        fmt::format("Hugepage mapping size is 0 for channel {}.", channel));
 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 

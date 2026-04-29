@@ -38,7 +38,6 @@
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 
@@ -465,7 +464,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
         driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
-    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    UMD_ASSERT(
+        arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, error::RuntimeError, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;

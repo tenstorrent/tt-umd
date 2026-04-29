@@ -16,7 +16,6 @@
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt {
 enum class ARCH;
@@ -51,7 +50,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 
     system_memory_ =
         static_cast<uint8_t *>(mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
-    TT_ASSERT(system_memory_ != MAP_FAILED, "system_memory mmap() failed");
+    UMD_ASSERT(system_memory_ != MAP_FAILED, error::RuntimeError, "system_memory mmap() failed");
     madvise(system_memory_, total_size, MADV_HUGEPAGE);
     system_memory_size_ = total_size;
 

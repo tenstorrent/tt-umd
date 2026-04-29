@@ -28,7 +28,6 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -79,7 +78,7 @@ TTSimTTDevice::TTSimTTDevice(
         chip_id_,
         vendor_id,
         libttsim_pci_device_id);
-    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {

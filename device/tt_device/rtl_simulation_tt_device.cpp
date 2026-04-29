@@ -26,7 +26,6 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -74,20 +73,20 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
             // Write callback: simulator writes data into host sysmem.
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
-                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
                 uint64_t offset_in_channel = offset % (1ULL << 30);
                 mgr->write_to_sysmem(channel, data, offset_in_channel, size);
             },
             // Read callback: simulator reads data from host sysmem.
             [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
-                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
                 uint64_t offset_in_channel = offset % (1ULL << 30);
                 mgr->read_from_sysmem(channel, data_out, offset_in_channel, size);
             });

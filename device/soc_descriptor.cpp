@@ -29,7 +29,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -468,8 +467,11 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
     // Filter cores by channel if specified.
     // At this time, only applicable for DRAM cores.
     if (channel.has_value()) {
-        TT_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
-        TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
+        UMD_ASSERT(core_type == CoreType::DRAM, error::RuntimeError, "Core type must be DRAM when setting channel.");
+        UMD_ASSERT(
+            channel.value() < get_num_dram_channels(),
+            error::RuntimeError,
+            "Channel value exceeds number of DRAM channels.");
         std::vector<CoreCoord> filtered_cores;
         for (const auto &core : cores) {
             auto logical_core = translate_coord_to(core, CoordSystem::LOGICAL);

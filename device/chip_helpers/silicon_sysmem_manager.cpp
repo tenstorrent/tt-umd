@@ -36,7 +36,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -90,10 +89,10 @@ SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
     pcie_base_ = get_pcie_base_for_arch(tlb_manager->get_tt_device()->get_arch());
-    TT_ASSERT(
+    UMD_ASSERT(
         num_host_mem_channels <= 4,
-        "Only 4 host memory channels are supported per device, but {} requested.",
-        num_host_mem_channels);
+        error::RuntimeError,
+        fmt::format("Only 4 host memory channels are supported per device, but {} requested.", num_host_mem_channels));
 
     init_sysmem(num_host_mem_channels);
 }

@@ -222,6 +222,8 @@ uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
 
 const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
 
+tt::ARCH SimulationTlbManager::get_arch() const { return architecture_; }
+
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;

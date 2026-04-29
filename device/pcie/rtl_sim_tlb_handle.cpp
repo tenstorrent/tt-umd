@@ -67,4 +67,6 @@ void RtlSimTlbHandle::free_tlb() noexcept {
     }
 }
 
+tt::ARCH RtlSimTlbHandle::get_arch() const { return manager_->get_arch(); }
+
 }  // namespace tt::umd

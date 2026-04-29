@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -50,6 +51,8 @@ public:
      * Returns the TLB ID, representing index of TLB in BAR0.
      */
     int get_tlb_id() const { return tlb_id_; }
+
+    virtual tt::ARCH get_arch() const = 0;
 
 protected:
     /**

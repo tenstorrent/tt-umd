@@ -86,6 +86,8 @@ public:
      */
     const architecture_implementation* get_architecture_impl() const;
 
+    tt::ARCH get_arch() const;
+
 private:
     /**
      * Initialize architecture-specific TLB configuration based on the device architecture.

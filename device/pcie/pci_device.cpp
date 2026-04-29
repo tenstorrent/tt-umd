@@ -997,22 +997,16 @@ void PCIDevice::allocate_pcie_dma_buffer() {
         return;
     }
     // DMA buffer allocation.
-    // Allocation tries to allocate larger DMA buffers first. Starting size depends on whether IOMMU is enabled or not.
-    // If IOMMU is enabled, we will try to allocate 16MB buffer first.
-    // If IOMMU is not enabled, we will try to allocate 2MB buffer first.
+    // 512KB is the empirical sweet spot for per-chunk DMA throughput
+    // Measured different dma buffer sizes scaling, observations on https://github.com/tenstorrent/tt-umd/issues/2454
     // If that fails, we will try smaller sizes until we can't allocate even single page.
     // + 0x1000 is for the completion page.  Since this entire implementation
     // is a temporary hack until it's implemented in the driver, we'll need to
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
-    uint32_t dma_buf_size;
+
+    uint32_t dma_buf_size = 512 * 1024;  // 512 KB
     static const uint32_t page_size = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
-    const uint32_t one_mb = 1 << 20;
-    if (is_iommu_enabled()) {
-        dma_buf_size = 16 * one_mb;
-    } else {
-        dma_buf_size = 2 * one_mb;
-    }
 
     while (dma_buf_size >= page_size) {
         bool dma_buf_allocation_success = false;

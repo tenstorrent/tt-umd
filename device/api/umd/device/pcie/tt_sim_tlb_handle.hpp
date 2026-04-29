@@ -40,6 +40,8 @@ public:
 
     SimulationTlbManager* get_tlb_manager() const { return sim_manager_; }
 
+    tt::ARCH get_arch() const override;
+
 private:
     // Private constructor to enforce use of create() factory method.
     TTSimTlbHandle(

@@ -54,4 +54,6 @@ void SiliconTlbHandle::configure(const tlb_data& new_config) {
 
 void SiliconTlbHandle::free_tlb() noexcept { tt_tlb_free(pci_device_.get_tt_device_handle(), tlb_handle_); }
 
+tt::ARCH SiliconTlbHandle::get_arch() const { return pci_device_.get_arch(); }
+
 }  // namespace tt::umd

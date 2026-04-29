@@ -38,9 +38,6 @@ public:
     void safe_write16(uint64_t offset, uint16_t value) override;
     uint16_t safe_read16(uint64_t offset) override;
 
-protected:
-    tt::ARCH get_arch() const override;
-
 private:
     /**
      * Translate a TLB window offset to (core, address) and perform a write via the communicator.

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "umd/device/pcie/tlb_window.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -11,7 +13,6 @@
 #include <utility>
 
 #include "noc_access.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
 
 namespace tt::umd {
 

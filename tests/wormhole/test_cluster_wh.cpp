@@ -524,35 +524,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    // col index → NOC virtual address:
-    // 0 → 16   (DRAM)
-    // 1 → 18   (Tensix)
-    // 2 → 19
-    // 3 → 20
-    // 4 → 21
-    // 5 → 17   (DRAM)
-    // 6 → 22   (Tensix)
-    // ...
-    // 9 → 25
-    const std::unordered_map<uint32_t, uint32_t> translated_x_to_virtual_x = {
-        {16, 0}, {17, 5}, {18, 1}, {19, 2}, {20, 3}, {21, 4}, {22, 6}, {23, 7}, {24, 8}, {25, 9}};
-
-    // row index → NOC virtual address:
-    // 0 → 16   (ETH)
-    // 1 → 18   (Tensix)
-    // 2 → 19   (Tensix)
-    // 3 → 20   (Tensix)
-    // 4 → 21   (Tensix)
-    // 5 → 22   (Tensix)
-    // 6 → 17   (ETH)
-    // 7 → 23   (Tensix)
-    // 8 → 24   (Tensix)
-    // 9 → 25   (Tensix)
-    // 10 → 26   (Tensix)
-    // 11 → 27   (Tensix)
-    const std::unordered_map<uint32_t, uint32_t> translated_y_to_virtual_y = {
-        {16, 0}, {17, 6}, {18, 1}, {19, 2}, {20, 3}, {21, 4}, {22, 5}, {23, 7}, {24, 8}, {25, 9}, {26, 10}, {27, 11}};
-
     //
     std::vector<uint32_t> broadcast_sizes = {16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
@@ -588,7 +559,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                 // accessing .y coordinate.
                 const CoreCoord translated_core =
                     cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                uint32_t virtual_y = translated_y_to_virtual_y.at(translated_core.y);
+                uint32_t virtual_y = tt::umd::wormhole::TRANSLATED_TO_VIRTUAL_Y.at(
+                    translated_core.y - tt::umd::wormhole::translated_coordinate_start_y);
                 log_info(
                     LogUMD,
                     "Checking for translated core {}, will it be skipped {}",

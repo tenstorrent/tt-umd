@@ -9,21 +9,22 @@
 #include <memory>
 #include <tt-logger/tt-logger.hpp>
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
-RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping) :
-    manager_(manager) {
+RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping) :
+    allocator_(allocator) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = mapping;
 
-    if (manager_) {
+    if (allocator_) {
         // This is a fake, non-dereferenceable pointer used only for address arithmetic.
         // For RTL sim, bar0_base is 0, so this will be a near-null address.
-        tlb_base_ = reinterpret_cast<uint8_t*>(manager_->get_tlb_address_from_index(tlb_id_));
+        tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
     }
 
     log_debug(
@@ -35,8 +36,8 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size
 }
 
 std::unique_ptr<RtlSimTlbHandle> RtlSimTlbHandle::create(
-    SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping) {
-    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(manager, tlb_id, size, mapping));
+    SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping) {
+    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(allocator, tlb_id, size, mapping));
 }
 
 RtlSimTlbHandle::~RtlSimTlbHandle() noexcept { RtlSimTlbHandle::free_tlb(); }
@@ -59,14 +60,14 @@ void RtlSimTlbHandle::configure(const tlb_data& new_config) {
 }
 
 void RtlSimTlbHandle::free_tlb() noexcept {
-    if (manager_) {
-        manager_->deallocate_tlb_index(tlb_id_);
-        manager_ = nullptr;
+    if (allocator_) {
+        allocator_->deallocate_tlb_index(tlb_id_);
+        allocator_ = nullptr;
 
         log_debug(LogUMD, "Freed RTL sim TLB with ID {}", tlb_id_);
     }
 }
 
-tt::ARCH RtlSimTlbHandle::get_arch() const { return manager_->get_arch(); }
+tt::ARCH RtlSimTlbHandle::get_arch() const { return allocator_->get_architecture_impl()->get_architecture(); }
 
 }  // namespace tt::umd

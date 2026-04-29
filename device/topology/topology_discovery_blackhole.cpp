@@ -146,30 +146,6 @@ uint64_t TopologyDiscoveryBlackhole::mangle_asic_id(uint64_t board_id, uint8_t a
     return ((board_id << 5) | (asic_location & 0x1F));
 }
 
-void TopologyDiscoveryBlackhole::patch_eth_connections() {
-    std::set<std::pair<std::pair<uint64_t, uint32_t>, std::pair<uint64_t, uint32_t>>> ethernet_connections_fixed;
-    for (auto& eth_connections_original : ethernet_connections) {
-        auto& [local_device, local_channel] = eth_connections_original.first;
-        auto& [remote_device, remote_channel] = eth_connections_original.second;
-
-        TTDevice* remote_device_ptr = get_tt_device(remote_device);
-
-        auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
-        CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
-        CoreCoord logical_coord =
-            remote_device_ptr->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
-
-        ethernet_connections_fixed.insert({{local_device, local_channel}, {remote_device, logical_coord.y}});
-    }
-
-    ethernet_connections.clear();
-    for (auto& eth_connections_fixed : ethernet_connections_fixed) {
-        auto& [local_device, local_channel] = eth_connections_fixed.first;
-        auto& [remote_device, remote_channel] = eth_connections_fixed.second;
-        ethernet_connections.push_back({{local_device, local_channel}, {remote_device, remote_channel}});
-    }
-}
-
 void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }

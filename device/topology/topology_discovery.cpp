@@ -14,7 +14,6 @@
 #include <numeric>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -23,9 +22,8 @@
 
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
-#include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
@@ -376,16 +374,30 @@ void TopologyDiscovery::discover_remote_devices() {
                 // This will prevent attempting init. of an unhealthy device over another ETH core.
                 discovered_devices.insert(remote_asic_id);
             } else {
+                uint32_t remote_channel = get_remote_eth_channel(tt_device, translated_eth_core);
                 log_debug(
                     LogUMD, "Discovered link to ID: {} over ETH core: {}", remote_asic_id, translated_eth_core.str());
-                ethernet_connections.push_back(
-                    {{current_device_asic_id, channel},
-                     {remote_asic_id, get_remote_eth_channel(tt_device, translated_eth_core)}});
+                if (get_topology_arch() == ARCH::BLACKHOLE) {
+                    // Because Blackhole has ETH harvesting and BH-ERISC does not report logical ETH channels, we need
+                    // to perform the translation to logical ETH channel. All devices are guaranteed to have already
+                    // been discovered through MMIO on Blackhole.
+                    TTDevice* remote_device = nullptr;
+                    if (devices_to_discover.find(remote_asic_id) != devices_to_discover.end()) {
+                        remote_device = devices_to_discover.at(remote_asic_id).get();
+                    } else {
+                        remote_device = devices.at(remote_asic_id).get();
+                    }
+
+                    auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
+                    CoreCoord eth_core_coord =
+                        CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
+                    remote_channel =
+                        remote_device->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL).y;
+                }
+                ethernet_connections.push_back({{current_device_asic_id, channel}, {remote_asic_id, remote_channel}});
             }
         }
     }
-
-    patch_eth_connections();
 }
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_info() {
@@ -492,13 +504,6 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     return cluster_desc;
 }
 
-TTDevice* TopologyDiscovery::get_tt_device(const uint64_t asic_id) {
-    if (devices_to_discover.find(asic_id) != devices_to_discover.end()) {
-        return devices_to_discover.at(asic_id).get();
-    }
-    return devices.at(asic_id).get();
-}
-
 uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
     // This function should return a unique ID for the device. At the moment we are going to use mangled board ID
     // and asic location from active (connected) ETH cores. If we have multiple ETH cores, we will use the first
@@ -518,8 +523,6 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 
     return get_unconnected_device_id(tt_device);
 }
-
-void TopologyDiscovery::patch_eth_connections() {}
 
 void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();

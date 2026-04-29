@@ -4,17 +4,23 @@
 
 #include <gtest/gtest.h>
 #include <nanobench.h>
-#include <sys/mman.h>
 
 #include <chrono>
+#include <map>
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/warm_reset.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 using namespace tt::umd;
 using namespace tt::umd::test::utils;

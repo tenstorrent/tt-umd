@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 
 #include "umd/device/tt_device/tt_device.hpp"
@@ -11,7 +12,13 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
+namespace tt {
+enum class ARCH;
+}  // namespace tt
+
 namespace tt::umd {
+class TTDevice;
+
 FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);

@@ -14,6 +14,7 @@
 namespace tt::umd {
 
 class SimulationTlbManager;
+enum TlbMapping : uint8_t;
 
 /**
  * RTL simulation TlbHandle that stores TLB configuration in software only.
@@ -31,6 +32,8 @@ public:
     void configure(const tlb_data& new_config) override;
 
     SimulationTlbManager* get_tlb_manager() const { return manager_; }
+
+    tt::ARCH get_arch() const override;
 
 private:
     RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping);

@@ -4,9 +4,18 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstdint>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -17,10 +26,9 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-
-class ClusterDescriptor;
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {

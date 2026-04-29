@@ -4,18 +4,28 @@
 
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
 
+#include <fmt/format.h>
+
 #include <array>
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
 #include <cstdlib>
 #include <memory>
-#include <stdexcept>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "noc_access.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
+
+namespace tt::umd::blackhole {
+enum class ArcMessageType : uint8_t;
+}  // namespace tt::umd::blackhole
 
 namespace tt::umd {
 

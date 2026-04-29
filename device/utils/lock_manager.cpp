@@ -5,12 +5,12 @@
 #include "umd/device/utils/lock_manager.hpp"
 
 #include <mutex>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

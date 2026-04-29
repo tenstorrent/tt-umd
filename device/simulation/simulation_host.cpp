@@ -4,21 +4,19 @@
 
 #include "umd/device/simulation/simulation_host.hpp"
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 
-#include <cassert>
 #include <cstdlib>
-#include <filesystem>
-#include <iomanip>
+#include <cstring>
 #include <random>
 #include <sstream>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
-#include <typeinfo>
 
 #include "assert.hpp"
 

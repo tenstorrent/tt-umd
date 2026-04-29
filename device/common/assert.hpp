@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <spdlog/spdlog.h>
 #include <stdlib.h>

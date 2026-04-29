@@ -3,22 +3,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <iostream>
-#include <iterator>
 #include <memory>
-#include <ostream>
+#include <optional>
+#include <set>
+#include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt::umd;
 

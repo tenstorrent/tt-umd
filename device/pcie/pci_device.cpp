@@ -4,28 +4,27 @@
 
 #include "umd/device/pcie/pci_device.hpp"
 
-#include <fcntl.h>      // for ::open
-#include <linux/pci.h>  // for PCI_SLOT, PCI_FUNC
+#include <fcntl.h>  // for ::open
+#include <fmt/format.h>
 #include <sys/ioctl.h>  // for ioctl
 #include <sys/mman.h>   // for mmap, munmap
 #include <unistd.h>     // for ::close
 
-#include <cctype>
 #include <cerrno>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>  // for memcpy
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <ios>
 #include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -34,9 +33,12 @@
 #include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/pci_ids.h"
+#include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 
@@ -842,6 +844,7 @@ SemVer PCIDevice::read_kmd_version() {
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
+    ZoneScopedC(tracy::Color::Cyan);
     try {
         return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
     } catch (const std::exception &e) {
@@ -995,22 +998,16 @@ void PCIDevice::allocate_pcie_dma_buffer() {
         return;
     }
     // DMA buffer allocation.
-    // Allocation tries to allocate larger DMA buffers first. Starting size depends on whether IOMMU is enabled or not.
-    // If IOMMU is enabled, we will try to allocate 16MB buffer first.
-    // If IOMMU is not enabled, we will try to allocate 2MB buffer first.
+    // 512KB is the empirical sweet spot for per-chunk DMA throughput
+    // Measured different dma buffer sizes scaling, observations on https://github.com/tenstorrent/tt-umd/issues/2454
     // If that fails, we will try smaller sizes until we can't allocate even single page.
     // + 0x1000 is for the completion page.  Since this entire implementation
     // is a temporary hack until it's implemented in the driver, we'll need to
     // poll a completion page to know when the DMA is done instead of receiving
     // an interrupt.
-    uint32_t dma_buf_size;
+
+    uint32_t dma_buf_size = 512 * 1024;  // 512 KB
     static const uint32_t page_size = static_cast<uint32_t>(sysconf(_SC_PAGESIZE));
-    const uint32_t one_mb = 1 << 20;
-    if (is_iommu_enabled()) {
-        dma_buf_size = 16 * one_mb;
-    } else {
-        dma_buf_size = 2 * one_mb;
-    }
 
     while (dma_buf_size >= page_size) {
         bool dma_buf_allocation_success = false;

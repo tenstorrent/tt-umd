@@ -7,26 +7,31 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <ios>
 #include <memory>
 #include <numeric>
-#include <random>
+#include <optional>
 #include <set>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "wormhole/eth_l1_address_map.h"
-#include "wormhole/host_mem_address_map.h"
 #include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;

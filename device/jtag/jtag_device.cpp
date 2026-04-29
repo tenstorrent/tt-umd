@@ -4,7 +4,12 @@
 
 #include "umd/device/jtag/jtag_device.hpp"
 
+#include <fmt/format.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <algorithm>
+#include <climits>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -16,10 +21,9 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "umd/device/jtag/jtag.hpp"
-#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;

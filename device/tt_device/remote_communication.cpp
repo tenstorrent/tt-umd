@@ -5,16 +5,16 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
-#include "assert.hpp"
-#include "umd/device/chip/local_chip.hpp"
-#include "umd/device/driver_atomics.hpp"
-#include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {

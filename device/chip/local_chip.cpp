@@ -414,9 +414,7 @@ void LocalChip::ethernet_broadcast_write(
     remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, std::move(broadcast_header));
 }
 
-void LocalChip::wait_for_non_mmio_flush() {
-    // This is a local chip, so no need to flush remote communication.
-}
+void LocalChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
     // Set cores to be used by the broadcast communication.

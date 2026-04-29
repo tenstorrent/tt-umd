@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <chrono>
+#include <cstdint>
 #include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"

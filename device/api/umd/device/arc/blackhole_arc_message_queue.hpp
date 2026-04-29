@@ -5,10 +5,10 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <tuple>
 #include <vector>

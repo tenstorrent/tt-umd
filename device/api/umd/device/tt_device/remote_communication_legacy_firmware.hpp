@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <chrono>
+#include <cstdint>
 #include <set>
 #include <unordered_set>
 #include <vector>

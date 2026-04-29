@@ -4,18 +4,31 @@
 
 // This file holds Cluster specific API examples.
 
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 
-#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <set>
+#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <variant>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"

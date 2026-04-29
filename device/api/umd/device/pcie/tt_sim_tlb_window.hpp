@@ -5,8 +5,8 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/pcie/tlb_window.hpp"

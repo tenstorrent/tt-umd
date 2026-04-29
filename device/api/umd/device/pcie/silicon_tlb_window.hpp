@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"

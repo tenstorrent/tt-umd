@@ -6,8 +6,8 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/tt_device/protocol/device_protocol.hpp"

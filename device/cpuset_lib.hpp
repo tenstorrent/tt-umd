@@ -7,10 +7,10 @@
 #include <hwloc.h>
 #include <hwloc/bitmap.h>
 #include <stddef.h>
-#include <stdint.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cstdint>
 #include <iterator>
 #include <map>
 #include <mutex>

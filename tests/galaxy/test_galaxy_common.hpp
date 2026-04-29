@@ -4,8 +4,10 @@
 
 #pragma once
 
+#include <fmt/base.h>
 #include <fmt/format.h>
 
+#include <cstdint>
 #include <set>
 #include <sstream>
 #include <string>
@@ -13,7 +15,13 @@
 #include <vector>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
+
+namespace tt::umd {
+class Cluster;
+}  // namespace tt::umd
 
 // static const std::string SOC_DESC_PATH = "./tests/soc_descs/wormhole_b0_8x10.yaml";
 

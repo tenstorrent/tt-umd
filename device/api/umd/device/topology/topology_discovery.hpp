@@ -4,9 +4,8 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <chrono>
+#include <cstdint>
 #include <iterator>
 #include <map>
 #include <memory>

@@ -3,10 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#include <cstdint>
 #include <stdint.h>
 
-// Remove inline ASAP.
 inline namespace wormhole {
 
 namespace host_mem {

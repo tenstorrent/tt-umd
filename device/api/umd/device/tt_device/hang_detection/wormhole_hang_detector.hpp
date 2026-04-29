@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/types/xy_pair.hpp"

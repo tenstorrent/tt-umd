@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include <stdint.h>
-
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <stdexcept>
 #include <string>

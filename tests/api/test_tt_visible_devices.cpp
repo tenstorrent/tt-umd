@@ -6,21 +6,31 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <iostream>
+#include <map>
 #include <memory>
+#include <set>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "utils.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 using namespace tt::umd;
 

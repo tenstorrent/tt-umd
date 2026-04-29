@@ -5,8 +5,8 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
+#include <cstdint>
 #include <vector>
 
 #include "umd/device/arch/blackhole_implementation.hpp"

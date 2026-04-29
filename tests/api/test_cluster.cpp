@@ -6,28 +6,34 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
+#include <iostream>
+#include <map>
 #include <memory>
 #include <optional>
-#include <random>
+#include <set>
 #include <string>
-#include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "test_utils/setup_risc_cores.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/telemetry.hpp"
-#include "utils.hpp"
+#include "umd/device/utils/semver.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // These tests are intended to be run with the same code on all kinds of systems:

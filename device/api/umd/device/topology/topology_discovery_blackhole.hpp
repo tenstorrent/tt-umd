@@ -4,8 +4,7 @@
 
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 
 #include "umd/device/topology/topology_discovery.hpp"

@@ -7,7 +7,8 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
+
+#include <cstdint>
 
 #include "umd/device/arc/spi_tt_device.hpp"
 

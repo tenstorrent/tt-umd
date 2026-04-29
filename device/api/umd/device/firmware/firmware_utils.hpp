@@ -4,8 +4,7 @@
 
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <optional>
 
 #include "umd/device/tt_device/tt_device.hpp"

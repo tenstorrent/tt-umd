@@ -5,9 +5,9 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <set>

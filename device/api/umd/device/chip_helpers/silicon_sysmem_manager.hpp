@@ -6,8 +6,8 @@
 #pragma once
 
 #include <stddef.h>
-#include <stdint.h>
 
+#include <cstdint>
 #include <string>
 
 #include "umd/device/chip_helpers/sysmem_manager.hpp"

@@ -4,8 +4,7 @@
 
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <vector>
 
 #include "umd/device/arch/wormhole_implementation.hpp"

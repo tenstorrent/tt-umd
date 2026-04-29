@@ -4,10 +4,10 @@
 
 #pragma once
 #include <fmt/format.h>
-#include <stddef.h>
 
 #include <cassert>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <map>

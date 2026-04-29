@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include <stddef.h>
-
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>

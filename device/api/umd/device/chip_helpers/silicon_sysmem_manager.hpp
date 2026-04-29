@@ -5,8 +5,7 @@
  */
 #pragma once
 
-#include <stddef.h>
-
+#include <cstddef>
 #include <cstdint>
 #include <string>
 

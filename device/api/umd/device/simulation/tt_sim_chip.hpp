@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include <stddef.h>
 #include <sys/types.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>

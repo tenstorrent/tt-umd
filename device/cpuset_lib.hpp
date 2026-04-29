@@ -6,10 +6,10 @@
 
 #include <hwloc.h>
 #include <hwloc/bitmap.h>
-#include <stddef.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <map>

@@ -4,10 +4,9 @@
 
 #pragma once
 
-#include <stddef.h>
-
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <tuple>

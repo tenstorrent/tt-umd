@@ -29,7 +29,7 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
 
     size_t actual_tlb_size = allocator_.get_tlb_size_from_index(tlb_index);
 
-    return factory_(this, tlb_index, actual_tlb_size, mapping, config);
+    return factory_(&allocator_, tlb_index, actual_tlb_size, mapping, config);
 }
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
@@ -47,7 +47,7 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
         case tt::ARCH::WORMHOLE_B0:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
         case tt::ARCH::QUASAR:
-            return factory_(this, 0, SIZE_4GB, TlbMapping::WC, {});
+            return factory_(&allocator_, 0, SIZE_4GB, TlbMapping::WC, {});
         default:
             log_debug(
                 LogUMD,
@@ -55,26 +55,6 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
                 tt::arch_to_str(architecture));
             return nullptr;
     }
-}
-
-int SimulationTlbManager::allocate_tlb_index(size_t size) { return allocator_.allocate_tlb_index(size); }
-
-void SimulationTlbManager::deallocate_tlb_index(int tlb_index) { allocator_.deallocate_tlb_index(tlb_index); }
-
-size_t SimulationTlbManager::get_tlb_size_from_index(int tlb_index) {
-    return allocator_.get_tlb_size_from_index(tlb_index);
-}
-
-uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
-    return allocator_.get_tlb_address_from_index(tlb_index);
-}
-
-uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
-    return allocator_.get_tlb_reg_address_from_index(tlb_index);
-}
-
-const architecture_implementation* SimulationTlbManager::get_architecture_impl() const {
-    return allocator_.get_architecture_impl();
 }
 
 tt::ARCH SimulationTlbManager::get_arch() const { return allocator_.get_architecture_impl()->get_architecture(); }

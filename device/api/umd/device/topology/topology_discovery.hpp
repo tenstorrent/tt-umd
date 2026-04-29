@@ -6,7 +6,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -18,13 +17,11 @@
 #include <vector>
 
 #include "umd/device/cluster_descriptor.hpp"
-#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 

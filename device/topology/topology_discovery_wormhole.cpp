@@ -6,15 +6,12 @@
 
 #include <fmt/format.h>
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <set>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
-#include <vector>
 
-#include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
@@ -26,7 +23,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -236,8 +232,7 @@ bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, CoreCo
     uint32_t port_disable_mask = 0;
     tt_device->read_from_device(
         &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
-    const uint32_t channel =
-        tt_device->get_soc_descriptor().translate_coord_to(eth_core, CoordSystem::TRANSLATED, CoordSystem::LOGICAL).y;
+    const uint32_t channel = tt_device->get_soc_descriptor().get_eth_channel_for_core(eth_core);
     return (port_disable_mask >> channel) & 1;
 }
 
@@ -263,10 +258,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
         bool all_eth_cores_trained = true;
 
         for (const auto& [asic_id, tt_device] : devices_to_discover) {
-            auto* wormhole_tt_device = dynamic_cast<WormholeTTDevice*>(tt_device.get());
-
-            for (const CoreCoord& eth_core : tt_device->get_soc_descriptor().get_cores(
-                     CoreType::ETH, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0)) {
+            for (const CoreCoord& eth_core : tt_device->get_soc_descriptor().get_cores(CoreType::ETH)) {
                 EthTrainingStatus status = tt_device->read_eth_core_training_status(eth_core);
                 bool should_retrain = (status == EthTrainingStatus::FAIL) ||
                                       (RETRAIN_UNCONNECTED && status == EthTrainingStatus::NOT_CONNECTED);
@@ -286,7 +278,8 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
 
                 log_debug(
                     LogUMD, "Retraining ETH core {} on device {}, attempt {}.", eth_core.str(), asic_id, attempt + 1);
-                wormhole_tt_device->retrain_eth_core(eth_core);
+                uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
+                tt_device->write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
                 all_eth_cores_trained = false;
             }
         }

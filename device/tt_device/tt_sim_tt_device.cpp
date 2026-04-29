@@ -391,7 +391,7 @@ void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
 }
 
-void TTSimTTDevice::noc_multicast_write(void* src, size_t size, uint64_t addr) {
+void TTSimTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in TTSim simulation device.");
 }
 

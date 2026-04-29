@@ -269,21 +269,21 @@ void Chip::wait_for_aiclk_value(
     }
 }
 
-void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void Chip::noc_multicast_write(const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
-        dst,
+        src,
         size,
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr);
 }
 
-void Chip::noc_multicast_write(void* dst, size_t size, uint64_t addr) {
-    get_tt_device()->noc_multicast_write(dst, size, addr);
+void Chip::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
+    get_tt_device()->noc_multicast_write(src, size, addr);
 }
 
 }  // namespace tt::umd

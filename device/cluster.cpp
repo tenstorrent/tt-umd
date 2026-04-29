@@ -1149,9 +1149,9 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 }
 
 void Cluster::noc_multicast_write(
-    void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    const void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
+    get_chip(chip)->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 int Cluster::arc_msg(

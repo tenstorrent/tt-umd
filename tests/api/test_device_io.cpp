@@ -305,7 +305,7 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
-class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool>> {};
+class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool>> {};
 
 // Parametrized over (use_noc0, full_grid, sysmem_enabled):
 //   use_noc0       - true: NOC0 coordinates; false: translated coordinates
@@ -314,9 +314,8 @@ class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<boo
 // For full_grid+NOC0 the range is {0,0}–{grid_size-1}; for full_grid+translated the tensix corners are used.
 // Bystander verification is only performed for isolated-core multicasts.
 TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
-    // TODO: full_grid parameter to be added in following PR.
     // TODO: sysmem_enabled parameter to be added in the following PR.
-    auto [use_noc0] = GetParam();
+    auto [use_noc0, full_grid] = GetParam();
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
 
@@ -339,7 +338,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             LogUMD,
             "Testing {} {} multicast writes on chip {} remote: {}",
             use_noc0 ? "NOC0" : "translated",
-            "single-core",  // full_grid ? "full-grid" : "single-core",
+            full_grid ? "full-grid" : "single-core",
             chip_id,
             cluster->get_cluster_description()->is_chip_remote(chip_id));
 
@@ -363,17 +362,17 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
         // it doesn't spill to another.
         CoreCoord bystander_tensix_core;
         std::vector<uint32_t> bystander_original(num_words, 0);
-        // if (!full_grid) {
-        for (const auto& c : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-            if (std::find(representative_cores.begin(), representative_cores.end(), c) == representative_cores.end()) {
-                bystander_tensix_core = c;
-                break;
+        if (!full_grid) {
+            for (const auto& c : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+                if (std::find(representative_cores.begin(), representative_cores.end(), c) == representative_cores.end()) {
+                    bystander_tensix_core = c;
+                    break;
+                }
             }
+            ASSERT_NE(bystander_tensix_core.core_type, CoreType::UNSPECIFIED)
+                << "No bystander TENSIX core found on chip " << chip_id;
+            tt_device->read_from_device(bystander_original.data(), bystander_tensix_core, address, data_size);
         }
-        ASSERT_NE(bystander_tensix_core.core_type, CoreType::UNSPECIFIED)
-            << "No bystander TENSIX core found on chip " << chip_id;
-        tt_device->read_from_device(bystander_original.data(), bystander_tensix_core, address, data_size);
-        // }
 
         // Fill up values from other chips, before we multicast, to have values to compare against afterwards.
         std::vector<std::vector<uint32_t>> other_chip_bystander_originals(other_chip_bystander_cores.size());
@@ -397,10 +396,14 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                 v++;
             }
 
-            const tt_xy_pair multicast_coord =
-                soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
-            log_info(LogUMD, "Multicast to core {} on chip {}", multicast_coord.str(), chip_id);
-            tt_device->noc_multicast_write(write_data.data(), data_size, multicast_coord, multicast_coord, address);
+            if (full_grid) {
+                tt_device->noc_multicast_write(write_data.data(), data_size, address);
+            } else {
+                const tt_xy_pair multicast_coord =
+                    soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
+                log_info(LogUMD, "Multicast to core {} on chip {}", multicast_coord.str(), chip_id);
+                tt_device->noc_multicast_write(write_data.data(), data_size, multicast_coord, multicast_coord, address);
+            }
 
             std::vector<uint32_t> readback(num_words);
             tt_device->read_from_device(readback.data(), core, address, data_size);
@@ -409,18 +412,19 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             if (core.core_type == CoreType::TENSIX) {
                 EXPECT_EQ(write_data, readback) << "TENSIX core " << core.str() << " on chip " << chip_id
                                                 << " should have received the multicast write.";
-                // if (!full_grid) {
-                std::vector<uint32_t> bystander_readback(num_words, 0);
-                tt_device->read_from_device(bystander_readback.data(), bystander_tensix_core, address, data_size);
-                EXPECT_EQ(bystander_original, bystander_readback)
-                    << "Bystander TENSIX core " << bystander_tensix_core.str() << " on chip " << chip_id
-                    << " should not have been modified by the multicast write targeting " << multicast_coord.str();
-                // }
+                if (!full_grid) {
+                    std::vector<uint32_t> bystander_readback(num_words, 0);
+                    tt_device->read_from_device(bystander_readback.data(), bystander_tensix_core, address, data_size);
+                    EXPECT_EQ(bystander_original, bystander_readback)
+                        << "Bystander TENSIX core " << bystander_tensix_core.str() << " on chip " << chip_id
+                        << " should not have been modified by the multicast write targeting " << multicast_coord.str();
+                }
             } else {
                 EXPECT_EQ(original, readback) << "Non-TENSIX core " << core.str() << " on chip " << chip_id
                                               << " should not have been modified by the multicast write.";
             }
         }
+
 
         // Now verify that no cores on other chips have been overwritten.
         for (size_t i = 0; i < other_chip_bystander_cores.size(); ++i) {
@@ -439,20 +443,27 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     }
 }
 
-static std::vector<std::tuple<bool>> get_multicast_write_params() {
-    if (PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE) {
-        return {{false}};  // NOC0 multicast not supported on Blackhole
+static std::vector<std::tuple<bool, bool>> get_multicast_write_params() {
+    const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
+    std::vector<std::tuple<bool, bool>> params;
+    for (bool use_noc0 : {false, true}) {
+        if (use_noc0 && is_blackhole) {
+            continue;  // NOC0 multicast not supported on Blackhole
+        }
+        for (bool full_grid : {false, true}) {
+            params.emplace_back(use_noc0, full_grid);
+        }
     }
-    return {{false}, {true}};
+    return params;
 }
 
 INSTANTIATE_TEST_SUITE_P(
     AllCombinations,
     TestMulticastWriteFixture,
     ::testing::ValuesIn(get_multicast_write_params()),
-    [](const ::testing::TestParamInfo<std::tuple<bool>>& info) {
-        auto [use_noc0] = info.param;
-        return std::string(use_noc0 ? "NOC0" : "Translated");
+    [](const ::testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+        return std::string(std::get<0>(info.param) ? "NOC0" : "Translated") + "_" +
+               (std::get<1>(info.param) ? "FullGrid" : "SingleCore");
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

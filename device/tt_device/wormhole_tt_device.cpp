@@ -442,4 +442,22 @@ void WormholeTTDevice::noc_multicast_write(
     }
 }
 
+void WormholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+    xy_pair start_core;
+    xy_pair end_core;
+    if (get_chip_info().noc_translation_enabled) {
+        // If NOC translation is enabled, we can use the regular NOC multicast write which will handle the translation
+        // for us.
+        start_core = {18, 18};
+        end_core = {27, 25};
+        return;
+    } else {
+        // WH grid is 10x12. NOC controller occupies x=0, so broadcast starts at x=1.
+        // Translation has no effect on broadcast coordinates for WH; same range for NOC0 and NOC1.
+        start_core = {1, 0};
+        end_core = {9, 11};
+    }
+    noc_multicast_write(src, size, start_core, end_core, addr);
+}
+
 }  // namespace tt::umd

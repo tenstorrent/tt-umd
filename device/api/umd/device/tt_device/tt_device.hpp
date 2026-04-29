@@ -186,6 +186,15 @@ public:
     virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
+     * NOC multicast write function that will write data to full NOC grid.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_multicast_write(void *src, size_t size, uint64_t addr) = 0;
+
+    /**
      * Read function that will send read message to the ARC core APB peripherals.
      *
      * @param mem_ptr pointer to memory which will receive the data

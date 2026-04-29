@@ -43,6 +43,9 @@ public:
 
     void retrain_eth_core(tt_xy_pair eth_core);
 
+    using TTDevice::noc_multicast_write;
+    void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
+
     ~WormholeTTDevice() override = default;
 
 protected:

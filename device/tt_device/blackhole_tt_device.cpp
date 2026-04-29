@@ -335,4 +335,28 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     }
 }
 
+void BlackholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+    // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
+    //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
+    //   Translation enabled:  hardware broadcast is avoided; use a software multicast with
+    //                         wraparound coordinates that differ per NOC:
+    //                           NOC0: start=(2,3), end=(1,2)
+    //                           NOC1: start=(1,2), end=(2,3).
+    xy_pair start_coord;
+    xy_pair end_coord;
+    if (get_chip_info().noc_translation_enabled) {
+        if (is_selected_noc1()) {
+            start_coord = xy_pair{1, 2};
+            end_coord = xy_pair{2, 3};
+        } else {
+            start_coord = xy_pair{2, 3};
+            end_coord = xy_pair{1, 2};
+        }
+    } else {
+        start_coord = xy_pair{0, 1};
+        end_coord = xy_pair{16, 11};
+    }
+    noc_multicast_write(src, size, start_coord, end_coord, addr);
+}
+
 }  // namespace tt::umd

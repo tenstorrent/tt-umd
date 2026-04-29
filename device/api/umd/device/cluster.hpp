@@ -499,7 +499,7 @@ public:
      * @param chip The chip to access.
      * @param core The core to access.
      */
-    TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
+    IOWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
     //---------- Functions for synchronization and memory barriers.
 

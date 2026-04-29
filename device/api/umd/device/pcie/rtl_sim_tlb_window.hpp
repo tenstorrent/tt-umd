@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_window.hpp"
 
 namespace tt::umd {
 
@@ -17,14 +17,14 @@ class TlbHandle;
 struct tlb_data;
 
 /**
- * RTL simulation TlbWindow implementation that translates TLB-based memory access
+ * RTL simulation IOWindow implementation that translates TLB-based memory access
  * into tile_read_bytes/tile_write_bytes calls on RtlSimCommunicator.
  * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
  * is used to reconstruct the target core and address for each access.
  */
-class RtlSimTlbWindow : public TlbWindow {
+class RtlSimTlbWindow : public IOWindow {
 public:
-    RtlSimTlbWindow(std::unique_ptr<TlbHandle> handle, RtlSimCommunicator* communicator, const tlb_data config = {});
+    RtlSimTlbWindow(std::unique_ptr<IOHandle> handle, RtlSimCommunicator* communicator, const tlb_data config = {});
 
     void write16(uint64_t offset, uint16_t value) override;
     uint16_t read16(uint64_t offset) override;

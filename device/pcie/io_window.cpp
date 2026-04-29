@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_window.hpp"
 
 #include <algorithm>
 #include <memory>
@@ -10,21 +10,21 @@
 #include <utility>
 
 #include "noc_access.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
-TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
+IOWindow::IOWindow(std::unique_ptr<IOHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
     tlb_data aligned_config = config;
     aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);
     offset_from_aligned_addr = config.local_offset - (config.local_offset & ~(tlb_handle->get_size() - 1));
 }
 
-void TlbWindow::read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
+void IOWindow::read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
@@ -49,7 +49,7 @@ void TlbWindow::read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t 
     }
 }
 
-void TlbWindow::write_block_reconfigure(
+void IOWindow::write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     tlb_data config{};
@@ -76,7 +76,7 @@ void TlbWindow::write_block_reconfigure(
     }
 }
 
-void TlbWindow::noc_multicast_write_reconfigure(
+void IOWindow::noc_multicast_write_reconfigure(
     void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
     uint8_t* buffer_addr = static_cast<uint8_t*>(dst);
     tlb_data config{};
@@ -106,54 +106,54 @@ void TlbWindow::noc_multicast_write_reconfigure(
     }
 }
 
-TlbHandle& TlbWindow::handle_ref() const { return *tlb_handle; }
+IOHandle& IOWindow::handle_ref() const { return *tlb_handle; }
 
-size_t TlbWindow::get_size() const { return tlb_handle->get_size() - offset_from_aligned_addr; }
+size_t IOWindow::get_size() const { return tlb_handle->get_size() - offset_from_aligned_addr; }
 
-void TlbWindow::validate(uint64_t offset, size_t size) const {
+void IOWindow::validate(uint64_t offset, size_t size) const {
     if ((offset + size) > get_size()) {
         throw std::out_of_range("Out of bounds access");
     }
 }
 
-void TlbWindow::configure(const tlb_data& new_config) {
+void IOWindow::configure(const tlb_data& new_config) {
     tlb_data aligned_config = new_config;
     aligned_config.local_offset = new_config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);
     offset_from_aligned_addr = new_config.local_offset - (new_config.local_offset & ~(tlb_handle->get_size() - 1));
 }
 
-uint64_t TlbWindow::get_total_offset(uint64_t offset) const { return offset + offset_from_aligned_addr; }
+uint64_t IOWindow::get_total_offset(uint64_t offset) const { return offset + offset_from_aligned_addr; }
 
-uint64_t TlbWindow::get_base_address() const {
+uint64_t IOWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }
 
-void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
+void IOWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
 
-uint32_t TlbWindow::safe_read32(uint64_t offset) { return read32(offset); }
+uint32_t IOWindow::safe_read32(uint64_t offset) { return read32(offset); }
 
-void TlbWindow::safe_write_register(uint64_t offset, const void* data, size_t size) {
+void IOWindow::safe_write_register(uint64_t offset, const void* data, size_t size) {
     write_register(offset, data, size);
 }
 
-void TlbWindow::safe_read_register(uint64_t offset, void* data, size_t size) { read_register(offset, data, size); }
+void IOWindow::safe_read_register(uint64_t offset, void* data, size_t size) { read_register(offset, data, size); }
 
-void TlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size) { write_block(offset, data, size); }
+void IOWindow::safe_write_block(uint64_t offset, const void* data, size_t size) { write_block(offset, data, size); }
 
-void TlbWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
+void IOWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
 
-void TlbWindow::safe_write_block_reconfigure(
+void IOWindow::safe_write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
     write_block_reconfigure(mem_ptr, core, addr, size, ordering);
 }
 
-void TlbWindow::safe_read_block_reconfigure(
+void IOWindow::safe_read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
     read_block_reconfigure(mem_ptr, core, addr, size, ordering);
 }
 
-void TlbWindow::safe_noc_multicast_write_reconfigure(
+void IOWindow::safe_noc_multicast_write_reconfigure(
     void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
     noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, ordering);
 }

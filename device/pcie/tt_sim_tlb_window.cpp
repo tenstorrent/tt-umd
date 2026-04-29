@@ -7,7 +7,7 @@
 #include <memory>
 #include <utility>
 
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -16,8 +16,8 @@
 namespace tt::umd {
 
 TTSimTlbWindow::TTSimTlbWindow(
-    std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
-    TlbWindow(std::move(handle), config), sim_communicator_(communicator) {}
+    std::unique_ptr<IOHandle> handle, TTSimCommunicator* communicator, const tlb_data config) :
+    IOWindow(std::move(handle), config), sim_communicator_(communicator) {}
 
 void TTSimTlbWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));

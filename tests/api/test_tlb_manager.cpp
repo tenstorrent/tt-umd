@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -52,7 +52,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         // TODO: Maybe accept tlb_index only?
         uint64_t address_l1_to_write = 0;
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
-        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
+        IOWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
         window->write_register(address_l1_to_write, buffer_to_write.data(), buffer_to_write.size());
 
         tt_device->set_power_state(false);

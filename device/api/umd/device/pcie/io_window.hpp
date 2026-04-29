@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -16,15 +16,15 @@
 namespace tt::umd {
 
 /**
- * Base class for TlbWindow implementations that contains all shared logic.
+ * Base class for IOWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
  */
-class TlbWindow {
+class IOWindow {
 public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
+    IOWindow(std::unique_ptr<IOHandle> handle, const tlb_data config = {});
 
-    virtual ~TlbWindow() = default;
+    virtual ~IOWindow() = default;
 
     // Pure virtual methods for memory access - to be implemented by derived classes.
     virtual void write16(uint64_t offset, uint16_t value) = 0;
@@ -82,7 +82,7 @@ public:
         uint64_t ordering = tlb_data::Strict);
 
     // Shared utility methods.
-    TlbHandle& handle_ref() const;
+    IOHandle& handle_ref() const;
     size_t get_size() const;
     void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
@@ -91,7 +91,7 @@ protected:
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
 
-    std::unique_ptr<TlbHandle> tlb_handle;
+    std::unique_ptr<IOHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
 };
 

@@ -8,21 +8,21 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_handle.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-class TlbHandle;
+class IOHandle;
 
 /**
- * Silicon TlbWindow implementation that performs direct memory access
+ * Silicon IOWindow implementation that performs direct memory access
  * using pointer dereferencing for accessing BAR0 mapped memory.
  */
-class SiliconTlbWindow : public TlbWindow {
+class SiliconTlbWindow : public IOWindow {
 public:
-    SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
+    SiliconTlbWindow(std::unique_ptr<IOHandle> handle, const tlb_data config = {});
 
     // Implementation of memory access methods using direct pointer access.
     void write16(uint64_t offset, uint16_t value) override;

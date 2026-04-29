@@ -16,7 +16,7 @@
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -123,11 +123,11 @@ private:
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 
-    TlbWindow* get_cached_wc_tlb_window();
-    TlbWindow* get_cached_uc_tlb_window();
+    IOWindow* get_cached_wc_tlb_window();
+    IOWindow* get_cached_uc_tlb_window();
 
-    std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
-    std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;
+    std::unique_ptr<IOWindow> cached_wc_tlb_window = nullptr;
+    std::unique_ptr<IOWindow> cached_uc_tlb_window = nullptr;
 
     std::mutex wc_tlb_lock;
     std::mutex uc_tlb_lock;

@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
 
         for (int pci_device_id : PCIDevice::enumerate_devices()) {
             auto tt_device = TTDevice::create(pci_device_id);
-            std::vector<std::unique_ptr<TlbHandle>> allocated_tlbs;
+            std::vector<std::unique_ptr<IOHandle>> allocated_tlbs;
             tt_device->init_tt_device();
             tt::ARCH arch = tt_device->get_arch();
             auto pci_device = tt_device->get_pci_device();

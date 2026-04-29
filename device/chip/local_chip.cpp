@@ -290,7 +290,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     }
 
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
+        IOWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
@@ -315,7 +315,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         return;
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
-        TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
+        IOWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
@@ -361,7 +361,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window();
+    IOWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
     tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
@@ -392,7 +392,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_uc_tlb_window();
+    IOWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
@@ -582,7 +582,7 @@ int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
 int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
 
-TlbWindow* LocalChip::get_cached_wc_tlb_window() {
+IOWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
         cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
@@ -592,7 +592,7 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     return cached_wc_tlb_window.get();
 }
 
-TlbWindow* LocalChip::get_cached_uc_tlb_window() {
+IOWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
         cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));

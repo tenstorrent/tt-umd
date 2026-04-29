@@ -19,8 +19,8 @@
 #include <string>
 #include <utility>
 
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -66,8 +66,8 @@ struct ScopedJumpGuard {
     signal(SIGBUS, SIG_DFL);
 }
 
-SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
-    TlbWindow(std::move(handle), config) {}
+SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<IOHandle> handle, const tlb_data config) :
+    IOWindow(std::move(handle), config) {}
 
 void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));

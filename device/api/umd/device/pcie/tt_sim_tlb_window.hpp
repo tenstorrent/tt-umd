@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_window.hpp"
 
 namespace tt::umd {
 
@@ -18,14 +18,14 @@ class TlbHandle;
 struct tlb_data;
 
 /**
- * Simulation TlbWindow implementation that uses TTSimCommunicator
+ * Simulation IOWindow implementation that uses TTSimCommunicator
  * for memory access instead of direct pointer dereferencing.
  * This allows TLB operations to work with TTSim where the device
  * memory is not mapped into the user process.
  */
-class TTSimTlbWindow : public TlbWindow {
+class TTSimTlbWindow : public IOWindow {
 public:
-    TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
+    TTSimTlbWindow(std::unique_ptr<IOHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
 
     // Implementation of memory access methods using TTSimCommunicator.
     void write16(uint64_t offset, uint16_t value) override;

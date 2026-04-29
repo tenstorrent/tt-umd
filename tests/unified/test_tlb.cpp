@@ -11,9 +11,9 @@
 #include <vector>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -66,7 +66,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window =
+        std::unique_ptr<IOWindow> tlb_window =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         uint32_t readback_value = tlb_window->read32(0);
@@ -102,7 +102,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
     // Here it's not important how we have configured the TLB. For every read we will
     // do the reconfigure of the TLB window.
     tlb_data config{};
-    std::unique_ptr<TlbWindow> tlb_window =
+    std::unique_ptr<IOWindow> tlb_window =
         std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
     for (CoreCoord core : tensix_cores) {
@@ -161,7 +161,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window =
+        std::unique_ptr<IOWindow> tlb_window =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::UC), config);
 
         tlb_window->configure(config);
@@ -202,14 +202,14 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
         config_write.linked = 0;
         config_write.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_window_write =
+        std::unique_ptr<IOWindow> tlb_window_write =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_write);
 
         tlb_window_write->write32(0, 4);
         tlb_window_write->write32(4, 0);
 
         tlb_data config_read = config_write;
-        std::unique_ptr<TlbWindow> tlb_window_read =
+        std::unique_ptr<IOWindow> tlb_window_read =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config_read);
 
         uint32_t expect4 = tlb_window_read->read32(0);
@@ -246,9 +246,9 @@ TEST(TestTlb, TestTlbWindowReadWrite16) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_write =
+        std::unique_ptr<IOWindow> tlb_write =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
-        std::unique_ptr<TlbWindow> tlb_read =
+        std::unique_ptr<IOWindow> tlb_read =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         // Test basic write16/read16.
@@ -315,9 +315,9 @@ TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> tlb_write =
+        std::unique_ptr<IOWindow> tlb_write =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
-        std::unique_ptr<TlbWindow> tlb_read =
+        std::unique_ptr<IOWindow> tlb_read =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
 
         // Write a known 32-bit value, then overwrite only the low half with write16.
@@ -376,11 +376,11 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> read_aligned =
+        std::unique_ptr<IOWindow> read_aligned =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
-        std::unique_ptr<TlbWindow> read_unaligned =
+        std::unique_ptr<IOWindow> read_unaligned =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
@@ -432,11 +432,11 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
         config.linked = 0;
         config.static_vc = 1;
 
-        std::unique_ptr<TlbWindow> read_aligned =
+        std::unique_ptr<IOWindow> read_aligned =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         config.local_offset = one_mb;
-        std::unique_ptr<TlbWindow> read_unaligned =
+        std::unique_ptr<IOWindow> read_unaligned =
             std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb, TlbMapping::WC), config);
 
         std::vector<uint8_t> readback_aligned(0x100, 0);
@@ -477,7 +477,7 @@ TEST(TestTlb, TLBStaticTensix) {
         cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
     }
 
-    TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
+    IOWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
 
     const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {

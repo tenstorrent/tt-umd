@@ -16,9 +16,9 @@ namespace tt::umd {
  * Base class for TLB handles that provides a common interface
  * for both hardware (silicon) and simulation implementations.
  */
-class TlbHandle {
+class IOHandle {
 public:
-    virtual ~TlbHandle() noexcept = default;
+    virtual ~IOHandle() noexcept = default;
 
     /**
      * Configures the TLB with the provided configuration.
@@ -58,7 +58,7 @@ protected:
     /**
      * Protected default constructor - only derived classes can construct.
      */
-    TlbHandle() = default;
+    IOHandle() = default;
 
     int tlb_id_ = 0;
     uint8_t* tlb_base_ = nullptr;

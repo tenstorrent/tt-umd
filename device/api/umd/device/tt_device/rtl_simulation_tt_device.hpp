@@ -71,7 +71,7 @@ public:
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    std::unique_ptr<TlbWindow> get_io_window(
+    std::unique_ptr<IOWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0) override;
 
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
@@ -86,6 +86,6 @@ private:
     std::filesystem::path simulator_directory_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::unique_ptr<SimulationTlbAllocator> tlb_allocator_;
-    std::unique_ptr<TlbWindow> cached_tlb_window_;
+    std::unique_ptr<IOWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

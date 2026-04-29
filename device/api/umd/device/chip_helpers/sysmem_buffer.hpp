@@ -10,7 +10,7 @@
 #include <optional>
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -116,7 +116,7 @@ private:
      */
     void validate(const size_t offset) const;
 
-    TlbWindow* get_cached_tlb_window();
+    IOWindow* get_cached_tlb_window();
 
     TLBManager* tlb_manager_;
 
@@ -140,7 +140,7 @@ private:
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
 
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+    std::unique_ptr<IOWindow> cached_tlb_window = nullptr;
 };
 
 }  // namespace tt::umd

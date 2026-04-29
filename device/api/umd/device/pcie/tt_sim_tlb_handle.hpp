@@ -9,7 +9,7 @@
 #include <memory>
 
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -18,13 +18,13 @@ class SimulationTlbAllocator;
 enum TlbMapping : uint8_t;
 
 /**
- * Simulation-specific TlbHandle that inherits from TlbHandle but bypasses hardware operations.
- * This allows compatibility with TlbWindow while providing simulation functionality.
+ * Simulation-specific IOHandle that inherits from IOHandle but bypasses hardware operations.
+ * This allows compatibility with IOWindow while providing simulation functionality.
  */
-class TTSimTlbHandle : public TlbHandle {
+class TTSimTlbHandle : public IOHandle {
 public:
     /**
-     * Create a simulation TlbHandle that works with TlbWindow.
+     * Create a simulation IOHandle that works with IOWindow.
      * This bypasses the hardware constructor and sets up simulation state.
      */
     static std::unique_ptr<TTSimTlbHandle> create(

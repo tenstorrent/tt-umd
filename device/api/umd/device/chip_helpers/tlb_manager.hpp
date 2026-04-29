@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -34,13 +34,13 @@ public:
     // TODO: the following members will be moved to private once enough stuff is moved out of cluster.
     std::unordered_map<int32_t, uint64_t> tlb_config_map_;
     std::unordered_map<tt_xy_pair, std::int32_t> map_core_to_tlb_;
-    std::unordered_map<int32_t, std::unique_ptr<TlbWindow>> tlb_windows_;
+    std::unordered_map<int32_t, std::unique_ptr<IOWindow>> tlb_windows_;
 
     TTDevice* get_tt_device() { return tt_device_; }
 
-    TlbWindow* get_tlb_window(const tt_xy_pair core);
+    IOWindow* get_tlb_window(const tt_xy_pair core);
 
-    virtual std::unique_ptr<TlbWindow> allocate_tlb_window(
+    virtual std::unique_ptr<IOWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
 
     // Clear all static TLB mappings.

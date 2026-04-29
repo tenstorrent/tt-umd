@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -279,7 +279,7 @@ public:
      * @param tlb_size Size of the TLB caller wants to allocate.
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
-    std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+    std::unique_ptr<IOHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     /**
      * Configure TLB register in user space by writing directly to BAR0.

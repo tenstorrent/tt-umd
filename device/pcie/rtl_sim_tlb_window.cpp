@@ -6,8 +6,8 @@
 
 #include <utility>
 
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -15,8 +15,8 @@
 namespace tt::umd {
 
 RtlSimTlbWindow::RtlSimTlbWindow(
-    std::unique_ptr<TlbHandle> handle, RtlSimCommunicator* communicator, const tlb_data config) :
-    TlbWindow(std::move(handle), config), communicator_(communicator) {}
+    std::unique_ptr<IOHandle> handle, RtlSimCommunicator* communicator, const tlb_data config) :
+    IOWindow(std::move(handle), config), communicator_(communicator) {}
 
 void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, size_t size) {
     validate(offset, size);

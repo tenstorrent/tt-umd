@@ -18,9 +18,9 @@
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
@@ -44,7 +44,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
-    std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
+    std::unique_ptr<IOWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
     log_debug(
         LogUMD,
@@ -61,7 +61,7 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
 }
 
-TlbWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
+IOWindow* TLBManager::get_tlb_window(const tt_xy_pair core) {
     if (map_core_to_tlb_.find(core) != map_core_to_tlb_.end()) {
         return tlb_windows_.at(map_core_to_tlb_.at(core)).get();
     } else {
@@ -76,7 +76,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
         return false;
     }
 
-    TlbWindow* tlb_window = get_tlb_window(core);
+    IOWindow* tlb_window = get_tlb_window(core);
 
     return tlb_window->get_base_address() <= address &&
            address + size_in_bytes <= tlb_window->get_base_address() + tlb_window->get_size();
@@ -89,7 +89,7 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
 }
 
-std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
+std::unique_ptr<IOWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     ZoneScopedC(tracy::Color::Cyan);
     return tt_device_->get_io_window(config, mapping, tlb_size);

@@ -266,7 +266,7 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
-std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+std::unique_ptr<IOWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
     PCIDevice *pci = get_pci_device();
     if (pci == nullptr) {
         UMD_THROW(error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");

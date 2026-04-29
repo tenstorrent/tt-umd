@@ -15,9 +15,9 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -99,7 +99,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
     // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
     // all I/O underneath. The 4GB size for Quasar is a dummy value — it just needs to be large
-    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
+    // enough so that IOWindow::validate doesn't reject any valid access (size 0 would cause
     // division by zero in RtlSimTlbHandle::configure).
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
@@ -126,7 +126,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     }
 }
 
-std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+std::unique_ptr<IOWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
     int tlb_index = tlb_allocator_->allocate_tlb_index(size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");

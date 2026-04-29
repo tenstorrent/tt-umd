@@ -16,10 +16,10 @@
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/io_handle.hpp"
+#include "umd/device/pcie/io_window.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
@@ -58,7 +58,7 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
 
 PcieProtocol::~PcieProtocol() = default;
 
-TlbWindow* PcieProtocol::get_cached_tlb_window() {
+IOWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
         cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
             pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
@@ -190,7 +190,7 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     size_t dmabuf_size = dma_buffer.size;
-    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+    IOWindow* tlb_window = get_cached_dma_tlb_window(config);
 
     auto axi_address_base = pci_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
@@ -223,7 +223,7 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     return true;
 }
 
-TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
+IOWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {
         cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(
             pci_device_->allocate_tlb(get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC), config);

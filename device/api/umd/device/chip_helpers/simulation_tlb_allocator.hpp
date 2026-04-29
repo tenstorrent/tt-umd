@@ -20,7 +20,7 @@ class architecture_implementation;
  *
  * Tracks which TLB indices are allocated per size class, and computes BAR0-relative
  * addresses for a given index. Counterpart to KMD-managed allocation on silicon —
- * no knowledge of TlbHandle / TlbWindow types.
+ * no knowledge of IOHandle / IOWindow types.
  */
 class SimulationTlbAllocator {
 public:

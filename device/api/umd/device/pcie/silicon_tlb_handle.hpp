@@ -7,7 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/tlb.hpp"
 
@@ -21,7 +21,7 @@ class PCIDevice;
  * This class handles allocation, mapping, and configuration of hardware TLBs
  * through the kernel mode driver (KMD).
  */
-class SiliconTlbHandle : public TlbHandle {
+class SiliconTlbHandle : public IOHandle {
 public:
     /**
      * Constructor for SiliconTlbHandle.

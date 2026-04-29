@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -17,12 +17,12 @@ class SimulationTlbAllocator;
 enum TlbMapping : uint8_t;
 
 /**
- * RTL simulation TlbHandle that stores TLB configuration in software only.
+ * RTL simulation IOHandle that stores TLB configuration in software only.
  * No hardware register writes are performed since RTL sim has no PCIe BAR0.
  * The stored configuration is used by RtlSimTlbWindow to translate TLB offsets
  * back to tile_read_bytes/tile_write_bytes calls.
  */
-class RtlSimTlbHandle : public TlbHandle {
+class RtlSimTlbHandle : public IOHandle {
 public:
     static std::unique_ptr<RtlSimTlbHandle> create(
         SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping);

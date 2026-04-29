@@ -24,7 +24,7 @@ enum class ARCH;
 namespace tt::umd {
 
 class PCIDevice;
-class TlbWindow;
+class IOWindow;
 struct tlb_data;
 
 /**
@@ -63,8 +63,8 @@ public:
     uint32_t bar_read32(uint32_t addr) override;
 
 private:
-    TlbWindow* get_cached_tlb_window();
-    TlbWindow* get_cached_dma_tlb_window(tlb_data config);
+    IOWindow* get_cached_tlb_window();
+    IOWindow* get_cached_dma_tlb_window(tlb_data config);
 
     static DmaTransferStrategy create_dma_strategy(tt::ARCH arch);
     static size_t get_dma_tlb_size(tt::ARCH arch);
@@ -90,8 +90,8 @@ private:
     bool use_safe_api_;
     std::mutex io_lock_;
     std::mutex dma_mutex_;
-    std::unique_ptr<TlbWindow> cached_tlb_window_;
-    std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
+    std::unique_ptr<IOWindow> cached_tlb_window_;
+    std::unique_ptr<IOWindow> cached_dma_tlb_window_;
 };
 
 }  // namespace tt::umd

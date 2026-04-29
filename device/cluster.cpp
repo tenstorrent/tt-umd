@@ -534,7 +534,7 @@ void Cluster::refresh_cluster_description() {
     }
 }
 
-TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
+IOWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }

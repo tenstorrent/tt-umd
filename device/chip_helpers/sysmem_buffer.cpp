@@ -20,9 +20,9 @@
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/io_handle.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
@@ -71,7 +71,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
-    TlbWindow* tlb_window = get_cached_tlb_window();
+    IOWindow* tlb_window = get_cached_tlb_window();
     tlb_window->configure(config);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
@@ -129,7 +129,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.ordering = tlb_data::Relaxed;
     config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
 
-    TlbWindow* tlb_window = get_cached_tlb_window();
+    IOWindow* tlb_window = get_cached_tlb_window();
     tlb_window->configure(config);
 
     auto axi_address_base = tt_device_->get_architecture_implementation()
@@ -193,7 +193,7 @@ void SysmemBuffer::validate(const size_t offset) const {
     }
 }
 
-TlbWindow* SysmemBuffer::get_cached_tlb_window() {
+IOWindow* SysmemBuffer::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
         cached_tlb_window =
             std::make_unique<SiliconTlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(

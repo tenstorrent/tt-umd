@@ -481,7 +481,8 @@ TEST(SiliconDriverWH, BroadcastWrite) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
-                    << "Vector read back from core " << core.str() << " does not match what was broadcasted";
+                    << "Vector read back from chip " << chip_id << " core " << core.str()
+                    << " does not match what was broadcasted for size " << size;
                 cluster.write_to_device(
                     zeros.data(),
                     zeros.size() * sizeof(std::uint32_t),
@@ -497,7 +498,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from DRAM core " << chip_id << " " << core.str()
-                    << " does not match what was broadcasted " << size;
+                    << " does not match what was broadcasted for size " << size;
                 cluster.write_to_device(
                     zeros.data(),
                     zeros.size() * sizeof(std::uint32_t),
@@ -565,18 +566,14 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                     cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
                 uint32_t virtual_y = tt::umd::wormhole::TRANSLATED_TO_VIRTUAL_Y.at(
                     translated_core.y - tt::umd::wormhole::translated_coordinate_start_y);
-                log_info(
-                    LogUMD,
-                    "Checking for translated core {}, will it be skipped {}",
-                    translated_core.str(),
-                    rows_to_exclude.find(virtual_y) != rows_to_exclude.end());
                 if (rows_to_exclude.find(virtual_y) != rows_to_exclude.end()) {
                     continue;
                 }
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
-                    << "Vector read back from core " << core.str() << " does not match what was broadcasted";
+                    << "Vector read back from chip " << chip_id << " core " << core.str()
+                    << " does not match what was broadcasted for size " << size;
                 cluster.write_to_device(
                     zeros.data(),
                     zeros.size() * sizeof(std::uint32_t),
@@ -592,7 +589,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from DRAM core " << chip_id << " " << core.str()
-                    << " does not match what was broadcasted " << size;
+                    << " does not match what was broadcasted for size " << size;
                 cluster.write_to_device(
                     zeros.data(),
                     zeros.size() * sizeof(std::uint32_t),

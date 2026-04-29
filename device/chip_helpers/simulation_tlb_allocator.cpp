@@ -143,11 +143,11 @@ void SimulationTlbAllocator::initialize_architecture_config() {
         // ONE_MB and SIXTEEN_MB stay at default (count=0).
 
     } else {
-        // Intentional: architectures like QUASAR construct SimulationTlbManager
-        // but bypass this allocator entirely (SimulationTlbManager::
-        // allocate_tlb_window short-circuits to the factory without ever
-        // calling allocate_tlb_index). Leaving every pool empty is the signal
-        // that allocator-driven addressing is not in use.
+        // Intentional: architectures like QUASAR construct a SimulationTlbAllocator
+        // but the sim TTDevice's constructor bypasses it entirely (builds the
+        // cached TLB window with a fixed index, never calling allocate_tlb_index).
+        // Leaving every pool empty is the signal that allocator-driven addressing
+        // is not in use.
         log_debug(
             LogUMD,
             fmt::format(

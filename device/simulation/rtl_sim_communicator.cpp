@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "simulation_device_generated.h"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"

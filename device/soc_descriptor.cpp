@@ -22,7 +22,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"

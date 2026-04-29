@@ -19,7 +19,6 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {

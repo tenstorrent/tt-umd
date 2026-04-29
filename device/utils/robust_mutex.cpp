@@ -22,7 +22,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "assert.hpp"
 #include "umd/device/utils/error.hpp"
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.

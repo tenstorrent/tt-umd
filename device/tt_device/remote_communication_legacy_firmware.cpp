@@ -12,7 +12,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"

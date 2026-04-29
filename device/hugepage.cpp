@@ -21,7 +21,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "umd/device/utils/error.hpp"
 

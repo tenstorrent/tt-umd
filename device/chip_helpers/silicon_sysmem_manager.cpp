@@ -25,7 +25,6 @@
 #include <tuple>
 #include <vector>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
 #include "tracy.hpp"

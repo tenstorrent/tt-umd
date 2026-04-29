@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"

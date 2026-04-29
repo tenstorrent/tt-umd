@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"

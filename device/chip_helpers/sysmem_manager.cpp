@@ -9,7 +9,6 @@
 #include <cstring>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
 #include "tracy.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"

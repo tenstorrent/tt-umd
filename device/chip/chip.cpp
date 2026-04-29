@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -250,7 +249,7 @@ void Chip::wait_for_aiclk_value(
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
                 "{}",
-                timeout_ms,
+                timeout_ms.count(),
                 target_aiclk,
                 aiclk,
                 tt_device->get_asic_temperature());

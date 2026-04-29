@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "assert.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"

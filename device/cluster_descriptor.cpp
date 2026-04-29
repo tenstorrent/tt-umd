@@ -26,7 +26,6 @@
 #include <vector>
 
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
-#include "assert.hpp"
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"

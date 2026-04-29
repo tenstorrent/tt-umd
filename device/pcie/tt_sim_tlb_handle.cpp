@@ -65,8 +65,7 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_.static_vc = 0;
 
     // Get architecture from manager to determine correct offsets.
-    const architecture_implementation* arch_impl = sim_manager_->get_architecture_impl();
-    tt::ARCH architecture = arch_impl->get_architecture();
+    tt::ARCH architecture = get_arch();
 
     log_debug(
         LogUMD,
@@ -150,5 +149,7 @@ void TTSimTlbHandle::free_tlb() noexcept {
         log_debug(LogUMD, "Freed simulation TLB with ID {}", tlb_id_);
     }
 }
+
+tt::ARCH TTSimTlbHandle::get_arch() const { return sim_manager_->get_arch(); }
 
 }  // namespace tt::umd

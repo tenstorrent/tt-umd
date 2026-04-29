@@ -37,6 +37,8 @@ public:
 
     void configure(const tlb_data& new_config) override;
 
+    tt::ARCH get_arch() const override;
+
 private:
     void free_tlb() noexcept override;
 

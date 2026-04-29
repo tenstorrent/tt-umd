@@ -16,7 +16,6 @@
 #include <functional>
 #include <memory>
 
-#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -110,7 +109,7 @@ void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t siz
 
     validate(offset, size);
 
-    if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
+    if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_to_device((void *)dst, src, size);
     } else {
         memcpy((void *)dst, (void *)src, size);
@@ -122,7 +121,7 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
 
     validate(offset, size);
 
-    if (PCIDevice::get_pcie_arch() == tt::ARCH::WORMHOLE_B0) {
+    if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_from_device(data, src, size);
     } else {
         memcpy(data, src, size);
@@ -285,7 +284,5 @@ void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
     void *dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
     execute_safe(&SiliconTlbWindow::noc_multicast_write_reconfigure, dst, size, core_start, core_end, addr, ordering);
 }
-
-tt::ARCH SiliconTlbWindow::get_arch() const { return PCIDevice::get_pcie_arch(); }
 
 }  // namespace tt::umd

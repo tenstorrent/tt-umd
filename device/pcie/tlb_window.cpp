@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "umd/device/pcie/tlb_window.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -11,8 +13,6 @@
 #include <utility>
 
 #include "noc_access.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
 
 namespace tt::umd {
 
@@ -31,7 +31,7 @@ void TlbWindow::read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t 
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = get_arch() != tt::ARCH::BLACKHOLE;
+    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);
@@ -57,7 +57,7 @@ void TlbWindow::write_block_reconfigure(
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = get_arch() != tt::ARCH::BLACKHOLE;
+    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);
@@ -87,7 +87,7 @@ void TlbWindow::noc_multicast_write_reconfigure(
     config.mcast = true;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = ordering;
-    config.static_vc = get_arch() != tt::ARCH::BLACKHOLE;
+    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
 
     while (size > 0) {
         configure(config);

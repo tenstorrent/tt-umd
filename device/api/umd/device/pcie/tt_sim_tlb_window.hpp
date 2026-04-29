@@ -37,9 +37,6 @@ public:
 
     uint16_t safe_read16(uint64_t offset) override;
 
-protected:
-    tt::ARCH get_arch() const override;
-
 private:
     /**
      * Get the physical address for a TLB window offset.

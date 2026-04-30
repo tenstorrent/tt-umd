@@ -793,10 +793,14 @@ void Cluster::broadcast_write_to_cluster(
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
-                if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
-                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+            // Write only to TENSIX and DRAM cores.
+            for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
+                for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
+                         core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
+                    if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
+                        rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
+                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                    }
                 }
             }
         }

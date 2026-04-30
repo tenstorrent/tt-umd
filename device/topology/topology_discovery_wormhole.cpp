@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
@@ -253,6 +254,7 @@ uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, tt_xy_
 }
 
 void TopologyDiscoveryWormhole::retrain_eth_cores() {
+    ZoneScopedC(tracy::Color::DarkGreen);
     if (!is_running_on_6u || !options.perform_6u_eth_retrain) {
         return;
     }

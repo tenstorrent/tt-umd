@@ -209,7 +209,7 @@ int Chip::arc_msg(
 }
 
 void Chip::set_power_state(DevicePowerState state) {
-    ZoneScopedN("UMD_Chip::set_power_state");
+    ZoneScoped;
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);

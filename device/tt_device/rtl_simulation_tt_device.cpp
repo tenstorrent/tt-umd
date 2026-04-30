@@ -44,6 +44,17 @@ static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
 
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
+namespace {
+void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
+    if (noc_id == NocId::SYSTEM_NOC && arch != tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
+    }
+    if (noc_id == NocId::NOC1 && arch == tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
+    }
+}
+}  // namespace
+
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
@@ -113,12 +124,7 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
 
     NocId noc_id = get_selected_noc_id();
-    if (noc_id == NocId::SYSTEM_NOC && get_soc_descriptor().arch != tt::ARCH::QUASAR) {
-        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
-    }
-    if (noc_id == NocId::NOC1 && get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
-    }
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
 
     if (noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
@@ -136,12 +142,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     std::lock_guard<std::recursive_mutex> lock(device_lock);
 
     NocId noc_id = get_selected_noc_id();
-    if (noc_id == NocId::SYSTEM_NOC && get_soc_descriptor().arch != tt::ARCH::QUASAR) {
-        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
-    }
-    if (noc_id == NocId::NOC1 && get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
-    }
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
 
     if (noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);

@@ -479,6 +479,7 @@ public:
      * @param chips_to_exclude Chips to exclude from the broadcast.
      * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
      * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param use_translated_coords If true, rows and columns to be excluded are in translated-index space.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -486,7 +487,8 @@ public:
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude);
+        std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords);
 
     /**
      * Provide fast read/write access to a statically-mapped TLB.

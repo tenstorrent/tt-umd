@@ -189,7 +189,7 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
     0x00100713,  // li a4, 1
     0x28e7a623,  // sw a4, 652(a5)
     0x00078713,  // mv a4, a5
-    0x02c00793,  // li a5, 52
+    0x04c00793,  // li a5, 0x4C
     0x26f72c23,  // sw a5, 632(a4)
     0x26f72e23,  // sw a5, 636(a4)
     0x28f72023,  // sw a5, 640(a4)

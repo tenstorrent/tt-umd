@@ -183,8 +183,8 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ClusterDescriptor* cluster_desc,
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
-    const std::filesystem::path& simulator_directory,
     std::unique_ptr<TTDevice> tt_device) {
+    // SIMULATION never reaches here — it's handled by construct_simulation_cluster.
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
     }
@@ -195,18 +195,6 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         throw std::runtime_error(
             "SWEMULE device is not supported in this build. Set '-DTT_UMD_BUILD_EMULE=ON' during cmake "
             "configuration to enable software emulation device.");
-#endif
-    }
-    if (chip_type == ChipType::SIMULATION) {
-#ifdef TT_UMD_BUILD_SIMULATION
-        log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(
-            simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
-#else
-        UMD_THROW(
-            error::RuntimeError,
-            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
-            "configuration to enable simulation device.");
 #endif
     }
 
@@ -316,6 +304,92 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
     options_ = options;
+    if (options.chip_type == ChipType::SIMULATION) {
+        construct_simulation_cluster(options);
+    } else {
+        construct_silicon_or_mock_cluster(options);
+    }
+    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+}
+
+void Cluster::resolve_num_host_mem_ch_default(ClusterOptions& options) const {
+    if (options.num_host_mem_ch_per_mmio_device.has_value()) {
+        return;
+    }
+    auto grouped_chips = cluster_desc->get_chips_grouped_by_closest_mmio();
+    uint32_t max_chips_per_mmio = 0;
+    for (const auto& [mmio_device_id, chips] : grouped_chips) {
+        max_chips_per_mmio = std::max(max_chips_per_mmio, static_cast<uint32_t>(chips.size()));
+    }
+    options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
+    log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
+}
+
+void Cluster::construct_simulation_cluster(ClusterOptions& options) {
+#ifdef TT_UMD_BUILD_SIMULATION
+    const bool is_ttsim_simulation = options.simulator_directory.extension() == ".so";
+    auto arch = tt::ARCH::WORMHOLE_B0;
+    std::unique_ptr<Chip> bootstrap_chip;
+    const ChipId bootstrap_id = options.target_devices.empty() ? ChipId{0} : *options.target_devices.begin();
+
+    if (options.cluster_descriptor != nullptr) {
+        // User-provided cluster descriptor: trust their topology and arch; no bootstrap or yaml.
+        cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+            options.cluster_descriptor, options.target_devices);
+    } else {
+        if (is_ttsim_simulation) {
+            // TTSim: bootstrap the first chip via SimulationChip's PCI-config factory so we can
+            // derive arch without any soc_descriptor.yaml. The chip is reused below.
+            const bool copy_sim_binary = options.target_devices.size() > 1;
+            bootstrap_chip = SimulationChip::create(
+                options.simulator_directory,
+                bootstrap_id,
+                options.num_host_mem_ch_per_mmio_device.value_or(0),
+                copy_sim_binary);
+            arch = bootstrap_chip->get_soc_descriptor().arch;
+        } else {
+            // RTL simulation (versim/vcs): arch comes from the yaml next to the simulator.
+            if (options.sdesc_path.empty()) {
+                options.sdesc_path =
+                    SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+            }
+            arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
+        }
+        // Noc translation is enabled for ttsim simulation only — versim/vcs uses NOC0 coords.
+        const bool noc_translation_enabled = is_ttsim_simulation;
+        auto temp_full_cluster_desc_ptr =
+            ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+        cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+            temp_full_cluster_desc_ptr.get(), options.target_devices);
+    }
+
+    resolve_num_host_mem_ch_default(options);
+
+    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
+        std::unique_ptr<Chip> chip;
+        if (chip_id == bootstrap_id && bootstrap_chip != nullptr) {
+            chip = std::move(bootstrap_chip);
+        } else {
+            SocDescriptor soc_desc =
+                construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
+            chip = SimulationChip::create(
+                options.simulator_directory,
+                soc_desc,
+                chip_id,
+                cluster_desc->get_number_of_chips(),
+                options.num_host_mem_ch_per_mmio_device.value());
+        }
+        add_chip(chip_id, options.chip_type, std::move(chip));
+    }
+#else
+    UMD_THROW(
+        error::RuntimeError,
+        "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
+        "configuration to enable simulation device.");
+#endif
+}
+
+void Cluster::construct_silicon_or_mock_cluster(ClusterOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
@@ -332,56 +406,25 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
             break;
         }
         case ChipType::MOCK:
-        case ChipType::SWEMULE:
-        case ChipType::SIMULATION: {
-            if (options.cluster_descriptor == nullptr) {
-                // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
-                // cluster descriptor from passed target devices.
-                auto arch = tt::ARCH::WORMHOLE_B0;
-#ifdef TT_UMD_BUILD_SIMULATION
-                if (options.chip_type == ChipType::SIMULATION) {
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path =
-                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
-                    }
-                    arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
-                }
-#endif
-                // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
-                // simulation.
-                bool is_ttsim_simulation =
-                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
-                bool noc_translation_enabled = options.chip_type == ChipType::MOCK ||
-                                               options.chip_type == ChipType::SWEMULE || is_ttsim_simulation;
-                std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =
-                    ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
-
+        case ChipType::SWEMULE: {
+            if (options.cluster_descriptor != nullptr) {
                 cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                    temp_full_cluster_desc_ptr.get(), options.target_devices);
-
+                    options.cluster_descriptor, options.target_devices);
                 break;
             }
-
+            // Mock/SWEmule clusters use a default mock topology with translated NOC coords.
+            auto temp_full_cluster_desc_ptr = ClusterDescriptor::create_mock_cluster(
+                options.target_devices, tt::ARCH::WORMHOLE_B0, /*noc_translation_enabled=*/true);
             cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                options.cluster_descriptor, options.target_devices);
-
+                temp_full_cluster_desc_ptr.get(), options.target_devices);
             break;
         }
         default:
             UMD_THROW(error::RuntimeError, "Unsupported chip type.");
     }
 
-    if (!options.num_host_mem_ch_per_mmio_device.has_value()) {
-        auto grouped_chips = cluster_desc->get_chips_grouped_by_closest_mmio();
-        uint32_t max_chips_per_mmio = 0;
-        for (const auto& [mmio_device_id, chips] : grouped_chips) {
-            max_chips_per_mmio = std::max(max_chips_per_mmio, static_cast<uint32_t>(chips.size()));
-        }
-        options.num_host_mem_ch_per_mmio_device = std::min(MAX_HOST_MEM_CHANNELS, max_chips_per_mmio);
-        log_debug(LogUMD, "Set number of host memory channels to {}.", options.num_host_mem_ch_per_mmio_device.value());
-    }
+    resolve_num_host_mem_ch_default(options);
 
-    // Construct all the required chips from the cluster descriptor.
     for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         SocDescriptor soc_desc =
             construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
@@ -403,11 +446,8 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 cluster_desc.get(),
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device.value(),
-                options.simulator_directory,
                 std::move(tt_device)));
     }
-
-    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

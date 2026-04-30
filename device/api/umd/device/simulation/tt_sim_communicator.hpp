@@ -109,6 +109,10 @@ public:
      * These functions should basically implement how we handle copying data to/from system memory
      * when transactions are initiated by device.
      *
+     * Internally also registers the static dispatch wrappers with the simulator (the underlying
+     * libttsim_set_pci_dma_mem_callbacks call is idempotent and must happen pre-start_sim, so
+     * once registered it is not invoked again — making this safe to call at any time).
+     *
      * @param pfn_pci_dma_mem_rd_bytes Callback for PCIe DMA read operations, with parameters (system bus address,
      * buffer pointer, size).
      * @param pfn_pci_dma_mem_wr_bytes Callback for PCIe DMA write operations, with parameters (system bus address,
@@ -117,6 +121,14 @@ public:
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
         std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+
+    /**
+     * Register the static PCIe DMA dispatch wrappers with the simulator without binding any
+     * actual callback functions. Must be called BEFORE start_sim() (the simulator rejects late
+     * registration). Idempotent — subsequent calls are no-ops. Used by TTSimTTDevice::create()
+     * to satisfy the simulator's "register before start_sim" contract before reading PCI config.
+     */
+    void register_pci_dma_dispatch_with_simulator();
 
     void start_sim();
 
@@ -157,6 +169,10 @@ private:
     // Stored callbacks for DMA memory operations.
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
+
+    // Tracks whether the static dispatch wrappers have been registered with the simulator.
+    // Used to keep register_pci_dma_dispatch_with_simulator() idempotent.
+    bool dma_dispatch_registered_ = false;
 
     // Static instance pointer for callback wrappers.
     static TTSimCommunicator *callback_instance_;

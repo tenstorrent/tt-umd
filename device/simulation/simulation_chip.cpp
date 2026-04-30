@@ -13,6 +13,7 @@
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
@@ -32,6 +33,19 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
     } else {
         return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
     }
+}
+
+std::unique_ptr<SimulationChip> SimulationChip::create(
+    const std::filesystem::path& simulator_directory, ChipId chip_id, int num_host_mem_channels, bool copy_sim_binary) {
+    if (simulator_directory.extension() != ".so") {
+        UMD_THROW(
+            error::RuntimeError,
+            "SimulationChip::create without an explicit SocDescriptor is only supported for TTSim (.so) "
+            "simulator paths; RTL simulation requires an explicit SocDescriptor.");
+    }
+    auto tt_device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels, copy_sim_binary);
+    SocDescriptor soc_descriptor = tt_device->get_soc_descriptor();
+    return TTSimChip::create(std::move(tt_device), simulator_directory, soc_descriptor, chip_id);
 }
 
 std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {

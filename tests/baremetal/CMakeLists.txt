@@ -7,6 +7,7 @@ set(BAREMETAL_TESTS_SRCS
     test_long_jump.cpp
     test_notification_mechanism.cpp
     test_cluster.cpp
+    test_pci_ids.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

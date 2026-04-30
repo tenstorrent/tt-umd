@@ -38,6 +38,16 @@ public:
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0);
+
+    // Variant used by TTSimTTDevice::create() — accepts a TTSimCommunicator that
+    // has already been initialize()'d and start_sim()'d. Skips re-initialization.
+    TTSimTTDevice(
+        std::unique_ptr<TTSimCommunicator> communicator,
+        const std::filesystem::path &simulator_directory,
+        const SocDescriptor &soc_descriptor,
+        ChipId chip_id,
+        int num_host_mem_channels = 0);
+
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
@@ -86,6 +96,10 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
+    // Common post-init work shared by both constructors: sysmem callbacks, PCI ID readout,
+    // TLB region config, and TLB manager construction.
+    void finalize_initialization(const SocDescriptor &soc_descriptor);
+
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);

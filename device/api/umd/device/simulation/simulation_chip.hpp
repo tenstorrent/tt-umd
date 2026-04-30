@@ -30,6 +30,7 @@ enum class ARCH;
 namespace tt::umd {
 class ClusterDescriptor;
 class SocDescriptor;
+class TTSimTTDevice;
 enum class TensixSoftResetOptions : std::uint32_t;
 
 // Base class for all simulation devices.
@@ -37,12 +38,33 @@ class SimulationChip : public Chip {
 public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
+    // Create a SimulationChip when the SocDescriptor is already known. Works for both TTSim
+    // (.so) and RTL simulation (versim/vcs) paths.
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         size_t num_chips,
         int num_host_mem_channels = 0);
+
+    /**
+     * Create a SimulationChip without an explicit SocDescriptor. Mirrors the LocalChip::create
+     * overload that derives SocDescriptor from the device itself.
+     *
+     * For TTSim (.so) only: loads the .so, initializes the communicator, reads PCI
+     * configuration space to derive the architecture, and builds a default SocDescriptor
+     * (no soc_descriptor.yaml is consulted). The returned chip exposes the detected
+     * architecture via get_soc_descriptor().arch — Cluster uses this to build a mock
+     * ClusterDescriptor before constructing the remaining chips.
+     *
+     * Throws if simulator_directory does not have a .so extension (RTL simulation cannot
+     * auto-derive its SocDescriptor and must be constructed via the SocDescriptor overload).
+     */
+    static std::unique_ptr<SimulationChip> create(
+        const std::filesystem::path& simulator_directory,
+        ChipId chip_id,
+        int num_host_mem_channels = 0,
+        bool copy_sim_binary = false);
 
     ~SimulationChip() override = default;
 

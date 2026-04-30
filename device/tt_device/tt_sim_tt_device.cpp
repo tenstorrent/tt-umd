@@ -20,7 +20,6 @@
 #include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
-#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
@@ -36,18 +35,42 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
-    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    // Bootstrap the simulator so we can read its PCI config and derive the architecture without
+    // consulting any soc_descriptor.yaml. The simulator's contract is strict:
+    //   1. dlopen + dlsym (initialize)
+    //   2. register PCIe DMA dispatch wrappers (must be pre-start_sim)
+    //   3. start_sim
+    //   4. pci_config_read32 (only valid post-start_sim)
+    // We can't bind the actual DMA callbacks here because they need a `this` pointer of the
+    // TTSimTTDevice we're about to construct — so we register only the static dispatch first,
+    // then later (in the ctor) bind the real callbacks via set_pcie_dma_mem_callbacks(),
+    // which is now idempotent w.r.t. the simulator-side registration.
+    auto communicator = std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary);
+    communicator->initialize();
+    communicator->register_pci_dma_dispatch_with_simulator();
+    communicator->start_sim();
+
+    uint32_t pci_id = communicator->pci_config_read32(0, 0);
+    uint32_t vendor_id = pci_id & 0xFFFF;
+    uint16_t device_id = static_cast<uint16_t>(pci_id >> 16);
+    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID from TTSim simulator.");
+
+    tt::ARCH arch = arch_from_pci_device_id(device_id);
+    if (arch == tt::ARCH::Invalid) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("TTSim simulator reported unknown PCI device ID 0x{:x}.", device_id));
+    }
+
     ChipInfo chip_info{};
     if (arch == tt::ARCH::BLACKHOLE) {
-        // We need to set this default harvesting mask for Blackhole so we could create SocDescriptor.
-        // We have the same code in creating mock cluster descriptor, but this code is supposed to be used.
-        // without creating ClusterDescriptor, so we need to add it here as well.
+        // Mirror the default applied by ClusterDescriptor::create_mock_cluster() and
+        // TTSimTTDevice::get_chip_info() so SocDescriptor construction validates on BH.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
+    SocDescriptor soc_descriptor(arch, chip_info);
+
     return std::make_unique<TTSimTTDevice>(
-        simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
+        std::move(communicator), simulator_directory, soc_descriptor, 0, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -69,10 +92,34 @@ TTSimTTDevice::TTSimTTDevice(
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
+    finalize_initialization(soc_descriptor);
+}
+
+TTSimTTDevice::TTSimTTDevice(
+    std::unique_ptr<TTSimCommunicator> communicator,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    int num_host_mem_channels) :
+    communicator_(std::move(communicator)),
+    simulator_directory_(simulator_directory),
+    chip_id_(chip_id),
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    set_soc_descriptor(soc_descriptor);
+    arch = soc_descriptor.arch;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+    // Communicator is already initialize()'d, dma-dispatch-registered, and start_sim()'d by the
+    // factory. Bind our DMA callbacks now — the simulator-side registration is idempotent so
+    // this is safe post-start_sim. Then re-read PCI config and finish TLB setup.
+    initialize_sysmem_functions();
+    finalize_initialization(soc_descriptor);
+}
+
+void TTSimTTDevice::finalize_initialization(const SocDescriptor& soc_descriptor) {
     // Read the PCI ID (first 32 bits of PCI config space).
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
     uint32_t vendor_id = pci_id & 0xFFFF;
-    libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
+    libttsim_pci_device_id = pci_id >> 16;
     log_info(
         tt::LogEmulationDriver,
         "TTSimTTDevice chip_id={} PCI vendor_id=0x{:x} device_id=0x{:x}",

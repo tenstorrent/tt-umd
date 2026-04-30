@@ -29,6 +29,15 @@ public:
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0);
+
+    // Factory for use by Cluster: takes a pre-built TTSimTTDevice (already initialized
+    // and SocDescriptor-correct, e.g. from TTSimTTDevice::create()).
+    static std::unique_ptr<TTSimChip> create(
+        std::unique_ptr<TTSimTTDevice> tt_device,
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id);
+
     ~TTSimChip() override;
 
     void start_device() override;
@@ -49,6 +58,14 @@ public:
     TLBManager* get_tlb_manager() override;
 
 private:
+    // Private ctor used by the static create() factory above — does not build a
+    // TTSimTTDevice; takes ownership of the one passed in.
+    TTSimChip(
+        std::unique_ptr<TTSimTTDevice> tt_device,
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id);
+
     void create_simulator_binary();
     off_t resize_simulator_binary(int src_fd);
     void copy_simulator_binary();

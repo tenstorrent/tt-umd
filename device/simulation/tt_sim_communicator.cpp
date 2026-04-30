@@ -118,7 +118,20 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
     callback_instance_ = this;
+    if (!dma_dispatch_registered_) {
+        pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+        dma_dispatch_registered_ = true;
+    }
+}
+
+void TTSimCommunicator::register_pci_dma_dispatch_with_simulator() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (dma_dispatch_registered_) {
+        return;
+    }
+    callback_instance_ = this;
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+    dma_dispatch_registered_ = true;
 }
 
 void TTSimCommunicator::create_simulator_binary() {

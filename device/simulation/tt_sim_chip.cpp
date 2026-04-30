@@ -27,6 +27,24 @@ TTSimChip::TTSimChip(
         simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
+TTSimChip::TTSimChip(
+    std::unique_ptr<TTSimTTDevice> tt_device,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id) :
+    SimulationChip(simulator_directory, soc_descriptor, chip_id) {
+    tt_device_ = std::move(tt_device);
+}
+
+std::unique_ptr<TTSimChip> TTSimChip::create(
+    std::unique_ptr<TTSimTTDevice> tt_device,
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id) {
+    return std::unique_ptr<TTSimChip>(
+        new TTSimChip(std::move(tt_device), simulator_directory, soc_descriptor, chip_id));
+}
+
 TTSimChip::~TTSimChip() = default;
 
 void TTSimChip::start_device() {}

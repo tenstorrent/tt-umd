@@ -731,19 +731,33 @@ private:
     void log_pci_device_summary();
 
     // Helper functions for constructing the chips from the cluster descriptor.
+    // SILICON / MOCK / SWEMULE — chips are built from a constructed ClusterDescriptor; SILICON
+    // additionally reuses TTDevices from topology discovery.
     std::unique_ptr<Chip> construct_chip_from_cluster(
         ChipId chip_id,
         const ChipType& chip_type,
         ClusterDescriptor* cluster_desc,
         SocDescriptor& soc_desc,
         int num_host_mem_channels,
-        const std::filesystem::path& simulator_directory,
         std::unique_ptr<TTDevice> tt_device = nullptr);
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
     void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
+
+    // Top-level construction paths invoked from Cluster::Cluster(). SIMULATION goes through
+    // construct_simulation_cluster (TTSim bootstraps a chip from PCI config to derive arch;
+    // RTL still parses yaml). Everything else (SILICON, MOCK, SWEMULE) goes through the shared
+    // ClusterDescriptor-driven path. When SimulationChip is eventually retired the two paths
+    // can collapse back into one.
+    void construct_simulation_cluster(ClusterOptions& options);
+    void construct_silicon_or_mock_cluster(ClusterOptions& options);
+
+    // Resolve the default for ClusterOptions::num_host_mem_ch_per_mmio_device based on the
+    // already-constructed ClusterDescriptor (so a value is always present before chip
+    // construction). No-op if a value was supplied by the user.
+    void resolve_num_host_mem_ch_default(ClusterOptions& options) const;
 
     // State variables.
     std::set<ChipId> all_chip_ids_;

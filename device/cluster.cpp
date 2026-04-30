@@ -328,58 +328,79 @@ void Cluster::resolve_num_host_mem_ch_default(ClusterOptions& options) const {
 void Cluster::construct_simulation_cluster(ClusterOptions& options) {
 #ifdef TT_UMD_BUILD_SIMULATION
     const bool is_ttsim_simulation = options.simulator_directory.extension() == ".so";
-    auto arch = tt::ARCH::WORMHOLE_B0;
-    std::unique_ptr<Chip> bootstrap_chip;
-    const ChipId bootstrap_id = options.target_devices.empty() ? ChipId{0} : *options.target_devices.begin();
 
+    // Decide which chip ids to construct. When the user supplies a cluster descriptor we
+    // honor its (constrained) chip set; otherwise target_devices is the source of truth.
+    std::unordered_set<ChipId> chip_ids;
     if (options.cluster_descriptor != nullptr) {
-        // User-provided cluster descriptor: trust their topology and arch; no bootstrap or yaml.
+        auto constrained = ClusterDescriptor::create_constrained_cluster_descriptor(
+            options.cluster_descriptor, options.target_devices);
+        chip_ids = constrained->get_all_chips();
+    } else {
+        chip_ids = options.target_devices;
+    }
+
+    // For RTL simulation (versim/vcs) the arch comes from the yaml next to the simulator and
+    // the SocDescriptor is shared across all chips. TTSim chips self-derive arch from PCI
+    // config inside SimulationChip::create() (no yaml).
+    SocDescriptor rtl_soc_descriptor;
+    if (!is_ttsim_simulation) {
+        if (options.sdesc_path.empty()) {
+            options.sdesc_path =
+                SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+        }
+        rtl_soc_descriptor = SocDescriptor(options.sdesc_path, ChipInfo{});
+    }
+
+    // For simulation, every chip is its own MMIO chip — one host memory channel per chip
+    // matches the value resolve_num_host_mem_ch_default() would compute from the (mock)
+    // cluster descriptor, so set it directly without depending on cluster_desc.
+    if (!options.num_host_mem_ch_per_mmio_device.has_value()) {
+        options.num_host_mem_ch_per_mmio_device = 1;
+    }
+
+    // Construct each simulation chip. All simulation chips are local, so we register them
+    // directly into chips_/all_chip_ids_/local_chip_ids_ without going through add_chip().
+    const bool copy_sim_binary = chip_ids.size() > 1;
+    tt::ARCH detected_arch = is_ttsim_simulation ? tt::ARCH::Invalid : rtl_soc_descriptor.arch;
+    for (const ChipId chip_id : chip_ids) {
+        std::unique_ptr<SimulationChip> chip;
+        if (is_ttsim_simulation) {
+            chip = SimulationChip::create(
+                options.simulator_directory, chip_id, options.num_host_mem_ch_per_mmio_device.value(), copy_sim_binary);
+            if (detected_arch == tt::ARCH::Invalid) {
+                detected_arch = chip->get_soc_descriptor().arch;
+            }
+        } else {
+            chip = SimulationChip::create(
+                options.simulator_directory,
+                rtl_soc_descriptor,
+                chip_id,
+                chip_ids.size(),
+                options.num_host_mem_ch_per_mmio_device.value());
+        }
+        TT_ASSERT(
+            chips_.find(chip_id) == chips_.end(),
+            "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
+            chip_id);
+        all_chip_ids_.insert(chip_id);
+        local_chip_ids_.insert(chip_id);
+        chips_.emplace(chip_id, std::move(chip));
+    }
+
+    // Build the cluster descriptor at the end. Cluster getters (get_arch, is_chip_mmio_capable,
+    // ...) and construct_cluster() depend on it; for simulation, it is essentially a mock view
+    // of the chips we just created.
+    if (options.cluster_descriptor != nullptr) {
         cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
             options.cluster_descriptor, options.target_devices);
     } else {
-        if (is_ttsim_simulation) {
-            // TTSim: bootstrap the first chip via SimulationChip's PCI-config factory so we can
-            // derive arch without any soc_descriptor.yaml. The chip is reused below.
-            const bool copy_sim_binary = options.target_devices.size() > 1;
-            bootstrap_chip = SimulationChip::create(
-                options.simulator_directory,
-                bootstrap_id,
-                options.num_host_mem_ch_per_mmio_device.value_or(0),
-                copy_sim_binary);
-            arch = bootstrap_chip->get_soc_descriptor().arch;
-        } else {
-            // RTL simulation (versim/vcs): arch comes from the yaml next to the simulator.
-            if (options.sdesc_path.empty()) {
-                options.sdesc_path =
-                    SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
-            }
-            arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
-        }
         // Noc translation is enabled for ttsim simulation only — versim/vcs uses NOC0 coords.
         const bool noc_translation_enabled = is_ttsim_simulation;
         auto temp_full_cluster_desc_ptr =
-            ClusterDescriptor::create_mock_cluster(options.target_devices, arch, noc_translation_enabled);
+            ClusterDescriptor::create_mock_cluster(options.target_devices, detected_arch, noc_translation_enabled);
         cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
             temp_full_cluster_desc_ptr.get(), options.target_devices);
-    }
-
-    resolve_num_host_mem_ch_default(options);
-
-    for (auto& chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
-        std::unique_ptr<Chip> chip;
-        if (chip_id == bootstrap_id && bootstrap_chip != nullptr) {
-            chip = std::move(bootstrap_chip);
-        } else {
-            SocDescriptor soc_desc =
-                construct_soc_descriptor(options.sdesc_path, chip_id, options.chip_type, cluster_desc.get());
-            chip = SimulationChip::create(
-                options.simulator_directory,
-                soc_desc,
-                chip_id,
-                cluster_desc->get_number_of_chips(),
-                options.num_host_mem_ch_per_mmio_device.value());
-        }
-        add_chip(chip_id, options.chip_type, std::move(chip));
     }
 #else
     UMD_THROW(

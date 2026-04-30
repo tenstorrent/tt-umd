@@ -455,11 +455,50 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     if (is_remote_tt_device) {
-        // Remote devices don't have direct NOC multicast support.
-        // Fallback to unicast for all cores in the range.
-        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
-            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
-                write_to_device(src, xy_pair(x, y), addr, size);
+        // TODO: implement multicast over remote communication.
+        // For now, fall back to unicast, targeting only non-harvested TENSIX cores to match hardware
+        // multicast behavior.
+        //
+        // Coordinates may be in translated or NOC0 space; we check both since their ranges don't overlap.
+        // In translated space, non-harvested TENSIX rows occupy a prefix of the TENSIX translated rect.
+        // In NOC0 space, we look up the core in TENSIX_CORES_NOC0 and check its row against the mask.
+        const uint32_t tensix_harvesting_mask = get_chip_info().harvesting_masks.tensix_harvesting_mask;
+
+        uint32_t num_harvested = 0;
+        for (uint32_t mask = tensix_harvesting_mask; mask; mask >>= 1) {
+            num_harvested += mask & 1;
+        }
+        const uint32_t num_active_rows = wormhole::TENSIX_GRID_SIZE.y - num_harvested;
+
+        auto is_active_tensix = [&](uint32_t x, uint32_t y) -> bool {
+            // Translated space: non-harvested TENSIX rows are the first num_active_rows rows of the rect.
+            if (x >= wormhole::tensix_translated_coordinate_start_x &&
+                x < wormhole::tensix_translated_coordinate_start_x + wormhole::TENSIX_GRID_SIZE.x &&
+                y >= wormhole::tensix_translated_coordinate_start_y &&
+                y < wormhole::tensix_translated_coordinate_start_y + num_active_rows) {
+                return true;
+            }
+            // NOC0 space: find the core in TENSIX_CORES_NOC0 and check whether its row is harvested.
+            const tt_xy_pair coord{x, y};
+            auto it = std::find(wormhole::TENSIX_CORES_NOC0.begin(), wormhole::TENSIX_CORES_NOC0.end(), coord);
+            if (it == wormhole::TENSIX_CORES_NOC0.end()) {
+                return false;
+            }
+            const size_t row = (it - wormhole::TENSIX_CORES_NOC0.begin()) / wormhole::TENSIX_GRID_SIZE.x;
+            return (tensix_harvesting_mask & (1u << row)) == 0;
+        };
+
+        for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+            for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+                log_trace(
+                    LogUMD,
+                    "noc_multicast_write fallback unicast to core at ({}, {}) is_tensix {}",
+                    x,
+                    y,
+                    is_active_tensix(x, y));
+                if (is_active_tensix(x, y)) {
+                    write_to_device(src, xy_pair(x, y), addr, size);
+                }
             }
         }
         return;

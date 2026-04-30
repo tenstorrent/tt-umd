@@ -19,7 +19,6 @@
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

@@ -35,7 +35,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"

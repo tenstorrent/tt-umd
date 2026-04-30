@@ -18,7 +18,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

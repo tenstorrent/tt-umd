@@ -41,7 +41,6 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 #include "umd/device/utils/semver.hpp"

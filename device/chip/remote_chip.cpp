@@ -23,7 +23,6 @@
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

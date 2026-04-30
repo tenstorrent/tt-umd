@@ -67,8 +67,7 @@ public:
         if (err != 0) {
             // Try to unlock the flock without handling further exceptions.
             flock(fd_, LOCK_UN);
-            UMD_ASSERT(
-                false,
+            UMD_THROW(
                 error::RuntimeError,
                 fmt::format("pthread_mutex_lock() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
         }

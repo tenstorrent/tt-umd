@@ -624,7 +624,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
         UMD_ASSERT(
             endpoints.size() <= 3,
             error::RuntimeError,
-            "Ethernet connections in YAML should always contatin information on connected endpoints and optionally "
+            "Ethernet connections in YAML should always contain information on connected endpoints and optionally "
             "information on whether "
             "routing is enabled.");
 
@@ -696,7 +696,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
             UMD_ASSERT(
                 endpoints.size() == 2,
                 error::RuntimeError,
-                "Remote ethernet connections in YAML should always contatin information on connected endpoints and "
+                "Remote ethernet connections in YAML should always contain information on connected endpoints and "
                 "channels");
 
             ChipId chip_0 = endpoints.at(0)["chip"].as<ChipId>();

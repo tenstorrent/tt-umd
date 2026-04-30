@@ -240,14 +240,7 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
     }
 }
 
-tt::ARCH PciDeviceInfo::get_arch() const {
-    if (this->device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
-        return tt::ARCH::WORMHOLE_B0;
-    } else if (this->device_id == TT_BLACKHOLE_PCI_DEVICE_ID) {
-        return tt::ARCH::BLACKHOLE;
-    }
-    return tt::ARCH::Invalid;
-}
+tt::ARCH PciDeviceInfo::get_arch() const { return arch_from_pci_device_id(this->device_id); }
 
 std::vector<int> PCIDevice::enumerate_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);

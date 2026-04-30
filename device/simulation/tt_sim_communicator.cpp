@@ -18,6 +18,9 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "assert.hpp"
+#include "umd/device/pcie/pci_ids.h"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/error_detail.hpp"
 
@@ -118,7 +121,20 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
     callback_instance_ = this;
+    if (!dma_dispatch_registered_) {
+        pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+        dma_dispatch_registered_ = true;
+    }
+}
+
+void TTSimCommunicator::register_pci_dma_dispatch_with_simulator() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (dma_dispatch_registered_) {
+        return;
+    }
+    callback_instance_ = this;
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+    dma_dispatch_registered_ = true;
 }
 
 void TTSimCommunicator::create_simulator_binary() {
@@ -202,6 +218,29 @@ void TTSimCommunicator::close_simulator_binary() {
         close(copied_simulator_fd_);
         copied_simulator_fd_ = -1;
     }
+}
+
+tt::ARCH probe_ttsim_arch(const std::filesystem::path &simulator_directory) {
+    // The simulator's contract: dlopen → register PCIe DMA dispatch wrappers (must be
+    // pre-start_sim) → start_sim → pci_config_read32 (only valid post-start_sim).
+    TTSimCommunicator communicator(simulator_directory, /*copy_sim_binary=*/false);
+    communicator.initialize();
+    communicator.register_pci_dma_dispatch_with_simulator();
+    communicator.start_sim();
+
+    const uint32_t pci_id = communicator.pci_config_read32(0, 0);
+    const uint32_t vendor_id = pci_id & 0xFFFF;
+    const uint16_t device_id = static_cast<uint16_t>(pci_id >> 16);
+
+    communicator.shutdown();
+
+    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID from TTSim simulator.");
+    const tt::ARCH arch = arch_from_pci_device_id(device_id);
+    if (arch == tt::ARCH::Invalid) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("TTSim simulator reported unknown PCI device ID 0x{:x}.", device_id));
+    }
+    return arch;
 }
 
 }  // namespace tt::umd

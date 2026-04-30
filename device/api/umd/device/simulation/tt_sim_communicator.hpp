@@ -11,6 +11,10 @@
 #include <functional>
 #include <mutex>
 
+namespace tt {
+enum class ARCH;
+}  // namespace tt
+
 namespace tt::umd {
 
 /**
@@ -118,6 +122,15 @@ public:
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
         std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
 
+    /**
+     * Register the static PCIe DMA dispatch wrappers with the simulator without binding any
+     * actual callback functions. Must be called BEFORE start_sim() (the simulator rejects late
+     * registration). Idempotent — subsequent calls (including via set_pcie_dma_mem_callbacks)
+     * are no-ops. Used when the host-side callback target is not yet available at start_sim
+     * time (e.g. probing PCI config to derive arch before constructing TTSimTTDevice).
+     */
+    void register_pci_dma_dispatch_with_simulator();
+
     void start_sim();
 
 private:
@@ -158,6 +171,11 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
+    // Tracks whether the static dispatch wrappers have been registered with the simulator,
+    // making register_pci_dma_dispatch_with_simulator() and the simulator-side registration
+    // inside set_pcie_dma_mem_callbacks() idempotent.
+    bool dma_dispatch_registered_ = false;
+
     // Static instance pointer for callback wrappers.
     static TTSimCommunicator *callback_instance_;
 
@@ -168,5 +186,20 @@ private:
     // Thread safety.
     mutable std::mutex device_lock_;
 };
+
+/**
+ * Probe a TTSim simulator binary to derive its architecture from PCI configuration space.
+ *
+ * Loads the simulator (.so), satisfies its pre-start_sim contract by registering the static
+ * PCIe DMA dispatch wrappers (no callback bound), starts the simulator, reads the first 32
+ * bits of PCI config (vendor + device ID), shuts the simulator down, and maps the device ID
+ * to a tt::ARCH via arch_from_pci_device_id().
+ *
+ * Throws if the vendor ID is unexpected or the device ID is unknown. Suitable for callers
+ * that need arch up front (e.g. building a SocDescriptor or mock ClusterDescriptor) without
+ * a soc_descriptor.yaml. Each call performs a full simulator start/exit cycle, so use it
+ * exactly once per Cluster construction rather than repeatedly.
+ */
+tt::ARCH probe_ttsim_arch(const std::filesystem::path &simulator_directory);
 
 }  // namespace tt::umd

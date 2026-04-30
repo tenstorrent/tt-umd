@@ -40,6 +40,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -338,19 +339,26 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;
+                const bool is_ttsim_simulation =
+                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
 #ifdef TT_UMD_BUILD_SIMULATION
                 if (options.chip_type == ChipType::SIMULATION) {
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path =
-                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    if (is_ttsim_simulation) {
+                        // TTSim: derive arch from the simulator's PCI configuration space.
+                        // No soc_descriptor.yaml required.
+                        arch = probe_ttsim_arch(options.simulator_directory);
+                    } else {
+                        // RTL simulation (versim/vcs): arch comes from the yaml next to the simulator.
+                        if (options.sdesc_path.empty()) {
+                            options.sdesc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(
+                                options.simulator_directory);
+                        }
+                        arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
                     }
-                    arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
                 }
 #endif
                 // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
                 // simulation.
-                bool is_ttsim_simulation =
-                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
                 bool noc_translation_enabled = options.chip_type == ChipType::MOCK ||
                                                options.chip_type == ChipType::SWEMULE || is_ttsim_simulation;
                 std::unique_ptr<ClusterDescriptor> temp_full_cluster_desc_ptr =

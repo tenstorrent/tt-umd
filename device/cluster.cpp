@@ -315,6 +315,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 // NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
 Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
+    log_info(LogUMD, "Cluster constructor started.");
     options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
@@ -408,6 +409,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+    log_info(LogUMD, "Cluster constructor done.");
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -548,9 +550,10 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
-    log_debug(LogUMD, "Cluster::~Cluster");
+    log_info(LogUMD, "Cluster destructor started.");
 
     cluster_desc.reset();
+    log_info(LogUMD, "Cluster destructor done.");
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
@@ -1037,6 +1040,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 
         deassert_resets_and_set_power_state();
     }
+    log_info(LogUMD, "Done starting devices in cluster.");
 }
 
 void Cluster::close_device() {
@@ -1050,6 +1054,7 @@ void Cluster::close_device() {
     for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
+    log_info(LogUMD, "Done closing devices in cluster.");
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

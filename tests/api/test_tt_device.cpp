@@ -284,7 +284,8 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         for (const CoreCoord& core : tensix_cores) {
             std::vector<uint8_t> readback(data_write.size(), 1);
             tt_device->read_from_device(readback.data(), core, address, readback.size());
-            EXPECT_EQ(zeros, readback);
+            ASSERT_EQ(zeros, readback) << "Core " << core.str() << " on chip " << pci_device_id
+                                       << " should have been zeroed before the broadcast write.";
         }
 
         tt_device->noc_multicast_write(data_write.data(), data_write.size(), address);
@@ -293,7 +294,8 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         for (const CoreCoord& core : tensix_cores) {
             std::vector<uint8_t> readback(data_write.size());
             tt_device->read_from_device(readback.data(), core, address, readback.size());
-            EXPECT_EQ(data_write, readback);
+            ASSERT_EQ(data_write, readback) << "Core " << core.str() << " on chip " << pci_device_id
+                                            << " should have received the broadcast write.";
         }
 
         tt_device->set_power_state(false);

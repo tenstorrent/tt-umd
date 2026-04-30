@@ -197,6 +197,19 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("value"),
             "Write a 32-bit value to a core at the specified address")
         .def(
+            "advance_simulated_clock",
+            [](TTDevice &self, uint32_t cycles) -> void {
+                auto *sim = dynamic_cast<TTSimTTDevice *>(&self);
+                if (sim != nullptr) {
+                    sim->get_communicator()->advance_clock(cycles);
+                }
+                // No-op on silicon: wallclock advances naturally.
+            },
+            nb::arg("cycles"),
+            "Advance the simulated clock by N cycles. No-op on silicon. Use after register "
+            "writes that bypass the umd reset API but still need a freshly-deasserted core to "
+            "make progress before the next host op.")
+        .def(
             "noc_read",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};

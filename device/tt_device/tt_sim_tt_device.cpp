@@ -103,13 +103,11 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
-    // Advance the sim on host writes. Without this, sequences like "load BRISC ELF, deassert
-    // BRISC, write first command mailbox" all sit at the same simulated timestamp — BRISC never
-    // gets cycles to finish its CRT init before the command mailbox write, so BRISC's clear of
-    // brisc_command_buffer at startup clobbers the host's command and the handshake hangs. The
-    // floor guarantees that a tiny 4-byte deassert write still gives the newly-started core
-    // enough cycles to make meaningful progress before the next host operation lands.
-    communicator_->advance_clock(std::max<uint32_t>(1000, size));
+    // Mirror the read-path advance_clock(1) — every host I/O bumps simulated time by at least
+    // one cycle. The heavy "give a freshly-deasserted core time to finish CRT init" advance is
+    // pushed to send_tensix_risc_reset / deassert_risc_reset (the only writes that actually
+    // need it), so register-class writes don't pay 1000 cycles of overhead each.
+    communicator_->advance_clock(std::max<uint32_t>(1, size));
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
@@ -143,6 +141,10 @@ void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const Ten
     } else {
         UMD_THROW(error::RuntimeError, "Missing implementation of reset for this chip.");
     }
+    // Pre-pay enough cycles for a freshly-deasserted RISC to clear CRT init before the next
+    // host op lands. Harmless extra cycles for the assert case (resets are rare relative to
+    // routine writes) and avoids the 1000-cycle floor on every write_to_device.
+    communicator_->advance_clock(1000);
 }
 
 void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
@@ -188,6 +190,8 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
         reset_value &= ~soft_reset_update;
         write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
     }
+    // Newly-released RISC needs simulated cycles to clear CRT init before the next host op lands.
+    communicator_->advance_clock(1000);
 }
 
 void TTSimTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {

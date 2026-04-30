@@ -286,7 +286,6 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
     const SocDescriptor &soc_desc = get_soc_descriptor();
     write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }

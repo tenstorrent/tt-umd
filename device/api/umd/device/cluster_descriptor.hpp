@@ -234,11 +234,6 @@ public:
      */
     std::set<uint32_t> get_idle_eth_channels(ChipId chip_id);
 
-    /**
-     * Galaxy specific function.
-     */
-    ChipId get_shelf_local_physical_chip_coords(ChipId virtual_coord);
-
     uint8_t get_asic_location(ChipId chip_id) const;
 
     IODeviceType get_io_device_type() const;

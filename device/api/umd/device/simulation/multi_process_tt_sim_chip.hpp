@@ -15,6 +15,7 @@
 namespace tt::umd {
 
 class ProcessManager;
+class RemoteTTSimCommunicator;
 
 // TTSIM implementation using dynamic library (.so files) with one process per chip.
 class MultiProcessTTSimChip : public SimulationChip {
@@ -40,6 +41,9 @@ public:
 
 private:
     std::unique_ptr<ProcessManager> process_manager_;
+    // Parent-side stub that forwards TLB-related pci_mem_*/pci_config_read32 calls
+    // to the child via process_manager_. Lives as long as this chip.
+    std::unique_ptr<RemoteTTSimCommunicator> remote_communicator_;
 };
 
 }  // namespace tt::umd

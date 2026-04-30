@@ -43,6 +43,9 @@ public:
     void handle_assert_risc_reset(const void* data, uint32_t data_size);
     void handle_deassert_risc_reset(const void* data, uint32_t data_size);
     bool handle_connect_eth_links();
+    void handle_pci_mem_write_bytes(const void* data, uint32_t data_size);
+    std::vector<uint8_t> handle_pci_mem_read_bytes(const void* data, uint32_t data_size);
+    uint32_t handle_pci_config_read32(const void* data, uint32_t data_size);
 
 private:
     std::unique_ptr<TTSimChipImpl> impl_;
@@ -194,6 +197,21 @@ void ChildProcessTTSimChip::process_message(const Message& msg, const std::vecto
             send_response(true, &result, sizeof(bool));
         } break;
 
+        case MessageType::PCI_MEM_WRITE_BYTES:
+            handle_pci_mem_write_bytes(data_buffer.data(), msg.size);
+            send_response();
+            break;
+
+        case MessageType::PCI_MEM_READ_BYTES: {
+            std::vector<uint8_t> read_data = handle_pci_mem_read_bytes(data_buffer.data(), msg.size);
+            send_response(true, read_data.data(), read_data.size());
+        } break;
+
+        case MessageType::PCI_CONFIG_READ32: {
+            uint32_t value = handle_pci_config_read32(data_buffer.data(), msg.size);
+            send_response(true, &value, sizeof(value));
+        } break;
+
         case MessageType::EXIT:
             should_exit_ = true;
             send_response();
@@ -302,6 +320,37 @@ void ChildProcessTTSimChip::handle_deassert_risc_reset(const void* data, uint32_
 }
 
 bool ChildProcessTTSimChip::handle_connect_eth_links() { return impl_->connect_eth_links(); }
+
+void ChildProcessTTSimChip::handle_pci_mem_write_bytes(const void* data, uint32_t data_size) {
+    if (data_size < sizeof(PciMemWriteData)) {
+        TT_THROW("Invalid data size for pci_mem_write: {} < {}", data_size, sizeof(PciMemWriteData));
+    }
+    const PciMemWriteData* header = static_cast<const PciMemWriteData*>(data);
+    uint32_t expected_size = sizeof(PciMemWriteData) + header->size;
+    if (data_size != expected_size) {
+        TT_THROW("Data size mismatch for pci_mem_write: expected {}, got {}", expected_size, data_size);
+    }
+    const uint8_t* payload = static_cast<const uint8_t*>(data) + sizeof(PciMemWriteData);
+    impl_->get_communicator()->pci_mem_write_bytes(header->paddr, payload, header->size);
+}
+
+std::vector<uint8_t> ChildProcessTTSimChip::handle_pci_mem_read_bytes(const void* data, uint32_t data_size) {
+    if (data_size != sizeof(PciMemReadData)) {
+        TT_THROW("Invalid data size for pci_mem_read: expected {}, got {}", sizeof(PciMemReadData), data_size);
+    }
+    const PciMemReadData* header = static_cast<const PciMemReadData*>(data);
+    std::vector<uint8_t> buffer(header->size);
+    impl_->get_communicator()->pci_mem_read_bytes(header->paddr, buffer.data(), header->size);
+    return buffer;
+}
+
+uint32_t ChildProcessTTSimChip::handle_pci_config_read32(const void* data, uint32_t data_size) {
+    if (data_size != sizeof(PciConfigRead32Data)) {
+        TT_THROW("Invalid data size for pci_config_read32: expected {}, got {}", sizeof(PciConfigRead32Data), data_size);
+    }
+    const PciConfigRead32Data* header = static_cast<const PciConfigRead32Data*>(data);
+    return impl_->get_communicator()->pci_config_read32(header->bus_device_function, header->offset);
+}
 
 int child_process_main(int argc, char* argv[]) {
     if (argc != 6) {

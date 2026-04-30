@@ -13,6 +13,8 @@
 #include "assert.hpp"
 #include "message_data.hpp"
 #include "process_manager.hpp"
+#include "remote_tt_sim_communicator.hpp"
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 
 namespace tt::umd {
 
@@ -41,7 +43,14 @@ MultiProcessTTSimChip::~MultiProcessTTSimChip() {
 
 void MultiProcessTTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
+    log_info(LogUMD, "[MultiProcessTTSimChip::start_device] chip_id={} START", chip_id_);
     process_manager_->send_message_with_response(MessageType::START_DEVICE, nullptr, 0, nullptr, 0);
+    // Now that the simulator is up in the child, wire a parent-side stub communicator
+    // into the TLB manager. This lets get_tlb_window allocate windows whose
+    // pci_mem_write_bytes (TLB register writes) get forwarded to the child via IPC.
+    remote_communicator_ = std::make_unique<RemoteTTSimCommunicator>(process_manager_.get());
+    tlb_manager_->set_communicator(remote_communicator_.get());
+    log_info(LogUMD, "[MultiProcessTTSimChip::start_device] chip_id={} set_communicator DONE", chip_id_);
 }
 
 void MultiProcessTTSimChip::close_device() {

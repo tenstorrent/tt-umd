@@ -18,7 +18,7 @@ namespace tt::umd {
  *
  * This class can be used independently of TTSimTTDevice for direct simulator communication.
  */
-class TTSimCommunicator final {
+class TTSimCommunicator {
 public:
     /**
      * Constructor for TTSimCommunicator.
@@ -31,7 +31,14 @@ public:
     /**
      * Destructor that properly cleans up library handles and file descriptors.
      */
-    ~TTSimCommunicator();
+    virtual ~TTSimCommunicator();
+
+protected:
+    // Subclass-only constructor that does not load any library.
+    // Used by RemoteTTSimCommunicator which forwards calls over IPC.
+    TTSimCommunicator() = default;
+
+public:
 
     /**
      * Initialize the simulator and establish communication.
@@ -74,7 +81,7 @@ public:
      * @param data Buffer to store read data
      * @param size Number of bytes to read
      */
-    void pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size);
+    virtual void pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size);
 
     /**
      * Write data to PCI memory.
@@ -83,7 +90,7 @@ public:
      * @param data Data to write
      * @param size Number of bytes to write
      */
-    void pci_mem_write_bytes(uint64_t paddr, const void *data, uint32_t size);
+    virtual void pci_mem_write_bytes(uint64_t paddr, const void *data, uint32_t size);
 
     /**
      * Read from PCI configuration space.
@@ -92,7 +99,7 @@ public:
      * @param offset Offset in configuration space
      * @return 32-bit value read from configuration space
      */
-    uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
+    virtual uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
 
     /**
      * Advance the simulator clock.
@@ -100,6 +107,15 @@ public:
      * @param n_clocks Number of clock cycles to advance
      */
     void advance_clock(uint32_t n_clocks);
+
+    /**
+     * Configure an ethernet link between this simulator and a remote endpoint.
+     *
+     * @param channel Ethernet channel ID
+     * @param write_fd File descriptor the simulator should write outbound traffic to
+     * @param read_fd  File descriptor the simulator should read inbound traffic from
+     */
+    void configure_eth_link(uint32_t channel, int write_fd, int read_fd);
 
     /**
      * Set callbacks for PCIe DMA memory operations. These callbacks are called
@@ -148,6 +164,7 @@ private:
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
+    void (*pfn_libttsim_configure_eth_link_)(uint32_t tile_id, int write_fd, int read_fd) = nullptr;
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;

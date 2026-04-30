@@ -8,8 +8,10 @@
 #include <iostream>
 #include <mutex>
 #include <unordered_map>
+#include <tt-logger/tt-logger.hpp>
 
 #include "tt_sim_chip_impl.hpp"
+#include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 
 namespace tt::umd {
 
@@ -33,7 +35,12 @@ TTSimChip::~TTSimChip() { impl_.reset(); }
 
 void TTSimChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
+    log_info(LogUMD, "[TTSimChip::start_device] chip_id={} START", chip_id_);
     impl_->start_device();
+    // Wire the communicator into the TLB manager now that the simulator is up
+    // and PCI config space is readable for BAR0 base.
+    tlb_manager_->set_communicator(impl_->get_communicator());
+    log_info(LogUMD, "[TTSimChip::start_device] chip_id={} set_communicator DONE", chip_id_);
 }
 
 void TTSimChip::close_device() {

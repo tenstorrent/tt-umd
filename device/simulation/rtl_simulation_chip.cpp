@@ -26,6 +26,7 @@ RtlSimulationChip::RtlSimulationChip(
 
 void RtlSimulationChip::start_device() {
     std::lock_guard<std::mutex> lock(device_lock);
+    log_info(tt::LogEmulationDriver, "[RtlSimulationChip::start_device] chip_id={} START (no TLB communicator wiring)", chip_id_);
     tt_device_->start_device();
 }
 

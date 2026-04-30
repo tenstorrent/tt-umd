@@ -4,6 +4,8 @@
 
 #include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
 
+#include <fmt/format.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -28,6 +30,7 @@ namespace tt::umd {
 TTSimTlbManager::TTSimTlbManager(TTDevice* tt_device) : TLBManager(tt_device){
     tt_sim_tt_device_ = dynamic_cast<TTSimTTDevice*>(tt_device);
     bar0_base_ = tt_sim_tt_device_->bar0_base;
+    architecture_ = tt_sim_tt_device_->get_architecture_impl()->get_architecture();
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
 }
@@ -36,6 +39,60 @@ TTSimTlbManager::TTSimTlbManager(tt::ARCH arch) : TLBManager(nullptr), architect
     bar0_base_ = 0;
     // Initialize architecture-specific configuration.
     initialize_architecture_config();
+}
+
+void TTSimTlbManager::set_communicator(TTSimCommunicator* comm) {
+    communicator_ = comm;
+
+    // Read BAR0 base from PCI config space — same logic as TTSimTTDevice.
+    constexpr uint16_t WH_PCIE_DEVICE_ID = 0x401e;
+    constexpr uint16_t BH_PCIE_DEVICE_ID = 0xb140;
+
+    uint32_t pci_id = comm->pci_config_read32(0, 0);
+    uint32_t device_id = pci_id >> 16;
+    if (device_id == WH_PCIE_DEVICE_ID || device_id == BH_PCIE_DEVICE_ID) {
+        bar0_base_ = comm->pci_config_read32(0, 0x10);
+        bar0_base_ |= uint64_t(comm->pci_config_read32(0, 0x14)) << 32;
+        bar0_base_ &= ~15ull;  // ignore attribute bits
+    }
+}
+
+TlbWindow* TTSimTlbManager::get_tlb_window(const tt_xy_pair core) {
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] core=({},{}) ENTER communicator={} bar0_base=0x{:x} arch={}",
+             core.x, core.y, fmt::ptr(communicator_), bar0_base_, static_cast<int>(architecture_));
+    auto it = map_core_to_tlb_.find(core);
+    if (it != map_core_to_tlb_.end()) {
+        log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] core already mapped, returning cached");
+        return tlb_windows_.at(it->second).get();
+    }
+
+    // Sim doesn't pre-register TLBs (tt_metal's configure_static_tlbs is silicon-only),
+    // so allocate a window for this core on first access.
+    tlb_data config{};
+    config.local_offset = 0;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = 0;
+    config.ordering = tlb_data::Strict;
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] calling get_architecture_impl()->get_static_vc()");
+    config.static_vc = get_architecture_impl()->get_static_vc();
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] static_vc={}", config.static_vc);
+
+    const size_t tlb_size = (architecture_ == tt::ARCH::WORMHOLE_B0) ? (16ULL * 1024 * 1024)
+                                                                    : (2ULL * 1024 * 1024);
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] calling allocate_tlb_window size={}", tlb_size);
+    auto tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] allocate_tlb_window returned");
+
+    int tlb_id = tlb_window->handle_ref().get_tlb_id();
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] tlb_id={}", tlb_id);
+
+    tlb_config_map_.insert({tlb_id, 0});
+    map_core_to_tlb_.insert({core, tlb_id});
+    tlb_windows_.insert({tlb_id, std::move(tlb_window)});
+
+    log_info(LogUMD, "[TTSimTlbManager::get_tlb_window] EXIT");
+    return tlb_windows_.at(tlb_id).get();
 }
 
 int TTSimTlbManager::allocate_tlb_index(size_t size) {
@@ -214,6 +271,7 @@ uint64_t TTSimTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    log_info(LogUMD, "[allocate_tlb_window] ENTER size={}", tlb_size);
     const auto* arch_impl = get_architecture_impl();
     if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
         (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
@@ -221,14 +279,23 @@ std::unique_ptr<TlbWindow> TTSimTlbManager::allocate_tlb_window(
     }
 
     int tlb_index = allocate_tlb_index(tlb_size);
+    log_info(LogUMD, "[allocate_tlb_window] allocate_tlb_index returned {}", tlb_index);
     if (tlb_index == -1) {
         throw std::runtime_error("No available TLB of requested size");
     }
 
     size_t actual_tlb_size = get_tlb_size_from_index(tlb_index);
+    log_info(LogUMD, "[allocate_tlb_window] actual_tlb_size={}", actual_tlb_size);
 
+    log_info(LogUMD, "[allocate_tlb_window] creating TTSimTlbHandle");
     auto tlb_handle = TTSimTlbHandle::create(this, tlb_index, actual_tlb_size, mapping);
-    return std::make_unique<SimulationTlbWindow>(std::move(tlb_handle), get_communicator(), config);
+    log_info(LogUMD, "[allocate_tlb_window] TTSimTlbHandle created, calling get_communicator()");
+    auto* comm = get_communicator();
+    log_info(LogUMD, "[allocate_tlb_window] get_communicator returned {}", fmt::ptr(comm));
+    log_info(LogUMD, "[allocate_tlb_window] constructing SimulationTlbWindow (will configure TLB register)");
+    auto window = std::make_unique<SimulationTlbWindow>(std::move(tlb_handle), comm, config);
+    log_info(LogUMD, "[allocate_tlb_window] SimulationTlbWindow constructed, EXIT");
+    return window;
 }
 
 uint64_t TTSimTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
@@ -249,7 +316,19 @@ const architecture_implementation* TTSimTlbManager::get_architecture_impl() cons
     TT_THROW("Unsupported architecture");
 }
 
-TTSimCommunicator* TTSimTlbManager::get_communicator() const { return tt_sim_tt_device_->get_communicator(); }
+TTSimCommunicator* TTSimTlbManager::get_communicator() const {
+    if (communicator_ != nullptr) {
+        return communicator_;
+    }
+    if (tt_sim_tt_device_ != nullptr) {
+        return tt_sim_tt_device_->get_communicator();
+    }
+    TT_THROW(
+        "TTSimTlbManager::get_communicator() called with no communicator wired. "
+        "Either set_communicator() must be called (for SimulationChip-backed paths) "
+        "or the manager must be constructed with a TTSimTTDevice. "
+        "Multi-process sim and RTL sim do not currently support TLB-backed access.");
+}
 
 void TTSimTlbManager::initialize_architecture_config() {
 

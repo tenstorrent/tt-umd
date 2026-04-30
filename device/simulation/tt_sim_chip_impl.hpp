@@ -13,10 +13,11 @@
 
 #include "eth_connection.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
 
 namespace tt::umd {
 
-// TTSIM implementation using dynamic library (.so files).
+// TTSIM implementation backed by a TTSimCommunicator (handles dlopen / function-pointer machinery).
 class TTSimChipImpl {
 public:
     TTSimChipImpl(
@@ -39,31 +40,19 @@ public:
     void deassert_risc_reset(tt_xy_pair translated_core, const RiscType selected_riscs, bool staggered_start);
     bool connect_eth_links();
 
+    TTSimCommunicator* get_communicator() { return communicator_.get(); }
+
 private:
-    void create_simulator_binary();
-    off_t resize_simulator_binary(int src_fd);
-    void copy_simulator_binary();
-    void secure_simulator_binary();
-    void close_simulator_binary();
-    void load_simulator_library(const std::filesystem::path& sim_dir);
-    int copied_simulator_fd_ = -1;
+    void setup_ethernet_connections();
+
     ChipId chip_id_;
     ClusterDescriptor* cluster_desc_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::filesystem::path simulator_directory_;
     std::unordered_map<EthernetChannel, EthConnection> eth_connections_;
 
-    void setup_ethernet_connections();
-
-    void* libttsim_handle = nullptr;
+    std::unique_ptr<TTSimCommunicator> communicator_;
     uint32_t libttsim_pci_device_id = 0;
-    void (*pfn_libttsim_configure_eth_link)(uint32_t tile_id, int write_fd, int read_fd) = nullptr;
-    void (*pfn_libttsim_init)() = nullptr;
-    void (*pfn_libttsim_exit)() = nullptr;
-    uint32_t (*pfn_libttsim_pci_config_rd32)(uint32_t bus_device_function, uint32_t offset) = nullptr;
-    void (*pfn_libttsim_tile_rd_bytes)(uint32_t x, uint32_t y, uint64_t addr, void* p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tile_wr_bytes)(uint32_t x, uint32_t y, uint64_t addr, const void* p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_clock)(uint32_t n_clocks) = nullptr;
 };
 
 }  // namespace tt::umd

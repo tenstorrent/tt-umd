@@ -20,6 +20,7 @@ class TTDevice;
 class TLBManager {
 public:
     TLBManager(TTDevice* tt_device);
+    virtual ~TLBManager() = default;
 
     // All tt_xy_pairs should be in TRANSLATED coords.
     void configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering);
@@ -36,7 +37,7 @@ public:
 
     TTDevice* get_tt_device() { return tt_device_; }
 
-    TlbWindow* get_tlb_window(const tt_xy_pair core);
+    virtual TlbWindow* get_tlb_window(const tt_xy_pair core);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);

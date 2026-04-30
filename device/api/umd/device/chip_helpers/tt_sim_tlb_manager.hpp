@@ -22,6 +22,21 @@ public:
     // constructor for SimulationChip
     TTSimTlbManager(tt::ARCH arch);
 
+    /**
+     * Attach a TTSimCommunicator and read BAR0 base from PCI config space.
+     * Must be called after the simulator has been started (so PCI config is available)
+     * and before any TLB window is configured. Used by SimulationChip-backed paths
+     * that don't have a TTSimTTDevice.
+     */
+    void set_communicator(TTSimCommunicator* comm);
+
+    /**
+     * Returns a TLB window for the given core. For sim, TLBs are not pre-registered
+     * via configure_tlb (silicon does this in tt_metal startup), so this override
+     * dynamically allocates a window on first access for any core.
+     */
+    TlbWindow* get_tlb_window(const tt_xy_pair core) override;
+
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0);
 
@@ -73,6 +88,9 @@ private:
     void initialize_architecture_config();
 
     TTSimTTDevice* tt_sim_tt_device_ = nullptr;
+    // Set by set_communicator() when this manager backs a SimulationChip directly
+    // (no TTSimTTDevice). Falls back through tt_sim_tt_device_ if null.
+    TTSimCommunicator* communicator_ = nullptr;
     uint64_t bar0_base_ = 0;
 
     // Architecture-specific TLB configuration.

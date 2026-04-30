@@ -94,6 +94,11 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
     pfn_libttsim_clock_(n_clocks);
 }
 
+void TTSimCommunicator::configure_eth_link(uint32_t channel, int write_fd, int read_fd) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_configure_eth_link_(channel, write_fd, read_fd);
+}
+
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
 
 void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
@@ -186,6 +191,7 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     DLSYM_FUNCTION(libttsim_tile_rd_bytes)
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
+    DLSYM_FUNCTION(libttsim_configure_eth_link)
     DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
 }
 

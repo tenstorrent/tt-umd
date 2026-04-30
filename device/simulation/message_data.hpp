@@ -28,7 +28,11 @@ enum class MessageType : uint32_t {
     DEASSERT_RISC_RESET = 7,
     CONNECT_ETH_LINKS = 8,
     EXIT = 9,
-    RESPONSE = 10
+    RESPONSE = 10,
+    // PCI mem / config space access — used for TLB register writes from parent.
+    PCI_MEM_WRITE_BYTES = 11,
+    PCI_MEM_READ_BYTES = 12,
+    PCI_CONFIG_READ32 = 13,
 };
 
 // Message structure for inter-process communication
@@ -67,6 +71,22 @@ struct DeassertResetMessageData {
     tt_xy_pair translated_core;
     RiscType selected_riscs;
     bool staggered_start;
+};
+
+struct PciMemWriteData {
+    uint64_t paddr;
+    uint32_t size;
+    // Variable-length payload follows
+};
+
+struct PciMemReadData {
+    uint64_t paddr;
+    uint32_t size;
+};
+
+struct PciConfigRead32Data {
+    uint32_t bus_device_function;
+    uint32_t offset;
 };
 
 // Safe read wrapper that handles partial reads for large data transfers

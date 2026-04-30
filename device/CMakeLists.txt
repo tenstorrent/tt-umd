@@ -137,6 +137,7 @@ if(TT_UMD_BUILD_SIMULATION)
             pcie/simulation_tlb_handle.cpp
             simulation/process_manager.cpp
             simulation/multi_process_tt_sim_chip.cpp
+            simulation/remote_tt_sim_communicator.cpp
             simulation/tt_sim_chip_impl.cpp
             simulation/eth_connection.cpp
             ${FBS_GENERATED_HEADER}

@@ -15,7 +15,6 @@
 #include <thread>
 
 #include "umd/device/simulation/simulation_host.hpp"
-#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 
@@ -33,7 +32,7 @@ public:
      *
      * @param simulator_directory Path to the simulator binary/directory
      */
-    RtlSimCommunicator(const std::filesystem::path &simulator_directory, tt::ARCH arch);
+    explicit RtlSimCommunicator(const std::filesystem::path &simulator_directory);
 
     /**
      * Destructor that properly cleans up simulation host.
@@ -73,6 +72,28 @@ public:
      * @param size Number of bytes to write
      */
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
+    /**
+     * Read data from a tile core via SMN.
+     *
+     * @param x Core X coordinate
+     * @param y Core Y coordinate
+     * @param addr Address to read from
+     * @param data Buffer to store read data
+     * @param size Number of bytes to read
+     */
+    void smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+
+    /**
+     * Write data to a tile core via SMN.
+     *
+     * @param x Core X coordinate
+     * @param y Core Y coordinate
+     * @param addr Address to write to
+     * @param data Data to write
+     * @param size Number of bytes to write
+     */
+    void smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
     /**
      * Assert reset for all Tensix cores.
@@ -202,9 +223,6 @@ private:
 
     // Simulator directory path.
     std::filesystem::path simulator_directory_;
-
-    // Architecture of the device.
-    tt::ARCH arch_;
 
     // Simulation host for communication.
     SimulationHost host_;

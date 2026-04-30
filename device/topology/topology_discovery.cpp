@@ -18,6 +18,8 @@
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <mutex>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -210,6 +212,19 @@ void TopologyDiscovery::get_connected_devices() {
     log_debug(LogUMD, "Discovered {} locally connected device(s).", devices_to_discover.size());
 }
 
+// FIX PZ (#42429): Process-level cache of ASIC IDs that FIX AQ found unreachable.
+// Without this, every topology discovery call (once per test in multi-test binaries like
+// unit_tests_ttnn) re-probes the same dead remote ASIC IDs, each taking NON_MMIO_RW_TIMEOUT
+// (5s) per device.  With N dead remote ASICs and M tests, the overhead is 5*N*M seconds.
+// On a typical T3K with 4 non-MMIO chips stuck in FABRIC firmware, this is 20s per test —
+// 359 tests = 7180 extra seconds, causing the 75-minute CI wall-clock kill (exit code 124).
+//
+// The cache persists for the lifetime of the process and is cleared on process exit.
+// Thread-safety: protected by a mutex since TopologyDiscovery::discover() may be called
+// from multiple threads (e.g., MeshDevice::create() futures).
+static std::unordered_set<uint64_t> s_fiq_pz_unreachable_asic_ids;
+static std::mutex s_fiq_pz_mutex;
+
 void TopologyDiscovery::discover_remote_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::set<uint64_t> discovered_devices = {};
@@ -381,6 +396,28 @@ void TopologyDiscovery::discover_remote_devices() {
                 ChipId chip_id = get_next_chip_id();
 
                 bool device_init_failed = false;
+                // FIX PZ (#42429): Check process-level cache before probing.  If FIX AQ already
+                // marked this ASIC ID unreachable in a prior TopologyDiscovery::discover() call
+                // within this process (i.e., a prior test's device init), skip immediately without
+                // the 5s NON_MMIO_RW_TIMEOUT retry.  This avoids 5s * N_dead * M_tests overhead.
+                {
+                    std::lock_guard<std::mutex> pz_lock(s_fiq_pz_mutex);
+                    if (s_fiq_pz_unreachable_asic_ids.count(remote_asic_id)) {
+                        log_warning(
+                            LogUMD,
+                            "FIX PZ: ASIC ID {} previously found unreachable (cached by FIX AQ). "
+                            "Skipping probe to avoid repeated 5s timeout. "
+                            "Connection from device {} chan {} omitted.",
+                            remote_asic_id,
+                            current_device_asic_id,
+                            channel);
+                        if (is_using_eth_coords() && eth_coord.has_value()) {
+                            eth_coords.emplace(remote_asic_id, eth_coord.value());
+                        }
+                        discovered_devices.insert(remote_asic_id);
+                        continue;
+                    }
+                }
                 try {
                     // FIX AU (#42429): Use a short ARC timeout during topology discovery probing.
                     // Default ARC_STARTUP_TIMEOUT (300s) causes multi-minute hangs when the MMIO
@@ -399,6 +436,11 @@ void TopologyDiscovery::discover_remote_devices() {
                     // failures are both handled without re-throwing, regardless of
                     // device_init_failure_action (Cluster::create_cluster_descriptor forces THROW,
                     // which would otherwise bypass the upstream unhealthy-device handling).
+                    // FIX PZ: Add to process-level unreachable cache so future calls skip instantly.
+                    {
+                        std::lock_guard<std::mutex> pz_lock(s_fiq_pz_mutex);
+                        s_fiq_pz_unreachable_asic_ids.insert(remote_asic_id);
+                    }
                     log_warning(
                         LogUMD,
                         "FIX AQ: Failed to init remote device ASIC ID {} via gateway {}: {}. "

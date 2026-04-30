@@ -11,7 +11,6 @@
 
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace nb = nanobind;
 

@@ -20,7 +20,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

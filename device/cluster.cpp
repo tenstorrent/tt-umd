@@ -800,6 +800,38 @@ void Cluster::broadcast_write_to_cluster(
         UMD_THROW(error::RuntimeError, "Broadcast write is only supported on Wormhole architecture.");
     }
 
+    if (use_translated_coords) {
+        for (const auto& row : rows_to_exclude) {
+            TT_ASSERT(
+                row >= wormhole::translated_coordinate_start_y,
+                "Row {} must be in translated coordinate space (>= {}).",
+                row,
+                wormhole::translated_coordinate_start_y);
+        }
+        for (const auto& col : columns_to_exclude) {
+            TT_ASSERT(
+                col >= wormhole::translated_coordinate_start_x,
+                "Col {} must be in translated coordinate space (>= {}).",
+                col,
+                wormhole::translated_coordinate_start_x);
+        }
+    } else {
+        for (const auto& row : rows_to_exclude) {
+            TT_ASSERT(
+                row < wormhole::translated_coordinate_start_y,
+                "Row {} must be in NOC0 coordinate space (< {}).",
+                row,
+                wormhole::translated_coordinate_start_y);
+        }
+        for (const auto& col : columns_to_exclude) {
+            TT_ASSERT(
+                col < wormhole::translated_coordinate_start_x,
+                "Col {} must be in NOC0 coordinate space (< {}).",
+                col,
+                wormhole::translated_coordinate_start_x);
+        }
+    }
+
     std::set<uint32_t> rows_to_exclude_virtual;
     std::set<uint32_t> cols_to_exclude_virtual;
     for (const auto& row : rows_to_exclude) {

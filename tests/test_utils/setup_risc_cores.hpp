@@ -21,6 +21,7 @@ inline void safe_test_cluster_start(Cluster* cluster) {
     std::lock_guard<RobustMutex> lock(mtx);
 
     auto architecture = cluster->get_chip(0)->get_tt_device()->get_arch();
+    static constexpr uint32_t start_address_in_l1 = 0x20;
     std::array<uint32_t, 12> brisc_program_default{};
     std::copy(
         brisc_configuration_program_default.cbegin(),
@@ -54,7 +55,7 @@ inline void safe_test_cluster_start(Cluster* cluster) {
                 brisc_program_default.size() * sizeof(std::uint32_t),
                 chip_id,
                 tensix_core_translated,
-                0);
+                start_address_in_l1);
         }
 
         cluster->l1_membar(chip_id, all_tensix_cores_translated);

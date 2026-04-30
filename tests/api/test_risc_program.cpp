@@ -40,7 +40,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t readback = 0;
 
@@ -99,7 +99,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;
@@ -185,7 +185,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
     const auto& configurations_of_risc_cores = GetParam();
 
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;

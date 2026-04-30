@@ -48,6 +48,7 @@ enum class ARCH;
 namespace tt::umd {
 
 class ClusterDescriptor;
+class EthernetBroadcast;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
@@ -716,19 +717,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
 
-    // Communication Functions.
-    void ethernet_broadcast_write(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        uint64_t address,
-        const std::set<ChipId>& chips_to_exclude,
-        const std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& cols_to_exclude,
-        bool use_translated_coords);
-
-    std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
-        const std::set<ChipId>& chips_to_exclude);
-
     // Test functions.
     void log_device_summary();
     void log_pci_device_summary();
@@ -754,6 +742,7 @@ private:
     std::set<ChipId> local_chip_ids_;
     std::unordered_map<ChipId, std::unique_ptr<Chip>> chips_;
     std::unordered_map<ChipId, std::unique_ptr<RemoteCommunication>> remote_communications_;
+    std::unique_ptr<EthernetBroadcast> ethernet_broadcast_;
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
@@ -761,8 +750,6 @@ private:
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;
 
-    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast;
     bool use_translated_coords_for_eth_broadcast;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;

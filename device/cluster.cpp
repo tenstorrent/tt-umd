@@ -635,8 +635,8 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
                 // Get shelf local physical chip id included in broadcast.
-                ChipId physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
                 EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
+                ChipId physical_chip_id = 8 * eth_coords.x + eth_coords.y;
                 // Rack word to be set in header.
                 uint32_t rack_word = eth_coords.rack >> 2;
                 // Rack byte to be set in header.

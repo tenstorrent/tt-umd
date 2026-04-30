@@ -777,19 +777,6 @@ void Cluster::ethernet_broadcast_write(
                 get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
             }
         }
-    } else {
-        // Broadcast not supported. Implement this at the software level as a for loop.
-        for (const auto& chip : all_chip_ids_) {
-            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
-                continue;
-            }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
-                if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
-                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
-                }
-            }
-        }
     }
 }
 
@@ -801,6 +788,21 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& columns_to_exclude,
     bool use_translated_coords) {
+    if (!use_ethernet_broadcast) {
+        for (const auto& chip : all_chip_ids_) {
+            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
+                continue;
+            }
+            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
+                if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
+                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
+                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                }
+            }
+        }
+        return;
+    }
+
     if (arch_name != tt::ARCH::WORMHOLE_B0) {
         UMD_THROW(error::RuntimeError, "Broadcast write is only supported on Wormhole architecture.");
     }
@@ -987,14 +989,6 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
         // Nowhere to broadcast to.
         return;
     }
-    // If ethernet broadcast is not supported, do it one by one.
-    if (!use_ethernet_broadcast || arch_name == tt::ARCH::BLACKHOLE) {
-        for (auto& chip_id : all_chip_ids_) {
-            get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
-        }
-        return;
-    }
-
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<ChipId> chips_to_exclude = {};

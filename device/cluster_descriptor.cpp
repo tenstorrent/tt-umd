@@ -933,19 +933,6 @@ const std::unordered_map<ChipId, EthCoord> &ClusterDescriptor::get_chip_location
 // TODO: implement this for Blackhole and old Wormhole configurations.
 const std::unordered_map<ChipId, uint64_t> &ClusterDescriptor::get_chip_unique_ids() const { return chip_unique_ids; }
 
-ChipId ClusterDescriptor::get_shelf_local_physical_chip_coords(ChipId virtual_coord) {
-    UMD_ASSERT(
-        !this->chip_locations.empty(),
-        error::RuntimeError,
-        "Getting physical chip coordinates is only valid for systems where chips have coordinates");
-    // NoC 0 coordinates of chip inside a single rack. Calculated based on Galaxy topology.
-    // See:
-    // https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
-    int x = get_chip_locations().at(virtual_coord).x;
-    int y = get_chip_locations().at(virtual_coord).y;
-    return 8 * x + y;
-}
-
 // Return map, but filter by enabled active chips.
 const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio() const { return chips_with_mmio; }
 

@@ -26,6 +26,28 @@ namespace tt::umd {
 // per process (multi-arch fan-out would need per-chip lookup instead).
 namespace {
 std::atomic<uint64_t> g_active_dram_bank_size{0};
+
+// TT_EMULE_ASAN_BLANKET=1 enables full poisoning of the allocator-managed
+// L1 / DRAM unreserved region at device init. This catches kernel-side
+// reads / writes to never-allocated bytes (in addition to the always-on
+// per-buffer UAF detection). Off by default because tt-metal/tt-emule has
+// many intentional access patterns that bypass AllocatorImpl —
+// WriteToDeviceL1 to raw addresses, Core::l1_alloc for DFB / semaphores,
+// kernel runtime args carrying raw L1 offsets, etc. — which the per-buffer
+// poison model can't see, so blanket-on flags them as false positives.
+//
+// Enable this for op-level tests (ttnn_*, matmul_sweep) that consistently
+// route through Buffer / MeshBuffer / AllocatorImpl. Leave off for
+// lower-level tests (DFB, atomic, compute kernel, raw NOC) that use raw L1
+// addressing — those still get UAF detection through the per-buffer dealloc
+// hook, just not blanket OOB-to-never-allocated detection.
+bool asan_blanket_enabled() {
+    static const bool enabled = []() {
+        const char* s = std::getenv("TT_EMULE_ASAN_BLANKET");
+        return s != nullptr && s[0] != '\0' && !(s[0] == '0' && s[1] == '\0');
+    }();
+    return enabled;
+}
 }
 
 uint64_t SWEmuleChip::active_dram_bank_size() {
@@ -103,18 +125,22 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     tt_emule::Core* raw_ptr = core.get();
     cores_[core_xy] = std::move(core);
 
-    // ASan: if initialize_asan_poison() was already called, poison this newly-
-    // created core's allocator-managed region too. Sentinel UINT32_MAX means
-    // "ASan poisoning not active" — keep get_core() side-effect-free.
-    if (raw_ptr->role() == tt_emule::CoreRole::WORKER) {
-        if (l1_unreserved_base_ != UINT32_MAX && l1_unreserved_base_ < l1_size_) {
-            __emule_buffer_free(raw_ptr->l1_data() + l1_unreserved_base_, l1_size_ - l1_unreserved_base_);
-        }
-    } else {
-        if (dram_unreserved_base_ != UINT32_MAX && dram_unreserved_base_ < dram_bank_size_) {
-            __emule_buffer_free(
-                raw_ptr->l1_data() + dram_unreserved_base_,
-                static_cast<std::size_t>(dram_bank_size_ - dram_unreserved_base_));
+    // ASan blanket: if initialize_asan_poison() was already called AND the
+    // user opted in via TT_EMULE_ASAN_BLANKET=1, poison the allocator-managed
+    // region of this newly-created core. Sentinel UINT32_MAX means
+    // "initialize_asan_poison hasn't been called yet" — keep get_core()
+    // side-effect-free in that case.
+    if (asan_blanket_enabled()) {
+        if (raw_ptr->role() == tt_emule::CoreRole::WORKER) {
+            if (l1_unreserved_base_ != UINT32_MAX && l1_unreserved_base_ < l1_size_) {
+                __emule_buffer_free(raw_ptr->l1_data() + l1_unreserved_base_, l1_size_ - l1_unreserved_base_);
+            }
+        } else {
+            if (dram_unreserved_base_ != UINT32_MAX && dram_unreserved_base_ < dram_bank_size_) {
+                __emule_buffer_free(
+                    raw_ptr->l1_data() + dram_unreserved_base_,
+                    static_cast<std::size_t>(dram_bank_size_ - dram_unreserved_base_));
+            }
         }
     }
 
@@ -143,9 +169,14 @@ tt_emule::Core* SWEmuleChip::core_for_logical(CoreCoord coord, bool is_dram) {
 void SWEmuleChip::initialize_asan_poison(uint32_t l1_unreserved, uint32_t dram_unreserved) {
     std::lock_guard<std::mutex> lock(core_mutex_);
     // Store the bases so cores lazy-created later via get_core() inherit
-    // the same poisoning.
+    // the same poisoning. The bases are recorded regardless of the blanket
+    // setting; this only changes whether the actual poisoning loop runs.
     l1_unreserved_base_ = l1_unreserved;
     dram_unreserved_base_ = dram_unreserved;
+
+    if (!asan_blanket_enabled()) {
+        return;
+    }
 
     for (auto& [xy, core_uptr] : cores_) {
         tt_emule::Core* core = core_uptr.get();
@@ -166,13 +197,27 @@ void SWEmuleChip::initialize_asan_poison(uint32_t l1_unreserved, uint32_t dram_u
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
-    std::memcpy(target_core->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
+    uint8_t* dst = target_core->l1_ptr(static_cast<uint32_t>(l1_dest));
+    // Host-side raw I/O bypasses the AllocatorImpl per-buffer poison model.
+    // Tests that pre-stage L1 / DRAM via WriteToDeviceL1 etc. write to raw
+    // addresses outside the buffer allocator, which would otherwise trip
+    // the blanket poison from initialize_asan_poison(). Unpoison-on-write
+    // models the host as having "live" access to the byte. Kernel-side
+    // accesses (via __emule_local_l1_to_ptr / __emule_resolve_noc_addr)
+    // still go through ASan instrumentation and catch UAF / OOB.
+    __emule_buffer_alloc(dst, size);
+    std::memcpy(dst, src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
-    std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
+    uint8_t* src = target_core->l1_ptr(static_cast<uint32_t>(l1_src));
+    // Same rationale as write_to_device above. Reading poisoned bytes from
+    // the host trips ASan's memcpy interceptor too; unpoison first so raw
+    // host reads (e.g. ReadFromDeviceL1 inspecting pre-allocator state) work.
+    __emule_buffer_alloc(src, size);
+    std::memcpy(dest, src, size);
 }
 
 // Register I/O forwards to the same memory path — emulated cores have no distinct

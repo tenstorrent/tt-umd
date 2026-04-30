@@ -106,3 +106,8 @@ inline bool has_remote_chips() {
 inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
 
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
+
+// Safe L1 address for use in API tests. Low addresses (e.g. 0x10) are reserved on Blackhole
+// by ARC firmware (doppler throttle state), so tests must start at or above this address.
+// In some cases you also have to be careful about not overwriting the membar address.
+constexpr uint64_t SAFE_IO_L1_ADDRESS = 0x1000;

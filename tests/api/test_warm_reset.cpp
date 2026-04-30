@@ -132,11 +132,11 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
-    tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
+    tt_device->write_to_device(zero_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, zero_data.size());
 
-    tt_device->write_to_device(data.data(), tensix_core, address, data.size());
+    tt_device->write_to_device(data.data(), tensix_core, SAFE_IO_L1_ADDRESS, data.size());
 
-    tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
+    tt_device->read_from_device(readback_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, readback_data.size());
 
     ASSERT_EQ(data, readback_data);
 
@@ -171,7 +171,6 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
     int delay_us = GetParam();
     std::atomic<bool> sigbus_caught{false};
 
-    uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
     std::map<int, std::unique_ptr<TTDevice>> tt_devices;
@@ -208,10 +207,10 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
             for (int i = 0; i < 100; ++i) {
                 for (int pci_device_id : pci_device_ids) {
                     tt_devices[pci_device_id]->write_to_device(
-                        data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+                        data_write.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_write.size() * sizeof(uint32_t));
 
                     tt_devices[pci_device_id]->read_from_device(
-                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                        data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
 
                     verify_data(data_write, data_read, pci_device_id);
 
@@ -248,7 +247,6 @@ INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, WarmResetParamTest, ::testing::V
 TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
     std::map<int, std::unique_ptr<TTDevice>> tt_devices;
@@ -275,7 +273,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
             // This thread hammers the device and waits for the reset to kill it.
             while (true) {
                 tt_devices[pci_device_ids[0]]->read_from_device(
-                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                    data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
         } catch (const SigbusError& e) {
@@ -311,7 +309,6 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process
 
-            uint64_t address = 0x0;
             std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
             std::vector<uint32_t> data_read(data_write.size(), 0);
             std::map<int, std::unique_ptr<TTDevice>> tt_devices;
@@ -337,7 +334,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
                 // The "Hammer" loop.
                 while (true) {
                     tt_devices[pci_device_ids[0]]->read_from_device(
-                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                        data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
                     std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }
             } catch (const SigbusError& e) {
@@ -463,11 +460,12 @@ TEST(WarmResetTest, ClusterWarmReset) {
             cluster->l1_membar(chip_id, {tensix_core});
 
             // Zero out first 8 bytes on L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
 
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
+            cluster->read_from_device(
+                readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, readback_data.size());
 
             ASSERT_EQ(data, readback_data);
         }

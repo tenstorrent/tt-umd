@@ -371,7 +371,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     const size_t mapped_size = (sysmem_buffer_size + offset_from_aligned + page_size - 1) & ~(page_size - 1);
     void *aligned_va = reinterpret_cast<void *>(aligned_va_int);
 
-    PCIDevice *pci_device = tt_device_->get_pci_device();
+    PCIDevice *pci_device = tt_device_->get_pci_device().get();
     uint64_t device_io_addr;
     std::optional<uint64_t> noc_addr;
     if (map_to_noc) {

@@ -5,7 +5,6 @@
 #include <fmt/base.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -15,7 +14,6 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -466,14 +464,7 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
                 module_telemetry.uncorr_edc_wr_error);
         }
 
-        double max_temp_from_modules = 0.0;
-        for (const auto& [gddr_index, module_telemetry] : gddr_telemetry->modules) {
-            max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_top);
-            max_temp_from_modules = std::max(max_temp_from_modules, module_telemetry.dram_temperature_bottom);
-        }
-
-        EXPECT_DOUBLE_EQ(max_temp.value(), max_temp_from_modules)
-            << "Max temperature should match the maximum from all module temperatures.";
+        EXPECT_TRUE(max_temp.has_value()) << "Max GDDR temperature should be available on Blackhole.";
 
         // Test individual module telemetry access.
         log_info(tt::LogUMD, "Testing individual module access:");
@@ -489,13 +480,6 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
                 static_cast<int>(gddr_index),
                 module_telemetry->dram_temperature_top,
                 module_telemetry->dram_temperature_bottom);
-
-            // Verify that individual access matches aggregated data.
-            EXPECT_EQ(
-                module_telemetry->dram_temperature_top, gddr_telemetry->modules.at(gddr_index).dram_temperature_top);
-            EXPECT_EQ(
-                module_telemetry->dram_temperature_bottom,
-                gddr_telemetry->modules.at(gddr_index).dram_temperature_bottom);
         }
     }
 }

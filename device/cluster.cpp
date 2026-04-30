@@ -222,9 +222,18 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
                 cluster_desc->io_device_type);
         }
 
+        SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
+        if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
+            sysmem_ptr = nullptr;
+        }
+        remote_communications_[chip_id] =
+            RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
+
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
-            chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
+            remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
+                chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
         }
         return chip;
     } else {
@@ -421,7 +430,9 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
         }
     }
     // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
-    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    remote_communications_.at(mmio_chip)->set_remote_transfer_ethernet_cores(
+        get_local_chip(mmio_chip)->get_soc_descriptor().translate_coords_to_xy_pair(
+            active_eth_cores_per_chip, CoordSystem::TRANSLATED));
 }
 
 std::set<ChipId> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -524,7 +535,9 @@ void Cluster::refresh_cluster_description() {
     for (const ChipId chip_id : local_chip_ids_) {
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             const std::set<uint32_t> active_channels = cluster_desc->get_active_eth_channels(chip_id);
-            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(active_channels);
+            remote_communications_.at(chip_id)->set_remote_transfer_ethernet_cores(
+                get_local_chip(chip_id)->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    active_channels, CoordSystem::TRANSLATED));
             for (const ChipId remote_chip_id : remote_chip_ids_) {
                 if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == chip_id) {
                     get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_channels);
@@ -617,6 +630,9 @@ void Cluster::wait_for_non_mmio_flush(const ChipId chip_id) { get_chip(chip_id)-
 void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {
         chip->wait_for_non_mmio_flush();
+    }
+    for (auto& [chip_id, remote_comm] : remote_communications_) {
+        remote_comm->wait_for_non_mmio_flush();
     }
 }
 
@@ -769,7 +785,8 @@ void Cluster::ethernet_broadcast_write(
                 header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
                 header.at(4) |= row_exclusion_mask;
                 header.at(4) |= col_exclusion_mask;
-                get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
+                remote_communications_.at(mmio_group.first)
+                    ->write_to_non_mmio({0, 0}, mem_ptr, address, size_in_bytes, true, header);
             }
         }
     }

@@ -51,6 +51,8 @@ inline void safe_test_cluster_start(Cluster* cluster) {
 
         for (const CoreCoord& tensix_core_translated : all_tensix_cores_translated) {
             cluster->write_to_device(
+                &BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core_translated, 0);
+            cluster->write_to_device(
                 brisc_program_default.data(),
                 brisc_program_default.size() * sizeof(std::uint32_t),
                 chip_id,

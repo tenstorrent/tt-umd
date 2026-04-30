@@ -200,3 +200,6 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
 // Architecture-specific first instructions for brisc_configuration_program_default.
 inline constexpr uint32_t WORMHOLE_BRISC_BASE_INSTRUCTION = 0xffef07b7;   // lui a5, 0xffef0
 inline constexpr uint32_t BLACKHOLE_BRISC_BASE_INSTRUCTION = 0xffb127b7;  // lui a5, 0xffb12
+
+// Trampoline instruction: jumps from address 0x0 to 0x20, skipping over firmware data at 0x10.
+inline constexpr uint32_t BRISC_TRAMPOLINE_JMP = 0x0200006f;  // jal zero, 0x20

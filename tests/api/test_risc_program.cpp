@@ -64,6 +64,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 simple_brisc_program.data(),
                 simple_brisc_program.size() * sizeof(uint32_t),
@@ -117,6 +118,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
 
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 counter_brisc_program.data(),
                 counter_brisc_program.size() * sizeof(uint32_t),
@@ -214,6 +216,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),
                 brisc_configuration_program.value().size() * sizeof(uint32_t),

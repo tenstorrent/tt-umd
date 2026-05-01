@@ -97,11 +97,6 @@ TTDevice::TTDevice(
     device_protocol_ = std::move(remote_protocol);
 }
 
-TTDevice::TTDevice() = default;
-
-TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
-
 void TTDevice::probe_arc() {
     uint32_t dummy;
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0

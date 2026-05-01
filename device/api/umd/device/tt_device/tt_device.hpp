@@ -469,8 +469,7 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    TTDevice();
-    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice() = default;
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 

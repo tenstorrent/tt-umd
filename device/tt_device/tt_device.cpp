@@ -37,6 +37,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -150,15 +151,15 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
-    switch (remote_communication->get_local_device()->get_arch()) {
+    tt::ARCH arch = remote_communication->get_local_device()->get_arch();
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
-        case tt::ARCH::BLACKHOLE: {
-            return nullptr;
-        }
         default:
-            UMD_THROW(error::RuntimeError, "Remote TTDevice creation is not supported for this architecture.");
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Remote TTDevice creation is not supported for {}.", arch_to_str(arch)));
     }
 }
 

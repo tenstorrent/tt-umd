@@ -48,16 +48,14 @@ std::unique_ptr<LocalChip> LocalChip::create(
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
-    SocDescriptor soc_descriptor;
+    std::shared_ptr<SocArchDescriptor> sad = nullptr;
     if (sdesc_path.empty()) {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
-        soc_descriptor = SocDescriptor(sad, tt_device->get_chip_info());
+        sad = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
     } else {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(sdesc_path);
-        soc_descriptor = SocDescriptor(sad, tt_device->get_chip_info());
+        sad = std::make_shared<SocArchDescriptor>(sdesc_path);
     }
-
-    return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
+    ChipInfo chip_info = tt_device->get_chip_info();
+    return LocalChip::create(std::move(tt_device), SocDescriptor(sad, chip_info), num_host_mem_channels);
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(

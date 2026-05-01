@@ -38,10 +38,6 @@ tt_xy_pair format_node(const std::string& str);
 */
 class SocDescriptor {
 public:
-    // Default constructor. Creates uninitialized object with public access to all of its attributes.
-    SocDescriptor() = default;
-
-    // Constructor with explicit arch descriptor (enables sharing).
     SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info = {});
 
     // Helpers for extracting info from soc descriptor file.

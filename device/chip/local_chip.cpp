@@ -42,35 +42,6 @@ namespace tt::umd {
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
-
-    std::shared_ptr<SocArchDescriptor> sad = nullptr;
-    if (sdesc_path.empty()) {
-        sad = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
-    } else {
-        sad = std::make_shared<SocArchDescriptor>(sdesc_path);
-    }
-    ChipInfo chip_info = tt_device->get_chip_info();
-    return LocalChip::create(std::move(tt_device), SocDescriptor(sad, chip_info), num_host_mem_channels);
-}
-
-std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, const SocDescriptor& soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    // physical_device_id is not actually physical for JTAG devices here.
-    // It represents the index within a vector of jlink devices discovered by JtagDevice.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
-
-    return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
-}
-
-std::unique_ptr<LocalChip> LocalChip::create(
     std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels) {
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
@@ -82,9 +53,11 @@ std::unique_ptr<LocalChip> LocalChip::create(
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
     }
-    // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =
         (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
+    // Note that the eth_coord is not important here since this is only used for eth broadcasting.
+    // TODO: Instead of having this in LocalChip, every TTDevice w/ ETH cores should have its own RemoteCommunication,
+    // initialized with a correcy EthCoord.
     remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
     return std::unique_ptr<LocalChip>(new LocalChip(
@@ -107,6 +80,7 @@ LocalChip::LocalChip(
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
+    tt_device_->init_tt_device();
     wait_chip_to_be_ready();
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();

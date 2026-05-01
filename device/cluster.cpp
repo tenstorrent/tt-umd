@@ -213,11 +213,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (tt_device != nullptr) {
             chip = LocalChip::create(std::move(tt_device), soc_desc, num_host_mem_channels);
         } else {
-            chip = LocalChip::create(
-                (cluster_desc->get_chips_with_mmio().at(chip_id)),
-                soc_desc,
-                num_host_mem_channels,
-                cluster_desc->io_device_type);
+            UMD_THROW(error::RuntimeError, "TTDevice not created!");
         }
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {

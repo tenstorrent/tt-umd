@@ -41,8 +41,6 @@ public:
     // Default constructor. Creates uninitialized object with public access to all of its attributes.
     SocDescriptor() = default;
 
-    SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
-
     // Constructor with explicit arch descriptor (enables sharing).
     SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info = {});
 

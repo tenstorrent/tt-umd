@@ -559,7 +559,8 @@ TEST(SocDescriptor, WormholeNOC1Cores) {
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     SocDescriptor soc_desc_arch(
-        tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
+        std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0),
+        {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     const std::vector<CoreCoord> tensix_cores_noc1_yaml = soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
     const std::vector<CoreCoord> tensix_cores_noc1_arch = soc_desc_arch.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
@@ -611,7 +612,8 @@ TEST(SocDescriptor, BlackholeNOC1Cores) {
         {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     SocDescriptor soc_desc_arch(
-        tt::ARCH::BLACKHOLE, {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
+        std::make_shared<SocArchDescriptor>(tt::ARCH::BLACKHOLE),
+        {.noc_translation_enabled = true, .harvesting_masks = harvesting_masks});
 
     const std::vector<CoreCoord> tensix_cores_noc1_yaml = soc_desc_yaml.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
     const std::vector<CoreCoord> tensix_cores_noc1_arch = soc_desc_arch.get_cores(CoreType::TENSIX, CoordSystem::NOC1);
@@ -656,7 +658,8 @@ TEST(SocDescriptor, SocDescriptorWormholeNoSecurityCores) {
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::SECURITY).size(), 0);
 
-    SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor soc_desc_arch(
+        std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::SECURITY).size(), 0);
 }
@@ -669,7 +672,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeSecurity) {
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::SECURITY).size(), 1);
 
     SocDescriptor soc_desc_arch(
-        tt::ARCH::BLACKHOLE,
+        std::make_shared<SocArchDescriptor>(tt::ARCH::BLACKHOLE),
         {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::SECURITY).size(), 1);
@@ -682,7 +685,8 @@ TEST(SocDescriptor, SocDescriptorWormholeNoL2CPUCores) {
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::L2CPU).size(), 0);
 
-    SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor soc_desc_arch(
+        std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 0);
 }
@@ -695,7 +699,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeL2CPU) {
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::L2CPU).size(), 4);
 
     SocDescriptor soc_desc_arch(
-        tt::ARCH::BLACKHOLE,
+        std::make_shared<SocArchDescriptor>(tt::ARCH::BLACKHOLE),
         {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::L2CPU).size(), 4);
@@ -732,7 +736,8 @@ TEST(SocDescriptor, SocDescriptorWormholeNoDispatchCores) {
 
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
 
-    SocDescriptor soc_desc_arch(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor soc_desc_arch(
+        std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::DISPATCH).size(), 0);
 }
@@ -745,7 +750,7 @@ TEST(SocDescriptor, SocDescriptorBlackholeNoDispatchCores) {
     EXPECT_EQ(soc_desc_yaml.get_cores(CoreType::DISPATCH).size(), 0);
 
     SocDescriptor soc_desc_arch(
-        tt::ARCH::BLACKHOLE,
+        std::make_shared<SocArchDescriptor>(tt::ARCH::BLACKHOLE),
         {.noc_translation_enabled = true, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
 
     EXPECT_EQ(soc_desc_arch.get_cores(CoreType::DISPATCH).size(), 0);

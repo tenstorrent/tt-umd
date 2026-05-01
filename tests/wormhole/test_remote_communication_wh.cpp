@@ -106,7 +106,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
 // This test verifies that chunking works correctly when sysmem_manager is nullptr.
 TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
     // Discover cluster topology.
-    auto [cluster_desc, _] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});
+    auto [cluster_desc, devices] = TopologyDiscovery::discover(TopologyDiscoveryOptions{});
 
     // Find a remote chip.
     std::optional<ChipId> remote_chip_id;
@@ -121,23 +121,10 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
         GTEST_SKIP() << "No remote chips found. Test requires at least one remote chip. Skipping test.";
     }
 
-    ChipId local_chip_id = cluster_desc->get_closest_mmio_capable_chip(*remote_chip_id);
-    int physical_device_id = cluster_desc->get_chips_with_mmio().at(local_chip_id);
-    std::unique_ptr<TTDevice> local_tt_device = TTDevice::create(physical_device_id);
-    local_tt_device->set_power_state(true);
-    local_tt_device->init_tt_device();
-
-    SocDescriptor local_soc_descriptor = SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
-    EthCoord target_chip = cluster_desc->get_chip_locations().at(*remote_chip_id);
-    auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
-    remote_communication->set_remote_transfer_ethernet_cores(
-        local_soc_descriptor.get_eth_xy_pairs_for_channels(cluster_desc->get_active_eth_channels(local_chip_id)));
-    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
+    TTDevice* remote_tt_device = devices.at(remote_chip_id.value()).get();
+    const SocDescriptor& remote_soc_desc = remote_tt_device->get_soc_descriptor();
 
     // Get a tensix core to test on.
-    SocDescriptor remote_soc_desc(remote_tt_device->get_arch(), remote_tt_device->get_chip_info());
     auto tensix_core = *remote_soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED).begin();
     tt_xy_pair tensix_core_xy = tt_xy_pair(tensix_core.x, tensix_core.y);
 
@@ -175,6 +162,4 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
         ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex
                                                   << data_to_write[i] << " but got 0x" << data_read[i];
     }
-
-    local_tt_device->set_power_state(false);
 }

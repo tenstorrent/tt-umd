@@ -102,7 +102,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
-    SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
+    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
     tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -184,9 +184,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
         tt_devices[pci_device_id]->init_tt_device();
 
-        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
-
-        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
         tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     }
@@ -261,9 +259,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
         tt_devices[pci_device_id]->init_tt_device();
 
-        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
-
-        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
         tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     }
@@ -324,9 +320,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
                 tt_devices[pci_device_id]->init_tt_device();
 
-                ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
-
-                SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+                const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
                 tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             }

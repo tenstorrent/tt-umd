@@ -203,11 +203,6 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         arch_desc_->get_noc0_y_to_noc1_y());
 }
 
-SocDescriptor::SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) {
-    arch_desc_ = std::make_shared<const SocArchDescriptor>(arch_soc);
-    init_from_arch_descriptor(chip_info);
-}
-
 SocDescriptor::SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info) :
     arch_desc_(std::move(arch_desc)) {
     if (!arch_desc_) {

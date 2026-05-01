@@ -36,9 +36,8 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        ChipInfo chip_info = tt_device->get_chip_info();
 
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
         std::int32_t c_zero_address = 0;
 
@@ -54,7 +53,5 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
         TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
         window->write_register(address_l1_to_write, buffer_to_write.data(), buffer_to_write.size());
-
-        tt_device->set_power_state(false);
     }
 }

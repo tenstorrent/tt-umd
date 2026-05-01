@@ -50,10 +50,11 @@ std::unique_ptr<LocalChip> LocalChip::create(
 
     SocDescriptor soc_descriptor;
     if (sdesc_path.empty()) {
-        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
+        soc_descriptor = SocDescriptor(sad, tt_device->get_chip_info());
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(sdesc_path);
+        soc_descriptor = SocDescriptor(sad, tt_device->get_chip_info());
     }
 
     return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);

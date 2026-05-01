@@ -46,7 +46,8 @@ static constexpr ChipId DEFAULT_CHIP_ID = 0;
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
+    std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_desc_path);
+    SocDescriptor soc_descriptor = SocDescriptor(sad);
     return std::make_unique<RtlSimulationTTDevice>(
         simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);
 }

@@ -43,7 +43,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
         // without creating ClusterDescriptor, so we need to add it here as well.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
+    std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_desc_path);
+    SocDescriptor soc_descriptor = SocDescriptor(sad, chip_info);
     return std::make_unique<TTSimTTDevice>(
         simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
 }

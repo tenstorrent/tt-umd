@@ -208,11 +208,6 @@ SocDescriptor::SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) {
     init_from_arch_descriptor(chip_info);
 }
 
-SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo chip_info) {
-    arch_desc_ = std::make_shared<const SocArchDescriptor>(device_descriptor_path);
-    init_from_arch_descriptor(chip_info);
-}
-
 SocDescriptor::SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info) :
     arch_desc_(std::move(arch_desc)) {
     if (!arch_desc_) {

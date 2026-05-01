@@ -77,18 +77,6 @@ public:
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    TTDevice(
-        std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<architecture_implementation> architecture_impl,
-        bool use_safe_api);
-    TTDevice(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
-    TTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
-
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
@@ -470,6 +458,17 @@ protected:
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
     TTDevice() = default;
+    TTDevice(
+        std::unique_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
+    TTDevice(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 

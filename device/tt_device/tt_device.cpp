@@ -125,7 +125,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
     int device_number, IODeviceType device_type, bool use_safe_api) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
-        use_safe_api && device_type != IODeviceType::PCIe,
+        (!use_safe_api) || (device_type == IODeviceType::PCIe),
         error::RuntimeError,
         "Safe I/O API is not supported for non-PCIe device types.");
     tt::ARCH arch = tt::ARCH::Invalid;

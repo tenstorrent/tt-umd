@@ -204,12 +204,12 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
 }
 
 SocDescriptor::SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) {
-    arch_desc_ = std::make_shared<const SocArchDescriptor>(SocArchDescriptor::create(arch_soc));
+    arch_desc_ = std::make_shared<const SocArchDescriptor>(arch_soc);
     init_from_arch_descriptor(chip_info);
 }
 
 SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo chip_info) {
-    arch_desc_ = std::make_shared<const SocArchDescriptor>(SocArchDescriptor::create(device_descriptor_path));
+    arch_desc_ = std::make_shared<const SocArchDescriptor>(device_descriptor_path);
     init_from_arch_descriptor(chip_info);
 }
 

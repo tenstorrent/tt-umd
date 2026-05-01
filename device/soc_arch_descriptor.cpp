@@ -9,7 +9,6 @@
 
 #include <fstream>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -19,88 +18,82 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
-SocArchDescriptor SocArchDescriptor::create(tt::ARCH arch_enum) {
-    SocArchDescriptor desc;
-
+SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
     switch (arch_enum) {
         case tt::ARCH::WORMHOLE_B0:
-            desc.arch_ = tt::ARCH::WORMHOLE_B0;
-            desc.grid_size_ = wormhole::GRID_SIZE;
-            desc.tensix_cores_ = wormhole::TENSIX_CORES_NOC0;
-            desc.dram_cores_ = wormhole::DRAM_CORES_NOC0;
-            desc.eth_cores_ = wormhole::ETH_CORES_NOC0;
-            desc.arc_cores_ = wormhole::ARC_CORES_NOC0;
-            desc.pcie_cores_ = wormhole::PCIE_CORES_NOC0;
-            desc.router_cores_ = wormhole::ROUTER_CORES_NOC0;
-            desc.security_cores_ = wormhole::SECURITY_CORES_NOC0;
-            desc.l2cpu_cores_ = wormhole::L2CPU_CORES_NOC0;
-            desc.worker_l1_size_ = wormhole::TENSIX_L1_SIZE;
-            desc.eth_l1_size_ = wormhole::ETH_L1_SIZE;
-            desc.dram_bank_size_ = wormhole::DRAM_BANK_SIZE;
-            desc.noc0_x_to_noc1_x_ = wormhole::NOC0_X_TO_NOC1_X;
-            desc.noc0_y_to_noc1_y_ = wormhole::NOC0_Y_TO_NOC1_Y;
+            arch_ = tt::ARCH::WORMHOLE_B0;
+            grid_size_ = wormhole::GRID_SIZE;
+            tensix_cores_ = wormhole::TENSIX_CORES_NOC0;
+            dram_cores_ = wormhole::DRAM_CORES_NOC0;
+            eth_cores_ = wormhole::ETH_CORES_NOC0;
+            arc_cores_ = wormhole::ARC_CORES_NOC0;
+            pcie_cores_ = wormhole::PCIE_CORES_NOC0;
+            router_cores_ = wormhole::ROUTER_CORES_NOC0;
+            security_cores_ = wormhole::SECURITY_CORES_NOC0;
+            l2cpu_cores_ = wormhole::L2CPU_CORES_NOC0;
+            worker_l1_size_ = wormhole::TENSIX_L1_SIZE;
+            eth_l1_size_ = wormhole::ETH_L1_SIZE;
+            dram_bank_size_ = wormhole::DRAM_BANK_SIZE;
+            noc0_x_to_noc1_x_ = wormhole::NOC0_X_TO_NOC1_X;
+            noc0_y_to_noc1_y_ = wormhole::NOC0_Y_TO_NOC1_Y;
             break;
         case tt::ARCH::BLACKHOLE:
-            desc.arch_ = tt::ARCH::BLACKHOLE;
-            desc.grid_size_ = blackhole::GRID_SIZE;
-            desc.tensix_cores_ = blackhole::TENSIX_CORES_NOC0;
-            desc.dram_cores_ = blackhole::DRAM_CORES_NOC0;
-            desc.eth_cores_ = blackhole::ETH_CORES_NOC0;
-            desc.arc_cores_ = blackhole::ARC_CORES_NOC0;
-            desc.pcie_cores_ = blackhole::PCIE_CORES_NOC0;
-            desc.router_cores_ = blackhole::ROUTER_CORES_NOC0;
-            desc.security_cores_ = blackhole::SECURITY_CORES_NOC0;
-            desc.l2cpu_cores_ = blackhole::L2CPU_CORES_NOC0;
-            desc.worker_l1_size_ = blackhole::TENSIX_L1_SIZE;
-            desc.eth_l1_size_ = blackhole::ETH_L1_SIZE;
-            desc.dram_bank_size_ = blackhole::DRAM_BANK_SIZE;
-            desc.noc0_x_to_noc1_x_ = blackhole::NOC0_X_TO_NOC1_X;
-            desc.noc0_y_to_noc1_y_ = blackhole::NOC0_Y_TO_NOC1_Y;
+            arch_ = tt::ARCH::BLACKHOLE;
+            grid_size_ = blackhole::GRID_SIZE;
+            tensix_cores_ = blackhole::TENSIX_CORES_NOC0;
+            dram_cores_ = blackhole::DRAM_CORES_NOC0;
+            eth_cores_ = blackhole::ETH_CORES_NOC0;
+            arc_cores_ = blackhole::ARC_CORES_NOC0;
+            pcie_cores_ = blackhole::PCIE_CORES_NOC0;
+            router_cores_ = blackhole::ROUTER_CORES_NOC0;
+            security_cores_ = blackhole::SECURITY_CORES_NOC0;
+            l2cpu_cores_ = blackhole::L2CPU_CORES_NOC0;
+            worker_l1_size_ = blackhole::TENSIX_L1_SIZE;
+            eth_l1_size_ = blackhole::ETH_L1_SIZE;
+            dram_bank_size_ = blackhole::DRAM_BANK_SIZE;
+            noc0_x_to_noc1_x_ = blackhole::NOC0_X_TO_NOC1_X;
+            noc0_y_to_noc1_y_ = blackhole::NOC0_Y_TO_NOC1_Y;
             break;
         case tt::ARCH::QUASAR:
-            desc.arch_ = tt::ARCH::QUASAR;
-            desc.grid_size_ = grendel::GRID_SIZE;
-            desc.tensix_cores_ = grendel::TENSIX_CORES_NOC0;
-            desc.dram_cores_ = grendel::DRAM_CORES_NOC0;
-            desc.eth_cores_ = grendel::ETH_CORES_NOC0;
-            desc.arc_cores_ = grendel::ARC_CORES_NOC0;
-            desc.pcie_cores_ = grendel::PCIE_CORES_NOC0;
-            desc.router_cores_ = grendel::ROUTER_CORES_NOC0;
-            desc.security_cores_ = grendel::SECURITY_CORES_NOC0;
-            desc.l2cpu_cores_ = grendel::L2CPU_CORES_NOC0;
-            desc.dispatch_cores_ = grendel::DISPATCH_CORES_NOC0;
-            desc.worker_l1_size_ = grendel::TENSIX_L1_SIZE;
-            desc.eth_l1_size_ = grendel::ETH_L1_SIZE;
-            desc.dram_bank_size_ = grendel::DRAM_BANK_SIZE;
-            desc.noc0_x_to_noc1_x_ = grendel::NOC0_X_TO_NOC1_X;
-            desc.noc0_y_to_noc1_y_ = grendel::NOC0_Y_TO_NOC1_Y;
+            arch_ = tt::ARCH::QUASAR;
+            grid_size_ = grendel::GRID_SIZE;
+            tensix_cores_ = grendel::TENSIX_CORES_NOC0;
+            dram_cores_ = grendel::DRAM_CORES_NOC0;
+            eth_cores_ = grendel::ETH_CORES_NOC0;
+            arc_cores_ = grendel::ARC_CORES_NOC0;
+            pcie_cores_ = grendel::PCIE_CORES_NOC0;
+            router_cores_ = grendel::ROUTER_CORES_NOC0;
+            security_cores_ = grendel::SECURITY_CORES_NOC0;
+            l2cpu_cores_ = grendel::L2CPU_CORES_NOC0;
+            dispatch_cores_ = grendel::DISPATCH_CORES_NOC0;
+            worker_l1_size_ = grendel::TENSIX_L1_SIZE;
+            eth_l1_size_ = grendel::ETH_L1_SIZE;
+            dram_bank_size_ = grendel::DRAM_BANK_SIZE;
+            noc0_x_to_noc1_x_ = grendel::NOC0_X_TO_NOC1_X;
+            noc0_y_to_noc1_y_ = grendel::NOC0_Y_TO_NOC1_Y;
             break;
         default:
-            throw std::runtime_error("Invalid architecture for creating SocArchDescriptor.");
+            UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocArchDescriptor.");
     }
 
-    desc.build_derived_data();
-    return desc;
+    build_derived_data();
 }
 
-SocArchDescriptor SocArchDescriptor::create(const std::string& device_descriptor_path) {
-    std::ifstream fdesc(device_descriptor_path);
-    if (fdesc.fail()) {
-        throw std::runtime_error(
-            fmt::format("Error: device descriptor file {} does not exist!", device_descriptor_path));
+SocArchDescriptor::SocArchDescriptor(const std::string& soc_descriptor_path) {
+    std::ifstream soc_descriptor_file(soc_descriptor_path);
+    if (soc_descriptor_file.fail()) {
+        UMD_THROW(error::RuntimeError, "SocDescriptor file does not exist at path: " + soc_descriptor_path);
     }
-    fdesc.close();
+    soc_descriptor_file.close();
+    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_path);
 
-    YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_path);
-
-    SocArchDescriptor desc;
-    desc.device_descriptor_file_path_ = device_descriptor_path;
-    desc.load_from_yaml(device_descriptor_yaml);
-    desc.build_derived_data();
-    return desc;
+    device_descriptor_file_path_ = soc_descriptor_path;
+    load_from_yaml(device_descriptor_yaml);
+    build_derived_data();
 }
 
 tt::ARCH SocArchDescriptor::get_arch_from_path(const std::string& soc_descriptor_path) {

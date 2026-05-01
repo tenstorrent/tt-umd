@@ -10,11 +10,13 @@
 #include <nng/protocol/pipeline0/pull.h>
 #include <nng/protocol/pipeline0/push.h>
 
+#include <memory>
 #include <stdexcept>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 
 namespace tt::umd {
 
@@ -27,7 +29,7 @@ protected:
             throw std::runtime_error(
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
-        auto soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
+        std::string soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
         device = SimulationChip::create(simulator_path, soc_descriptor, 0, 1);
         device->start_device();

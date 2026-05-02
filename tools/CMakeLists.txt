@@ -98,6 +98,17 @@ set_target_properties(
             lock_virus
 )
 
+add_executable(test_io test_io.cpp)
+target_link_libraries(test_io PRIVATE tools_common)
+set_target_properties(
+    test_io
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            test_io
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -108,4 +119,5 @@ add_custom_target(
         warm_reset
         tlb_virus
         lock_virus
+        test_io
 )

@@ -95,7 +95,15 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
     }
 }
 
-SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
+SiliconSysmemManager::~SiliconSysmemManager() {
+    try {
+        SiliconSysmemManager::unpin_or_unmap_sysmem();
+    } catch (const std::exception& e) {
+        log_warning(LogUMD, "SiliconSysmemManager::~SiliconSysmemManager: ignoring exception during cleanup: {}", e.what());
+    } catch (...) {
+        log_warning(LogUMD, "SiliconSysmemManager::~SiliconSysmemManager: ignoring unknown exception during cleanup");
+    }
+}
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {

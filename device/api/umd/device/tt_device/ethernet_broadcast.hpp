@@ -28,6 +28,11 @@ public:
         const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,
         const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms);
 
+    // A constructor variant to be used for a single remote chip.
+    // Note that the chips_to_exclude parameter should be empty in case this EthernetBroadcast is used for a single
+    // remote chip.
+    EthernetBroadcast(RemoteCommunication* mmio_remote_comms);
+
     void broadcast_write_to_cluster(
         const void* mem_ptr,
         uint32_t size_in_bytes,

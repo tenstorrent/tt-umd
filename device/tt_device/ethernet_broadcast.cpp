@@ -54,6 +54,14 @@ EthernetBroadcast::EthernetBroadcast(
     const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms) :
     chip_locations_(chip_locations), chip_to_mmio_chip_(chip_to_mmio_chip), mmio_remote_comms_(mmio_remote_comms) {}
 
+// Note that the structures don't rely in any way on ChipIds being correct, the important thing is to pass the
+// correct EthCoord for the remote chip.
+EthernetBroadcast::EthernetBroadcast(RemoteCommunication* mmio_remote_comms) :
+    EthernetBroadcast(
+        std::unordered_map<ChipId, EthCoord>{{0, mmio_remote_comms->get_target_eth_coord().value()}},
+        std::unordered_map<ChipId, ChipId>{{0, 0}},
+        std::unordered_map<ChipId, RemoteCommunication*>{{0, mmio_remote_comms}}) {}
+
 void EthernetBroadcast::refresh(
     const std::unordered_map<ChipId, EthCoord>& chip_locations,
     const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,

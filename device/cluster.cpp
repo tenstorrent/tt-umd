@@ -933,6 +933,8 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<ChipId> chips_to_exclude = {};
+    std::set<uint32_t> rows_to_exclude;
+    std::set<uint32_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
         rows_to_exclude = {0, 1};
         columns_to_exclude = {0, 8, 9};

@@ -80,7 +80,7 @@ target_sources(
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
-        ethernet_broadcast.cpp
+        tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp

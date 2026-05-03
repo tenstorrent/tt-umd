@@ -464,7 +464,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
         }
         // Broadcast to Tensix.
         cluster.broadcast_write_to_cluster(
-            vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
+            vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude, false);
         // Broadcast to DRAM.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
@@ -472,7 +472,8 @@ TEST(SiliconDriverWH, BroadcastWrite) {
             address,
             {},
             rows_to_exclude_for_dram_broadcast,
-            cols_to_exclude_for_dram_broadcast);
+            cols_to_exclude_for_dram_broadcast,
+            false);
         cluster.wait_for_non_mmio_flush();
 
         for (auto chip_id : cluster.get_target_device_ids()) {
@@ -534,8 +535,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
-    // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns in
-    // translated space.
+    // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
+    // in translated space.
     std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
     std::set<uint32_t> cols_to_exclude = {16, 17, 20};
     // This excludes all tensix columns 18-25 in translated space.
@@ -552,7 +553,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
         }
         // Broadcast to Tensix.
         cluster.broadcast_write_to_cluster(
-            vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
+            vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude, true);
         // Broadcast to DRAM.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
@@ -560,7 +561,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
             address,
             {},
             rows_to_exclude_for_dram_broadcast,
-            cols_to_exclude_for_dram_broadcast);
+            cols_to_exclude_for_dram_broadcast,
+            true);
         cluster.wait_for_non_mmio_flush();
 
         for (auto chip_id : cluster.get_target_device_ids()) {
@@ -627,8 +629,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
-    // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns in
-    // translated space.
+    // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
+    // in translated space.
     std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
     std::set<uint32_t> cols_to_exclude = {16, 17, 20};
     // This excludes all tensix columns 18-25 in translated space.
@@ -655,7 +657,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
                 address,
                 chips_to_exclude,
                 rows_to_exclude,
-                cols_to_exclude);
+                cols_to_exclude,
+                true);
 
             // Broadcast to DRAM.
             cluster.broadcast_write_to_cluster(
@@ -664,20 +667,17 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
                 address,
                 chips_to_exclude,
                 rows_to_exclude_for_dram_broadcast,
-                cols_to_exclude_for_dram_broadcast);
+                cols_to_exclude_for_dram_broadcast,
+                true);
             cluster.wait_for_non_mmio_flush();
 
             for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
                 const CoreCoord translated_core =
                     cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                uint32_t virtual_y = tt::umd::wormhole::TRANSLATED_TO_VIRTUAL_Y.at(
-                    translated_core.y - tt::umd::wormhole::translated_coordinate_start_y);
-                if (rows_to_exclude.find(virtual_y) != rows_to_exclude.end()) {
+                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
                     continue;
                 }
-                uint32_t virtual_x = tt::umd::wormhole::TRANSLATED_TO_VIRTUAL_X.at(
-                    translated_core.x - tt::umd::wormhole::translated_coordinate_start_x);
-                if (cols_to_exclude.find(virtual_x) != cols_to_exclude.end()) {
+                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
                     continue;
                 }
                 test_utils::read_data_from_device(

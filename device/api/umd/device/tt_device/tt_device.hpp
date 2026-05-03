@@ -55,7 +55,6 @@ class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
-enum class TensixSoftResetOptions : std::uint32_t;
 struct CoreCoord;
 
 // Represents the status of the ETH core.

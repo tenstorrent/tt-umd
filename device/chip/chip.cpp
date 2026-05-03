@@ -29,7 +29,6 @@
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-enum class TensixSoftResetOptions : std::uint32_t;
 
 Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
     set_default_params(soc_descriptor_.arch);

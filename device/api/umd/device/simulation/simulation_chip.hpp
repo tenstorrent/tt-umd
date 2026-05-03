@@ -30,7 +30,6 @@ enum class ARCH;
 namespace tt::umd {
 class ClusterDescriptor;
 class SocDescriptor;
-enum class TensixSoftResetOptions : std::uint32_t;
 
 // Base class for all simulation devices.
 class SimulationChip : public Chip {

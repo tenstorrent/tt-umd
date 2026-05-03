@@ -28,7 +28,6 @@ namespace tt::umd {
 class TTDevice;
 class SysmemManager;
 class TLBManager;
-enum class TensixSoftResetOptions : std::uint32_t;
 struct CoreCoord;
 
 // An abstract class that represents a chip.

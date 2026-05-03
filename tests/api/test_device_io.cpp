@@ -396,11 +396,12 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                 v++;
             }
 
+            const tt_xy_pair multicast_coord =
+                soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
             if (full_grid) {
+                log_info(LogUMD, "Multicast to full grid on chip {}", multicast_coord.str(), chip_id);
                 tt_device->noc_multicast_write(write_data.data(), data_size, address);
             } else {
-                const tt_xy_pair multicast_coord =
-                    soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
                 log_info(LogUMD, "Multicast to core {} on chip {}", multicast_coord.str(), chip_id);
                 tt_device->noc_multicast_write(write_data.data(), data_size, multicast_coord, multicast_coord, address);
             }

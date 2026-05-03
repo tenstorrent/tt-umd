@@ -18,11 +18,9 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "simulation_device_generated.h"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -131,7 +129,7 @@ void RtlSimCommunicator::initialize() {
     size_t buf_size = host_.recv_from_device(&buf_ptr);
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
-    TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
+    UMD_ASSERT(cmd == DEVICE_COMMAND_EXIT, error::RuntimeError, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
 
     // Start notification handler thread.
@@ -177,11 +175,10 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
 
     uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
-    TT_ASSERT(
+    UMD_ASSERT(
         response_bytes >= size,
-        "tile_read_bytes response size {} is smaller than requested size {}.",
-        response_bytes,
-        size);
+        error::RuntimeError,
+        fmt::format("tile_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
     std::memcpy(data, rd_resp_buf->data()->data(), size);
     nng_free(msg.data, msg.size);
 }
@@ -340,11 +337,10 @@ void RtlSimCommunicator::handle_ram_write_notification(const void *notification)
 
     if (ram_write_callback_ && buf->data() && buf->data()->size() > 0) {
         uint32_t payload_bytes = buf->data()->size() * sizeof(uint32_t);
-        TT_ASSERT(
+        UMD_ASSERT(
             payload_bytes >= size,
-            "RAM write notification payload {} is smaller than reported size {}.",
-            payload_bytes,
-            size);
+            error::RuntimeError,
+            fmt::format("RAM write notification payload {} is smaller than reported size {}.", payload_bytes, size));
         ram_write_callback_(address, buf->data()->data(), size);
     } else if (!ram_write_callback_) {
         log_warning(tt::LogEmulationDriver, "[AXI_RAM_WRITE] No callback registered, dropping write.");

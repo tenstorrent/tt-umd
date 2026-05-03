@@ -58,7 +58,7 @@ jobs:
           echo "CI_IMAGE=ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.docker-version }}" >> "$GITHUB_ENV"
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}

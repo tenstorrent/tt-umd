@@ -17,6 +17,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
 
@@ -305,7 +306,7 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
-class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool>> {};
+class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool, bool>> {};
 
 // Parametrized over (use_noc0, full_grid, sysmem_enabled):
 //   use_noc0       - true: NOC0 coordinates; false: translated coordinates
@@ -315,32 +316,60 @@ class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<boo
 // Bystander verification is only performed for isolated-core multicasts.
 TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     // TODO: sysmem_enabled parameter to be added in the following PR.
-    auto [use_noc0, full_grid] = GetParam();
+    auto [use_noc0, full_grid, sysmem_enabled] = GetParam();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
 
-    constexpr uint64_t address = 0x100;
+    test_utils::safe_test_cluster_start(cluster.get());
+
+    constexpr uint64_t address = 0x1000;
     constexpr size_t num_words = 10;
     constexpr size_t data_size = num_words * sizeof(uint32_t);
+
+    // Also check same cores on other chips, to make sure that the multicast write is not affecting them.
+    std::vector<std::pair<ChipId, CoreCoord>> other_chip_bystander_cores;
+    for (const ChipId cid : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc = cluster->get_soc_descriptor(cid);
+        for (const CoreCoord& c : get_tensix_corners(soc)) {
+            other_chip_bystander_cores.emplace_back(cid, c);
+        }
+    }
 
     for (const ChipId chip_id : cluster->get_target_device_ids()) {
         log_info(
             LogUMD,
-            "Testing {} {} multicast writes on chip {} remote: {}",
+            "Testing {} {} multicast writes on chip {} remote: {} sysmem_enabled: {}",
             use_noc0 ? "NOC0" : "translated",
             full_grid ? "full-grid" : "single-core",
             chip_id,
-            cluster->get_cluster_description()->is_chip_remote(chip_id));
+            cluster->get_cluster_description()->is_chip_remote(chip_id),
+            sysmem_enabled);
 
         TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
         std::vector<CoreCoord> representative_cores = get_tensix_corners(soc_desc);
-        for (const CoreType ct : {CoreType::DRAM, CoreType::ETH, CoreType::ARC}) {
+        // Note: For ARC and PCIE the data could change on its own. And if something is wrong with the tests, it can be
+        // really messy to actually end up writing something wrong to them. So we don't test them, but the multicasts
+        // are definitelly not expected to land on them.
+        for (const CoreType ct : {CoreType::DRAM, CoreType::ETH}) {
             const auto cores = soc_desc.get_cores(ct, CoordSystem::TRANSLATED);
             if (!cores.empty()) {
                 representative_cores.push_back(cores[0]);
             }
+        }
+
+        std::vector<std::vector<uint32_t>> other_chip_bystander_originals(other_chip_bystander_cores.size());
+        for (size_t i = 0; i < other_chip_bystander_cores.size(); ++i) {
+            const auto& [bystander_chip, bystander_core] = other_chip_bystander_cores[i];
+            if (bystander_chip == chip_id) {
+                continue;
+            }
+            other_chip_bystander_originals[i].resize(num_words);
+            cluster->get_chip(bystander_chip)
+                ->get_tt_device()
+                ->read_from_device(other_chip_bystander_originals[i].data(), bystander_core, address, data_size);
         }
 
         CoreCoord bystander_tensix_core;
@@ -392,18 +421,34 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                                               << " should not have been modified by the multicast write.";
             }
         }
+
+        for (size_t i = 0; i < other_chip_bystander_cores.size(); ++i) {
+            const auto& [bystander_chip, bystander_core] = other_chip_bystander_cores[i];
+            if (bystander_chip == chip_id) {
+                continue;
+            }
+            std::vector<uint32_t> bystander_readback(num_words);
+            cluster->get_chip(bystander_chip)
+                ->get_tt_device()
+                ->read_from_device(bystander_readback.data(), bystander_core, address, data_size);
+            EXPECT_EQ(other_chip_bystander_originals[i], bystander_readback)
+                << "Other-chip bystander core " << bystander_core.str() << " on chip " << bystander_chip
+                << " should not have been modified by multicast write on chip " << chip_id;
+        }
     }
 }
 
-static std::vector<std::tuple<bool, bool>> get_multicast_write_params() {
+static std::vector<std::tuple<bool, bool, bool>> get_multicast_write_params() {
     const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
-    std::vector<std::tuple<bool, bool>> params;
+    std::vector<std::tuple<bool, bool, bool>> params;
     for (bool use_noc0 : {false, true}) {
         if (use_noc0 && is_blackhole) {
             continue;  // NOC0 multicast not supported on Blackhole
         }
         for (bool full_grid : {false, true}) {
-            params.emplace_back(use_noc0, full_grid);
+            for (bool sysmem_enabled : {false, true}) {
+                params.emplace_back(use_noc0, full_grid, sysmem_enabled);
+            }
         }
     }
     return params;
@@ -413,9 +458,10 @@ INSTANTIATE_TEST_SUITE_P(
     AllCombinations,
     TestMulticastWriteFixture,
     ::testing::ValuesIn(get_multicast_write_params()),
-    [](const ::testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+    [](const ::testing::TestParamInfo<std::tuple<bool, bool, bool>>& info) {
         return std::string(std::get<0>(info.param) ? "NOC0" : "Translated") + "_" +
-               (std::get<1>(info.param) ? "FullGrid" : "SingleCore");
+               (std::get<1>(info.param) ? "FullGrid" : "SingleCore") + "_" +
+               (std::get<2>(info.param) ? "SysmemEnabled" : "SysmemDisabled");
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

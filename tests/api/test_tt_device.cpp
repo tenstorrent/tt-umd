@@ -272,7 +272,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     uint64_t address = 0x0;
-    std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);

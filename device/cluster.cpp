@@ -172,8 +172,8 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    bool use_ethernet_broadcast =
-        chip_type == ChipType::SILICON && arch_name == tt::ARCH::WORMHOLE_B0 && !remote_chip_ids_.empty();
+    bool use_ethernet_broadcast = chip_type == ChipType::SILICON && arch_name == tt::ARCH::WORMHOLE_B0 &&
+                                  !remote_chip_ids_.empty() && num_host_mem_ch_per_mmio_device > 0;
     if (use_ethernet_broadcast) {
         ChipId first_mmio_chip = *local_chip_ids_.begin();
         std::unordered_map<ChipId, ChipId> chip_to_mmio_chip;
@@ -188,7 +188,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             mmio_remote_comms[chip_id] = rc.get();
         }
         ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(
-            arch_name, cluster_desc->get_chip_locations(), chip_to_mmio_chip, mmio_remote_comms);
+            cluster_desc->get_chip_locations(), chip_to_mmio_chip, mmio_remote_comms);
     }
 }
 
@@ -237,22 +237,27 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
                 cluster_desc->io_device_type);
         }
 
-        SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
-        if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
-            sysmem_ptr = nullptr;
-        }
-        remote_communications_[chip_id] =
-            RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
-
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
+            SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
+            if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
+                sysmem_ptr = nullptr;
+            }
+            remote_communications_[chip_id] =
+                RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
+
             // Remote transfer currently supported only for wormhole.
-            remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
+            remote_communications_.at(chip_id)->set_remote_transfer_ethernet_cores(
                 chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                     cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
         }
         return chip;
     } else {
         ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+        log_info(
+            LogUMD,
+            "Creating RemoteChip for chip {} with target eth coord {}",
+            chip_id,
+            cluster_desc->get_chip_location(chip_id));
         return RemoteChip::create(
             get_local_chip(gateway_id),
             cluster_desc->get_chip_location(chip_id),
@@ -768,12 +773,26 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;
     std::set<uint32_t> columns_to_exclude;
-    if (use_translated_coords_for_eth_broadcast) {
-        rows_to_exclude = {16, 17};
-        columns_to_exclude = {16, 17};
-    } else {
-        rows_to_exclude = {0, 6};
-        columns_to_exclude = {0, 5};
+    if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        if (use_translated_coords_for_eth_broadcast) {
+            rows_to_exclude = {16, 17};
+            columns_to_exclude = {16, 17};
+        } else {
+            rows_to_exclude = {0, 6};
+            columns_to_exclude = {0, 5};
+        }
+    } else if (arch_name == tt::ARCH::BLACKHOLE) {
+        if (use_translated_coords_for_eth_broadcast) {
+            rows_to_exclude = {0, 1};
+            columns_to_exclude = {0, 8, 9};
+        } else {
+            // PCIE and ETH are on these rows in translated space.
+            // Note: But the algorithm won't ever try even writing to them, since ethernet broadcast is disabled for
+            // blackhole.
+            rows_to_exclude = {24, 25};
+            // DRAM is on these columns in translated space.
+            columns_to_exclude = {17, 18};
+        }
     }
     broadcast_write_to_cluster(
         &valid_val,

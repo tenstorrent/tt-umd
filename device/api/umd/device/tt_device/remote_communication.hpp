@@ -60,6 +60,10 @@ public:
 
     TTDevice* get_local_device();
 
+    virtual std::optional<EthCoord> get_target_eth_coord() = 0;
+
+    bool has_sysmem_manager() const;
+
     // Get the active eth core that will be used for the next remote communication.
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();

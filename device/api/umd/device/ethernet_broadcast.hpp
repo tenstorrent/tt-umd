@@ -20,10 +20,14 @@ class RemoteCommunication;
 class EthernetBroadcast {
 public:
     EthernetBroadcast(
-        tt::ARCH arch,
         const std::unordered_map<ChipId, EthCoord>& chip_locations,
         const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,
         const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms);
+
+    // A constructor variant to be used for a single remote chip.
+    // Note that the chips_to_exclude parameter should be empty in case this EthernetBroadcast is used for a single
+    // remote chip.
+    EthernetBroadcast(RemoteCommunication* mmio_remote_comms);
 
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -51,7 +55,6 @@ private:
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
 
-    tt::ARCH arch_;
     std::unordered_map<ChipId, EthCoord> chip_locations_;
     std::unordered_map<ChipId, ChipId> chip_to_mmio_chip_;
     std::unordered_map<ChipId, RemoteCommunication*> mmio_remote_comms_;

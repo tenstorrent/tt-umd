@@ -24,7 +24,9 @@
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/ethernet_broadcast.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -538,7 +540,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows in
     // translated space.
     std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
-    std::set<uint32_t> cols_to_exclude = {16, 17};
+    std::set<uint32_t> cols_to_exclude = {16, 17, 20};
     // This excludes all tensix columns 18-25 in translated space.
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
     std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
@@ -574,6 +576,9 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
                 if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
                     continue;
                 }
+                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
+                    continue;
+                }
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -606,6 +611,195 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
         }
         // Wait for data to be cleared before writing next block.
         cluster.wait_for_non_mmio_flush();
+    }
+    cluster.close_device();
+}
+
+TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
+    // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly.
+    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    set_barrier_params(cluster);
+    auto mmio_devices = cluster.get_target_mmio_device_ids();
+
+    test_utils::safe_test_cluster_start(&cluster);
+    auto eth_version = cluster.get_ethernet_firmware_version();
+    bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
+                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+    if (!virtual_bcast_supported) {
+        cluster.close_device();
+        GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "
+                        "Virtual Coordinate Broadcast or NOC translation is not enabled";
+    }
+
+    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows in
+    // translated space.
+    std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
+    std::set<uint32_t> cols_to_exclude = {16, 17, 20};
+    // This excludes all tensix columns 18-25 in translated space.
+    std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
+    std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
+
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        for (const auto& size : broadcast_sizes) {
+            std::vector<uint32_t> vector_to_write(size);
+            std::vector<uint32_t> zeros(size);
+            std::vector<uint32_t> readback_vec = {};
+            for (int i = 0; i < size; i++) {
+                vector_to_write[i] = i;
+                zeros[i] = 0;
+            }
+
+            std::set<ChipId> chips_to_exclude = cluster.get_target_device_ids();
+            chips_to_exclude.erase(chip_id);
+
+            // Broadcast to Tensix.
+            cluster.broadcast_write_to_cluster(
+                vector_to_write.data(),
+                vector_to_write.size() * 4,
+                address,
+                chips_to_exclude,
+                rows_to_exclude,
+                cols_to_exclude,
+                true);
+
+            // Broadcast to DRAM.
+            cluster.broadcast_write_to_cluster(
+                vector_to_write.data(),
+                vector_to_write.size() * 4,
+                address,
+                chips_to_exclude,
+                rows_to_exclude_for_dram_broadcast,
+                cols_to_exclude_for_dram_broadcast,
+                true);
+            cluster.wait_for_non_mmio_flush();
+
+            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+                // Rows are excluded according to virtual coordinates, so we have to translate to that system before
+                // accessing .y coordinate.
+                const CoreCoord translated_core =
+                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
+                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
+                    continue;
+                }
+                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
+                    continue;
+                }
+                test_utils::read_data_from_device(
+                    cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
+                ASSERT_EQ(vector_to_write, readback_vec)
+                    << "Vector read back from chip " << chip_id << " core " << core.str()
+                    << " does not match what was broadcasted for size " << size;
+                cluster.write_to_device(
+                    zeros.data(),
+                    zeros.size() * sizeof(std::uint32_t),
+                    chip_id,
+                    core,
+                    address);  // Clear any written data
+                readback_vec = {};
+            }
+            for (int chan = 0; chan < cluster.get_soc_descriptor(chip_id).get_num_dram_channels(); chan++) {
+                const CoreCoord core =
+                    cluster.get_soc_descriptor(chip_id).get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED);
+                test_utils::read_data_from_device(
+                    cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
+                ASSERT_EQ(vector_to_write, readback_vec)
+                    << "Vector read back from DRAM core " << chip_id << " " << core.str()
+                    << " does not match what was broadcasted for size " << size;
+                cluster.write_to_device(
+                    zeros.data(),
+                    zeros.size() * sizeof(std::uint32_t),
+                    chip_id,
+                    core,
+                    address);  // Clear any written data
+                readback_vec = {};
+            }
+        }
+        // Wait for data to be cleared before writing next block.
+        cluster.wait_for_non_mmio_flush();
+    }
+    cluster.close_device();
+}
+
+TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
+    // For each remote chip, broadcast a vector to its tensix grid using EthernetBroadcastSingleRemote
+    // and verify the data is read back correctly.
+    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    set_barrier_params(cluster);
+    auto mmio_devices = cluster.get_target_mmio_device_ids();
+
+    test_utils::safe_test_cluster_start(&cluster);
+
+    auto remote_devices = cluster.get_target_remote_device_ids();
+    if (remote_devices.empty()) {
+        cluster.close_device();
+        GTEST_SKIP() << "SiliconDriverWH.EthernetBroadcastSingleRemotePerChip skipped: no remote devices found";
+    }
+
+    auto eth_version = cluster.get_ethernet_firmware_version();
+    bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
+                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+    if (!virtual_bcast_supported) {
+        cluster.close_device();
+        GTEST_SKIP() << "SiliconDriverWH.EthernetBroadcastSingleRemotePerChip skipped: ethernet version does not "
+                        "support Virtual Coordinate Broadcast or NOC translation is not enabled";
+    }
+
+    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows in
+    // translated space.
+    std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
+    std::set<uint32_t> cols_to_exclude = {16, 17, 20};
+
+    for (auto chip_id : remote_devices) {
+        RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
+        EthernetBroadcast eth_broadcast(remote_chip->get_remote_communication());
+
+        for (const auto& size : broadcast_sizes) {
+            std::vector<uint32_t> vector_to_write(size);
+            std::vector<uint32_t> zeros(size);
+            std::vector<uint32_t> readback_vec = {};
+            for (int i = 0; i < size; i++) {
+                vector_to_write[i] = i;
+                zeros[i] = 0;
+            }
+
+            eth_broadcast.broadcast_write_to_cluster(
+                vector_to_write.data(),
+                vector_to_write.size() * sizeof(uint32_t),
+                address,
+                {},
+                rows_to_exclude,
+                cols_to_exclude,
+                true);
+            cluster.wait_for_non_mmio_flush(chip_id);
+
+            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+                const CoreCoord translated_core =
+                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
+                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
+                    continue;
+                }
+                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
+                    continue;
+                }
+                test_utils::read_data_from_device(
+                    cluster, readback_vec, chip_id, core, address, vector_to_write.size() * sizeof(uint32_t));
+                ASSERT_EQ(vector_to_write, readback_vec)
+                    << "Vector read back from chip " << chip_id << " core " << core.str()
+                    << " does not match what was broadcasted for size " << size;
+                cluster.write_to_device(
+                    zeros.data(),
+                    zeros.size() * sizeof(std::uint32_t),
+                    chip_id,
+                    core,
+                    address);  // Clear any written data
+                readback_vec = {};
+            }
+        }
+        cluster.wait_for_non_mmio_flush(chip_id);
     }
     cluster.close_device();
 }

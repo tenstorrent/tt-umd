@@ -399,7 +399,12 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             } else {
                 const tt_xy_pair multicast_coord =
                     soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
-                log_info(LogUMD, "Multicast to core {} on chip {}", multicast_coord.str(), chip_id);
+                log_info(
+                    LogUMD,
+                    "Multicast to core {} using coordinates {} on chip {}",
+                    core.str(),
+                    multicast_coord.str(),
+                    chip_id);
                 tt_device->noc_multicast_write(write_data.data(), data_size, multicast_coord, multicast_coord, address);
             }
 

@@ -43,6 +43,8 @@ public:
 
     void wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms = timeout::NON_MMIO_RW_TIMEOUT) override;
 
+    std::optional<EthCoord> get_target_eth_coord() override;
+
 private:
     EthCoord target_chip;
     bool large_transfer_warning_printed_ = false;

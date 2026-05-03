@@ -365,7 +365,8 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
         std::vector<uint32_t> bystander_original(num_words, 0);
         if (!full_grid) {
             for (const auto& c : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-                if (std::find(representative_cores.begin(), representative_cores.end(), c) == representative_cores.end()) {
+                if (std::find(representative_cores.begin(), representative_cores.end(), c) ==
+                    representative_cores.end()) {
                     bystander_tensix_core = c;
                     break;
                 }
@@ -423,7 +424,6 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                                               << " should not have been modified by the multicast write.";
             }
         }
-
 
         // Now verify that no cores on other chips have been overwritten.
         for (size_t i = 0; i < other_chip_bystander_cores.size(); ++i) {

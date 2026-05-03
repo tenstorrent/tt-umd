@@ -172,8 +172,9 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    use_ethernet_broadcast =
-        chip_type == ChipType::SILICON && arch_name == tt::ARCH::WORMHOLE_B0 && !remote_chip_ids_.empty();
+    // The ethernet firmware also requires host memory for broadcasting.
+    use_ethernet_broadcast = chip_type == ChipType::SILICON && arch_name == tt::ARCH::WORMHOLE_B0 &&
+                             !remote_chip_ids_.empty() && num_host_mem_ch_per_mmio_device > 0;
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -932,8 +933,13 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
     uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<ChipId> chips_to_exclude = {};
-    std::set<uint32_t> rows_to_exclude = {0, 6};
-    std::set<uint32_t> columns_to_exclude = {0, 5};
+    if (arch_name == tt::ARCH::BLACKHOLE) {
+        rows_to_exclude = {0, 1};
+        columns_to_exclude = {0, 8, 9};
+    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        rows_to_exclude = {0, 6};
+        columns_to_exclude = {0, 5};
+    }
     broadcast_write_to_cluster(
         &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
     // Ensure that reset signal is globally visible.

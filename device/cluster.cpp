@@ -160,12 +160,10 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             remote_chip_ids_);
         log_device_summary();
 
-        if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            // Virtual coordinates can be used for broadcast headers if NOC translation is enabled.
-            use_translated_coords_for_eth_broadcast = true;
-            for (const auto& chip : all_chip_ids_) {
-                use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
-            }
+        // Virtual coordinates can be used for broadcast headers if NOC translation is enabled.
+        use_translated_coords_for_eth_broadcast = true;
+        for (const auto& chip : all_chip_ids_) {
+            use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
         }
     }
 

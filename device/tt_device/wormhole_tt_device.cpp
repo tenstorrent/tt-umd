@@ -441,19 +441,11 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
 }
 
 void WormholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
-    xy_pair start_core;
-    xy_pair end_core;
-    if (get_chip_info().noc_translation_enabled) {
-        // If NOC translation is enabled, we can use the regular NOC multicast write which will handle the translation
-        // for us.
-        start_core = {18, 18};
-        end_core = {27, 25};
-    } else {
-        // Translation has no effect on broadcast coordinates for WH; same range for NOC0 and NOC1.
-        start_core = {1, 1};
-        end_core = {11, 9};
-    }
-    noc_multicast_write(src, size, start_core, end_core, addr);
+    // Same range is used for NOC0 and NOC1.
+    // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
+    // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
+
+    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
 }
 
 }  // namespace tt::umd

@@ -17,6 +17,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
 

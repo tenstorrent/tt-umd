@@ -4,10 +4,14 @@
 
 #include "umd/device/tt_device/ethernet_broadcast.hpp"
 
+#include <fmt/format.h>
+#include <fmt/ranges.h>
+
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <set>
+#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -44,14 +48,10 @@ static bool valid_tensix_broadcast_grid(
 }
 
 EthernetBroadcast::EthernetBroadcast(
-    tt::ARCH arch,
     const std::unordered_map<ChipId, EthCoord>& chip_locations,
     const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,
     const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms) :
-    arch_(arch),
-    chip_locations_(chip_locations),
-    chip_to_mmio_chip_(chip_to_mmio_chip),
-    mmio_remote_comms_(mmio_remote_comms) {}
+    chip_locations_(chip_locations), chip_to_mmio_chip_(chip_to_mmio_chip), mmio_remote_comms_(mmio_remote_comms) {}
 
 void EthernetBroadcast::clear_header_cache(
     const std::unordered_map<ChipId, EthCoord>& chip_locations,
@@ -179,6 +179,16 @@ void EthernetBroadcast::ethernet_broadcast_write(
             header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
             header.at(4) |= row_exclusion_mask;
             header.at(4) |= col_exclusion_mask;
+            log_trace(
+                LogUMD,
+                "EthernetBroadcast: mmio_chip={} header[4]={:#010x} (row_mask={:#014b} col_mask={:#012b} "
+                "translated_bit={}), full header: {}",
+                mmio_group.first,
+                static_cast<uint32_t>(header.at(4)),
+                static_cast<uint32_t>(header.at(4)) & 0x7FFF,
+                (static_cast<uint32_t>(header.at(4)) >> 16) & 0x3FF,
+                (static_cast<uint32_t>(header.at(4)) & 0x8000) ? 1 : 0,
+                fmt::join(header, ", "));
             mmio_remote_comms_.at(mmio_group.first)
                 ->write_to_non_mmio({0, 0}, mem_ptr, address, size_in_bytes, true, header);
         }
@@ -260,7 +270,7 @@ void EthernetBroadcast::broadcast_write_to_cluster(
         rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
 
 
-    auto arch_impl = architecture_implementation::create(arch_);
+    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
     if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
         cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
         UMD_ASSERT(

@@ -194,7 +194,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
             mmio_remote_comms[chip_id] = rc.get();
         }
         ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(
-            arch_name, cluster_desc->get_chip_locations(), chip_to_mmio_chip, mmio_remote_comms);
+            cluster_desc->get_chip_locations(), chip_to_mmio_chip, mmio_remote_comms);
     }
 }
 

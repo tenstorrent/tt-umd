@@ -67,7 +67,7 @@ jobs:
           path: ./
 
       - name: Get tt-exalens kernels artifact
-        uses: pyTooling/download-artifact@v4
+        uses: pyTooling/download-artifact@v1.9.0
         with:
           name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./

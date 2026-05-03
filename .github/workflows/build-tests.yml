@@ -236,7 +236,7 @@ jobs:
           rm -f build/sfpi_*
 
       - name: Upload kernels as artifacts
-        uses: pyTooling/upload-artifact@v4
+        uses: pyTooling/upload-artifact@v1.10.0
         with:
           name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: |

@@ -71,6 +71,8 @@ public:
     // large transfers).
     void set_sysmem_manager(SysmemManager* sysmem_manager);
 
+    bool has_sysmem_manager() const;
+
 protected:
     void update_active_eth_core_idx();
 

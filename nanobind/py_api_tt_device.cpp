@@ -187,21 +187,31 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_communication_device_type", &TTDevice::get_communication_device_type, release_gil())
         .def("get_communication_device_id", &TTDevice::get_communication_device_id, release_gil())
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference, release_gil())
+        .def(
+            "get_pci_interface_id",
+            [](TTDevice &self) -> int {
+                auto pci_device = self.get_pci_device();
+                if (pci_device) {
+                    return pci_device->get_device_num();
+                } else {
+                    return -1;
+                }
+            })
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)
-        // Compatibility with luwen's API - these methods just return self.
+        // Compatibility with luwen's API - return self if arch matches, else None.
         .def(
             "as_wh",
-            [](TTDevice &self) -> TTDevice & { return self; },
+            [](TTDevice &self) -> TTDevice * { return self.get_arch() == tt::ARCH::WORMHOLE_B0 ? &self : nullptr; },
             nb::rv_policy::reference_internal,
-            "Return self - for compatibility with luwen's API")
+            "Return self if Wormhole, else None - for compatibility with luwen's API")
         .def(
             "as_bh",
-            [](TTDevice &self) -> TTDevice & { return self; },
+            [](TTDevice &self) -> TTDevice * { return self.get_arch() == tt::ARCH::BLACKHOLE ? &self : nullptr; },
             nb::rv_policy::reference_internal,
-            "Return self - for compatibility with luwen's API")
+            "Return self if Blackhole, else None - for compatibility with luwen's API")
         .def(
             "noc_read32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
@@ -247,27 +257,6 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
-        .def(
-            "noc_read",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
-                -> void {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0");
-                }
-                tt_xy_pair core = {core_x, core_y};
-                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
-                size_t data_size = buffer.size();
-                {
-                    nb::gil_scoped_release release;
-                    self.read_from_device(data_ptr, core, addr, data_size);
-                }
-            },
-            nb::arg("noc_id"),
-            nb::arg("core_x"),
-            nb::arg("core_y"),
-            nb::arg("addr"),
-            nb::arg("buffer"),
-            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
         .def(
             "noc_write",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
@@ -409,27 +398,6 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
         .def(
-            "dma_read_from_device",
-            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
-                -> void {
-                if (noc_id != 0) {
-                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
-                }
-                tt_xy_pair core = {core_x, core_y};
-                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
-                size_t data_size = buffer.size();
-                {
-                    nb::gil_scoped_release release;
-                    self.dma_read_from_device(data_ptr, data_size, core, addr);
-                }
-            },
-            nb::arg("noc_id"),
-            nb::arg("core_x"),
-            nb::arg("core_y"),
-            nb::arg("addr"),
-            nb::arg("buffer"),
-            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
-        .def(
             "dma_write_to_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytes data) -> void {
                 tt_xy_pair core = {core_x, core_y};
@@ -517,10 +485,10 @@ void bind_tt_device(nb::module_ &m) {
             "arc_msg",
             [](TTDevice &self,
                uint32_t msg_code,
-               bool wait_for_done,
+               bool wait_for_done = true,
                // Default to 0xFFFF: packed as (arg0 | arg1 << 16), the firmware treats the combined
                // value 0xFFFFFFFF as a sentinel meaning "no argument provided".
-               uint32_t arg0,
+               uint32_t arg0 = 0xffff,
                uint32_t arg1 = 0xffff,
                uint32_t timeout = 1) -> std::tuple<uint32_t, uint32_t, uint32_t> {
                 // Warn if wait_for_done is False.
@@ -547,7 +515,124 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("arg0") = 0xffff,
             nb::arg("arg1") = 0xffff,
             nb::arg("timeout") = 1,
-            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.");
+            "Send ARC message with two arguments and return (exit_code, return_3, return_4). Timeout is in seconds.")
+        // ---------------------------------------------------------------------------
+        // noc_id variants — temporary until noc_id is added to the main read/write
+        // interface in TTDevice. All functions below accept noc_id as the first
+        // argument and throw if it is not 0.
+        // ---------------------------------------------------------------------------
+        .def(
+            "noc_read",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+                -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
+                size_t data_size = buffer.size();
+                self.read_from_device(data_ptr, core, addr, data_size);
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("buffer"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "dma_read_from_device",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::bytearray buffer)
+                -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
+                size_t data_size = buffer.size();
+                self.dma_read_from_device(data_ptr, data_size, core, addr);
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("buffer"),
+            "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "noc_read32",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                uint32_t value = 0;
+                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                return value;
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            "Read a 32-bit value from a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "noc_write",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, const nb::bytes &data)
+                -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                const char *data_ptr = data.c_str();
+                size_t data_size = data.size();
+                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Write arbitrary-length data to a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "noc_write32",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value)
+                -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                tt_xy_pair core = {core_x, core_y};
+                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("value"),
+            "Write a 32-bit value to a core at the specified address. noc_id must be 0 for now.")
+        .def(
+            "noc_broadcast",
+            [](TTDevice &self, uint32_t noc_id, uint64_t addr, const nb::bytes &data) -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
+                self.noc_broadcast(buffer.data(), buffer.size(), addr);
+            },
+            nb::arg("noc_id"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Broadcast arbitrary-length data to all cores on the chip at the specified address. noc_id must be 0 for "
+            "now.")
+        .def(
+            "noc_broadcast32",
+            [](TTDevice &self, uint32_t noc_id, uint64_t addr, uint32_t value) -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                self.noc_broadcast(&value, sizeof(uint32_t), addr);
+            },
+            nb::arg("noc_id"),
+            nb::arg("addr"),
+            nb::arg("value"),
+            "Broadcast a 32-bit value to all cores on the chip at the specified address. noc_id must be 0 for now.");
 
     nb::class_<SPITTDevice>(m, "SPITTDevice")
         .def_static(

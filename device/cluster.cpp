@@ -807,33 +807,37 @@ void Cluster::broadcast_write_to_cluster(
 
     if (use_translated_coords) {
         for (const auto& row : rows_to_exclude) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 row >= wormhole::translated_coordinate_start_y,
-                "Row {} must be in translated coordinate space (>= {}).",
-                row,
-                wormhole::translated_coordinate_start_y);
+                error::RuntimeError,
+                fmt::format(
+                    "Row {} must be in translated coordinate space (>= {}).",
+                    row,
+                    wormhole::translated_coordinate_start_y));
         }
         for (const auto& col : columns_to_exclude) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 col >= wormhole::translated_coordinate_start_x,
-                "Col {} must be in translated coordinate space (>= {}).",
-                col,
-                wormhole::translated_coordinate_start_x);
+                error::RuntimeError,
+                fmt::format(
+                    "Col {} must be in translated coordinate space (>= {}).",
+                    col,
+                    wormhole::translated_coordinate_start_x));
         }
     } else {
         for (const auto& row : rows_to_exclude) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 row < wormhole::translated_coordinate_start_y,
-                "Row {} must be in NOC0 coordinate space (< {}).",
-                row,
-                wormhole::translated_coordinate_start_y);
+                error::RuntimeError,
+                fmt::format(
+                    "Row {} must be in NOC0 coordinate space (< {}).", row, wormhole::translated_coordinate_start_y));
         }
         for (const auto& col : columns_to_exclude) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 col < wormhole::translated_coordinate_start_x,
-                "Col {} must be in NOC0 coordinate space (< {}).",
-                col,
-                wormhole::translated_coordinate_start_x);
+                error::RuntimeError,
+                fmt::format(
+                    "Col {} must be in NOC0 coordinate space (< {}).", col, wormhole::translated_coordinate_start_x));
         }
     }
 
@@ -852,10 +856,10 @@ void Cluster::broadcast_write_to_cluster(
     }
 
     auto architecture_implementation = architecture_implementation::create(arch_name);
-    if (columns_to_exclude_virtual.find(0) == columns_to_exclude_virtual.end() or
-        columns_to_exclude_virtual.find(5) == columns_to_exclude_virtual.end()) {
+    if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
+        cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
         UMD_ASSERT(
-            !tensix_or_eth_in_broadcast(columns_to_exclude_virtual, architecture_implementation.get()),
+            !tensix_or_eth_in_broadcast(cols_to_exclude_virtual, architecture_implementation.get()),
             error::RuntimeError,
             "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
         if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end()) {
@@ -891,7 +895,7 @@ void Cluster::broadcast_write_to_cluster(
         UMD_ASSERT(
             use_translated_coords_for_eth_broadcast or
                 valid_tensix_broadcast_grid(
-                    rows_to_exclude_virtual, columns_to_exclude_virtual, architecture_implementation.get()),
+                    rows_to_exclude_virtual, cols_to_exclude_virtual, architecture_implementation.get()),
             error::RuntimeError,
             "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
         ethernet_broadcast_write(

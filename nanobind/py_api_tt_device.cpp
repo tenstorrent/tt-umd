@@ -614,7 +614,7 @@ void bind_tt_device(nb::module_ &m) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
-                self.noc_broadcast(buffer.data(), buffer.size(), addr);
+                self.noc_multicast_write(buffer.data(), buffer.size(), addr);
             },
             nb::arg("noc_id"),
             nb::arg("addr"),
@@ -627,7 +627,7 @@ void bind_tt_device(nb::module_ &m) {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
-                self.noc_broadcast(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
             },
             nb::arg("noc_id"),
             nb::arg("addr"),

@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/types/wormhole_telemetry.hpp"
 
 namespace tt::umd {

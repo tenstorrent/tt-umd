@@ -13,11 +13,11 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/driver_atomics.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 #include "tt-umd/types/tensix_soft_reset_options.hpp"

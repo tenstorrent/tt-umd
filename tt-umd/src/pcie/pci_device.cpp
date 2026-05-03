@@ -33,6 +33,7 @@
 #include "assert.hpp"
 #include "ioctl.h"
 #include "pcie/silicon_tlb_handle.hpp"
+#include "pcie/silicon_tlb_window.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/tt_kmd_lib/tt_kmd_lib.h"
@@ -838,6 +839,10 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
             pci_device_num,
             e.what());
     }
+}
+
+std::unique_ptr<TlbWindow> PCIDevice::allocate_tlb_window(const size_t tlb_size, const TlbMapping tlb_mapping) {
+    return std::make_unique<SiliconTlbWindow>(allocate_tlb(tlb_size, tlb_mapping));
 }
 
 void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {

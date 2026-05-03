@@ -17,6 +17,7 @@
 
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/pcie/tlb_handle.hpp"
+#include "tt-umd/pcie/tlb_window.hpp"
 #include "tt-umd/tt_kmd_lib/tt_kmd_lib.h"
 #include "tt-umd/types/arch.hpp"
 #include "tt-umd/types/tlb.hpp"
@@ -275,6 +276,15 @@ public:
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
      */
     std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Allocate a TLB resource and wrap it in a silicon TlbWindow.
+     *
+     * @param tlb_size Size of the TLB to allocate.
+     * @param tlb_mapping Type of TLB mapping to allocate (UC or WC).
+     */
+    std::unique_ptr<TlbWindow> allocate_tlb_window(
+        const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
     /**
      * Configure TLB register in user space by writing directly to BAR0.

@@ -6,8 +6,8 @@
 
 #include "blackhole_hang_detector.hpp"
 
-#include "noc_access.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/tt_device/protocol/device_protocol.hpp"
 #include "tt-umd/tt_device/protocol/pcie_interface.hpp"
 

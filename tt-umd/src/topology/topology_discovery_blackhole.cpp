@@ -12,11 +12,11 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "noc_access.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/erisc_firmware.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/topology/topology_discovery.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"

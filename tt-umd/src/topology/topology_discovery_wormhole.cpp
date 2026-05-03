@@ -15,9 +15,9 @@
 #include <utility>
 
 #include "assert.hpp"
-#include "noc_access.hpp"
 #include "tt-umd/firmware/erisc_firmware.hpp"
 #include "tt-umd/firmware/firmware_utils.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/tt_device/remote_communication.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/wormhole_eth.hpp"

@@ -17,13 +17,12 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "noc_access.hpp"
-#include "pcie/silicon_tlb_window.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
 #include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/tlb_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 
@@ -572,21 +571,17 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
-        return cached_wc_tlb_window.get();
+        cached_wc_tlb_window = get_tt_device()->get_pci_device()->allocate_tlb_window(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC);
     }
-
     return cached_wc_tlb_window.get();
 }
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
-        return cached_uc_tlb_window.get();
+        cached_uc_tlb_window = get_tt_device()->get_pci_device()->allocate_tlb_window(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC);
     }
-
     return cached_uc_tlb_window.get();
 }
 

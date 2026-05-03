@@ -20,10 +20,10 @@
 
 #include "arc/blackhole_spi_tt_device.hpp"
 #include "jtag/jtag_device.hpp"
-#include "noc_access.hpp"
 #include "tt-umd/arch/architecture_implementation.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/coordinates/coordinate_manager.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/blackhole_arc.hpp"
 #include "tt-umd/types/blackhole_eth.hpp"

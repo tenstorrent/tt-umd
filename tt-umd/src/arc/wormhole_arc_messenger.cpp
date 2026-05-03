@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "noc_access.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "utils.hpp"
 

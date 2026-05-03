@@ -43,7 +43,6 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "hugepage.hpp"
 #include "tracy.hpp"
 #include "tt-umd-workload/chip/local_chip.hpp"
 #include "tt-umd-workload/chip/mock_chip.hpp"

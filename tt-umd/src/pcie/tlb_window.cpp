@@ -10,8 +10,8 @@
 #include <stdexcept>
 #include <utility>
 
-#include "noc_access.hpp"
 #include "pcie/silicon_tlb_window.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 
 namespace tt::umd {

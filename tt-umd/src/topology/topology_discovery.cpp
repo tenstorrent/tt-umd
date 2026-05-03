@@ -23,12 +23,12 @@
 
 #include "assert.hpp"
 #include "jtag/jtag_device.hpp"
-#include "noc_access.hpp"
 #include "topology_discovery_blackhole.hpp"
 #include "topology_discovery_wormhole.hpp"
 #include "tracy.hpp"
 #include "tt-umd/cluster_descriptor.hpp"
 #include "tt-umd/firmware/firmware_info_provider.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/types/arch.hpp"

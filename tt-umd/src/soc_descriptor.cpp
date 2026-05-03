@@ -24,10 +24,10 @@
 #include <vector>
 
 #include "assert.hpp"
-#include "noc_access.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/grendel_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/types/core_coordinates.hpp"
 #include "utils.hpp"
 

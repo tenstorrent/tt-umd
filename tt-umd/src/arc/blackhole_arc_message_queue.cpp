@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "jtag/jtag_device.hpp"
-#include "noc_access.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "utils.hpp"
 

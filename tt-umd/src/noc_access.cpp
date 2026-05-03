@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "noc_access.hpp"
+#include "tt-umd/noc_access.hpp"
 
 namespace tt::umd {
 

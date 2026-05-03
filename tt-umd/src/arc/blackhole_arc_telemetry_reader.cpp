@@ -8,8 +8,8 @@
 
 #include <cstdint>
 
-#include "noc_access.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
+#include "tt-umd/noc_access.hpp"
 #include "tt-umd/types/telemetry.hpp"
 
 namespace tt::umd {

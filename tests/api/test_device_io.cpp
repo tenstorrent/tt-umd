@@ -326,6 +326,16 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     constexpr size_t num_words = 10;
     constexpr size_t data_size = num_words * sizeof(uint32_t);
 
+    // Check TENSIX cores on other chips, to make sure that the multicast write is not affecting them.
+    // This loop initializes a collection of chip ids and cores to use.
+    std::vector<std::pair<ChipId, CoreCoord>> other_chip_bystander_cores;
+    for (const ChipId cid : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc = cluster->get_soc_descriptor(cid);
+        for (const CoreCoord& c : get_tensix_corners(soc)) {
+            other_chip_bystander_cores.emplace_back(cid, c);
+        }
+    }
+
     for (const ChipId chip_id : cluster->get_target_device_ids()) {
         log_info(
             LogUMD,
@@ -338,14 +348,21 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
         TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
 
+        // Fill up representative cores, which will be used for this test. It is assumed this covers all cases of
+        // significance.
         std::vector<CoreCoord> representative_cores = get_tensix_corners(soc_desc);
-        for (const CoreType ct : {CoreType::DRAM, CoreType::ETH, CoreType::ARC}) {
+        // Note: For ARC and PCIE the data could change on its own. And if something is wrong with the tests, it can be
+        // really messy to actually end up writing something wrong to them. So we don't test them, but the multicasts
+        // are definitelly not expected to land on them.
+        for (const CoreType ct : {CoreType::DRAM, CoreType::ETH}) {
             const auto cores = soc_desc.get_cores(ct, CoordSystem::TRANSLATED);
             if (!cores.empty()) {
                 representative_cores.push_back(cores[0]);
             }
         }
 
+        // Keep one bystander TENSIX core on the same chip. This is used to verify when sending multicast to one TENSIX
+        // it doesn't spill to another.
         CoreCoord bystander_tensix_core;
         std::vector<uint32_t> bystander_original(num_words, 0);
         // if (!full_grid) {
@@ -357,6 +374,19 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
         }
         tt_device->read_from_device(bystander_original.data(), bystander_tensix_core, address, data_size);
         // }
+
+        // Fill up values from other chips, before we multicast, to have values to compare against afterwards.
+        std::vector<std::vector<uint32_t>> other_chip_bystander_originals(other_chip_bystander_cores.size());
+        for (size_t i = 0; i < other_chip_bystander_cores.size(); ++i) {
+            const auto& [bystander_chip, bystander_core] = other_chip_bystander_cores[i];
+            if (bystander_chip == chip_id) {
+                continue;
+            }
+            other_chip_bystander_originals[i].resize(num_words);
+            cluster->get_chip(bystander_chip)
+                ->get_tt_device()
+                ->read_from_device(other_chip_bystander_originals[i].data(), bystander_core, address, data_size);
+        }
 
         for (const CoreCoord& core : representative_cores) {
             std::vector<uint32_t> original(num_words);
@@ -375,6 +405,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             std::vector<uint32_t> readback(num_words);
             tt_device->read_from_device(readback.data(), core, address, data_size);
 
+            // We expect from multicast API to affect only TENSIX cores, and no other cores.
             if (core.core_type == CoreType::TENSIX) {
                 EXPECT_EQ(write_data, readback) << "TENSIX core " << core.str() << " on chip " << chip_id
                                                 << " should have received the multicast write.";
@@ -389,6 +420,21 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                 EXPECT_EQ(original, readback) << "Non-TENSIX core " << core.str() << " on chip " << chip_id
                                               << " should not have been modified by the multicast write.";
             }
+        }
+
+        // Now verify that no cores on other chips have been overwritten.
+        for (size_t i = 0; i < other_chip_bystander_cores.size(); ++i) {
+            const auto& [bystander_chip, bystander_core] = other_chip_bystander_cores[i];
+            if (bystander_chip == chip_id) {
+                continue;
+            }
+            std::vector<uint32_t> bystander_readback(num_words);
+            cluster->get_chip(bystander_chip)
+                ->get_tt_device()
+                ->read_from_device(bystander_readback.data(), bystander_core, address, data_size);
+            EXPECT_EQ(other_chip_bystander_originals[i], bystander_readback)
+                << "Other-chip bystander core " << bystander_core.str() << " on chip " << bystander_chip
+                << " should not have been modified by multicast write on chip " << chip_id;
         }
     }
 }

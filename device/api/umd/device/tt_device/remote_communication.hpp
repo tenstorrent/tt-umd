@@ -60,6 +60,8 @@ public:
 
     TTDevice* get_local_device();
 
+    bool has_sysmem_manager() const;
+
     virtual std::optional<EthCoord> get_target_eth_coord() = 0;
 
     // Get the active eth core that will be used for the next remote communication.

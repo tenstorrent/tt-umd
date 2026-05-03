@@ -1037,13 +1037,6 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
         // Nowhere to broadcast to.
         return;
     }
-    // If ethernet broadcast is not supported, do it one by one.
-    if (!use_ethernet_broadcast) {
-        for (auto& chip_id : all_chip_ids_) {
-            get_chip(chip_id)->noc_multicast_write(&reg_value, sizeof(uint32_t), 0xFFB121B0);
-        }
-        return;
-    }
 
     std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;

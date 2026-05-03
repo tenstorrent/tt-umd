@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/ethernet_broadcast.hpp"
+#include "umd/device/tt_device/ethernet_broadcast.hpp"
 
 #include <cstdint>
 #include <map>

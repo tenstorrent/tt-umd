@@ -5,8 +5,12 @@
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 
 #include <cstddef>
-#include <cstdint>
+#include <map>
 #include <vector>
+
+#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 

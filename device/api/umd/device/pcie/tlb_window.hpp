@@ -4,10 +4,13 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -87,8 +90,6 @@ public:
 protected:
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
-
-    virtual tt::ARCH get_arch() const = 0;
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;

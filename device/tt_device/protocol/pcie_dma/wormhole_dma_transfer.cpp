@@ -7,7 +7,7 @@
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 
 #include <chrono>
-#include <stdexcept>
+#include <string>
 
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"

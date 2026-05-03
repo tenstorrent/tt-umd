@@ -6,28 +6,32 @@
 
 #include <fmt/format.h>
 
-#include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
-#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+enum class IODeviceType;
 
 TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :

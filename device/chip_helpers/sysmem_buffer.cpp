@@ -5,19 +5,26 @@
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
 #include <fmt/format.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
 #include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {

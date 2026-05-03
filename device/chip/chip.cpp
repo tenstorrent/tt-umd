@@ -8,26 +8,27 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <stdexcept>
+#include <memory>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+enum class TensixSoftResetOptions : std::uint32_t;
 
 Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
     set_default_params(soc_descriptor_.arch);
@@ -93,8 +94,9 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
 }
 
 void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
-    TT_ASSERT(
+    UMD_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
     auto start = std::chrono::steady_clock::now();
@@ -113,8 +115,9 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
 
 // TODO: Remove this API once we switch to the new one.
 void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    TT_ASSERT(
+    UMD_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        error::RuntimeError,
         "Cannot control soft reset on a non-tensix or harvested core");
     get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
 }
@@ -220,7 +223,10 @@ void Chip::set_power_state(DevicePowerState state) {
                 (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
         }
     }
-    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set power state to {} with exit code: {}", (int)state, exit_code));
     wait_for_aiclk_value(get_tt_device(), state);
 }
 
@@ -243,7 +249,7 @@ void Chip::wait_for_aiclk_value(
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
                 "{}",
-                timeout_ms,
+                timeout_ms.count(),
                 target_aiclk,
                 aiclk,
                 tt_device->get_asic_temperature());

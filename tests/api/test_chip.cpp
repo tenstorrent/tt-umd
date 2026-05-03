@@ -4,21 +4,22 @@
 
 // This file holds Chip specific API examples.
 
-#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
-#include <filesystem>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
-#include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 using namespace tt;
 using namespace tt::umd;

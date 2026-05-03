@@ -5,13 +5,15 @@
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <stdexcept>
+#include <iterator>
+#include <map>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
+
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 

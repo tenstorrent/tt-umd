@@ -6,7 +6,10 @@
 
 #include <string>
 // TODO: To be removed once this is fixed in tt_metal.
+#include <cstddef>
 #include <deque>
+#include <functional>
+#include <string_view>
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
 namespace tt {

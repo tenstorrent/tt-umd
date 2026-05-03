@@ -6,21 +6,17 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <filesystem>
 #include <memory>
-#include <optional>
-#include <random>
+#include <set>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "utils.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
 

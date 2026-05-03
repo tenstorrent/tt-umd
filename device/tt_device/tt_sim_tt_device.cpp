@@ -4,17 +4,28 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
-#include <fmt/format.h>
-
+#include <algorithm>
 #include <filesystem>
+#include <functional>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
-#include "assert.hpp"
-#include "simulation_device_generated.h"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -66,7 +77,7 @@ TTSimTTDevice::TTSimTTDevice(
         chip_id_,
         vendor_id,
         libttsim_pci_device_id);
-    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {

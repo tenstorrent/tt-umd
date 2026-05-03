@@ -2,10 +2,24 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <random>
+#include <string>
+#include <vector>
 
 #include "device_fixture.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+using namespace tt;
+using namespace tt::umd;
 
 std::vector<uint32_t> generate_data(uint32_t size_in_bytes) {
     size_t size = size_in_bytes / sizeof(uint32_t);

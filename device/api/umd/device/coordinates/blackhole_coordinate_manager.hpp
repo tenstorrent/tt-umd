@@ -4,8 +4,17 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+struct HarvestingMasks;
+}  // namespace tt
 
 namespace tt::umd {
 

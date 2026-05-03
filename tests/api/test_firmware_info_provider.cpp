@@ -2,21 +2,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt;

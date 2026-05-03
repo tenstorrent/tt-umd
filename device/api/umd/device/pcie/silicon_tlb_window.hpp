@@ -4,12 +4,17 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class TlbHandle;
 
 /**
  * Silicon TlbWindow implementation that performs direct memory access
@@ -64,9 +69,6 @@ public:
         uint64_t ordering = tlb_data::Strict) override;
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
-
-protected:
-    tt::ARCH get_arch() const override;
 
 private:
     // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).

@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout tt-metal repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Clone under tt-metal directory
           path: tt-metal
@@ -47,7 +47,7 @@ jobs:
           fetch-tags: true  # Need tags for `git describe`
 
       - name: Checkout UMD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Clone directly into tt-metal directory for umd
           path: tt-metal/tt_metal/third_party/umd

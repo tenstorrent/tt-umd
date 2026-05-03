@@ -111,7 +111,7 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -145,7 +145,7 @@ jobs:
           ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: >-
             build-artifacts-${{ inputs.ubuntu-docker-version
@@ -163,7 +163,7 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -203,7 +203,7 @@ jobs:
           cp -r ${{ env.NANOBIND_TEST_DIR }} ${{ env.WHEEL_OUTPUT_DIR }}/tests
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # Note that wheel is built with hardcoded Release build type at the moment.
           name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
@@ -217,7 +217,7 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-exalens
           ref: main

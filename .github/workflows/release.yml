@@ -26,7 +26,7 @@ jobs:
       pr_summary: ${{ steps.get_pr_summary.outputs.pr_summary }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -258,7 +258,7 @@ jobs:
       CXX: ${{ matrix.image.compiler-cpp }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -283,7 +283,7 @@ jobs:
           cpack -G ${{ matrix.image.package }}
 
       - name: Upload ${{ matrix.image.package }} packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.image.distro }}
           path: |
@@ -297,12 +297,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -325,7 +325,7 @@ jobs:
           echo "Build complete."
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: ${{ env.WHEEL_OUTPUT_DIR }}
@@ -344,7 +344,7 @@ jobs:
 
     steps:
       - name: Download all the wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: dist/
@@ -369,7 +369,7 @@ jobs:
 
     steps:
       - name: Download all the wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: dist/
@@ -392,10 +392,10 @@ jobs:
       release_url: ${{ steps.release.outputs.url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./release-artifacts/
 

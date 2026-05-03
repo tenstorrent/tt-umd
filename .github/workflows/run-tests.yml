@@ -82,13 +82,13 @@ jobs:
           rm -rf *
 
       - name: Use wheel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
 
       - name: Use build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 

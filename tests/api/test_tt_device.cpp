@@ -286,23 +286,23 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         // Zero out all tensix cores before broadcasting.
         std::vector<uint32_t> zeros(data_write.size(), 0);
         for (const CoreCoord& core : tensix_cores) {
-            tt_device->write_to_device(zeros.data(), core, address, zeros.size());
+            tt_device->write_to_device(zeros.data(), core, address, zeros.size() * sizeof(uint32_t));
         }
 
         // Verify zeros landed.
         for (const CoreCoord& core : tensix_cores) {
             std::vector<uint32_t> readback(data_write.size(), 1);
-            tt_device->read_from_device(readback.data(), core, address, readback.size());
+            tt_device->read_from_device(readback.data(), core, address, readback.size() * sizeof(uint32_t));
             ASSERT_EQ(zeros, readback) << "Core " << core.str() << " on chip " << pci_device_id
                                        << " should have been zeroed before the broadcast write.";
         }
 
-        tt_device->noc_multicast_write(data_write.data(), data_write.size(), address);
+        tt_device->noc_multicast_write(data_write.data(), data_write.size() * sizeof(uint32_t), address);
 
         // All tensix cores should now have the broadcast data.
         for (const CoreCoord& core : tensix_cores) {
             std::vector<uint32_t> readback(data_write.size());
-            tt_device->read_from_device(readback.data(), core, address, readback.size());
+            tt_device->read_from_device(readback.data(), core, address, readback.size() * sizeof(uint32_t));
             ASSERT_EQ(data_write, readback) << "Core " << core.str() << " on chip " << pci_device_id
                                             << " should have received the broadcast write.";
         }

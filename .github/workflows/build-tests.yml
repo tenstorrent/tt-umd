@@ -167,11 +167,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
       - name: Build wheel
         shell: bash
         run: |
@@ -179,7 +174,7 @@ jobs:
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Setting up virtual environment..."
-          python -m venv .venv
+          python3 -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel auditwheel
           echo "Compiling the code..."
@@ -193,7 +188,7 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
 
           # This is done so that all the necessary libraries are included in the wheel.
           # Specifically, this will make the wheel runnable on exalens ci image.

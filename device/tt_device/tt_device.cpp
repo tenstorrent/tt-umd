@@ -457,24 +457,24 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    if (!is_remote_tt_device) {
-        get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
-        return;
-    }
+    bool multicast_success = device_protocol_->write_to_core_range(src, core_start, core_end, addr, size_u32);
 
-    bool broadcast_success = device_protocol_->write_to_core_range(src, core_start, core_end, addr, size);
-
-    log_info(
+    log_debug(
         LogUMD,
-        "Remote multicast write to cores ({}, {}) - ({}, {}) {}",
+        "Multicast on {} chip write to cores ({}, {}) - ({}, {}) {}",
+        is_remote_tt_device ? "remote" : "local",
         core_start.x,
         core_start.y,
         core_end.x,
         core_end.y,
-        broadcast_success ? "succeeded" : "fallbacked to unicast");
+        multicast_success ? "succeeded" : "fallbacked to unicast");
 
-    if (broadcast_success) {
+    // We need to flush the writes in case of remote communication.
+    if (multicast_success && is_remote_tt_device) {
         get_remote_communication()->wait_for_non_mmio_flush();
+    }
+
+    if (multicast_success) {
         return;
     }
 

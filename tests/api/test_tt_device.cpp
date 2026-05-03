@@ -267,3 +267,46 @@ TEST(ApiTTDeviceTest, MulticastIO) {
         tt_device->set_power_state(false);
     }
 }
+
+TEST(ApiTTDeviceTest, BroadcastIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    uint64_t address = 0x0;
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        ChipInfo chip_info = tt_device->get_chip_info();
+        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+        // Zero out all tensix cores before broadcasting.
+        std::vector<uint32_t> zeros(data_write.size(), 0);
+        for (const CoreCoord& core : tensix_cores) {
+            tt_device->write_to_device(zeros.data(), core, address, zeros.size() * sizeof(uint32_t));
+        }
+
+        // Verify zeros landed.
+        for (const CoreCoord& core : tensix_cores) {
+            std::vector<uint32_t> readback(data_write.size(), 1);
+            tt_device->read_from_device(readback.data(), core, address, readback.size() * sizeof(uint32_t));
+            ASSERT_EQ(zeros, readback) << "Core " << core.str() << " on chip " << pci_device_id
+                                       << " should have been zeroed before the broadcast write.";
+        }
+
+        tt_device->noc_multicast_write(data_write.data(), data_write.size() * sizeof(uint32_t), address);
+
+        // All tensix cores should now have the broadcast data.
+        for (const CoreCoord& core : tensix_cores) {
+            std::vector<uint32_t> readback(data_write.size());
+            tt_device->read_from_device(readback.data(), core, address, readback.size() * sizeof(uint32_t));
+            ASSERT_EQ(data_write, readback) << "Core " << core.str() << " on chip " << pci_device_id
+                                            << " should have received the broadcast write.";
+        }
+
+        tt_device->set_power_state(false);
+    }
+}

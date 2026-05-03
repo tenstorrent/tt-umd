@@ -911,7 +911,8 @@ void Cluster::broadcast_write_to_cluster(
     } else {
         UMD_ASSERT(
             use_translated_coords_for_eth_broadcast or
-                valid_tensix_broadcast_grid(rows_to_exclude_virtual, columns_to_exclude_virtual, architecture_implementation.get()),
+                valid_tensix_broadcast_grid(
+                    rows_to_exclude_virtual, columns_to_exclude_virtual, architecture_implementation.get()),
             error::RuntimeError,
             "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
         ethernet_broadcast_write(

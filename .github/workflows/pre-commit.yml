@@ -3,7 +3,9 @@ name: Run Pre-commit Hooks
 
 on:
   workflow_dispatch:
+  # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
+  merge_group:
   push:
     branches: ["main"]
 

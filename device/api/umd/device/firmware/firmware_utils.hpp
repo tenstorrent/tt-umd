@@ -5,11 +5,10 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt {
@@ -31,6 +30,6 @@ SemVer get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
 
 SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core);
+SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core);
 
 }  // namespace tt::umd

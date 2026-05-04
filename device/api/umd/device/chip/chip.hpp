@@ -115,6 +115,11 @@ public:
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
+    // Advance the chip by one clock cycle. Delegates to the underlying TTDevice, which
+    // is a no-op for chips without a controllable clock and drives the simulator clock
+    // synchronously (no background thread) for deterministic simulation.
+    void advance_device_execution();
+
     virtual int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,

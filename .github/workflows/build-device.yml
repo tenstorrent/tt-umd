@@ -10,7 +10,9 @@ on:
         description: 'The timeout for the job in minutes'
         type: number
         default: 15
+  # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
+  merge_group:
   push:
     branches: ["main"]
 

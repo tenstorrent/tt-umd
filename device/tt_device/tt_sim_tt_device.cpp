@@ -194,6 +194,17 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
     }
 }
 
+void TTSimTTDevice::advance_device_execution() {
+    // Simulator clocking is driven synchronously from the calling thread to keep the simulation
+    // deterministic. A background clock thread would race with reads/writes and produce
+    // non-reproducible runs, so we advance the clock here instead.
+    // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid
+    // hangs in the absence of an API reliably called from all spin loops polling the device.
+    if (communicator_) {
+        communicator_->advance_clock(1);
+    }
+}
+
 void TTSimTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
     UMD_THROW(error::RuntimeError, "DMA operations are not supported in TTSim simulation device.");
 }

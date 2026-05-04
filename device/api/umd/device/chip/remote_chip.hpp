@@ -51,7 +51,7 @@ public:
 
     bool is_mmio_capable() const override;
 
-    void start_device() override;
+    void start_device(const DeviceParams& device_params) override;
     void close_device() override;
 
     TTDevice* get_tt_device() override;

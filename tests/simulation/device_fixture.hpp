@@ -30,7 +30,7 @@ protected:
         auto soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
         auto soc_descriptor = SocDescriptor(soc_descriptor_path);
         device = SimulationChip::create(simulator_path, soc_descriptor, 0, 1);
-        device->start_device();
+        device->start_device(const DeviceParams& device_params);
     }
 
     static void TearDownTestSuite() { device->close_device(); }

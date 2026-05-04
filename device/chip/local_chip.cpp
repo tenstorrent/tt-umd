@@ -173,8 +173,11 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
-void LocalChip::start_device() {
+void LocalChip::start_device(const DeviceParams& device_params) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    if (!device_params.init_device) {
+        return;
+    }
     if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
         return;
     }
@@ -189,6 +192,10 @@ void LocalChip::start_device() {
         init_pcie_iatus();
     }
     initialize_membars();
+
+    assert_risc_reset(RiscType::ALL);
+    enable_ethernet_queue();
+    set_power_state(DevicePowerState::BUSY);
 }
 
 void LocalChip::close_device() {

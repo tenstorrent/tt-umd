@@ -1017,35 +1017,14 @@ void Cluster::set_power_state(DevicePowerState device_state) {
     }
 }
 
-void Cluster::deassert_resets_and_set_power_state() {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Assert tensix resets on all chips in cluster.
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
-
-    for (auto& [_, chip] : chips_) {
-        chip->deassert_risc_resets();
-    }
-
-    // MT Initial BH - ARC messages not supported in Blackhole.
-    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
-        for (const ChipId& chip : all_chip_ids_) {
-            get_chip(chip)->enable_ethernet_queue();
-        }
-    }
-
-    // Set power state to busy.
-    set_power_state(DevicePowerState::BUSY);
-}
-
 void Cluster::start_device(const DeviceParams& device_params) {
     ZoneScopedC(tracy::Color::DarkGreen);
     log_info(LogUMD, "Starting devices in cluster");
-    if (device_params.init_device) {
-        for (auto chip_id : all_chip_ids_) {
-            get_chip(chip_id)->start_device();
-        }
-
-        deassert_resets_and_set_power_state();
+    if (!device_params.init_device) {
+        return;
+    }
+    for (auto chip_id : all_chip_ids_) {
+        get_chip(chip_id)->start_device(device_params);
     }
 }
 

@@ -28,7 +28,7 @@ public:
         int num_host_mem_channels = 0);
     ~RtlSimulationChip() override = default;
 
-    void start_device() override;
+    void start_device(const DeviceParams& device_params) override;
     void close_device() override;
 
     void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;

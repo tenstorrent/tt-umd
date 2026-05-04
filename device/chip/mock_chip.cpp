@@ -19,7 +19,7 @@ MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor
 
 bool MockChip::is_mmio_capable() const { return false; }
 
-void MockChip::start_device() {}
+void MockChip::start_device(const DeviceParams& device_params) {}
 
 void MockChip::close_device() {}
 

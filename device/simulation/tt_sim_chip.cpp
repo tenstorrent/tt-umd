@@ -29,7 +29,7 @@ TTSimChip::TTSimChip(
 
 TTSimChip::~TTSimChip() = default;
 
-void TTSimChip::start_device() {}
+void TTSimChip::start_device(const DeviceParams& device_params) {}
 
 void TTSimChip::close_device() {}
 

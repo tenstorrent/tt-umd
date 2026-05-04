@@ -86,7 +86,14 @@ RemoteChip::RemoteChip(
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
-void RemoteChip::start_device() {}
+void RemoteChip::start_device(const DeviceParams& device_params) {
+    if (!device_params.init_device) {
+        return;
+    }
+    assert_risc_reset(RiscType::ALL);
+    enable_ethernet_queue();
+    set_power_state(DevicePowerState::BUSY);
+}
 
 void RemoteChip::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);

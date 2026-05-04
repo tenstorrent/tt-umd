@@ -27,7 +27,7 @@ RtlSimulationChip::RtlSimulationChip(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 }
 
-void RtlSimulationChip::start_device() {}
+void RtlSimulationChip::start_device(const DeviceParams& device_params) {}
 
 void RtlSimulationChip::close_device() {}
 

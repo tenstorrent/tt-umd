@@ -41,7 +41,7 @@ public:
 
     virtual ~Chip() = default;
 
-    virtual void start_device() = 0;
+    virtual void start_device(const DeviceParams& device_params) = 0;
     virtual void close_device() = 0;
 
     SocDescriptor& get_soc_descriptor();

@@ -121,7 +121,7 @@ void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, u
 
 bool SWEmuleChip::is_mmio_capable() const { return false; }
 
-void SWEmuleChip::start_device() {}
+void SWEmuleChip::start_device(const DeviceParams& device_params) {}
 
 void SWEmuleChip::close_device() {}
 

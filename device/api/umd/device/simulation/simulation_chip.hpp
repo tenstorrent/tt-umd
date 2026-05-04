@@ -90,7 +90,7 @@ public:
         uint32_t* return_4 = nullptr) override;
 
     // Pure virtual methods that derived classes must implement.
-    void start_device() override = 0;
+    void start_device(const DeviceParams& device_params) override = 0;
     void close_device() override = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.

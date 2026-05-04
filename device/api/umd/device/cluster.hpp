@@ -713,7 +713,6 @@ private:
     // Helper functions
     // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
-    void deassert_resets_and_set_power_state();
 
     // Communication Functions.
     void ethernet_broadcast_write(

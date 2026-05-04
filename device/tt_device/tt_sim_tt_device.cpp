@@ -114,13 +114,6 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
-    // Advance the sim on host writes. Without this, sequences like "load BRISC ELF, deassert
-    // BRISC, write first command mailbox" all sit at the same simulated timestamp — BRISC never
-    // gets cycles to finish its CRT init before the command mailbox write, so BRISC's clear of
-    // brisc_command_buffer at startup clobbers the host's command and the handshake hangs. The
-    // floor guarantees that a tiny 4-byte deassert write still gives the newly-started core
-    // enough cycles to make meaningful progress before the next host operation lands.
-    communicator_->advance_clock(std::max<uint32_t>(1000, size));
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {

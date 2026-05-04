@@ -11,20 +11,20 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 90
+        default: 30
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 90
+        default: 30
 
 jobs:
   build-and-run-ttsim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '90') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
@@ -124,29 +124,37 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests
 
+      # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
+      # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
       - name: Run tt-sim wormhole tests
+        timeout-minutes: 1
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
       - name: Run tt-sim blackhole tests
+        timeout-minutes: 1
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
 
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
+        timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
+        timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
+      # Galaxy tests can be a bit longer, should run on the order of minutes.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
+        timeout-minutes: 5
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
@@ -161,6 +169,7 @@ jobs:
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
 
       - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
+        timeout-minutes: 5
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so

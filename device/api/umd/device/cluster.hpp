@@ -752,6 +752,7 @@ private:
     bool use_translated_coords_for_eth_broadcast = true;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;
+    bool device_closed_ = false;
 };
 
 }  // namespace tt::umd

@@ -574,7 +574,15 @@ std::map<int, int> Cluster::get_clocks() {
 
 Cluster::~Cluster() {
     log_debug(LogUMD, "Cluster::~Cluster");
-
+    if (!device_closed_) {
+        try {
+            close_device();
+        } catch (const std::exception& e) {
+            log_warning(LogUMD, "Cluster::~Cluster: ignoring exception during close_device(): {}", e.what());
+        } catch (...) {
+            log_warning(LogUMD, "Cluster::~Cluster: ignoring unknown exception during close_device()");
+        }
+    }
     cluster_desc.reset();
 }
 
@@ -1063,6 +1071,11 @@ void Cluster::start_device(const DeviceParams& device_params) {
 
 void Cluster::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);
+    if (device_closed_) {
+        log_debug(LogUMD, "Cluster::close_device: already closed, skipping");
+        return;
+    }
+    device_closed_ = true;
     log_info(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {

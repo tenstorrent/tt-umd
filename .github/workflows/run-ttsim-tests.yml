@@ -74,7 +74,7 @@ jobs:
           echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
       - name: Download ttsim binary (wh)
-        uses: robinraju/release-downloader@v1.13
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
@@ -82,7 +82,7 @@ jobs:
           out-file-path: /tmp/ttsim-wh
 
       - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@v1.13
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}

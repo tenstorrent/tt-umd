@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <cstdlib>
 #include <fstream>
 #include <set>
 #include <string>

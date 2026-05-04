@@ -554,11 +554,9 @@ const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descripto
 
 void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
     if (soc_descriptor_path.empty()) {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(get_arch());
-        soc_descriptor_ = SocDescriptor(sad, get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
     } else {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
-        soc_descriptor_ = SocDescriptor(sad, get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_descriptor_path), get_chip_info());
     }
 }
 

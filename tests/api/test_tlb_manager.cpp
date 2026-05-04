@@ -53,5 +53,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
         TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
         window->write_register(address_l1_to_write, buffer_to_write.data(), buffer_to_write.size());
+
+        tt_device->set_power_state(false);
     }
 }

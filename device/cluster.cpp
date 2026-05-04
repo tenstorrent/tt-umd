@@ -272,13 +272,11 @@ SocDescriptor Cluster::construct_soc_descriptor(
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(arch);
-        SocDescriptor soc_descriptor = SocDescriptor(sad, chip_info);
+        SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(arch), chip_info);
         return soc_descriptor;
 
     } else {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_desc_path);
-        SocDescriptor soc_descriptor = SocDescriptor(sad, chip_info);
+        SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.

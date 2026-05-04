@@ -88,18 +88,17 @@ TopologyDiscovery::TopologyDiscovery(
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    log_debug(LogUMD, "Starting topology discovery.");
+    log_info(LogUMD, "Starting topology discovery.");
     get_connected_devices();
     retrain_eth_cores();
     discover_remote_devices();
-    log_debug(LogUMD, "Completed topology discovery.");
+    log_info(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
 
 std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> TopologyDiscovery::discover(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    log_info(LogUMD, "Topology discovery started.");
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscovery> td =
         TopologyDiscovery::create_topology_discovery(options, io_device_type, soc_descriptor_path);
@@ -112,7 +111,6 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
         ChipId chip_id = td->asic_id_to_chip_id[unique_id];
         devices[chip_id] = std::move(device);
     }
-    log_info(LogUMD, "Topology discovery done.");
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 

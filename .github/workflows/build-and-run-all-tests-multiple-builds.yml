@@ -51,7 +51,7 @@ jobs:
   #   workflow_dispatch: whichever build-types the caller requests
 
   build-release:
-    name: "(Release)"
+    name: "Build and Test (Release)"
     needs: ensure-image
     # Skipped: (none)
     if: >-
@@ -70,7 +70,7 @@ jobs:
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-asan:
-    name: "(ASan)"
+    name: "Build and Test (ASan)"
     needs: ensure-image
     # Skipped: pull_request, push
     if: >-
@@ -87,12 +87,11 @@ jobs:
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-tsan:
-    name: "(TSan)"
+    name: "Build and Test (TSan)"
     needs: ensure-image
-    # Skipped: pull_request
+    # Skipped: pull_request, push
     if: >-
       github.event_name == 'merge_group' ||
-      github.event_name == 'push' ||
       (github.event_name == 'workflow_dispatch' &&
       contains(fromJson(github.event.inputs['build-types']), 'TSan'))
     secrets: inherit
@@ -105,7 +104,7 @@ jobs:
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-relwithdebinfo:
-    name: "(RelWithDebInfo)"
+    name: "Build and Test (RelWithDebInfo)"
     needs: ensure-image
     # Skipped: pull_request, merge_group, push
     if: >-
@@ -121,7 +120,7 @@ jobs:
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-debug:
-    name: "(Debug)"
+    name: "Build and Test (Debug)"
     needs: ensure-image
     # Skipped: pull_request, merge_group, push
     if: >-

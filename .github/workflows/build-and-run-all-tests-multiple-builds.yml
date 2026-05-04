@@ -41,31 +41,97 @@ jobs:
     with:
       docker-version: ubuntu-22.04
 
-  build-and-run-all-tests:
-    name: ""
+  # On pull_request, only Release should run. But GitHub applies the same required-status-check
+  # rules to PRs and merge queues — if a check is required for merge_group it must also be
+  # present on the PR. Skipped jobs count as passing, so all jobs are defined for all events
+  # but their if-conditions gate which ones actually execute per event type:
+  #
+  #   pull_request:      Release
+  #   merge_group/push:  Release, ASan, TSan
+  #   workflow_dispatch: whichever build-types the caller requests
+
+  build-release:
+    name: "(Release)"
     needs: ensure-image
-    # On pull_request, only Release should run. But GitHub applies the same required-status-check
-    # rules to PRs and merge queues, so we can't simply omit jobs from the matrix on PR —
-    # the merge queue would then see them as missing rather than passing. Skipped jobs count as
-    # successful, so we generate all jobs and skip non-Release ones explicitly on pull_request.
-    if: github.event_name != 'pull_request' || matrix.build-type == 'Release'
+    # Skipped: (none)
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'merge_group' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'Release'))
     secrets: inherit
-    strategy:
-      fail-fast: false
-      matrix:
-        # pull_request/merge_group: Release + ASan + TSan (non-Release skipped on PR).
-        # push to main: Release only (post-merge smoke check).
-        # workflow_dispatch: whatever build-types the caller requests.
-        build-type: ${{ fromJson(
-            (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-            && '["Release", "ASan", "TSan"]' ||
-            github.event_name == 'push' && '["Release"]' ||
-            github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
-      build-type: ${{ matrix.build-type }}
-      # Debug and TSan builds are slower, so give them more time to run.
-      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
+      build-type: Release
+      timeout: 25
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-asan:
+    name: "(ASan)"
+    needs: ensure-image
+    # Skipped: pull_request, push
+    if: >-
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'ASan'))
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: ASan
+      timeout: 25
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-tsan:
+    name: "(TSan)"
+    needs: ensure-image
+    # Skipped: pull_request
+    if: >-
+      github.event_name == 'merge_group' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'TSan'))
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: TSan
+      timeout: 50
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-relwithdebinfo:
+    name: "(RelWithDebInfo)"
+    needs: ensure-image
+    # Skipped: pull_request, merge_group, push
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'RelWithDebInfo')
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: RelWithDebInfo
+      timeout: 25
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-debug:
+    name: "(Debug)"
+    needs: ensure-image
+    # Skipped: pull_request, merge_group, push
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'Debug')
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: Debug
+      timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

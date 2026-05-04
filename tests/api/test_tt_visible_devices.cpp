@@ -6,25 +6,45 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <iostream>
+#include <map>
 #include <memory>
+#include <set>
+#include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "utils.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 using namespace tt::umd;
 
-TEST(TestTTVisibleDevices, OpenChipsById) {
+class TestTTVisibleDevices : public ::testing::Test {
+protected:
+    void TearDown() override {
+        // Always unset the environment variable after each test to avoid contamination.
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            FAIL() << "Failed to unset environment variable.";
+        }
+    }
+};
+
+TEST_F(TestTTVisibleDevices, OpenChipsById) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     // T3K and 4U have 4 PCIE visible devices each. After 4 devices, the next number is 32
@@ -54,7 +74,7 @@ TEST(TestTTVisibleDevices, OpenChipsById) {
         std::string value = test_utils::convert_to_comma_separated_string(target_device_ids);
 
         if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
-            ASSERT_TRUE(false) << "Failed to set environment variable.";
+            FAIL() << "Failed to set environment variable.";
         }
 
         // Make sure that Cluster construction is without exceptions.
@@ -68,14 +88,10 @@ TEST(TestTTVisibleDevices, OpenChipsById) {
             // Always expect logical id 0 to exist, that's the way filtering by ids work.
             EXPECT_TRUE(actual_pci_device_ids.find(0) != actual_pci_device_ids.end());
         }
-
-        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-            ASSERT_TRUE(false) << "Failed to unset environment variable.";
-        }
     }
 }
 
-TEST(TestTTVisibleDevices, OpenChipsByBDF) {
+TEST_F(TestTTVisibleDevices, OpenChipsByBDF) {
     // Get all available PCI devices and their BDF addresses.
     auto device_info_map = PCIDevice::enumerate_devices_info();
 
@@ -119,7 +135,7 @@ TEST(TestTTVisibleDevices, OpenChipsByBDF) {
         }
 
         if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
-            ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+            FAIL() << "Failed to set TT_VISIBLE_DEVICES environment variable.";
         }
 
         // Make sure that Cluster construction is without exceptions.
@@ -128,14 +144,10 @@ TEST(TestTTVisibleDevices, OpenChipsByBDF) {
         // Check that the cluster has the expected number of chips.
         auto actual_pci_device_ids = cluster->get_target_mmio_device_ids();
         EXPECT_EQ(actual_pci_device_ids.size(), target_bdf_addresses.size());
-
-        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-            ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
-        }
     }
 }
 
-TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
+TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -146,7 +158,7 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     std::string bdf_value = "0000:01:00.0, 0000:02:00.0, 0000:03:00.0, 0000:04:00.0";
 
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
-        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+        FAIL() << "Failed to set TT_VISIBLE_DEVICES environment variable.";
     }
 
     // Make sure that Cluster construction is without exceptions.
@@ -155,13 +167,9 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6U) {
     // Check that the cluster has the expected number of chips.
     auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
     EXPECT_EQ(actual_pci_device_ids.size(), 4);
-
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
-    }
 }
 
-TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
+TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -173,7 +181,7 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     std::string filter_value = "0000:01:00.0,0";
 
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), filter_value.c_str(), 1) != 0) {
-        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+        FAIL() << "Failed to set TT_VISIBLE_DEVICES environment variable.";
     }
 
     // Make sure that Cluster construction is without exceptions.
@@ -183,13 +191,9 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6USameChip) {
     // all chips on galaxy, which is at the same time represented by logical ID 0.
     auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
     EXPECT_EQ(actual_pci_device_ids.size(), 1);
-
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
-    }
 }
 
-TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
+TEST_F(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     // Get all available PCI devices and their BDF addresses.
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -200,7 +204,7 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     std::string bdf_value = "0000:c";
 
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), bdf_value.c_str(), 1) != 0) {
-        ASSERT_TRUE(false) << "Failed to set TT_VISIBLE_DEVICES environment variable.";
+        FAIL() << "Failed to set TT_VISIBLE_DEVICES environment variable.";
     }
 
     // Make sure that Cluster construction is without exceptions.
@@ -210,13 +214,9 @@ TEST(TestTTVisibleDevices, OpenChipsByBDFWormhole6UPattern) {
     // tray of chips, which is 8 chips in total.
     auto actual_pci_device_ids = cluster_tt_visible_devices->get_target_mmio_device_ids();
     EXPECT_EQ(actual_pci_device_ids.size(), 8);
-
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
-    }
 }
 
-TEST(TestTTVisibleDevices, OpenChipsByIdException) {
+TEST_F(TestTTVisibleDevices, OpenChipsByIdException) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     std::unordered_set<int> target_device_ids;
@@ -231,18 +231,14 @@ TEST(TestTTVisibleDevices, OpenChipsByIdException) {
     std::string value = test_utils::convert_to_comma_separated_string(target_device_ids);
 
     if (setenv(utils::TT_VISIBLE_DEVICES_ENV.data(), value.c_str(), 1) != 0) {
-        ASSERT_TRUE(false) << "Failed to set environment variable.";
+        FAIL() << "Failed to set environment variable.";
     }
 
     // Since target ID is not in the range of available devices, expect an exception.
     EXPECT_THROW(std::make_unique<Cluster>(), std::runtime_error);
-
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset environment variable.";
-    }
 }
 
-TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
+TEST_F(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -262,7 +258,7 @@ TEST(TestTTVisibleDevices, LogicalIdMatchesEnumerateDevicesOrder) {
     }
 }
 
-TEST(TestTTVisibleDevices, DifferentConstructors) {
+TEST_F(TestTTVisibleDevices, DifferentConstructors) {
     std::unique_ptr<Cluster> umd_cluster;
 
     // 1. Simplest constructor. Creates Cluster with all the chips available.

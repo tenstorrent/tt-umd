@@ -4,9 +4,18 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstdint>
+#include <iterator>
+#include <map>
 #include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -17,10 +26,9 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-
-class ClusterDescriptor;
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {
@@ -90,12 +98,6 @@ protected:
 
     virtual std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) = 0;
 
-    // local_eth_core should be in NoC 0 coordinates.
-    virtual tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
-
-    // local_eth_core should be in NoC 0 coordinates.
-    virtual uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
-
     virtual uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) = 0;
 
     // API exposed as a temporary workaround for issue: https://tenstorrent.atlassian.net/browse/SYS-2064.
@@ -129,7 +131,6 @@ protected:
 
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices_to_discover;
     std::map<uint64_t, std::unique_ptr<TTDevice>> devices;
-    SocDescriptor get_soc_descriptor(TTDevice* tt_device);
     std::unordered_map<uint64_t, ChipId> asic_id_to_chip_id;
 
     std::unordered_map<uint64_t, EthCoord> eth_coords;
@@ -166,13 +167,17 @@ protected:
     std::optional<FirmwareBundleVersion> first_fw_bundle_version;
 
 private:
-    // Hack used to cache SocDescriptors.
-    std::unordered_map<TTDevice*, SocDescriptor> soc_descriptor_cache;
-
     // Next available ChipId.
     ChipId next_chip_id = 0;
 
     ChipId get_next_chip_id() { return next_chip_id++; }
+
+    // Mock ASIC ID assigned to unhealthy devices whose ASIC ID can't be determined.
+    static constexpr uint64_t UNHEALTHY_ASIC_ID_PREFIX = 0xDEADDEAD;
+
+    static uint64_t generate_unhealthy_asic_id(ChipId chip_id) { return chip_id | (UNHEALTHY_ASIC_ID_PREFIX << 32); }
+
+    static bool is_marked_unhealthy(uint64_t asic_id) { return (asic_id >> 32) == (UNHEALTHY_ASIC_ID_PREFIX); }
 };
 
 }  // namespace tt::umd

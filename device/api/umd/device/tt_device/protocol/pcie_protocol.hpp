@@ -5,6 +5,8 @@
  */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -13,6 +15,11 @@
 #include "umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
@@ -33,10 +40,11 @@ public:
     ~PcieProtocol() override;
 
     // DeviceProtocol interface.
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) override;
+    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool write_to_core_range(
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) override;
+    int get_mmio_id() override;
 
     // PcieInterface.
     PCIDevice* get_pci_device() override;
@@ -70,9 +78,9 @@ private:
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
     template <bool safe>
-    void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     template <bool safe>
-    void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size);
+    void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;

@@ -5,31 +5,35 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 
 #include <fmt/format.h>
-#include <fmt/ranges.h>
 #include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <memory>
-#include <stdexcept>
+#include <optional>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
 #include "noc_access.hpp"
-#include "umd/device/arc/blackhole_spi_tt_device.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -75,11 +79,12 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
     if (region_size % (1ULL << 30) != 0 || region_size > (1ULL << 32)) {
         // If you hit this, the suggestion is to not use iATU: map your buffer
         // with the driver, and use the IOVA it provides in your device code.
-        throw std::runtime_error("Constraint: region_size % (1ULL << 30) == 0; region_size <= (1ULL <<32)");
+        UMD_THROW(
+            error::RuntimeError, "Failed constraint: region_size % (1ULL << 30) == 0; region_size <= (1ULL <<32).");
     }
 
     if (bar2 == nullptr || bar2 == MAP_FAILED) {
-        throw std::runtime_error("BAR2 not mapped");
+        UMD_THROW(error::RuntimeError, "BAR2 not mapped.");
     }
 
     auto write_iatu_reg = [bar2](uint64_t offset, uint32_t value) {
@@ -230,14 +235,14 @@ uint32_t BlackholeTTDevice::get_clock() {
         return telemetry->read_entry(TelemetryTag::AICLK);
     }
 
-    throw std::runtime_error("AICLK telemetry not available for Blackhole device.");
+    UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Blackhole device.");
 }
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range.");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->read(
@@ -259,7 +264,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
 
 void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
-        throw std::runtime_error("Address is out of ARC XBAR address range.");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->write(
@@ -280,11 +285,11 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
 }
 
 void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM write not supported for Blackhole.");
+    UMD_THROW(error::RuntimeError, "CSM write not supported for Blackhole.");
 }
 
 void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    throw std::runtime_error("CSM read not supported for Blackhole.");
+    UMD_THROW(error::RuntimeError, "CSM read not supported for Blackhole.");
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
@@ -328,7 +333,8 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     uint32_t ret_code = get_arc_messenger()->send_message(
         static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});
     if (ret_code != 0) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
 }

@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cstddef>
-#include <stdint.h>
+#include <cstdint>
 
 namespace eth_l1_mem {
 

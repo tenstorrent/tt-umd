@@ -7,20 +7,28 @@
 #include <cstdint>
 #include <map>
 #include <memory>
-#include <stdexcept>
+#include <optional>
+#include <set>
+#include <string>
 #include <thread>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
-#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/tt_device/remote_wormhole_tt_device.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/error.hpp"
-#include "utils.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {

@@ -5,10 +5,17 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
+#include <utility>
+#include <vector>
 
 #include "architecture_implementation.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
 
 namespace tt::umd {

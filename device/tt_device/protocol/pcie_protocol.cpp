@@ -9,14 +9,22 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <variant>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
+#include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -27,7 +35,7 @@ DmaTransferStrategy PcieProtocol::create_dma_strategy(tt::ARCH arch) {
         case tt::ARCH::BLACKHOLE:
             return BlackholeDmaTransfer{};
         default:
-            throw std::runtime_error("Unsupported architecture for DMA transfer strategy.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for DMA transfer strategy.");
     }
 }
 
@@ -38,7 +46,7 @@ size_t PcieProtocol::get_dma_tlb_size(tt::ARCH arch) {
         case tt::ARCH::WORMHOLE_B0:
             return 16 * 1024 * 1024;
         default:
-            throw std::runtime_error("Unsupported architecture for DMA TLB size.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for DMA TLB size.");
     }
 }
 
@@ -57,7 +65,7 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
     return cached_tlb_window_.get();
 }
 
-void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         write_to_device_impl<true>(mem_ptr, core, addr, size);
@@ -66,7 +74,7 @@ void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_
     }
 }
 
-void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         read_from_device_impl<true>(mem_ptr, core, addr, size);
@@ -76,7 +84,7 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 }
 
 template <bool safe>
-void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if constexpr (safe) {
         get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size);
     } else {
@@ -85,7 +93,7 @@ void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, ui
 }
 
 template <bool safe>
-void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
+void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     if constexpr (safe) {
         get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size);
     } else {
@@ -94,6 +102,8 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
 }
 
 bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+
+int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
 
 void PcieProtocol::noc_multicast_write(
     void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
@@ -115,7 +125,7 @@ void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint
 
 void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
     if (addr < BAR0_OFFSET) {
-        throw std::runtime_error("Write Invalid BAR address for this device.");
+        UMD_THROW(error::RuntimeError, "Write Invalid BAR address for this device.");
     }
     addr -= BAR0_OFFSET;
     *reinterpret_cast<volatile uint32_t*>(static_cast<uint8_t*>(pci_device_->bar0) + addr) = data;
@@ -123,7 +133,7 @@ void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
 
 uint32_t PcieProtocol::bar_read32(uint32_t addr) {
     if (addr < BAR0_OFFSET) {
-        throw std::runtime_error("Read Invalid BAR address for this device.");
+        UMD_THROW(error::RuntimeError, "Read Invalid BAR address for this device.");
     }
     addr -= BAR0_OFFSET;
     return *reinterpret_cast<volatile uint32_t*>(static_cast<uint8_t*>(pci_device_->bar0) + addr);
@@ -232,7 +242,7 @@ void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
+        UMD_THROW(error::RuntimeError, "DMA size exceeds buffer size.");
     }
 
     dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
@@ -249,7 +259,7 @@ void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
     DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
 
     if (size > dma_buffer.size) {
-        throw std::runtime_error("DMA size exceeds buffer size");
+        UMD_THROW(error::RuntimeError, "DMA size exceeds buffer size.");
     }
 
     std::memcpy(dma_buffer.buffer, src, size);
@@ -266,19 +276,19 @@ void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, cons
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
     if (!dma_buffer.completion || !dma_buffer.buffer) {
-        throw std::runtime_error("DMA buffer is not initialized");
+        UMD_THROW(error::RuntimeError, "DMA buffer is not initialized.");
     }
 
     if (src % 4 != 0) {
-        throw std::runtime_error("DMA source address must be aligned to 4 bytes");
+        UMD_THROW(error::RuntimeError, "DMA source address must be aligned to 4 bytes.");
     }
 
     if (size % 4 != 0) {
-        throw std::runtime_error("DMA size must be a multiple of 4");
+        UMD_THROW(error::RuntimeError, "DMA size must be a multiple of 4.");
     }
 
     if (!bar2) {
-        throw std::runtime_error("BAR2 is not mapped");
+        UMD_THROW(error::RuntimeError, "BAR2 is not mapped.");
     }
 
     std::visit([&](auto& strategy) { strategy.d2h_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);
@@ -289,19 +299,19 @@ void PcieProtocol::dma_h2d_transfer(const uint32_t dst, const uint64_t src, cons
     volatile uint8_t* bar2 = reinterpret_cast<volatile uint8_t*>(pci_device_->bar2_uc);
 
     if (!dma_buffer.completion || !dma_buffer.buffer) {
-        throw std::runtime_error("DMA buffer is not initialized");
+        UMD_THROW(error::RuntimeError, "DMA buffer is not initialized.");
     }
 
     if (dst % 4 != 0) {
-        throw std::runtime_error("DMA destination address must be aligned to 4 bytes");
+        UMD_THROW(error::RuntimeError, "DMA destination address must be aligned to 4 bytes.");
     }
 
     if (size % 4 != 0) {
-        throw std::runtime_error("DMA size must be a multiple of 4");
+        UMD_THROW(error::RuntimeError, "DMA size must be a multiple of 4.");
     }
 
     if (!bar2) {
-        throw std::runtime_error("BAR2 is not mapped");
+        UMD_THROW(error::RuntimeError, "BAR2 is not mapped.");
     }
 
     std::visit([&](auto& strategy) { strategy.h2d_transfer(bar2, dma_buffer, dst, src, size); }, dma_strategy_);

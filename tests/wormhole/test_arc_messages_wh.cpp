@@ -8,14 +8,20 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 using namespace tt::umd;
 

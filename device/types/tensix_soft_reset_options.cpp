@@ -7,9 +7,6 @@
 #include <cstdint>
 #include <string>
 
-#include "umd/device/cluster.hpp"
-#include "umd/device/types/xy_pair.hpp"
-
 namespace tt::umd {
 
 std::string TensixSoftResetOptionsToString(TensixSoftResetOptions value) {

@@ -5,8 +5,10 @@
 #pragma once
 
 #include <pthread.h>
+#include <sys/types.h>
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>

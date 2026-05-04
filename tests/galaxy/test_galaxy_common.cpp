@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
 
 void move_data(
     Cluster& device, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core, uint32_t size) {

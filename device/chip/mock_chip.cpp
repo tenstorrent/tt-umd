@@ -5,13 +5,11 @@
 #include "umd/device/chip/mock_chip.hpp"
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <set>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
-#include <vector>
+
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
 
@@ -39,9 +37,9 @@ void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysme
 
 void MockChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {}
 
-void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {}
+void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {}
 
-void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {}
+void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {}
 
 void MockChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {}
 

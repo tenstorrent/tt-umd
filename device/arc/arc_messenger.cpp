@@ -7,13 +7,14 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "umd/device/arc/blackhole_arc_messenger.hpp"
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -28,7 +29,7 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
             return std::make_unique<BlackholeArcMessenger>(tt_device);
             break;
         default:
-            throw std::runtime_error("Unsupported architecture for creating ArcMessenger.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for creating ArcMessenger.");
     }
 }
 

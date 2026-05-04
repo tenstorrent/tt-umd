@@ -4,31 +4,36 @@
 
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
-#include <mutex>
-#include <stdexcept>
+#include <optional>
+#include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -57,6 +62,7 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_c
                                         wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                         wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
                                   : wormhole::ARC_CORES_NOC0[0];
+    is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
         TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
         get_architecture_implementation()));
@@ -80,7 +86,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
         {0, 0});
 
     if (ret_code != 0) {
-        throw std::runtime_error(fmt::format("Failed to get harvesting masks with exit code {}", ret_code));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to get harvesting masks with exit code: {}", ret_code));
     }
 
     chip_info.harvesting_masks.tensix_harvesting_mask =
@@ -97,7 +103,7 @@ uint32_t WormholeTTDevice::get_clock() {
         arc_msg_return_values,
         {0xFFFF, 0xFFFF});
     if (exit_code != 0) {
-        throw std::runtime_error(fmt::format("Failed to get AICLK value with exit code {}", exit_code));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", exit_code));
     }
     return arc_msg_return_values[0];
 }
@@ -116,7 +122,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     }
 
     if (communication_device_type_ == IODeviceType::JTAG) {
-        TT_THROW("configure_iatu_region is redundant for JTAG communication type.");
+        UMD_THROW(error::RuntimeError, "configure_iatu_region is redundant for JTAG communication type.");
     }
 
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 0 * 4, region_id_to_use);
@@ -140,7 +146,12 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
 
 void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC APB address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
+    }
+    if (is_remote_tt_device) {
+        read_from_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->read(
@@ -158,7 +169,12 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC APB address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
+    }
+    if (is_remote_tt_device) {
+        write_to_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->write(
@@ -176,7 +192,12 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
 
 void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC CSM address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
+    }
+    if (is_remote_tt_device) {
+        read_from_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->read(
@@ -194,7 +215,12 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
 
 void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
-        throw std::runtime_error("Address is out of ARC CSM address range");
+        UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
+    }
+    if (is_remote_tt_device) {
+        write_to_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_jtag_device()->write(
@@ -220,11 +246,13 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
         duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration > timeout_ms) {
             if (get_board_type() != BoardType::UBB) {
-                throw std::runtime_error(fmt::format(
-                    "ETH training timed out after {} ms, on eth core {}, {}",
-                    timeout_ms.count(),
-                    eth_core.x,
-                    eth_core.y));
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "ETH training timed out after {} ms, on eth core {}, {}",
+                        timeout_ms.count(),
+                        eth_core.x,
+                        eth_core.y));
             } else {
                 // We don't want to throw on 6u systems, but log a warning so it is visible.
                 log_warning(
@@ -409,7 +437,7 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    TT_THROW("DRAM retraining is not supported on WormholeTTDevice.");
+    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
 }
 
 }  // namespace tt::umd

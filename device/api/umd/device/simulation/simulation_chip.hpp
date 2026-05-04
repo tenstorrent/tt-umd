@@ -4,16 +4,33 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
+class ClusterDescriptor;
+class SocDescriptor;
+enum class TensixSoftResetOptions : std::uint32_t;
 
 // Base class for all simulation devices.
 class SimulationChip : public Chip {
@@ -77,8 +94,8 @@ public:
     void close_device() override = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override = 0;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;

@@ -4,12 +4,17 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
+
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+enum class IODeviceType;
+struct TopologyDiscoveryOptions;
 
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
@@ -45,10 +50,6 @@ protected:
     std::optional<EthCoord> get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
 
     std::optional<EthCoord> get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) override;
-
-    tt_xy_pair get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
-
-    uint32_t get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 
     uint32_t get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) override;
 

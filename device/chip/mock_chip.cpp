@@ -5,13 +5,11 @@
 #include "umd/device/chip/mock_chip.hpp"
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <set>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
-#include <vector>
+
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
 

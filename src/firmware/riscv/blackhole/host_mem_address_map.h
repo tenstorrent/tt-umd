@@ -4,7 +4,6 @@
 
 #pragma once
 #include <cstdint>
-#include <stdint.h>
 
 // Remove inline ASAP.
 inline namespace blackhole {

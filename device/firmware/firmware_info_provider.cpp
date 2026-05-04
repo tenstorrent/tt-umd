@@ -4,14 +4,15 @@
 
 #include "umd/device/firmware/firmware_info_provider.hpp"
 
-#include <fmt/format.h>
-
-#include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <variant>
 #include <vector>
 
-#include "assert.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"

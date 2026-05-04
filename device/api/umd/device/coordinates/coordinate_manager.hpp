@@ -4,15 +4,23 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <set>
+#include <utility>
 #include <vector>
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
@@ -41,6 +49,7 @@ public:
         const std::vector<tt_xy_pair>& router_cores,
         const std::vector<tt_xy_pair>& security_cores,
         const std::vector<tt_xy_pair>& l2cpu_cores,
+        const std::vector<tt_xy_pair>& dispatch_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
@@ -217,6 +226,7 @@ protected:
         const std::vector<tt_xy_pair>& router_cores,
         const std::vector<tt_xy_pair>& security_cores,
         const std::vector<tt_xy_pair>& l2cpu_cores,
+        const std::vector<tt_xy_pair>& dispatch_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 
@@ -232,6 +242,7 @@ protected:
     virtual void translate_router_coords();
     virtual void translate_security_coords();
     virtual void translate_l2cpu_coords();
+    virtual void translate_dispatch_coords();
 
     void identity_map_noc0_cores();
     void add_core_translation(const CoreCoord& core_coord, const tt_xy_pair& noc0_pair);
@@ -247,6 +258,8 @@ protected:
     virtual std::vector<CoreCoord> get_harvested_pcie_cores() const;
     virtual std::vector<CoreCoord> get_l2cpu_cores() const;
     virtual std::vector<CoreCoord> get_harvested_l2cpu_cores() const;
+    virtual std::vector<CoreCoord> get_dispatch_cores() const;
+    virtual std::vector<CoreCoord> get_harvested_dispatch_cores() const;
     virtual tt_xy_pair get_tensix_grid_size() const = 0;
     virtual tt_xy_pair get_dram_grid_size() const;
     virtual tt_xy_pair get_harvested_tensix_grid_size() const;
@@ -344,6 +357,8 @@ protected:
     const std::vector<tt_xy_pair> security_cores;
 
     const std::vector<tt_xy_pair> l2cpu_cores;
+
+    const std::vector<tt_xy_pair> dispatch_cores;
 
     const std::vector<uint32_t> noc0_x_to_noc1_x;
     const std::vector<uint32_t> noc0_y_to_noc1_y;

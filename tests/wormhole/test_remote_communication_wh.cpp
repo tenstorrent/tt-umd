@@ -9,20 +9,28 @@
 #include <ios>
 #include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/fetch_local_files.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
-#include "umd/device/types/cluster_types.hpp"
-#include "wormhole/host_mem_address_map.h"
-#include "wormhole/l1_address_map.h"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {

@@ -7,7 +7,9 @@
 #include <stdexcept>
 #include <string>
 
+#define UMD_ERROR_HPP_INTERNAL_INCLUDE
 #include "umd/device/utils/error_detail.hpp"
+#undef UMD_ERROR_HPP_INTERNAL_INCLUDE
 
 namespace tt::umd::error {
 

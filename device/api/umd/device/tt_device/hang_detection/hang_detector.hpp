@@ -15,6 +15,7 @@ namespace tt::umd {
 
 class DeviceProtocol;
 class PcieInterface;
+enum class NocId : uint8_t;
 
 /**
  * HangDetector checks whether the device hardware is hung.

@@ -8,10 +8,15 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/types/arch.hpp"
+
+class Jtag;
 
 typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
 

@@ -9,14 +9,21 @@
 #include <algorithm>
 #include <cstring>
 #include <mutex>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <variant>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
+#include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {

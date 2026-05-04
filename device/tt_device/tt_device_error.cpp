@@ -6,6 +6,9 @@
 
 #include <fmt/format.h>
 
+#include <string>
+#include <unordered_map>
+
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"

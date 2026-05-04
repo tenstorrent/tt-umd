@@ -8,11 +8,14 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -25,6 +28,7 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
+class architecture_implementation;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;

@@ -4,7 +4,6 @@
 
 #include "umd/device/types/telemetry.hpp"
 
-#include <fmt/core.h>
 #include <fmt/format.h>
 
 #include <chrono>

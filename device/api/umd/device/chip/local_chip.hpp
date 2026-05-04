@@ -4,14 +4,31 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {
+class RemoteCommunication;
+class SocDescriptor;
+class SysmemManager;
+class TLBManager;
 
 class LocalChip : public Chip {
 public:
@@ -82,8 +99,7 @@ private:
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+        std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;

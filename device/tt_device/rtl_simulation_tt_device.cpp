@@ -4,16 +4,26 @@
 
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 
-#include <fmt/format.h>
-
 #include <array>
 #include <filesystem>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
+#include <utility>
 
-#include "assert.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -62,20 +72,20 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
             // Write callback: simulator writes data into host sysmem.
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
-                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
                 uint64_t offset_in_channel = offset % (1ULL << 30);
                 mgr->write_to_sysmem(channel, data, offset_in_channel, size);
             },
             // Read callback: simulator reads data from host sysmem.
             [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
-                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
                 uint64_t offset_in_channel = offset % (1ULL << 30);
                 mgr->read_from_sysmem(channel, data_out, offset_in_channel, size);
             });
@@ -144,9 +154,22 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            // Reset all DM cores.
+        if (selected_riscs == RiscType::ALL) {
+            communicator_->all_tensix_reset_assert(core.x, core.y);
             communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_neo_dms_uncore_reset_assert();
+            return;
+        }
+        if (selected_riscs == RiscType::ALL_NEO_DMS) {
+            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            return;
+        }
+        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
+            communicator_->all_neo_dms_uncore_reset_assert();
+            return;
+        }
+        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
+            communicator_->neo_dm_uncore_reset_assert(core.x, core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
@@ -172,9 +195,22 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
-        if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            // Reset all DM cores.
+        if (selected_riscs == RiscType::ALL) {
+            communicator_->all_neo_dms_uncore_reset_deassert();
             communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            communicator_->all_tensix_reset_deassert(core.x, core.y);
+            return;
+        }
+        if (selected_riscs == RiscType::ALL_NEO_DMS) {
+            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            return;
+        }
+        if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
+            communicator_->all_neo_dms_uncore_reset_deassert();
+            return;
+        }
+        if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
+            communicator_->neo_dm_uncore_reset_deassert(core.x, core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.

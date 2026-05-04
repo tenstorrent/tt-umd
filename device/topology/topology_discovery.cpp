@@ -6,28 +6,27 @@
 
 #include <fmt/format.h>
 
-#include <algorithm>
 #include <chrono>
-#include <cstdint>
 #include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
-#include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -35,7 +34,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/utils/error_detail.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -135,6 +134,11 @@ void TopologyDiscovery::get_connected_devices() {
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
         if (!options.low_power) {
+            // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
+            log_warning(
+                LogUMD,
+                "Low power mode is disabled while UMD holds open file descriptors. The device will return to low power "
+                "mode once all file descriptors are closed.");
             tt_device->set_power_state(true);
         }
         if (tt_device->get_arch() != get_topology_arch()) {

@@ -5,15 +5,20 @@
  */
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <atomic>
+#include <chrono>
 #include <csetjmp>
 #include <csignal>
-#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <vector>
 

@@ -5,11 +5,20 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -146,6 +155,9 @@ static const std::vector<tt_xy_pair> SECURITY_CORES_NOC0 = {{8, 2}};
 // We are using P0 on the NOC for all L2CPU cores.
 static const std::vector<tt_xy_pair> L2CPU_CORES_NOC0 = {{8, 3}, {8, 5}, {8, 7}, {8, 9}};
 
+// TODO: Placeholder coordinates — update once dispatch engine NOC positions are finalized.
+static const std::vector<tt_xy_pair> DISPATCH_CORES_NOC0 = {};
+
 // Return to std::array instead of std::vector once we get std::span support in C++20.
 static const std::vector<uint32_t> T6_X_LOCATIONS = {1, 2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16};
 static const std::vector<uint32_t> T6_Y_LOCATIONS = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
@@ -258,7 +270,7 @@ inline constexpr uint32_t TENSIX_L1_SIZE = 1572864;
 inline constexpr uint32_t ETH_L1_SIZE = 262144;
 inline constexpr uint64_t DRAM_BANK_SIZE = 4294967296;
 
-inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
+inline constexpr std::array<std::pair<CoreType, uint64_t>, 9> NOC0_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB20000},
      {CoreType::ETH, 0xFFB20000},
      {CoreType::DRAM, 0xFFB20000},
@@ -266,8 +278,9 @@ inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC0_CONTROL_REG_A
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
      {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::DISPATCH, 0xFFB20000},
      {CoreType::ROUTER_ONLY, 0xFF000000}}};
-inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
+inline constexpr std::array<std::pair<CoreType, uint64_t>, 9> NOC1_CONTROL_REG_ADDR_BASE_MAP = {
     {{CoreType::TENSIX, 0xFFB30000},
      {CoreType::ETH, 0xFFB30000},
      {CoreType::DRAM, 0xFFB30000},
@@ -275,6 +288,7 @@ inline constexpr std::array<std::pair<CoreType, uint64_t>, 8> NOC1_CONTROL_REG_A
      {CoreType::ARC, 0xFFFFFFFFFF000000ULL},
      {CoreType::SECURITY, 0xFFFFFFFFFF000000ULL},
      {CoreType::L2CPU, 0xFFFFFFFFFF000000ULL},
+     {CoreType::DISPATCH, 0xFFB30000},
      {CoreType::ROUTER_ONLY, 0xFF000000}}};
 
 inline constexpr uint64_t NOC_NODE_ID_OFFSET = 0x44;

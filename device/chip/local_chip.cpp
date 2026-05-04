@@ -4,28 +4,37 @@
 
 #include "umd/device/chip/local_chip.hpp"
 
-#include <cstddef>
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <set>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -84,8 +93,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         std::move(tt_device),
         std::move(tlb_manager),
         std::move(sysmem_manager),
-        std::move(remote_communication),
-        num_host_mem_channels));
+        std::move(remote_communication)));
 }
 
 LocalChip::LocalChip(
@@ -93,8 +101,7 @@ LocalChip::LocalChip(
     std::unique_ptr<TTDevice> tt_device,
     std::unique_ptr<TLBManager> tlb_manager,
     std::unique_ptr<SysmemManager> sysmem_manager,
-    std::unique_ptr<RemoteCommunication> remote_communication,
-    int num_host_mem_channels) :
+    std::unique_ptr<RemoteCommunication> remote_communication) :
     Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
@@ -229,9 +236,15 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
         return 0;
     }
 
-    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    UMD_ASSERT(
+        channel < get_num_host_channels(),
+        error::RuntimeError,
+        "Querying size for a host channel that does not exist.");
     HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
-    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    UMD_ASSERT(
+        hugepage_map.mapping_size,
+        error::RuntimeError,
+        "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 
@@ -532,8 +545,9 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (!cores.empty()) {
         for (const auto& core : cores) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                error::RuntimeError,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());

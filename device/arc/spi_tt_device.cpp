@@ -6,12 +6,13 @@
 #include <fmt/format.h>
 
 #include <memory>
-#include <stdexcept>
+#include <string>
 
 #include "umd/device/arc/blackhole_spi_tt_device.hpp"
 #include "umd/device/arc/wormhole_spi_tt_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 

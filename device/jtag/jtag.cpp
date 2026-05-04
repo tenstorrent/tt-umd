@@ -4,16 +4,16 @@
 
 #include "umd/device/jtag/jtag.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <vector>
 
-#include "assert.hpp"
 #include "umd/device/utils/error.hpp"
 
 using namespace tt::umd;

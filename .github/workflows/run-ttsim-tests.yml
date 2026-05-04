@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout tt-metal repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Clone under tt-metal directory
           path: tt-metal
@@ -47,7 +47,7 @@ jobs:
           fetch-tags: true  # Need tags for `git describe`
 
       - name: Checkout UMD
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # Clone directly into tt-metal directory for umd
           path: tt-metal/tt_metal/third_party/umd
@@ -74,7 +74,7 @@ jobs:
           echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
       - name: Download ttsim binary (wh)
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05  # v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
@@ -82,7 +82,7 @@ jobs:
           out-file-path: /tmp/ttsim-wh
 
       - name: Download ttsim binary (bh)
-        uses: robinraju/release-downloader@daf26c55d821e836577a15f77d86ddc078948b05  # v1.12
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
           tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}

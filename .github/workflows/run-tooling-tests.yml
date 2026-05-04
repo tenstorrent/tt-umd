@@ -32,7 +32,7 @@ env:
 
 jobs:
   test:
-    name: Run tooling tests (${{ inputs.card }}, ${{ inputs.ubuntu-docker-version }})
+    name: Test tooling (${{ inputs.card }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - ${{ inputs.card }}

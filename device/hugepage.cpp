@@ -4,8 +4,10 @@
 
 #include "hugepage.hpp"
 
-#include <fcntl.h>     // for O_RDWR and other constants
+#include <fcntl.h>  // for O_RDWR and other constants
+#include <fmt/format.h>
 #include <sys/stat.h>  // for umask
+#include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -13,18 +15,16 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <iterator>
 #include <regex>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
-
-const uint32_t g_MAX_HOST_MEM_CHANNELS = 4;
 
 const std::string hugepage_dir = "/dev/hugepages-1G";
 
@@ -100,11 +100,13 @@ uint32_t get_available_num_host_mem_channels(
             num_channels_per_device_target);
     }
 
-    TT_ASSERT(
-        num_channels_per_device_available <= g_MAX_HOST_MEM_CHANNELS,
-        "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
-        num_channels_per_device_available,
-        g_MAX_HOST_MEM_CHANNELS);
+    UMD_ASSERT(
+        num_channels_per_device_available <= MAX_HOST_MEM_CHANNELS,
+        error::RuntimeError,
+        fmt::format(
+            "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
+            num_channels_per_device_available,
+            MAX_HOST_MEM_CHANNELS));
 
     return num_channels_per_device_available;
 }

@@ -5,12 +5,19 @@
 #pragma once
 
 #include <hwloc.h>
+#include <hwloc/bitmap.h>
+#include <sys/types.h>
 #include <unistd.h>
 
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <map>
 #include <mutex>
+#include <ostream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"  // For ChipId

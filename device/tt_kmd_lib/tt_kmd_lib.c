@@ -6,16 +6,16 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/mman.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "pcie/ioctl.h"
+#include "umd/device/pcie/pci_ids.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DEBUG(fmt, ...)                                                        \

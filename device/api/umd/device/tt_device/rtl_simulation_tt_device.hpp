@@ -4,7 +4,10 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 
@@ -13,11 +16,18 @@
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
 class RtlSimCommunicator;
+class SimulationSysmemManager;
+class SimulationTlbManager;
+class SocDescriptor;
+class TlbWindow;
 
 class RtlSimulationTTDevice : public TTDevice {
 public:
@@ -59,9 +69,9 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager* get_sysmem_manager() { return sysmem_manager_.get(); }
+    SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager* get_tlb_manager();
+    TLBManager* get_tlb_manager() override;
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;

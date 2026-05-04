@@ -105,6 +105,7 @@ target_sources(
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
+        soc_arch_descriptor.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
@@ -246,6 +247,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
+                api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp

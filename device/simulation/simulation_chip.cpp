@@ -6,12 +6,13 @@
 
 #include <fmt/format.h>
 
-#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 #include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -133,9 +134,15 @@ int SimulationChip::get_host_channel_size(std::uint32_t channel) {
         log_warning(LogUMD, "SysmemManager was not initialized for simulation device.");
         return 0;
     }
-    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    UMD_ASSERT(
+        channel < get_num_host_channels(),
+        error::RuntimeError,
+        "Querying size for a host channel that does not exist.");
     HugepageMapping hugepage_map = mgr->get_hugepage_mapping(channel);
-    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    UMD_ASSERT(
+        hugepage_map.mapping_size,
+        error::RuntimeError,
+        "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 

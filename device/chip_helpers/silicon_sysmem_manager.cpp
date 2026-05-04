@@ -6,26 +6,35 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
+#include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap
 #include <sys/stat.h>    // for fstat
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <ostream>
+#include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <vector>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tracy.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -79,15 +88,16 @@ SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num
     tlb_manager_ = tlb_manager;
     tt_device_ = tlb_manager_->get_tt_device();
     pcie_base_ = get_pcie_base_for_arch(tlb_manager->get_tt_device()->get_arch());
-    TT_ASSERT(
+    UMD_ASSERT(
         num_host_mem_channels <= 4,
-        "Only 4 host memory channels are supported per device, but {} requested.",
-        num_host_mem_channels);
+        error::RuntimeError,
+        fmt::format("Only 4 host memory channels are supported per device, but {} requested.", num_host_mem_channels));
 
     init_sysmem(num_host_mem_channels);
 }
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
+    ZoneScopedC(tracy::Color::Yellow);
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
         return pin_or_map_iommu();
     } else {
@@ -98,6 +108,7 @@ bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
 SiliconSysmemManager::~SiliconSysmemManager() { SiliconSysmemManager::unpin_or_unmap_sysmem(); }
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
+    ZoneScopedC(tracy::Color::Yellow);
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
         return init_iommu(num_host_mem_channels);
     } else {
@@ -106,11 +117,13 @@ bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 }
 
 void SiliconSysmemManager::unpin_or_unmap_sysmem() {
+    ZoneScopedC(tracy::Color::Yellow);
     // This will unmap the iommu buffer if it was mapped through kmd.
     sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that HugepageMappings are faked, so don't unmap them.
+        TracyFreeN(iommu_mapping, "Sysmem");
         munmap(iommu_mapping, iommu_mapping_size);
         iommu_mapping = nullptr;
     } else {
@@ -128,6 +141,7 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
             if (HugepageMapping.mapping) {
                 // Note that we mmap full hugepage, but don't map it filly to NOC.
                 // So the hack for 4th hugepage channel is not present in this branch.
+                TracyFreeN(HugepageMapping.mapping, "Hugepage");
                 munmap(HugepageMapping.mapping, HugepageMapping.mapping_size);
             }
         }
@@ -234,6 +248,7 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         }
 
         hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, 0};
+        TracyAllocN(mapping, hugepage_size, "Hugepage");
     }
 
     return success;
@@ -336,6 +351,7 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
                 size,
                 strerror(errno)));
     }
+    TracyAllocN(iommu_mapping, iommu_mapping_size, "Sysmem");
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
@@ -397,6 +413,7 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
+    ZoneScopedC(tracy::Color::Yellow);
     void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
     if (mapping == MAP_FAILED) {
         UMD_THROW(

@@ -4,22 +4,22 @@
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <exception>
+#include <fmt/format.h>
+
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 SimulationTlbManager::SimulationTlbManager(
     TTDevice* tt_device, uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
@@ -29,6 +29,7 @@ SimulationTlbManager::SimulationTlbManager(
 }
 
 int SimulationTlbManager::allocate_tlb_index(size_t size) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     if (size == 0) {
@@ -106,6 +107,7 @@ int SimulationTlbManager::allocate_tlb_index(size_t size) {
 }
 
 void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -204,6 +206,8 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
+    ZoneScopedC(tracy::Color::Cyan);
+
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
@@ -221,6 +225,8 @@ uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
 }
 
 const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
+
+tt::ARCH SimulationTlbManager::get_arch() const { return architecture_; }
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;

@@ -4,13 +4,14 @@
 
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 
-#include <cstddef>
-#include <cstdint>
+#include <utility>
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
@@ -65,10 +66,5 @@ void RtlSimTlbWindow::read_block(uint64_t offset, void* data, size_t size) { tra
 void RtlSimTlbWindow::safe_write16(uint64_t offset, uint16_t value) { write16(offset, value); }
 
 uint16_t RtlSimTlbWindow::safe_read16(uint64_t offset) { return read16(offset); }
-
-tt::ARCH RtlSimTlbWindow::get_arch() const {
-    auto* handle = dynamic_cast<RtlSimTlbHandle*>(tlb_handle.get());
-    return handle->get_tlb_manager()->get_tt_device()->get_arch();
-}
 
 }  // namespace tt::umd

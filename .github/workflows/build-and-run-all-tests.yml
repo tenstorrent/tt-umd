@@ -21,6 +21,13 @@ on:
         required: false
         type: string
         default: ""
+      triggering-event:
+        required: false
+        type: string
+        default: ""
+        description: >-
+          github.event_name from the top-level workflow. Used to evaluate the
+          per-matrix blacklist. Leave empty for direct workflow_dispatch.
   workflow_dispatch:
     inputs:
       build-type:
@@ -48,6 +55,81 @@ on:
         default: 30
 
 jobs:
+  # Define all available cards which will be used for testing.
+  cards:
+    name: Define test cards
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.define.outputs.entries }}
+    steps:
+      - name: Define test card list
+        id: define
+        run: |
+          # TODO: tt-ubuntu-2204-p100a-stable to be added when available
+          # bh-gh-07 is a P300 runner
+          CARDS=$(cat <<'EOF'
+          [
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-stable"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-viommu-stable"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-stable"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-viommu-stable"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-llmbox-stable"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-llmbox-viommu-stable"},
+            {"arch": "blackhole",   "card": "tt-ubuntu-2204-p100a-viommu-stable"},
+            {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-stable"},
+            {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
+            {"arch": "wormhole_b0", "card": "6u"},
+            {"arch": "blackhole",   "card": "bh-gh-07"},
+            {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
+            {"arch": "baremetal",   "card": "ubuntu-22.04"}
+          ]
+          EOF
+          )
+          echo "entries=$(echo "$CARDS" | jq -c .)" >> $GITHUB_OUTPUT
+
+  # Central blacklist for matrix entries that should not run under certain conditions.
+  # Each entry is a pipe-delimited "triggering-event|card" pair.
+  # To extend: add entries to the echo below.
+  # Note: This can also easily extend to include build-type or ubuntu-docker-version or other parameters.
+  blacklist:
+    name: Define test blacklist
+    runs-on: ubuntu-latest
+    outputs:
+      entries: ${{ steps.define.outputs.entries }}
+    steps:
+      - name: Define blacklist entries
+        id: define
+        run: |
+          ENTRIES=$(jq -cn '$ARGS.positional' --args \
+            'pull_request|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
+            'merge_group|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
+          )
+          echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
+
+  # Generate the final test matrix by filtering the cards against the blacklist based on the triggering event.
+  # This will be used for test-all job to determine which tests to run.
+  generate-test-matrix:
+    name: Generate filtered test matrix
+    needs: [blacklist, cards]
+    runs-on: ubuntu-latest
+    outputs:
+      test-groups: ${{ steps.filter.outputs.test-groups }}
+    steps:
+      - name: Filter cards against blacklist
+        id: filter
+        env:
+          CARDS: ${{ needs.cards.outputs.entries }}
+          BLACKLIST: ${{ needs.blacklist.outputs.entries }}
+          TRIGGERING_EVENT: ${{ inputs.triggering-event }}
+        run: |
+          FILTERED=$(echo "$CARDS" | jq -c \
+            --argjson blacklist "$BLACKLIST" \
+            --arg event "$TRIGGERING_EVENT" \
+            '[.[] | select(($event + "|" + .card) as $key | ($blacklist | index($key)) == null)]')
+          echo "test-groups=$FILTERED" >> $GITHUB_OUTPUT
+          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT):"
+          echo "$FILTERED" | jq -r '.[] | "  \(.arch) | \(.card)"'
+
   build-tests:
     secrets: inherit
     strategy:
@@ -61,6 +143,7 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       timeout: 15
       build-type: ${{ inputs.build-type }}
+      build-tracy: true
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
@@ -70,31 +153,12 @@ jobs:
 
   test-all:
     secrets: inherit
-    needs: build-tests
+    needs: [build-tests, generate-test-matrix]
     strategy:
       fail-fast: false
       matrix:
-        test-group: [
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-llmbox-viommu-stable},
-          # TODO: To be added when available.
-          # {arch: blackhole, card: tt-ubuntu-2204-p100a-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p100a-viommu-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
-          {arch: wormhole_b0, card: 6u},
-          # bh-gh-07 is a P300 runner.
-          {arch: blackhole, card: bh-gh-07},
-          {arch: blackhole, card: tt-ubuntu-2204-bh-loudbox-viommu-stable},
-          {arch: baremetal, card: ubuntu-22.04},
-        ]
-        ubuntu-docker-version: [
-          'ubuntu-22.04',
-        ]
+        test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
+        ubuntu-docker-version: ['ubuntu-22.04']
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
@@ -168,3 +232,13 @@ jobs:
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
+  run-tracy:
+    secrets: inherit
+    needs: build-tests
+    uses: ./.github/workflows/run-tracy-test.yml
+    with:
+      ubuntu-docker-version: 'ubuntu-22.04'
+      build-type: ${{ inputs.build-type }}
+      timeout: 20
+      image-tag: ${{ inputs.docker-image-tag || 'latest' }}

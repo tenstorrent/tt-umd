@@ -15,6 +15,7 @@
 namespace tt::umd {
 
 class SimulationTlbManager;
+enum TlbMapping : uint8_t;
 
 /**
  * Simulation-specific TlbHandle that inherits from TlbHandle but bypasses hardware operations.
@@ -33,11 +34,13 @@ public:
         size_t size,
         const TlbMapping tlb_mapping);
 
-    ~TTSimTlbHandle() noexcept;
+    ~TTSimTlbHandle() noexcept override = default;
 
     void configure(const tlb_data& new_config) override;
 
     SimulationTlbManager* get_tlb_manager() const { return sim_manager_; }
+
+    tt::ARCH get_arch() const override;
 
 private:
     // Private constructor to enforce use of create() factory method.

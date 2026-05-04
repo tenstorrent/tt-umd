@@ -5,21 +5,32 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <set>
 #include <unordered_set>
+#include <vector>
 
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
 class TTDevice;
 class SysmemManager;
 class TLBManager;
+enum class TensixSoftResetOptions : std::uint32_t;
+struct CoreCoord;
 
 // An abstract class that represents a chip.
 class Chip {
@@ -103,6 +114,11 @@ public:
     virtual void set_power_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
+
+    // Advance the chip by one clock cycle. Delegates to the underlying TTDevice, which
+    // is a no-op for chips without a controllable clock and drives the simulator clock
+    // synchronously (no background thread) for deterministic simulation.
+    void advance_device_execution();
 
     virtual int arc_msg(
         uint32_t msg_code,

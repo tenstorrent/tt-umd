@@ -4,9 +4,20 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <unordered_set>
+#include <vector>
+
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class SocDescriptor;
+
 class MockChip : public Chip {
 public:
     MockChip(SocDescriptor soc_descriptor);

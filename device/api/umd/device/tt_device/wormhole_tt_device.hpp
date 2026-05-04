@@ -5,6 +5,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -12,8 +13,14 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class JtagDevice;
+class PCIDevice;
+class RemoteCommunication;
+enum class IODeviceType;
+
 class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
@@ -40,8 +47,6 @@ public:
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-
-    void retrain_eth_core(tt_xy_pair eth_core);
 
     ~WormholeTTDevice() override = default;
 

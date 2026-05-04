@@ -4,23 +4,13 @@
 
 #include "umd/device/simulation/tt_sim_chip.hpp"
 
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <fmt/format.h>
-#include <sys/mman.h>
-#include <sys/sendfile.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include <cerrno>
-#include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <mutex>
-#include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 
-#include "assert.hpp"
 #include "tracy.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 

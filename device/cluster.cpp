@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "hugepage.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -51,7 +50,6 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -296,10 +294,10 @@ SocDescriptor Cluster::construct_soc_descriptor(
 }
 
 void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
-    TT_ASSERT(
+    UMD_ASSERT(
         chips_.find(chip_id) == chips_.end(),
-        "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
-        chip_id);
+        error::RuntimeError,
+        fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
     if (chip_type == ChipType::SIMULATION || chip_type == ChipType::SWEMULE ||
@@ -592,7 +590,7 @@ void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint
 
 TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     auto tt_device = get_chip(device_id)->get_tt_device();
-    TT_ASSERT(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, fmt::format("TTDevice not found for device: {}", device_id));
     return tt_device;
 }
 
@@ -600,18 +598,24 @@ TLBManager* Cluster::get_tlb_manager(ChipId device_id) const { return get_chip(d
 
 Chip* Cluster::get_chip(ChipId device_id) const {
     auto chip_it = chips_.find(device_id);
-    TT_ASSERT(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
+    UMD_ASSERT(
+        chip_it != chips_.end(), error::RuntimeError, fmt::format("Device id {} not found in cluster.", device_id));
     return chip_it->second.get();
 }
 
 LocalChip* Cluster::get_local_chip(ChipId device_id) const {
-    TT_ASSERT(local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
+    UMD_ASSERT(
+        local_chip_ids_.find(device_id) != local_chip_ids_.end(),
+        error::RuntimeError,
+        fmt::format("Device id {} is not a local chip.", device_id));
     return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
 RemoteChip* Cluster::get_remote_chip(ChipId device_id) const {
-    TT_ASSERT(
-        remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
+    UMD_ASSERT(
+        remote_chip_ids_.find(device_id) != remote_chip_ids_.end(),
+        error::RuntimeError,
+        fmt::format("Device id {} is not a remote chip.", device_id));
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
 }
 
@@ -802,8 +806,9 @@ void Cluster::broadcast_write_to_cluster(
         auto architecture_implementation = architecture_implementation::create(arch_name);
         if (columns_to_exclude.find(0) == columns_to_exclude.end() or
             columns_to_exclude.find(9) == columns_to_exclude.end()) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero do not exclude anything.
@@ -834,9 +839,10 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            TT_ASSERT(
+            UMD_ASSERT(
                 use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -851,8 +857,9 @@ void Cluster::broadcast_write_to_cluster(
         auto architecture_implementation = architecture_implementation::create(arch_name);
         if (columns_to_exclude.find(0) == columns_to_exclude.end() or
             columns_to_exclude.find(5) == columns_to_exclude.end()) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
@@ -884,9 +891,10 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            TT_ASSERT(
+            UMD_ASSERT(
                 use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -908,6 +916,8 @@ void Cluster::write_to_sysmem(
 void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id) {
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
+
+void Cluster::advance_device_execution(ChipId device_id) { get_chip(device_id)->advance_device_execution(); }
 
 void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);

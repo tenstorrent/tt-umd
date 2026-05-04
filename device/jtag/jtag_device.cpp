@@ -23,7 +23,6 @@
 
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 constexpr uint32_t WORMHOLE_ARC_EFUSE_BOX1 = 0x80042000;

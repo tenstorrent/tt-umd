@@ -12,7 +12,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
 

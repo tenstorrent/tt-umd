@@ -34,7 +34,6 @@
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -294,11 +293,6 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth
         }
     }
     return static_cast<EthTrainingStatus>(training_status);
-}
-
-void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
-    uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
-    write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
 }
 
 void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {

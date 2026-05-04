@@ -25,7 +25,6 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 using namespace tt;

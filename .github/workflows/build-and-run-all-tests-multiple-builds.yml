@@ -46,9 +46,14 @@ jobs:
   # present on the PR. Skipped jobs count as passing, so all jobs are defined for all events
   # but their if-conditions gate which ones actually execute per event type:
   #
-  #   pull_request:      Release
-  #   merge_group/push:  Release, ASan, TSan
+  #   pull_request/push:      Release
+  #   merge_group:  Release, ASan, TSan
   #   workflow_dispatch: whichever build-types the caller requests
+  #
+  # The merge queue policy is the strictest, and is the real guard against regressions.
+  # On pull requests we run only Release to get faster feedback.
+  # On main we also run only Release to maintain a consistent baseline, but don't want to spend resources
+  # on extensive testing at this point.
 
   build-release:
     name: "Build and Test (Release)"

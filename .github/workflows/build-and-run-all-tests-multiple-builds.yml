@@ -44,18 +44,23 @@ jobs:
   build-and-run-all-tests:
     name: ""
     needs: ensure-image
+    # On pull_request, only Release should run. But GitHub applies the same required-status-check
+    # rules to PRs and merge queues, so we can't simply omit jobs from the matrix on PR —
+    # the merge queue would then see them as missing rather than passing. Skipped jobs count as
+    # successful, so we generate all jobs and skip non-Release ones explicitly on pull_request.
+    if: github.event_name != 'pull_request' || matrix.build-type == 'Release'
     secrets: inherit
     strategy:
       fail-fast: false
       matrix:
-        # pull_request: Release only (fast feedback).
-        # merge_group: Release + ASan + TSan (full validation before merging).
+        # pull_request/merge_group: Release + ASan + TSan (non-Release skipped on PR).
         # push to main: Release only (post-merge smoke check).
         # workflow_dispatch: whatever build-types the caller requests.
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["Release"]' ||
-                                 github.event_name == 'merge_group' && '["Release", "ASan", "TSan"]' ||
-                                 github.event_name == 'push' && '["Release"]' ||
-                                 github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
+        build-type: ${{ fromJson(
+            (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+            && '["Release", "ASan", "TSan"]' ||
+            github.event_name == 'push' && '["Release"]' ||
+            github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
       build-type: ${{ matrix.build-type }}

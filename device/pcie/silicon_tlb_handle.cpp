@@ -13,7 +13,6 @@
 #include "tracy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

@@ -5,6 +5,7 @@
 #include "umd/device/simulation/simulation_host.hpp"
 
 #include <arpa/inet.h>
+#include <fmt/format.h>
 #include <netinet/in.h>
 #include <nng/nng.h>
 #include <nng/protocol/pair1/pair.h>
@@ -18,7 +19,7 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 
-#include "assert.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -88,7 +89,10 @@ void SimulationHost::init() {
     log_info(tt::LogEmulationDriver, "Listening on: {}", nng_socket_addr);
     nng_pair1_open(host_socket.get());
     int rv = nng_listener_create(host_listener.get(), *host_socket, nng_socket_addr);
-    TT_ASSERT(rv == 0, "Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr);
+    UMD_ASSERT(
+        rv == 0,
+        error::RuntimeError,
+        fmt::format("Failed to create listener: {} {}", nng_strerror(rv), nng_socket_addr));
 }
 
 SimulationHost::~SimulationHost() {

@@ -27,7 +27,6 @@
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {

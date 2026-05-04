@@ -13,7 +13,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 class TTDevice;

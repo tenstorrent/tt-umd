@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -24,7 +23,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -32,8 +30,9 @@ TLBManager::TLBManager(TTDevice* tt_device) : tt_device_(tt_device) {}
 
 void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     ZoneScopedC(tracy::Color::Cyan);
-    TT_ASSERT(
+    UMD_ASSERT(
         ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
+        error::RuntimeError,
         "Invalid ordering specified in Cluster::configure_tlb");
     log_debug(LogUMD, "Requesting TLB window of size {}", tlb_size);
 
@@ -83,7 +82,7 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
-    TT_ASSERT(is_tlb_mapped(core), "TLB not mapped for core: {}", core.str());
+    UMD_ASSERT(is_tlb_mapped(core), error::RuntimeError, fmt::format("TLB not mapped for core: {}", core.str()));
 
     int tlb_index = map_core_to_tlb_.at(core);
     return tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);

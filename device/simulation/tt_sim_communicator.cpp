@@ -19,7 +19,6 @@
 #include <utility>
 
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 // NOLINTBEGIN.
 #define DLSYM_FUNCTION(func_name)                                                                           \

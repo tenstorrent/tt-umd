@@ -16,7 +16,6 @@
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

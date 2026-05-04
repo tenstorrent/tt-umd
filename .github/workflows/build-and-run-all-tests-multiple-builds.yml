@@ -71,6 +71,7 @@ jobs:
       build-type: Release
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -88,6 +89,7 @@ jobs:
       build-type: ASan
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -105,6 +107,7 @@ jobs:
       build-type: TSan
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -121,6 +124,7 @@ jobs:
       build-type: RelWithDebInfo
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -137,6 +141,7 @@ jobs:
       build-type: Debug
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 

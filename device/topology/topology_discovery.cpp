@@ -6,7 +6,6 @@
 
 #include <fmt/format.h>
 
-#include <cerrno>
 #include <chrono>
 #include <map>
 #include <memory>
@@ -262,13 +261,12 @@ void TopologyDiscovery::discover_remote_devices() {
                     LogUMD,
                     "Skipping disabled ETH core {} on device ASIC ID: {} (BRISC reset bit is high)",
                     eth_core.str(),
-                    current_device_asic_id,
-                    channel);
+                    current_device_asic_id);
                 continue;
             }
 
             if (!eth_heartbeat_running(tt_device, eth_core)) {
-                UMD_THROW_OR_RETURN(
+                auto err = UMD_THROW_OR_RETURN(
                     options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
                     error::RuntimeError,
                     fmt::format(
@@ -276,6 +274,8 @@ void TopologyDiscovery::discover_remote_devices() {
                         current_device_asic_id,
                         eth_core.str(),
                         get_eth_postcode(tt_device, eth_core)));
+                log_warning(LogUMD, err.message());
+                continue;
             }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {

@@ -96,13 +96,12 @@ struct ClusterOptions {
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
+     * This has no effect on SILICON chip type, use TT_VISIBLE_DEVICES instead.
      */
     std::unordered_set<ChipId> target_devices;
 
     /**
-     * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
-     * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
-     * the system.
+     * Only used for SIMULATION and MOCK chip types. Throws an error if passed for SILICON.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
 

@@ -319,9 +319,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
     switch (options.chip_type) {
         case ChipType::SILICON: {
             if (options.cluster_descriptor != nullptr) {
-                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                    options.cluster_descriptor, options.target_devices);
-                break;
+                UMD_THROW(error::RuntimeError, "Cannot pass a custom ClusterDescriptor for SILICON chip type.");
             }
 
             auto [desc, devices] = TopologyDiscovery::discover(

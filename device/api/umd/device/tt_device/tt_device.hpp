@@ -350,6 +350,12 @@ public:
 
     virtual uint32_t get_min_clock_freq() = 0;
 
+    // Advance the device by one clock cycle. No-op by default; overridden by devices with a
+    // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the
+    // clock is advanced synchronously from the calling thread rather than driven by a
+    // background thread.
+    virtual void advance_device_execution();
+
     uint64_t get_board_id();
 
     uint8_t get_asic_location();

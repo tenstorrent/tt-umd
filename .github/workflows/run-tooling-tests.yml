@@ -32,7 +32,7 @@ env:
 
 jobs:
   test:
-    name: Run tooling tests (${{ inputs.card }}, ${{ inputs.ubuntu-docker-version }})
+    name: Test tooling (${{ inputs.card }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - ${{ inputs.card }}
@@ -60,7 +60,7 @@ jobs:
           rm -rf *
 
       - name: Use UMD wheel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./

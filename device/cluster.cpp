@@ -269,13 +269,11 @@ SocDescriptor Cluster::construct_soc_descriptor(
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(arch);
-        SocDescriptor soc_descriptor = SocDescriptor(sad, chip_info);
+        SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(arch), chip_info);
         return soc_descriptor;
 
     } else {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_desc_path);
-        SocDescriptor soc_descriptor = SocDescriptor(sad, chip_info);
+        SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
@@ -313,6 +311,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 // NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
 Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
+    log_info(LogUMD, "Cluster constructor started.");
     options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
@@ -406,6 +405,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+    log_info(LogUMD, "Cluster constructor completed.");
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -546,9 +546,10 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
-    log_debug(LogUMD, "Cluster::~Cluster");
+    log_info(LogUMD, "Cluster destructor started.");
 
     cluster_desc.reset();
+    log_info(LogUMD, "Cluster destructor completed.");
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
@@ -914,6 +915,8 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
+void Cluster::advance_device_execution(ChipId device_id) { get_chip(device_id)->advance_device_execution(); }
+
 void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }
@@ -1045,6 +1048,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
 
         deassert_resets_and_set_power_state();
     }
+    log_info(LogUMD, "Starting devices in cluster completed.");
 }
 
 void Cluster::close_device() {
@@ -1058,6 +1062,7 @@ void Cluster::close_device() {
     for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
+    log_info(LogUMD, "Closing devices in cluster completed.");
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

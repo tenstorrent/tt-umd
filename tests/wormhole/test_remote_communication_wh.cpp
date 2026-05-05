@@ -162,4 +162,5 @@ TEST(RemoteCommunicationWormhole, LargeTransferNoSysmem) {
         ASSERT_EQ(data_to_write[i], data_read[i]) << "Data mismatch at index " << i << ": expected 0x" << std::hex
                                                   << data_to_write[i] << " but got 0x" << data_read[i];
     }
+    remote_tt_device->get_remote_communication()->get_local_device()->set_power_state(false);
 }

@@ -412,6 +412,8 @@ ChipInfo TTDevice::get_chip_info() {
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
+void TTDevice::advance_device_execution() {}
+
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;
     read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
@@ -560,11 +562,9 @@ const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descripto
 
 void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
     if (soc_descriptor_path.empty()) {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(get_arch());
-        soc_descriptor_ = SocDescriptor(sad, get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
     } else {
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
-        soc_descriptor_ = SocDescriptor(sad, get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_descriptor_path), get_chip_info());
     }
 }
 

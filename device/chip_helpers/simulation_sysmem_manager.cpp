@@ -48,7 +48,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     }
 
     system_memory_ =
-        static_cast<uint8_t *>(mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
+        static_cast<uint8_t*>(mmap(nullptr, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0));
     UMD_ASSERT(system_memory_ != MAP_FAILED, error::RuntimeError, "system_memory mmap() failed");
     madvise(system_memory_, total_size, MADV_HUGEPAGE);
     system_memory_size_ = total_size;
@@ -82,7 +82,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     return nullptr;
 }
 

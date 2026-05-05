@@ -55,8 +55,6 @@ std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
     return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(manager, communicator, tlb_id, size, tlb_mapping));
 }
 
-TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
-
 void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;
     tlb_config_.local_offset = new_config.local_offset / tlb_size_;

@@ -36,7 +36,6 @@ class SocArchDescriptor;
 */
 class SocDescriptor {
 public:
-    SocDescriptor() = default;  // TODO(#331): Delete when metal_SocDescriptor is deleted.
     SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info = {});
 
     // Helpers for extracting info from soc descriptor file.

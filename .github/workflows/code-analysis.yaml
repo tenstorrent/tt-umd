@@ -22,7 +22,7 @@ jobs:
       BUILD_DIR: /work/.build
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 1
           submodules: recursive
@@ -82,21 +82,21 @@ jobs:
             --export html --output "$BUILD_DIR/codechecker_html" || true
 
       - name: Upload JSON report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: CodeChecker-JSON-Report
           path: ${{ env.BUILD_DIR }}/codechecker_issues.json
 
       - name: Upload HTML report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: CodeChecker-HTML-Report
           path: ${{ env.BUILD_DIR }}/codechecker_html
 
       - name: Upload raw analysis results (for fixit)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: CodeChecker-Analysis-Results
@@ -111,13 +111,13 @@ jobs:
 
     steps:
       - name: Download CodeChecker HTML report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: CodeChecker-HTML-Report
           path: site
 
       - name: Download CodeChecker JSON report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: CodeChecker-JSON-Report
           path: site

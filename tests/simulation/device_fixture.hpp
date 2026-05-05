@@ -31,9 +31,8 @@ protected:
                 "You need to define TT_UMD_SIMULATOR that will point to simulator path. eg. build/versim-wormhole-b0");
         }
         std::string soc_descriptor_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_path);
-        std::shared_ptr<SocArchDescriptor> sad = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
-        SocDescriptor soc_descriptor = SocDescriptor(sad);
-        device = SimulationChip::create(simulator_path, soc_descriptor, 0, 1);  // TODO
+        device = SimulationChip::create(
+            simulator_path, SocDescriptor(std::make_shared<SocArchDescriptor>(soc_descriptor_path)), 0, 1);
         device->start_device();
     }
 

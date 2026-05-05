@@ -36,6 +36,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -250,6 +251,16 @@ void TopologyDiscovery::discover_remote_devices() {
                 log_debug(
                     LogUMD,
                     "Skipping disabled ETH core {} on device ASIC ID: {} (port_disable_mask bit {} is set)",
+                    eth_core.str(),
+                    current_device_asic_id,
+                    channel);
+                continue;
+            }
+
+            if (tt_device->get_risc_reset_state(eth_core) & static_cast<uint32_t>(TensixSoftResetOptions::BRISC)) {
+                log_debug(
+                    LogUMD,
+                    "Skipping disabled ETH core {} on device ASIC ID: {} (BRISC reset bit is high)",
                     eth_core.str(),
                     current_device_asic_id,
                     channel);

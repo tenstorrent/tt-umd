@@ -36,6 +36,7 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -60,6 +61,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // initialized with a correcy EthCoord.
     remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
+    tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor.device_descriptor_file_path);
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
         std::move(tt_device),

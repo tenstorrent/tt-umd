@@ -85,6 +85,7 @@ public:
     TLBManager *get_tlb_manager() override;
 
     uint64_t bar0_base = 0;
+    uint64_t bar4_base = 0;
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;

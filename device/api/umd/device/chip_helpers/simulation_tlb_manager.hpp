@@ -37,6 +37,7 @@ public:
     SimulationTlbManager(
         TTDevice* tt_device,
         uint64_t bar0_base,
+        uint64_t bar4_base,
         const architecture_implementation* arch_impl,
         TlbWindowFactory factory);
 

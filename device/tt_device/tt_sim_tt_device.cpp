@@ -87,6 +87,11 @@ TTSimTTDevice::TTSimTTDevice(
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
+        // Compute physical address of BAR4 from PCI config registers (Blackhole 4GB TLBs live here).
+        bar4_base = communicator_->pci_config_read32(0, 0x20);
+        bar4_base |= uint64_t(communicator_->pci_config_read32(0, 0x24)) << 32;
+        bar4_base &= ~15ull;
+
         if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
         } else {
@@ -97,6 +102,7 @@ TTSimTTDevice::TTSimTTDevice(
     tlb_manager_ = std::make_unique<SimulationTlbManager>(
         this,
         bar0_base,
+        bar4_base,
         architecture_impl_.get(),
         [comm = communicator_.get()](
             SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {

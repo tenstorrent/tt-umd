@@ -70,6 +70,8 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
+    void advance_device_execution() override;
+
     /**
      * Get the TTSimCommunicator for low-level device operations.
      * @return Pointer to TTSimCommunicator

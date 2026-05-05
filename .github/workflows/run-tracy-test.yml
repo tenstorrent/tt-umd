@@ -26,7 +26,7 @@ env:
 
 jobs:
   test:
-    name: Run Tracy smoke test (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    name: Test Tracy smoke (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - tt-ubuntu-2204-n150-stable
@@ -51,7 +51,7 @@ jobs:
           rm -rf *
 
       - name: Use Tracy build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}-tracy
 

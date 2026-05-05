@@ -208,6 +208,12 @@ int Chip::arc_msg(
     return exit_code;
 }
 
+void Chip::advance_device_execution() {
+    if (auto* td = get_tt_device()) {
+        td->advance_device_execution();
+    }
+}
+
 void Chip::set_power_state(DevicePowerState state) {
     ZoneScopedN("UMD_Chip::set_power_state");
     int exit_code = 0;

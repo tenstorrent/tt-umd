@@ -34,7 +34,7 @@ public:
         size_t size,
         const TlbMapping tlb_mapping);
 
-    ~TTSimTlbHandle() noexcept;
+    ~TTSimTlbHandle() noexcept override = default;
 
     void configure(const tlb_data& new_config) override;
 

@@ -744,7 +744,7 @@ private:
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
-    void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
+    void construct_cluster(const ChipType& chip_type);
 
     // State variables.
     std::set<ChipId> all_chip_ids_;

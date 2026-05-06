@@ -521,13 +521,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 
     test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
-    bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
-    if (!virtual_bcast_supported) {
-        cluster.close_device();
-        GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "
-                        "Virtual Coordinate Broadcast or NOC translation is not enabled";
-    }
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
@@ -619,13 +612,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
 
     test_utils::safe_test_cluster_start(&cluster);
     auto eth_version = cluster.get_ethernet_firmware_version();
-    bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
-    if (!virtual_bcast_supported) {
-        cluster.close_device();
-        GTEST_SKIP() << "SiliconDriverWH.VirtualCoordinateBroadcast skipped since ethernet version does not support "
-                        "Virtual Coordinate Broadcast or NOC translation is not enabled";
-    }
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;

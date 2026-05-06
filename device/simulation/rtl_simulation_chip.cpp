@@ -27,7 +27,7 @@ RtlSimulationChip::RtlSimulationChip(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 }
 
-void RtlSimulationChip::start_device() {}
+void RtlSimulationChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void RtlSimulationChip::close_device() {}
 

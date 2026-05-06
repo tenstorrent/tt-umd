@@ -32,8 +32,6 @@ namespace tt::umd {
 class Cluster;
 
 class ClusterDescriptor {
-    // TODO: Only Topo Discovery should have access.
-    friend class Cluster;
     friend class TopologyDiscovery;
 
 public:
@@ -250,6 +248,12 @@ public:
     const std::unordered_map<ChipId, std::string> &get_chip_pci_bdfs() const;
 
     const std::vector<ChipId> &get_unhealthy_devices() const { return unhealthy_devices; }
+
+    std::optional<SemVer> get_cluster_eth_fw_version() const { return eth_fw_version; }
+
+    std::optional<FirmwareBundleVersion> get_cluster_firmware_bundle_version() const { return fw_bundle_version; }
+
+    IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;

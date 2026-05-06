@@ -138,6 +138,13 @@ inline bool poll_until(
     const std::chrono::milliseconds timeout,
     const std::chrono::microseconds busy_poll_window,
     const std::chrono::microseconds poll_interval) {
+    // Ensure the predicate is callable.
+    static_assert(std::is_invocable_v<Predicate>, "poll_until: The predicate provided must be callable.");
+
+    // Enforce strict bool return type.
+    using ReturnType = std::invoke_result_t<Predicate>;
+    static_assert(std::is_same_v<ReturnType, bool>, "poll_until: Predicate must return 'bool'.");
+
     const auto start = std::chrono::steady_clock::now();
     while (!predicate()) {
         const auto elapsed = std::chrono::steady_clock::now() - start;

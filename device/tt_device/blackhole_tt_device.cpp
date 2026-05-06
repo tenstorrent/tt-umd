@@ -185,9 +185,8 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
 
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
-
-    const bool started = utils::poll_until(
-        [&]() {
+    const bool arc_core_started = utils::poll_until(
+        [this, &arc_boot_status, &arc_postcode]() {
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
             read_from_arc_apb(
                 &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
@@ -197,7 +196,7 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         busy_poll_window,
         poll_interval);
 
-    if (!started) {
+    if (!arc_core_started) {
         UMD_THROW(
             error::ArcStartupError, *this, get_selected_noc_id(), arc_core, arc_boot_status, arc_postcode, timeout_ms);
     }

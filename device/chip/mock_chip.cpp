@@ -7,7 +7,6 @@
 #include <chrono>
 #include <cstdint>
 #include <type_traits>
-#include <utility>
 
 #include "umd/device/soc_descriptor.hpp"
 
@@ -15,7 +14,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
 
-MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor)) {}
+MockChip::MockChip(const SocDescriptor& soc_descriptor) : Chip(soc_descriptor.arch), soc_descriptor_(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 

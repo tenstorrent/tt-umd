@@ -39,7 +39,10 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 
 SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
-    Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
+    Chip(soc_descriptor.arch),
+    arch_name(soc_descriptor.arch),
+    chip_id_(chip_id),
+    simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
@@ -75,14 +78,14 @@ void SimulationChip::noc_multicast_write(
     }
     // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
     // Until then, do individual writes to each core in the range.
-    const tt_xy_pair translated_start = soc_descriptor_.translate_chip_coord_to_translated(core_start);
-    const tt_xy_pair translated_end = soc_descriptor_.translate_chip_coord_to_translated(core_end);
+    const tt_xy_pair translated_start = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
+    const tt_xy_pair translated_end = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
     for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
         for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
             // Since we are doing set of unicasts, we must skip cores that are not actual Tensix cores.
             // These are in columns where x = 8 (ARC core, L2CPU) and x = 9 (GDDR).
             // TODO: investigate proper multicast support for simulations so we can remove this workaround.
-            if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
+            if (get_soc_descriptor().arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
                 continue;
             }
             write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), dst, addr, size);

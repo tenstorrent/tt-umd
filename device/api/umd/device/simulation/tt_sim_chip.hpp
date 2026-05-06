@@ -41,6 +41,8 @@ public:
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
+
     SysmemManager* get_sysmem_manager() override { return tt_device_->get_sysmem_manager(); }
 
     TTDevice* get_tt_device() override { return tt_device_.get(); }

@@ -141,7 +141,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
-    eth_fw_version = cluster_desc->eth_fw_version;
+    eth_fw_version = cluster_desc->get_cluster_eth_fw_version();
 
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
@@ -217,7 +217,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
                 (cluster_desc->get_chips_with_mmio().at(chip_id)),
                 soc_desc,
                 num_host_mem_channels,
-                cluster_desc->io_device_type);
+                cluster_desc->get_cluster_io_device_type());
         }
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
@@ -518,7 +518,7 @@ void Cluster::refresh_cluster_description() {
     }
 
     cluster_desc = std::move(new_cluster_desc);
-    eth_fw_version = cluster_desc->eth_fw_version;
+    eth_fw_version = cluster_desc->get_cluster_eth_fw_version();
     bcast_header_cache.clear();
 
     for (const ChipId chip_id : local_chip_ids_) {

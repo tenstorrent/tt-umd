@@ -146,7 +146,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
 }
 
-void LocalChip::initialize_membars() {
+void LocalChip::initialize_membars(uint32_t dram_subchannel) {
     ZoneScopedC(tracy::Color::DarkGreen);
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
@@ -160,7 +160,8 @@ void LocalChip::initialize_membars() {
     std::vector<CoreCoord> dram_cores_vector = {};
     dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+        dram_cores_vector.push_back(
+            soc_descriptor_.get_dram_core_for_channel(dram_idx, dram_subchannel, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -173,7 +174,7 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
-void LocalChip::start_device() {
+void LocalChip::start_device(uint32_t dram_membar_subchannel) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
         return;
@@ -188,7 +189,7 @@ void LocalChip::start_device() {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();
     }
-    initialize_membars();
+    initialize_membars(dram_membar_subchannel);
 }
 
 void LocalChip::close_device() {
@@ -566,10 +567,10 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     }
 }
 
-void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
+void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED));
+        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, subchannel, CoordSystem::TRANSLATED));
     }
     dram_membar(dram_cores_to_sync);
 }

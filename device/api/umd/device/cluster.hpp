@@ -96,13 +96,12 @@ struct ClusterOptions {
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
+     * This has no effect on SILICON chip type, use TT_VISIBLE_DEVICES instead.
      */
     std::unordered_set<ChipId> target_devices;
 
     /**
-     * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
-     * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
-     * the system.
+     * Only used for SIMULATION and MOCK chip types. Throws an error if passed for SILICON.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
 
@@ -520,8 +519,9 @@ public:
      *
      * @param chip Chip to target.
      * @param channels Channels being targeted.
+     * @param subchannel DRAM subchannel to target (default 0).
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0);
 
     /**
      * DRAM memory barrier.
@@ -581,6 +581,8 @@ public:
      * @param src_device_id Chip to target.
      */
     void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id);
+
+    void advance_device_execution(ChipId device_id);
 
     /**
      * Query number of memory channels on Host device allocated for a specific device during initialization.
@@ -743,7 +745,7 @@ private:
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
-    void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
+    void construct_cluster(const ChipType& chip_type);
 
     // State variables.
     std::set<ChipId> all_chip_ids_;

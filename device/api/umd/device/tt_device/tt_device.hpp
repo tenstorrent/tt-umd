@@ -24,6 +24,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
@@ -367,7 +368,7 @@ public:
 
     void init_tt_device(
         std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        const std::string &soc_descriptor_path = "");
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr);
 
     uint64_t get_refclk_counter();
 
@@ -488,8 +489,7 @@ protected:
 
     tt_xy_pair arc_core;
 
-    // Assigns default SocDescriptor.
-    void construct_soc_descriptor(const std::string &soc_descriptor_path = "");
+    void construct_soc_descriptor(std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:

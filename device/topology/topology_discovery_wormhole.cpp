@@ -30,10 +30,6 @@
 namespace tt::umd {
 enum class IODeviceType;
 
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
-
 uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         // See comment in get_local_board_id.

@@ -65,7 +65,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // initialized with a correctly EthCoord.
     remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
-    tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor.device_descriptor_file_path);
+    tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT);  // TODO
     return std::unique_ptr<LocalChip>(new LocalChip(
         soc_descriptor,
         std::move(tt_device),

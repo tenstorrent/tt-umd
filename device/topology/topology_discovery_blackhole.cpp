@@ -32,10 +32,6 @@
 namespace tt::umd {
 enum class IODeviceType;
 
-TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
-
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
     return nullptr;

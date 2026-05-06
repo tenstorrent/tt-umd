@@ -41,7 +41,7 @@ public:
 
     virtual ~Chip() = default;
 
-    virtual void start_device() = 0;
+    virtual void start_device(uint32_t dram_membar_subchannel = 0) = 0;
     virtual void close_device() = 0;
 
     SocDescriptor& get_soc_descriptor();
@@ -75,7 +75,7 @@ public:
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
-    virtual void dram_membar(const std::unordered_set<uint32_t>& channels) = 0;
+    virtual void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) = 0;
 
     // TODO: Remove this API once we switch to the new one.
     virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);

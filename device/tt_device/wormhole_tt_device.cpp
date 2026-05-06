@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -238,6 +239,7 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto duration = std::chrono::milliseconds(0);
 
     auto start = std::chrono::steady_clock::now();

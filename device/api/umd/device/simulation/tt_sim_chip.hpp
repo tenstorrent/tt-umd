@@ -31,7 +31,7 @@ public:
         int num_host_mem_channels = 0);
     ~TTSimChip() override;
 
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;

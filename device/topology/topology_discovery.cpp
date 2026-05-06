@@ -23,6 +23,7 @@
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -34,6 +35,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -254,22 +256,26 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            // TODO #2318: Re-enable throwing once Fabric fixes bug that breaks ETH heartbeat.
-            // Note that even checking can slow down the CI enough for it to time out.
-            if (options.eth_fw_heartbeat_failure != TopologyDiscoveryOptions::Action::THROW) {
-                if (!eth_heartbeat_running(tt_device, eth_core)) {
-                    std::string msg = fmt::format(
+            if (tt_device->get_risc_reset_state(eth_core) & static_cast<uint32_t>(TensixSoftResetOptions::BRISC)) {
+                log_debug(
+                    LogUMD,
+                    "Skipping disabled ETH core {} on device ASIC ID: {} (BRISC reset bit is high)",
+                    eth_core.str(),
+                    current_device_asic_id);
+                continue;
+            }
+
+            if (!eth_heartbeat_running(tt_device, eth_core)) {
+                auto err = UMD_THROW_OR_RETURN(
+                    options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
+                    error::RuntimeError,
+                    fmt::format(
                         "ETH core heartbeat check failed on device ASIC ID: {}, ETH core {}, post code: {:x}",
                         current_device_asic_id,
                         eth_core.str(),
-                        get_eth_postcode(tt_device, eth_core));
-                    if (options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW) {
-                        UMD_THROW(error::RuntimeError, msg);
-                    } else {
-                        log_warning(LogUMD, msg);
-                        continue;
-                    }
-                }
+                        get_eth_postcode(tt_device, eth_core)));
+                log_warning(LogUMD, err.message());
+                continue;
             }
 
             if (!verify_eth_core_fw_version(tt_device, eth_core)) {
@@ -621,9 +627,10 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
     const auto second_start = std::chrono::steady_clock::now();
     while (true) {
         uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
+        uint32_t signature = (current_reading >> 16);
 
-        // Heartbeat must be in the format 0xABCDxxxx.
-        if ((current_reading >> 16) != 0xABCD) {
+        if (signature != erisc_firmware::BASE_FW_HEARTBEAT_SIGNATURE &&
+            signature != erisc_firmware::FABRIC_HEARTBEAT_SIGNATURE) {
             log_warning(
                 LogUMD,
                 "Read invalid heartbeat value: {:#x} from ETH core: {}, FW possibly corrupted.",

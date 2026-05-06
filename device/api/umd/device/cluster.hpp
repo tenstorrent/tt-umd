@@ -758,8 +758,8 @@ private:
     ClusterOptions options_;
 
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast;
-    bool use_translated_coords_for_eth_broadcast;
+    bool use_ethernet_broadcast = false;
+    bool use_translated_coords_for_eth_broadcast = false;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;
 };

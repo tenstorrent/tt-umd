@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -15,7 +14,6 @@
 #include <set>
 #include <string>
 #include <thread>
-#include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
 
@@ -442,7 +440,6 @@ TEST(SiliconDriverWH, BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly.
     Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     test_utils::safe_test_cluster_start(&cluster);
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};

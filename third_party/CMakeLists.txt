@@ -17,7 +17,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 ####################################################################################################################
 if(TT_UMD_BUILD_TESTS)
     CPMAddPackage(
-        NAME googletest
+        NAME GTest
         GITHUB_REPOSITORY google/googletest
         GIT_TAG v1.13.0
         VERSION 1.13.0
@@ -25,8 +25,8 @@ if(TT_UMD_BUILD_TESTS)
         OPTIONS
             "INSTALL_GTEST OFF"
     )
-    if(googletest_ADDED)
-        target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
+    if(GTest_ADDED)
+        target_compile_options(GTest PRIVATE -Wno-implicit-int-float-conversion)
     endif()
 endif()
 
@@ -118,7 +118,7 @@ endif()
 # fmt : https://github.com/fmtlib/fmt
 ###################################################################################################################
 
-CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
 
 ###################################################################################################################
 # nanobench (for uBenchmarking)
@@ -140,6 +140,7 @@ CPMAddPackage(
         "SPDLOG_FMT_EXTERNAL_HO ON"
         "SPDLOG_INSTALL ON"
         "BUILD_SHARED_LIBS OFF"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 ####################################################################################################################
@@ -165,7 +166,7 @@ CPMAddPackage(
 ####################################################################################################################
 if(CPM_LOCAL_PACKAGES_ONLY)
     # When using only local packages, CPM uses "find_package".
-    # nanobind wants python included before CPM calls "find_package". 
+    # nanobind wants python included before CPM calls "find_package".
     find_package(
         Python
         COMPONENTS

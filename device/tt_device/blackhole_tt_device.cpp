@@ -11,7 +11,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
@@ -183,51 +182,23 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     uint32_t arc_boot_status = 0;
     uint32_t arc_postcode = 0;
-    const auto start = std::chrono::steady_clock::now();
-    constexpr auto spin_limit = std::chrono::microseconds(1000);
-    while (true) {
-        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
-        read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
 
-        // ARC started successfully.
-        if ((arc_boot_status & 0x7) == 0x5) {
-            return;
-        }
+    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
+    constexpr auto poll_interval = std::chrono::microseconds(10);
+    const bool arc_core_started = utils::poll_until(
+        [this, &arc_boot_status, &arc_postcode]() {
+            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+            read_from_arc_apb(
+                &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
+            return (arc_boot_status & 0x7) == 0x5;
+        },
+        timeout_ms,
+        busy_poll_window,
+        poll_interval);
 
-        auto elapsed = std::chrono::steady_clock::now() - start;
-
-        // If we are within the first 200us, busy-wait (continue).
-        // This burns CPU, but guarantees we catch the status change instantly in this interval.
-        if (elapsed < spin_limit) {
-            // Optional: For 0ms timeouts, check manually here without strings.
-            if (elapsed > timeout_ms) {
-                UMD_THROW(
-                    error::ArcStartupError,
-                    *this,
-                    get_selected_noc_id(),
-                    arc_core,
-                    arc_boot_status,
-                    arc_postcode,
-                    timeout_ms);
-            }
-            continue;
-        }
-
-        if (utils::check_timeout(start, timeout_ms)) {
-            UMD_THROW(
-                error::ArcStartupError,
-                *this,
-                get_selected_noc_id(),
-                arc_core,
-                arc_boot_status,
-                arc_postcode,
-                timeout_ms);
-        }
-
-        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
-        // actual duration will be longer due to OS scheduling and jitter.
-        // This prevents 100% CPU usage during longer hardware initialization.
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    if (!arc_core_started) {
+        UMD_THROW(
+            error::ArcStartupError, *this, get_selected_noc_id(), arc_core, arc_boot_status, arc_postcode, timeout_ms);
     }
 }
 

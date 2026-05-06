@@ -29,7 +29,7 @@ TTSimChip::TTSimChip(
 
 TTSimChip::~TTSimChip() = default;
 
-void TTSimChip::start_device() {}
+void TTSimChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void TTSimChip::close_device() {}
 

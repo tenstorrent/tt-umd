@@ -927,8 +927,8 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>
     get_chip(chip)->dram_membar(cores);
 }
 
-void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels) {
-    get_chip(chip)->dram_membar(channels);
+void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
+    get_chip(chip)->dram_membar(channels, subchannel);
 }
 
 void Cluster::write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
@@ -1045,7 +1045,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
-            get_chip(chip_id)->start_device();
+            get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
 
         deassert_resets_and_set_power_state();

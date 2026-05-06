@@ -520,8 +520,9 @@ public:
      *
      * @param chip Chip to target.
      * @param channels Channels being targeted.
+     * @param subchannel DRAM subchannel to target (default 0).
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0);
 
     /**
      * DRAM memory barrier.

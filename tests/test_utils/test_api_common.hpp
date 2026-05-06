@@ -109,7 +109,7 @@ inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0
 // in translated coordinates for the given SoC descriptor.
 inline std::vector<CoreCoord> get_tensix_corners(const SocDescriptor& soc_desc) {
     const auto cores = soc_desc.get_cores(tt::CoreType::TENSIX, tt::CoordSystem::TRANSLATED);
-    EXPECT_FALSE(cores.empty()) << "No TENSIX cores found in SoC descriptor";
+    ASSERT_FALSE(cores.empty()) << "No TENSIX cores found in SoC descriptor";
     CoreCoord top_left = cores[0];
     CoreCoord bottom_right = cores[0];
     for (const auto& core : cores) {

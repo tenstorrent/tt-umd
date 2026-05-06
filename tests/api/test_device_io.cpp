@@ -371,6 +371,8 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                 break;
             }
         }
+        ASSERT_NE(bystander_tensix_core.core_type, CoreType::INVALID)
+            << "No bystander TENSIX core found on chip " << chip_id;
         tt_device->read_from_device(bystander_original.data(), bystander_tensix_core, address, data_size);
         // }
 

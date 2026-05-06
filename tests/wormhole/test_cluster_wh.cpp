@@ -520,7 +520,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     test_utils::safe_test_cluster_start(&cluster);
-    auto eth_version = cluster.get_ethernet_firmware_version();
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
@@ -611,7 +610,6 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
     test_utils::safe_test_cluster_start(&cluster);
-    auto eth_version = cluster.get_ethernet_firmware_version();
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;

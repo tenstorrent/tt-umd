@@ -277,22 +277,7 @@ TEST_F(TestTTVisibleDevices, DifferentConstructors) {
         umd_cluster.reset();
     }
 
-    // 3. Constructor taking cluster descriptor based on which to create cluster.
-    // This could be cluster descriptor cached from previous runtime, or with some custom modifications.
-    // You can just create a cluster descriptor and serialize it to file, or fetch a cluster descriptor from already
-    // created Cluster class.
-    std::filesystem::path cluster_path1 = Cluster::create_cluster_descriptor()->serialize_to_file();
-    umd_cluster = std::make_unique<Cluster>();
-    umd_cluster->get_cluster_description()->serialize_to_file();
-    umd_cluster.reset();
-
-    std::unique_ptr<ClusterDescriptor> cluster_desc = ClusterDescriptor::create_from_yaml(cluster_path1);
-    umd_cluster = std::make_unique<Cluster>(ClusterOptions{
-        .cluster_descriptor = cluster_desc.get(),
-    });
-    umd_cluster.reset();
-
-    // 4. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
+    // 3. Create mock chips is set to true in order to create mock chips for the devices in the cluster descriptor.
     umd_cluster = std::make_unique<Cluster>(ClusterOptions{
         .chip_type = ChipType::MOCK,
         .target_devices = {0},

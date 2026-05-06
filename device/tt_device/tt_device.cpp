@@ -160,6 +160,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
     tt::ARCH arch = remote_communication->get_local_device()->get_arch();
     switch (arch) {
@@ -277,11 +278,11 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
     const SocDescriptor &soc_desc = get_soc_descriptor();
     read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
@@ -292,7 +293,6 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
     const SocDescriptor &soc_desc = get_soc_descriptor();
     write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
@@ -302,6 +302,7 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         UMD_THROW(
             error::RuntimeError,

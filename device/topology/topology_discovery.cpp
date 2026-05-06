@@ -571,6 +571,7 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
 }
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     log_debug(LogUMD, "Waiting on ethernet link training on device: {}", tt_device->get_communication_device_id());
     auto timeout_left = timeout_ms;
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();

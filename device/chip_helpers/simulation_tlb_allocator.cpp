@@ -24,36 +24,36 @@ SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, const archite
 int SimulationTlbAllocator::allocate_tlb_index(size_t size) {
     ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
-    return allocate_tlb_index_locked(size);
+    return allocate_tlb_index_internal(size);
 }
 
-int SimulationTlbAllocator::allocate_tlb_index_locked(size_t size) {
+int SimulationTlbAllocator::allocate_tlb_index_internal(size_t size) {
     if (size == 0) {
         // Allocate any available TLB, prefer smaller sizes first.
         // Recurse into the locked helper so we don't re-enter the non-recursive mutex.
         if (tlb_1mb_size_ > 0) {
-            int tlb_index = allocate_tlb_index_locked(tlb_1mb_size_);
+            int tlb_index = allocate_tlb_index_internal(tlb_1mb_size_);
             if (tlb_index != -1) {
                 return tlb_index;
             }
         }
 
         if (tlb_2mb_size_ > 0) {
-            int tlb_index = allocate_tlb_index_locked(tlb_2mb_size_);
+            int tlb_index = allocate_tlb_index_internal(tlb_2mb_size_);
             if (tlb_index != -1) {
                 return tlb_index;
             }
         }
 
         if (tlb_16mb_size_ > 0) {
-            int tlb_index = allocate_tlb_index_locked(tlb_16mb_size_);
+            int tlb_index = allocate_tlb_index_internal(tlb_16mb_size_);
             if (tlb_index != -1) {
                 return tlb_index;
             }
         }
 
         if (tlb_4gb_size_ > 0) {
-            return allocate_tlb_index_locked(tlb_4gb_size_);
+            return allocate_tlb_index_internal(tlb_4gb_size_);
         }
 
         return -1;
@@ -104,6 +104,11 @@ int SimulationTlbAllocator::allocate_tlb_index_locked(size_t size) {
 
 void SimulationTlbAllocator::deallocate_tlb_index(int tlb_index) {
     ZoneScopedC(tracy::Color::Cyan);
+    // Guard against negative tlb_index before signed/unsigned comparisons below
+    // promote it to SIZE_MAX and accidentally land in a valid range.
+    if (tlb_index < 0) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -142,6 +147,9 @@ void SimulationTlbAllocator::deallocate_tlb_index(int tlb_index) {
 }
 
 size_t SimulationTlbAllocator::get_tlb_size_from_index(int tlb_index) {
+    if (tlb_index < 0) {
+        return 0;
+    }
     // Check 1MB TLBs (Wormhole only).
     if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
         return tlb_1mb_size_;
@@ -167,6 +175,9 @@ size_t SimulationTlbAllocator::get_tlb_size_from_index(int tlb_index) {
 }
 
 uint64_t SimulationTlbAllocator::get_tlb_address_from_index(int tlb_index) {
+    if (tlb_index < 0) {
+        return 0;
+    }
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         // Wormhole B0 address calculation.
         if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
@@ -201,6 +212,9 @@ uint64_t SimulationTlbAllocator::get_tlb_address_from_index(int tlb_index) {
 }
 
 uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
+    if (tlb_index < 0) {
+        return 0;
+    }
     // TLB configuration registers start at this offset from BAR0 base.
     static constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
     return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;

@@ -27,8 +27,11 @@ public:
     SimulationTlbAllocator(uint64_t bar0_base, const architecture_implementation* arch_impl);
 
     /**
-     * Allocate a TLB index that fits the requested size. If size is 0, allocate
-     * any available TLB, preferring smaller sizes first.
+     * Allocate the smallest TLB whose size class is >= the requested size. If no
+     * TLB is free in that size class, escalate to the next larger size class and
+     * retry, continuing until a TLB is allocated or all size classes are exhausted.
+     *
+     * If size is 0, allocate any available TLB, preferring smaller size classes first.
      *
      * @param size Requested TLB size in bytes (0 means any available).
      * @return TLB index if successful, -1 if no TLB available.
@@ -62,7 +65,7 @@ private:
 
     // Allocate a TLB index assuming allocation_mutex_ is already held by the caller.
     // Used for the size==0 path which recurses internally.
-    int allocate_tlb_index_locked(size_t size);
+    int allocate_tlb_index_internal(size_t size);
 
     uint64_t bar0_base_ = 0;
     const architecture_implementation* arch_impl_ = nullptr;

@@ -730,6 +730,7 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
 
     cluster->write_to_device(
         write_data_l1.data(), write_data_l1.size() * sizeof(uint32_t), 0, tensix_core, SAFE_IO_L1_ADDRESS);
+    cluster->l1_membar(0, {tensix_core});
 
     std::vector<uint32_t> readback_vec(test_size / 4, 0);
     cluster->read_from_device(

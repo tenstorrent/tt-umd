@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
@@ -42,6 +43,17 @@ static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
     RiscType::DM7};
 
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
+
+namespace {
+void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
+    if (noc_id == NocId::SYSTEM_NOC && arch != tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
+    }
+    if (noc_id == NocId::NOC1 && arch == tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
+    }
+}
+}  // namespace
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
@@ -110,6 +122,15 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
+
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return;
+    }
+
     if (cached_tlb_window_) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
     } else {
@@ -119,6 +140,15 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        return;
+    }
+
     if (cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
     } else {

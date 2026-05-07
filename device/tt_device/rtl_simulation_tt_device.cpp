@@ -108,7 +108,6 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     tlb_manager_ = std::make_unique<SimulationTlbManager>(
         this,
         /*bar0_base=*/0,
-        /*bar4_base=*/0,
         architecture_impl_.get(),
         [comm = communicator_.get()](
             SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {

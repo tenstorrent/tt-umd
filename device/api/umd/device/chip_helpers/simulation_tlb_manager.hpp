@@ -34,12 +34,14 @@ using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
 
 class SimulationTlbManager : public TLBManager {
 public:
+    // bar4_base is trailing with a default of 0 so callers that don't use the 4GB-TLB BAR4
+    // path (Wormhole, RTL sim, and any downstream that predates this parameter) keep working.
     SimulationTlbManager(
         TTDevice* tt_device,
         uint64_t bar0_base,
-        uint64_t bar4_base,
         const architecture_implementation* arch_impl,
-        TlbWindowFactory factory);
+        TlbWindowFactory factory,
+        uint64_t bar4_base = 0);
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;

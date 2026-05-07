@@ -24,6 +24,7 @@
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -413,14 +414,14 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
 
     // Write through the 4GB window (hits BAR4), read back through both the direct API and the
     // same 4GB window — all three views must agree.
-    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size);
+    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size, NocId::NOC0);
 
     std::vector<uint8_t> direct_read(data_size, 0);
     tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
     EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write";
 
     std::vector<uint8_t> tlb_read(data_size, 0);
-    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size);
+    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size, NocId::NOC0);
     EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write";
 }
 
@@ -445,14 +446,14 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathDramRoundTrip) {
     constexpr uint64_t addr = 0x1000;
     auto write_data = make_pattern(data_size, [](size_t i) { return (i * 13 + 5) % 256; });
 
-    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size);
+    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size, NocId::NOC0);
 
     std::vector<uint8_t> direct_read(data_size, 0);
     tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
     EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write to DRAM";
 
     std::vector<uint8_t> tlb_read(data_size, 0);
-    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size);
+    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size, NocId::NOC0);
     EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write to DRAM";
 }
 

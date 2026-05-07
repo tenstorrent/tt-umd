@@ -18,9 +18,9 @@ namespace tt::umd {
 SimulationTlbManager::SimulationTlbManager(
     TTDevice* tt_device,
     uint64_t bar0_base,
-    uint64_t bar4_base,
     const architecture_implementation* arch_impl,
-    TlbWindowFactory factory) :
+    TlbWindowFactory factory,
+    uint64_t bar4_base) :
     TLBManager(tt_device), allocator_(bar0_base, arch_impl, bar4_base), factory_(std::move(factory)) {}
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(

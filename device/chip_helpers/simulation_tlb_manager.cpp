@@ -29,10 +29,12 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
 
     // Quasar's TLB topology isn't finalized: bypass the allocator and hand back
     // a dummy 4GB window. The simulator's communicator handles real I/O, so the
-    // window doesn't need a real index, address, or size.
+    // window doesn't need a real index, address, or size — but the tlb id still
+    // has to be unique per allocation so TLBManager bookkeeping (keyed by
+    // get_tlb_id) doesn't collide.
     if (allocator_.get_architecture() == tt::ARCH::QUASAR) {
         static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-        return factory_(&allocator_, /*tlb_id=*/0, SIZE_4GB, mapping, config);
+        return factory_(&allocator_, next_bypass_tlb_id_++, SIZE_4GB, mapping, config);
     }
 
     int tlb_index = allocator_.allocate_tlb_index(tlb_size);

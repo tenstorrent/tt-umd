@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -55,6 +56,11 @@ public:
 private:
     SimulationTlbAllocator allocator_;
     TlbWindowFactory factory_;
+
+    // Monotonic TLB id handed out for architectures that bypass the allocator
+    // (Quasar). Always increases — never reused — so TlbHandle::get_tlb_id()
+    // is unique across the lifetime of the manager.
+    std::atomic<int> next_bypass_tlb_id_{0};
 };
 
 }  // namespace tt::umd

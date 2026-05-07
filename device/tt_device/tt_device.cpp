@@ -20,6 +20,7 @@
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -40,6 +41,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -550,6 +552,102 @@ void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
 
 void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
+}
+
+void TTDevice::dma_write_to_device(
+    SysmemBuffer &buffer, const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Yellow);
+    PCIDevice *pci_device = get_pci_device();
+
+    if (pci_device->get_dma_buffer().buffer == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+                pci_device->get_device_num()));
+    }
+
+    const uint8_t *buf = reinterpret_cast<const uint8_t *>(buffer.get_device_io_addr(offset));
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = pci_device->get_architecture_implementation()->get_static_vc();
+    TlbWindow *tlb_window = buffer.get_cached_tlb_window();
+    tlb_window->configure(config);
+
+    auto axi_address_base = pci_device->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .tlb_offset;
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+
+    auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+
+    while (size > 0) {
+        auto tlb_size = tlb_window->get_size();
+        size_t transfer_size = std::min({size, tlb_size});
+
+        dma_h2d_zero_copy(axi_address, buf, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buf += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    }
+}
+
+void TTDevice::dma_read_from_device(
+    SysmemBuffer &buffer, const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Yellow);
+    PCIDevice *pci_device = get_pci_device();
+
+    if (pci_device->get_dma_buffer().buffer == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+                pci_device->get_device_num()));
+    }
+
+    uint8_t *buf = reinterpret_cast<uint8_t *>(buffer.get_device_io_addr(offset));
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = pci_device->get_architecture_implementation()->get_static_vc();
+    TlbWindow *tlb_window = buffer.get_cached_tlb_window();
+    tlb_window->configure(config);
+
+    auto axi_address_base = pci_device->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .tlb_offset;
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+
+    auto axi_address = axi_address_base + (addr & (tlb_handle_size - 1));
+
+    while (size > 0) {
+        auto tlb_size = tlb_window->get_size();
+        size_t transfer_size = std::min({size, tlb_size});
+
+        dma_d2h_zero_copy(buf, axi_address, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buf += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    }
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }

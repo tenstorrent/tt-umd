@@ -53,6 +53,7 @@ class JtagInterface;
 class PCIDevice;
 class PcieInterface;
 class RemoteInterface;
+class SysmemBuffer;
 class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
@@ -180,6 +181,28 @@ public:
      * @throws std::runtime_error if the DMA transfer fails
      */
     virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
+
+    /**
+     * Zero-copy DMA write from a previously-mapped SysmemBuffer to a core on the device.
+     *
+     * @param buffer SysmemBuffer providing the source IOVA (already mapped through KMD).
+     * @param offset Offset into the buffer to start the transfer from.
+     * @param size Number of bytes to transfer.
+     * @param core Destination NOC core.
+     * @param addr Address on the destination core.
+     */
+    void dma_write_to_device(SysmemBuffer &buffer, size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
+
+    /**
+     * Zero-copy DMA read from a core on the device into a previously-mapped SysmemBuffer.
+     *
+     * @param buffer SysmemBuffer providing the destination IOVA (already mapped through KMD).
+     * @param offset Offset into the buffer to start the transfer at.
+     * @param size Number of bytes to transfer.
+     * @param core Source NOC core.
+     * @param addr Address on the source core.
+     */
+    void dma_read_from_device(SysmemBuffer &buffer, size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed

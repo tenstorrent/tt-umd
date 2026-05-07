@@ -30,7 +30,6 @@
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
@@ -83,9 +82,8 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
-SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) {
-    tt_device_ = tt_device;
-    pci_device_ = tt_device->get_pci_device();
+SiliconSysmemManager::SiliconSysmemManager(PCIDevice *pci_device, uint32_t num_host_mem_channels) {
+    pci_device_ = pci_device;
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
     UMD_ASSERT(
         num_host_mem_channels <= 4,
@@ -422,7 +420,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SysmemBuffer>(pci_device_, buffer, sysmem_buffer_size, map_to_noc);
 }
 
 }  // namespace tt::umd

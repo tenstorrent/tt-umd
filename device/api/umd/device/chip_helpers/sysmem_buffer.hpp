@@ -14,7 +14,6 @@
 
 namespace tt::umd {
 class PCIDevice;
-class TTDevice;
 
 /**
  * SysmemBuffer class should represent the resource of the HOST memory that is visible to the device.
@@ -46,13 +45,12 @@ public:
      *                          |<--- buffer_size -->|
      *                  |<----- mapped_buffer_size ----->|
      *
-     * @param tt_device Pointer to the TTDevice. Used directly for DMA transfers, and to access the underlying
-     * PCIDevice for mapping/unmapping and TLB allocation.
+     * @param pci_device Pointer to the PCIDevice that owns the mappings used by this buffer.
      * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
-    SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(PCIDevice* pci_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
     ~SysmemBuffer();
 
     /**
@@ -79,26 +77,10 @@ public:
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
 
     /**
-     * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
-     * will not perform any copying. It will just set up the DMA transfer to the device.
-     *
-     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
-     * @param size Size of the data to be transferred. Must be less than or equal to the size of the buffer.
-     * @param core Core to which the data will be transferred.
-     * @param addr Address on the core to which the data will be transferred.
+     * Returns a TLB window owned by this buffer, allocating it on first use.
+     * Used by TTDevice DMA paths that operate on this buffer.
      */
-    void dma_write_to_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
-
-    /**
-     * Does zero copy DMA transfer from the device. Since the buffer is already mapped through KMD, this function
-     * will not perform any copying. It will just set up the DMA transfer from the device.
-     *
-     * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
-     * @param size Size of the data to be transferred. Must be less than or equal to the size of the buffer.
-     * @param core Core from which the data will be transferred.
-     * @param addr Address on the core from which the data will be transferred.
-     */
-    void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
+    TlbWindow* get_cached_tlb_window();
 
 private:
     /**
@@ -117,10 +99,7 @@ private:
      */
     void validate(const size_t offset) const;
 
-    TlbWindow* get_cached_tlb_window();
-
     PCIDevice* pci_device_;
-    TTDevice* tt_device_;
 
     // Virtual address in process addr space.
     void* buffer_va_;

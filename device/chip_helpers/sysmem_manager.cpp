@@ -10,7 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -65,11 +65,11 @@ void SysmemManager::read_from_sysmem(uint16_t channel, void *dest, uint64_t sysm
 
     void *user_scratchspace = static_cast<char *>(hugepage_map.mapping) + (sysmem_src % hugepage_map.mapping_size);
 
-    if (tt_device_) {
+    if (pci_device_) {
         log_debug(
             LogUMD,
-            "SysmemManager: read_from_sysmem (comm. device ID: {}, ch: {}) from {:p}",
-            tt_device_->get_communication_device_id(),
+            "SysmemManager: read_from_sysmem (PCI device num: {}, ch: {}) from {:p}",
+            pci_device_->get_device_num(),
             channel,
             user_scratchspace);
     }

@@ -24,6 +24,7 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -224,14 +225,15 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     cluster->set_power_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    TTDevice* tt_device = cluster->get_tt_device(mmio_chip);
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core, ADDRESS);
+        tt_device->dma_write_to_device(*sysmem_buffer, 0, BUFFER_SIZE, dram_core, ADDRESS);
     });
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core, ADDRESS);
+        tt_device->dma_read_from_device(*sysmem_buffer, 0, BUFFER_SIZE, dram_core, ADDRESS);
     });
     test::utils::export_results(bench);
     cluster->set_power_state(DevicePowerState::LONG_IDLE);
@@ -259,14 +261,15 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    TTDevice* tt_device = cluster->get_tt_device(mmio_chip);
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+        tt_device->dma_write_to_device(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+        tt_device->dma_read_from_device(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     test::utils::export_results(bench);
     cluster->set_power_state(DevicePowerState::LONG_IDLE);
@@ -296,17 +299,18 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     cluster->set_power_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    TTDevice* tt_device = cluster->get_tt_device(mmio_chip);
     void* mapping =
         mmap(nullptr, BUFFER_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+        tt_device->dma_write_to_device(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-        sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+        tt_device->dma_read_from_device(*sysmem_buffer, 0, BUFFER_SIZE, tensix_core, ADDRESS);
     });
     munmap(mapping, BUFFER_SIZE);
     test::utils::export_results(bench);

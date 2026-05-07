@@ -81,7 +81,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (tt_device->get_pci_device() != nullptr) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device->get_pci_device(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =

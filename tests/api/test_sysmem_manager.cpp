@@ -40,7 +40,7 @@ TEST(ApiSysmemManager, BasicIO) {
         tt_device->set_power_state(true);
 
         // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tt_device.get(), 1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tt_device->get_pci_device(), 1);
 
         sysmem->pin_or_map_sysmem_to_device();
 
@@ -86,6 +86,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    TTDevice* tt_device = cluster->get_tt_device(mmio_chip);
 
     const uint32_t one_mb = 1 << 20;
     std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * one_mb);
@@ -103,7 +104,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+    tt_device->dma_write_to_device(*sysmem_buffer, 0, one_mb, tensix_core, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -121,7 +122,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Read data back from Tensix L1 to sysmem_data_readback.
-    sysmem_buffer->dma_read_from_device(one_mb, one_mb, tensix_core, 0);
+    tt_device->dma_read_from_device(*sysmem_buffer, one_mb, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], sysmem_data_readback[i]);
@@ -144,6 +145,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    TTDevice* tt_device = cluster->get_tt_device(mmio_chip);
 
     const uint32_t one_mb = 1 << 20;
     void* mapping =
@@ -170,7 +172,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+    tt_device->dma_write_to_device(*sysmem_buffer, 0, one_mb, tensix_core, 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -186,7 +188,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Read data back from Tensix L1 to sysmem_data.
-    sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
+    tt_device->dma_read_from_device(*sysmem_buffer, 0, one_mb, tensix_core, 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], readback[i]);

@@ -76,10 +76,6 @@ private:
 
     void initialize_architecture_config();
 
-    // Allocate a TLB index assuming allocation_mutex_ is already held by the caller.
-    // Used for the size==0 path which recurses internally.
-    int allocate_tlb_index_internal(size_t size);
-
     // Returns the pool that owns `tlb_index`, or nullptr if no pool covers it
     // (including for negative indices).
     TlbSizeClass* find_size_class_for_index(int tlb_index);

@@ -24,26 +24,13 @@ SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, const archite
 int SimulationTlbAllocator::allocate_tlb_index(size_t size) {
     ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
-    return allocate_tlb_index_internal(size);
-}
 
-int SimulationTlbAllocator::allocate_tlb_index_internal(size_t size) {
-    if (size == 0) {
-        // Allocate any available TLB; prefer smaller size classes first.
-        // Recurse into the internal helper so we don't re-enter the non-recursive mutex.
-        for (auto& sc : size_classes_) {
-            if (sc.size > 0) {
-                int tlb_index = allocate_tlb_index_internal(sc.size);
-                if (tlb_index != -1) {
-                    return tlb_index;
-                }
-            }
-        }
-        return -1;
-    }
-
-    // Try each size class in order, smallest first; escalate to a larger class
-    // when the current one is full (a larger TLB still satisfies the request).
+    // Walk size classes smallest-first; pick the first free slot in the first
+    // class that can satisfy the request. Escalate to a larger class when the
+    // current one is full (a larger TLB still satisfies the request).
+    //
+    // size == 0 is handled by the same loop: `0 > sc.size` is always false for
+    // size_t, so every non-empty class is considered, smallest first.
     for (auto& sc : size_classes_) {
         if (sc.size == 0 || size > sc.size) {
             continue;

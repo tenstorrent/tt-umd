@@ -67,6 +67,21 @@ TEST(SimulationTlbAllocator, WormholeAllocateZeroPicksSmallest) {
     EXPECT_EQ(allocator.get_tlb_size_from_index(idx), 0x100000);
 }
 
+TEST(SimulationTlbAllocator, WormholeAllocateZeroFallsBackWhenSmallestClassExhausted) {
+    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+
+    // Drain the 1MB pool entirely (Wormhole has 156 1MB TLBs).
+    for (size_t i = 0; i < 156; ++i) {
+        ASSERT_NE(allocator.allocate_tlb_index(0x100000), -1);
+    }
+
+    // size == 0 should fall through to the next non-empty class (2MB) rather than fail.
+    int idx = allocator.allocate_tlb_index(0);
+    ASSERT_NE(idx, -1);
+    EXPECT_EQ(allocator.get_tlb_size_from_index(idx), 0x200000);
+}
+
 TEST(SimulationTlbAllocator, WormholeIndicesAreUniqueWithinSizeClass) {
     auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
     SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());

@@ -56,13 +56,16 @@ void SimulationTlbAllocator::deallocate_tlb_index(int tlb_index) {
 
 size_t SimulationTlbAllocator::get_tlb_size_from_index(int tlb_index) {
     auto* sc = find_size_class_for_index(tlb_index);
-    return sc ? sc->size : 0;
+    if (!sc) {
+        UMD_THROW(error::RuntimeError, fmt::format("Invalid simulation TLB index {}.", tlb_index));
+    }
+    return sc->size;
 }
 
 uint64_t SimulationTlbAllocator::get_tlb_address_from_index(int tlb_index) {
     auto* sc = find_size_class_for_index(tlb_index);
     if (!sc) {
-        return 0;
+        UMD_THROW(error::RuntimeError, fmt::format("Invalid simulation TLB index {}.", tlb_index));
     }
 
     // BH 4GB TLBs live in BAR4, not BAR0; this path doesn't yet support them.
@@ -85,8 +88,8 @@ uint64_t SimulationTlbAllocator::get_tlb_address_from_index(int tlb_index) {
 }
 
 uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
-    if (tlb_index < 0) {
-        return 0;
+    if (!find_size_class_for_index(tlb_index)) {
+        UMD_THROW(error::RuntimeError, fmt::format("Invalid simulation TLB index {}.", tlb_index));
     }
     // TLB configuration registers start at this offset from BAR0 base.
     static constexpr uint64_t TLB_CONFIG_REG_BASE_OFFSET = 0x1fc00000;
@@ -136,6 +139,12 @@ void SimulationTlbAllocator::initialize_architecture_config() {
         // ONE_MB and SIXTEEN_MB stay at default (count=0).
 
     } else {
+        // Intentional: architectures like QUASAR construct SimulationTlbManager
+        // but bypass this allocator entirely (allocate_default_tlb_window
+        // short-circuits to a fixed dummy index without ever calling
+        // allocate_tlb_index). Leaving every pool empty is the signal that
+        // allocator-driven addressing is not in use; clients can detect this
+        // via has_configured_pools().
         log_debug(
             LogUMD,
             fmt::format(

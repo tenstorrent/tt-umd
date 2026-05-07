@@ -33,7 +33,11 @@ TTSimTlbHandle::TTSimTlbHandle(
     tlb_mapping_ = tlb_mapping;
 
     // Compute the address for this TLB based on BAR0 base + TLB offset.
-    if (sim_manager_) {
+    // QUASAR bypasses the simulation TLB allocator entirely (the communicator
+    // handles all I/O), so the allocator has no pools and the get_*_from_index
+    // calls would throw. Skip them for QUASAR; tlb_base_ / tlb_reg_addr_ stay at
+    // their defaults (nullptr / 0), which the QUASAR path never dereferences.
+    if (sim_manager_ && sim_manager_->get_arch() != tt::ARCH::QUASAR) {
         tlb_base_ = reinterpret_cast<uint8_t*>(sim_manager_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = sim_manager_->get_tlb_reg_address_from_index(tlb_id_);
     }

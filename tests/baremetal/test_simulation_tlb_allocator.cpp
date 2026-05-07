@@ -176,3 +176,19 @@ TEST(SimulationTlbAllocator, BlackholeRegAddressFromIndex) {
     EXPECT_EQ(allocator.get_tlb_reg_address_from_index(0), 0x2FC00000ULL);
     EXPECT_EQ(allocator.get_tlb_reg_address_from_index(5), 0x2FC0003CULL);
 }
+
+TEST(SimulationTlbAllocator, GettersThrowOnInvalidIndex) {
+    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+
+    // Negative indices are rejected.
+    EXPECT_THROW(allocator.get_tlb_size_from_index(-1), std::exception);
+    EXPECT_THROW(allocator.get_tlb_address_from_index(-1), std::exception);
+    EXPECT_THROW(allocator.get_tlb_reg_address_from_index(-1), std::exception);
+
+    // Indices past the highest valid index (Wormhole has 156+10+20 = 186 TLBs,
+    // so 186 is the first invalid index) are also rejected.
+    EXPECT_THROW(allocator.get_tlb_size_from_index(186), std::exception);
+    EXPECT_THROW(allocator.get_tlb_address_from_index(186), std::exception);
+    EXPECT_THROW(allocator.get_tlb_reg_address_from_index(186), std::exception);
+}

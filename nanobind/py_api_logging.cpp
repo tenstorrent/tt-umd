@@ -7,6 +7,7 @@
 #include "umd/device/logging/config.hpp"
 
 namespace nb = nanobind;
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt::umd::logging;
 
@@ -26,5 +27,6 @@ void bind_logging(nb::module_ &m) {
         "set_level",
         &set_level,
         nb::arg("lvl"),
+        release_gil(),
         "Sets the global logging level. Messages with severity levels lower than this level will not be logged.");
 }

@@ -16,6 +16,7 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace nb = nanobind;
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt;
 using namespace tt::umd;
@@ -26,19 +27,21 @@ void bind_basic_types(nb::module_ &m) {
         .value("NOC0", NocId::NOC0)
         .value("NOC1", NocId::NOC1)
         .value("SYSTEM_NOC", NocId::SYSTEM_NOC)
-        .def("__int__", [](NocId noc_id) { return static_cast<int>(noc_id); });
+        .def(
+            "__int__", [](NocId noc_id) { return static_cast<int>(noc_id); }, release_gil());
 
-    m.def("set_thread_noc_id", &tt::umd::set_thread_noc_id, nb::arg("noc_id"));
+    m.def("set_thread_noc_id", &tt::umd::set_thread_noc_id, nb::arg("noc_id"), release_gil());
 
     nb::class_<EthCoord>(m, "EthCoord")
-        .def(nb::init<>())
+        .def(nb::init<>(), release_gil())
         .def(
             nb::init<int, int, int, int, int>(),
             nb::arg("cluster_id"),
             nb::arg("x"),
             nb::arg("y"),
             nb::arg("rack"),
-            nb::arg("shelf"))
+            nb::arg("shelf"),
+            release_gil())
         .def_rw("cluster_id", &EthCoord::cluster_id)
         .def_rw("x", &EthCoord::x)
         .def_rw("y", &EthCoord::y)
@@ -46,19 +49,21 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("shelf", &EthCoord::shelf);
 
     nb::class_<tt::xy_pair>(m, "tt_xy_pair")
-        .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))
+        .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"), release_gil())
         .def_ro("x", &tt_xy_pair::x)
         .def_ro("y", &tt_xy_pair::y)
-        .def("__str__", [](const tt_xy_pair &pair) { return fmt::format("({}, {})", pair.x, pair.y); });
+        .def(
+            "__str__", [](const tt_xy_pair &pair) { return fmt::format("({}, {})", pair.x, pair.y); }, release_gil());
 
     nb::enum_<tt::ARCH>(m, "ARCH")
         .value("WORMHOLE_B0", tt::ARCH::WORMHOLE_B0)
         .value("BLACKHOLE", tt::ARCH::BLACKHOLE)
         .value("QUASAR", tt::ARCH::QUASAR)
         .value("Invalid", tt::ARCH::Invalid)
-        .def("__str__", &tt::arch_to_str)
-        .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
-        .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"));
+        .def("__str__", &tt::arch_to_str, release_gil())
+        .def(
+            "__int__", [](tt::ARCH tag) { return static_cast<int>(tag); }, release_gil())
+        .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"), release_gil());
 
     nb::enum_<RiscType>(m, "RiscType")
         .value("NONE", RiscType::NONE)
@@ -106,11 +111,16 @@ void bind_basic_types(nb::module_ &m) {
         .value("ALL_NEO_TRISCS", RiscType::ALL_NEO_TRISCS)
         .value("ALL_NEO_DMS", RiscType::ALL_NEO_DMS)
         .value("ALL_NEO", RiscType::ALL_NEO)
-        .def("__int__", [](RiscType rt) { return static_cast<uint64_t>(rt); })
-        .def("__str__", [](RiscType rt) { return RiscTypeToString(rt); })
-        .def("__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; })
-        .def("__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; })
-        .def("__invert__", [](RiscType rt) { return invert_selected_options(rt); });
+        .def(
+            "__int__", [](RiscType rt) { return static_cast<uint64_t>(rt); }, release_gil())
+        .def(
+            "__str__", [](RiscType rt) { return RiscTypeToString(rt); }, release_gil())
+        .def(
+            "__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; }, release_gil())
+        .def(
+            "__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; }, release_gil())
+        .def(
+            "__invert__", [](RiscType rt) { return invert_selected_options(rt); }, release_gil());
 
     nb::enum_<TensixSoftResetOptions>(m, "TensixSoftResetOptions")
         .value("NONE", TensixSoftResetOptions::NONE)
@@ -125,11 +135,16 @@ void bind_basic_types(nb::module_ &m) {
         .value("TENSIX_ASSERT_SOFT_RESET", TENSIX_ASSERT_SOFT_RESET)
         .value("TENSIX_DEASSERT_SOFT_RESET", TENSIX_DEASSERT_SOFT_RESET)
         .value("TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER", TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER)
-        .def("__int__", [](TensixSoftResetOptions opt) { return static_cast<uint32_t>(opt); })
-        .def("__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); })
-        .def("__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; })
-        .def("__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; })
-        .def("__invert__", [](TensixSoftResetOptions opt) { return invert_selected_options(opt); });
+        .def(
+            "__int__", [](TensixSoftResetOptions opt) { return static_cast<uint32_t>(opt); }, release_gil())
+        .def(
+            "__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); }, release_gil())
+        .def(
+            "__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; }, release_gil())
+        .def(
+            "__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; }, release_gil())
+        .def(
+            "__invert__", [](TensixSoftResetOptions opt) { return invert_selected_options(opt); }, release_gil());
 
     nb::enum_<tt::BoardType>(m, "BoardType")
         .value("E75", tt::BoardType::E75)
@@ -146,46 +161,58 @@ void bind_basic_types(nb::module_ &m) {
         .value("UBB_BLACKHOLE", tt::BoardType::UBB_BLACKHOLE)
         .value("QUASAR", tt::BoardType::QUASAR_BOARD)
         .value("UNKNOWN", tt::BoardType::UNKNOWN)
-        .def("__str__", &tt::board_type_to_string)
-        .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
+        .def("__str__", &tt::board_type_to_string, release_gil())
+        .def(
+            "__int__", [](tt::BoardType tag) { return static_cast<int>(tag); }, release_gil());
 
     nb::class_<SemVer>(m, "SemVer")
-        .def(nb::init<>())
-        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
-        .def(nb::init<const std::string &>(), nb::arg("version_str"))
+        .def(nb::init<>(), release_gil())
+        .def(
+            nb::init<uint64_t, uint64_t, uint64_t>(),
+            nb::arg("major"),
+            nb::arg("minor"),
+            nb::arg("patch"),
+            release_gil())
+        .def(nb::init<const std::string &>(), nb::arg("version_str"), release_gil())
         .def_rw("major", &SemVer::major)
         .def_rw("minor", &SemVer::minor)
         .def_rw("patch", &SemVer::patch)
-        .def("to_string", &SemVer::to_string)
-        .def("__str__", &SemVer::to_string)
-        .def("__lt__", &SemVer::operator<)
-        .def("__le__", &SemVer::operator<=)
-        .def("__gt__", &SemVer::operator>)
-        .def("__ge__", &SemVer::operator>=)
-        .def("__eq__", &SemVer::operator==)
-        .def("__ne__", &SemVer::operator!=);
+        .def("to_string", &SemVer::to_string, release_gil())
+        .def("__str__", &SemVer::to_string, release_gil())
+        .def("__lt__", &SemVer::operator<, release_gil())
+        .def("__le__", &SemVer::operator<=, release_gil())
+        .def("__gt__", &SemVer::operator>, release_gil())
+        .def("__ge__", &SemVer::operator>=, release_gil())
+        .def("__eq__", &SemVer::operator==, release_gil())
+        .def("__ne__", &SemVer::operator!=, release_gil());
     // TODO: Remove after renaming in tt-exalens.
     m.attr("semver_t") = m.attr("SemVer");
 
     nb::class_<FirmwareBundleVersion>(m, "FirmwareBundleVersion")
-        .def(nb::init<>())
-        .def_static("from_firmware_bundle_tag", &FirmwareBundleVersion::from_firmware_bundle_tag, nb::arg("tag"))
-        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
-        .def(nb::init<const std::string &>(), nb::arg("version_str"))
+        .def(nb::init<>(), release_gil())
+        .def_static(
+            "from_firmware_bundle_tag", &FirmwareBundleVersion::from_firmware_bundle_tag, nb::arg("tag"), release_gil())
+        .def(
+            nb::init<uint64_t, uint64_t, uint64_t>(),
+            nb::arg("major"),
+            nb::arg("minor"),
+            nb::arg("patch"),
+            release_gil())
+        .def(nb::init<const std::string &>(), nb::arg("version_str"), release_gil())
         .def_rw("major", &SemVer::major)
         .def_rw("minor", &SemVer::minor)
         .def_rw("patch", &SemVer::patch)
-        .def("to_string", &FirmwareBundleVersion::to_string)
-        .def("__str__", &FirmwareBundleVersion::to_string)
-        .def("__lt__", &FirmwareBundleVersion::operator<)
-        .def("__le__", &FirmwareBundleVersion::operator<=)
-        .def("__gt__", &FirmwareBundleVersion::operator>)
-        .def("__ge__", &FirmwareBundleVersion::operator>=)
-        .def("__eq__", &FirmwareBundleVersion::operator==)
-        .def("__ne__", &FirmwareBundleVersion::operator!=);
+        .def("to_string", &FirmwareBundleVersion::to_string, release_gil())
+        .def("__str__", &FirmwareBundleVersion::to_string, release_gil())
+        .def("__lt__", &FirmwareBundleVersion::operator<, release_gil())
+        .def("__le__", &FirmwareBundleVersion::operator<=, release_gil())
+        .def("__gt__", &FirmwareBundleVersion::operator>, release_gil())
+        .def("__ge__", &FirmwareBundleVersion::operator>=, release_gil())
+        .def("__eq__", &FirmwareBundleVersion::operator==, release_gil())
+        .def("__ne__", &FirmwareBundleVersion::operator!=, release_gil());
 
     nb::class_<ChipInfo>(m, "ChipInfo")
-        .def(nb::init<>())
+        .def(nb::init<>(), release_gil())
         .def_rw("noc_translation_enabled", &ChipInfo::noc_translation_enabled)
         .def_rw("harvesting_masks", &ChipInfo::harvesting_masks)
         .def_rw("board_type", &ChipInfo::board_type)
@@ -193,7 +220,7 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("asic_location", &ChipInfo::asic_location);
 
     nb::class_<HarvestingMasks>(m, "HarvestingMasks")
-        .def(nb::init<>())
+        .def(nb::init<>(), release_gil())
         .def_rw("tensix_harvesting_mask", &HarvestingMasks::tensix_harvesting_mask)
         .def_rw("dram_harvesting_mask", &HarvestingMasks::dram_harvesting_mask)
         .def_rw("eth_harvesting_mask", &HarvestingMasks::eth_harvesting_mask)
@@ -201,10 +228,16 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("l2cpu_harvesting_mask", &HarvestingMasks::l2cpu_harvesting_mask);
 
     // Utility functions for BoardType.
-    m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
+    m.def(
+        "board_type_to_string",
+        &tt::board_type_to_string,
+        nb::arg("board_type"),
+        release_gil(),
+        "Convert BoardType to string");
     m.def(
         "board_type_from_string",
         &tt::board_type_from_string,
         nb::arg("board_type_str"),
+        release_gil(),
         "Convert string to BoardType");
 }

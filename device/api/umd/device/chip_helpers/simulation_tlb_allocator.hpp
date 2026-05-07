@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -61,43 +62,35 @@ public:
     const architecture_implementation* get_architecture_impl() const;
 
 private:
+    // A pool of TLB indices that all share a single size.
+    struct TlbSizeClass {
+        size_t size = 0;         // Bytes per TLB; 0 means unused on the current arch.
+        size_t count = 0;        // Number of TLBs in the pool.
+        size_t start_index = 0;  // First global TLB index belonging to this pool.
+        std::vector<bool> allocated;
+    };
+
+    // Indices into size_classes_; ordered smallest -> largest so allocate-with-escalation
+    // and address-layout iteration both Just Work.
+    enum SizeClass : size_t { ONE_MB = 0, TWO_MB = 1, SIXTEEN_MB = 2, FOUR_GB = 3, NUM_SIZE_CLASSES = 4 };
+
     void initialize_architecture_config();
 
     // Allocate a TLB index assuming allocation_mutex_ is already held by the caller.
     // Used for the size==0 path which recurses internally.
     int allocate_tlb_index_internal(size_t size);
 
+    // Returns the pool that owns `tlb_index`, or nullptr if no pool covers it
+    // (including for negative indices).
+    TlbSizeClass* find_size_class_for_index(int tlb_index);
+
     uint64_t bar0_base_ = 0;
     const architecture_implementation* arch_impl_ = nullptr;
-
-    // Architecture-specific TLB configuration.
     tt::ARCH architecture_;
     size_t tlb_reg_size_bytes_ = 8;  // Default to Wormhole size.
 
-    // TLB size constants (set based on architecture).
-    size_t tlb_1mb_size_ = 0;
-    size_t tlb_2mb_size_ = 0;
-    size_t tlb_16mb_size_ = 0;
-    size_t tlb_4gb_size_ = 0;
-
-    // TLB count constants (set based on architecture).
-    size_t tlb_1mb_count_ = 0;
-    size_t tlb_2mb_count_ = 0;
-    size_t tlb_16mb_count_ = 0;
-    size_t tlb_4gb_count_ = 0;
-
-    // TLB index ranges (set based on architecture).
-    size_t tlb_1mb_start_index_ = 0;
-    size_t tlb_2mb_start_index_ = 0;
-    size_t tlb_16mb_start_index_ = 0;
-    size_t tlb_4gb_start_index_ = 0;
-
-    // TLB allocation tracking (dynamically sized based on architecture).
     std::mutex allocation_mutex_;
-    std::vector<bool> tlb_1mb_allocated_;   // Wormhole: 156 TLBs, Blackhole: 0.
-    std::vector<bool> tlb_2mb_allocated_;   // Wormhole: 10 TLBs, Blackhole: 202.
-    std::vector<bool> tlb_16mb_allocated_;  // Wormhole: 20 TLBs, Blackhole: 0.
-    std::vector<bool> tlb_4gb_allocated_;   // Wormhole: 0 TLBs, Blackhole: 8.
+    std::array<TlbSizeClass, NUM_SIZE_CLASSES> size_classes_;
 };
 
 }  // namespace tt::umd

@@ -29,72 +29,29 @@ int SimulationTlbAllocator::allocate_tlb_index(size_t size) {
 
 int SimulationTlbAllocator::allocate_tlb_index_internal(size_t size) {
     if (size == 0) {
-        // Allocate any available TLB, prefer smaller sizes first.
-        // Recurse into the locked helper so we don't re-enter the non-recursive mutex.
-        if (tlb_1mb_size_ > 0) {
-            int tlb_index = allocate_tlb_index_internal(tlb_1mb_size_);
-            if (tlb_index != -1) {
-                return tlb_index;
+        // Allocate any available TLB; prefer smaller size classes first.
+        // Recurse into the internal helper so we don't re-enter the non-recursive mutex.
+        for (auto& sc : size_classes_) {
+            if (sc.size > 0) {
+                int tlb_index = allocate_tlb_index_internal(sc.size);
+                if (tlb_index != -1) {
+                    return tlb_index;
+                }
             }
         }
-
-        if (tlb_2mb_size_ > 0) {
-            int tlb_index = allocate_tlb_index_internal(tlb_2mb_size_);
-            if (tlb_index != -1) {
-                return tlb_index;
-            }
-        }
-
-        if (tlb_16mb_size_ > 0) {
-            int tlb_index = allocate_tlb_index_internal(tlb_16mb_size_);
-            if (tlb_index != -1) {
-                return tlb_index;
-            }
-        }
-
-        if (tlb_4gb_size_ > 0) {
-            return allocate_tlb_index_internal(tlb_4gb_size_);
-        }
-
         return -1;
     }
 
-    // Try 1MB TLBs (Wormhole only).
-    if (tlb_1mb_size_ > 0 && size <= tlb_1mb_size_) {
-        for (size_t i = 0; i < tlb_1mb_count_; ++i) {
-            if (!tlb_1mb_allocated_[i]) {
-                tlb_1mb_allocated_[i] = true;
-                return static_cast<int>(tlb_1mb_start_index_ + i);
-            }
+    // Try each size class in order, smallest first; escalate to a larger class
+    // when the current one is full (a larger TLB still satisfies the request).
+    for (auto& sc : size_classes_) {
+        if (sc.size == 0 || size > sc.size) {
+            continue;
         }
-    }
-
-    // Try 2MB TLBs (both architectures).
-    if (tlb_2mb_size_ > 0 && size <= tlb_2mb_size_) {
-        for (size_t i = 0; i < tlb_2mb_count_; ++i) {
-            if (!tlb_2mb_allocated_[i]) {
-                tlb_2mb_allocated_[i] = true;
-                return static_cast<int>(tlb_2mb_start_index_ + i);
-            }
-        }
-    }
-
-    // Try 16MB TLBs (Wormhole only).
-    if (tlb_16mb_size_ > 0 && size <= tlb_16mb_size_) {
-        for (size_t i = 0; i < tlb_16mb_count_; ++i) {
-            if (!tlb_16mb_allocated_[i]) {
-                tlb_16mb_allocated_[i] = true;
-                return static_cast<int>(tlb_16mb_start_index_ + i);
-            }
-        }
-    }
-
-    // Try 4GB TLBs (Blackhole only).
-    if (tlb_4gb_size_ > 0 && size <= tlb_4gb_size_) {
-        for (size_t i = 0; i < tlb_4gb_count_; ++i) {
-            if (!tlb_4gb_allocated_[i]) {
-                tlb_4gb_allocated_[i] = true;
-                return static_cast<int>(tlb_4gb_start_index_ + i);
+        for (size_t i = 0; i < sc.count; ++i) {
+            if (!sc.allocated[i]) {
+                sc.allocated[i] = true;
+                return static_cast<int>(sc.start_index + i);
             }
         }
     }
@@ -104,111 +61,40 @@ int SimulationTlbAllocator::allocate_tlb_index_internal(size_t size) {
 
 void SimulationTlbAllocator::deallocate_tlb_index(int tlb_index) {
     ZoneScopedC(tracy::Color::Cyan);
-    // Guard against negative tlb_index before signed/unsigned comparisons below
-    // promote it to SIZE_MAX and accidentally land in a valid range.
-    if (tlb_index < 0) {
-        return;
-    }
     std::lock_guard<std::mutex> lock(allocation_mutex_);
-
-    // Check 1MB TLBs (Wormhole only).
-    if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
-        size_t local_index = tlb_index - tlb_1mb_start_index_;
-        if (local_index < tlb_1mb_count_) {
-            tlb_1mb_allocated_[local_index] = false;
-        }
-    }
-    // Check 2MB TLBs (both architectures).
-    else if (
-        tlb_2mb_count_ > 0 && tlb_index >= tlb_2mb_start_index_ &&
-        (tlb_16mb_count_ == 0 || tlb_index < tlb_16mb_start_index_) &&
-        (tlb_4gb_count_ == 0 || tlb_index < tlb_4gb_start_index_)) {
-        size_t local_index = tlb_index - tlb_2mb_start_index_;
-        if (local_index < tlb_2mb_count_) {
-            tlb_2mb_allocated_[local_index] = false;
-        }
-    }
-    // Check 16MB TLBs (Wormhole only).
-    else if (
-        tlb_16mb_count_ > 0 && tlb_index >= tlb_16mb_start_index_ &&
-        (tlb_4gb_count_ == 0 || tlb_index < tlb_4gb_start_index_)) {
-        size_t local_index = tlb_index - tlb_16mb_start_index_;
-        if (local_index < tlb_16mb_count_) {
-            tlb_16mb_allocated_[local_index] = false;
-        }
-    }
-    // Check 4GB TLBs (Blackhole only).
-    else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
-        size_t local_index = tlb_index - tlb_4gb_start_index_;
-        if (local_index < tlb_4gb_count_) {
-            tlb_4gb_allocated_[local_index] = false;
-        }
+    if (auto* sc = find_size_class_for_index(tlb_index)) {
+        sc->allocated[static_cast<size_t>(tlb_index) - sc->start_index] = false;
     }
 }
 
 size_t SimulationTlbAllocator::get_tlb_size_from_index(int tlb_index) {
-    if (tlb_index < 0) {
-        return 0;
-    }
-    // Check 1MB TLBs (Wormhole only).
-    if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
-        return tlb_1mb_size_;
-    }
-    // Check 2MB TLBs (both architectures).
-    else if (
-        tlb_2mb_count_ > 0 && tlb_index >= tlb_2mb_start_index_ &&
-        (tlb_16mb_count_ == 0 || tlb_index < tlb_16mb_start_index_) &&
-        (tlb_4gb_count_ == 0 || tlb_index < tlb_4gb_start_index_)) {
-        return tlb_2mb_size_;
-    }
-    // Check 16MB TLBs (Wormhole only).
-    else if (
-        tlb_16mb_count_ > 0 && tlb_index >= tlb_16mb_start_index_ &&
-        (tlb_4gb_count_ == 0 || tlb_index < tlb_4gb_start_index_)) {
-        return tlb_16mb_size_;
-    }
-    // Check 4GB TLBs (Blackhole only).
-    else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
-        return tlb_4gb_size_;
-    }
-    return 0;
+    auto* sc = find_size_class_for_index(tlb_index);
+    return sc ? sc->size : 0;
 }
 
 uint64_t SimulationTlbAllocator::get_tlb_address_from_index(int tlb_index) {
-    if (tlb_index < 0) {
+    auto* sc = find_size_class_for_index(tlb_index);
+    if (!sc) {
         return 0;
     }
-    if (architecture_ == tt::ARCH::WORMHOLE_B0) {
-        // Wormhole B0 address calculation.
-        if (tlb_1mb_count_ > 0 && tlb_index >= tlb_1mb_start_index_ && tlb_index < tlb_2mb_start_index_) {
-            // 1MB TLBs: indices 0-155.
-            return bar0_base_ + (static_cast<uint64_t>(tlb_index) * tlb_1mb_size_);
-        } else if (tlb_2mb_count_ > 0 && tlb_index >= tlb_2mb_start_index_ && tlb_index < tlb_16mb_start_index_) {
-            // 2MB TLBs: indices 156-165.
-            uint64_t offset_1mb_region = tlb_1mb_count_ * tlb_1mb_size_;
-            uint64_t offset_in_2mb_region = static_cast<uint64_t>(tlb_index - tlb_2mb_start_index_) * tlb_2mb_size_;
-            return bar0_base_ + offset_1mb_region + offset_in_2mb_region;
-        } else if (tlb_16mb_count_ > 0 && tlb_index >= tlb_16mb_start_index_) {
-            // 16MB TLBs: indices 166-185.
-            uint64_t offset_1mb_region = tlb_1mb_count_ * tlb_1mb_size_;
-            uint64_t offset_2mb_region = tlb_2mb_count_ * tlb_2mb_size_;
-            uint64_t offset_in_16mb_region = static_cast<uint64_t>(tlb_index - tlb_16mb_start_index_) * tlb_16mb_size_;
-            return bar0_base_ + offset_1mb_region + offset_2mb_region + offset_in_16mb_region;
-        }
-    } else if (architecture_ == tt::ARCH::BLACKHOLE) {
-        // Blackhole address calculation.
-        if (tlb_2mb_count_ > 0 && tlb_index >= tlb_2mb_start_index_ && tlb_index < tlb_4gb_start_index_) {
-            // 2MB TLBs: indices 0-201.
-            return bar0_base_ + (static_cast<uint64_t>(tlb_index) * tlb_2mb_size_);
-        } else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
-            // 4GB TLBs are in BAR4, not BAR0 for Blackhole.
-            UMD_THROW(
-                error::RuntimeError, "4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
-        }
+
+    // BH 4GB TLBs live in BAR4, not BAR0; this path doesn't yet support them.
+    if (architecture_ == tt::ARCH::BLACKHOLE && sc == &size_classes_[FOUR_GB]) {
+        UMD_THROW(
+            error::RuntimeError, "4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
     }
 
-    // Invalid TLB index.
-    return 0;
+    // Size classes are laid out contiguously in BAR0; sum the sizes of all classes
+    // ordered before this one to get the offset where this class's region begins.
+    uint64_t region_offset = 0;
+    for (const auto& earlier : size_classes_) {
+        if (&earlier == sc) {
+            break;
+        }
+        region_offset += earlier.count * earlier.size;
+    }
+
+    return bar0_base_ + region_offset + (static_cast<uint64_t>(tlb_index) - sc->start_index) * sc->size;
 }
 
 uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
@@ -222,59 +108,45 @@ uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
 
 const architecture_implementation* SimulationTlbAllocator::get_architecture_impl() const { return arch_impl_; }
 
+SimulationTlbAllocator::TlbSizeClass* SimulationTlbAllocator::find_size_class_for_index(int tlb_index) {
+    // Returning nullptr for negative indices avoids signed/unsigned comparison
+    // pitfalls below (where size_t promotion would turn -1 into SIZE_MAX).
+    if (tlb_index < 0) {
+        return nullptr;
+    }
+    auto idx = static_cast<size_t>(tlb_index);
+    for (auto& sc : size_classes_) {
+        if (sc.count > 0 && idx >= sc.start_index && idx < sc.start_index + sc.count) {
+            return &sc;
+        }
+    }
+    return nullptr;
+}
+
 void SimulationTlbAllocator::initialize_architecture_config() {
     architecture_ = arch_impl_->get_architecture();
 
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
-        // Wormhole B0 configuration.
         tlb_reg_size_bytes_ = 8;  // wormhole::TLB_CFG_REG_SIZE_BYTES.
 
         const auto& tlb_sizes = arch_impl_->get_tlb_sizes();
-        tlb_1mb_size_ = tlb_sizes[0];   // 1MB.
-        tlb_2mb_size_ = tlb_sizes[1];   // 2MB.
-        tlb_16mb_size_ = tlb_sizes[2];  // 16MB.
-        tlb_4gb_size_ = 0;              // Not supported.
-
-        tlb_1mb_count_ = 156;
-        tlb_2mb_count_ = 10;
-        tlb_16mb_count_ = 20;
-        tlb_4gb_count_ = 0;
-
-        tlb_1mb_start_index_ = 0;
-        tlb_2mb_start_index_ = tlb_1mb_start_index_ + tlb_1mb_count_;
-        tlb_16mb_start_index_ = tlb_2mb_start_index_ + tlb_2mb_count_;
-        tlb_4gb_start_index_ = 0;  // Not applicable.
-
-        // Initialize allocation tracking.
-        tlb_1mb_allocated_.resize(tlb_1mb_count_, false);
-        tlb_2mb_allocated_.resize(tlb_2mb_count_, false);
-        tlb_16mb_allocated_.resize(tlb_16mb_count_, false);
-        // tlb_4gb_allocated_ remains empty.
+        size_classes_[ONE_MB].size = tlb_sizes[0];  // 1MB.
+        size_classes_[ONE_MB].count = 156;
+        size_classes_[TWO_MB].size = tlb_sizes[1];  // 2MB.
+        size_classes_[TWO_MB].count = 10;
+        size_classes_[SIXTEEN_MB].size = tlb_sizes[2];  // 16MB.
+        size_classes_[SIXTEEN_MB].count = 20;
+        // FOUR_GB stays at default (count=0).
 
     } else if (architecture_ == tt::ARCH::BLACKHOLE) {
-        // Blackhole configuration.
         tlb_reg_size_bytes_ = 12;  // blackhole::TLB_CFG_REG_SIZE_BYTES.
 
         const auto& tlb_sizes = arch_impl_->get_tlb_sizes();
-        tlb_1mb_size_ = 0;             // Not supported.
-        tlb_2mb_size_ = tlb_sizes[0];  // 2MB.
-        tlb_16mb_size_ = 0;            // Not supported.
-        tlb_4gb_size_ = tlb_sizes[1];  // 4GB (second element in Blackhole tlb_sizes).
-
-        tlb_1mb_count_ = 0;
-        tlb_2mb_count_ = 202;
-        tlb_16mb_count_ = 0;
-        tlb_4gb_count_ = 8;
-
-        tlb_1mb_start_index_ = 0;  // Not applicable.
-        tlb_2mb_start_index_ = 0;
-        tlb_16mb_start_index_ = 0;  // Not applicable.
-        tlb_4gb_start_index_ = tlb_2mb_count_;
-
-        // Initialize allocation tracking.
-        // tlb_1mb_allocated_ and tlb_16mb_allocated_ remain empty.
-        tlb_2mb_allocated_.resize(tlb_2mb_count_, false);
-        tlb_4gb_allocated_.resize(tlb_4gb_count_, false);
+        size_classes_[TWO_MB].size = tlb_sizes[0];  // 2MB.
+        size_classes_[TWO_MB].count = 202;
+        size_classes_[FOUR_GB].size = tlb_sizes[1];  // 4GB.
+        size_classes_[FOUR_GB].count = 8;
+        // ONE_MB and SIXTEEN_MB stay at default (count=0).
 
     } else {
         log_debug(
@@ -283,6 +155,18 @@ void SimulationTlbAllocator::initialize_architecture_config() {
                 "Architecture {} does not yet have support for TLB management in simulation. UMD will use legacy "
                 "tile_wr_bytes and tile_rd_bytes path.",
                 tt::arch_to_str(architecture_)));
+        return;
+    }
+
+    // Lay out size classes contiguously in BAR0: each non-empty class starts where
+    // the previous one ends.
+    size_t next_start = 0;
+    for (auto& sc : size_classes_) {
+        sc.start_index = next_start;
+        if (sc.count > 0) {
+            sc.allocated.resize(sc.count, false);
+            next_start += sc.count;
+        }
     }
 }
 

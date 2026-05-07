@@ -70,6 +70,12 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     // Get architecture from allocator to determine correct offsets.
     tt::ARCH architecture = get_arch();
 
+    // Quasar has no real TLB registers to program — the communicator handles
+    // all I/O directly, so configure is a no-op beyond storing tlb_config_.
+    if (architecture == tt::ARCH::QUASAR) {
+        return;
+    }
+
     log_debug(
         LogUMD,
         "Configured simulation TLB {} ({}) address 0x{:x} reg_addr 0x{:x} ({} bytes) with local_offset: {}, x_end: {}, "

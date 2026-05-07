@@ -26,6 +26,15 @@ SimulationTlbManager::SimulationTlbManager(
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     ZoneScopedC(tracy::Color::Cyan);
+
+    // Quasar's TLB topology isn't finalized: bypass the allocator and hand back
+    // a dummy 4GB window. The simulator's communicator handles real I/O, so the
+    // window doesn't need a real index, address, or size.
+    if (allocator_.get_architecture() == tt::ARCH::QUASAR) {
+        static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
+        return factory_(&allocator_, /*tlb_id=*/0, SIZE_4GB, mapping, config);
+    }
+
     int tlb_index = allocator_.allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
@@ -39,11 +48,6 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
-    // Quasar has no real TLBs; the communicator handles all I/O underneath.
-    // The size here is a dummy value — it just needs to be large enough so that
-    // TlbWindow::validate doesn't reject any valid access (size 0 would cause
-    // division by zero in RtlSimTlbHandle::configure).
-    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     const tt::ARCH architecture = allocator_.get_architecture();
     switch (architecture) {
         case tt::ARCH::BLACKHOLE:
@@ -51,7 +55,7 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
         case tt::ARCH::WORMHOLE_B0:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
         case tt::ARCH::QUASAR:
-            return factory_(&allocator_, 0, SIZE_4GB, TlbMapping::WC, {});
+            return allocate_tlb_window({}, TlbMapping::WC, /*tlb_size=*/0);
         default:
             log_debug(
                 LogUMD,

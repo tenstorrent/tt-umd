@@ -132,7 +132,7 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -150,7 +150,7 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }

@@ -9,7 +9,6 @@
 #include <stdexcept>
 #include <utility>
 
-#include "noc_access.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -24,13 +23,14 @@ TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
     offset_from_aligned_addr = config.local_offset - (config.local_offset & ~(tlb_handle->get_size() - 1));
 }
 
-void TlbWindow::read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
+void TlbWindow::read_block_reconfigure(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
     config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
 
@@ -50,13 +50,13 @@ void TlbWindow::read_block_reconfigure(void* mem_ptr, tt_xy_pair core, uint64_t 
 }
 
 void TlbWindow::write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core.x;
     config.y_end = core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
     config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
 
@@ -77,7 +77,13 @@ void TlbWindow::write_block_reconfigure(
 }
 
 void TlbWindow::noc_multicast_write_reconfigure(
-    void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
+    void* dst,
+    size_t size,
+    tt_xy_pair core_start,
+    tt_xy_pair core_end,
+    uint64_t addr,
+    NocId noc_id,
+    uint64_t ordering) {
     uint8_t* buffer_addr = static_cast<uint8_t*>(dst);
     tlb_data config{};
     config.local_offset = addr;
@@ -86,7 +92,7 @@ void TlbWindow::noc_multicast_write_reconfigure(
     config.x_end = core_end.x;
     config.y_end = core_end.y;
     config.mcast = true;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
     config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
 
@@ -144,18 +150,24 @@ void TlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size)
 void TlbWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
 
 void TlbWindow::safe_write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
-    write_block_reconfigure(mem_ptr, core, addr, size, ordering);
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    write_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
 }
 
 void TlbWindow::safe_read_block_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering) {
-    read_block_reconfigure(mem_ptr, core, addr, size, ordering);
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    read_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
 }
 
 void TlbWindow::safe_noc_multicast_write_reconfigure(
-    void* dst, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint64_t ordering) {
-    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, ordering);
+    void* dst,
+    size_t size,
+    tt_xy_pair core_start,
+    tt_xy_pair core_end,
+    uint64_t addr,
+    NocId noc_id,
+    uint64_t ordering) {
+    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, noc_id, ordering);
 }
 
 }  // namespace tt::umd

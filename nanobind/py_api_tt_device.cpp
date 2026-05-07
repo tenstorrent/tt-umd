@@ -178,7 +178,10 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                }
                 return value;
             },
             nb::arg("core_x"),
@@ -189,7 +192,10 @@ void bind_tt_device(nb::module_ &m) {
             "noc_write32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value) -> void {
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -201,7 +207,10 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
-                self.read_from_device(buffer.data(), core, addr, size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(buffer.data(), core, addr, size);
+                }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
             nb::arg("core_x"),
@@ -219,7 +228,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.read_from_device(data_ptr, core, addr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(data_ptr, core, addr, data_size);
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -233,7 +245,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write_to_device(data_ptr, core, addr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device(data_ptr, core, addr, data_size);
+                }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -242,12 +257,18 @@ void bind_tt_device(nb::module_ &m) {
             "Write arbitrary-length data to a core at the specified address")
         .def(
             "bar_read32",
-            &TTDevice::bar_read32,
+            [](TTDevice &self, uint32_t addr) -> uint32_t {
+                nb::gil_scoped_release release;
+                return self.bar_read32(addr);
+            },
             nb::arg("addr"),
             "Read a 32-bit value from the specified address on bar0")
         .def(
             "bar_write32",
-            &TTDevice::bar_write32,
+            [](TTDevice &self, uint32_t addr, uint32_t data) -> void {
+                nb::gil_scoped_release release;
+                self.bar_write32(addr, data);
+            },
             nb::arg("addr"),
             nb::arg("data"),
             "Write a 32-bit value to the specified address on bar0")
@@ -289,7 +310,10 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
-                self.dma_read_from_device(buffer.data(), size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_read_from_device(buffer.data(), size, core, addr);
+                }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
             nb::arg("core_x"),
@@ -307,7 +331,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.dma_read_from_device(data_ptr, data_size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_read_from_device(data_ptr, data_size, core, addr);
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -321,7 +348,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.dma_write_to_device(data_ptr, data_size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_write_to_device(data_ptr, data_size, core, addr);
+                }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -345,8 +375,12 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                uint32_t exit_code;
+                {
+                    nb::gil_scoped_release release;
+                    exit_code = self.get_arc_messenger()->send_message(
+                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                }
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -377,8 +411,12 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                uint32_t exit_code;
+                {
+                    nb::gil_scoped_release release;
+                    exit_code = self.get_arc_messenger()->send_message(
+                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                }
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -409,8 +447,12 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                uint32_t exit_code;
+                {
+                    nb::gil_scoped_release release;
+                    exit_code = self.get_arc_messenger()->send_message(
+                        msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                }
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),

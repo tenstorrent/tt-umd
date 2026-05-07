@@ -48,6 +48,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
     std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
+    if (tt_device == nullptr) {
+        UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
+    }
+
     // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (tt_device->get_pci_device() != nullptr) {

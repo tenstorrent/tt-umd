@@ -6,6 +6,10 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <set>
+#include <string>
+
 #include "umd/device/cluster.hpp"
 
 using namespace tt::umd;

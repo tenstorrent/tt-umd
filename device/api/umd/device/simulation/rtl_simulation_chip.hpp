@@ -4,14 +4,19 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
 
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class SocDescriptor;
 
 // RTL simulation implementation using subprocess and flatbuffer communication.
 class RtlSimulationChip : public SimulationChip {
@@ -23,11 +28,11 @@ public:
         int num_host_mem_channels = 0);
     ~RtlSimulationChip() override = default;
 
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
 
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;

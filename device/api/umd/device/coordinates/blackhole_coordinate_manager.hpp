@@ -4,8 +4,17 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+struct HarvestingMasks;
+}  // namespace tt
 
 namespace tt::umd {
 
@@ -26,6 +35,7 @@ public:
         const std::vector<tt_xy_pair>& router_cores,
         const std::vector<tt_xy_pair>& security_cores,
         const std::vector<tt_xy_pair>& l2cpu_cores,
+        const std::vector<tt_xy_pair>& dispatch_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
         const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
 

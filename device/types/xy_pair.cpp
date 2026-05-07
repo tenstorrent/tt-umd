@@ -4,14 +4,12 @@
 
 #include "umd/device/types/xy_pair.hpp"
 
-#include <fmt/core.h>
-
 #include <string>
 
 namespace tt {
 
-std::string xy_pair::str() const { return fmt::format("(x={},y={})", x, y); }
+std::string xy_pair::str() const { return std::to_string(x) + "-" + std::to_string(y); }
 
-std::string cxy_pair::str() const { return fmt::format("(chip={},x={},y={})", chip, x, y); }
+std::string cxy_pair::str() const { return std::to_string(chip) + ":" + std::to_string(x) + "-" + std::to_string(y); }
 
 }  // namespace tt

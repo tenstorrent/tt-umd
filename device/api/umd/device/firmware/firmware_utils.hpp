@@ -4,18 +4,21 @@
 
 #pragma once
 
-#include <optional>
+#include <cstdint>
 
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 
-namespace tt::umd {
-FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
-std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(
-    FirmwareBundleVersion fw_bundle_version, tt::ARCH arch);
+namespace tt::umd {
+class TTDevice;
+
+FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
 
@@ -27,8 +30,6 @@ SemVer get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
 
 SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
-std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, SemVer eth_fw_version);
-
-SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core);
+SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core);
 
 }  // namespace tt::umd

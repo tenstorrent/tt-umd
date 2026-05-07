@@ -10,19 +10,24 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <ostream>
+#include <set>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "disjoint_set.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -37,6 +42,16 @@ int count_connections(
     }
     return count;
 }
+
+class TEST_FApiClusterDescriptorOfflineTestSetEnv : public ::testing::Test {
+protected:
+    void TearDown() override {
+        // Always unset the environment variable after each test to avoid contamination.
+        if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
+            FAIL() << "Failed to unset environment variable.";
+        }
+    }
+};
 
 TEST(ApiClusterDescriptorOfflineTest, TestAllOfflineClusterDescriptors) {
     for (const std::string& cluster_desc_yaml : test_utils::GetAllClusterDescs()) {
@@ -122,7 +137,7 @@ TEST(ApiClusterDescriptorOfflineTest, SeparateClusters) {
     }
 }
 
-TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
+TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, ConstrainedTopology) {
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("t3k_cluster_desc.yaml"));
 
@@ -172,9 +187,6 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopology) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_locations().size(), 4);
     // This is not serialized into yaml, but we'd expect it to also be constrained.
     EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
-    }
 }
 
 TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
@@ -229,7 +241,7 @@ TEST(ApiClusterDescriptorOfflineTest, ConstrainedTopologyTTVisibleDevices) {
     EXPECT_EQ(constrained_cluster_desc->get_chip_unique_ids().size(), 4);
 }
 
-TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
+TEST_F(TEST_FApiClusterDescriptorOfflineTestSetEnv, NoBoardExpansion) {
     // Load the 6u cluster descriptor (Galaxy-style with many chips per board).
     std::unique_ptr<ClusterDescriptor> cluster_desc =
         ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("6u_cluster_desc.yaml"));
@@ -280,11 +292,6 @@ TEST(ApiClusterDescriptorOfflineTest, NoBoardExpansion) {
     for (ChipId chip = 0; chip < expected_chip_count; chip++) {
         EXPECT_TRUE(constrained_chips_tt.count(chip) > 0)
             << "Expected remapped chip " << chip << " not found in constrained descriptor";
-    }
-
-    // Clean up: unset TT_VISIBLE_DEVICES.
-    if (unsetenv(utils::TT_VISIBLE_DEVICES_ENV.data()) != 0) {
-        ASSERT_TRUE(false) << "Failed to unset TT_VISIBLE_DEVICES environment variable.";
     }
 }
 
@@ -414,4 +421,10 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
             mock_cluster_all->read_from_device(data.data(), chip_id, any_tensix_core, 0, data.size());
         }
     }
+}
+
+TEST(RefreshClusterDescriptionTest, ThrowsForNonSiliconChipType) {
+    auto cluster_desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
+    Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()});
+    EXPECT_THROW(cluster.refresh_cluster_description(), std::runtime_error);
 }

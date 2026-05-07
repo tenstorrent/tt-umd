@@ -31,7 +31,7 @@ env:
 
 jobs:
   test:
-    name: Run Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    name: Test Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - ${{ inputs.card }}
@@ -59,7 +59,7 @@ jobs:
           echo "Cleaning up working directory from previous runs: $(pwd)"
           rm -rf *
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-exalens
           ref: main
@@ -67,13 +67,13 @@ jobs:
           path: ./
 
       - name: Get tt-exalens kernels artifact
-        uses: pyTooling/download-artifact@v4
+        uses: pyTooling/download-artifact@v1.9.0
         with:
           name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./
 
       - name: Use wheel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
@@ -88,5 +88,18 @@ jobs:
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
       - name: Run Python tests for tt-exalens app
+        run: |
+          python3 -m unittest discover -v -t . -s test/app -p *test*.py
+
+      - name: Run Python tests for tt-exalens library (NOC1)
+        env:
+          TTEXALENS_TESTS_USE_NOC1: 1
+        shell: bash
+        run: |
+          python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
+
+      - name: Run Python tests for tt-exalens app (NOC1)
+        env:
+          TTEXALENS_TESTS_USE_NOC1: 1
         run: |
           python3 -m unittest discover -v -t . -s test/app -p *test*.py

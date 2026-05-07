@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <cstdint>
 #include <filesystem>
 #include <functional>

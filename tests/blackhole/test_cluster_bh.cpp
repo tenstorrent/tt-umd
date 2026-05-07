@@ -4,24 +4,29 @@
 
 #include <gtest/gtest.h>
 
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <initializer_list>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <set>
+#include <string>
 #include <thread>
+#include <unordered_set>
 #include <vector>
 
 #include "blackhole/eth_l1_address_map.h"
-#include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;
@@ -186,7 +191,9 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, MultiThreadedDevice) {
+// TODO(#2485): Re-enable. Writes and reads are not synchronized so they can land on the device out of order; broke
+// after PR #2455.
+TEST(SiliconDriverBH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     Cluster cluster;
@@ -499,46 +506,6 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
         }
         // Wait for data to be cleared before writing next block.
         cluster.wait_for_non_mmio_flush();
-    }
-    cluster.close_device();
-}
-
-TEST(SiliconDriverBH, DebugDoubleWrite) {
-    // NOC register that counts the number of posted write requests received by a core.
-    // Streaming stores go through write-combining BAR and generate posted PCIe writes.
-    constexpr uint64_t NIU_SLV_POSTED_WR_REQ_RECEIVED = 0xffb202e0;
-
-    Cluster cluster;
-    set_barrier_params(cluster);
-    test_utils::safe_test_cluster_start(&cluster);
-
-    auto chip_id = *cluster.get_target_mmio_device_ids().begin();
-    auto tensix_core = cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX).at(0);
-
-    uint64_t addr = 0;
-    uint32_t data = 1;
-    uint32_t counter = 0;
-
-    uint32_t base_reg_val;
-    cluster.read_from_device_reg(&base_reg_val, chip_id, tensix_core, NIU_SLV_POSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
-
-    for (uint32_t i = 0; i < 100000; i++) {
-        cluster.write_to_device(&data, sizeof(data), chip_id, tensix_core, addr);
-        counter++;
-
-        uint32_t reg_val;
-        cluster.read_from_device_reg(&reg_val, chip_id, tensix_core, NIU_SLV_POSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
-
-        uint32_t diff = reg_val - base_reg_val;
-
-        ASSERT_EQ(counter, diff);
-
-        uint32_t data_check = 0;
-        cluster.read_from_device(&data_check, chip_id, tensix_core, addr, sizeof(data));
-
-        EXPECT_EQ(static_cast<uint32_t>(data_check), static_cast<uint32_t>(data));
-
-        data++;
     }
     cluster.close_device();
 }

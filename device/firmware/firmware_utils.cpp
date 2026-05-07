@@ -4,31 +4,22 @@
 
 #include "umd/device/firmware/firmware_utils.hpp"
 
-#include <picosha2.h>
-
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <iterator>
 #include <memory>
-#include <optional>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -60,64 +51,6 @@ FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
                ? FirmwareBundleVersion::from_firmware_bundle_tag(
                      telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
                : FirmwareBundleVersion(0, 0, 0);
-}
-
-std::optional<SemVer> get_expected_eth_firmware_version_from_firmware_bundle(
-    FirmwareBundleVersion fw_bundle_version, tt::ARCH arch) {
-    // Skip checks for pre-release firmware bundles.
-    if (fw_bundle_version.pre_release != 0) {
-        return std::nullopt;
-    }
-
-    const auto* version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
-    switch (arch) {
-        case ARCH::WORMHOLE_B0:
-            version_map = &erisc_firmware::WH_ERISC_FW_VERSION_MAP;
-            break;
-        case ARCH::BLACKHOLE:
-            version_map = &erisc_firmware::BH_ERISC_FW_VERSION_MAP;
-            break;
-        default:
-            return std::nullopt;
-    }
-
-    // Find the most recently updated ERISC FW version from a given firmware
-    // bundle version.
-    for (auto it = version_map->cbegin(); it != version_map->cend(); ++it) {
-        if (it->first > fw_bundle_version) {
-            if (it == version_map->cbegin()) {
-                return std::nullopt;
-            } else {
-                return std::prev(it)->second;
-            }
-        }
-    }
-    return version_map->back().second;
-}
-
-std::optional<bool> verify_eth_fw_integrity(TTDevice* tt_device, tt_xy_pair eth_core, SemVer eth_fw_version) {
-    const std::unordered_map<SemVer, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
-    switch (tt_device->get_arch()) {
-        case ARCH::WORMHOLE_B0:
-            eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
-            break;
-        case ARCH::BLACKHOLE:
-            eth_fw_hashes = &erisc_firmware::BH_ERISC_FW_HASHES;
-            break;
-        default:
-            return std::nullopt;
-    }
-
-    if (eth_fw_hashes->find(eth_fw_version) == eth_fw_hashes->end()) {
-        return std::nullopt;
-    }
-
-    erisc_firmware::HashedAddressRange hashed_range = eth_fw_hashes->at(eth_fw_version);
-    std::vector<uint8_t> eth_fw_text(hashed_range.size);
-    tt_device->read_from_device(eth_fw_text.data(), eth_core, hashed_range.start_address, hashed_range.size);
-    std::string eth_fw_text_sha256_hash = picosha2::hash256_hex_string(eth_fw_text);
-
-    return eth_fw_text_sha256_hash == hashed_range.sha256_hash;
 }
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {
@@ -156,7 +89,7 @@ SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARC
     return SemVer(0, 0, 0);
 }
 
-SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
             uint32_t eth_fw_version_read;
@@ -174,7 +107,7 @@ SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
             return SemVer(major, minor, patch);
         }
         default:
-            throw std::runtime_error("Getting ETH FW version is not supported for this device.");
+            UMD_THROW(error::RuntimeError, "Getting ETH FW version is not supported for this device.");
     }
 }
 

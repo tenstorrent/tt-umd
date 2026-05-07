@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Print machine info
         run: |
@@ -119,7 +119,7 @@ jobs:
           # Iterate over all submodules and mark them as safe
           git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 

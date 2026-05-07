@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
@@ -65,5 +66,7 @@ void RtlSimTlbHandle::free_tlb() noexcept {
         log_debug(LogUMD, "Freed RTL sim TLB with ID {}", tlb_id_);
     }
 }
+
+tt::ARCH RtlSimTlbHandle::get_arch() const { return manager_->get_arch(); }
 
 }  // namespace tt::umd

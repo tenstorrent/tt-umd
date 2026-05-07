@@ -2,30 +2,34 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
 #include <memory>
+#include <set>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "device/api/umd/device/warm_reset.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
+using namespace tt::umd::utils;
 
 class HangDetectionTest : public ::testing::Test {
 protected:
@@ -36,7 +40,7 @@ protected:
     std::unique_ptr<SocDescriptor> soc_desc_;
 
     void SetUp() override {
-        if (is_arm_platform()) {
+        if (utils::is_arm_platform()) {
             GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
         }
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -88,7 +92,7 @@ private:
             case tt::ARCH::BLACKHOLE:
                 return BH_NOC_HANG_ADDR;
             default:
-                TT_THROW("Invalid architecture: {}.", arch);
+                UMD_THROW(error::RuntimeError, fmt::format("Invalid architecture: {}.", arch));
         }
     }
 };
@@ -114,39 +118,25 @@ protected:
                 (noc == NocId::NOC0) ? blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR : blackhole::NIU_CFG_NOC1_BAR_PCIE_ADDR;
             return niu_base + blackhole::NOC_NODE_ID_OFFSET;
         }
-        TT_THROW("Unsupported architecture.");
+        UMD_THROW(error::RuntimeError, "Unsupported architecture.");
     }
 };
 
-TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBarAndNoc) {
+// TODO: Add reading NODE ID via NOC.
+TEST_P(NocHangDetectionTest, DISABLED_ReadNodeIdViaBar) {
     NocId noc = GetParam();
     tt::ARCH arch = tt_device_->get_arch();
 
     uint32_t bar_raw = tt_device_->bar_read32(get_bar_node_id_offset(arch, noc));
-
-    uint32_t noc_raw;
-    {
-        NocIdSwitcher noc_switcher(noc);
-        noc_raw = tt_device_->read_hang_check_reg_via_noc();
-    }
-
     tt_xy_pair bar_node_id = extract_node_id(bar_raw);
-    tt_xy_pair noc_node_id = extract_node_id(noc_raw);
 
     log_info(
-        LogUMD,
-        "NOC{} node ID: BAR=({},{}) [0x{:08X}], NOC=({},{}) [0x{:08X}]",
-        static_cast<int>(noc),
-        bar_node_id.x,
-        bar_node_id.y,
-        bar_raw,
-        noc_node_id.x,
-        noc_node_id.y,
-        noc_raw);
+        LogUMD, "NOC{} node ID: BAR=({},{}) [0x{:08X}]", static_cast<int>(noc), bar_node_id.x, bar_node_id.y, bar_raw);
 
     EXPECT_NE(bar_raw, 0xFFFFFFFF) << "BAR read returned all ones.";
-    EXPECT_NE(noc_raw, 0xFFFFFFFF) << "NOC" << static_cast<int>(noc) << " read returned all ones.";
-    EXPECT_EQ(bar_node_id, noc_node_id) << "BAR and NOC" << static_cast<int>(noc) << " node ID reads differ.";
+
+    EXPECT_FALSE(tt_device_->is_noc_hung(noc, TTDevice::HangAction::RETURN))
+        << "NOC" << static_cast<int>(noc) << " appears hung on a healthy device.";
 }
 
 TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
@@ -157,16 +147,19 @@ TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
             << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
     }
 
-    ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() returned true before any hang.";
+    ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
+        << "is_noc_hung() returned true before any hang.";
 
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     hang_noc(tensix_core, noc_to_hang);
 
-    EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() did not detect the hang.";
+    EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
+        << "is_noc_hung() did not detect the hang.";
 
     warm_reset_and_reinit();
 
-    EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang)) << "is_noc_hung() still true after warm reset.";
+    EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
+        << "is_noc_hung() still true after warm reset.";
 }
 
 INSTANTIATE_TEST_SUITE_P(

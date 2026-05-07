@@ -4,14 +4,31 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <string>
+#include <unordered_set>
+#include <vector>
+
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {
+class RemoteCommunication;
+class SocDescriptor;
+class SysmemManager;
+class TLBManager;
 
 class LocalChip : public Chip {
 public:
@@ -35,7 +52,7 @@ public:
 
     bool is_mmio_capable() const override;
 
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     TTDevice* get_tt_device() override;
@@ -50,8 +67,8 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
@@ -67,7 +84,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
     void deassert_risc_resets() override;
     int get_clock() override;
@@ -82,8 +99,7 @@ private:
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        int num_host_mem_channels);
+        std::unique_ptr<RemoteCommunication> remote_communication);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
@@ -97,7 +113,7 @@ private:
 
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();
-    void initialize_membars();
+    void initialize_membars(uint32_t dram_subchannel);
 
     void init_pcie_iatus();
 

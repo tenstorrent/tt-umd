@@ -4,12 +4,8 @@
 
 // This file holds Cluster specific API examples.
 
-#include <fmt/format.h>
-#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
-#include <array>
 #include <cstdint>
 #include <cstdlib>  // for std::getenv
 #include <cstring>
@@ -18,23 +14,25 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/warm_reset.hpp"
-#include "utils.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
 
@@ -806,4 +804,37 @@ TEST(TestDeviceIO, DMA2) {
                                          << op.address << " size=" << std::dec << op.data.size();
         }
     }
+}
+
+// Tests that dram_membar can be called with a non-zero subchannel on each chip.
+// Uses a mock cluster so no real hardware is required.
+TEST(TestDramMembar, DramMembarSubchannelByChannels) {
+    Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .target_devices = {0}});
+
+    for (ChipId chip_id : cluster.get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster.get_soc_descriptor(chip_id);
+        const int num_channels = soc_desc.get_num_dram_channels();
+
+        if (num_channels == 0) {
+            continue;
+        }
+
+        std::unordered_set<uint32_t> all_channels;
+        for (int i = 0; i < num_channels; i++) {
+            all_channels.insert(i);
+        }
+
+        for (int subchannel = 0; subchannel < static_cast<int>(soc_desc.get_dram_cores()[0].size()); subchannel++) {
+            EXPECT_NO_THROW(cluster.dram_membar(chip_id, all_channels, subchannel));
+        }
+    }
+}
+
+// Tests that start_device with dram_membar_subchannel propagates to initialize_membars.
+// Uses a mock cluster so no real hardware is required.
+TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
+    Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .target_devices = {0}});
+
+    // start_device is a no-op for mock chips, but this verifies the API compiles and is callable.
+    EXPECT_NO_THROW(cluster.start_device({.init_device = true, .dram_membar_subchannel = 1}));
 }

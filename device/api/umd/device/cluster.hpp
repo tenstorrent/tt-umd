@@ -3,48 +3,69 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cassert>
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
 class ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
+class PCIDevice;
+class TLBManager;
+class TlbWindow;
 
 /**
  * Chip type to create under the Cluster class.
  * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
  * - Simulation is used for simulation runs.
  * - Mock is used for testing purposes, implementation of all functions is empty.
+ * - SWEmule uses software emulation via tt-emule with memory-backed I/O and no physical hardware.
+ *   Requires TT_UMD_BUILD_EMULE=ON at build time.
  */
 enum ChipType {
     SILICON,
     SIMULATION,
     MOCK,
+    SWEMULE,
 };
 
 /**
@@ -60,8 +81,10 @@ struct ClusterOptions {
 
     /**
      * Number of host memory channels (hugepages) per MMIO device.
+     * If not provided, the value is determined automatically by determining the max
+     * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    uint32_t num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -73,13 +96,12 @@ struct ClusterOptions {
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
+     * This has no effect on SILICON chip type, use TT_VISIBLE_DEVICES instead.
      */
     std::unordered_set<ChipId> target_devices;
 
     /**
-     * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
-     * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
-     * the system.
+     * Only used for SIMULATION and MOCK chip types. Throws an error if passed for SILICON.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
 
@@ -142,8 +164,22 @@ public:
     /**
      * Get cluster descriptor object being used. This object contains topology information about the cluster.
      * Consult ClusterDescriptor documentation for more information on the cluster descriptor.
+     *
+     * The returned pointer is valid only until the next call to refresh_cluster_description(), which replaces
+     * the underlying object. Do not retain this pointer across a refresh.
      */
     ClusterDescriptor* get_cluster_description();
+
+    /**
+     * Refresh the cluster descriptor by re-running topology discovery.
+     * This updates the cluster's view of the topology (e.g. firmware versions, ethernet connections)
+     * without recreating the chips and devices.
+     * Only supported for SILICON chip type.
+     *
+     * Any pointer previously obtained from get_cluster_description() is invalidated by this call.
+     * Callers must re-fetch the descriptor after refreshing.
+     */
+    void refresh_cluster_description();
 
     /**
      * Get set of chip ids for all chips in the cluster.
@@ -346,7 +382,7 @@ public:
      * @param core Core to target.
      * @param addr Address to write to.
      */
-    void write_to_device(const void* mem_ptr, uint32_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
+    void write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr);
 
     /**
      * Read uint32_t data from a specified device, core and address to host memory (defined for Silicon).
@@ -359,7 +395,7 @@ public:
      * @param addr Address to read from.
      * @param size Number of bytes to read.
      */
-    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, uint32_t size);
+    void read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * Write uint32_t data (as specified by ptr + len pair) to specified device, core and address (defined for Silicon).
@@ -452,18 +488,6 @@ public:
         std::set<uint32_t>& columns_to_exclude);
 
     /**
-     * Provide fast write access to a statically-mapped TLB.
-     * It is the caller's responsibility to ensure that
-     * - the target has a static TLB mapping configured.
-     * - the mapping is unchanged during the lifetime of the returned object.
-     * - the Cluster instance outlives the returned object.
-     * - use of the returned object is congruent with the target's TLB setup.
-     *
-     * @param target The target chip and core to write to.
-     */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
-
-    /**
      * Provide fast read/write access to a statically-mapped TLB.
      * It is the caller's responsibility to ensure that
      * - the target has a static TLB mapping configured.
@@ -495,8 +519,9 @@ public:
      *
      * @param chip Chip to target.
      * @param channels Channels being targeted.
+     * @param subchannel DRAM subchannel to target (default 0).
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0);
 
     /**
      * DRAM memory barrier.
@@ -556,6 +581,8 @@ public:
      * @param src_device_id Chip to target.
      */
     void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id);
+
+    void advance_device_execution(ChipId device_id);
 
     /**
      * Query number of memory channels on Host device allocated for a specific device during initialization.
@@ -718,7 +745,7 @@ private:
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
-    void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
+    void construct_cluster(const ChipType& chip_type);
 
     // State variables.
     std::set<ChipId> all_chip_ids_;
@@ -728,6 +755,9 @@ private:
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
+
+    // Options used to construct this cluster, needed to re-run topology discovery on refresh.
+    ClusterOptions options_;
 
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
     bool use_ethernet_broadcast = true;

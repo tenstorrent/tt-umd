@@ -4,22 +4,22 @@
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 
-#include <cstddef>
-#include <cstdint>
-#include <exception>
+#include <fmt/format.h>
+
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 SimulationTlbManager::SimulationTlbManager(
     TTDevice* tt_device, uint64_t bar0_base, const architecture_implementation* arch_impl, TlbWindowFactory factory) :
@@ -29,6 +29,7 @@ SimulationTlbManager::SimulationTlbManager(
 }
 
 int SimulationTlbManager::allocate_tlb_index(size_t size) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     if (size == 0) {
@@ -106,6 +107,7 @@ int SimulationTlbManager::allocate_tlb_index(size_t size) {
 }
 
 void SimulationTlbManager::deallocate_tlb_index(int tlb_index) {
+    ZoneScopedC(tracy::Color::Cyan);
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Check 1MB TLBs (Wormhole only).
@@ -193,7 +195,8 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
             return bar0_base_ + (static_cast<uint64_t>(tlb_index) * tlb_2mb_size_);
         } else if (tlb_4gb_count_ > 0 && tlb_index >= tlb_4gb_start_index_) {
             // 4GB TLBs are in BAR4, not BAR0 for Blackhole
-            throw std::runtime_error("4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
+            UMD_THROW(
+                error::RuntimeError, "4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
         }
     }
 
@@ -203,15 +206,11 @@ uint64_t SimulationTlbManager::get_tlb_address_from_index(int tlb_index) {
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
-    const auto* arch_impl = get_architecture_impl();
-    if (arch_impl->get_architecture() == tt::ARCH::WORMHOLE_B0 &&
-        (tlb_size == arch_impl->get_cached_tlb_size() || tlb_size == arch_impl->get_dynamic_tlb_2m_size())) {
-        throw std::runtime_error("TLBs of 1MB and 2MB are not supported in simulation for Wormhole architecture.");
-    }
+    ZoneScopedC(tracy::Color::Cyan);
 
     int tlb_index = allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
-        throw std::runtime_error("No available TLB of requested size");
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
 
     size_t actual_tlb_size = get_tlb_size_from_index(tlb_index);
@@ -227,14 +226,23 @@ uint64_t SimulationTlbManager::get_tlb_reg_address_from_index(int tlb_index) {
 
 const architecture_implementation* SimulationTlbManager::get_architecture_impl() const { return arch_impl_; }
 
+tt::ARCH SimulationTlbManager::get_arch() const { return architecture_; }
+
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    // Quasar has no real TLBs; the communicator handles all I/O underneath.
+    // The size here is a dummy value — it just needs to be large enough so that
+    // TlbWindow::validate doesn't reject any valid access (size 0 would cause
+    // division by zero in RtlSimTlbHandle::configure).
+    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     switch (architecture_) {
         case tt::ARCH::BLACKHOLE:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
         case tt::ARCH::WORMHOLE_B0:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
+        case tt::ARCH::QUASAR:
+            return factory_(this, 0, SIZE_4GB, TlbMapping::WC, {});
         default:
             log_debug(
                 LogUMD,

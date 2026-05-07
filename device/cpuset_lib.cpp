@@ -5,13 +5,12 @@
 #include "cpuset_lib.hpp"
 
 #include <fmt/format.h>
-#include <fmt/ranges.h>  // Needed to format vectors
-#include <fmt/std.h>     // Needed to format thread_id
+#include <fmt/ranges.h>
+#include <fmt/std.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cerrno>
-#include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -23,8 +22,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
-
-#include "umd/device/cluster.hpp"
 
 namespace tt::cpuset {
 
@@ -385,12 +382,12 @@ bool cpuset_allocator::init_determine_cpuset_allocations() {
             log_debug(
                 LogUMD,
                 "Done init_determine_cpuset_allocations(). Summary => for mmio physical_device_id: {} package_id: {} "
-                "device_alloc_idx: {} picked {} PU's {}",
+                "device_alloc_idx: {} picked {} PU's [{}]",
                 physical_device_id,
                 package_id,
                 device_alloc_idx,
                 num_pu_ids,
-                pu_ids_vector);
+                fmt::join(pu_ids_vector, ", "));
         }
     }
 

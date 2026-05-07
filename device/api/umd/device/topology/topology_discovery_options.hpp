@@ -4,10 +4,6 @@
 
 #pragma once
 
-#include <optional>
-
-#include "umd/device/types/arch.hpp"
-
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.
@@ -61,6 +57,13 @@ struct TopologyDiscoveryOptions {
     Action eth_fw_heartbeat_failure = Action::THROW;
 
     /**
+     * @brief Action to take when device initialization fails. IGNORE keeps devices it can
+     * and marks them as unhealthy.
+     * Defaults to THROW.
+     */
+    Action device_init_failure_action = Action::THROW;
+
+    /**
      * @brief If true, the discovery process will attempt to find and include remote devices connected via Ethernet.
      * If false, only locally connected devices will be discovered.
      * Defaults to true.
@@ -73,13 +76,6 @@ struct TopologyDiscoveryOptions {
      * Defaults to true.
      */
     bool wait_on_ethernet_link_training = true;
-
-    /**
-     * @brief If true, performs a hash check on the Ethernet firmware to ensure its integrity.
-     * This is a more rigorous check than just comparing version numbers.
-     * Defaults to false.
-     */
-    bool perform_eth_fw_hash_check = false;
 
     /**
      * @brief If true, enables Ethernet link retraining on 6U machines when training fails.

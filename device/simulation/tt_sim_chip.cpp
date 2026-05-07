@@ -4,23 +4,13 @@
 
 #include "umd/device/simulation/tt_sim_chip.hpp"
 
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <fmt/format.h>
-#include <sys/mman.h>
-#include <sys/sendfile.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include <cerrno>
-#include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <mutex>
-#include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 
-#include "assert.hpp"
 #include "tracy.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
@@ -39,18 +29,18 @@ TTSimChip::TTSimChip(
 
 TTSimChip::~TTSimChip() = default;
 
-void TTSimChip::start_device() {}
+void TTSimChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void TTSimChip::close_device() {}
 
-void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {
+void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->write_to_device(src, soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), l1_dest, size);
+    tt_device_->write_to_device(src, soc_descriptor_.translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
-void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {
+void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->read_from_device(dest, soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), l1_src, size);
+    tt_device_->read_from_device(dest, soc_descriptor_.translate_chip_coord_to_translated(core), l1_src, size);
 }
 
 void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
@@ -65,14 +55,14 @@ void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets
 void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->assert_risc_reset(soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs);
+    tt_device_->assert_risc_reset(soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs);
 }
 
 void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->deassert_risc_reset(
-        soc_descriptor_.translate_coord_to(core, CoordSystem::TRANSLATED), selected_riscs, staggered_start);
+        soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
 }
 
 TLBManager* TTSimChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }

@@ -7,9 +7,10 @@
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 
 #include <chrono>
-#include <stdexcept>
+#include <string>
 
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -72,7 +73,7 @@ void WormholeDmaTransfer::d2h_transfer(
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout");
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
 }
@@ -130,7 +131,7 @@ void WormholeDmaTransfer::h2d_transfer(
         auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start).count();
 
         if (elapsed_ms > DMA_TIMEOUT_MS) {
-            throw std::runtime_error("DMA timeout");
+            UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
 }

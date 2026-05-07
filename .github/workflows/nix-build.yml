@@ -2,16 +2,8 @@ name: Nix build
 
 on:
   pull_request:
-    paths:
-      - flake.nix
-      - flake.lock
-      - nix/**
   push:
     branches: [main]
-    paths:
-      - flake.nix
-      - flake.lock
-      - nix/**
 
 jobs:
   build:

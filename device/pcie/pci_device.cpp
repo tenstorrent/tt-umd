@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -38,7 +37,6 @@
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 
@@ -465,7 +463,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
         driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
-    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    UMD_ASSERT(
+        arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, error::RuntimeError, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;
@@ -622,6 +621,7 @@ PCIDevice::~PCIDevice() {
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
+        TracyFreeN(dma_buffer.buffer, "DMA");
         munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
     }
 }
@@ -943,6 +943,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
         dma_buffer.buffer_pa = iova;
         dma_buffer.completion_pa = iova + dma_buf_size;
         dma_buffer.size = dma_buf_size;
+        TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
 
         return true;
     } catch (...) {
@@ -985,6 +986,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
             dma_buffer.buffer_pa = dma_buf.out.physical_address;
             dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
             dma_buffer.size = dma_buf_size;
+            TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
             return true;
         }
     }

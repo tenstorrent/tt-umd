@@ -25,7 +25,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 

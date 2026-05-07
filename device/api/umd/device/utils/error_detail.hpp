@@ -4,6 +4,11 @@
 
 #pragma once
 
+// IWYU pragma: private, include "umd/device/utils/error.hpp".
+
+#ifndef UMD_ERROR_HPP_INTERNAL_INCLUDE
+#error "error_detail.hpp is a private header. Include umd/device/utils/error.hpp instead."
+#endif
 #include <cxxabi.h>
 #include <execinfo.h>
 
@@ -301,7 +306,7 @@ private:
  */
 #define UMD_ASSERT(condition, error_type, ...)                                                                       \
     do {                                                                                                             \
-        if (!(condition)) {                                                                                          \
+        if (!(condition)) { /* NOLINT(readability-simplify-boolean-expr) */                                          \
             throw tt::umd::error::UmdException<error_type>(error_type(__VA_ARGS__), __FILE__, __LINE__, #condition); \
         }                                                                                                            \
     } while (0)

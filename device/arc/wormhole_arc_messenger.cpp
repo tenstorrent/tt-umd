@@ -16,7 +16,6 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 

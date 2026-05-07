@@ -23,7 +23,6 @@
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -87,7 +86,7 @@ RemoteChip::RemoteChip(
 
 bool RemoteChip::is_mmio_capable() const { return false; }
 
-void RemoteChip::start_device() {}
+void RemoteChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void RemoteChip::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);
@@ -135,7 +134,9 @@ void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_fo
 
 void RemoteChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
 
-void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels) { wait_for_non_mmio_flush(); }
+void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
+    wait_for_non_mmio_flush();
+}
 
 void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
 

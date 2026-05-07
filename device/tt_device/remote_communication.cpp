@@ -14,7 +14,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {

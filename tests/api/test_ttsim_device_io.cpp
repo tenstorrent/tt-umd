@@ -424,4 +424,36 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
     EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write";
 }
 
+// Same BAR4 path, but targeting a DRAM tile. The 4GB TLB resolves to a NOC (x,y) address
+// independent of tile type, so this confirms the BAR4 route reaches DRAM as well as Tensix.
+TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathDramRoundTrip) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    if (soc.arch != tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "4GB TLBs only exist on Blackhole; skipping for arch " << tt::arch_to_str(soc.arch);
+    }
+
+    auto dram_cores = soc.get_cores(CoreType::DRAM);
+    ASSERT_FALSE(dram_cores.empty()) << "No DRAM cores in SOC descriptor";
+    const tt_xy_pair core = soc.translate_coord_to(dram_cores.at(0), CoordSystem::TRANSLATED);
+
+    constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
+    auto tlb_window = tt_device->get_tlb_manager()->allocate_tlb_window({}, TlbMapping::WC, SIZE_4GB);
+    ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
+    EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
+
+    constexpr size_t data_size = 1024;
+    constexpr uint64_t addr = 0x1000;
+    auto write_data = make_pattern(data_size, [](size_t i) { return (i * 13 + 5) % 256; });
+
+    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size);
+
+    std::vector<uint8_t> direct_read(data_size, 0);
+    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+    EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write to DRAM";
+
+    std::vector<uint8_t> tlb_read(data_size, 0);
+    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size);
+    EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write to DRAM";
+}
+
 }  // namespace tt::umd

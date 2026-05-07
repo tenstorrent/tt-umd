@@ -87,7 +87,10 @@ TTSimTTDevice::TTSimTTDevice(
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
-        // Compute physical address of BAR4 from PCI config registers (Blackhole 4GB TLBs live here).
+        // BAR4 is a 64-bit memory BAR; its base address is split across two PCI config
+        // registers — 0x20 holds the low 32 bits, 0x24 holds the high 32 bits. The low 4 bits
+        // of the low register encode BAR attributes (memory vs IO, prefetchable, 64-bit width)
+        // and are masked off to leave the physical address.
         bar4_base = communicator_->pci_config_read32(0, 0x20);
         bar4_base |= uint64_t(communicator_->pci_config_read32(0, 0x24)) << 32;
         bar4_base &= ~15ull;

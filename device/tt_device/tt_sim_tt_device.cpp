@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
+#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
@@ -28,7 +28,6 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -79,7 +78,7 @@ TTSimTTDevice::TTSimTTDevice(
         chip_id_,
         vendor_id,
         libttsim_pci_device_id);
-    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
@@ -112,23 +111,16 @@ TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
-    // Advance the sim on host writes. Without this, sequences like "load BRISC ELF, deassert
-    // BRISC, write first command mailbox" all sit at the same simulated timestamp — BRISC never
-    // gets cycles to finish its CRT init before the command mailbox write, so BRISC's clear of
-    // brisc_command_buffer at startup clobbers the host's command and the handshake hangs. The
-    // floor guarantees that a tiny 4-byte deassert write still gives the newly-started core
-    // enough cycles to make meaningful progress before the next host operation lands.
-    communicator_->advance_clock(std::max<uint32_t>(1000, size));
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -200,6 +192,17 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
         reset_value &= ~soft_reset_update;
         write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+    }
+}
+
+void TTSimTTDevice::advance_device_execution() {
+    // Simulator clocking is driven synchronously from the calling thread to keep the simulation
+    // deterministic. A background clock thread would race with reads/writes and produce
+    // non-reproducible runs, so we advance the clock here instead.
+    // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid
+    // hangs in the absence of an API reliably called from all spin loops polling the device.
+    if (communicator_) {
+        communicator_->advance_clock(1);
     }
 }
 

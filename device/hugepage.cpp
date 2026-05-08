@@ -21,10 +21,8 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -102,11 +100,13 @@ uint32_t get_available_num_host_mem_channels(
             num_channels_per_device_target);
     }
 
-    TT_ASSERT(
+    UMD_ASSERT(
         num_channels_per_device_available <= MAX_HOST_MEM_CHANNELS,
-        "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
-        num_channels_per_device_available,
-        MAX_HOST_MEM_CHANNELS);
+        error::RuntimeError,
+        fmt::format(
+            "NumHostMemChannels: {} exceeds supported maximum: {}, this is unexpected.",
+            num_channels_per_device_available,
+            MAX_HOST_MEM_CHANNELS));
 
     return num_channels_per_device_available;
 }

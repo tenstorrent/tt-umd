@@ -17,7 +17,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -37,7 +36,6 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -148,7 +146,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
 }
 
-void LocalChip::initialize_membars() {
+void LocalChip::initialize_membars(uint32_t dram_subchannel) {
     ZoneScopedC(tracy::Color::DarkGreen);
     set_membar_flag(
         soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
@@ -162,7 +160,8 @@ void LocalChip::initialize_membars() {
     std::vector<CoreCoord> dram_cores_vector = {};
     dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
     for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+        dram_cores_vector.push_back(
+            soc_descriptor_.get_dram_core_for_channel(dram_idx, dram_subchannel, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -175,7 +174,7 @@ TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 bool LocalChip::is_mmio_capable() const { return true; }
 
-void LocalChip::start_device() {
+void LocalChip::start_device(uint32_t dram_membar_subchannel) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (tt_device_->get_communication_device_type() == IODeviceType::JTAG) {
         return;
@@ -190,7 +189,7 @@ void LocalChip::start_device() {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();
     }
-    initialize_membars();
+    initialize_membars(dram_membar_subchannel);
 }
 
 void LocalChip::close_device() {
@@ -238,9 +237,15 @@ int LocalChip::get_host_channel_size(std::uint32_t channel) {
         return 0;
     }
 
-    TT_ASSERT(channel < get_num_host_channels(), "Querying size for a host channel that does not exist.");
+    UMD_ASSERT(
+        channel < get_num_host_channels(),
+        error::RuntimeError,
+        "Querying size for a host channel that does not exist.");
     HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
-    TT_ASSERT(hugepage_map.mapping_size, "Host channel size can only be queried after the device has been started.");
+    UMD_ASSERT(
+        hugepage_map.mapping_size,
+        error::RuntimeError,
+        "Host channel size can only be queried after the device has been started.");
     return hugepage_map.mapping_size;
 }
 
@@ -294,7 +299,8 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
+        get_cached_wc_tlb_window()->write_block_reconfigure(
+            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -319,7 +325,8 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
+        get_cached_wc_tlb_window()->read_block_reconfigure(
+            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -541,8 +548,9 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (!cores.empty()) {
         for (const auto& core : cores) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                error::RuntimeError,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
         std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
@@ -559,10 +567,10 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     }
 }
 
-void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels) {
+void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, 0, CoordSystem::TRANSLATED));
+        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, subchannel, CoordSystem::TRANSLATED));
     }
     dram_membar(dram_cores_to_sync);
 }
@@ -621,6 +629,7 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr,
+        get_selected_noc_id(),
         tlb_data::Relaxed);
 }
 }  // namespace tt::umd

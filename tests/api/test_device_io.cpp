@@ -808,3 +808,36 @@ TEST(TestDeviceIO, DMA2) {
         }
     }
 }
+
+// Tests that dram_membar can be called with a non-zero subchannel on each chip.
+// Uses a mock cluster so no real hardware is required.
+TEST(TestDramMembar, DramMembarSubchannelByChannels) {
+    Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .target_devices = {0}});
+
+    for (ChipId chip_id : cluster.get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster.get_soc_descriptor(chip_id);
+        const int num_channels = soc_desc.get_num_dram_channels();
+
+        if (num_channels == 0) {
+            continue;
+        }
+
+        std::unordered_set<uint32_t> all_channels;
+        for (int i = 0; i < num_channels; i++) {
+            all_channels.insert(i);
+        }
+
+        for (int subchannel = 0; subchannel < static_cast<int>(soc_desc.get_dram_cores()[0].size()); subchannel++) {
+            EXPECT_NO_THROW(cluster.dram_membar(chip_id, all_channels, subchannel));
+        }
+    }
+}
+
+// Tests that start_device with dram_membar_subchannel propagates to initialize_membars.
+// Uses a mock cluster so no real hardware is required.
+TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
+    Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .target_devices = {0}});
+
+    // start_device is a no-op for mock chips, but this verifies the API compiles and is callable.
+    EXPECT_NO_THROW(cluster.start_device({.init_device = true, .dram_membar_subchannel = 1}));
+}

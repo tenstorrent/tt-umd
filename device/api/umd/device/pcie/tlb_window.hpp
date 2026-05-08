@@ -39,7 +39,7 @@ public:
 
     // Shared higher-level methods that use the virtual methods above.
     virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Relaxed);
 
     virtual void write_block_reconfigure(
         const void* mem_ptr,
@@ -47,7 +47,7 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Relaxed);
 
     virtual void noc_multicast_write_reconfigure(
         void* dst,
@@ -56,7 +56,7 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Relaxed);
 
     virtual void safe_write16(uint64_t offset, uint16_t value) = 0;
 
@@ -80,10 +80,10 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Relaxed);
 
     virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Relaxed);
 
     virtual void safe_noc_multicast_write_reconfigure(
         void* dst,
@@ -92,7 +92,7 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Relaxed);
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;

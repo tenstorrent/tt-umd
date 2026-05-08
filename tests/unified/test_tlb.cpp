@@ -157,7 +157,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
         config.y_start = 0;
         config.noc_sel = 0;
         config.mcast = 0;
-        config.ordering = tlb_data::Strict;
+        config.ordering = tlb_data::Relaxed;
         config.linked = 0;
         config.static_vc = 1;
 
@@ -474,7 +474,7 @@ TEST(TestTlb, TLBStaticTensix) {
 
     for (const CoreCoord tensix_core :
          cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-        cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
+        cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Relaxed);
     }
 
     TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);

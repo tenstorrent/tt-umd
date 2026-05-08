@@ -56,10 +56,10 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
+        uint64_t ordering = tlb_data::Relaxed) override;
 
     void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict)
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Relaxed)
         override;
 
     void safe_noc_multicast_write_reconfigure(
@@ -69,7 +69,7 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
+        uint64_t ordering = tlb_data::Relaxed) override;
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 

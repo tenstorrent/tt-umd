@@ -110,10 +110,10 @@ void PcieProtocol::noc_multicast_write(
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Strict);
+            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Relaxed);
     } else {
         get_cached_tlb_window()->noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Strict);
+            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 

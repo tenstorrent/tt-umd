@@ -10,6 +10,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
@@ -20,7 +21,10 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size
     tlb_size_ = size;
     tlb_mapping_ = mapping;
 
-    if (manager_) {
+    // QUASAR bypasses the simulation TLB allocator (see SimulationTlbManager::
+    // allocate_default_tlb_window); skip the allocator query for it so
+    // get_tlb_address_from_index doesn't throw on the empty pool.
+    if (manager_ && manager_->get_arch() != tt::ARCH::QUASAR) {
         // This is a fake, non-dereferenceable pointer used only for address arithmetic.
         // For RTL sim, bar0_base is 0, so this will be a near-null address.
         tlb_base_ = reinterpret_cast<uint8_t*>(manager_->get_tlb_address_from_index(tlb_id_));

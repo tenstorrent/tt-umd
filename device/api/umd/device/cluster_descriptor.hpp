@@ -255,6 +255,8 @@ public:
 
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
+    std::optional<SemVer> get_ethernet_firmware_version() const { return eth_fw_version; };
+
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 

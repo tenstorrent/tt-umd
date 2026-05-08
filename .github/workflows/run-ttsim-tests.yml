@@ -122,7 +122,7 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=OFF \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests
+          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
@@ -165,6 +165,53 @@ jobs:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
+      # ClusterConstructor benchmark on simulator establishes the regression-detection
+      # baseline; numbers will eventually be re-collected on real hardware once stable
+      # device runners are available.
+      #
+      # Each invocation produces its own timestamped subdirectory under
+      # UMD_MICROBENCHMARK_RESULTS_PATH (handled in microbenchmark_utils.hpp), so
+      # running the binary N× back-to-back lets us observe within-run variance
+      # (process-startup / dlopen / fs-cache jitter) separately from across-commit
+      # drift. Sleep 1s between iterations to avoid same-second timestamp collision.
+      - name: Run UMD open_cluster microbenchmark on tt-sim wormhole (3x)
+        timeout-minutes: 5
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          UMD_MICROBENCHMARK_RESULTS_PATH: ${{ github.workspace }}/microbench-results/sim_wh
+        run: |
+          mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
+          for i in 1 2 3; do
+            echo "::group::ClusterConstructor wh iteration $i"
+            tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
+              --gtest_filter="MicrobenchmarkOpenCluster.ClusterConstructor"
+            echo "::endgroup::"
+            sleep 1
+          done
+
+      - name: Run UMD open_cluster microbenchmark on tt-sim blackhole (3x)
+        timeout-minutes: 5
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          UMD_MICROBENCHMARK_RESULTS_PATH: ${{ github.workspace }}/microbench-results/sim_bh
+        run: |
+          mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
+          for i in 1 2 3; do
+            echo "::group::ClusterConstructor bh iteration $i"
+            tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
+              --gtest_filter="MicrobenchmarkOpenCluster.ClusterConstructor"
+            echo "::endgroup::"
+            sleep 1
+          done
+
+      - name: Upload microbenchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: umd-microbenchmark-results
+          path: ${{ github.workspace }}/microbench-results
+          if-no-files-found: warn
 
       # Galaxy tests can be a bit longer, should run on the order of minutes.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0

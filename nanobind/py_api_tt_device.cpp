@@ -142,8 +142,7 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "get_local_device",
             &RemoteCommunication::get_local_device,
-            nb::rv_policy::reference_internal,
-            release_gil())
+            nb::rv_policy::reference_internal)
         .def(
             "get_remote_transfer_ethernet_core",
             [](RemoteCommunication &self) -> std::tuple<int, int> {
@@ -179,8 +178,7 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "get_arc_telemetry_reader",
             &TTDevice::get_arc_telemetry_reader,
-            nb::rv_policy::reference_internal,
-            release_gil())
+            nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
         .def("board_id", &TTDevice::get_board_id, release_gil())
@@ -193,13 +191,11 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "get_remote_communication",
             &TTDevice::get_remote_communication,
-            nb::rv_policy::reference_internal,
-            release_gil())
+            nb::rv_policy::reference_internal)
         .def(
             "get_firmware_info_provider",
             &TTDevice::get_firmware_info_provider,
-            nb::rv_policy::reference_internal,
-            release_gil())
+            nb::rv_policy::reference_internal)
         // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",
@@ -295,20 +291,16 @@ void bind_tt_device(nb::module_ &m) {
             "Write arbitrary-length data to a core at the specified address")
         .def(
             "bar_read32",
-            [](TTDevice &self, uint32_t addr) -> uint32_t {
-                nb::gil_scoped_release release;
-                return self.bar_read32(addr);
-            },
+            &TTDevice::bar_read32,
             nb::arg("addr"),
+            release_gil(),
             "Read a 32-bit value from the specified address on bar0")
         .def(
             "bar_write32",
-            [](TTDevice &self, uint32_t addr, uint32_t data) -> void {
-                nb::gil_scoped_release release;
-                self.bar_write32(addr, data);
-            },
+            &TTDevice::bar_write32,
             nb::arg("addr"),
             nb::arg("data"),
+            release_gil(),
             "Write a 32-bit value to the specified address on bar0")
         .def(
             "is_pcie_hung",
@@ -620,7 +612,6 @@ void bind_tt_device(nb::module_ &m) {
             "get_soc_descriptor",
             &TTSimTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
-            release_gil(),
             "Get the SocDescriptor associated with this simulation device.")
 
         .def("get_clock", &TTSimTTDevice::get_clock, release_gil(), "Get the clock frequency.")

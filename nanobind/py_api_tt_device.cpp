@@ -139,10 +139,7 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("cores"),
             release_gil())
-        .def(
-            "get_local_device",
-            &RemoteCommunication::get_local_device,
-            nb::rv_policy::reference_internal)
+        .def("get_local_device", &RemoteCommunication::get_local_device, nb::rv_policy::reference_internal)
         .def(
             "get_remote_transfer_ethernet_core",
             [](RemoteCommunication &self) -> std::tuple<int, int> {
@@ -175,10 +172,7 @@ void bind_tt_device(nb::module_ &m) {
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
-        .def(
-            "get_arc_telemetry_reader",
-            &TTDevice::get_arc_telemetry_reader,
-            nb::rv_policy::reference_internal)
+        .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
         .def("board_id", &TTDevice::get_board_id, release_gil())
@@ -188,14 +182,8 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference, release_gil())
         .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
-        .def(
-            "get_remote_communication",
-            &TTDevice::get_remote_communication,
-            nb::rv_policy::reference_internal)
-        .def(
-            "get_firmware_info_provider",
-            &TTDevice::get_firmware_info_provider,
-            nb::rv_policy::reference_internal)
+        .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
+        .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)
         // Compatibility with luwen's API - these methods just return self.
         .def(
             "as_wh",

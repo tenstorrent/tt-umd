@@ -26,8 +26,7 @@ void bind_basic_types(nb::module_ &m) {
         .value("NOC0", NocId::NOC0)
         .value("NOC1", NocId::NOC1)
         .value("SYSTEM_NOC", NocId::SYSTEM_NOC)
-        .def(
-            "__int__", [](NocId noc_id) { return static_cast<int>(noc_id); });
+        .def("__int__", [](NocId noc_id) { return static_cast<int>(noc_id); });
 
     m.def("set_thread_noc_id", &tt::umd::set_thread_noc_id, nb::arg("noc_id"));
 
@@ -50,8 +49,7 @@ void bind_basic_types(nb::module_ &m) {
         .def(nb::init<uint32_t, uint32_t>(), nb::arg("x"), nb::arg("y"))
         .def_ro("x", &tt_xy_pair::x)
         .def_ro("y", &tt_xy_pair::y)
-        .def(
-            "__str__", [](const tt_xy_pair &pair) { return fmt::format("({}, {})", pair.x, pair.y); });
+        .def("__str__", [](const tt_xy_pair &pair) { return fmt::format("({}, {})", pair.x, pair.y); });
 
     nb::enum_<tt::ARCH>(m, "ARCH")
         .value("WORMHOLE_B0", tt::ARCH::WORMHOLE_B0)
@@ -59,8 +57,7 @@ void bind_basic_types(nb::module_ &m) {
         .value("QUASAR", tt::ARCH::QUASAR)
         .value("Invalid", tt::ARCH::Invalid)
         .def("__str__", &tt::arch_to_str)
-        .def(
-            "__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
+        .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })
         .def_static("from_str", &tt::arch_from_str, nb::arg("arch_str"));
 
     nb::enum_<RiscType>(m, "RiscType")
@@ -109,16 +106,11 @@ void bind_basic_types(nb::module_ &m) {
         .value("ALL_NEO_TRISCS", RiscType::ALL_NEO_TRISCS)
         .value("ALL_NEO_DMS", RiscType::ALL_NEO_DMS)
         .value("ALL_NEO", RiscType::ALL_NEO)
-        .def(
-            "__int__", [](RiscType rt) { return static_cast<uint64_t>(rt); })
-        .def(
-            "__str__", [](RiscType rt) { return RiscTypeToString(rt); })
-        .def(
-            "__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; })
-        .def(
-            "__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; })
-        .def(
-            "__invert__", [](RiscType rt) { return invert_selected_options(rt); });
+        .def("__int__", [](RiscType rt) { return static_cast<uint64_t>(rt); })
+        .def("__str__", [](RiscType rt) { return RiscTypeToString(rt); })
+        .def("__or__", [](RiscType lhs, RiscType rhs) { return lhs | rhs; })
+        .def("__and__", [](RiscType lhs, RiscType rhs) { return lhs & rhs; })
+        .def("__invert__", [](RiscType rt) { return invert_selected_options(rt); });
 
     nb::enum_<TensixSoftResetOptions>(m, "TensixSoftResetOptions")
         .value("NONE", TensixSoftResetOptions::NONE)
@@ -133,16 +125,11 @@ void bind_basic_types(nb::module_ &m) {
         .value("TENSIX_ASSERT_SOFT_RESET", TENSIX_ASSERT_SOFT_RESET)
         .value("TENSIX_DEASSERT_SOFT_RESET", TENSIX_DEASSERT_SOFT_RESET)
         .value("TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER", TENSIX_DEASSERT_SOFT_RESET_NO_STAGGER)
-        .def(
-            "__int__", [](TensixSoftResetOptions opt) { return static_cast<uint32_t>(opt); })
-        .def(
-            "__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); })
-        .def(
-            "__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; })
-        .def(
-            "__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; })
-        .def(
-            "__invert__", [](TensixSoftResetOptions opt) { return invert_selected_options(opt); });
+        .def("__int__", [](TensixSoftResetOptions opt) { return static_cast<uint32_t>(opt); })
+        .def("__str__", [](TensixSoftResetOptions opt) { return TensixSoftResetOptionsToString(opt); })
+        .def("__or__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs | rhs; })
+        .def("__and__", [](TensixSoftResetOptions lhs, TensixSoftResetOptions rhs) { return lhs & rhs; })
+        .def("__invert__", [](TensixSoftResetOptions opt) { return invert_selected_options(opt); });
 
     nb::enum_<tt::BoardType>(m, "BoardType")
         .value("E75", tt::BoardType::E75)
@@ -160,16 +147,11 @@ void bind_basic_types(nb::module_ &m) {
         .value("QUASAR", tt::BoardType::QUASAR_BOARD)
         .value("UNKNOWN", tt::BoardType::UNKNOWN)
         .def("__str__", &tt::board_type_to_string)
-        .def(
-            "__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
+        .def("__int__", [](tt::BoardType tag) { return static_cast<int>(tag); });
 
     nb::class_<SemVer>(m, "SemVer")
         .def(nb::init<>())
-        .def(
-            nb::init<uint64_t, uint64_t, uint64_t>(),
-            nb::arg("major"),
-            nb::arg("minor"),
-            nb::arg("patch"))
+        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
         .def(nb::init<const std::string &>(), nb::arg("version_str"))
         .def_rw("major", &SemVer::major)
         .def_rw("minor", &SemVer::minor)
@@ -187,13 +169,8 @@ void bind_basic_types(nb::module_ &m) {
 
     nb::class_<FirmwareBundleVersion>(m, "FirmwareBundleVersion")
         .def(nb::init<>())
-        .def_static(
-            "from_firmware_bundle_tag", &FirmwareBundleVersion::from_firmware_bundle_tag, nb::arg("tag"))
-        .def(
-            nb::init<uint64_t, uint64_t, uint64_t>(),
-            nb::arg("major"),
-            nb::arg("minor"),
-            nb::arg("patch"))
+        .def_static("from_firmware_bundle_tag", &FirmwareBundleVersion::from_firmware_bundle_tag, nb::arg("tag"))
+        .def(nb::init<uint64_t, uint64_t, uint64_t>(), nb::arg("major"), nb::arg("minor"), nb::arg("patch"))
         .def(nb::init<const std::string &>(), nb::arg("version_str"))
         .def_rw("major", &SemVer::major)
         .def_rw("minor", &SemVer::minor)
@@ -224,11 +201,7 @@ void bind_basic_types(nb::module_ &m) {
         .def_rw("l2cpu_harvesting_mask", &HarvestingMasks::l2cpu_harvesting_mask);
 
     // Utility functions for BoardType.
-    m.def(
-        "board_type_to_string",
-        &tt::board_type_to_string,
-        nb::arg("board_type"),
-        "Convert BoardType to string");
+    m.def("board_type_to_string", &tt::board_type_to_string, nb::arg("board_type"), "Convert BoardType to string");
     m.def(
         "board_type_from_string",
         &tt::board_type_from_string,

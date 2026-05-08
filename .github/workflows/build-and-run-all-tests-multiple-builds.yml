@@ -145,6 +145,38 @@ jobs:
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
+  # Fail-fast watchers for the merge queue: cancel the workflow run as soon as any build fails,
+  # so the queue gets a failure verdict without waiting for the slowest build to finish.
+  # One watcher per build job by design — a single watcher with multi-job `needs` would wait
+  # for every need to reach a terminal state before evaluating `if: failure()`, defeating the
+  # purpose. Restricted to merge_group; PRs keep running so devs see all failures at once.
+  fail-fast-release:
+    if: failure() && github.event_name == 'merge_group'
+    needs: [build-release]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-asan:
+    if: failure() && github.event_name == 'merge_group'
+    needs: [build-asan]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-tsan:
+    if: failure() && github.event_name == 'merge_group'
+    needs: [build-tsan]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
   # Single leaf check that can be required in branch rulesets.
   # Treats skipped jobs as passing (expected on pull_request), fails on failure or cancellation.
   all-builds-passed:

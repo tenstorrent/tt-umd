@@ -11,20 +11,20 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
 
 jobs:
   build-and-run-ttsim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
@@ -124,84 +124,110 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark
 
-      # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
-      # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
-      - name: Run tt-sim wormhole tests
-        timeout-minutes: 1
+      # DIAGNOSTIC: each test step is wrapped in a 7× loop so we can characterize
+      # within-run (same commit, same runner) variance for every ttsim test step.
+      # Each iteration emits ITER_BEGIN / ITER_END markers; their log timestamps
+      # (ms-precision) can be parsed from the run logs to compute per-iteration
+      # durations. Revert the loops once the variance baseline is collected.
+      - name: Run tt-sim wormhole tests (7x)
+        timeout-minutes: 3
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
-          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+          export TT_METAL_SLOW_DISPATCH_MODE=1
+          BIN="$TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN tt-sim-wh-tests $i"
+            "$BIN"
+            echo "ITER_END   tt-sim-wh-tests $i"
+          done
 
-      - name: Run tt-sim blackhole tests
-        timeout-minutes: 1
+      - name: Run tt-sim blackhole tests (7x)
+        timeout-minutes: 3
         run: |
           export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
-          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+          export TT_METAL_SLOW_DISPATCH_MODE=1
+          BIN="$TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN tt-sim-bh-tests $i"
+            "$BIN"
+            echo "ITER_END   tt-sim-bh-tests $i"
+          done
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
-        timeout-minutes: 1
+      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole (7x)
+        timeout-minutes: 3
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN TestDeviceIOFixture-wh $i"
+            tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+            echo "ITER_END   TestDeviceIOFixture-wh $i"
+          done
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole
-        timeout-minutes: 1
+      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole (7x)
+        timeout-minutes: 3
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN TestDeviceIOFixture-bh $i"
+            tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+            echo "ITER_END   TestDeviceIOFixture-bh $i"
+          done
 
-      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
-        timeout-minutes: 1
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole (7x)
+        timeout-minutes: 3
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN TTSimDeviceIOFixture-wh $i"
+            tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+            echo "ITER_END   TTSimDeviceIOFixture-wh $i"
+          done
 
-      - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
-        timeout-minutes: 1
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole (7x)
+        timeout-minutes: 3
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
         run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN TTSimDeviceIOFixture-bh $i"
+            tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+            echo "ITER_END   TTSimDeviceIOFixture-bh $i"
+          done
 
-      # ClusterConstructor benchmark on simulator establishes the regression-detection
-      # baseline; numbers will eventually be re-collected on real hardware once stable
-      # device runners are available.
-      #
+      # ClusterConstructor microbenchmark — 7× to match the diagnostic above.
       # Each invocation produces its own timestamped subdirectory under
-      # UMD_MICROBENCHMARK_RESULTS_PATH (handled in microbenchmark_utils.hpp), so
-      # running the binary N× back-to-back lets us observe within-run variance
-      # (process-startup / dlopen / fs-cache jitter) separately from across-commit
-      # drift. Sleep 1s between iterations to avoid same-second timestamp collision.
-      - name: Run UMD open_cluster microbenchmark on tt-sim wormhole (3x)
-        timeout-minutes: 5
+      # UMD_MICROBENCHMARK_RESULTS_PATH (handled in microbenchmark_utils.hpp).
+      # Sleep 1s between iterations to avoid same-second timestamp collisions.
+      - name: Run UMD open_cluster microbenchmark on tt-sim wormhole (7x)
+        timeout-minutes: 10
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
           UMD_MICROBENCHMARK_RESULTS_PATH: ${{ github.workspace }}/microbench-results/sim_wh
         run: |
           mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
-          for i in 1 2 3; do
-            echo "::group::ClusterConstructor wh iteration $i"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN ClusterConstructor-wh $i"
             tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
               --gtest_filter="MicrobenchmarkOpenCluster.ClusterConstructor"
-            echo "::endgroup::"
+            echo "ITER_END   ClusterConstructor-wh $i"
             sleep 1
           done
 
-      - name: Run UMD open_cluster microbenchmark on tt-sim blackhole (3x)
-        timeout-minutes: 5
+      - name: Run UMD open_cluster microbenchmark on tt-sim blackhole (7x)
+        timeout-minutes: 10
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
           UMD_MICROBENCHMARK_RESULTS_PATH: ${{ github.workspace }}/microbench-results/sim_bh
         run: |
           mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
-          for i in 1 2 3; do
-            echo "::group::ClusterConstructor bh iteration $i"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN ClusterConstructor-bh $i"
             tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
               --gtest_filter="MicrobenchmarkOpenCluster.ClusterConstructor"
-            echo "::endgroup::"
+            echo "ITER_END   ClusterConstructor-bh $i"
             sleep 1
           done
 
@@ -214,8 +240,8 @@ jobs:
           if-no-files-found: warn
 
       # Galaxy tests can be a bit longer, should run on the order of minutes.
-      - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
-        timeout-minutes: 5
+      - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0 (7x)
+        timeout-minutes: 12
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
@@ -226,11 +252,15 @@ jobs:
           cd tt-metal
           export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
           echo "Running C++ unit tests for wormhole_b0..."
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN galaxy-wh $i"
+            ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
+            ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+            echo "ITER_END   galaxy-wh $i"
+          done
 
-      - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
-        timeout-minutes: 5
+      - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole (7x)
+        timeout-minutes: 14
         env:
           TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
@@ -241,5 +271,9 @@ jobs:
           cd tt-metal
           export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"
           echo "Running C++ unit tests for blackhole..."
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+          for i in $(seq 1 7); do
+            echo "ITER_BEGIN galaxy-bh $i"
+            ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
+            ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+            echo "ITER_END   galaxy-bh $i"
+          done

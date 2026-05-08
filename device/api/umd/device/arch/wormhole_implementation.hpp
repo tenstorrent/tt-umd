@@ -47,7 +47,11 @@ inline constexpr auto TLB_1M_OFFSET = tlb_offsets{
     .ordering = 42,
     .linked = 44,
     .static_vc = 45,
-    .static_vc_end = 46};
+    .static_vc_end = 46,
+    // WH hardware does not expose buddy/class fields; placed in reserved bits, packing is a no-op.
+    .static_vc_buddy = 46,
+    .static_vc_class = 47,
+    .static_vc_class_end = 49};
 
 // clang-format off
 // local_offset: [ 0, 14,  0,  "35-bit address prefix, prepended to the 21 LSBs of issued address to form a 56-bit NOC address. The 2MB TLB #n corresponds to the 2MB MMIO range starting at (0x9C00000 + N*0x200000)."]
@@ -71,7 +75,11 @@ inline constexpr auto TLB_2M_OFFSET = tlb_offsets{
     .ordering = 41,
     .linked = 43,
     .static_vc = 44,
-    .static_vc_end = 45};
+    .static_vc_end = 45,
+    // WH hardware does not expose buddy/class fields; placed in reserved bits, packing is a no-op.
+    .static_vc_buddy = 45,
+    .static_vc_class = 46,
+    .static_vc_class_end = 48};
 
 // clang-format off
 // local_offset: [ 0, 11,  0,  "32-bit address prefix, prepended to the 24 LSBs of issued address to form a 56-bit NOC address. The 16MB TLB #n corresponds to the 16MB MMIO range starting at (0xB000000 + N*0x1000000)."]
@@ -95,7 +103,11 @@ inline constexpr auto TLB_16M_OFFSET = tlb_offsets{
     .ordering = 38,
     .linked = 40,
     .static_vc = 41,
-    .static_vc_end = 42};
+    .static_vc_end = 42,
+    // WH hardware does not expose buddy/class fields; placed in reserved bits, packing is a no-op.
+    .static_vc_buddy = 42,
+    .static_vc_class = 43,
+    .static_vc_class_end = 45};
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing

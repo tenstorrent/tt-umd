@@ -92,6 +92,8 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+    config.static_vc_buddy = 0;  // unicast write (host-to-device)
+    config.static_vc_class = 0;
     TlbWindow* tlb_window = get_cached_tlb_window();
     tlb_window->configure(config);
 
@@ -148,6 +150,8 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
     config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+    config.static_vc_buddy = 1;  // unicast read (device-to-host)
+    config.static_vc_class = 0;
 
     TlbWindow* tlb_window = get_cached_tlb_window();
     tlb_window->configure(config);

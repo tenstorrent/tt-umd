@@ -32,7 +32,9 @@ void TlbWindow::read_block_reconfigure(
     config.y_end = core.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
+    config.static_vc = 1;
+    config.static_vc_buddy = 1;  // reads use buddy=1 (matches WH hardware default)
+    config.static_vc_class = 0;  // unicast read
 
     while (size > 0) {
         configure(config);
@@ -58,7 +60,9 @@ void TlbWindow::write_block_reconfigure(
     config.y_end = core.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
+    config.static_vc = 1;
+    config.static_vc_buddy = 0;  // writes use buddy=0 (matches WH hardware default)
+    config.static_vc_class = 0;  // unicast write
 
     while (size > 0) {
         configure(config);
@@ -94,7 +98,9 @@ void TlbWindow::noc_multicast_write_reconfigure(
     config.mcast = true;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
+    config.static_vc = 1;
+    config.static_vc_buddy = 0;  // writes use buddy=0
+    config.static_vc_class = 2;  // 0b10 — required by spec for multicast requests
 
     while (size > 0) {
         configure(config);

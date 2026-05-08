@@ -23,6 +23,13 @@ struct tlb_offsets {
     uint32_t linked;
     uint32_t static_vc;
     uint32_t static_vc_end;
+    // Per-TLB pin of the NoC virtual channel buddy bit and class bits when static_vc is set.
+    // Configurable on Blackhole/Grendel; on Wormhole the hardware hardcodes the equivalent
+    // (buddy=0 for writes, buddy=1 for reads, class=0b00 unicast / 0b10 multicast) regardless
+    // of these bits, so the WH offsets point at reserved bits and packing them is harmless.
+    uint32_t static_vc_buddy;
+    uint32_t static_vc_class;
+    uint32_t static_vc_class_end;
 };
 
 struct tlb_data {
@@ -36,6 +43,8 @@ struct tlb_data {
     uint64_t ordering = 0;
     uint64_t linked = 0;
     uint64_t static_vc = 0;
+    uint64_t static_vc_buddy = 0;
+    uint64_t static_vc_class = 0;
 
     // Orderings.
     static constexpr uint64_t Relaxed = 0;

@@ -40,7 +40,10 @@ inline constexpr auto TLB_2M_OFFSET = tlb_offsets{
     .linked = 72,
     .static_vc = 73,
     // missing .stream_header
-    .static_vc_end = 75};
+    .static_vc_end = 75,
+    .static_vc_buddy = 75,
+    .static_vc_class = 76,
+    .static_vc_class_end = 78};
 
 inline constexpr auto TLB_4G_OFFSET = tlb_offsets{
     .local_offset = 0,
@@ -54,7 +57,10 @@ inline constexpr auto TLB_4G_OFFSET = tlb_offsets{
     .linked = 61,
     .static_vc = 62,
     // missing .stream_header
-    .static_vc_end = 64};
+    .static_vc_end = 64,
+    .static_vc_buddy = 64,
+    .static_vc_class = 65,
+    .static_vc_class_end = 67};
 
 enum class arc_message_type {
     NOP = 0x11,  // Do nothing
@@ -497,7 +503,7 @@ public:
 
     size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
 
-    bool get_static_vc() const override { return false; }  // False due to a known HW issue.
+    bool get_static_vc() const override { return true; }
 
     std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
         const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);

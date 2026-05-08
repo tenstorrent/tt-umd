@@ -181,6 +181,13 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         return false;
     }
 
+    // For DMA, the TLB direction matches the data-flow direction:
+    //   H2D = TLB used to write into device tile  -> buddy=0
+    //   D2H = TLB used to read from device tile   -> buddy=1.
+    // Class must be 0b10 for multicast requests; 0b00 otherwise.
+    config.static_vc_buddy = (direction == DmaDirection::H2D) ? 0 : 1;
+    config.static_vc_class = config.mcast ? 2 : 0;
+
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     size_t dmabuf_size = dma_buffer.size;
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);

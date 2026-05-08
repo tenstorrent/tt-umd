@@ -22,7 +22,9 @@ bool tlb_data::check(const tlb_offsets &offset) const {
            (mcast > ((1ULL << (offset.ordering - offset.mcast)) - 1)) |
            (ordering > ((1ULL << (offset.linked - offset.ordering)) - 1)) |
            (linked > ((1ULL << (offset.static_vc - offset.linked)) - 1)) |
-           (static_vc > ((1ULL << (offset.static_vc_end - offset.static_vc)) - 1));
+           (static_vc > ((1ULL << (offset.static_vc_end - offset.static_vc)) - 1)) |
+           (static_vc_buddy > ((1ULL << (offset.static_vc_class - offset.static_vc_buddy)) - 1)) |
+           (static_vc_class > ((1ULL << (offset.static_vc_class_end - offset.static_vc_class)) - 1));
 }
 
 // Helper lambda to handle bit packing.
@@ -56,6 +58,8 @@ std::pair<std::uint64_t, std::uint64_t> tlb_data::apply_offset(const tlb_offsets
     pack_bits(lower, upper, ordering, offset.ordering);
     pack_bits(lower, upper, linked, offset.linked);
     pack_bits(lower, upper, static_vc, offset.static_vc);
+    pack_bits(lower, upper, static_vc_buddy, offset.static_vc_buddy);
+    pack_bits(lower, upper, static_vc_class, offset.static_vc_class);
 
     return std::make_pair(lower, upper);
 }

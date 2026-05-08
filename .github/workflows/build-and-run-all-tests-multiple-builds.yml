@@ -28,6 +28,16 @@ on:
   push:
     branches: ["main"]
 
+# Granted to all jobs that don't declare their own `permissions:` block.
+# `actions: write` is required so the merge-queue fail-fast watchers (inside
+# build-and-run-all-tests.yml) can call the cancel-workflow API.
+# `contents: read` and `packages: read` mirror the GitHub-default set the
+# build/test reusable workflows rely on (checkout, ghcr.io image pulls).
+permissions:
+  contents: read
+  actions: write
+  packages: read
+
 jobs:
   # Ensure the Docker image for CI exists. If the Dockerfile (or its
   # install scripts) changed on this branch the image is rebuilt and pushed

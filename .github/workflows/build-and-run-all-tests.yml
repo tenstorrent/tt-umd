@@ -166,7 +166,10 @@ jobs:
     secrets: inherit
     needs: [build-tests, generate-test-matrix]
     strategy:
-      fail-fast: false
+      # Cancel sibling cards on first failure only in the merge queue, where time-to-verdict
+      # matters more than seeing every card's result. PR/push runs keep fail-fast off so devs
+      # see whether a failure is card-specific or general.
+      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
         ubuntu-docker-version: ['ubuntu-22.04']
@@ -193,7 +196,7 @@ jobs:
     secrets: inherit
     needs: build-tests
     strategy:
-      fail-fast: false
+      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
           {runs-on: tt-ubuntu-2204-p150b-stable},
@@ -221,7 +224,7 @@ jobs:
     secrets: inherit
     needs: build-tests
     strategy:
-      fail-fast: false
+      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
           {runs-on: tt-ubuntu-2204-p150b-stable},
@@ -253,3 +256,62 @@ jobs:
       build-type: ${{ inputs.build-type }}
       timeout: 20
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+
+  # Fail-fast watchers for the merge queue: cancel the workflow run as soon as any test job
+  # here fails. A workflow_call shares run_id with its caller, so this cancellation propagates
+  # up to the sibling top-level builds (Release/ASan/TSan), giving end-to-end fail-fast.
+  # One watcher per job by design — a single watcher with multi-job `needs` would wait for
+  # every need to settle before evaluating `if: failure()`, defeating the purpose.
+  fail-fast-build-tests:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [build-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-test-all:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [test-all]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-ttsim:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-ttsim-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-tooling:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-tooling-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-exalens:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-exalens-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-tracy:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-tracy]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3

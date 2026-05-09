@@ -51,6 +51,9 @@ public:
     void noc_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
+    using TTDevice::noc_multicast_write;
+    void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
+
     ~WormholeTTDevice() override = default;
 
 protected:

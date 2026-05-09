@@ -442,4 +442,12 @@ void WormholeTTDevice::noc_multicast_write(
     }
 }
 
+void WormholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+    // Same range is used for NOC0 and NOC1.
+    // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
+    // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
+
+    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
+}
+
 }  // namespace tt::umd

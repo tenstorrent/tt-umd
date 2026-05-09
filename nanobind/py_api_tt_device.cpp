@@ -285,6 +285,64 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("data"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
+            "noc_broadcast",
+            [](TTDevice &self, uint64_t addr, const nb::bytes &data) -> void {
+                std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
+                self.noc_multicast_write(buffer.data(), buffer.size(), addr);
+            },
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address")
+        .def(
+            "noc_broadcast32",
+            [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+            },
+            nb::arg("addr"),
+            nb::arg("value"),
+            "Broadcast a 32-bit value to all tensix cores on the chip at the specified address")
+        .def(
+            "noc_multicast",
+            [](TTDevice &self,
+               uint32_t start_x,
+               uint32_t start_y,
+               uint32_t end_x,
+               uint32_t end_y,
+               uint64_t addr,
+               const nb::bytes &data) -> void {
+                tt_xy_pair core_start = {start_x, start_y};
+                tt_xy_pair core_end = {end_x, end_y};
+                std::vector<uint8_t> buffer(data.c_str(), data.c_str() + data.size());
+                self.noc_multicast_write(buffer.data(), buffer.size(), core_start, core_end, addr);
+            },
+            nb::arg("start_x"),
+            nb::arg("start_y"),
+            nb::arg("end_x"),
+            nb::arg("end_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            "Broadcast arbitrary-length data to all cores in the rectangle [start, end] at the specified address")
+        .def(
+            "noc_multicast32",
+            [](TTDevice &self,
+               uint32_t start_x,
+               uint32_t start_y,
+               uint32_t end_x,
+               uint32_t end_y,
+               uint64_t addr,
+               uint32_t value) -> void {
+                tt_xy_pair core_start = {start_x, start_y};
+                tt_xy_pair core_end = {end_x, end_y};
+                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr);
+            },
+            nb::arg("start_x"),
+            nb::arg("start_y"),
+            nb::arg("end_x"),
+            nb::arg("end_y"),
+            nb::arg("addr"),
+            nb::arg("value"),
+            "Broadcast a 32-bit value to all cores in the rectangle [start, end] at the specified address")
+        .def(
             "bar_read32",
             &TTDevice::bar_read32,
             nb::arg("addr"),

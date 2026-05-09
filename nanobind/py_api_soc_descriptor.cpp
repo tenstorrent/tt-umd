@@ -81,7 +81,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def(
             "__init__",
             [](SocDescriptor *soc_desc, TTDevice &tt_device) {
-                new (soc_desc) SocDescriptor(tt_device.get_arch(), tt_device.get_chip_info());
+                new (soc_desc) SocDescriptor(tt_device.get_soc_descriptor());
             },
             nb::arg("tt_device"),
             release_gil(),

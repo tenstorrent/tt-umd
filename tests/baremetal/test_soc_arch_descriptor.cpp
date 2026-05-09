@@ -20,13 +20,14 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 
 // Test SocArchDescriptor creation from arch enum for Wormhole.
 TEST(SocArchDescriptor, WormholeFromArch) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
+    auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(desc.get_grid_size(), wormhole::GRID_SIZE);
@@ -50,7 +51,7 @@ TEST(SocArchDescriptor, WormholeFromArch) {
 
 // Test SocArchDescriptor creation from arch enum for Blackhole.
 TEST(SocArchDescriptor, BlackholeFromArch) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::BLACKHOLE);
+    auto desc = SocArchDescriptor(tt::ARCH::BLACKHOLE);
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::BLACKHOLE);
     EXPECT_EQ(desc.get_grid_size(), blackhole::GRID_SIZE);
@@ -70,7 +71,7 @@ TEST(SocArchDescriptor, BlackholeFromArch) {
 
 // Test SocArchDescriptor creation from arch enum for Quasar.
 TEST(SocArchDescriptor, QuasarFromArch) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::QUASAR);
+    auto desc = SocArchDescriptor(tt::ARCH::QUASAR);
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(desc.get_grid_size(), grendel::GRID_SIZE);
@@ -84,7 +85,7 @@ TEST(SocArchDescriptor, QuasarFromArch) {
 
 // Test SocArchDescriptor creation from YAML for Wormhole.
 TEST(SocArchDescriptor, WormholeFromYaml) {
-    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"));
+    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(desc.get_grid_size(), wormhole::GRID_SIZE);
@@ -98,7 +99,7 @@ TEST(SocArchDescriptor, WormholeFromYaml) {
 
 // Test SocArchDescriptor creation from YAML for Blackhole.
 TEST(SocArchDescriptor, BlackholeFromYaml) {
-    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"));
+    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::BLACKHOLE);
     EXPECT_EQ(desc.get_grid_size(), blackhole::GRID_SIZE);
@@ -108,8 +109,8 @@ TEST(SocArchDescriptor, BlackholeFromYaml) {
 
 // Test that arch enum and YAML produce consistent results for Wormhole.
 TEST(SocArchDescriptor, WormholeArchAndYamlConsistency) {
-    auto from_arch = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
-    auto from_yaml = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"));
+    auto from_arch = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
+    auto from_yaml = SocArchDescriptor(test_utils::GetSocDescAbsPath("wormhole_b0_8x10.yaml"));
 
     EXPECT_EQ(from_arch.get_arch(), from_yaml.get_arch());
     EXPECT_EQ(from_arch.get_grid_size(), from_yaml.get_grid_size());
@@ -131,8 +132,8 @@ TEST(SocArchDescriptor, WormholeArchAndYamlConsistency) {
 
 // Test that arch enum and YAML produce consistent results for Blackhole.
 TEST(SocArchDescriptor, BlackholeArchAndYamlConsistency) {
-    auto from_arch = SocArchDescriptor::create(tt::ARCH::BLACKHOLE);
-    auto from_yaml = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"));
+    auto from_arch = SocArchDescriptor(tt::ARCH::BLACKHOLE);
+    auto from_yaml = SocArchDescriptor(test_utils::GetSocDescAbsPath("blackhole_140_arch_no_eth.yaml"));
 
     EXPECT_EQ(from_arch.get_arch(), from_yaml.get_arch());
     EXPECT_EQ(from_arch.get_grid_size(), from_yaml.get_grid_size());
@@ -151,7 +152,7 @@ TEST(SocArchDescriptor, BlackholeArchAndYamlConsistency) {
 
 // Test derived data: cores map is populated correctly.
 TEST(SocArchDescriptor, WormholeDerivedCoresMap) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
+    auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
 
     // Total cores in the map should equal sum of all core type vectors.
     size_t expected_total = desc.get_tensix_cores().size() + desc.get_eth_cores().size() + desc.get_arc_cores().size() +
@@ -195,7 +196,7 @@ TEST(SocArchDescriptor, WormholeDerivedCoresMap) {
 
 // Test derived data: DRAM channel map.
 TEST(SocArchDescriptor, WormholeDRAMChannelMap) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
+    auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
 
     EXPECT_EQ(desc.get_dram_cores().size(), wormhole::NUM_DRAM_BANKS);
     for (size_t channel = 0; channel < desc.get_dram_cores().size(); channel++) {
@@ -211,7 +212,7 @@ TEST(SocArchDescriptor, WormholeDRAMChannelMap) {
 
 // Test derived data: ETH channel map.
 TEST(SocArchDescriptor, WormholeETHChannelMap) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
+    auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
 
     EXPECT_EQ(desc.get_eth_cores().size(), wormhole::ETH_CORES_NOC0.size());
     for (size_t channel = 0; channel < desc.get_eth_cores().size(); channel++) {
@@ -223,12 +224,12 @@ TEST(SocArchDescriptor, WormholeETHChannelMap) {
 
 // Test derived data: worker grid size.
 TEST(SocArchDescriptor, WormholeWorkerGridSize) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
+    auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(desc.get_worker_grid_size(), wormhole::TENSIX_GRID_SIZE);
 }
 
 TEST(SocArchDescriptor, BlackholeWorkerGridSize) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::BLACKHOLE);
+    auto desc = SocArchDescriptor(tt::ARCH::BLACKHOLE);
     EXPECT_EQ(desc.get_worker_grid_size(), blackhole::TENSIX_GRID_SIZE);
 }
 
@@ -253,12 +254,12 @@ TEST(SocArchDescriptor, GetGridSizeFromPath) {
 
 // Test invalid arch throws.
 TEST(SocArchDescriptor, InvalidArchThrows) {
-    EXPECT_THROW(SocArchDescriptor::create(tt::ARCH::Invalid), std::runtime_error);
+    EXPECT_THROW(SocArchDescriptor{tt::ARCH::Invalid}, error::UmdException<error::RuntimeError>);
 }
 
 // Test invalid YAML path throws.
 TEST(SocArchDescriptor, InvalidPathThrows) {
-    EXPECT_THROW(SocArchDescriptor::create("/nonexistent/path.yaml"), std::runtime_error);
+    EXPECT_THROW(SocArchDescriptor("/nonexistent/path.yaml"), error::UmdException<error::RuntimeError>);
 }
 
 // Test calculate_grid_size utility.
@@ -276,7 +277,7 @@ TEST(SocArchDescriptor, CalculateGridSize) {
 
 // Test Blackhole derived data.
 TEST(SocArchDescriptor, BlackholeDRAMChannelMap) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::BLACKHOLE);
+    auto desc = SocArchDescriptor(tt::ARCH::BLACKHOLE);
 
     EXPECT_EQ(desc.get_dram_cores().size(), blackhole::NUM_DRAM_BANKS);
     for (size_t channel = 0; channel < desc.get_dram_cores().size(); channel++) {
@@ -293,21 +294,21 @@ TEST(SocArchDescriptor, BlackholeDRAMChannelMap) {
 
 // Test Wormhole: no security and no L2CPU cores.
 TEST(SocArchDescriptor, WormholeNoSecurityNoL2CPU) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::WORMHOLE_B0);
+    auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
     EXPECT_TRUE(desc.get_security_cores().empty());
     EXPECT_TRUE(desc.get_l2cpu_cores().empty());
 }
 
 // Test Blackhole: has security and L2CPU cores.
 TEST(SocArchDescriptor, BlackholeHasSecurityAndL2CPU) {
-    auto desc = SocArchDescriptor::create(tt::ARCH::BLACKHOLE);
+    auto desc = SocArchDescriptor(tt::ARCH::BLACKHOLE);
     EXPECT_FALSE(desc.get_security_cores().empty());
     EXPECT_FALSE(desc.get_l2cpu_cores().empty());
 }
 
 // Test Blackhole simulation 1x2 YAML descriptor.
 TEST(SocArchDescriptor, BlackholeSimulation1x2) {
-    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("blackhole_simulation_1x2.yaml"));
+    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("blackhole_simulation_1x2.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::BLACKHOLE);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(2, 2));
@@ -350,7 +351,7 @@ TEST(SocArchDescriptor, BlackholeSimulation1x2) {
 
 // Test Quasar simulation 1x1 YAML descriptor.
 TEST(SocArchDescriptor, QuasarSimulation1x1) {
-    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml"));
+    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::QUASAR);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(1, 3));
@@ -384,7 +385,7 @@ TEST(SocArchDescriptor, QuasarSimulation1x1) {
 
 // Test Wormhole B0 1x1 YAML descriptor.
 TEST(SocArchDescriptor, WormholeB01x1) {
-    auto desc = SocArchDescriptor::create(test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"));
+    auto desc = SocArchDescriptor(test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"));
 
     EXPECT_EQ(desc.get_arch(), tt::ARCH::WORMHOLE_B0);
     EXPECT_EQ(desc.get_grid_size(), tt_xy_pair(10, 12));
@@ -429,6 +430,6 @@ TEST(SocArchDescriptor, WormholeB01x1) {
 // Test all available YAML descriptors can be loaded.
 TEST(SocArchDescriptor, AllSocDescriptors) {
     for (const std::string& soc_desc_yaml : test_utils::GetAllSocDescs()) {
-        EXPECT_NO_THROW(SocArchDescriptor::create(soc_desc_yaml)) << "Failed to load: " << soc_desc_yaml;
+        EXPECT_NO_THROW(SocArchDescriptor{soc_desc_yaml}) << "Failed to load: " << soc_desc_yaml;
     }
 }

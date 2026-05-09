@@ -37,9 +37,8 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        ChipInfo chip_info = tt_device->get_chip_info();
 
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
         std::int32_t c_zero_address = SAFE_IO_L1_ADDRESS;
 

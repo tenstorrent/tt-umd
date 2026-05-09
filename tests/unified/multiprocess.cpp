@@ -231,7 +231,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
         tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
-        SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
@@ -257,7 +257,7 @@ TEST(Multiprocess, LongLivedMonitor) {
         tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
-        SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
         CoreCoord arc_core = soc_desc.get_cores(CoreType::ARC, CoordSystem::TRANSLATED)[0];
 
         std::cout << "Running only reads for low level monitor cluster, without device start " << std::endl;
@@ -357,7 +357,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
             tt_device->set_power_state(true);
             tt_device->init_tt_device();
 
-            SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+            const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
             CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
             // Create unique data pattern for this process.
@@ -432,7 +432,7 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
             tt_device->set_power_state(true);
             tt_device->init_tt_device();
 
-            SocDescriptor soc_desc = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+            const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
             CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
             // Create unique data pattern for this process.

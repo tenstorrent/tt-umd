@@ -48,15 +48,15 @@ std::unique_ptr<LocalChip> LocalChip::create(
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
-    SocDescriptor soc_descriptor;
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
     if (sdesc_path.empty()) {
-        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(sdesc_path);
     }
-
-    return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
+    ChipInfo chip_info = tt_device->get_chip_info();
+    return LocalChip::create(
+        std::move(tt_device), SocDescriptor(soc_arch_descriptor, chip_info), num_host_mem_channels);
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(

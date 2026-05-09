@@ -460,16 +460,6 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    if (is_remote_tt_device) {
-        // Remote devices don't have direct NOC multicast support.
-        // Fallback to unicast for all cores in the range.
-        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
-            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
-                write_to_device(src, xy_pair(x, y), addr, size);
-            }
-        }
-        return;
-    }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 

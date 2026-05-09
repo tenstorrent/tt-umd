@@ -23,6 +23,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -31,6 +32,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -413,6 +415,31 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
+}
+
+void WormholeTTDevice::noc_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
+    if (!is_remote_tt_device) {
+        TTDevice::noc_multicast_write(src, size, core_start, core_end, addr);
+        return;
+    }
+
+    // TODO: implement multicast over remote communication.
+    // For now, fall back to unicast over the non-harvested TENSIX cores reported by the soc descriptor
+    // that fall inside the multicast range, matching hardware multicast behavior.
+    //
+    // Coordinates may be in TRANSLATED or NOC0 space; pick the coord system from core_start since the
+    // two ranges don't overlap.
+    const CoordSystem coord_system =
+        (core_start.x >= wormhole::tensix_translated_coordinate_start_x) ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
+    for (const auto &core : get_soc_descriptor().get_cores(CoreType::TENSIX, coord_system)) {
+        if (core.x < core_start.x || core.x > core_end.x || core.y < core_start.y || core.y > core_end.y) {
+            continue;
+        }
+        log_trace(LogUMD, "noc_multicast_write fallback unicast to TENSIX core at ({}, {})", core.x, core.y);
+        write_to_device(src, xy_pair(core.x, core.y), addr, size);
+    }
 }
 
 }  // namespace tt::umd

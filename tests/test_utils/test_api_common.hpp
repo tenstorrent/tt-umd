@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
@@ -104,6 +105,26 @@ inline bool has_remote_chips() {
 }
 
 inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
+
+// Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores
+// in translated coordinates for the given SoC descriptor.
+inline std::vector<CoreCoord> get_tensix_corners(const SocDescriptor& soc_desc) {
+    const auto cores = soc_desc.get_cores(tt::CoreType::TENSIX, tt::CoordSystem::TRANSLATED);
+    if (cores.empty()) {
+        throw std::runtime_error("No TENSIX cores found in SoC descriptor");
+    }
+    CoreCoord top_left = cores[0];
+    CoreCoord bottom_right = cores[0];
+    for (const auto& core : cores) {
+        if (core.x < top_left.x || core.y < top_left.y) {
+            top_left = core;
+        }
+        if (core.x > bottom_right.x || core.y > bottom_right.y) {
+            bottom_right = core;
+        }
+    }
+    return {top_left, bottom_right};
+}
 
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
 

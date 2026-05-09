@@ -60,6 +60,7 @@ public:
 
     void wait_for_non_mmio_flush() override;
     void mark_relay_broken() override;
+    void clear_relay_broken() override;
     bool is_relay_broken() const override;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;

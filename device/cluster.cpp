@@ -643,6 +643,15 @@ void Cluster::mark_relay_broken(const ChipId chip_id) {
     get_chip(chip_id)->mark_relay_broken();
 }
 
+void Cluster::clear_relay_broken(const ChipId chip_id) {
+    // FIX XY-2 (#42429): Allow recovery after a successful ERISC reboot restores the relay.
+    // Without this, relay_broken_ is set-once and never cleared, so all subsequent multicast
+    // writes to the chip throw for the remainder of the process lifetime — even after the
+    // relay has been restored by force-reset + PHY link re-training.
+    log_info(LogUMD, "FIX XY-2: Clearing relay_broken for chip {}", chip_id);
+    get_chip(chip_id)->clear_relay_broken();
+}
+
 void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {
         chip->wait_for_non_mmio_flush();
@@ -979,22 +988,21 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 
 void Cluster::noc_multicast_write(
     void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    // FIX XY (#42429): If the chip is remote (non-MMIO) and its relay path is known-broken,
-    // the multicast will silently fail — data is written to ERISC command queues but never
-    // delivered to the remote chip's Tensix cores.  Convert silent-drop into explicit no-op
-    // with logging to prevent stale SRAM (e.g. go_msg=0x02) from surviving the init sequence.
+    // FIX XY-2 (#42429): If the chip is remote (non-MMIO) and its relay path is known-broken,
+    // throw so the caller knows the write failed.  The original FIX XY silently returned,
+    // which caused cleanup multicasts (go_msg clear, firmware unload) to become no-ops —
+    // leaving ERISC channels dirty for subsequent CI jobs.  Callers in teardown already have
+    // try/catch that marks relay_broken further; they can handle the exception.
     if (get_chip(chip)->is_relay_broken()) {
-        log_warning(
-            LogUMD,
-            "FIX XY (#42429): noc_multicast_write to chip {} skipped — relay path is broken. "
-            "Data ({} bytes to cores ({},{})..({},{})) would silently fail to reach remote chip.",
+        throw std::runtime_error(fmt::format(
+            "FIX XY-2 (#42429): noc_multicast_write to relay-broken chip {} — relay unavailable. "
+            "Data ({} bytes to cores ({},{})..({},{})) cannot reach remote chip.",
             chip,
             size,
             core_start.x,
             core_start.y,
             core_end.x,
-            core_end.y);
-        return;
+            core_end.y));
     }
     get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
 }

@@ -553,6 +553,14 @@ public:
      */
     void mark_relay_broken(const ChipId chip_id);
 
+    /**
+     * FIX XY-2 (#42429): Clear relay-broken flag for a chip after successful ERISC reboot.
+     * Allows multicast writes to resume after force-reset restores the relay.
+     *
+     * @param chip_id Remote chip whose relay path has been restored.
+     */
+    void clear_relay_broken(const ChipId chip_id);
+
     //---------- IO functions for host memory. Write and read functions, and getting host memory info.
 
     /**

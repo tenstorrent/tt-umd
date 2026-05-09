@@ -130,6 +130,8 @@ void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non
 
 void RemoteChip::mark_relay_broken() { remote_communication_->set_relay_broken(); }
 
+void RemoteChip::clear_relay_broken() { remote_communication_->clear_relay_broken(); }
+
 bool RemoteChip::is_relay_broken() const { return remote_communication_->is_relay_broken(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }

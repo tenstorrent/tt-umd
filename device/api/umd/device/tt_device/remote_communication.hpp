@@ -57,6 +57,7 @@ public:
     // When set, wait_for_non_mmio_flush() returns immediately instead of polling dead
     // ERISC CMD queues for up to 5 seconds.
     void set_relay_broken() { relay_broken_ = true; }
+    void clear_relay_broken() { relay_broken_ = false; }
     bool is_relay_broken() const { return relay_broken_; }
 
 protected:

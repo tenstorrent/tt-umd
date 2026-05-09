@@ -127,20 +127,20 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
         iommu_mapping = nullptr;
     } else {
         for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
-            auto &HugepageMapping = hugepage_mapping_per_channel[ch];
-            if (HugepageMapping.physical_address && pci_device_->is_mapping_buffer_to_noc_supported()) {
+            auto &hugepage_mapping = hugepage_mapping_per_channel[ch];
+            if (hugepage_mapping.physical_address && pci_device_->is_mapping_buffer_to_noc_supported()) {
                 // This will unmap the hugepage if it was mapped through kmd.
                 // This is a hack for the 4th hugepage channel which is limited to 768MB.
                 size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                          ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
-                                         : HugepageMapping.mapping_size;
-                pci_device_->unmap_for_dma(HugepageMapping.mapping, actual_size);
+                                         : hugepage_mapping.mapping_size;
+                pci_device_->unmap_for_dma(hugepage_mapping.mapping, actual_size);
             }
-            if (HugepageMapping.mapping) {
+            if (hugepage_mapping.mapping) {
                 // Note that we mmap full hugepage, but don't map it filly to NOC.
                 // So the hack for 4th hugepage channel is not present in this branch.
-                TracyFreeN(HugepageMapping.mapping, "Hugepage");
-                munmap(HugepageMapping.mapping, HugepageMapping.mapping_size);
+                TracyFreeN(hugepage_mapping.mapping, "Hugepage");
+                munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
             }
         }
     }

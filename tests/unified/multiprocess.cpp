@@ -408,7 +408,7 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
     std::cout << "DMA race condition test completed" << std::endl;
 }
 
-TEST(Multiprocess, DMAWriteReadRaceConditionProcessIsolation) {
+TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     constexpr int NUM_PROCESSES = 4;

@@ -273,8 +273,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
-        ChipInfo chip_info = tt_device->get_chip_info();
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
         const std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
 
         // Zero out all tensix cores before broadcasting.

@@ -64,6 +64,8 @@ public:
 
     // FIX AE (#42429): Mark relay path as broken so flush operations return immediately.
     virtual void mark_relay_broken() {};
+    // FIX XY (#42429): Query relay-broken state so callers can skip writes to dead chips.
+    virtual bool is_relay_broken() const { return false; }
 
     virtual void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;

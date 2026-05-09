@@ -979,6 +979,23 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 
 void Cluster::noc_multicast_write(
     void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    // FIX XY (#42429): If the chip is remote (non-MMIO) and its relay path is known-broken,
+    // the multicast will silently fail — data is written to ERISC command queues but never
+    // delivered to the remote chip's Tensix cores.  Convert silent-drop into explicit no-op
+    // with logging to prevent stale SRAM (e.g. go_msg=0x02) from surviving the init sequence.
+    if (get_chip(chip)->is_relay_broken()) {
+        log_warning(
+            LogUMD,
+            "FIX XY (#42429): noc_multicast_write to chip {} skipped — relay path is broken. "
+            "Data ({} bytes to cores ({},{})..({},{})) would silently fail to reach remote chip.",
+            chip,
+            size,
+            core_start.x,
+            core_start.y,
+            core_end.x,
+            core_end.y);
+        return;
+    }
     get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
 }
 

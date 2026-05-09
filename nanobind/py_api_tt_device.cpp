@@ -31,6 +31,13 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 namespace nb = nanobind;
+// Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
+// allowing other Python threads to run in parallel while this binding executes. Pass
+// release_gil() as a call guard to nb::class_::def() on methods that don't touch the
+// Python interpreter (e.g. blocking device I/O), so callers can drive UMD concurrently
+// from multiple Python threads. Inside lambdas that need to keep the GIL for argument
+// marshalling, use a scoped nb::gil_scoped_release release; block around the native
+// call instead.
 using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt;

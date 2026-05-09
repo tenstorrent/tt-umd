@@ -96,6 +96,19 @@ public:
     virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     /**
+    Assert risc reset for a specific core WITHOUT reading current state first.
+    Writes the full reset bitmask directly. Safe when relay read would time out
+    (e.g., non-MMIO ERISC running FABRIC firmware with relay broken).
+    */
+    virtual void assert_risc_reset_write_only(CoreCoord core, const RiscType selected_riscs);
+
+    /**
+    Deassert risc reset for a specific core WITHOUT reading current state first.
+    Writes zero directly. Safe when relay read would time out.
+    */
+    virtual void deassert_risc_reset_write_only(CoreCoord core);
+
+    /**
     Assert the soft reset signal for specified riscs on all cores.
     Raising this signal will put those riscs in the reset state and stop their execution.
     */

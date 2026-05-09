@@ -138,6 +138,16 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
         get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
 }
 
+void Chip::assert_risc_reset_write_only(CoreCoord core, const RiscType selected_riscs) {
+    get_tt_device()->assert_risc_reset_write_only(
+        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs);
+}
+
+void Chip::deassert_risc_reset_write_only(CoreCoord core) {
+    get_tt_device()->deassert_risc_reset_write_only(
+        get_soc_descriptor().translate_chip_coord_to_translated(core));
+}
+
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
     ZoneScopedC(tracy::Color::DarkRed);
     for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {

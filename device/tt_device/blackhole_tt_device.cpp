@@ -321,17 +321,13 @@ void BlackholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t add
     //                           NOC1: start=(1,2), end=(2,3).
     xy_pair start_coord;
     xy_pair end_coord;
-    if (get_chip_info().noc_translation_enabled) {
-        if (is_selected_noc1()) {
-            start_coord = xy_pair{1, 2};
-            end_coord = xy_pair{2, 3};
-        } else {
-            start_coord = xy_pair{2, 3};
-            end_coord = xy_pair{1, 2};
-        }
+    UMD_ASSERT(get_chip_info().noc_translation_enabled, "Multicast not implemented for BH devices without NOC translation enabled.");
+    if (is_selected_noc1()) {
+        start_coord = xy_pair{1, 2};
+        end_coord = xy_pair{2, 3};
     } else {
-        start_coord = xy_pair{0, 1};
-        end_coord = xy_pair{16, 11};
+        start_coord = xy_pair{2, 3};
+        end_coord = xy_pair{1, 2};
     }
     noc_multicast_write(src, size, start_coord, end_coord, addr);
 }

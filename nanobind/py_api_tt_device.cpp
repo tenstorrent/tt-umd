@@ -292,7 +292,7 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("addr"),
             nb::arg("data"),
-            "Broadcast arbitrary-length data to all cores on the chip at the specified address")
+            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address")
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
@@ -300,7 +300,7 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("addr"),
             nb::arg("value"),
-            "Broadcast a 32-bit value to all cores on the chip at the specified address")
+            "Broadcast a 32-bit value to all tensix cores on the chip at the specified address")
         .def(
             "noc_multicast",
             [](TTDevice &self,

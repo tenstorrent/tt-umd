@@ -204,7 +204,7 @@ public:
     virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
-     * NOC multicast write function that will write data to full NOC grid.
+     * NOC multicast write function that will write data to all TENSIX cores in the grid.
      *
      * @param src pointer to memory from which the data is sent
      * @param size number of bytes

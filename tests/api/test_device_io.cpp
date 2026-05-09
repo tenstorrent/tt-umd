@@ -319,7 +319,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
 
-    constexpr uint64_t address = 0x100;
+    constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
     constexpr size_t data_size = num_words * sizeof(uint32_t);
 
@@ -400,7 +400,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             const tt_xy_pair multicast_coord =
                 soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
             if (full_grid) {
-                log_info(LogUMD, "Multicast to full grid on chip {}", multicast_coord.str(), chip_id);
+                log_info(LogUMD, "Multicast to full grid from coord {} on chip {}", multicast_coord.str(), chip_id);
                 tt_device->noc_multicast_write(write_data.data(), data_size, address);
             } else {
                 log_info(LogUMD, "Multicast to core {} on chip {}", multicast_coord.str(), chip_id);

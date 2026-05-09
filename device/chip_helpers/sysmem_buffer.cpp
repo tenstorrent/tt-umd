@@ -34,6 +34,7 @@ SysmemBuffer::SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_s
     buffer_va_(buffer_va),
     mapped_buffer_size_(buffer_size),
     buffer_size_(buffer_size) {
+    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
     align_address_and_size();
     if (map_to_noc) {
         std::tie(noc_addr_, device_io_addr_) = pci_device_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);

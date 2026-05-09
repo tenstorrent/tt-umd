@@ -86,6 +86,7 @@ static void *mmap_with_hugepage_fallback(size_t size) {
 SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) {
     tt_device_ = tt_device;
     pci_device_ = tt_device->get_pci_device();
+    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
     pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
     UMD_ASSERT(
         num_host_mem_channels <= 4,

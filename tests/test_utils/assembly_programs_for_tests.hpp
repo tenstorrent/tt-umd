@@ -147,7 +147,11 @@ inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
 
 /*
 This program is architecture-agnostic and configures all RISC cores to execute an infinite loop
-at the same address (0x34 = 52 bytes from start of L1).
+at the same address (0x4C = 76 bytes from start of L1).
+
+The 0x4C value is intentional: with the 12-word program loaded at 0x20 (runtime-inserted
+architecture-specific `lui` + 11 instructions below), 0x4C is the address of the trailing
+`jal zero, 0` instruction, so all override PCs start in the self-loop.
 
 The first instruction (lui a5, <base>) sets the architecture-specific base address:
   - Wormhole (WH):  a5 = 0xFFEF'0000  (instruction: 0xffef07b7)
@@ -173,10 +177,10 @@ pseudo-source code:
         unsigned int* trisc2_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC2_PC;
         unsigned int* ncrisc_code_start_reg_addr = (unsigned int*)NCRISC_RESET_PC_PC;
 
-        *trisc0_code_start_reg_addr = 0x34;
-        *trisc1_code_start_reg_addr = 0x34;
-        *trisc2_code_start_reg_addr = 0x34;
-        *ncrisc_code_start_reg_addr = 0x34;
+        *trisc0_code_start_reg_addr = 0x4C;
+        *trisc1_code_start_reg_addr = 0x4C;
+        *trisc2_code_start_reg_addr = 0x4C;
+        *ncrisc_code_start_reg_addr = 0x4C;
 
         while (true);
     }
@@ -189,7 +193,7 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
     0x00100713,  // li a4, 1
     0x28e7a623,  // sw a4, 652(a5)
     0x00078713,  // mv a4, a5
-    0x02c00793,  // li a5, 52
+    0x04c00793,  // li a5, 0x4C
     0x26f72c23,  // sw a5, 632(a4)
     0x26f72e23,  // sw a5, 636(a4)
     0x28f72023,  // sw a5, 640(a4)
@@ -200,3 +204,6 @@ inline constexpr std::array<uint32_t, 11> brisc_configuration_program_default{
 // Architecture-specific first instructions for brisc_configuration_program_default.
 inline constexpr uint32_t WORMHOLE_BRISC_BASE_INSTRUCTION = 0xffef07b7;   // lui a5, 0xffef0
 inline constexpr uint32_t BLACKHOLE_BRISC_BASE_INSTRUCTION = 0xffb127b7;  // lui a5, 0xffb12
+
+// Trampoline instruction: jumps from address 0x0 to 0x20, skipping over firmware data at 0x10.
+inline constexpr uint32_t BRISC_TRAMPOLINE_JMP = 0x0200006f;  // jal zero, 0x20

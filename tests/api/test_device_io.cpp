@@ -99,7 +99,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, SAFE_IO_L1_ADDRESS);
 
         umd_cluster->wait_for_non_mmio_flush(chip_id);
     }
@@ -114,7 +114,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, SAFE_IO_L1_ADDRESS, data_size);
 
         ASSERT_EQ(data, readback_data);
     }
@@ -188,7 +188,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
 
         std::cout << "Writing to chip " << chip_id << " core " << any_core.str() << std::endl;
 
-        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, 0);
+        umd_cluster->write_to_device(data.data(), data_size, chip_id, any_core, SAFE_IO_L1_ADDRESS);
 
         umd_cluster->wait_for_non_mmio_flush(chip_id);
     }
@@ -203,7 +203,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
         std::cout << "Reading from chip " << chip_id << " core " << any_core.str() << std::endl;
 
         std::vector<uint8_t> readback_data(data_size, 0);
-        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, 0, data_size);
+        umd_cluster->read_from_device(readback_data.data(), chip_id, any_core, SAFE_IO_L1_ADDRESS, data_size);
 
         ASSERT_EQ(data, readback_data);
     }
@@ -223,8 +223,7 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     static const uint32_t num_loops = 100;
 
     for (const ChipId chip : cluster->get_target_device_ids()) {
-        // Just make sure to skip L1_BARRIER_BASE.
-        std::uint32_t address = 0x100;
+        std::uint32_t address = SAFE_IO_L1_ADDRESS;
         // Write to each core a 100 times at different statically mapped addresses.
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip);
         const auto& cores = soc_desc.get_cores(core_type);
@@ -357,35 +356,35 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         cluster->start_device({.init_device = true});
     }
 
-    auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    auto test_size = cluster->get_soc_descriptor(0).worker_l1_size - SAFE_IO_L1_ADDRESS;
 
-    std::vector<uint8_t> zero_data(tensix_l1_size, 0);
-    std::vector<uint8_t> data(tensix_l1_size, 0);
-    for (int i = 0; i < tensix_l1_size; i++) {
+    std::vector<uint8_t> zero_data(test_size, 0);
+    std::vector<uint8_t> data(test_size, 0);
+    for (int i = 0; i < test_size; i++) {
         data[i] = i % 256;
     }
 
     // Set elements to 1 since the first readback will be of zero data, so want to confirm that
     // elements actually changed.
-    std::vector<uint8_t> readback_data(tensix_l1_size, 1);
+    std::vector<uint8_t> readback_data(test_size, 1);
 
     for (auto chip_id : cluster->get_target_device_ids()) {
         const CoreCoord tensix_core = cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)[0];
 
-        // Zero out L1.
-        cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+        // Zero out L1 from SAFE_IO_L1_ADDRESS onwards.
+        cluster->write_to_device(zero_data.data(), test_size, chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, test_size);
 
         EXPECT_EQ(zero_data, readback_data);
 
-        cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+        cluster->write_to_device(data.data(), test_size, chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
 
         cluster->wait_for_non_mmio_flush(chip_id);
 
-        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, tensix_l1_size);
+        cluster->read_from_device(readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, test_size);
 
         EXPECT_EQ(data, readback_data);
     }
@@ -559,16 +558,16 @@ TEST_F(TestDeviceIOFixture, RegReadWrite) {
 
     const size_t l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
 
-    std::vector<uint8_t> zeros(l1_size, 0);
+    std::vector<uint8_t> zeros(l1_size - SAFE_IO_L1_ADDRESS, 0);
 
-    cluster->write_to_device(zeros.data(), zeros.size(), 0, tensix_core, 0);
+    cluster->write_to_device(zeros.data(), zeros.size(), 0, tensix_core, SAFE_IO_L1_ADDRESS);
 
-    std::vector<uint8_t> readback_vec(l1_size, 1);
-    cluster->read_from_device(readback_vec.data(), 0, tensix_core, 0, readback_vec.size());
+    std::vector<uint8_t> readback_vec(l1_size - SAFE_IO_L1_ADDRESS, 1);
+    cluster->read_from_device(readback_vec.data(), 0, tensix_core, SAFE_IO_L1_ADDRESS, readback_vec.size());
 
     EXPECT_EQ(zeros, readback_vec);
 
-    size_t addr = 0;
+    size_t addr = SAFE_IO_L1_ADDRESS;
     uint32_t value = 0;
     while (addr < l1_size) {
         cluster->write_to_device_reg(&value, sizeof(value), 0, tensix_core, addr);
@@ -603,22 +602,26 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
     const size_t l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
+    const size_t test_size = l1_size - SAFE_IO_L1_ADDRESS;
 
-    std::vector<uint32_t> write_data_l1(l1_size / 4, 0);
-    for (size_t i = 0; i < l1_size / 4; i++) {
+    std::vector<uint32_t> write_data_l1(test_size / 4, 0);
+    for (size_t i = 0; i < test_size / 4; i++) {
         write_data_l1[i] = i;
     }
 
-    cluster->write_to_device(write_data_l1.data(), write_data_l1.size() * sizeof(uint32_t), 0, tensix_core, 0);
+    cluster->write_to_device(
+        write_data_l1.data(), write_data_l1.size() * sizeof(uint32_t), 0, tensix_core, SAFE_IO_L1_ADDRESS);
 
-    std::vector<uint32_t> readback_vec(l1_size / 4, 0);
-    cluster->read_from_device(readback_vec.data(), 0, tensix_core, 0, readback_vec.size() * sizeof(uint32_t));
+    std::vector<uint32_t> readback_vec(test_size / 4, 0);
+    cluster->read_from_device(
+        readback_vec.data(), 0, tensix_core, SAFE_IO_L1_ADDRESS, readback_vec.size() * sizeof(uint32_t));
 
     EXPECT_EQ(write_data_l1, readback_vec);
 
-    for (size_t i = 0; i < l1_size / 4; i++) {
+    for (size_t i = 0; i < test_size / 4; i++) {
         uint32_t readback_value = 0;
-        cluster->read_from_device_reg(&readback_value, 0, tensix_core, i * 4, sizeof(readback_value));
+        cluster->read_from_device_reg(
+            &readback_value, 0, tensix_core, SAFE_IO_L1_ADDRESS + i * 4, sizeof(readback_value));
 
         EXPECT_EQ(write_data_l1[i], readback_value);
     }

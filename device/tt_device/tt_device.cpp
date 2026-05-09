@@ -423,6 +423,19 @@ void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_risc
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
+void TTDevice::assert_risc_reset_write_only(tt_xy_pair core, const RiscType selected_riscs) {
+    // Write the reset value directly without reading current state first.
+    // Safe when the relay read would time out (e.g., non-MMIO ERISC in FABRIC firmware).
+    uint32_t reset_value = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    set_risc_reset_state(core, reset_value);
+}
+
+void TTDevice::deassert_risc_reset_write_only(tt_xy_pair core) {
+    // Write 0 directly to clear all reset bits without reading current state first.
+    // Safe when the relay read would time out (e.g., non-MMIO ERISC in FABRIC firmware).
+    set_risc_reset_state(core, 0);
+}
+
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

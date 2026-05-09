@@ -398,6 +398,25 @@ public:
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
 
+    /**
+     * Assert risc reset for a specific core WITHOUT reading current state first.
+     * Writes the full reset bitmask directly to TENSIX_SOFT_RESET_ADDR.
+     * Safe to use when the relay read would time out (e.g., non-MMIO ERISC running FABRIC fw).
+     *
+     * @param core Core to assert reset for, in translated coordinates
+     * @param selected_riscs Bitmask of riscs to assert reset for
+     */
+    virtual void assert_risc_reset_write_only(tt_xy_pair core, const RiscType selected_riscs);
+
+    /**
+     * Deassert risc reset for a specific core WITHOUT reading current state first.
+     * Writes 0 directly to TENSIX_SOFT_RESET_ADDR, clearing all reset bits.
+     * Safe to use when the relay read would time out (e.g., non-MMIO ERISC running FABRIC fw).
+     *
+     * @param core Core to deassert reset for, in translated coordinates
+     */
+    virtual void deassert_risc_reset_write_only(tt_xy_pair core);
+
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);

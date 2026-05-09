@@ -470,6 +470,14 @@ void Cluster::deassert_risc_reset(
     get_chip(chip)->deassert_risc_reset(core, risc_type, staggered_start);
 }
 
+void Cluster::assert_risc_reset_write_only(const ChipId chip, const CoreCoord core, const RiscType risc_type) {
+    get_chip(chip)->assert_risc_reset_write_only(core, risc_type);
+}
+
+void Cluster::deassert_risc_reset_write_only(const ChipId chip, const CoreCoord core) {
+    get_chip(chip)->deassert_risc_reset_write_only(core);
+}
+
 ClusterDescriptor* Cluster::get_cluster_description() { return cluster_desc.get(); }
 
 void Cluster::refresh_cluster_description() {

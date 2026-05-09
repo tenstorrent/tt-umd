@@ -350,6 +350,26 @@ public:
     void deassert_risc_reset(
         const ChipId chip, const CoreCoord core, const RiscType risc_type, bool staggered_start = true);
 
+    /**
+     * Assert risc reset for a specific core WITHOUT reading current state first.
+     * Writes the full reset bitmask directly. Safe when relay read would time out.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target (translated coordinates).
+     * @param risc_type Specifies which RISCV cores to assert reset for.
+     */
+    void assert_risc_reset_write_only(const ChipId chip, const CoreCoord core, const RiscType risc_type);
+
+    /**
+     * Deassert risc reset for a specific core WITHOUT reading current state first.
+     * Writes 0 to TENSIX_SOFT_RESET_ADDR, clearing all reset bits.
+     * Safe when relay read would time out.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target (translated coordinates).
+     */
+    void deassert_risc_reset_write_only(const ChipId chip, const CoreCoord core);
+
     //---------- IO functions for Tensix cores, including DRAM.
 
     /**

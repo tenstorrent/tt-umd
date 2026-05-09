@@ -31,6 +31,14 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 namespace nb = nanobind;
+// Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
+// allowing other Python threads to run in parallel while this binding executes. Pass
+// release_gil() as a call guard to nb::class_::def() on methods that don't touch the
+// Python interpreter (e.g. blocking device I/O), so callers can drive UMD concurrently
+// from multiple Python threads. Inside lambdas that need to keep the GIL for argument
+// marshalling, use a scoped nb::gil_scoped_release release; block around the native
+// call instead.
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt;
 using namespace tt::umd;
@@ -79,6 +87,7 @@ void bind_tt_device(nb::module_ &m) {
     m.def(
         "raise_sigbus_error_for_testing",
         []() { throw error::SigbusError("This is a test exception from C++"); },
+        release_gil(),
         "A helper function to verify SigbusError propagation");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
@@ -91,23 +100,37 @@ void bind_tt_device(nb::module_ &m) {
         .def_ro("pci_device", &PciDeviceInfo::pci_device)
         .def_ro("pci_function", &PciDeviceInfo::pci_function)
         .def_ro("pci_bdf", &PciDeviceInfo::pci_bdf)
-        .def("get_arch", &PciDeviceInfo::get_arch);
+        .def("get_arch", &PciDeviceInfo::get_arch, release_gil());
 
     nb::class_<PCIDevice>(m, "PCIDevice")
-        .def(nb::init<int>())
+        .def(nb::init<int>(), release_gil())
         .def_static(
-            "enumerate_devices", []() { return PCIDevice::enumerate_devices(); }, "Enumerates PCI devices.")
+            "enumerate_devices",
+            []() { return PCIDevice::enumerate_devices(); },
+            release_gil(),
+            "Enumerates PCI devices.")
         .def_static(
             "enumerate_devices_info",
             []() { return PCIDevice::enumerate_devices_info(); },
+            release_gil(),
             "Enumerates PCI device information.")
-        .def("get_device_info", &PCIDevice::get_device_info)
-        .def("get_device_num", &PCIDevice::get_device_num)
-        .def_static("read_kmd_version", &PCIDevice::read_kmd_version, "Read KMD version installed on the system.")
-        .def_static("read_device_info", &PCIDevice::read_device_info, nb::arg("fd"), "Read PCI device information.")
+        .def("get_device_info", &PCIDevice::get_device_info, release_gil())
+        .def("get_device_num", &PCIDevice::get_device_num, release_gil())
+        .def_static(
+            "read_kmd_version",
+            &PCIDevice::read_kmd_version,
+            release_gil(),
+            "Read KMD version installed on the system.")
+        .def_static(
+            "read_device_info",
+            &PCIDevice::read_device_info,
+            nb::arg("fd"),
+            release_gil(),
+            "Read PCI device information.")
         .def_static(
             "is_arch_agnostic_reset_supported",
             &PCIDevice::is_arch_agnostic_reset_supported,
+            release_gil(),
             "Check if KMD supports arch agnostic reset.");
 
     nb::class_<RemoteCommunication>(m, "RemoteCommunication")
@@ -121,12 +144,16 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 self.set_remote_transfer_ethernet_cores(xy_cores);
             },
-            nb::arg("cores"))
+            nb::arg("cores"),
+            release_gil())
         .def("get_local_device", &RemoteCommunication::get_local_device, nb::rv_policy::reference_internal)
-        .def("get_remote_transfer_ethernet_core", [](RemoteCommunication &self) -> std::tuple<int, int> {
-            tt_xy_pair core = self.get_remote_transfer_ethernet_core();
-            return std::make_tuple(core.x, core.y);
-        });
+        .def(
+            "get_remote_transfer_ethernet_core",
+            [](RemoteCommunication &self) -> std::tuple<int, int> {
+                tt_xy_pair core = self.get_remote_transfer_ethernet_core();
+                return std::make_tuple(core.x, core.y);
+            },
+            release_gil());
 
     auto tt_device_class = nb::class_<TTDevice>(m, "TTDevice");
 
@@ -141,25 +168,27 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
-            nb::rv_policy::take_ownership)
-        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"))
+            nb::rv_policy::take_ownership,
+            release_gil())
+        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("soc_descriptor_path") = "")
-        .def("get_soc_descriptor", &TTDevice::get_soc_descriptor)
-        .def("get_chip_info", &TTDevice::get_chip_info)
+            nb::arg("soc_descriptor_path") = "",
+            release_gil())
+        .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
+        .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
-        .def("get_arch", &TTDevice::get_arch)
-        .def("get_board_id", &TTDevice::get_board_id)
-        .def("board_id", &TTDevice::get_board_id)
-        .def("get_board_type", &TTDevice::get_board_type)
-        .def("get_communication_device_type", &TTDevice::get_communication_device_type)
-        .def("get_communication_device_id", &TTDevice::get_communication_device_id)
-        .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference)
-        .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled)
-        .def("is_remote", &TTDevice::is_remote, "Returns true if this is a remote TTDevice")
+        .def("get_arch", &TTDevice::get_arch, release_gil())
+        .def("get_board_id", &TTDevice::get_board_id, release_gil())
+        .def("board_id", &TTDevice::get_board_id, release_gil())
+        .def("get_board_type", &TTDevice::get_board_type, release_gil())
+        .def("get_communication_device_type", &TTDevice::get_communication_device_type, release_gil())
+        .def("get_communication_device_id", &TTDevice::get_communication_device_id, release_gil())
+        .def("get_pci_device", &TTDevice::get_pci_device, nb::rv_policy::reference, release_gil())
+        .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
+        .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)
         // Compatibility with luwen's API - these methods just return self.
@@ -178,7 +207,10 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr) -> uint32_t {
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                }
                 return value;
             },
             nb::arg("core_x"),
@@ -189,7 +221,10 @@ void bind_tt_device(nb::module_ &m) {
             "noc_write32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value) -> void {
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -201,7 +236,10 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
-                self.read_from_device(buffer.data(), core, addr, size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(buffer.data(), core, addr, size);
+                }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
             nb::arg("core_x"),
@@ -219,7 +257,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.read_from_device(data_ptr, core, addr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device(data_ptr, core, addr, data_size);
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -233,7 +274,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write_to_device(data_ptr, core, addr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device(data_ptr, core, addr, data_size);
+                }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -244,24 +288,28 @@ void bind_tt_device(nb::module_ &m) {
             "bar_read32",
             &TTDevice::bar_read32,
             nb::arg("addr"),
+            release_gil(),
             "Read a 32-bit value from the specified address on bar0")
         .def(
             "bar_write32",
             &TTDevice::bar_write32,
             nb::arg("addr"),
             nb::arg("data"),
+            release_gil(),
             "Write a 32-bit value to the specified address on bar0")
         .def(
             "is_pcie_hung",
             &TTDevice::is_pcie_hung,
             nb::arg("data_read") = HANG_READ_VALUE,
             nb::arg("action") = TTDevice::HangAction::THROW,
+            release_gil(),
             "Check if the PCIe communication is hung.")
         .def(
             "is_noc_hung",
             &TTDevice::is_noc_hung,
             nb::arg("noc"),
             nb::arg("action") = TTDevice::HangAction::THROW,
+            release_gil(),
             "Check if the specified NOC is hung.")
         .def(
             "get_risc_reset_state",
@@ -271,6 +319,7 @@ void bind_tt_device(nb::module_ &m) {
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
+            release_gil(),
             "Get the raw soft reset register value for a core in translated coordinates. "
             "The bit layout of this value corresponds to TensixSoftResetOptions.")
         .def(
@@ -282,6 +331,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("soft_reset_raw_value"),
+            release_gil(),
             "Set the raw soft reset register value for a core in translated coordinates. "
             "The bit layout of this value corresponds to TensixSoftResetOptions; do not pass RiscType bits here.")
         .def(
@@ -289,7 +339,10 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
                 tt_xy_pair core = {core_x, core_y};
                 std::vector<uint8_t> buffer(size);
-                self.dma_read_from_device(buffer.data(), size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_read_from_device(buffer.data(), size, core, addr);
+                }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
             nb::arg("core_x"),
@@ -307,7 +360,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(buffer.data());
                 size_t data_size = buffer.size();
-                self.dma_read_from_device(data_ptr, data_size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_read_from_device(data_ptr, data_size, core, addr);
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -321,7 +377,10 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.dma_write_to_device(data_ptr, data_size, core, addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.dma_write_to_device(data_ptr, data_size, core, addr);
+                }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -345,8 +404,12 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                uint32_t exit_code;
+                {
+                    nb::gil_scoped_release release;
+                    exit_code = self.get_arc_messenger()->send_message(
+                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                }
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -377,8 +440,12 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                uint32_t exit_code;
+                {
+                    nb::gil_scoped_release release;
+                    exit_code = self.get_arc_messenger()->send_message(
+                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                }
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -409,8 +476,12 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
                 std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code = self.get_arc_messenger()->send_message(
-                    msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                uint32_t exit_code;
+                {
+                    nb::gil_scoped_release release;
+                    exit_code = self.get_arc_messenger()->send_message(
+                        msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                }
                 return std::make_tuple(exit_code, return_values[0], return_values[1]);
             },
             nb::arg("msg_code"),
@@ -426,6 +497,7 @@ void bind_tt_device(nb::module_ &m) {
             [](TTDevice &device) { return SPITTDevice::create(&device); },
             nb::arg("device"),
             nb::rv_policy::take_ownership,
+            release_gil(),
             "Create an SPITTDevice for the given TTDevice (factory method that returns architecture-specific "
             "implementation)")
         .def(
@@ -433,7 +505,10 @@ void bind_tt_device(nb::module_ &m) {
             [](SPITTDevice &self, uint32_t addr, nb::bytearray data) -> void {
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
                 size_t data_size = data.size();
-                self.read(addr, data_ptr, data_size);
+                {
+                    nb::gil_scoped_release release;
+                    self.read(addr, data_ptr, data_size);
+                }
             },
             nb::arg("addr"),
             nb::arg("data"),
@@ -443,7 +518,10 @@ void bind_tt_device(nb::module_ &m) {
             [](SPITTDevice &self, uint32_t addr, nb::bytes data, bool skip_write_to_spi = false) -> void {
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+                {
+                    nb::gil_scoped_release release;
+                    self.write(addr, reinterpret_cast<const uint8_t *>(data_ptr), data_size, skip_write_to_spi);
+                }
             },
             nb::arg("addr"),
             nb::arg("data"),
@@ -455,7 +533,10 @@ void bind_tt_device(nb::module_ &m) {
             [](SPITTDevice &self, uint32_t addr, nb::bytearray data, bool skip_write_to_spi = false) -> void {
                 uint8_t *data_ptr = reinterpret_cast<uint8_t *>(data.data());
                 size_t data_size = data.size();
-                self.write(addr, data_ptr, data_size, skip_write_to_spi);
+                {
+                    nb::gil_scoped_release release;
+                    self.write(addr, data_ptr, data_size, skip_write_to_spi);
+                }
             },
             nb::arg("addr"),
             nb::arg("data"),
@@ -465,6 +546,7 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "get_spi_fw_bundle_version",
             &SPITTDevice::get_spi_fw_bundle_version,
+            release_gil(),
             "Get firmware bundle version from SPI (Blackhole only). "
             "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
 
@@ -477,6 +559,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("num_host_mem_channels") = 0,
         nb::arg("copy_sim_binary") = false,
         nb::rv_policy::take_ownership,
+        release_gil(),
         "Creates a simulation TTDevice from a simulator path. "
         "If the path ends with '.so', creates a TTSimTTDevice (functional simulator). "
         "Otherwise, creates an RtlSimulationTTDevice (RTL simulator).");
@@ -488,6 +571,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("simulator_directory"),
             nb::arg("num_host_mem_channels") = 0,
             nb::arg("copy_sim_binary") = false,
+            release_gil(),
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(
             "send_tensix_risc_reset",
@@ -495,18 +579,21 @@ void bind_tt_device(nb::module_ &m) {
                 &TTSimTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
             nb::arg("soft_resets"),
+            release_gil(),
             "Send a Tensix RISC reset with specific soft reset options for a single core.")
         .def(
             "send_tensix_risc_reset_all",
             static_cast<void (TTSimTTDevice::*)(const TensixSoftResetOptions &)>(
                 &TTSimTTDevice::send_tensix_risc_reset),
             nb::arg("soft_resets"),
+            release_gil(),
             "Send a Tensix RISC reset with specific soft reset options for all cores.")
         .def(
             "assert_risc_reset",
             &TTSimTTDevice::assert_risc_reset,
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
@@ -514,6 +601,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(
             "get_soc_descriptor",
@@ -521,8 +609,9 @@ void bind_tt_device(nb::module_ &m) {
             nb::rv_policy::reference_internal,
             "Get the SocDescriptor associated with this simulation device.")
 
-        .def("get_clock", &TTSimTTDevice::get_clock, "Get the clock frequency.")
-        .def("get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, "Get the minimum clock frequency.")
+        .def("get_clock", &TTSimTTDevice::get_clock, release_gil(), "Get the clock frequency.")
+        .def(
+            "get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, release_gil(), "Get the minimum clock frequency.")
         .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");
 
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
@@ -531,6 +620,7 @@ void bind_tt_device(nb::module_ &m) {
             &RtlSimulationTTDevice::create,
             nb::arg("simulator_directory"),
             nb::arg("num_host_mem_channels") = 0,
+            release_gil(),
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "send_tensix_risc_reset",
@@ -538,6 +628,7 @@ void bind_tt_device(nb::module_ &m) {
                 &RtlSimulationTTDevice::send_tensix_risc_reset),
             nb::arg("translated_core"),
             nb::arg("soft_resets"),
+            release_gil(),
             "Send a Tensix RISC reset with specific soft reset options for a single core. "
             "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
         .def(
@@ -545,6 +636,7 @@ void bind_tt_device(nb::module_ &m) {
             &RtlSimulationTTDevice::assert_risc_reset,
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
@@ -552,11 +644,13 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(
             "get_soc_descriptor",
             &RtlSimulationTTDevice::get_soc_descriptor,
             nb::rv_policy::reference_internal,
+            release_gil(),
             "Get the SocDescriptor associated with this RTL simulation device.");
 #endif
 
@@ -567,6 +661,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
         nb::rv_policy::take_ownership,
+        release_gil(),
         "Creates a remote TTDevice for communication with a remote chip.");
 
     // Keep the old name as an alias for backwards compatibility.
@@ -577,6 +672,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("cluster_descriptor"),
         nb::arg("remote_chip_id"),
         nb::rv_policy::take_ownership,
+        release_gil(),
         "Deprecated: use create_remote_tt_device instead.");
 
     m.def(
@@ -588,6 +684,7 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("x"),
         nb::arg("y"),
         nb::rv_policy::take_ownership,
+        release_gil(),
         "Creates a remote TTDevice for communication with a remote chip at (rack, shelf, x, y). "
         "Does not set remote transfer ethernet cores; caller must set them explicitly.");
 
@@ -601,5 +698,6 @@ void bind_tt_device(nb::module_ &m) {
         nb::arg("x"),
         nb::arg("y"),
         nb::rv_policy::take_ownership,
+        release_gil(),
         "Deprecated: use create_remote_tt_device_from_coord instead.");
 }

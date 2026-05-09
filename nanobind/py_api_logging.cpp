@@ -7,6 +7,12 @@
 #include "umd/device/logging/config.hpp"
 
 namespace nb = nanobind;
+// Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
+// allowing other Python threads to run in parallel while this binding executes. Pass
+// release_gil() as a call guard to nb::class_::def() on methods that don't touch the
+// Python interpreter (e.g. blocking device I/O), so callers can drive UMD concurrently
+// from multiple Python threads.
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt::umd::logging;
 
@@ -26,5 +32,6 @@ void bind_logging(nb::module_ &m) {
         "set_level",
         &set_level,
         nb::arg("lvl"),
+        release_gil(),
         "Sets the global logging level. Messages with severity levels lower than this level will not be logged.");
 }

@@ -147,7 +147,11 @@ inline constexpr std::array<uint32_t, 14> bh_brisc_configuration_program{
 
 /*
 This program is architecture-agnostic and configures all RISC cores to execute an infinite loop
-at the same address (0x34 = 52 bytes from start of L1).
+at the same address (0x4C = 76 bytes from start of L1).
+
+The 0x4C value is intentional: with the 12-word program loaded at 0x20 (runtime-inserted
+architecture-specific `lui` + 11 instructions below), 0x4C is the address of the trailing
+`jal zero, 0` instruction, so all override PCs start in the self-loop.
 
 The first instruction (lui a5, <base>) sets the architecture-specific base address:
   - Wormhole (WH):  a5 = 0xFFEF'0000  (instruction: 0xffef07b7)
@@ -173,10 +177,10 @@ pseudo-source code:
         unsigned int* trisc2_code_start_reg_addr = (unsigned int*)TRISC_RESET_PC_SEC2_PC;
         unsigned int* ncrisc_code_start_reg_addr = (unsigned int*)NCRISC_RESET_PC_PC;
 
-        *trisc0_code_start_reg_addr = 0x34;
-        *trisc1_code_start_reg_addr = 0x34;
-        *trisc2_code_start_reg_addr = 0x34;
-        *ncrisc_code_start_reg_addr = 0x34;
+        *trisc0_code_start_reg_addr = 0x4C;
+        *trisc1_code_start_reg_addr = 0x4C;
+        *trisc2_code_start_reg_addr = 0x4C;
+        *ncrisc_code_start_reg_addr = 0x4C;
 
         while (true);
     }

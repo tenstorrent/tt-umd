@@ -160,7 +160,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         log_device_summary();
     }
 
-    // Virtual coordinates can be used for broadcast headers if NOC translation is enabled.
+    // Translated coordinates can be used for broadcast headers if NOC translation is enabled.
     use_translated_coords_for_eth_broadcast = true;
     for (const auto& chip : all_chip_ids_) {
         use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
@@ -937,7 +937,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
         return;
     }
     // If ethernet broadcast is not supported, do it one by one.
-    if (!use_ethernet_broadcast || arch_name == tt::ARCH::BLACKHOLE) {
+    if (!use_ethernet_broadcast) {
         for (auto& chip_id : all_chip_ids_) {
             get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
         }

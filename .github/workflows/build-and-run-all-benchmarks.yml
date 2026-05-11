@@ -39,6 +39,10 @@ jobs:
       build-type: ${{ inputs.build-type || 'Release' }}
       build-wheel: false
 
+  # DIAGNOSTIC: the `iteration` matrix dimension runs the full benchmark +
+  # analyze-results pipeline 7× on the same commit per runner machine, so we can
+  # characterize within-run variance of the analyze_results deviation %s. Revert
+  # the `iteration` dimension once the variance baseline is collected.
   run-benchmarks:
     secrets: inherit
     needs: build-tests
@@ -53,6 +57,7 @@ jobs:
         ubuntu-docker-version: [
           'ubuntu-22.04',
         ]
+        iteration: [1, 2, 3, 4, 5, 6, 7]
     uses: ./.github/workflows/run-benchmarks.yml
     with:
       arch: ${{ matrix.test-group.arch}}
@@ -60,6 +65,7 @@ jobs:
       card: ${{ matrix.test-group.card}}
       timeout: ${{ matrix.test-group.timeout}}
       build-type: ${{ inputs.build-type || 'Release' }}
+      iteration: ${{ matrix.iteration }}
 
   analyze-results:
     secrets: inherit
@@ -75,9 +81,11 @@ jobs:
         ubuntu-docker-version: [
           'ubuntu-22.04',
         ]
+        iteration: [1, 2, 3, 4, 5, 6, 7]
     uses: ./.github/workflows/analyze_results.yml
     with:
       arch: ${{ matrix.test-group.arch}}
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
       baseline-run-id: ${{ inputs.baseline-run-id }}
+      iteration: ${{ matrix.iteration }}

@@ -16,6 +16,13 @@ on:
       baseline-run-id:
         required: false
         type: string
+      # DIAGNOSTIC: iteration index used to pair this analyze run with the
+      # matching run-benchmarks iteration's comparison artifact. Baseline still
+      # comes from the un-suffixed (non-iteration) artifact on main.
+      iteration:
+        required: false
+        type: number
+        default: 1
   workflow_dispatch:
     inputs:
       arch:
@@ -36,10 +43,13 @@ on:
 
 env:
   UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results
+  ARTIFACT_BASE: ${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
 
 jobs:
   analyze:
-    name: Analyze results for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
+    name: >-
+      Analyze results for ${{ inputs.arch }} on ${{ inputs.card }}
+      on ${{ inputs.ubuntu-docker-version }} (iter ${{ inputs.iteration }})
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
@@ -101,7 +111,7 @@ jobs:
         uses: actions/download-artifact@v8
         continue-on-error: false
         with:
-          name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          name: benchmark-json-${{ env.ARTIFACT_BASE }}-iter${{ inputs.iteration }}
           path: ${{ env.UMD_MICROBENCHMARK_RESULTS_PATH }}/compare
 
       - name: Run analysis of benchmark data (with baseline)

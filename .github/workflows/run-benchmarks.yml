@@ -20,6 +20,12 @@ on:
         required: true
         type: string
         default: Release
+      # DIAGNOSTIC: iteration index used to disambiguate artifacts when the
+      # parent workflow runs this job N× on the same commit to measure variance.
+      iteration:
+        required: false
+        type: number
+        default: 1
 
 env:
   BUILD_OUTPUT_DIR: ./build
@@ -32,7 +38,9 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
-    name: Run benchmarks for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
+    name: >-
+      Run benchmarks for ${{ inputs.arch }} on ${{ inputs.card }}
+      on ${{ inputs.ubuntu-docker-version }} (iter ${{ inputs.iteration }})
     runs-on:
       - ${{ inputs.card }}
     container:
@@ -49,6 +57,7 @@ jobs:
     env:
       LD_LIBRARY_PATH: ./build/lib
       UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_microbenchmark_results
+      ARTIFACT_BASE: ${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
 
     steps:
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
@@ -118,14 +127,14 @@ jobs:
       - name: Upload JSON benchmark results
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          name: benchmark-json-${{ env.ARTIFACT_BASE }}-iter${{ inputs.iteration }}
           path: /tmp/umd_microbenchmark_results/*.json
           if-no-files-found: warn
 
       - name: Upload HTML benchmark results
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark-html-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
+          name: benchmark-html-${{ env.ARTIFACT_BASE }}-iter${{ inputs.iteration }}
           path: /tmp/umd_microbenchmark_results/*.html
           if-no-files-found: warn
 

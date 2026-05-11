@@ -148,6 +148,10 @@ void bind_telemetry(nb::module_& m) {
         .value("ASIC_ID_LOW", TelemetryTag::ASIC_ID_LOW)
         .value("AICLK_LIMIT_MAX", TelemetryTag::AICLK_LIMIT_MAX)
         .value("TDP_LIMIT_MAX", TelemetryTag::TDP_LIMIT_MAX)
+        .value("AICLK_ARB_MIN", TelemetryTag::AICLK_ARB_MIN)
+        .value("AICLK_ARB_MAX", TelemetryTag::AICLK_ARB_MAX)
+        .value("ENABLED_MIN_ARB", TelemetryTag::ENABLED_MIN_ARB)
+        .value("ENABLED_MAX_ARB", TelemetryTag::ENABLED_MAX_ARB)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
         .def(
             "__int__", [](TelemetryTag tag) { return static_cast<int>(tag); }, release_gil());

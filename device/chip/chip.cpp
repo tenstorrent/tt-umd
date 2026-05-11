@@ -23,6 +23,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -259,6 +260,26 @@ void Chip::wait_for_aiclk_value(
                 target_aiclk,
                 aiclk,
                 tt_device->get_asic_temperature());
+            auto* telemetry = tt_device->get_arc_telemetry_reader();
+            if (telemetry != nullptr) {
+                if (telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+                    const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+                    if (timeout_ms.count() <= update_telem_speed_ms) {
+                        log_warning(
+                            LogUMD,
+                            "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
+                            "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                            timeout_ms.count(),
+                            update_telem_speed_ms);
+                    }
+                }
+                if (telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+                    const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+                    const uint32_t arb_freq = arb_max & 0xFFFF;
+                    const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
+                    log_warning(LogUMD, "AICLK is clamped by max-arbiter index {} at {} MHz.", arb_idx, arb_freq);
+                }
+            }
             return;
         }
         aiclk = tt_device->get_clock();

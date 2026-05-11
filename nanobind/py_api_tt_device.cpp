@@ -583,7 +583,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 const char *data_ptr = data.c_str();
                 size_t data_size = data.size();
-                self.write_to_device(data_ptr, core, addr, static_cast<uint32_t>(data_size));
+                self.write_to_device(data_ptr, core, addr, data_size);
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),

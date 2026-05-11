@@ -9,16 +9,16 @@
 namespace tt::umd {
 
 /**
- * Streaming memcpy for writes targeting device memory mapped through a TLB window.
+ * memcpy for writes targeting device memory mapped through a TLB window.
  *
  * Standard memcpy (glibc) can emit overlapping stores to the same address, which causes
- * double writes when the destination is device memory. This routine guarantees each
- * destination address is written exactly once.
+ * double writes when the destination is device memory. This routine issues each store
+ * explicitly so every destination address is written exactly once.
  *
- * On x86_64: uses non-temporal (streaming) stores via AVX2/SSE, bypassing CPU cache
- * for better throughput than memcpy on write-combining memory.
+ * On x86_64: bulk transfers use AVX2 unaligned loads/stores (VMOVDQU 256-bit), with
+ * 16-byte (SSE), 4-byte and byte-wide tails.
  *
- * On other architectures: falls back to explicit single-byte/4-byte stores (no double writes).
+ * On other architectures: falls back to explicit 4-byte and byte-wide volatile stores.
  *
  * Handles arbitrary alignment and size — leading/trailing bytes smaller than a DWORD are
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
@@ -27,12 +27,12 @@ namespace tt::umd {
 void streaming_memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
 
 /**
- * Streaming memcpy for reads from device memory mapped through a TLB window.
+ * memcpy for reads from device memory mapped through a TLB window.
  *
- * On x86_64: uses non-temporal (streaming) loads via AVX/AVX2 and SSE4.1 (MOVNTDQA),
- * avoiding CPU cache pollution from device data that won't be reused.
+ * On x86_64: bulk transfers use AVX2 unaligned loads/stores (VMOVDQU 256-bit), with
+ * 16-byte (SSE), 4-byte and byte-wide tails.
  *
- * On other architectures: falls back to explicit single-byte/4-byte loads.
+ * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.
  *
  * Handles arbitrary alignment and size.
  */

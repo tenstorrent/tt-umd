@@ -1,8 +1,8 @@
 {
-  "permissions": {
-    "allow": [
-      "Read(//home/pjanevski/.config/gh/**)",
-      "Bash(python3 -c ' *)"
-    ]
-  }
+    "permissions": {
+        "allow": [
+            "Read(//home/pjanevski/.config/gh/**)",
+            "Bash(python3 -c ' *)"
+        ]
+    }
 }

@@ -1,0 +1,66 @@
+# Regression check against in-repo baselines.yaml.
+# Complementary to analyze_results.yml (which diffs current run vs the single
+# latest main run). This workflow compares against the median of N main runs
+# stored in tests/microbenchmark/expected/baselines.yaml, applies per-case
+# tolerances, and emits a coarse cross-arch summary plus per-(test, arch) detail
+# sections to $GITHUB_STEP_SUMMARY.
+#
+# Pilot: soft alerts only — the job always exits 0.
+name: Regression check against in-repo baseline
+
+on:
+  workflow_call:
+    # No inputs — downloads benchmark-json-* artifacts from the parent run.
+
+env:
+  RESULTS_DIR: /tmp/all-arch-results
+  SUMMARY_PATH: /tmp/regression_summary.md
+
+jobs:
+  regression-check:
+    name: Regression summary vs baselines.yaml
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout regression tooling
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            tests/microbenchmark/expected/baselines.yaml
+            tests/microbenchmark/tools/summarize_regressions.py
+            tests/microbenchmark/tools/analyze_results.py
+          sparse-checkout-cone-mode: false
+
+      - name: Install python dependencies
+        run: python3 -m pip install --no-cache-dir pandas psutil pyyaml tabulate
+
+      - name: Download all benchmark JSON artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: benchmark-json-*
+          path: ${{ env.RESULTS_DIR }}
+          merge-multiple: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summarize regressions
+        run: |
+          python3 tests/microbenchmark/tools/summarize_regressions.py \
+            --current "${RESULTS_DIR}" \
+            --baselines tests/microbenchmark/expected/baselines.yaml \
+            --output "${SUMMARY_PATH}"
+          cat "${SUMMARY_PATH}" >> "${GITHUB_STEP_SUMMARY}"
+          # Also echo to job log so the table is greppable from the run page
+          echo "----- regression summary -----"
+          cat "${SUMMARY_PATH}"
+
+      - name: Upload regression summary artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-summary
+          path: ${{ env.SUMMARY_PATH }}
+          if-no-files-found: warn

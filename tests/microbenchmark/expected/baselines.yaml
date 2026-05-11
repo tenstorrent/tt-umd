@@ -1,0 +1,29 @@
+# tests/microbenchmark/expected/baselines.yaml
+# Calibrated from 30 successful main runs of build-and-run-all-benchmarks.yml.
+# To refresh: tests/microbenchmark/tools/refresh_baselines.py --runs 30
+#
+# Pilot scope: ClusterConstructor only. Other suites (TLB, PCIe DMA, IOMMU,
+# Ethernet I/O) will be onboarded once the pipeline is validated end-to-end.
+#
+# Schema:
+#   <bench_title>:
+#     <case_name>:
+#       <arch_label>:
+#         median_throughput: float       # ops/s (batch / median_elapsed)
+#         tolerance_pct: float           # symmetric +-%; alert if |delta%| > this
+#         gate: bool (optional)          # Phase 2 hard gates; preserved on refresh
+
+metadata:
+  calibrated_at: "2026-05-11"
+  calibrated_from_runs: 30
+  notes: "Pilot — soft alerts only. ClusterConstructor only."
+
+ClusterConstructor:
+  default:
+    BH p150b: { median_throughput: 119.5, tolerance_pct: 45 }
+    WH n150: { median_throughput: 138.3, tolerance_pct: 30 }
+    WH n300: { median_throughput: 41.16, tolerance_pct: 16 }
+  from sdesc:
+    BH p150b: { median_throughput: 104.1, tolerance_pct: 49 }
+    WH n150: { median_throughput: 161.9, tolerance_pct: 15 }
+    WH n300: { median_throughput: 36.76, tolerance_pct: 20 }

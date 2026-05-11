@@ -48,15 +48,15 @@ std::unique_ptr<LocalChip> LocalChip::create(
     auto tt_device = TTDevice::create(physical_device_id, device_type);
     tt_device->init_tt_device();
 
-    SocDescriptor soc_descriptor;
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
     if (sdesc_path.empty()) {
-        // In case soc descriptor yaml wasn't passed, we create soc descriptor with default values for the architecture.
-        soc_descriptor = SocDescriptor(tt_device->get_arch(), tt_device->get_chip_info());
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
     } else {
-        soc_descriptor = SocDescriptor(sdesc_path, tt_device->get_chip_info());
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(sdesc_path);
     }
-
-    return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
+    ChipInfo chip_info = tt_device->get_chip_info();
+    return LocalChip::create(
+        std::move(tt_device), SocDescriptor(soc_arch_descriptor, chip_info), num_host_mem_channels);
 }
 
 std::unique_ptr<LocalChip> LocalChip::create(
@@ -81,7 +81,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (tt_device->get_pci_device() != nullptr) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =
@@ -299,7 +299,8 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
+        get_cached_wc_tlb_window()->write_block_reconfigure(
+            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -324,7 +325,8 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
+        get_cached_wc_tlb_window()->read_block_reconfigure(
+            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -629,6 +631,7 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr,
+        get_selected_noc_id(),
         tlb_data::Relaxed);
 }
 }  // namespace tt::umd

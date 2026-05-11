@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 #include <numeric>
 #include <set>
 #include <string>
@@ -17,6 +18,7 @@
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -170,7 +172,7 @@ void run_data_mover_test(
 
 // L1 to L1.
 TEST(GalaxyDataMovement, TwoChipMoveData1) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(4, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
     tt_multichip_core_addr receiver_core(5, CoreCoord(25, 27, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x6000);
@@ -183,7 +185,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData1) {
 
 // L1 to Dram.
 TEST(GalaxyDataMovement, TwoChipMoveData2) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(1, CoreCoord(19, 20, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x30000);
     tt_multichip_core_addr receiver_core(6, CoreCoord(5, 0, CoreType::DRAM, CoordSystem::TRANSLATED), 0x0);
@@ -196,7 +198,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData2) {
 
 // Dram to L1.
 TEST(GalaxyDataMovement, TwoChipMoveData3) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(8, CoreCoord(5, 9, CoreType::DRAM, CoordSystem::TRANSLATED), 0x90000);
     tt_multichip_core_addr receiver_core(21, CoreCoord(18, 25, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5200);
@@ -209,7 +211,7 @@ TEST(GalaxyDataMovement, TwoChipMoveData3) {
 
 // Dram to Dram.
 TEST(GalaxyDataMovement, TwoChipMoveData4) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(7, CoreCoord(0, 6, CoreType::DRAM, CoordSystem::TRANSLATED), 0x300000);
     tt_multichip_core_addr receiver_core(19, CoreCoord(0, 0, CoreType::DRAM, CoordSystem::TRANSLATED), 0x300000);
@@ -286,7 +288,7 @@ void run_data_broadcast_test(
 
 // L1 to L1 single chip.
 TEST(GalaxyDataMovement, BroadcastData1) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(4, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -299,7 +301,7 @@ TEST(GalaxyDataMovement, BroadcastData1) {
 
 // L1 to L1 multi chip.
 TEST(GalaxyDataMovement, BroadcastData2) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(12, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -341,7 +343,7 @@ TEST(GalaxyDataMovement, BroadcastData2) {
 
 // Dram to L1.
 TEST(GalaxyDataMovement, BroadcastData3) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(10, CoreCoord(0, 0, CoreType::DRAM, CoordSystem::TRANSLATED), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -359,7 +361,7 @@ TEST(GalaxyDataMovement, BroadcastData3) {
 
 // L1 to Dram.
 TEST(GalaxyDataMovement, BroadcastData4) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(17, CoreCoord(24, 24, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -381,7 +383,7 @@ TEST(GalaxyDataMovement, BroadcastData4) {
 
 // Dram to Dram.
 TEST(GalaxyDataMovement, BroadcastData5) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
 
     tt_multichip_core_addr sender_core(31, CoreCoord(19, 19, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x20000);
     std::vector<tt_multichip_core_addr> receiver_cores;
@@ -400,7 +402,7 @@ TEST(GalaxyDataMovement, BroadcastData5) {
 // L1 to L1 cores on many chips
 // TODO: Failing with mismatch.
 TEST(GalaxyDataMovement, DISABLED_BroadcastData6) {
-    SocDescriptor sdesc(tt::ARCH::WORMHOLE_B0, {.noc_translation_enabled = true});
+    SocDescriptor sdesc(std::make_shared<SocArchDescriptor>(tt::ARCH::WORMHOLE_B0), {.noc_translation_enabled = true});
     tt_multichip_core_addr sender_core(1, CoreCoord(18, 18, CoreType::TENSIX, CoordSystem::TRANSLATED), 0x5000);
     std::vector<tt_multichip_core_addr> receiver_cores;
     for (int i = 2; i < 33; ++i) {

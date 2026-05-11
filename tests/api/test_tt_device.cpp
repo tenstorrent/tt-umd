@@ -34,7 +34,6 @@ using namespace tt::umd;
 TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
 
@@ -43,15 +42,15 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
         tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
-        ChipInfo chip_info = tt_device->get_chip_info();
-
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-        tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+        tt_device->write_to_device(
+            data_write.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_write.size() * sizeof(uint32_t));
 
-        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->read_from_device(
+            data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
 
         ASSERT_EQ(data_write, data_read);
 
@@ -74,9 +73,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
         tt_device->init_tt_device();
         uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
 
-        ChipInfo chip_info = tt_device->get_chip_info();
-
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -117,7 +114,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
-    const uint64_t address_thread0 = 0x0;
+    const uint64_t address_thread0 = SAFE_IO_L1_ADDRESS;
     const uint64_t address_thread1 = address_thread0 + data_write.size() * sizeof(uint32_t);
     const uint32_t num_loops = 1000;
 
@@ -125,9 +122,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(true);
         tt_device->init_tt_device();
-        ChipInfo chip_info = tt_device->get_chip_info();
-
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
         tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -192,18 +187,18 @@ TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
             cluster->get_chip(remote_chip_id)->get_soc_descriptor().get_cores(CoreType::TENSIX);
 
         for (const CoreCoord& tensix_core : tensix_cores) {
-            remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, 0, buf_size);
+            remote_tt_device->write_to_device(zero_out_buffer.data(), tensix_core, SAFE_IO_L1_ADDRESS, buf_size);
 
             // Setting initial value of vector explicitly to 1, to be sure it's not 0 in any case.
             std::vector<uint8_t> readback_buf(buf_size, 1);
 
-            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, SAFE_IO_L1_ADDRESS, buf_size);
 
             EXPECT_EQ(zero_out_buffer, readback_buf);
 
-            remote_tt_device->write_to_device(pattern_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->write_to_device(pattern_buf.data(), tensix_core, SAFE_IO_L1_ADDRESS, buf_size);
 
-            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, 0, buf_size);
+            remote_tt_device->read_from_device(readback_buf.data(), tensix_core, SAFE_IO_L1_ADDRESS, buf_size);
 
             EXPECT_EQ(pattern_buf, readback_buf);
         }
@@ -228,7 +223,6 @@ TEST(ApiTTDeviceTest, MulticastIO) {
         xy_end = {4, 6};
     }
 
-    uint64_t address = 0x0;
     std::vector<uint8_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint8_t> data_read(data_write.size(), 0);
 
@@ -242,26 +236,68 @@ TEST(ApiTTDeviceTest, MulticastIO) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> zeros(data_write.size(), 0);
-                tt_device->write_to_device(zeros.data(), tensix_core, address, zeros.size());
+                tt_device->write_to_device(zeros.data(), tensix_core, SAFE_IO_L1_ADDRESS, zeros.size());
 
                 std::vector<uint8_t> readback_zeros(zeros.size(), 1);
-                tt_device->read_from_device(readback_zeros.data(), tensix_core, address, readback_zeros.size());
+                tt_device->read_from_device(
+                    readback_zeros.data(), tensix_core, SAFE_IO_L1_ADDRESS, readback_zeros.size());
 
                 EXPECT_EQ(zeros, readback_zeros);
             }
         }
 
-        tt_device->noc_multicast_write(data_write.data(), data_write.size(), xy_start, xy_end, address);
+        tt_device->noc_multicast_write(data_write.data(), data_write.size(), xy_start, xy_end, SAFE_IO_L1_ADDRESS);
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
             for (uint32_t y = xy_start.y; y <= xy_end.y; y++) {
                 tt_xy_pair tensix_core = {x, y};
 
                 std::vector<uint8_t> readback(data_write.size());
-                tt_device->read_from_device(readback.data(), tensix_core, address, readback.size());
+                tt_device->read_from_device(readback.data(), tensix_core, SAFE_IO_L1_ADDRESS, readback.size());
 
                 EXPECT_EQ(data_write, readback);
             }
+        }
+
+        tt_device->set_power_state(false);
+    }
+}
+
+TEST(ApiTTDeviceTest, BroadcastIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+        const std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+        // Zero out all tensix cores before broadcasting.
+        std::vector<uint32_t> zeros(data_write.size(), 0);
+        for (const CoreCoord& core : tensix_cores) {
+            tt_device->write_to_device(zeros.data(), core, SAFE_IO_L1_ADDRESS, zeros.size() * sizeof(uint32_t));
+        }
+
+        // Verify zeros landed.
+        for (const CoreCoord& core : tensix_cores) {
+            std::vector<uint32_t> readback(data_write.size(), 1);
+            tt_device->read_from_device(readback.data(), core, SAFE_IO_L1_ADDRESS, readback.size() * sizeof(uint32_t));
+            ASSERT_EQ(zeros, readback) << "Core " << core.str() << " on chip " << pci_device_id
+                                       << " should have been zeroed before the broadcast write.";
+        }
+
+        tt_device->noc_multicast_write(data_write.data(), data_write.size() * sizeof(uint32_t), SAFE_IO_L1_ADDRESS);
+
+        // All tensix cores should now have the broadcast data.
+        for (const CoreCoord& core : tensix_cores) {
+            std::vector<uint32_t> readback(data_write.size());
+            tt_device->read_from_device(readback.data(), core, SAFE_IO_L1_ADDRESS, readback.size() * sizeof(uint32_t));
+            ASSERT_EQ(data_write, readback) << "Core " << core.str() << " on chip " << pci_device_id
+                                            << " should have received the broadcast write.";
         }
 
         tt_device->set_power_state(false);

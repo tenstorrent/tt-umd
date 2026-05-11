@@ -30,22 +30,12 @@ namespace tt::umd {
 class CoordinateManager;
 class SocArchDescriptor;
 
-tt_xy_pair format_node(const std::string& str);
-
 //! SocDescriptor contains information regarding the SOC configuration targetted.
 /*!
     Should only contain relevant configuration for SOC.
 */
 class SocDescriptor {
 public:
-    // Default constructor. Creates uninitialized object with public access to all of its attributes.
-    SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.
-    SocDescriptor(const std::string& device_descriptor_path, const ChipInfo chip_info = {});
-
-    SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
-
-    // Constructor with explicit arch descriptor (enables sharing).
     SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info = {});
 
     // Helpers for extracting info from soc descriptor file.

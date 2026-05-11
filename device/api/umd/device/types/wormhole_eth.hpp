@@ -28,7 +28,7 @@ inline constexpr SemVer MIN_ETH_FW_VERSION_FOR_RETRAIN = SemVer(7, 2, 0);
 inline constexpr uint32_t ETH_LINK_UNUSED_ERROR_CODE_RANGE_START = 11;
 
 inline constexpr uint32_t ETH_POSTCODE_ADDR = 0xFFB3010C;
-inline constexpr uint32_t ETH_HEARTBEAT_ADDR = 0x1F80;  // test_results[48];
+inline constexpr uint32_t ETH_HEARTBEAT_ADDR = 0x1C;
 
 // boot_params_t is copied from SPI to ETH core L1 at 0x1000.
 // port_disable_mask is field [2] (8 bytes in): bit N=1 means port N is disabled.

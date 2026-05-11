@@ -39,10 +39,10 @@ struct CoreDescriptor {
 class SocArchDescriptor {
 public:
     // Create from architecture enum (uses hardcoded constants).
-    static SocArchDescriptor create(tt::ARCH arch);
+    SocArchDescriptor(tt::ARCH arch);
 
-    // Create from a YAML device descriptor file.
-    static SocArchDescriptor create(const std::string& device_descriptor_path);
+    // Create from a YAML SoC descriptor file.
+    SocArchDescriptor(const std::string& soc_descriptor_path);
 
     // Helpers for extracting info from a YAML descriptor file without fully constructing.
     static tt::ARCH get_arch_from_path(const std::string& soc_descriptor_path);

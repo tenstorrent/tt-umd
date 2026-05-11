@@ -25,6 +25,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -460,16 +461,6 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    if (is_remote_tt_device) {
-        // Remote devices don't have direct NOC multicast support.
-        // Fallback to unicast for all cores in the range.
-        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
-            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
-                write_to_device(src, xy_pair(x, y), addr, size);
-            }
-        }
-        return;
-    }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
@@ -556,9 +547,9 @@ const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descripto
 
 void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
     if (soc_descriptor_path.empty()) {
-        soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
     } else {
-        soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_descriptor_path), get_chip_info());
     }
 }
 

@@ -40,7 +40,7 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     // TlbWindow::validate doesn't reject any valid access (size 0 would cause
     // division by zero in RtlSimTlbHandle::configure).
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    const tt::ARCH architecture = allocator_.get_architecture_impl()->get_architecture();
+    const tt::ARCH architecture = allocator_.get_architecture();
     switch (architecture) {
         case tt::ARCH::BLACKHOLE:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
@@ -56,7 +56,5 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
             return nullptr;
     }
 }
-
-tt::ARCH SimulationTlbManager::get_arch() const { return allocator_.get_architecture_impl()->get_architecture(); }
 
 }  // namespace tt::umd

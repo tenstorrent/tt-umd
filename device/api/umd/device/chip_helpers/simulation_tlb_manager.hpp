@@ -49,8 +49,6 @@ public:
 
     SimulationTlbAllocator& get_allocator() { return allocator_; }
 
-    tt::ARCH get_arch() const;
-
 private:
     SimulationTlbAllocator allocator_;
     TlbWindowFactory factory_;

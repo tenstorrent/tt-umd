@@ -72,6 +72,6 @@ void RtlSimTlbHandle::free_tlb() noexcept {
     }
 }
 
-tt::ARCH RtlSimTlbHandle::get_arch() const { return allocator_->get_architecture_impl()->get_architecture(); }
+tt::ARCH RtlSimTlbHandle::get_arch() const { return allocator_->get_architecture(); }
 
 }  // namespace tt::umd

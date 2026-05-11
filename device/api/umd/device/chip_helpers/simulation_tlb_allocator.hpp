@@ -61,6 +61,8 @@ public:
 
     const architecture_implementation* get_architecture_impl() const;
 
+    tt::ARCH get_architecture() const;
+
 private:
     // A pool of TLB indices that all share a single size.
     struct TlbSizeClass {

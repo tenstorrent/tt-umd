@@ -20,8 +20,6 @@ enum class ARCH;
 
 namespace tt::umd {
 
-class SimulationTlbManager;
-class TTDevice;
 class architecture_implementation;
 
 /**
@@ -30,7 +28,7 @@ class architecture_implementation;
  * that creates the appropriate TlbHandle + TlbWindow combination.
  */
 using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
-    SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
+    SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
 
 class SimulationTlbManager : public TLBManager {
 public:
@@ -52,18 +50,7 @@ public:
      */
     std::unique_ptr<TlbWindow> allocate_default_tlb_window();
 
-    // The methods below forward to the underlying SimulationTlbAllocator. They are
-    // exposed on SimulationTlbManager for back-compat with simulation TlbHandle
-    // subclasses that hold a SimulationTlbManager* back-pointer.
-
-    int allocate_tlb_index(size_t size);
-    void deallocate_tlb_index(int tlb_index);
-    size_t get_tlb_size_from_index(int tlb_index);
-    uint64_t get_tlb_address_from_index(int tlb_index);
-    uint64_t get_tlb_reg_address_from_index(int tlb_index);
-    const architecture_implementation* get_architecture_impl() const;
-
-    tt::ARCH get_arch() const;
+    SimulationTlbAllocator& get_allocator() { return allocator_; }
 
 private:
     SimulationTlbAllocator allocator_;

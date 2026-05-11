@@ -440,9 +440,10 @@ void Cluster::assert_risc_reset() {
 }
 
 void Cluster::deassert_risc_reset() {
-    // Lower the reset signal for BRISC only.
-    uint32_t reset_reg_value = architecture_implementation::create(arch_name)->get_soft_reset_reg_value(
-        RiscType::ALL_TENSIX & ~RiscType::BRISC);
+    // Lower the reset signal for BRISC only, with staggered start enabled.
+    auto arch_impl = architecture_implementation::create(arch_name);
+    uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
+                               arch_impl->get_soft_reset_staggered_start();
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 

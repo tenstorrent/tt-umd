@@ -497,6 +497,13 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
 
         cluster->read_from_device(readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, test_size);
 
+        for (int i = 0; i < zero_data.size(); i++) {
+            if (zero_data[i] != readback_data[i]) {
+                std::cout << "diff at index " << i << " write " << (uint32_t)zero_data[i] << " "
+                          << " read " << (uint32_t)readback_data[i] << std::endl;
+            }
+        }
+
         EXPECT_EQ(zero_data, readback_data);
 
         cluster->write_to_device(data.data(), test_size, chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
@@ -504,6 +511,13 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         cluster->wait_for_non_mmio_flush(chip_id);
 
         cluster->read_from_device(readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, test_size);
+
+        for (int i = 0; i < data.size(); i++) {
+            if (data[i] != readback_data[i]) {
+                std::cout << "diff 2 at index " << i << " write " << (uint32_t)data[i] << " "
+                          << " read " << (uint32_t)readback_data[i] << std::endl;
+            }
+        }
 
         EXPECT_EQ(data, readback_data);
     }

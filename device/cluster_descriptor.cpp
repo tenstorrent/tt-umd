@@ -8,7 +8,6 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -1379,28 +1378,16 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     return it->second;
 }
 
-const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
-
-uint8_t ClusterDescriptor::get_tray_id(ChipId chip_id) const {
-    static const std::unordered_map<tt::ARCH, std::array<uint16_t, 4>> ubb_bus_ids = {
-        {tt::ARCH::WORMHOLE_B0, {0xC0, 0x80, 0x00, 0x40}},
-        {tt::ARCH::BLACKHOLE, {0x00, 0x40, 0xC0, 0x80}},
-    };
+std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
     const BoardType board = get_board_type(chip_id);
     if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
-        return 0;
+        return std::nullopt;
     }
-    auto arch_it = ubb_bus_ids.find(get_arch(chip_id));
-    if (arch_it == ubb_bus_ids.end()) {
-        return 0;
+    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
+    if (!arch_impl) {
+        return std::nullopt;
     }
-    const uint16_t bus_high = static_cast<uint16_t>(get_bus_id(chip_id) & 0xF0);
-    const auto &table = arch_it->second;
-    auto it = std::find(table.begin(), table.end(), bus_high);
-    if (it == table.end()) {
-        return 0;
-    }
-    return static_cast<uint8_t>(std::distance(table.begin(), it) + 1);
+    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
 }
 
 }  // namespace tt::umd

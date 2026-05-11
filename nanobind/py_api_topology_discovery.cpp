@@ -85,35 +85,11 @@ void bind_topology_discovery(nb::module_& m) {
             release_gil(),
             "Get board ID for a chip")
         .def(
-            "get_chip_pci_bdfs",
-            &ClusterDescriptor::get_chip_pci_bdfs,
-            release_gil(),
-            "Map of ChipId -> PCI BDF string (e.g. \"0000:41:00.0\"). "
-            "Only contains entries for MMIO-capable chips.")
-        .def(
-            "get_chip_to_bus_id",
-            &ClusterDescriptor::get_chip_to_bus_id,
-            release_gil(),
-            "Map of ChipId -> PCI bus id (uint16, e.g. 0x41).")
-        .def(
-            "get_bus_id",
-            &ClusterDescriptor::get_bus_id,
-            nb::arg("chip_id"),
-            release_gil(),
-            "Returns the PCI bus id (uint16) for the given chip, or 0 if unknown.")
-        .def(
-            "get_asic_location",
-            &ClusterDescriptor::get_asic_location,
-            nb::arg("chip_id"),
-            release_gil(),
-            "Returns the ASIC location index within the chip's board (uint8), "
-            "or 0 if unknown.")
-        .def(
             "get_tray_id",
             &ClusterDescriptor::get_tray_id,
             nb::arg("chip_id"),
             release_gil(),
-            "Returns the tray id (1..4) for UBB boards, or 0 for non-UBB / unknown.")
+            "Returns the tray id (1..4) for UBB boards, or None for non-UBB / unknown.")
         .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil())
         .def_static(
             "create_constrained_cluster_descriptor",

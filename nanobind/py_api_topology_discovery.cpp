@@ -84,7 +84,15 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("chip"),
             release_gil(),
             "Get board ID for a chip")
-        .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil());
+        .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil())
+        .def_static(
+            "create_constrained_cluster_descriptor",
+            [](const ClusterDescriptor& full_cluster_desc, const std::unordered_set<ChipId>& target_chip_ids) {
+                return ClusterDescriptor::create_constrained_cluster_descriptor(&full_cluster_desc, target_chip_ids);
+            },
+            nb::arg("full_cluster_desc"),
+            nb::arg("target_chip_ids") = std::unordered_set<ChipId>{},
+            "Create a constrained cluster descriptor filtered to the given chip IDs");
 
     nb::class_<TopologyDiscoveryOptions> topology_discovery_options(m, "TopologyDiscoveryOptions");
 

@@ -45,6 +45,7 @@ public:
 
 private:
     EthCoord target_chip;
+    bool large_transfer_warning_printed_ = false;
 };
 
 }  // namespace tt::umd

@@ -755,7 +755,8 @@ void bind_tt_device(nb::module_ &m) {
         .def("get_clock", &TTSimTTDevice::get_clock, release_gil(), "Get the clock frequency.")
         .def(
             "get_min_clock_freq", &TTSimTTDevice::get_min_clock_freq, release_gil(), "Get the minimum clock frequency.")
-        .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.");
+        .def_rw("bar0_base", &TTSimTTDevice::bar0_base, "Base address for BAR0.")
+        .def_rw("bar4_base", &TTSimTTDevice::bar4_base, "Base address for BAR4.");
 
     nb::class_<RtlSimulationTTDevice, TTDevice>(m, "RtlSimulationTTDevice")
         .def_static(

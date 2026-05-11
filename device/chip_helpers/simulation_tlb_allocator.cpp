@@ -16,8 +16,9 @@
 
 namespace tt::umd {
 
-SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, const architecture_implementation* arch_impl) :
-    bar0_base_(bar0_base), arch_impl_(arch_impl) {
+SimulationTlbAllocator::SimulationTlbAllocator(
+    uint64_t bar0_base, const architecture_implementation* arch_impl, uint64_t bar4_base) :
+    bar0_base_(bar0_base), bar4_base_(bar4_base), arch_impl_(arch_impl) {
     initialize_architecture_config();
 }
 
@@ -68,10 +69,11 @@ uint64_t SimulationTlbAllocator::get_tlb_address_from_index(int tlb_index) {
         UMD_THROW(error::RuntimeError, fmt::format("Invalid simulation TLB index {}.", tlb_index));
     }
 
-    // BH 4GB TLBs live in BAR4, not BAR0; this path doesn't yet support them.
+    // BH 4GB TLBs live in BAR4, not BAR0. Each 4GB slot occupies its own region in
+    // BAR4, in TLB-index order starting from the FOUR_GB pool's start_index.
     if (architecture_ == tt::ARCH::BLACKHOLE && sc == &size_classes_[FOUR_GB]) {
-        UMD_THROW(
-            error::RuntimeError, "4GB TLBs in Blackhole are not currently supported in simulation TLB allocation.");
+        uint64_t slot = static_cast<uint64_t>(tlb_index) - sc->start_index;
+        return bar4_base_ + slot * sc->size;
     }
 
     // Size classes are laid out contiguously in BAR0; sum the sizes of all classes

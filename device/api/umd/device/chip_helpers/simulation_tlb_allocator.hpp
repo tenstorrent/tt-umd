@@ -25,7 +25,7 @@ class architecture_implementation;
  */
 class SimulationTlbAllocator {
 public:
-    SimulationTlbAllocator(uint64_t bar0_base, const architecture_implementation* arch_impl);
+    SimulationTlbAllocator(uint64_t bar0_base, const architecture_implementation* arch_impl, uint64_t bar4_base = 0);
 
     /**
      * Allocate the smallest TLB whose size class is >= the requested size. If no
@@ -81,6 +81,7 @@ private:
     TlbSizeClass* find_size_class_for_index(int tlb_index);
 
     uint64_t bar0_base_ = 0;
+    uint64_t bar4_base_ = 0;
     const architecture_implementation* arch_impl_ = nullptr;
     tt::ARCH architecture_;
     size_t tlb_reg_size_bytes_ = 8;  // Default to Wormhole size.

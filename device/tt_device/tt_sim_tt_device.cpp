@@ -87,6 +87,14 @@ TTSimTTDevice::TTSimTTDevice(
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
+        // BAR4 is a 64-bit memory BAR; its base address is split across two PCI config
+        // registers — 0x20 holds the low 32 bits, 0x24 holds the high 32 bits. The low 4 bits
+        // of the low register encode BAR attributes (memory vs IO, prefetchable, 64-bit width)
+        // and are masked off to leave the physical address.
+        bar4_base = communicator_->pci_config_read32(0, 0x20);
+        bar4_base |= uint64_t(communicator_->pci_config_read32(0, 0x24)) << 32;
+        bar4_base &= ~15ull;
+
         if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
         } else {
@@ -102,7 +110,8 @@ TTSimTTDevice::TTSimTTDevice(
             SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
             auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
             return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
-        });
+        },
+        bar4_base);
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 

@@ -1390,4 +1390,6 @@ std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
     return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
 }
 
+const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
+
 }  // namespace tt::umd

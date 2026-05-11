@@ -247,6 +247,8 @@ public:
 
     const std::unordered_map<ChipId, std::string> &get_chip_pci_bdfs() const;
 
+    uint8_t get_tray_id(ChipId chip_id) const;
+
     const std::vector<ChipId> &get_unhealthy_devices() const { return unhealthy_devices; }
 
     std::optional<SemVer> get_cluster_eth_fw_version() const { return eth_fw_version; }

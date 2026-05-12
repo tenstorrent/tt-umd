@@ -464,6 +464,8 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
                 module_telemetry.uncorr_edc_wr_error);
         }
 
+        // Not cross-checking against per-module values: reads can return spurious zeros, so only query validity is
+        // tested.
         EXPECT_TRUE(max_temp.has_value()) << "Max GDDR temperature should be available on Blackhole.";
 
         // Test individual module telemetry access.

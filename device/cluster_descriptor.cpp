@@ -1378,4 +1378,18 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     return it->second;
 }
 
+std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
+    const BoardType board = get_board_type(chip_id);
+    if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
+        return std::nullopt;
+    }
+    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
+    if (!arch_impl) {
+        return std::nullopt;
+    }
+    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
+}
+
+const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
+
 }  // namespace tt::umd

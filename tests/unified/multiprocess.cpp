@@ -51,27 +51,6 @@ void read_data_based_on_architecture(
 constexpr int NUM_PARALLEL = 4;
 constexpr int NUM_LOOPS = 1000;
 static constexpr int NUM_OF_BYTES_RESERVED = 128;
-static constexpr int READ_RETRY_MAX_ATTEMPTS = 100;
-
-// Repeatedly invokes `read_once` until `readback` equals `expected`, or until
-// `max_attempts` is reached. `read_once` is responsible for issuing a fresh
-// read into `readback`. Returns the number of attempts performed (1..max).
-// If it returns `max_attempts`, the readback never matched.
-template <typename ReadFn>
-static int read_until_match(
-    const std::vector<uint32_t>& expected,
-    std::vector<uint32_t>& readback,
-    const ReadFn& read_once,
-    int max_attempts = READ_RETRY_MAX_ATTEMPTS) {
-    int attempt = 0;
-    for (; attempt < max_attempts; attempt++) {
-        read_once();
-        if (readback == expected) {
-            return attempt + 1;
-        }
-    }
-    return attempt;
-}
 
 // Core implementation for testing IO in parallel threads.
 // Partitions L1 memory between threads to avoid address overlaps.
@@ -98,12 +77,9 @@ static void test_read_write_all_tensix_cores_impl(
         for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
             cluster->write_to_device(vector_to_write.data(), data_size, 0, core, address);
             cluster->l1_membar(0, {core});
-            const int attempts = read_until_match(vector_to_write, readback_vec, [&]() {
-                test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, data_size);
-            });
+            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, data_size);
             ASSERT_EQ(vector_to_write, readback_vec)
-                << "Vector read back from core " << core.str() << " did not match what was written after " << attempts
-                << " attempts";
+                << "Vector read back from core " << core.str() << " does not match what was written";
             readback_vec.clear();
         }
 
@@ -323,14 +299,12 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
                 tt_device->write_to_device(
                     data_write_t0.data(), tensix_core, address_thread0, data_write_t0.size() * sizeof(uint32_t));
 
-                const int attempts = read_until_match(data_write_t0, data_read, [&]() {
-                    std::fill(data_read.begin(), data_read.end(), 0);
-                    tt_device->read_from_device(
-                        data_read.data(), tensix_core, address_thread0, data_read.size() * sizeof(uint32_t));
-                });
+                tt_device->read_from_device(
+                    data_read.data(), tensix_core, address_thread0, data_read.size() * sizeof(uint32_t));
 
-                ASSERT_EQ(data_write_t0, data_read)
-                    << "TTDevice readback did not match write after " << attempts << " attempts";
+                ASSERT_EQ(data_write_t0, data_read);
+
+                data_read = std::vector<uint32_t>(data_write_t0.size(), 0);
             }
         });
 
@@ -342,14 +316,12 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
                     data_write_t1.data(), data_write_t1.size() * sizeof(uint32_t), chip, tensix_core, address_thread1);
                 cluster->l1_membar(chip, {tensix_core});
 
-                const int attempts = read_until_match(data_write_t1, data_read, [&]() {
-                    std::fill(data_read.begin(), data_read.end(), 0);
-                    cluster->read_from_device(
-                        data_read.data(), chip, tensix_core, address_thread1, data_read.size() * sizeof(uint32_t));
-                });
+                cluster->read_from_device(
+                    data_read.data(), chip, tensix_core, address_thread1, data_read.size() * sizeof(uint32_t));
 
-                ASSERT_EQ(data_write_t1, data_read)
-                    << "Cluster readback did not match write after " << attempts << " attempts";
+                ASSERT_EQ(data_write_t1, data_read);
+
+                data_read = std::vector<uint32_t>(data_write_t1.size(), 0);
             }
         });
 
@@ -406,18 +378,14 @@ TEST(Multiprocess, DMAWriteReadRaceCondition) {
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using architecture-specific method, retrying until the
-                    // readback matches what was written (DMA write completion may be
-                    // posted relative to the read path).
-                    const int attempts = read_until_match(write_data, read_data, [&]() {
-                        std::fill(read_data.begin(), read_data.end(), 0);
-                        read_data_based_on_architecture(
-                            *tt_device, tensix_core, read_data.data(), process_address, data_size);
-                    });
+                    // Read data back using architecture-specific method.
+                    std::fill(read_data.begin(), read_data.end(), 0);
+                    read_data_based_on_architecture(
+                        *tt_device, tensix_core, read_data.data(), process_address, data_size);
 
                     // Verify data integrity.
-                    ASSERT_EQ(write_data, read_data) << "Data mismatch in process " << process_id << " iteration "
-                                                     << iter << " after " << attempts << " attempts";
+                    ASSERT_EQ(write_data, read_data)
+                        << "Data mismatch in process " << process_id << " iteration " << iter;
 
                 } catch (const std::exception& e) {
                     std::cout << "Process " << process_id << " iteration " << iter << " failed: " << e.what()
@@ -483,19 +451,14 @@ TEST(Multiprocess, DISABLED_DMAWriteReadRaceConditionProcessIsolation) {
                     // Write data using DMA.
                     tt_device->dma_write_to_device(write_data.data(), data_size, tensix_core, process_address);
 
-                    // Read data back using architecture-specific method, retrying until the
-                    // readback matches what was written (DMA write completion may be
-                    // posted relative to the read path).
-                    const int attempts = read_until_match(write_data, read_data, [&]() {
-                        std::fill(read_data.begin(), read_data.end(), 0);
-                        read_data_based_on_architecture(
-                            *tt_device, tensix_core, read_data.data(), process_address, data_size);
-                    });
+                    // Read data back using architecture-specific method.
+                    std::fill(read_data.begin(), read_data.end(), 0);
+                    read_data_based_on_architecture(
+                        *tt_device, tensix_core, read_data.data(), process_address, data_size);
 
                     // Verify data integrity.
                     if (write_data != read_data) {
-                        std::cout << "Data mismatch in process " << process_id << " iteration " << iter << " after "
-                                  << attempts << " attempts" << std::endl;
+                        std::cout << "Data mismatch in process " << process_id << " iteration " << iter << std::endl;
                         _exit(1);  // Return 1 for Data Mismatch.
                     }
 

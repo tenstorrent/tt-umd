@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-void umd_memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
+void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     auto* d = static_cast<volatile std::uint8_t*>(dest);
     auto* s = static_cast<const std::uint8_t*>(src);
 
@@ -31,6 +31,7 @@ void umd_memcpy_to_device(volatile void* dest, const void* src, std::size_t size
     auto* d_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
 
     // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned stores).
+    // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
     while (size >= 256) {
         __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
         __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 32));
@@ -93,7 +94,7 @@ void umd_memcpy_to_device(volatile void* dest, const void* src, std::size_t size
     }
 }
 
-void umd_memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
+void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
     auto* d = static_cast<std::uint8_t*>(dest);
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
@@ -111,6 +112,7 @@ void umd_memcpy_from_device(void* dest, const volatile void* src, std::size_t si
     auto* s_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
 
     // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned loads).
+    // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
     while (size >= 256) {
         __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
         __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 32));

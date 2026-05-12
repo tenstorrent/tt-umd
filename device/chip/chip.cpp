@@ -251,33 +251,33 @@ void Chip::wait_for_aiclk_value(
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms.count()) {
+            auto* telemetry = tt_device->get_arc_telemetry_reader();
+            std::string arb_max_info;
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+                const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+                const uint32_t arb_freq = arb_max & 0xFFFF;
+                const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
+                arb_max_info = fmt::format(", AICLK clamped by max-arbiter index {} at {} MHz", arb_idx, arb_freq);
+            }
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
-                "{}",
+                "{}{}",
                 timeout_ms.count(),
                 target_aiclk,
                 aiclk,
-                tt_device->get_asic_temperature());
-            auto* telemetry = tt_device->get_arc_telemetry_reader();
-            if (telemetry != nullptr) {
-                if (telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
-                    const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
-                    if (timeout_ms.count() <= update_telem_speed_ms) {
-                        log_warning(
-                            LogUMD,
-                            "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
-                            "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
-                            timeout_ms.count(),
-                            update_telem_speed_ms);
-                    }
-                }
-                if (telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
-                    const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
-                    const uint32_t arb_freq = arb_max & 0xFFFF;
-                    const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
-                    log_warning(LogUMD, "AICLK is clamped by max-arbiter index {} at {} MHz.", arb_idx, arb_freq);
+                tt_device->get_asic_temperature(),
+                arb_max_info);
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+                const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+                if (timeout_ms.count() <= update_telem_speed_ms) {
+                    log_warning(
+                        LogUMD,
+                        "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
+                        "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                        timeout_ms.count(),
+                        update_telem_speed_ms);
                 }
             }
             return;

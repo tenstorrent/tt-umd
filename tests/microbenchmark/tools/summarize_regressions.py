@@ -369,19 +369,26 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    if not args.current.is_dir():
-        sys.exit(f"--current is not a directory: {args.current}")
-    if not args.baselines.is_file():
-        sys.exit(f"--baselines is not a file: {args.baselines}")
+    try:
+        current_path = args.current.resolve(strict=True)
+        baselines_path = args.baselines.resolve(strict=True)
+    except FileNotFoundError as e:
+        sys.exit(f"input path does not exist: {e.filename}")
+    output_path = args.output.resolve()
 
-    with open(args.baselines) as f:
+    if not current_path.is_dir():
+        sys.exit(f"--current is not a directory: {current_path}")
+    if not baselines_path.is_file():
+        sys.exit(f"--baselines is not a file: {baselines_path}")
+
+    with open(baselines_path) as f:
         baselines = yaml.safe_load(f) or {}
 
-    current = collect_current_results(args.current)
+    current = collect_current_results(current_path)
 
     summary, gated_breaches = render_summary(current, baselines)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(summary)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(summary)
     # Soft alerts (non-gated breaches) never fail; cases with `gate: true` in
     # baselines.yaml fail the job when they breach DOWN or CRIT.
     if gated_breaches:

@@ -320,14 +320,16 @@ def main() -> int:
             "No samples collected — workflow may not produce benchmark-json-* artifacts."
         )
 
-    existing_gates = load_existing_gates(args.output)
+    output_path = args.output.resolve()
+
+    existing_gates = load_existing_gates(output_path)
     yaml_text, diff_lines = render_yaml(
         samples, existing_gates, len(runs), args.workflow
     )
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(yaml_text)
-    print(f"Wrote {args.output}", file=sys.stderr)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(yaml_text)
+    print(f"Wrote {output_path}", file=sys.stderr)
 
     if diff_lines:
         print(

@@ -84,6 +84,12 @@ void bind_topology_discovery(nb::module_& m) {
             nb::arg("chip"),
             release_gil(),
             "Get board ID for a chip")
+        .def(
+            "get_tray_id",
+            &ClusterDescriptor::get_tray_id,
+            nb::arg("chip_id"),
+            release_gil(),
+            "Returns the tray id (1..4) for UBB boards, or None for non-UBB / unknown.")
         .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil())
         .def_static(
             "create_constrained_cluster_descriptor",

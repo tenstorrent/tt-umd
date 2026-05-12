@@ -17,19 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         machine: [
-          ubuntu-22.04,
-          ubuntu-24.04,
-          tt-ubuntu-2204-large-stable,
-          tt-ubuntu-2204-n150-stable,
-          tt-ubuntu-2204-n150-viommu-stable,
-          tt-ubuntu-2204-n300-stable,
-          tt-ubuntu-2204-n300-viommu-stable,
-          tt-ubuntu-2204-n300-llmbox-stable,
-          tt-ubuntu-2204-n300-llmbox-viommu-stable,
-          tt-ubuntu-2204-p150b-stable,
-          tt-ubuntu-2204-p150b-viommu-stable,
-          bh-gh-07,
-          tt-ubuntu-2204-bh-loudbox-viommu-stable]
+          tt-ubuntu-2204-bh-loudbox-stable]
 
     name: Check runner
     runs-on: ${{ matrix.machine }}

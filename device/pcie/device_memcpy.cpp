@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/pcie/device_memcpy.hpp"
+#include "device_memcpy.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-void streaming_memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
+void umd_memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     auto* d = static_cast<volatile std::uint8_t*>(dest);
     auto* s = static_cast<const std::uint8_t*>(src);
 
@@ -24,8 +24,9 @@ void streaming_memcpy_to_device(volatile void* dest, const void* src, std::size_
     }
 
 #if defined(__x86_64__) || defined(_M_X64)
-    // Cast to non-volatile for SIMD intrinsics — the intrinsics are opaque to the
-    // compiler and won't be reordered or eliminated.
+    // The AVX2 intrinsics below are not themselves volatile, so the compiler is free to
+    // reorder them relative to other non-volatile accesses. The volatile byte/4-byte loops
+    // in Phases 0/4/5 bound the reordering window for this function.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* d_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
 
@@ -92,7 +93,7 @@ void streaming_memcpy_to_device(volatile void* dest, const void* src, std::size_
     }
 }
 
-void streaming_memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
+void umd_memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
     auto* d = static_cast<std::uint8_t*>(dest);
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
@@ -103,8 +104,9 @@ void streaming_memcpy_from_device(void* dest, const volatile void* src, std::siz
     }
 
 #if defined(__x86_64__) || defined(_M_X64)
-    // Cast to non-volatile for SIMD intrinsics — the intrinsics are opaque to the
-    // compiler and won't be reordered or eliminated.
+    // The AVX2 intrinsics below are not themselves volatile, so the compiler is free to
+    // reorder them relative to other non-volatile accesses. The volatile byte/4-byte loops
+    // in Phases 0/4/5 bound the reordering window for this function.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* s_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
 

@@ -808,13 +808,6 @@ TEST(TestDeviceIO, DMA1) {
 
         read_data_based_on_architecture(cluster, core, readback.data(), 0x0, readback.size());
 
-        for (int j = 0; j < readback.size(); j++) {
-            if (patterns[i][j] != readback[j]) {
-                std::cout << "diff at index " << j << " write " << (uint32_t)patterns[i][j] << " "
-                          << " read " << (uint32_t)readback[j] << std::endl;
-            }
-        }
-
         EXPECT_EQ(patterns[i], readback) << "Mismatch for core " << core.str() << " addr=0x0"
                                          << " size=" << std::dec << readback.size();
     }

@@ -19,7 +19,7 @@
 #include <string>
 #include <utility>
 
-#include "umd/device/pcie/device_memcpy.hpp"
+#include "device_memcpy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -118,7 +118,7 @@ void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t siz
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_to_device((void *)dst, data, size);
     } else {
-        streaming_memcpy_to_device(dst, data, size);
+        umd_memcpy_to_device(dst, data, size);
     }
 }
 
@@ -130,7 +130,7 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_from_device(data, src, size);
     } else {
-        streaming_memcpy_from_device(data, src, size);
+        umd_memcpy_from_device(data, src, size);
     }
 }
 
@@ -157,10 +157,10 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, 
         sp = static_cast<const volatile copy_t *>(src);
     }
 
-    // Copy the source-aligned middle using streaming loads.
+    // Copy the source-aligned middle using non-overlapping wide loads.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    streaming_memcpy_from_device(dest, sp, middle_bytes);
+    umd_memcpy_from_device(dest, sp, middle_bytes);
 
     auto *dp = static_cast<char *>(dest) + middle_bytes;
     sp += num_words;
@@ -201,10 +201,10 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
         dp = static_cast<copy_t *>(dest);
     }
 
-    // Copy the destination-aligned middle using streaming stores.
+    // Copy the destination-aligned middle using non-overlapping wide stores.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    streaming_memcpy_to_device(dp, src, middle_bytes);
+    umd_memcpy_to_device(dp, src, middle_bytes);
 
     dp += num_words;
     auto *sp = static_cast<const char *>(src) + middle_bytes;

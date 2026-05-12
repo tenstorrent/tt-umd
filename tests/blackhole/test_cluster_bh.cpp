@@ -510,10 +510,19 @@ TEST(SiliconDriverBH, DISABLED_VirtualCoordinateBroadcast) {  // same problem as
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, DebugDoubleWrite) {
+// Regression test for the no-double-store property of write_to_device on TLB-mapped
+// device memory. Each iteration issues one DWORD write_to_device and checks that the
+// NIU posted-write counter advances by exactly one — i.e. that we did not emit two
+// PCIe writes for the same address (which is what glibc memcpy's overlapping tail
+// stores would do, and which corrupts data on device memory).
+//
+// Assumes single-writer single-process: nothing else on the host or device is writing
+// to this chip while the test runs. Compares the NIU counter delta against a
+// host-side counter, so any concurrent writer invalidates the assertion.
+TEST(SiliconDriverBH, WriteCountMatchesPostedWrites) {
     // NOC register that counts the number of posted write requests received by a core.
-    // Streaming stores go through write-combining BAR and generate posted PCIe writes.
     constexpr uint64_t NIU_SLV_POSTED_WR_REQ_RECEIVED = 0xffb202e0;
+    constexpr uint32_t kNumWrites = 100000;
 
     Cluster cluster;
     set_barrier_params(cluster);
@@ -529,7 +538,7 @@ TEST(SiliconDriverBH, DebugDoubleWrite) {
     uint32_t base_reg_val;
     cluster.read_from_device_reg(&base_reg_val, chip_id, tensix_core, NIU_SLV_POSTED_WR_REQ_RECEIVED, sizeof(uint32_t));
 
-    for (uint32_t i = 0; i < 100000; i++) {
+    for (uint32_t i = 0; i < kNumWrites; i++) {
         cluster.write_to_device(&data, sizeof(data), chip_id, tensix_core, addr);
         counter++;
 

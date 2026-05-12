@@ -24,7 +24,7 @@ namespace tt::umd {
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
  * sub-DWORD writes natively, so no read-modify-write is required).
  */
-void streaming_memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
+void umd_memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
 
 /**
  * memcpy for reads from device memory mapped through a TLB window.
@@ -36,6 +36,6 @@ void streaming_memcpy_to_device(volatile void* dest, const void* src, std::size_
  *
  * Handles arbitrary alignment and size.
  */
-void streaming_memcpy_from_device(void* dest, const volatile void* src, std::size_t size);
+void umd_memcpy_from_device(void* dest, const volatile void* src, std::size_t size);
 
 }  // namespace tt::umd

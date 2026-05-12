@@ -20,7 +20,7 @@ enum class ARCH;
 }  // namespace tt
 
 namespace tt::umd {
-class TLBManager;
+class PCIDevice;
 class TTDevice;
 
 class SysmemManager {
@@ -61,7 +61,7 @@ public:
 protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 
-    TLBManager* tlb_manager_ = nullptr;
+    PCIDevice* pci_device_ = nullptr;
     TTDevice* tt_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.
     uint64_t pcie_base_ = 0;

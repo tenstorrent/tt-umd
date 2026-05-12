@@ -11,18 +11,19 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -31,6 +32,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -238,6 +240,7 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto duration = std::chrono::milliseconds(0);
 
     auto start = std::chrono::steady_clock::now();
@@ -295,11 +298,6 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth
     return static_cast<EthTrainingStatus>(training_status);
 }
 
-void WormholeTTDevice::retrain_eth_core(tt_xy_pair eth_core) {
-    uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
-    write_to_device(&trigger_val, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
-}
-
 void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
@@ -323,121 +321,133 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
     constexpr uint32_t POST_CODE_ARC_MSG_HANDLE_DONE = 0xC0DE003F;
     constexpr uint32_t POST_CODE_ARC_TIME_LAST = 0xC0DE007F;
 
-    const auto start = std::chrono::steady_clock::now();
-    constexpr auto spin_limit = std::chrono::microseconds(1000);
-    while (true) {
-        uint32_t bar_read_arc_reset_scratch_status;
+    uint32_t bar_read_arc_reset_scratch_status = 0;
+    uint32_t bar_read_arc_post_code = 0;
+    uint32_t message_id = 0;
 
-        read_from_arc_apb(
-            &bar_read_arc_reset_scratch_status,
-            wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
-            sizeof(bar_read_arc_reset_scratch_status));
+    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
+    constexpr auto poll_interval = std::chrono::microseconds(10);
 
-        uint32_t bar_read_arc_post_code;
+    const bool arc_core_started = utils::poll_until(
+        [this, &bar_read_arc_reset_scratch_status, &bar_read_arc_post_code, &message_id]() {
+            read_from_arc_apb(
+                &bar_read_arc_reset_scratch_status,
+                wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET,
+                sizeof(bar_read_arc_reset_scratch_status));
 
-        read_from_arc_apb(
-            &bar_read_arc_post_code,
-            architecture_impl_->get_arc_reset_scratch_offset(),
-            sizeof(bar_read_arc_post_code));
+            read_from_arc_apb(
+                &bar_read_arc_post_code,
+                architecture_impl_->get_arc_reset_scratch_offset(),
+                sizeof(bar_read_arc_post_code));
 
-        uint32_t bar_read_arc_csm_pcie_dma_request;
+            uint32_t bar_read_arc_csm_pcie_dma_request = 0;
+            read_from_arc_csm(
+                &bar_read_arc_csm_pcie_dma_request,
+                wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
+                sizeof(bar_read_arc_csm_pcie_dma_request));
 
-        read_from_arc_csm(
-            &bar_read_arc_csm_pcie_dma_request,
-            wormhole::ARC_CSM_ARC_PCIE_DMA_REQUEST,
-            sizeof(bar_read_arc_csm_pcie_dma_request));
+            switch (bar_read_arc_reset_scratch_status) {
+                case STATUS_NO_ACCESS:
+                case STATUS_WATCHDOG_TRIGGERED:
+                    UMD_THROW(
+                        error::ArcStartupError,
+                        *this,
+                        get_selected_noc_id(),
+                        arc_core,
+                        bar_read_arc_reset_scratch_status,
+                        bar_read_arc_post_code);
 
-        switch (bar_read_arc_reset_scratch_status) {
-            case STATUS_NO_ACCESS:
-            case STATUS_WATCHDOG_TRIGGERED:
-                UMD_THROW(
-                    error::ArcStartupError,
-                    *this,
-                    get_selected_noc_id(),
-                    arc_core,
-                    bar_read_arc_reset_scratch_status,
-                    bar_read_arc_post_code);
+                case STATUS_INIT_DONE_1:
+                case STATUS_INIT_DONE_2:
+                    return true;
 
-            case STATUS_INIT_DONE_1:
-            case STATUS_INIT_DONE_2:
-                return;
-
-            case STATUS_OLD_POST_CODE: {
-                bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
-                               (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
-                                bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
-                if (pc_idle) {
-                    return;
+                case STATUS_OLD_POST_CODE: {
+                    const bool pc_idle = (bar_read_arc_post_code == POST_CODE_INIT_DONE) ||
+                                         (bar_read_arc_post_code >= POST_CODE_ARC_MSG_HANDLE_DONE &&
+                                          bar_read_arc_post_code <= POST_CODE_ARC_TIME_LAST);
+                    if (pc_idle) {
+                        return true;
+                    }
+                    break;
                 }
-                break;
+                case STATUS_BOOT_INCOMPLETE_1:
+                case STATUS_BOOT_INCOMPLETE_2:
+                case STATUS_ASLEEP_1:
+                case STATUS_ASLEEP_2:
+                default:
+                    break;
             }
-            case STATUS_BOOT_INCOMPLETE_1:
-            case STATUS_BOOT_INCOMPLETE_2:
-            case STATUS_ASLEEP_1:
-            case STATUS_ASLEEP_2:
-            default:
-                break;
-        }
 
-        uint32_t message_id = 0;
-        bool is_queued =
-            ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL);
-        bool is_handling =
-            ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL);
-        bool is_complete =
-            ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN);
-        bool dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
+            const bool is_queued =
+                ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_QUEUED_MASK) == STATUS_MESSAGE_QUEUED_VAL);
+            const bool is_handling =
+                ((bar_read_arc_reset_scratch_status & STATUS_HANDLING_MESSAGE_MASK) == STATUS_HANDLING_MESSAGE_VAL);
+            const bool is_complete =
+                ((bar_read_arc_reset_scratch_status & STATUS_MESSAGE_COMPLETE_MASK) > STATUS_MESSAGE_COMPLETE_MIN);
+            const bool dma_request = (bar_read_arc_csm_pcie_dma_request != 0);
 
-        if (is_queued) {
-            message_id = bar_read_arc_reset_scratch_status & 0xFF;
-        } else if (is_handling) {
-            message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
-        } else if (is_complete && !dma_request) {
-            // We only return if the message says complete and DMA is idle.
-            return;
-        }
-
-        auto elapsed = std::chrono::steady_clock::now() - start;
-
-        // If we are within the first 200us, busy-wait (continue).
-        // This burns CPU, but guarantees we catch the status change instantly in this interval.
-        if (elapsed < spin_limit) {
-            // Optional: For 0ms timeouts, check manually here without strings.
-            if (elapsed > timeout_ms) {
-                UMD_THROW(
-                    error::ArcStartupError,
-                    *this,
-                    get_selected_noc_id(),
-                    arc_core,
-                    bar_read_arc_reset_scratch_status,
-                    bar_read_arc_post_code,
-                    timeout_ms,
-                    message_id);
+            if (is_queued) {
+                message_id = bar_read_arc_reset_scratch_status & 0xFF;
+            } else if (is_handling) {
+                message_id = (bar_read_arc_reset_scratch_status >> 16) & 0xFF;
+            } else if (is_complete && !dma_request) {
+                // We only return if the message says complete and DMA is idle.
+                return true;
             }
-            continue;
-        }
+            return false;
+        },
+        timeout_ms,
+        busy_poll_window,
+        poll_interval);
 
-        if (utils::check_timeout(start, timeout_ms)) {
-            UMD_THROW(
-                error::ArcStartupError,
-                *this,
-                get_selected_noc_id(),
-                arc_core,
-                bar_read_arc_reset_scratch_status,
-                bar_read_arc_post_code,
-                timeout_ms,
-                message_id);
-        }
-
-        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
-        // actual duration will be longer due to OS scheduling and jitter.
-        // This prevents 100% CPU usage during longer hardware initialization.
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    if (!arc_core_started) {
+        UMD_THROW(
+            error::ArcStartupError,
+            *this,
+            get_selected_noc_id(),
+            arc_core,
+            bar_read_arc_reset_scratch_status,
+            bar_read_arc_post_code,
+            timeout_ms,
+            message_id);
     }
 }
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
+}
+
+void WormholeTTDevice::noc_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
+    if (!is_remote_tt_device) {
+        TTDevice::noc_multicast_write(src, size, core_start, core_end, addr);
+        return;
+    }
+
+    // TODO: implement multicast over remote communication.
+    // For now, fall back to unicast over the non-harvested TENSIX cores reported by the soc descriptor
+    // that fall inside the multicast range, matching hardware multicast behavior.
+    //
+    // Coordinates may be in TRANSLATED or NOC0 space; pick the coord system from core_start since the
+    // two ranges don't overlap.
+    const CoordSystem coord_system =
+        (core_start.x >= wormhole::tensix_translated_coordinate_start_x) ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
+    for (const auto &core : get_soc_descriptor().get_cores(CoreType::TENSIX, coord_system)) {
+        if (core.x < core_start.x || core.x > core_end.x || core.y < core_start.y || core.y > core_end.y) {
+            continue;
+        }
+        log_trace(LogUMD, "noc_multicast_write fallback unicast to TENSIX core at ({}, {})", core.x, core.y);
+        write_to_device(src, xy_pair(core.x, core.y), addr, size);
+    }
+}
+
+void WormholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+    // Same range is used for NOC0 and NOC1.
+    // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
+    // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
+
+    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
 }
 
 }  // namespace tt::umd

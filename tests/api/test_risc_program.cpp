@@ -40,7 +40,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t readback = 0;
 
@@ -64,6 +64,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 simple_brisc_program.data(),
                 simple_brisc_program.size() * sizeof(uint32_t),
@@ -99,7 +100,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;
@@ -117,6 +118,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
 
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 counter_brisc_program.data(),
                 counter_brisc_program.size() * sizeof(uint32_t),
@@ -185,7 +187,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
     const auto& configurations_of_risc_cores = GetParam();
 
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;
@@ -214,6 +216,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),
                 brisc_configuration_program.value().size() * sizeof(uint32_t),

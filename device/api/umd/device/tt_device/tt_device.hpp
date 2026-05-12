@@ -204,6 +204,15 @@ public:
     virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
+     * NOC multicast write function that will write data to all TENSIX cores in the grid.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_multicast_write(void *src, size_t size, uint64_t addr) = 0;
+
+    /**
      * Read function that will send read message to the ARC core APB peripherals.
      *
      * @param mem_ptr pointer to memory which will receive the data
@@ -349,6 +358,12 @@ public:
     uint32_t get_max_clock_freq();
 
     virtual uint32_t get_min_clock_freq() = 0;
+
+    // Advance the device by one clock cycle. No-op by default; overridden by devices with a
+    // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the
+    // clock is advanced synchronously from the calling thread rather than driven by a
+    // background thread.
+    virtual void advance_device_execution();
 
     uint64_t get_board_id();
 

@@ -45,17 +45,24 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
+    // Simulation TTDevices have no PCI device; report chip 0 in the log line in that case.
     log_debug(
         LogUMD,
         "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
-        tt_device_->get_pci_device()->get_device_num(),
+        tt_device_->get_pci_device() != nullptr ? tt_device_->get_pci_device()->get_device_num() : 0,
         core.str(),
         tlb_size,
         address,
         ordering,
         tlb_window->handle_ref().get_tlb_id());
 
-    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / tlb_size) * tlb_size});
+    // Use the actual allocated window size, not the caller-provided tlb_size, to
+    // page-align the recorded base address. The caller may pass tlb_size = 0 to
+    // mean "any size that fits"; in that case allocate_tlb_window picks one,
+    // and dividing by the original argument here would be a divide-by-zero
+    // (SIGFPE on Linux).
+    const size_t window_size = tlb_window->handle_ref().get_size();
+    tlb_config_map_.insert({tlb_window->handle_ref().get_tlb_id(), (address / window_size) * window_size});
     map_core_to_tlb_.insert({core, tlb_window->handle_ref().get_tlb_id()});
     tlb_windows_.insert({tlb_window->handle_ref().get_tlb_id(), std::move(tlb_window)});
 }

@@ -25,6 +25,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -154,6 +155,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     switch (remote_communication->get_local_device()->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
@@ -270,11 +272,11 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     device_protocol_->read_from_device(mem_ptr, core, addr, size);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
     const SocDescriptor &soc_desc = get_soc_descriptor();
     read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
@@ -285,7 +287,6 @@ void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t ad
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
     const SocDescriptor &soc_desc = get_soc_descriptor();
     write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
@@ -295,6 +296,7 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
         UMD_THROW(
             error::RuntimeError,
@@ -405,6 +407,8 @@ ChipInfo TTDevice::get_chip_info() {
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
+void TTDevice::advance_device_execution() {}
+
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;
     read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
@@ -457,16 +461,6 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    if (is_remote_tt_device) {
-        // Remote devices don't have direct NOC multicast support.
-        // Fallback to unicast for all cores in the range.
-        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
-            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
-                write_to_device(src, xy_pair(x, y), addr, size);
-            }
-        }
-        return;
-    }
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
@@ -553,9 +547,9 @@ const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descripto
 
 void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
     if (soc_descriptor_path.empty()) {
-        soc_descriptor_ = SocDescriptor(get_arch(), get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
     } else {
-        soc_descriptor_ = SocDescriptor(soc_descriptor_path, get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_descriptor_path), get_chip_info());
     }
 }
 

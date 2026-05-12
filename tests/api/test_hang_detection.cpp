@@ -53,7 +53,7 @@ protected:
     void init_device(int pci_device_id) {
         tt_device_ = TTDevice::create(pci_device_id);
         tt_device_->init_tt_device();
-        soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
+        soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_soc_descriptor());
     }
 
     // Deliberately hangs the specified NOC by reading an address that causes the NOC transaction to

@@ -14,7 +14,6 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include <exception>
 #include <iomanip>
 #include <memory>
 #include <sstream>

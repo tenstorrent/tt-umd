@@ -10,6 +10,7 @@
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -38,10 +39,15 @@ public:
 
     // Shared higher-level methods that use the virtual methods above.
     virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
     virtual void write_block_reconfigure(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict);
 
     virtual void noc_multicast_write_reconfigure(
         void* dst,
@@ -49,6 +55,7 @@ public:
         tt_xy_pair core_start,
         tt_xy_pair core_end,
         uint64_t addr,
+        NocId noc_id,
         uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_write16(uint64_t offset, uint16_t value) = 0;
@@ -68,10 +75,15 @@ public:
     virtual void safe_read_block(uint64_t offset, void* data, size_t size);
 
     virtual void safe_write_block_reconfigure(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_noc_multicast_write_reconfigure(
         void* dst,
@@ -79,6 +91,7 @@ public:
         tt_xy_pair core_start,
         tt_xy_pair core_end,
         uint64_t addr,
+        NocId noc_id,
         uint64_t ordering = tlb_data::Strict);
 
     // Shared utility methods.

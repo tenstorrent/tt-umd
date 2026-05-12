@@ -18,6 +18,8 @@ inline constexpr auto DRAM_TRAINING_TIMEOUT = std::chrono::milliseconds(300'000)
 inline constexpr auto ETH_QUEUE_ENABLE_TIMEOUT = std::chrono::milliseconds(30'000);
 inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(900'000);
 inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);
+// Note: This was formerly 5ms, and it made some of our tests fail even when ETH was running.
+// If adjusting, stress test using our whole test suite to see if the timeout is sufficient.
 inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);

@@ -7,7 +7,6 @@
 #include <memory>
 #include <utility>
 
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"

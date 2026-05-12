@@ -111,7 +111,7 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -145,7 +145,7 @@ jobs:
           ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: >-
             build-artifacts-${{ inputs.ubuntu-docker-version
@@ -163,14 +163,9 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
 
       - name: Build wheel
         shell: bash
@@ -179,7 +174,7 @@ jobs:
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Setting up virtual environment..."
-          python -m venv .venv
+          python3 -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel auditwheel
           echo "Compiling the code..."
@@ -193,7 +188,7 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
 
           # This is done so that all the necessary libraries are included in the wheel.
           # Specifically, this will make the wheel runnable on exalens ci image.
@@ -208,7 +203,7 @@ jobs:
           cp -r ${{ env.NANOBIND_TEST_DIR }} ${{ env.WHEEL_OUTPUT_DIR }}/tests
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # Note that wheel is built with hardcoded Release build type at the moment.
           name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
@@ -222,7 +217,7 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-exalens
           ref: main
@@ -241,7 +236,7 @@ jobs:
           rm -f build/sfpi_*
 
       - name: Upload kernels as artifacts
-        uses: pyTooling/upload-artifact@v4
+        uses: pyTooling/upload-artifact@v1.10.0
         with:
           name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: |

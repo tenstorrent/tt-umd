@@ -499,13 +499,6 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
 
         cluster->read_from_device(readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, test_size);
 
-        for (int i = 0; i < zero_data.size(); i++) {
-            if (zero_data[i] != readback_data[i]) {
-                std::cout << "diff at index " << i << " write " << (uint32_t)zero_data[i] << " "
-                          << " read " << (uint32_t)readback_data[i] << std::endl;
-            }
-        }
-
         EXPECT_EQ(zero_data, readback_data);
 
         cluster->write_to_device(data.data(), test_size, chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
@@ -513,13 +506,6 @@ TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
         cluster->wait_for_non_mmio_flush(chip_id);
 
         cluster->read_from_device(readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, test_size);
-
-        for (int i = 0; i < data.size(); i++) {
-            if (data[i] != readback_data[i]) {
-                std::cout << "diff 2 at index " << i << " write " << (uint32_t)data[i] << " "
-                          << " read " << (uint32_t)readback_data[i] << std::endl;
-            }
-        }
 
         EXPECT_EQ(data, readback_data);
     }
@@ -897,13 +883,6 @@ TEST(TestDeviceIO, DMA2) {
 
             read_data_based_on_architecture(cluster, op.core, readback.data(), op.address, readback.size());
 
-            for (int j = 0; j < readback.size(); j++) {
-                if (op.data[j] != readback[j]) {
-                    std::cout << "diff at index " << j << " write " << (uint32_t)op.data[j] << " "
-                              << " read " << (uint32_t)readback[j] << std::endl;
-                }
-            }
-
             // Verify the data.
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
                                          << op.address << " size=" << std::dec << op.data.size();
@@ -950,13 +929,6 @@ TEST(TestDeviceIO, DMA2) {
             std::vector<uint8_t> readback(op.data.size());
 
             read_data_based_on_architecture(cluster, op.core, readback.data(), op.address, readback.size());
-
-            for (int j = 0; j < readback.size(); j++) {
-                if (op.data[j] != readback[j]) {
-                    std::cout << "diff at index " << j << " write " << (uint32_t)op.data[j] << " "
-                              << " read " << (uint32_t)readback[j] << std::endl;
-                }
-            }
 
             // Verify the data.
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex

@@ -296,12 +296,13 @@ target_include_directories(
 
 target_link_libraries(
     tt-umd
+    PUBLIC
+        fmt::fmt-header-only
     PRIVATE
         umd::Firmware
         hwloc
         rt
         spdlog::spdlog_header_only
-        fmt::fmt-header-only
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )

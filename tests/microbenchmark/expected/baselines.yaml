@@ -194,7 +194,10 @@ TLB_Tensix_Unicast_v_Multicast:
   "Unicast, 72 cores, 131072 bytes":
     WH n150: { median_throughput: 3.107e+07, tolerance_pct: 5 }
   "Unicast, 72 cores, 16384 bytes":
-    WH n150: { median_throughput: 3.055e+07, tolerance_pct: 5 }
+    # TEMP: gated to verify the regression-check job exits non-zero on a breach.
+    # Paired with a deliberate 5 ms slowdown in the Unicast lambda for batch=16 KiB
+    # (see test_tlb.cpp). Drop `gate: true` and the C++ sleep together.
+    WH n150: { median_throughput: 3.055e+07, tolerance_pct: 5, gate: true }
   "Unicast, 72 cores, 2 bytes":
     WH n150: { median_throughput: 1.243e+04, tolerance_pct: 27 }
   "Unicast, 72 cores, 2048 bytes":

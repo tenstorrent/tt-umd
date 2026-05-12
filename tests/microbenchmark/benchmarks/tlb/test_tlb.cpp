@@ -6,10 +6,15 @@
 #include <gtest/gtest.h>
 #include <nanobench.h>
 
+// TEMP: <chrono>/<thread> are pulled in only for a deliberate slowdown in the
+// Unicast lambda below — used to verify the in-CI perf regression gate. Remove
+// alongside the sleep_for once the gate is validated.
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
@@ -185,6 +190,14 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
             .name(fmt::format("Unicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
             .relative(true)
             .run([&]() {
+                // TEMP: deliberate per-iteration slowdown targeting a single batch size
+                // to verify the in-CI perf regression gate. Picked the 16 KiB Unicast
+                // case because its baseline tolerance is tight (5-8% across archs), so
+                // a 5 ms bump trips CRIT cleanly. Remove this block once the gate is
+                // validated.
+                if (batch_size == 16 * ONE_KIB) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                }
                 for (auto &tensix_core : tensix_cores) {
                     cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
                 }

@@ -65,14 +65,22 @@ jobs:
       - name: Summarize regressions
         run: |
           . /tmp/venv/bin/activate
+          # Capture exit code without aborting — summarize_regressions.py exits 1
+          # when a gated case breaches, but we still want the step summary and
+          # log output published before the step fails.
+          set +e
           python3 tests/microbenchmark/tools/summarize_regressions.py \
             --current "${RESULTS_DIR}" \
             --baselines tests/microbenchmark/expected/baselines.yaml \
             --output "${SUMMARY_PATH}"
-          cat "${SUMMARY_PATH}" >> "${GITHUB_STEP_SUMMARY}"
-          # Also echo to job log so the table is greppable from the run page
-          echo "----- regression summary -----"
-          cat "${SUMMARY_PATH}"
+          rc=$?
+          set -e
+          if [ -f "${SUMMARY_PATH}" ]; then
+            cat "${SUMMARY_PATH}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "----- regression summary -----"
+            cat "${SUMMARY_PATH}"
+          fi
+          exit "${rc}"
 
       - name: Upload regression summary artifact
         if: always()

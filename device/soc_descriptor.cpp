@@ -22,40 +22,14 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
-
-tt_xy_pair format_node(const std::string &str) {
-    // Find the separator character.
-    size_t sep_pos = std::string::npos;
-    for (size_t i = 0; i < str.size(); ++i) {
-        if (str[i] == '-') {
-            sep_pos = i;
-            break;
-        }
-    }
-
-    if (sep_pos == std::string::npos || sep_pos == 0 || sep_pos >= str.size() - 1) {
-        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate: {}", str));
-    }
-
-    try {
-        const char *str_cstr = str.c_str();
-        int x_coord = std::atoi(str_cstr);
-        int y_coord = std::atoi(str_cstr + sep_pos + 1);
-        return tt_xy_pair(x_coord, y_coord);
-    } catch (...) {
-        UMD_THROW(error::RuntimeError, fmt::format("Could not parse core coordinate:  {}", str));
-    }
-}
 
 // clang-format off
 static const std::unordered_map<tt_xy_pair, tt_xy_pair> ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE = {
@@ -203,16 +177,6 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         arch_desc_->get_dispatch_cores(),
         arch_desc_->get_noc0_x_to_noc1_x(),
         arch_desc_->get_noc0_y_to_noc1_y());
-}
-
-SocDescriptor::SocDescriptor(const tt::ARCH arch_soc, ChipInfo chip_info) {
-    arch_desc_ = std::make_shared<const SocArchDescriptor>(SocArchDescriptor::create(arch_soc));
-    init_from_arch_descriptor(chip_info);
-}
-
-SocDescriptor::SocDescriptor(const std::string &device_descriptor_path, ChipInfo chip_info) {
-    arch_desc_ = std::make_shared<const SocArchDescriptor>(SocArchDescriptor::create(device_descriptor_path));
-    init_from_arch_descriptor(chip_info);
 }
 
 SocDescriptor::SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info) :
@@ -468,8 +432,11 @@ std::vector<CoreCoord> SocDescriptor::get_cores(
     // Filter cores by channel if specified.
     // At this time, only applicable for DRAM cores.
     if (channel.has_value()) {
-        TT_ASSERT(core_type == CoreType::DRAM, "Core type must be DRAM when setting channel.");
-        TT_ASSERT(channel.value() < get_num_dram_channels(), "Channel value exceeds number of DRAM channels.");
+        UMD_ASSERT(core_type == CoreType::DRAM, error::RuntimeError, "Core type must be DRAM when setting channel.");
+        UMD_ASSERT(
+            channel.value() < get_num_dram_channels(),
+            error::RuntimeError,
+            "Channel value exceeds number of DRAM channels.");
         std::vector<CoreCoord> filtered_cores;
         for (const auto &core : cores) {
             auto logical_core = translate_coord_to(core, CoordSystem::LOGICAL);

@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -38,7 +37,6 @@
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
 #include "utils.hpp"
 
@@ -465,7 +463,8 @@ PCIDevice::PCIDevice(int pci_device_number) :
         driver_info.out.driver_version,
         iommu_enabled ? "enabled" : "disabled");
 
-    TT_ASSERT(arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, "Wormhole B0 must have revision 0x01");
+    UMD_ASSERT(
+        arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, error::RuntimeError, "Wormhole B0 must have revision 0x01");
 
     struct {
         tenstorrent_query_mappings query_mappings;
@@ -622,6 +621,7 @@ PCIDevice::~PCIDevice() {
     }
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
+        TracyFreeN(dma_buffer.buffer, "DMA");
         munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
     }
 }
@@ -896,11 +896,23 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     log_trace(
         LogUMD,
-        "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x}",
+        "Configured TLB index {} at address 0x{:x} with lower=0x{:x}, upper=0x{:x} "
+        "[local_offset={}, x_end={}, y_end={}, x_start={}, y_start={}, noc_sel={}, mcast={}, ordering={}, linked={}, "
+        "static_vc={}]",
         tlb_index,
         tlb_register_addr,
         lower_64,
-        upper_64);
+        upper_64,
+        tlb_config.local_offset,
+        tlb_config.x_end,
+        tlb_config.y_end,
+        tlb_config.x_start,
+        tlb_config.y_start,
+        tlb_config.noc_sel,
+        tlb_config.mcast,
+        tlb_config.ordering,
+        tlb_config.linked,
+        tlb_config.static_vc);
 }
 
 void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
@@ -943,6 +955,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
         dma_buffer.buffer_pa = iova;
         dma_buffer.completion_pa = iova + dma_buf_size;
         dma_buffer.size = dma_buf_size;
+        TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
 
         return true;
     } catch (...) {
@@ -985,6 +998,7 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size)
             dma_buffer.buffer_pa = dma_buf.out.physical_address;
             dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
             dma_buffer.size = dma_buf_size;
+            TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
             return true;
         }
     }

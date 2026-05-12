@@ -29,7 +29,6 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -64,9 +63,8 @@ protected:
             DeviceData device_data;
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
-            auto soc_descriptor =
-                SocDescriptor(device_data.tt_device_->get_arch(), device_data.tt_device_->get_chip_info());
-            device_data.tensix_core_ = soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            device_data.tensix_core_ =
+                device_data.tt_device_->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             device_data_.push_back(std::move(device_data));
         }
 
@@ -161,9 +159,8 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
         pci_tt_device->init_tt_device();
 
         ChipInfo chip_info = pci_tt_device->get_chip_info();
-
         tt_xy_pair tensix_core =
-            SocDescriptor(pci_tt_device->get_arch(), chip_info).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            pci_tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         // clear the memory first with zeros.
         pci_tt_device->write_to_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -196,7 +193,7 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
     uint64_t address = 0x0;
 
     for (const auto& device : device_data_) {
-        SocDescriptor soc_desc(device.tt_device_->get_arch(), device.tt_device_->get_chip_info());
+        const SocDescriptor& soc_desc = device.tt_device_->get_soc_descriptor();
         tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
         tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
 

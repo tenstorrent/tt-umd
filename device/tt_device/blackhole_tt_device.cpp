@@ -11,12 +11,12 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
 #include "noc_access.hpp"
+#include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -34,7 +34,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -183,51 +182,23 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     uint32_t arc_boot_status = 0;
     uint32_t arc_postcode = 0;
-    const auto start = std::chrono::steady_clock::now();
-    constexpr auto spin_limit = std::chrono::microseconds(1000);
-    while (true) {
-        read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
-        read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
 
-        // ARC started successfully.
-        if ((arc_boot_status & 0x7) == 0x5) {
-            return;
-        }
+    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
+    constexpr auto poll_interval = std::chrono::microseconds(10);
+    const bool arc_core_started = utils::poll_until(
+        [this, &arc_boot_status, &arc_postcode]() {
+            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
+            read_from_arc_apb(
+                &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
+            return (arc_boot_status & 0x7) == 0x5;
+        },
+        timeout_ms,
+        busy_poll_window,
+        poll_interval);
 
-        auto elapsed = std::chrono::steady_clock::now() - start;
-
-        // If we are within the first 200us, busy-wait (continue).
-        // This burns CPU, but guarantees we catch the status change instantly in this interval.
-        if (elapsed < spin_limit) {
-            // Optional: For 0ms timeouts, check manually here without strings.
-            if (elapsed > timeout_ms) {
-                UMD_THROW(
-                    error::ArcStartupError,
-                    *this,
-                    get_selected_noc_id(),
-                    arc_core,
-                    arc_boot_status,
-                    arc_postcode,
-                    timeout_ms);
-            }
-            continue;
-        }
-
-        if (utils::check_timeout(start, timeout_ms)) {
-            UMD_THROW(
-                error::ArcStartupError,
-                *this,
-                get_selected_noc_id(),
-                arc_core,
-                arc_boot_status,
-                arc_postcode,
-                timeout_ms);
-        }
-
-        // If past 200us, avoid busy-waiting. Request a 10us sleep (minimum) -
-        // actual duration will be longer due to OS scheduling and jitter.
-        // This prevents 100% CPU usage during longer hardware initialization.
-        std::this_thread::sleep_for(std::chrono::microseconds(10));
+    if (!arc_core_started) {
+        UMD_THROW(
+            error::ArcStartupError, *this, get_selected_noc_id(), arc_core, arc_boot_status, arc_postcode, timeout_ms);
     }
 }
 
@@ -295,6 +266,7 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
     auto time_taken = std::chrono::milliseconds(0);
 
     // Port status should be last state to settle during the eth training sequence
@@ -338,6 +310,29 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
             error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
+}
+
+void BlackholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+    // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
+    //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
+    //   Translation enabled:  hardware broadcast is avoided; use a software multicast with
+    //                         wraparound coordinates that differ per NOC:
+    //                           NOC0: start=(2,3), end=(1,2)
+    //                           NOC1: start=(1,2), end=(2,3).
+    xy_pair start_coord;
+    xy_pair end_coord;
+    UMD_ASSERT(
+        get_chip_info().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for BH devices without NOC translation enabled.");
+    if (is_selected_noc1()) {
+        start_coord = xy_pair{1, 2};
+        end_coord = xy_pair{2, 3};
+    } else {
+        start_coord = xy_pair{2, 3};
+        end_coord = xy_pair{1, 2};
+    }
+    noc_multicast_write(src, size, start_coord, end_coord, addr);
 }
 
 }  // namespace tt::umd

@@ -28,7 +28,7 @@ TEST(TestSocDescriptor, SocDescriptorSerialize) {
 
         std::filesystem::path file_path = soc_descriptor.serialize_to_file();
         SocDescriptor soc(
-            file_path.string(),
+            std::make_shared<SocArchDescriptor>(file_path.string()),
             {.noc_translation_enabled = soc_descriptor.noc_translation_enabled,
              .harvesting_masks = soc_descriptor.harvesting_masks});
     }

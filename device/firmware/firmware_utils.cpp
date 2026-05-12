@@ -15,11 +15,11 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -89,7 +89,7 @@ SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARC
     return SemVer(0, 0, 0);
 }
 
-SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
             uint32_t eth_fw_version_read;

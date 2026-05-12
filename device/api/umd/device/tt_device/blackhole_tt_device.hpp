@@ -51,6 +51,9 @@ public:
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
+    using TTDevice::noc_multicast_write;
+    void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
+
 protected:
     BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
     BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);

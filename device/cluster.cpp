@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "hugepage.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -51,7 +50,6 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -138,12 +136,12 @@ void Cluster::log_pci_device_summary() {
     log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
-void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
+void Cluster::construct_cluster(const ChipType& chip_type) {
     ZoneScopedC(tracy::Color::DarkGreen);
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
 
-    eth_fw_version = cluster_desc->eth_fw_version;
+    eth_fw_version = cluster_desc->get_cluster_eth_fw_version();
 
     if (chip_type == ChipType::SILICON) {
         std::vector<int> pci_ids;
@@ -219,7 +217,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
                 (cluster_desc->get_chips_with_mmio().at(chip_id)),
                 soc_desc,
                 num_host_mem_channels,
-                cluster_desc->io_device_type);
+                cluster_desc->get_cluster_io_device_type());
         }
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
@@ -274,32 +272,33 @@ SocDescriptor Cluster::construct_soc_descriptor(
     if (soc_desc_path.empty()) {
         tt::ARCH arch = chip_in_cluster_descriptor ? cluster_desc->get_arch(chip_id) : tt::ARCH::WORMHOLE_B0;
 
-        return SocDescriptor(arch, chip_info);
+        SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(arch), chip_info);
+        return soc_descriptor;
 
     } else {
-        SocDescriptor soc_desc = SocDescriptor(soc_desc_path, chip_info);
+        SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
 
         // In this case, check that the passed soc descriptor architecture doesn't conflate with the one in the cluster
         // descriptor.
-        if (chip_in_cluster_descriptor && soc_desc.arch != cluster_desc->get_arch(chip_id)) {
+        if (chip_in_cluster_descriptor && soc_descriptor.arch != cluster_desc->get_arch(chip_id)) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
                     "Passed SOC descriptor has {} architecture, but Chip ID {} has {} architecture.",
-                    arch_to_str(soc_desc.arch),
+                    arch_to_str(soc_descriptor.arch),
                     chip_id,
                     arch_to_str(cluster_desc->get_arch(chip_id))));
         }
 
-        return soc_desc;
+        return soc_descriptor;
     }
 }
 
 void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip) {
-    TT_ASSERT(
+    UMD_ASSERT(
         chips_.find(chip_id) == chips_.end(),
-        "Chip with id {} already exists in cluster. Cannot add another chip with the same id.",
-        chip_id);
+        error::RuntimeError,
+        fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
     // All non silicon chip types are considered local chips.
     if (chip_type == ChipType::SIMULATION || chip_type == ChipType::SWEMULE ||
@@ -315,14 +314,13 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 // NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
 Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
+    log_info(LogUMD, "Cluster constructor started.");
     options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
             if (options.cluster_descriptor != nullptr) {
-                cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
-                    options.cluster_descriptor, options.target_devices);
-                break;
+                UMD_THROW(error::RuntimeError, "Cannot pass a custom ClusterDescriptor for SILICON chip type.");
             }
 
             auto [desc, devices] = TopologyDiscovery::discover(
@@ -407,7 +405,8 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 std::move(tt_device)));
     }
 
-    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+    construct_cluster(options.chip_type);
+    log_info(LogUMD, "Cluster constructor completed.");
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
@@ -518,7 +517,7 @@ void Cluster::refresh_cluster_description() {
     }
 
     cluster_desc = std::move(new_cluster_desc);
-    eth_fw_version = cluster_desc->eth_fw_version;
+    eth_fw_version = cluster_desc->get_cluster_eth_fw_version();
     bcast_header_cache.clear();
 
     for (const ChipId chip_id : local_chip_ids_) {
@@ -548,9 +547,10 @@ std::map<int, int> Cluster::get_clocks() {
 }
 
 Cluster::~Cluster() {
-    log_debug(LogUMD, "Cluster::~Cluster");
+    log_info(LogUMD, "Cluster destructor started.");
 
     cluster_desc.reset();
+    log_info(LogUMD, "Cluster destructor completed.");
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
@@ -589,7 +589,7 @@ void* Cluster::host_dma_address(std::uint64_t offset, ChipId src_device_id, uint
 
 TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     auto tt_device = get_chip(device_id)->get_tt_device();
-    TT_ASSERT(tt_device != nullptr, "TTDevice not found for device: {}", device_id);
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, fmt::format("TTDevice not found for device: {}", device_id));
     return tt_device;
 }
 
@@ -597,18 +597,24 @@ TLBManager* Cluster::get_tlb_manager(ChipId device_id) const { return get_chip(d
 
 Chip* Cluster::get_chip(ChipId device_id) const {
     auto chip_it = chips_.find(device_id);
-    TT_ASSERT(chip_it != chips_.end(), "Device id {} not found in cluster.", device_id);
+    UMD_ASSERT(
+        chip_it != chips_.end(), error::RuntimeError, fmt::format("Device id {} not found in cluster.", device_id));
     return chip_it->second.get();
 }
 
 LocalChip* Cluster::get_local_chip(ChipId device_id) const {
-    TT_ASSERT(local_chip_ids_.find(device_id) != local_chip_ids_.end(), "Device id {} is not a local chip.", device_id);
+    UMD_ASSERT(
+        local_chip_ids_.find(device_id) != local_chip_ids_.end(),
+        error::RuntimeError,
+        fmt::format("Device id {} is not a local chip.", device_id));
     return dynamic_cast<LocalChip*>(get_chip(device_id));
 }
 
 RemoteChip* Cluster::get_remote_chip(ChipId device_id) const {
-    TT_ASSERT(
-        remote_chip_ids_.find(device_id) != remote_chip_ids_.end(), "Device id {} is not a remote chip.", device_id);
+    UMD_ASSERT(
+        remote_chip_ids_.find(device_id) != remote_chip_ids_.end(),
+        error::RuntimeError,
+        fmt::format("Device id {} is not a remote chip.", device_id));
     return dynamic_cast<RemoteChip*>(get_chip(device_id));
 }
 
@@ -799,8 +805,9 @@ void Cluster::broadcast_write_to_cluster(
         auto architecture_implementation = architecture_implementation::create(arch_name);
         if (columns_to_exclude.find(0) == columns_to_exclude.end() or
             columns_to_exclude.find(9) == columns_to_exclude.end()) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
             if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero do not exclude anything.
@@ -831,9 +838,10 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            TT_ASSERT(
+            UMD_ASSERT(
                 use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -848,8 +856,9 @@ void Cluster::broadcast_write_to_cluster(
         auto architecture_implementation = architecture_implementation::create(arch_name);
         if (columns_to_exclude.find(0) == columns_to_exclude.end() or
             columns_to_exclude.find(5) == columns_to_exclude.end()) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
             if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
                 // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
@@ -881,9 +890,10 @@ void Cluster::broadcast_write_to_cluster(
                     false);
             }
         } else {
-            TT_ASSERT(
+            UMD_ASSERT(
                 use_translated_coords_for_eth_broadcast or
                     valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
+                error::RuntimeError,
                 "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
             ethernet_broadcast_write(
                 mem_ptr,
@@ -906,6 +916,8 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
+void Cluster::advance_device_execution(ChipId device_id) { get_chip(device_id)->advance_device_execution(); }
+
 void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }
@@ -914,11 +926,12 @@ void Cluster::dram_membar(const ChipId chip, const std::unordered_set<CoreCoord>
     get_chip(chip)->dram_membar(cores);
 }
 
-void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels) {
-    get_chip(chip)->dram_membar(channels);
+void Cluster::dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
+    get_chip(chip)->dram_membar(channels, subchannel);
 }
 
 void Cluster::write_to_device(const void* mem_ptr, size_t size_in_bytes, ChipId chip, CoreCoord core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
     get_chip(chip)->write_to_device(core, mem_ptr, addr, size_in_bytes);
 }
 
@@ -928,19 +941,23 @@ void Cluster::write_to_device_reg(
 }
 
 void Cluster::dma_write_to_device(const void* src, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     get_chip(chip)->dma_write_to_device(src, size, core, addr);
 }
 
 void Cluster::dma_read_from_device(void* dst, size_t size, ChipId chip, CoreCoord core, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     get_chip(chip)->dma_read_from_device(dst, size, core, addr);
 }
 
 void Cluster::dma_multicast_write(
     void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::MediumPurple);
     get_chip(chip)->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void Cluster::read_from_device(void* mem_ptr, ChipId chip, CoreCoord core, uint64_t addr, size_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     get_chip(chip)->read_from_device(core, mem_ptr, addr, size);
 }
 
@@ -950,6 +967,7 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 
 void Cluster::noc_multicast_write(
     void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    ZoneScopedC(tracy::Color::Orange);
     get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
 }
 
@@ -1026,11 +1044,12 @@ void Cluster::start_device(const DeviceParams& device_params) {
     log_info(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
-            get_chip(chip_id)->start_device();
+            get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
 
         deassert_resets_and_set_power_state();
     }
+    log_info(LogUMD, "Starting devices in cluster completed.");
 }
 
 void Cluster::close_device() {
@@ -1044,6 +1063,7 @@ void Cluster::close_device() {
     for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
+    log_info(LogUMD, "Closing devices in cluster completed.");
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

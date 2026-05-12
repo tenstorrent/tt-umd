@@ -13,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
@@ -29,7 +28,6 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -46,7 +44,7 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
         // without creating ClusterDescriptor, so we need to add it here as well.
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path, chip_info);
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
     return std::make_unique<TTSimTTDevice>(
         simulator_directory, soc_descriptor, 0, copy_sim_binary, num_host_mem_channels);
 }
@@ -80,7 +78,7 @@ TTSimTTDevice::TTSimTTDevice(
         chip_id_,
         vendor_id,
         libttsim_pci_device_id);
-    TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
+    UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
@@ -88,6 +86,14 @@ TTSimTTDevice::TTSimTTDevice(
         bar0_base = communicator_->pci_config_read32(0, 0x10);
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
+
+        // BAR4 is a 64-bit memory BAR; its base address is split across two PCI config
+        // registers — 0x20 holds the low 32 bits, 0x24 holds the high 32 bits. The low 4 bits
+        // of the low register encode BAR attributes (memory vs IO, prefetchable, 64-bit width)
+        // and are masked off to leave the physical address.
+        bar4_base = communicator_->pci_config_read32(0, 0x20);
+        bar4_base |= uint64_t(communicator_->pci_config_read32(0, 0x24)) << 32;
+        bar4_base &= ~15ull;
 
         if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
@@ -100,11 +106,12 @@ TTSimTTDevice::TTSimTTDevice(
         this,
         bar0_base,
         architecture_impl_.get(),
-        [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
-            auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
+        [comm = communicator_.get()](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
+            -> std::unique_ptr<TlbWindow> {
+            auto handle = TTSimTlbHandle::create(alloc, comm, id, sz, map);
             return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
-        });
+        },
+        bar4_base);
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
 }
 
@@ -117,13 +124,6 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
-    // Advance the sim on host writes. Without this, sequences like "load BRISC ELF, deassert
-    // BRISC, write first command mailbox" all sit at the same simulated timestamp — BRISC never
-    // gets cycles to finish its CRT init before the command mailbox write, so BRISC's clear of
-    // brisc_command_buffer at startup clobbers the host's command and the handshake hangs. The
-    // floor guarantees that a tiny 4-byte deassert write still gives the newly-started core
-    // enough cycles to make meaningful progress before the next host operation lands.
-    communicator_->advance_clock(std::max<uint32_t>(1000, size));
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
@@ -201,6 +201,17 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
         read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
         reset_value &= ~soft_reset_update;
         write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+    }
+}
+
+void TTSimTTDevice::advance_device_execution() {
+    // Simulator clocking is driven synchronously from the calling thread to keep the simulation
+    // deterministic. A background clock thread would race with reads/writes and produce
+    // non-reproducible runs, so we advance the clock here instead.
+    // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid
+    // hangs in the absence of an API reliably called from all spin loops polling the device.
+    if (communicator_) {
+        communicator_->advance_clock(1);
     }
 }
 
@@ -299,6 +310,10 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
+}
+
+void TTSimTTDevice::noc_multicast_write(void* src, size_t size, uint64_t addr) {
+    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in TTSim simulation device.");
 }
 
 TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }

@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
@@ -27,7 +26,6 @@
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -46,10 +44,21 @@ static constexpr std::array<RiscType, 8> RISC_TYPES_DMS = {
 
 static constexpr ChipId DEFAULT_CHIP_ID = 0;
 
+namespace {
+void validate_noc_for_arch(NocId noc_id, tt::ARCH arch) {
+    if (noc_id == NocId::SYSTEM_NOC && arch != tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "System NOC is only supported on Grendel (Quasar) architecture.");
+    }
+    if (noc_id == NocId::NOC1 && arch == tt::ARCH::QUASAR) {
+        UMD_THROW(error::RuntimeError, "NOC1 is not supported on Grendel (Quasar) architecture.");
+    }
+}
+}  // namespace
+
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(soc_desc_path);
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
     return std::make_unique<RtlSimulationTTDevice>(
         simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);
 }
@@ -75,20 +84,20 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
             // Write callback: simulator writes data into host sysmem.
             [mgr, num_channels](uint64_t address, const void* data, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
-                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
                 uint64_t offset_in_channel = offset % (1ULL << 30);
                 mgr->write_to_sysmem(channel, data, offset_in_channel, size);
             },
             // Read callback: simulator reads data from host sysmem.
             [mgr, num_channels](uint64_t address, void* data_out, uint32_t size) {
                 uint64_t pcie_base = mgr->get_pcie_base();
-                TT_ASSERT(address >= pcie_base, "RAM callback address underflow.");
+                UMD_ASSERT(address >= pcie_base, error::RuntimeError, "RAM callback address underflow.");
                 uint64_t offset = address - pcie_base;
                 uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-                TT_ASSERT(channel < num_channels, "RAM callback channel out of range.");
+                UMD_ASSERT(channel < num_channels, error::RuntimeError, "RAM callback channel out of range.");
                 uint64_t offset_in_channel = offset % (1ULL << 30);
                 mgr->read_from_sysmem(channel, data_out, offset_in_channel, size);
             });
@@ -100,9 +109,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         this,
         /*bar0_base=*/0,
         architecture_impl_.get(),
-        [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
-            auto handle = RtlSimTlbHandle::create(mgr, id, sz, map);
+        [comm = communicator_.get()](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
+            -> std::unique_ptr<TlbWindow> {
+            auto handle = RtlSimTlbHandle::create(alloc, id, sz, map);
             return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
         });
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
@@ -113,6 +122,15 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
+
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return;
+    }
+
     if (cached_tlb_window_) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
@@ -122,6 +140,15 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        return;
+    }
+
     if (cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
@@ -301,6 +328,10 @@ void RtlSimulationTTDevice::dma_multicast_write(
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::noc_multicast_write(void* src, size_t size, uint64_t addr) {
+    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in RTL simulation device.");
 }
 
 TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }

@@ -65,10 +65,14 @@ public:
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
+    void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
+
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) override;
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
+
+    void advance_device_execution() override;
 
     /**
      * Get the TTSimCommunicator for low-level device operations.
@@ -81,6 +85,7 @@ public:
     TLBManager *get_tlb_manager() override;
 
     uint64_t bar0_base = 0;
+    uint64_t bar4_base = 0;
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;

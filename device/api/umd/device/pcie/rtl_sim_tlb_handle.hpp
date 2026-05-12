@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 
-class SimulationTlbManager;
+class SimulationTlbAllocator;
 enum TlbMapping : uint8_t;
 
 /**
@@ -25,22 +25,22 @@ enum TlbMapping : uint8_t;
 class RtlSimTlbHandle : public TlbHandle {
 public:
     static std::unique_ptr<RtlSimTlbHandle> create(
-        SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping);
+        SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping);
 
     ~RtlSimTlbHandle() noexcept;
 
     void configure(const tlb_data& new_config) override;
 
-    SimulationTlbManager* get_tlb_manager() const { return manager_; }
+    SimulationTlbAllocator* get_tlb_allocator() const { return allocator_; }
 
     tt::ARCH get_arch() const override;
 
 private:
-    RtlSimTlbHandle(SimulationTlbManager* manager, int tlb_id, size_t size, TlbMapping mapping);
+    RtlSimTlbHandle(SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping);
 
     void free_tlb() noexcept override;
 
-    SimulationTlbManager* manager_;
+    SimulationTlbAllocator* allocator_;
 };
 
 }  // namespace tt::umd

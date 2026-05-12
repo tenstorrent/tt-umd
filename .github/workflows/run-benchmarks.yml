@@ -58,7 +58,7 @@ jobs:
           cd tt-umd
 
       - name: Use build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./
@@ -70,7 +70,7 @@ jobs:
         run: tar xvf artifact.tar
 
       - name: Checkout microbenchmark tools
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           sparse-checkout: |
             tests/microbenchmark/tools/gather_host_specs.py
@@ -116,14 +116,14 @@ jobs:
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
 
       - name: Upload JSON benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-json-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
           path: /tmp/umd_microbenchmark_results/*.json
           if-no-files-found: warn
 
       - name: Upload HTML benchmark results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-html-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
           path: /tmp/umd_microbenchmark_results/*.html

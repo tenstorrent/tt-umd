@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -21,7 +23,6 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd {
 
@@ -324,6 +325,9 @@ inline constexpr uint64_t ETH_FW_PATCH_ADDR = 0x7CFBC;
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
 tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
 
+// High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Blackhole boards.
+inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0x00, 0x40, 0xC0, 0x80};
+
 }  // namespace blackhole
 
 class blackhole_implementation : public architecture_implementation {
@@ -494,6 +498,15 @@ public:
     size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return false; }  // False due to a known HW issue.
+
+    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
+        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
+        auto it = std::find(blackhole::UBB_TRAY_BUS_IDS.begin(), blackhole::UBB_TRAY_BUS_IDS.end(), bus_high);
+        if (it == blackhole::UBB_TRAY_BUS_IDS.end()) {
+            return std::nullopt;
+        }
+        return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
+    }
 };
 
 }  // namespace tt::umd

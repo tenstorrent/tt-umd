@@ -10,7 +10,6 @@ DeviceProtocol ported to TTDevice, including DMA migration.
 SocDescriptor split into static (SocArchDescriptor) and runtime parts.
 LITERAL coordinate system in CoreCoord.
 Multicast to all TENSIX cores.
-KMD power API support.
 SMN support.
 SWEmuleChip software emulation chip and Quasar simulation support (incl. 4GB TLB).
 Unified UmdException/UMD_ASSERT/UMD_THROW error handling across the codebase.

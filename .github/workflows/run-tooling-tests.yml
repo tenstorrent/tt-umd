@@ -79,8 +79,8 @@ jobs:
           python3 - << 'EOF'
           import asyncio
           from tt_umd import TopologyDiscovery
-          from tt_smi.tt_smi import TTSMI
-          from tt_smi.tt_smi_backend import TTSMIBackend
+          from tt_smi.frontend import TTSMI
+          from tt_smi.backend import TTSMIBackend
 
           cluster_descriptor, devices = TopologyDiscovery.discover()
           backend = TTSMIBackend(devices=devices, umd_cluster_descriptor=cluster_descriptor, pretty_output=False)

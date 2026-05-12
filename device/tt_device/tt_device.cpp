@@ -272,6 +272,7 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 

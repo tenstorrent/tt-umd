@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -75,7 +76,7 @@ protected:
         int pci_device_id = tt_device_->get_pci_device()->get_device_num();
         tt_device_.reset();
         soc_desc_.reset();
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
 
         auto cluster = std::make_unique<Cluster>();
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";

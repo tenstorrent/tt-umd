@@ -120,6 +120,7 @@ target_sources(
         arc/spi_tt_device.cpp
         noc_access.cpp
         warm_reset.cpp
+        warm_reset_with_recovery.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -211,6 +212,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
+                api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp

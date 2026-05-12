@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -114,7 +115,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
@@ -190,7 +191,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
     std::thread background_reset_thread([&]() {
         std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
     });
 
     auto start_time = std::chrono::steady_clock::now();
@@ -283,7 +284,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     // Trigger the reset after a small delay.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     t1.join();
     t2.join();
@@ -345,7 +346,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
     // Parent triggers the reset that affects ALL windows on that PCIe link.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     for (pid_t p : pids) {
         int status;
@@ -381,7 +382,7 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
             write_test_data);
     }
 
-    WarmReset::ubb_warm_reset();
+    WarmResetWithRecovery::ubb_warm_reset();
 
     cluster.reset();
 
@@ -430,7 +431,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
         EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     cluster.reset();
 
@@ -493,7 +494,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
 
     switch (GetParam()) {
         case WarmResetMethod::PCI_DEVICE_IDS:
-            WarmReset::warm_reset();
+            WarmResetWithRecovery::warm_reset();
             break;
         case WarmResetMethod::CHIP_IDS: {
             std::vector<int> chip_ids;
@@ -501,7 +502,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (auto& id : cluster->get_target_mmio_device_ids()) {
                 chip_ids.push_back(id);
             }
-            WarmReset::warm_reset_chip_id(chip_ids);
+            WarmResetWithRecovery::warm_reset_chip_id(chip_ids);
             break;
         }
         case WarmResetMethod::PCI_BDFS: {
@@ -511,7 +512,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (const auto& [id, info] : pci_device_info) {
                 pci_bdfs.push_back(info.pci_bdf);
             }
-            WarmReset::warm_reset_pci_bdfs(pci_bdfs);
+            WarmResetWithRecovery::warm_reset_pci_bdfs(pci_bdfs);
             break;
         }
     }

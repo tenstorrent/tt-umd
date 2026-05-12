@@ -47,14 +47,13 @@ constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
 std::vector<ClusterOptions> get_cluster_options_for_param_test() {
-    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
+    if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
             .target_devices = {0},
-            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+            .simulator_directory = std::filesystem::path(sim_path)});
     }
     return options;
 }
@@ -952,7 +951,7 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 // (up to 1 MB) and a DRAM core (up to 1 GB). The equivalent SimulationChip-level test
 // still lives in tests/simulation/ for the tt-umd-simulators consumer.
 TEST_F(TestDeviceIOFixture, LoopbackStressSize) {
-    std::unique_ptr<Cluster> cluster = make_cluster();
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 
     constexpr uint64_t addr = 0x0;
     std::random_device rd;

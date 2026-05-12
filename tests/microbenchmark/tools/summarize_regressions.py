@@ -211,8 +211,13 @@ def render_detail_section(
     return "\n".join(lines)
 
 
-def render_summary(current: dict, baselines: dict) -> str:
-    """Top-level renderer. Returns the full markdown document."""
+def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
+    """Top-level renderer. Returns (markdown document, gated_breaches).
+
+    `gated_breaches` is a list of (title, case, arch, status, dpct, tol) for
+    cases that breached tolerance AND carry `gate: true` in baselines.yaml —
+    the caller exits non-zero when this list is non-empty.
+    """
     meta = baselines.get("metadata") or {}
     calibrated_at = meta.get("calibrated_at", "unknown date")
     calibrated_from_runs = meta.get("calibrated_from_runs", "unknown")
@@ -228,6 +233,7 @@ def render_summary(current: dict, baselines: dict) -> str:
 
     # Per-(test, arch): collect (counts, breached_rows, stable_rows).
     cell_state: dict = {}
+    gated_breaches: list = []
     for title in test_titles:
         for arch in arch_order:
             counts = {"OK": 0, "UP": 0, "DOWN": 0, "CRIT": 0}
@@ -275,6 +281,13 @@ def render_summary(current: dict, baselines: dict) -> str:
                     stable.append(row)
                 else:
                     breached.append(row)
+                    if baseline_entry.get("gate") is True and status in {
+                        "DOWN",
+                        "CRIT",
+                    }:
+                        gated_breaches.append(
+                            (title, case_name, arch, status, dpct, tolerance_pct)
+                        )
             tag = None if (counts["OK"] + len(breached)) > 0 else "no result"
             cell_state[(title, arch)] = (counts, breached, stable, tag)
 
@@ -315,7 +328,20 @@ def render_summary(current: dict, baselines: dict) -> str:
         lines.append("---")
         lines.extend(detail_chunks)
 
-    return "\n".join(lines) + "\n"
+    if gated_breaches:
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append(f"### Gated breaches — failing the job ({len(gated_breaches)})")
+        lines.append("")
+        lines.append("| Test | Case | Arch | Status | Δ% | Tolerance |")
+        lines.append("|------|------|------|:-------|---:|----------:|")
+        for title, case, arch, status, dpct, tol in gated_breaches:
+            lines.append(
+                f"| {title} | {case} | {arch} | {status} | {dpct:+.2f}% | ±{tol:g}% |"
+            )
+
+    return "\n".join(lines) + "\n", gated_breaches
 
 
 # --- Main ------------------------------------------------------------------------
@@ -353,10 +379,22 @@ def main() -> int:
 
     current = collect_current_results(args.current)
 
-    summary = render_summary(current, baselines)
+    summary, gated_breaches = render_summary(current, baselines)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(summary)
-    # Soft-alert pilot: always exit 0.
+    # Soft alerts (non-gated breaches) never fail; cases with `gate: true` in
+    # baselines.yaml fail the job when they breach DOWN or CRIT.
+    if gated_breaches:
+        print(
+            f"FAIL: {len(gated_breaches)} gated case(s) breached tolerance.",
+            file=sys.stderr,
+        )
+        for title, case, arch, status, dpct, tol in gated_breaches:
+            print(
+                f"  - {title} :: {case} :: {arch}: {status} {dpct:+.2f}% (tol ±{tol:g}%)",
+                file=sys.stderr,
+            )
+        return 1
     return 0
 
 

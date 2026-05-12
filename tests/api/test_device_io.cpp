@@ -949,13 +949,9 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 }
 
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
-// (up to 1 MB) and a DRAM core (up to 1 GB). Sim-only until silicon coverage is added;
-// the equivalent SimulationChip-level test still lives in tests/simulation/.
+// (up to 1 MB) and a DRAM core (up to 1 GB). The equivalent SimulationChip-level test
+// still lives in tests/simulation/ for the tt-umd-simulators consumer.
 TEST_F(TestDeviceIOFixture, LoopbackStressSize) {
-    if (!is_simulation()) {
-        GTEST_SKIP() << "LoopbackStressSize is currently sim-only.";
-    }
-
     std::unique_ptr<Cluster> cluster = make_cluster();
 
     constexpr uint64_t addr = 0x0;

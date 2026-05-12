@@ -13,9 +13,6 @@ case's throughput against a stored `median_throughput` from
   2. Per-(test, arch) detail sections for cells with at least one breach,
      listing only the breached cases.
 
-See the design plan for the rationale around counts-only cells, status codes,
-and detail-only-on-breach formatting.
-
 Sister workflow: `analyze_results.py` (per-arch drift-from-latest-main). This
 script is complementary, not a replacement.
 """

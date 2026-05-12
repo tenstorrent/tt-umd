@@ -316,15 +316,15 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     cluster->close_device();
 }
 
-// Exercises a variety of RiscType masks (ALL_TENSIX, ALL_NEO_DMS, custom DM bitmask)
-// through the Cluster API. Sim-only for now: silicon coverage for these masks would
-// require an arch-specific RISC program to validate liveness; this only confirms the
-// API accepts the masks without throwing. Originally lived in
-// tests/simulation/test_simulation_device.cpp (SimpleApiTest).
-TEST(TestRiscProgram, AssertDeassertRiscMasks) {
+// Mirrors SimpleApiTest from tests/simulation/test_simulation_device.cpp:
+// a basic write/read loopback on the first TENSIX core followed by assert/deassert
+// of a variety of RiscType masks (ALL_TENSIX, ALL_NEO_DMS, BRISC, custom DM bitmask).
+// Sim-only: silicon liveness validation would require an arch-specific RISC program;
+// this only confirms the API accepts the masks without throwing.
+TEST(TestRiscProgram, SimpleApiTest) {
     const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
     if (simulator_path == nullptr) {
-        GTEST_SKIP() << "AssertDeassertRiscMasks is currently sim-only.";
+        GTEST_SKIP() << "SimpleApiTest is currently sim-only.";
     }
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -336,6 +336,13 @@ TEST(TestRiscProgram, AssertDeassertRiscMasks) {
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
         const CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::vector<uint32_t> wdata = {1, 2, 3, 4, 5};
+        std::vector<uint32_t> rdata(wdata.size(), 0);
+
+        cluster->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), chip_id, core, 0x100);
+        cluster->read_from_device(rdata.data(), chip_id, core, 0x100, rdata.size() * sizeof(uint32_t));
+        ASSERT_EQ(wdata, rdata);
 
         cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
         cluster->assert_risc_reset(chip_id, core, RiscType::ALL_NEO_DMS);

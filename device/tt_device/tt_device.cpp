@@ -273,7 +273,7 @@ void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device(mem_ptr, core, addr, size);
+    device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
@@ -283,7 +283,7 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device(mem_ptr, core, addr, size);
+    device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
@@ -461,7 +461,7 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
+    get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
@@ -483,7 +483,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr);
+    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -502,7 +502,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr);
+    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -521,7 +521,8 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr);
+    bool dma_success =
+        get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }

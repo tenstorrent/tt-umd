@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -363,6 +365,9 @@ inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 
+// High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Wormhole boards.
+inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0xC0, 0x80, 0x00, 0x40};
+
 }  // namespace wormhole
 
 class wormhole_implementation : public architecture_implementation {
@@ -528,6 +533,15 @@ public:
     size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return true; }
+
+    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
+        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
+        auto it = std::find(wormhole::UBB_TRAY_BUS_IDS.begin(), wormhole::UBB_TRAY_BUS_IDS.end(), bus_high);
+        if (it == wormhole::UBB_TRAY_BUS_IDS.end()) {
+            return std::nullopt;
+        }
+        return static_cast<uint8_t>(std::distance(wormhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
+    }
 };
 
 }  // namespace tt::umd

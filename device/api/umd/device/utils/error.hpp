@@ -42,4 +42,18 @@ public:
     explicit SigbusError(const std::string& message) : std::runtime_error(message) {}
 };
 
+/**
+ * @brief Exception thrown when a host-side MMIO operation exceeds its
+ * configured wall-clock budget.
+ *
+ * Distinct from SigbusError: SigbusError indicates the platform's PCIe
+ * completion timeout fired (hardware-detected fault). DeviceTimeoutError
+ * indicates a software budget elapsed — typically because writes were
+ * piling up against a slow or dead NOC before SIGBUS could fire.
+ */
+class DeviceTimeoutError : public std::runtime_error {
+public:
+    explicit DeviceTimeoutError(const std::string& message) : std::runtime_error(message) {}
+};
+
 }  // namespace tt::umd::error

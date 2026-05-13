@@ -114,10 +114,8 @@ def classify(
 # --- Rendering -------------------------------------------------------------------
 
 
-def format_cell(counts: dict, total: int, missing: bool) -> str:
+def format_cell(counts: dict, total: int) -> str:
     """Build the coarse-table cell string from per-status counts."""
-    if missing:
-        return "— (no result)"
     crit, down, up = counts.get("CRIT", 0), counts.get("DOWN", 0), counts.get("UP", 0)
     if crit + down + up == 0:
         return f"OK ({total}/{total})"
@@ -216,8 +214,8 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
     calibrated_from_runs = meta.get("calibrated_from_runs", "unknown")
 
     # Tests come from baselines (so a missing-from-baseline test is visible but
-    # never alerts). Sort: tests with breaches first, then alphabetical.
-    test_titles = sorted(k for k in baselines if k != "metadata")
+    # never alerts).
+    test_titles = [k for k in baselines if k != "metadata"]
     archs = set()
     for title in test_titles:
         for case_entry in baselines[title].values():
@@ -231,7 +229,6 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
         for arch in arch_order:
             counts = {"OK": 0, "UP": 0, "DOWN": 0, "CRIT": 0}
             breached, stable = [], []
-            missing = False
 
             arch_results = current.get(arch, {}).get(title, {})
             # Tests in baselines.yaml define which cases we evaluate. A new case
@@ -303,7 +300,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
                 row.append(f"— ({tag})")
             else:
                 total = sum(counts.values())
-                row.append(format_cell(counts, total, missing=False))
+                row.append(format_cell(counts, total))
         lines.append("| " + " | ".join(row) + " |")
 
     # Detail sections, in the same order as the coarse table.

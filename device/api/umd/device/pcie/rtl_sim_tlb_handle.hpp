@@ -27,7 +27,12 @@ public:
     static std::unique_ptr<RtlSimTlbHandle> create(
         SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping);
 
-    ~RtlSimTlbHandle() noexcept;
+    // TODO: Restore the `free_tlb()` call here once the Metal teardown order is fixed.
+    // Currently, Metal's destruction order can destroy the SimulationTlbAllocator before the
+    // RtlSimTlbHandles that reference it, so calling free_tlb() from this destructor would
+    // dereference an already-destroyed allocator. Defaulting the destructor is a temporary
+    // workaround until Metal's shutdown sequence is corrected.
+    ~RtlSimTlbHandle() noexcept override = default;
 
     void configure(const tlb_data& new_config) override;
 

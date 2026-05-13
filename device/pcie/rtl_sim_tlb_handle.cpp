@@ -44,8 +44,6 @@ std::unique_ptr<RtlSimTlbHandle> RtlSimTlbHandle::create(
     return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(allocator, tlb_id, size, mapping));
 }
 
-RtlSimTlbHandle::~RtlSimTlbHandle() noexcept { RtlSimTlbHandle::free_tlb(); }
-
 void RtlSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;
     tlb_config_.local_offset = new_config.local_offset / tlb_size_;

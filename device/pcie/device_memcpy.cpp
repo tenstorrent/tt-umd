@@ -77,6 +77,18 @@ struct OpTiming {
     std::uint32_t size_bytes;
 };
 
+// Re-entrancy guard: if a MemcpyTimeoutFn callback itself ends up issuing MMIO
+// that triggers a per-op timeout, the inner timeout must short-circuit (don't
+// invoke the callback recursively — that would loop). The inner record_and_check
+// sees the flag and treats the inner timeout as a confirmed abort.
+thread_local bool in_timeout_callback = false;
+
+struct ScopedTimeoutCallbackGuard {
+    ScopedTimeoutCallbackGuard() { in_timeout_callback = true; }
+
+    ~ScopedTimeoutCallbackGuard() { in_timeout_callback = false; }
+};
+
 void dump_timings(const char* fn, std::size_t bytes, const std::vector<OpTiming>& ops) {
     if (ops.empty()) {
         std::fprintf(stderr, "[%s] size=%zu ops=0\n", fn, bytes);
@@ -115,7 +127,7 @@ void dump_timings(const char* fn, std::size_t bytes, const std::vector<OpTiming>
 
 }  // namespace
 
-void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
+void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout) {
     const std::size_t original_size = size;
     auto* d = static_cast<volatile std::uint8_t*>(dest);
     auto* s = static_cast<const std::uint8_t*>(src);
@@ -136,14 +148,25 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
             auto delta_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(delta).count();
             timings.push_back({delta_ns, op_bytes});
         }
-        if (delta >= op_timeout) {
-            auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
-            auto budget_ms = op_timeout.count();
-            throw error::DeviceTimeoutError(
-                "memcpy_to_device per-op timeout: " + std::to_string(op_bytes) + "B store took " +
-                std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget_ms) + " ms), " +
-                std::to_string(size) + " of " + std::to_string(original_size) + " bytes remaining.");
+        if (delta < op_timeout) {
+            return;
         }
+        // Per-op budget exceeded. Consult on_timeout if available and we're not
+        // already inside the callback (which would recurse).
+        if (on_timeout && !in_timeout_callback) {
+            ScopedTimeoutCallbackGuard guard;
+            if (!on_timeout()) {
+                return;  // false positive — device healthy, continue
+            }
+        }
+        // Either no on_timeout provided, we're already inside one (skip recursion),
+        // or on_timeout confirmed the abort. Throw.
+        auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
+        auto budget_ms = op_timeout.count();
+        throw error::DeviceTimeoutError(
+            "memcpy_to_device per-op timeout: " + std::to_string(op_bytes) + "B store took " +
+            std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget_ms) + " ms), " + std::to_string(size) +
+            " of " + std::to_string(original_size) + " bytes remaining.");
     };
 
     // Phase 0: Align device destination to 4 bytes using byte-wide volatile stores.
@@ -342,7 +365,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     }
 }
 
-void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
+void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout) {
     const std::size_t original_size = size;
     auto* d = static_cast<std::uint8_t*>(dest);
     auto* s = static_cast<const volatile std::uint8_t*>(src);
@@ -361,14 +384,21 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) 
             auto delta_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(delta).count();
             timings.push_back({delta_ns, op_bytes});
         }
-        if (delta >= op_timeout) {
-            auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
-            auto budget_ms = op_timeout.count();
-            throw error::DeviceTimeoutError(
-                "memcpy_from_device per-op timeout: " + std::to_string(op_bytes) + "B load took " +
-                std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget_ms) + " ms), " +
-                std::to_string(size) + " of " + std::to_string(original_size) + " bytes remaining.");
+        if (delta < op_timeout) {
+            return;
         }
+        if (on_timeout && !in_timeout_callback) {
+            ScopedTimeoutCallbackGuard guard;
+            if (!on_timeout()) {
+                return;
+            }
+        }
+        auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
+        auto budget_ms = op_timeout.count();
+        throw error::DeviceTimeoutError(
+            "memcpy_from_device per-op timeout: " + std::to_string(op_bytes) + "B load took " +
+            std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget_ms) + " ms), " + std::to_string(size) +
+            " of " + std::to_string(original_size) + " bytes remaining.");
     };
 
     // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.

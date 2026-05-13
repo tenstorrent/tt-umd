@@ -6,8 +6,27 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 
 namespace tt::umd {
+
+/**
+ * Optional callback invoked when an MMIO op exceeds the per-op budget.
+ *
+ * Return `true` to abort the memcpy (throws tt::umd::error::DeviceTimeoutError).
+ * Return `false` to treat the slow op as a false positive — the memcpy
+ * continues with the next op getting a fresh budget.
+ *
+ * Typical use is a NOC hang check: probe the device cheaply and return
+ * "is this op stalled because the device is actually hung?".
+ *
+ * The implementation must not recurse into the same memcpy / I/O path that
+ * triggered it. A thread-local re-entrancy guard inside memcpy short-circuits
+ * one level of recursion (the inner timeout will simply throw without
+ * re-invoking the callback), but composability and lock-ordering across
+ * the I/O stack are the caller's responsibility.
+ */
+using MemcpyTimeoutFn = std::function<bool()>;
 
 /**
  * memcpy for writes targeting device memory mapped through a TLB window.
@@ -29,15 +48,15 @@ namespace tt::umd {
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
  * sub-DWORD writes natively, so no read-modify-write is required).
  *
- * Per-op budget: every individual TLB-touching store (byte, 4-byte, SSE 128-bit, AVX2
- * 256-bit) must complete within a hard-coded budget (default 30 ms) — overridable at
- * process start via the env var `TT_UMD_MMIO_OP_TIMEOUT_MS`. On overrun the function
- * throws tt::umd::error::DeviceTimeoutError. Total memcpy wall time is NOT bounded —
- * only single-op stalls are caught. The check fires once the previous transaction
- * commits; worst-case detection latency is therefore
- *   `op_timeout + PCIe completion timeout for the stalled transaction`.
+ * Per-op budget: every individual TLB-touching store must complete within a hard-coded
+ * budget (default 30 ms, overridable at process start via TT_UMD_MMIO_OP_TIMEOUT_MS).
+ * On overrun:
+ *   - if no on_timeout is provided, throws tt::umd::error::DeviceTimeoutError;
+ *   - if on_timeout is provided and returns true, throws DeviceTimeoutError;
+ *   - if on_timeout is provided and returns false, the memcpy continues with the
+ *     next op getting a fresh budget.
  */
-void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
+void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout = {});
 
 /**
  * memcpy for reads from device memory mapped through a TLB window.
@@ -50,13 +69,11 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
  *
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.
  *
- * Handles arbitrary alignment and size.
- *
- * Per-op budget: same semantics as memcpy_to_device, applied to TLB loads. Inserting
- * a check between loads serializes the non-posted PCIe reads that would otherwise
- * pipeline — a deliberate throughput-for-responsiveness trade-off.
+ * Per-op budget semantics match memcpy_to_device. Inserting a check between loads
+ * serializes the non-posted PCIe reads that would otherwise pipeline — a deliberate
+ * throughput-for-responsiveness trade-off.
  */
-void memcpy_from_device(void* dest, const volatile void* src, std::size_t size);
+void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout = {});
 
 /**
  * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Centralizing these

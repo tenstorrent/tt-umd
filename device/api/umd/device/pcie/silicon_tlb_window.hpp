@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
@@ -22,7 +23,8 @@ class TlbHandle;
  */
 class SiliconTlbWindow : public TlbWindow {
 public:
-    SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
+    SiliconTlbWindow(
+        std::unique_ptr<TlbHandle> handle, const tlb_data config = {}, std::function<bool()> on_timeout = {});
 
     // Implementation of memory access methods using direct pointer access.
     void write16(uint64_t offset, uint16_t value) override;
@@ -81,14 +83,21 @@ private:
     // which glibc's memcpy may perform when unrolling. This affects from and to device.
     // 2. syseng#3487 WH GDDR5 controller has a bug when 1-byte writes are temporarily adjacent
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
-    static void memcpy_from_device(void* dest, const volatile void* src, std::size_t num_bytes);
-    static void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
+    static void memcpy_from_device(
+        void* dest, const volatile void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
+    static void memcpy_to_device(
+        void* dest, const void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
 
     void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
     void read_regs(void* src_reg, uint32_t word_len, void* data);
 
     template <typename Func, typename... Args>
     decltype(auto) execute_safe(Func&& func, Args&&... args);
+
+    // Callback invoked on per-op MMIO timeout inside write_block / read_block.
+    // Empty by default: every per-op timeout throws DeviceTimeoutError. Set to a
+    // hang-check by callers that have access to a HangDetector — see ctor.
+    std::function<bool()> on_timeout_;
 };
 
 }  // namespace tt::umd

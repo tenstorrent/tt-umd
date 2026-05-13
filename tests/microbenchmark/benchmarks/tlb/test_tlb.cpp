@@ -206,12 +206,16 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
         bench.batch(batch_size)
             .name(fmt::format("Multicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
             .run([&]() {
-                // TEMP: skip the actual multicast write at a single batch size so the
-                // bench records a near-zero iteration time, producing a huge UP in
-                // the summary. Verifies the speedup-detection path. Not gated — UP
-                // is informational only. Remove together with the Unicast slowdown
-                // above.
+                // TEMP: replace the multicast write at a single batch size with a
+                // short sleep (~50 µs vs. the ~150 µs baseline iter time for
+                // batch=64 KiB) so the bench records a finite-but-faster iteration,
+                // producing a clear UP in the summary. Using a sleep rather than an
+                // early return avoids the corner case where nanobench rounds the
+                // elapsed time to zero and the speedup is silently dropped by the
+                // summary script. Not gated — UP is informational only. Remove
+                // together with the Unicast slowdown above.
                 if (batch_size == 64 * ONE_KIB) {
+                    std::this_thread::sleep_for(std::chrono::microseconds(50));
                     return;
                 }
                 cluster->noc_multicast_write(

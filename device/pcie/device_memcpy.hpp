@@ -30,7 +30,7 @@ namespace tt::umd {
  * sub-DWORD writes natively, so no read-modify-write is required).
  *
  * Per-op budget: every individual TLB-touching store (byte, 4-byte, SSE 128-bit, AVX2
- * 256-bit) must complete within a hard-coded budget (default 5 ms) — overridable at
+ * 256-bit) must complete within a hard-coded budget (default 30 ms) — overridable at
  * process start via the env var `TT_UMD_MMIO_OP_TIMEOUT_MS`. On overrun the function
  * throws tt::umd::error::DeviceTimeoutError. Total memcpy wall time is NOT bounded —
  * only single-op stalls are caught. The check fires once the previous transaction

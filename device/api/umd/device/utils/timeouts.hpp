@@ -22,7 +22,7 @@ inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);
 // If adjusting, stress test using our whole test suite to see if the timeout is sufficient.
 inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
 
-inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);
+inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(200);
 
 inline constexpr auto WARM_RESET_M3_TIMEOUT = std::chrono::milliseconds(20'000);
 inline constexpr auto WARM_RESET_REAPPEAR_POLL_INTERVAL = std::chrono::milliseconds(100);

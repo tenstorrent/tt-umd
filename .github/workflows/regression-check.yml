@@ -20,6 +20,11 @@ jobs:
   regression-check:
     name: Regression summary vs baselines.yaml
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read   # actions/checkout
+      packages: read   # pull ghcr.io container image
+      actions: read    # actions/download-artifact API access
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
 
@@ -82,7 +87,7 @@ jobs:
 
       - name: Upload regression summary artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: regression-summary
           path: ${{ env.SUMMARY_PATH }}

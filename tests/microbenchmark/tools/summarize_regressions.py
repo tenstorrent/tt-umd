@@ -405,6 +405,13 @@ def main() -> int:
 
     current = collect_current_results(current_path)
 
+    if not current:
+        print(
+            f"FAIL: no benchmark results collected from {current_path}.",
+            file=sys.stderr,
+        )
+        return 1
+
     summary, gated_breaches = render_summary(current, baselines)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(summary)

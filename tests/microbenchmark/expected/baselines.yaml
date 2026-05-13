@@ -18,8 +18,14 @@
 #         median_throughput: float       # ops/s (batch / median_elapsed)
 #         tolerance_pct: float           # symmetric +-%; alert if |delta%| > this
 #         gate: bool (optional)          # Phase 2 hard gates; preserved on refresh
+#
+# Tolerance policy: small-payload cases run on shared CI hardware show high
+# run-to-run variance, so some rows have tolerance_pct >= 50. Treat these as
+# informational only — never set `gate: true` on a row with tolerance_pct > 30.
+# Once dedicated benchmark hardware lands, and hopefully we have more stable measurements, tolerances should tighten.
 
 metadata:
+  schema_version: 1
   calibrated_at: "2026-05-11"
   calibrated_from_runs: 30
   notes: "Pilot — soft alerts only. ClusterConstructor + TLB_Tensix_Unicast_v_Multicast."

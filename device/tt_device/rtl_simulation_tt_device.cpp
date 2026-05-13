@@ -109,9 +109,10 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         this,
         /*bar0_base=*/0,
         architecture_impl_.get(),
-        [comm = communicator_.get()](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
+        [comm = communicator_.get()](
+            std::shared_ptr<SimulationTlbAllocator> alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
             -> std::unique_ptr<TlbWindow> {
-            auto handle = RtlSimTlbHandle::create(alloc, id, sz, map);
+            auto handle = RtlSimTlbHandle::create(std::move(alloc), id, sz, map);
             return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
         });
     cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();

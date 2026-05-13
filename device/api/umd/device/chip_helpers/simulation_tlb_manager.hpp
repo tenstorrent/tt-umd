@@ -29,7 +29,7 @@ class architecture_implementation;
  * that creates the appropriate TlbHandle + TlbWindow combination.
  */
 using TlbWindowFactory = std::function<std::unique_ptr<TlbWindow>(
-    SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
+    std::shared_ptr<SimulationTlbAllocator> allocator, int tlb_id, size_t size, TlbMapping mapping, tlb_data config)>;
 
 class SimulationTlbManager : public TLBManager {
 public:
@@ -51,10 +51,13 @@ public:
      */
     std::unique_ptr<TlbWindow> allocate_default_tlb_window();
 
-    SimulationTlbAllocator& get_allocator() { return allocator_; }
+    SimulationTlbAllocator& get_allocator() { return *allocator_; }
 
 private:
-    SimulationTlbAllocator allocator_;
+    // Held as shared_ptr so TlbHandles can co-own the allocator and outlive the
+    // manager — required because Metal's destruction order can destroy the
+    // manager before the handles that still reference its allocator.
+    std::shared_ptr<SimulationTlbAllocator> allocator_;
     TlbWindowFactory factory_;
 
     // Monotonic TLB id handed out for architectures that bypass the allocator

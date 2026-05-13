@@ -181,8 +181,9 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     // The AVX2 intrinsics below are not themselves volatile. Each record_and_check() call
     // is an opaque function call and therefore acts as a compiler barrier — it prevents
     // the compiler from reordering the volatile-conceptual SIMD store around it. The
-    // explicit volatile loops in Phases 0/4/5 still bound the ordering for the byte/word
-    // tails.
+    // bulk loop checks the timeout once per 256-byte block (after all 8 unrolled AVX2
+    // stores), keeping the store pipeline intact within a block. The explicit volatile
+    // loops in Phases 0/4/5 still bound the ordering for the byte/word tails.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* d_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
 
@@ -199,31 +200,20 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 192));
         __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 224));
 
-        // Stores go to TLB-mapped device memory — timed and checked after each.
+        // All 8 stores go to TLB-mapped device memory. One timeout check after the
+        // whole 256-byte block keeps the AVX2 store pipeline intact while still
+        // detecting any stall — a single posted-write pile-up will stall the CPU
+        // mid-block and the check fires once the block completes.
         auto t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v0);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 32), v1);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 64), v2);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 96), v3);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 128), v4);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 160), v5);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 192), v6);
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 224), v7);
-        record_and_check(t, 32);
+        record_and_check(t, 256);
 
         d_simd += 256;
         s += 256;
@@ -411,40 +401,29 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, 
 
 #if defined(__x86_64__) || defined(_M_X64)
     // See memcpy_to_device for the volatile-ordering / compiler-barrier reasoning.
-    // NOTE: inserting a check between loads serializes the non-posted PCIe reads, since
-    // each check is a compiler/optimization barrier. This is intentional — the goal is
-    // maximum responsiveness to a timeout — but it does reduce read-side throughput.
+    // The bulk loop checks the timeout once per 256-byte block (after all 8 unrolled
+    // AVX2 loads), so the CPU can keep 8 non-posted PCIe reads in flight concurrently
+    // within a block. Coarser checks in the tail phases (1 per 32/16/4/byte op) keep
+    // detection responsive even at sub-256-byte granularity.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* s_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
 
     // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned loads).
     // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
     while (size >= 256) {
-        // Loads are from TLB-mapped device memory — timed and checked after each.
+        // All 8 loads come from TLB-mapped device memory. One timeout check after the
+        // whole 256-byte block restores the 8-way non-posted-read pipeline (the CPU can
+        // have up to 8 reads outstanding concurrently) while still detecting any stall.
         auto t = std::chrono::steady_clock::now();
         __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 32));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 64));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v3 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 96));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v4 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 128));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v5 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 160));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 192));
-        record_and_check(t, 32);
-        t = std::chrono::steady_clock::now();
         __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 224));
-        record_and_check(t, 32);
+        record_and_check(t, 256);
 
         // Stores go to host memory (d) — no TLB access, not instrumented.
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v0);

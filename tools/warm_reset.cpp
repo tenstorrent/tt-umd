@@ -19,7 +19,7 @@ int main(int argc, char* argv[]) {
         "warm_reset", "Perform warm reset on Tenstorrent devices. For reseting 6U, apply the --6u flag.");
 
     options.add_options()("6u", "Perform 6U warm reset.", cxxopts::value<bool>()->default_value("false"))(
-        "retry",
+        "max-attempts",
         "Maximum number of warm-reset + topology-discovery attempts. If discovery fails after "
         "a reset, another reset is performed. Default is 1 (no retry).",
         cxxopts::value<int>()->default_value("1"))("h,help", "Print usage");
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
     try {
         const bool is_6u_reset = result["6u"].as<bool>();
-        const int max_attempts = result["retry"].as<int>();
+        const int max_attempts = result["max-attempts"].as<int>();
 
         log_info(
             tt::LogUMD,

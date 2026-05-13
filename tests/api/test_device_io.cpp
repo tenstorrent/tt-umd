@@ -402,9 +402,11 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
             if (full_grid) {
                 log_info(LogUMD, "Multicast to full grid from coord {} on chip {}", multicast_coord.str(), chip_id);
                 tt_device->noc_multicast_write(write_data.data(), data_size, address);
+                tt_device->wait_for_non_mmio_flush();
             } else {
                 log_info(LogUMD, "Multicast to core {} on chip {}", multicast_coord.str(), chip_id);
                 tt_device->noc_multicast_write(write_data.data(), data_size, multicast_coord, multicast_coord, address);
+                tt_device->wait_for_non_mmio_flush();
             }
 
             std::vector<uint32_t> readback(num_words);

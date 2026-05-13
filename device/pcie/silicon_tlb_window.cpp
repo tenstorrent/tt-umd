@@ -19,6 +19,7 @@
 #include <string>
 #include <utility>
 
+#include "device_memcpy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -110,32 +111,31 @@ void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
 }
 
 void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
-    auto *src = static_cast<const uint32_t *>(data);
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
     validate(offset, size);
 
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device((void *)dst, src, size);
+        memcpy_to_device((void *)dst, data, size);
     } else {
-        memcpy((void *)dst, (void *)src, size);
+        umd::memcpy_to_device(dst, data, size);
     }
 }
 
 void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
-    const void *src = tlb_handle->get_base() + get_total_offset(offset);
+    const volatile void *src = tlb_handle->get_base() + get_total_offset(offset);
 
     validate(offset, size);
 
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_from_device(data, src, size);
     } else {
-        memcpy(data, src, size);
+        umd::memcpy_from_device(data, src, size);
     }
 }
 
-void SiliconTlbWindow::memcpy_from_device(void *dest, const void *src, std::size_t num_bytes) {
-    typedef std::uint32_t copy_t;
+void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, std::size_t num_bytes) {
+    using copy_t = std::uint32_t;
 
     // Start by aligning the source (device) pointer.
     const volatile copy_t *sp;
@@ -157,13 +157,13 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const void *src, std::size
         sp = static_cast<const volatile copy_t *>(src);
     }
 
-    // Copy the source-aligned middle.
-    copy_t *dp = static_cast<copy_t *>(dest);
+    // Copy the source-aligned middle using non-overlapping wide loads.
     std::size_t num_words = num_bytes / sizeof(copy_t);
+    std::size_t middle_bytes = num_words * sizeof(copy_t);
+    umd::memcpy_from_device(dest, sp, middle_bytes);
 
-    for (std::size_t i = 0; i < num_words; i++) {
-        *dp++ = *sp++;
-    }
+    auto *dp = static_cast<char *>(dest) + middle_bytes;
+    sp += num_words;
 
     // Finally copy any sub-word trailer.
     auto trailing_len = num_bytes % sizeof(copy_t);
@@ -174,7 +174,7 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const void *src, std::size
 }
 
 void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
-    typedef std::uint32_t copy_t;
+    using copy_t = std::uint32_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
     // first partial word.
@@ -201,13 +201,13 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
         dp = static_cast<copy_t *>(dest);
     }
 
-    // Copy the destination-aligned middle.
-    const copy_t *sp = static_cast<const copy_t *>(src);
+    // Copy the destination-aligned middle using non-overlapping wide stores.
     std::size_t num_words = num_bytes / sizeof(copy_t);
+    std::size_t middle_bytes = num_words * sizeof(copy_t);
+    umd::memcpy_to_device(dp, src, middle_bytes);
 
-    for (std::size_t i = 0; i < num_words; i++) {
-        *dp++ = *sp++;
-    }
+    dp += num_words;
+    auto *sp = static_cast<const char *>(src) + middle_bytes;
 
     // Finally copy any sub-word trailer, again RMW on the destination.
     auto trailing_len = num_bytes % sizeof(copy_t);

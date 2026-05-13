@@ -193,11 +193,18 @@ def render_detail_section(
         )
         lines.append(f"_Stable cases not shown: {names}._")
     else:
-        # Use the typical tolerance (median across stable cases) for the footer.
-        tols = sorted(r[4] for r in stable)
-        typical = tols[len(tols) // 2]
+        # Tolerances can vary widely within a single suite (e.g. 5% on a clean
+        # 1 MiB transfer vs 40% on a noisy 1-byte one), so quoting a single
+        # number would misrepresent most cases. Show the span instead.
+        tols = [r[4] for r in stable]
+        tol_min, tol_max = min(tols), max(tols)
+        span = (
+            f"±{tol_min:g}%"
+            if tol_min == tol_max
+            else f"±{tol_min:g}% to ±{tol_max:g}%"
+        )
         lines.append(
-            f"_Stable: {len(stable)} of {n_total} cases within ±{typical:g}%._"
+            f"_Stable: {len(stable)} of {n_total} cases within tolerance ({span} per-case)._"
         )
     return "\n".join(lines)
 

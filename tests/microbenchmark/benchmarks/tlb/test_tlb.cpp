@@ -6,10 +6,15 @@
 #include <gtest/gtest.h>
 #include <nanobench.h>
 
+// TEMP: <chrono>/<thread> pulled in only for a deliberate slowdown / speedup
+// in the CompareMulticastandUnicast lambdas, to exercise the regression-check
+// gate end-to-end. Remove these headers together with the TEMP blocks below.
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
@@ -185,6 +190,15 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
             .name(fmt::format("Unicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
             .relative(true)
             .run([&]() {
+                // TEMP: deliberate slowdown targeting a single larger batch size to
+                // exercise the regression-check job's slowdown path. Picked 128 KiB
+                // Unicast — a 1.5 ms sleep is roughly -30% off the ~3-4 ms baseline
+                // iteration time across n150 / n300 / p150b. Paired with `gate: true`
+                // on this case in baselines.yaml so the job fails. Remove together
+                // with the Multicast skip below and the gate flag.
+                if (batch_size == 128 * ONE_KIB) {
+                    std::this_thread::sleep_for(std::chrono::microseconds(1500));
+                }
                 for (auto &tensix_core : tensix_cores) {
                     cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
                 }
@@ -192,6 +206,14 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
         bench.batch(batch_size)
             .name(fmt::format("Multicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
             .run([&]() {
+                // TEMP: skip the actual multicast write at a single batch size so the
+                // bench records a near-zero iteration time, producing a huge UP in
+                // the summary. Verifies the speedup-detection path. Not gated — UP
+                // is informational only. Remove together with the Unicast slowdown
+                // above.
+                if (batch_size == 64 * ONE_KIB) {
+                    return;
+                }
                 cluster->noc_multicast_write(
                     pattern.data(), pattern.size(), CHIP_ID, tensix_cores.front(), tensix_cores.back(), ADDRESS);
             });

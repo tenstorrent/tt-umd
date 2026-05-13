@@ -268,9 +268,8 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
 
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
     PCIDevice *pci = get_pci_device();
-    if (pci == nullptr) {
-        UMD_THROW(error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");
-    }
+    UMD_ASSERT(
+        pci != nullptr, error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");
 
     if (size != 0) {
         return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size, mapping), config);

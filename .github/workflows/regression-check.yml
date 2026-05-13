@@ -5,7 +5,7 @@
 # tolerances, and emits a coarse cross-arch summary plus per-(test, arch) detail
 # sections to $GITHUB_STEP_SUMMARY.
 #
-# Pilot: soft alerts only — the job always exits 0.
+# Pilot: soft by default, but can hard-fail when gate: true breaches.
 name: Regression check against in-repo baseline
 
 on:
@@ -22,8 +22,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout regression tooling

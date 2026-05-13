@@ -25,11 +25,6 @@ from pathlib import Path
 
 import yaml
 
-# Throughput formatting reused from analyze_results.py — single source of truth
-# for the "batch / median(elapsed)" → human string conversion.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from analyze_results import format_throughput  # noqa: E402
-
 # --- Arch label canonicalization -------------------------------------------------
 # Artifact names look like:
 #   benchmark-json-wormhole_b0-tt-ubuntu-2204-n150-viommu-stable-ubuntu-22.04
@@ -86,11 +81,18 @@ def collect_current_results(current_dir: Path) -> dict:
                 med = r.get("median(elapsed)")
                 batch = r.get("batch")
                 unit = r.get("unit") or "byte"
-                if med and batch and case is not None:
-                    results[arch][title][case] = {
-                        "throughput": batch / med,
-                        "unit": unit,
-                    }
+                if case is None or med is None or batch is None:
+                    continue
+                if med == 0 or batch == 0:
+                    print(
+                        f"WARN: skipping {arch}/{title}/{case}: med={med} batch={batch}",
+                        file=sys.stderr,
+                    )
+                    continue
+                results[arch][title][case] = {
+                    "throughput": batch / med,
+                    "unit": unit,
+                }
     return results
 
 
@@ -153,6 +155,11 @@ def render_detail_subtable(title: str, rows: list) -> str:
     `rows` is a list of (case_name, current_thr, baseline_thr, delta_pct,
     tolerance_pct, status, unit) tuples, presumed already sorted.
     """
+    # there is function import from sumarize_regressions.py → refresh_baselines.py so dont want unnecessary module imports
+    # in this case from analyze_results.py, that is the reason for this local import here
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from analyze_results import format_throughput
+
     lines = [f"**{title} ({len(rows)})**", ""]
     lines.append("| Case | Current | Baseline | Δ% | Tolerance | Status |")
     lines.append("|------|--------:|---------:|---:|----------:|:-------|")

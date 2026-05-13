@@ -145,9 +145,16 @@ def collect_samples(repo: str, runs: list[dict], token: str) -> dict:
                     med = result.get("median(elapsed)")
                     batch = result.get("batch")
                     unit = result.get("unit") or "byte"
-                    if med and batch and case is not None:
-                        samples[arch][title][case].append(batch / med)
-                        units[arch][title][case] = unit
+                    if case is None or med is None or batch is None:
+                        continue
+                    if med == 0 or batch == 0:
+                        print(
+                            f"WARN: skipping {arch}/{title}/{case}: med={med} batch={batch}",
+                            file=sys.stderr,
+                        )
+                        continue
+                    samples[arch][title][case].append(batch / med)
+                    units[arch][title][case] = unit
     return samples, units
 
 

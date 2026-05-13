@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 
@@ -29,28 +28,16 @@ namespace tt::umd {
  * Handles arbitrary alignment and size — leading/trailing bytes smaller than a DWORD are
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
  * sub-DWORD writes natively, so no read-modify-write is required).
+ *
+ * Per-op budget: every individual TLB-touching store (byte, 4-byte, SSE 128-bit, AVX2
+ * 256-bit) must complete within a hard-coded budget (default 5 ms) — overridable at
+ * process start via the env var `TT_UMD_MMIO_OP_TIMEOUT_MS`. On overrun the function
+ * throws tt::umd::error::DeviceTimeoutError. Total memcpy wall time is NOT bounded —
+ * only single-op stalls are caught. The check fires once the previous transaction
+ * commits; worst-case detection latency is therefore
+ *   `op_timeout + PCIe completion timeout for the stalled transaction`.
  */
 void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
-
-/**
- * Deadline-aware overload of memcpy_to_device.
- *
- * The deadline is checked after every individual TLB-touching instruction:
- * each byte-wide volatile store, each 4-byte volatile store, each SSE
- * 128-bit store, and each AVX2 256-bit store. SIMD loads from host memory
- * in this function do not get a check (they don't touch the TLB). On
- * overrun a tt::umd::error::DeviceTimeoutError is thrown.
- *
- * The check cannot preempt a stalled MMIO instruction; it fires the moment
- * the previous transaction commits. Worst-case wall time is therefore
- *   `deadline - entry + (PCIe completion timeout for one in-flight store)`.
- *
- * Trade-off: each check_deadline call acts as a compiler barrier. This is
- * intentional (it pins the volatile-conceptual SIMD ordering) but it
- * reduces per-call bulk throughput compared to the non-deadline overload.
- */
-void memcpy_to_device(
-    volatile void* dest, const void* src, std::size_t size, std::chrono::steady_clock::time_point deadline);
 
 /**
  * memcpy for reads from device memory mapped through a TLB window.
@@ -64,21 +51,12 @@ void memcpy_to_device(
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.
  *
  * Handles arbitrary alignment and size.
+ *
+ * Per-op budget: same semantics as memcpy_to_device, applied to TLB loads. Inserting
+ * a check between loads serializes the non-posted PCIe reads that would otherwise
+ * pipeline — a deliberate throughput-for-responsiveness trade-off.
  */
 void memcpy_from_device(void* dest, const volatile void* src, std::size_t size);
-
-/**
- * Deadline-aware overload of memcpy_from_device.
- *
- * Mirror of memcpy_to_device but the per-instruction check is placed after
- * every TLB-touching *load*: byte-wide volatile load, 4-byte volatile load,
- * SSE 128-bit load, AVX2 256-bit load. SIMD stores to host memory do not
- * get a check. The check between loads serializes the non-posted PCIe
- * reads that would otherwise pipeline — a deliberate throughput-for-
- * responsiveness trade-off.
- */
-void memcpy_from_device(
-    void* dest, const volatile void* src, std::size_t size, std::chrono::steady_clock::time_point deadline);
 
 /**
  * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Centralizing these
@@ -90,5 +68,6 @@ void write16_to_device(volatile void* dest, std::uint16_t value);
 void write32_to_device(volatile void* dest, std::uint32_t value);
 std::uint16_t read16_from_device(const volatile void* src);
 std::uint32_t read32_from_device(const volatile void* src);
+
 
 }  // namespace tt::umd

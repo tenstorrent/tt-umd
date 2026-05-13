@@ -8,17 +8,14 @@
 
 #include <algorithm>
 #include <atomic>
-#include <chrono>
 #include <csetjmp>
 #include <csignal>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <mutex>
 #include <string>
 #include <utility>
 
@@ -52,38 +49,6 @@ struct ScopedJumpGuard {
         jump_set = 0;
     }
 };
-
-namespace {
-
-constexpr uint32_t kDefaultMmioTimeoutMs = 1000;
-
-std::atomic<uint32_t> &mmio_timeout_storage() {
-    static std::atomic<uint32_t> value{0};
-    static std::once_flag init;
-    std::call_once(init, [] {
-        const char *env = std::getenv("TT_UMD_MMIO_TIMEOUT_MS");
-        uint32_t parsed = kDefaultMmioTimeoutMs;
-        if (env != nullptr && *env != '\0') {
-            try {
-                parsed = static_cast<uint32_t>(std::stoul(env));
-            } catch (...) {
-                parsed = kDefaultMmioTimeoutMs;
-            }
-        }
-        value.store(parsed, std::memory_order_relaxed);
-    });
-    return value;
-}
-
-}  // namespace
-
-/* static */ void SiliconTlbWindow::set_mmio_timeout_ms(uint32_t ms) {
-    mmio_timeout_storage().store(ms, std::memory_order_relaxed);
-}
-
-/* static */ std::chrono::milliseconds SiliconTlbWindow::get_mmio_timeout() {
-    return std::chrono::milliseconds(mmio_timeout_storage().load(std::memory_order_relaxed));
-}
 
 /* static */ void SiliconTlbWindow::set_sigbus_safe_handler(bool set_safe_handler) {
     if (set_safe_handler) {
@@ -150,12 +115,10 @@ void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t siz
 
     validate(offset, size);
 
-    auto deadline = std::chrono::steady_clock::now() + get_mmio_timeout();
-
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device((void *)dst, data, size, deadline);
+        memcpy_to_device((void *)dst, data, size);
     } else {
-        umd::memcpy_to_device(dst, data, size, deadline);
+        umd::memcpy_to_device(dst, data, size);
     }
 }
 
@@ -164,17 +127,14 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
 
     validate(offset, size);
 
-    auto deadline = std::chrono::steady_clock::now() + get_mmio_timeout();
-
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(data, src, size, deadline);
+        memcpy_from_device(data, src, size);
     } else {
-        umd::memcpy_from_device(data, src, size, deadline);
+        umd::memcpy_from_device(data, src, size);
     }
 }
 
-void SiliconTlbWindow::memcpy_from_device(
-    void *dest, const volatile void *src, std::size_t num_bytes, std::chrono::steady_clock::time_point deadline) {
+void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, std::size_t num_bytes) {
     using copy_t = std::uint32_t;
 
     // Start by aligning the source (device) pointer.
@@ -200,7 +160,7 @@ void SiliconTlbWindow::memcpy_from_device(
     // Copy the source-aligned middle using non-overlapping wide loads.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    umd::memcpy_from_device(dest, sp, middle_bytes, deadline);
+    umd::memcpy_from_device(dest, sp, middle_bytes);
 
     auto *dp = static_cast<char *>(dest) + middle_bytes;
     sp += num_words;
@@ -213,8 +173,7 @@ void SiliconTlbWindow::memcpy_from_device(
     }
 }
 
-void SiliconTlbWindow::memcpy_to_device(
-    void *dest, const void *src, std::size_t num_bytes, std::chrono::steady_clock::time_point deadline) {
+void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
     using copy_t = std::uint32_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
@@ -245,7 +204,7 @@ void SiliconTlbWindow::memcpy_to_device(
     // Copy the destination-aligned middle using non-overlapping wide stores.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    umd::memcpy_to_device(dp, src, middle_bytes, deadline);
+    umd::memcpy_to_device(dp, src, middle_bytes);
 
     dp += num_words;
     auto *sp = static_cast<const char *>(src) + middle_bytes;

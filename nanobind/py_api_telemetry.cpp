@@ -36,7 +36,7 @@ void bind_telemetry(nb::module_& m) {
         .value("DEVICE_ID", wormhole::LegacyTelemetryTag::DEVICE_ID)
         .value("ASIC_RO", wormhole::LegacyTelemetryTag::ASIC_RO)
         .value("ASIC_IDD", wormhole::LegacyTelemetryTag::ASIC_IDD)
-        .value("BOARD_ID_HIGH", wormhole::LegacyTelemetryTag::BOARD_ID_HIGH)
+        .value("BOARD_ID_HIGH_BROKEN", wormhole::LegacyTelemetryTag::BOARD_ID_HIGH)
         .value("BOARD_ID_LOW", wormhole::LegacyTelemetryTag::BOARD_ID_LOW)
         .value("ARC0_FW_VERSION", wormhole::LegacyTelemetryTag::ARC0_FW_VERSION)
         .value("ARC1_FW_VERSION", wormhole::LegacyTelemetryTag::ARC1_FW_VERSION)
@@ -88,7 +88,7 @@ void bind_telemetry(nb::module_& m) {
 
     // Universal telemetry tags for all archs for newer firmware.
     nb::enum_<TelemetryTag>(m, "TelemetryTag")
-        .value("BOARD_ID_HIGH", TelemetryTag::BOARD_ID_HIGH)
+        .value("BOARD_ID_HIGH_BROKEN", TelemetryTag::BOARD_ID_HIGH)
         .value("BOARD_ID_LOW", TelemetryTag::BOARD_ID_LOW)
         .value("ASIC_ID", TelemetryTag::ASIC_ID)
         .value("HARVESTING_STATE", TelemetryTag::HARVESTING_STATE)

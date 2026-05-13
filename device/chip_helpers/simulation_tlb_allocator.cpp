@@ -144,11 +144,10 @@ void SimulationTlbAllocator::initialize_architecture_config() {
 
     } else {
         // Intentional: architectures like QUASAR construct SimulationTlbManager
-        // but bypass this allocator entirely (allocate_default_tlb_window
-        // short-circuits to a fixed dummy index without ever calling
-        // allocate_tlb_index). Leaving every pool empty is the signal that
-        // allocator-driven addressing is not in use; clients can detect this
-        // via has_configured_pools().
+        // but bypass this allocator entirely (SimulationTlbManager::
+        // allocate_tlb_window short-circuits to the factory without ever
+        // calling allocate_tlb_index). Leaving every pool empty is the signal
+        // that allocator-driven addressing is not in use.
         log_debug(
             LogUMD,
             fmt::format(

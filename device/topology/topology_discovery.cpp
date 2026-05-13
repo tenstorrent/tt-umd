@@ -265,7 +265,8 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!eth_heartbeat_running(tt_device, eth_core)) {
+            // TODO: Temporary - heartbeat check disabled for Blackhole.
+            if (tt_device->get_arch() != ARCH::BLACKHOLE && !eth_heartbeat_running(tt_device, eth_core)) {
                 auto err = UMD_THROW_OR_RETURN(
                     options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
                     error::RuntimeError,

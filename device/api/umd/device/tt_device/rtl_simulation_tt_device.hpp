@@ -75,6 +75,8 @@ public:
 
     TLBManager* get_tlb_manager() override;
 
+    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 

@@ -21,7 +21,9 @@ SimulationTlbManager::SimulationTlbManager(
     const architecture_implementation* arch_impl,
     TlbWindowFactory factory,
     uint64_t bar4_base) :
-    TLBManager(tt_device), allocator_(bar0_base, arch_impl, bar4_base), factory_(std::move(factory)) {}
+    TLBManager(tt_device),
+    allocator_(std::make_shared<SimulationTlbAllocator>(bar0_base, arch_impl, bar4_base)),
+    factory_(std::move(factory)) {}
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
@@ -32,25 +34,25 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_tlb_window(
     // window doesn't need a real index, address, or size — but the tlb id still
     // has to be unique per allocation so TLBManager bookkeeping (keyed by
     // get_tlb_id) doesn't collide.
-    if (allocator_.get_architecture() == tt::ARCH::QUASAR) {
+    if (allocator_->get_architecture() == tt::ARCH::QUASAR) {
         static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-        return factory_(&allocator_, next_bypass_tlb_id_++, SIZE_4GB, mapping, config);
+        return factory_(allocator_, next_bypass_tlb_id_++, SIZE_4GB, mapping, config);
     }
 
-    int tlb_index = allocator_.allocate_tlb_index(tlb_size);
+    int tlb_index = allocator_->allocate_tlb_index(tlb_size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
 
-    size_t actual_tlb_size = allocator_.get_tlb_size_from_index(tlb_index);
+    size_t actual_tlb_size = allocator_->get_tlb_size_from_index(tlb_index);
 
-    return factory_(&allocator_, tlb_index, actual_tlb_size, mapping, config);
+    return factory_(allocator_, tlb_index, actual_tlb_size, mapping, config);
 }
 
 std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
-    const tt::ARCH architecture = allocator_.get_architecture();
+    const tt::ARCH architecture = allocator_->get_architecture();
     switch (architecture) {
         case tt::ARCH::BLACKHOLE:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);

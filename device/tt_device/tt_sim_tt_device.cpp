@@ -106,9 +106,10 @@ TTSimTTDevice::TTSimTTDevice(
         this,
         bar0_base,
         architecture_impl_.get(),
-        [comm = communicator_.get()](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
+        [comm = communicator_.get()](
+            std::shared_ptr<SimulationTlbAllocator> alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
             -> std::unique_ptr<TlbWindow> {
-            auto handle = TTSimTlbHandle::create(alloc, comm, id, sz, map);
+            auto handle = TTSimTlbHandle::create(std::move(alloc), comm, id, sz, map);
             return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
         },
         bar4_base);

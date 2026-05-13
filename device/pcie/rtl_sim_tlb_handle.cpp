@@ -16,8 +16,9 @@
 
 namespace tt::umd {
 
-RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping) :
-    allocator_(allocator) {
+RtlSimTlbHandle::RtlSimTlbHandle(
+    std::shared_ptr<SimulationTlbAllocator> allocator, int tlb_id, size_t size, TlbMapping mapping) :
+    allocator_(std::move(allocator)) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = mapping;
@@ -40,8 +41,8 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbAllocator* allocator, int tlb_id, 
 }
 
 std::unique_ptr<RtlSimTlbHandle> RtlSimTlbHandle::create(
-    SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping) {
-    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(allocator, tlb_id, size, mapping));
+    std::shared_ptr<SimulationTlbAllocator> allocator, int tlb_id, size_t size, TlbMapping mapping) {
+    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(std::move(allocator), tlb_id, size, mapping));
 }
 
 RtlSimTlbHandle::~RtlSimTlbHandle() noexcept { RtlSimTlbHandle::free_tlb(); }

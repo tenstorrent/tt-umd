@@ -59,11 +59,8 @@ def collect_current_results(current_dir: Path) -> dict:
 
     Returns: { arch_label: { test_title: { case_name: { "throughput": float, "unit": str } } } }
 
-    Handles both layouts the C++ exporter may produce:
-      - flat:        <artifact>/<title>.json
-      - timestamped: <artifact>/<YYYY-MM-DDTHH-MM-SS>/<title>.json
-    If multiple timestamped subdirs exist (multi-iteration runs), the
-    lexicographically-latest one wins; this matches "most recent iteration".
+    The C++ exporter writes flat `<artifact>/<title>.json` files (see
+    `microbenchmark_utils.hpp::export_results`).
     """
     results: dict = defaultdict(lambda: defaultdict(dict))
     for artifact_dir in sorted(current_dir.iterdir()):
@@ -78,14 +75,10 @@ def collect_current_results(current_dir: Path) -> dict:
                 file=sys.stderr,
             )
             continue
-        # Latest-wins per title (handles timestamped subdirs).
-        by_title: dict[str, Path] = {}
-        for p in sorted(artifact_dir.rglob("*.json")):
-            title = p.stem
+        for path in sorted(artifact_dir.glob("*.json")):
+            title = path.stem
             if title == "machine_host_spec":
                 continue
-            by_title[title] = p
-        for title, path in by_title.items():
             with open(path) as f:
                 data = json.load(f)
             for r in data.get("results", []):

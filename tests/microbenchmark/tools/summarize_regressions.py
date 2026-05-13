@@ -113,6 +113,20 @@ def classify(
 
 # --- Rendering -------------------------------------------------------------------
 
+# Hybrid emoji + ASCII labels. The Step Summary tab renders the emoji as a
+# colored glyph; the raw job log and `grep` still match the ASCII suffix. OK
+# stays plain — no need to call attention to passing cases.
+STATUS_DECORATION = {
+    "OK": "OK",
+    "UP": "🟢 UP",
+    "DOWN": "🟡 DOWN",
+    "CRIT": "🔴 CRIT",
+}
+
+
+def decorate_status(status: str) -> str:
+    return STATUS_DECORATION.get(status, status)
+
 
 def format_cell(counts: dict, total: int) -> str:
     """Build the coarse-table cell string from per-status counts."""
@@ -121,11 +135,11 @@ def format_cell(counts: dict, total: int) -> str:
         return f"OK ({total}/{total})"
     parts = []
     if crit:
-        parts.append(f"{crit} CRIT")
+        parts.append(f"{crit} {decorate_status('CRIT')}")
     if down:
-        parts.append(f"{down} DOWN")
+        parts.append(f"{down} {decorate_status('DOWN')}")
     if up:
-        parts.append(f"{up} UP")
+        parts.append(f"{up} {decorate_status('UP')}")
     return ", ".join(parts) + f" (of {total})"
 
 
@@ -149,7 +163,7 @@ def render_detail_subtable(title: str, rows: list) -> str:
         lines.append(
             f"| {case} | {format_throughput(cur, unit_arg)} | "
             f"{format_throughput(base, unit_arg)} | "
-            f"{dpct:+.2f}% | ±{tol:g}% | {status} |"
+            f"{dpct:+.2f}% | ±{tol:g}% | {decorate_status(status)} |"
         )
     if len(rows) > DETAIL_TRUNCATION_LIMIT:
         lines.append("")
@@ -335,7 +349,8 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
         lines.append("|------|------|------|:-------|---:|----------:|")
         for title, case, arch, status, dpct, tol in gated_breaches:
             lines.append(
-                f"| {title} | {case} | {arch} | {status} | {dpct:+.2f}% | ±{tol:g}% |"
+                f"| {title} | {case} | {arch} | {decorate_status(status)} | "
+                f"{dpct:+.2f}% | ±{tol:g}% |"
             )
 
     return "\n".join(lines) + "\n", gated_breaches
@@ -395,7 +410,8 @@ def main() -> int:
         )
         for title, case, arch, status, dpct, tol in gated_breaches:
             print(
-                f"  - {title} :: {case} :: {arch}: {status} {dpct:+.2f}% (tol ±{tol:g}%)",
+                f"  - {title} :: {case} :: {arch}: {decorate_status(status)} "
+                f"{dpct:+.2f}% (tol ±{tol:g}%)",
                 file=sys.stderr,
             )
         return 1

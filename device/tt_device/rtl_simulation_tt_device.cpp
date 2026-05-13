@@ -336,4 +336,8 @@ void RtlSimulationTTDevice::noc_multicast_write(void* src, size_t size, uint64_t
 
 TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
+std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    return tlb_manager_->allocate_tlb_window(config, mapping, size);
+}
+
 }  // namespace tt::umd

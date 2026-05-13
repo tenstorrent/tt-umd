@@ -40,8 +40,10 @@ std::uint32_t read32_from_device(const volatile void* src) {
 namespace {
 
 // Hard-coded default per-op budget; overridable at process start via the env var
-// TT_UMD_MMIO_OP_TIMEOUT_MS. Applied to every TLB-touching store/load.
-constexpr std::chrono::milliseconds kDefaultMmioOpTimeout{5};
+// TT_UMD_MMIO_OP_TIMEOUT_MS. Applied to every TLB-touching store/load. Set to 30 ms
+// so post-reset reads (which can legitimately take >5 ms before the device settles)
+// don't trip the timeout on the happy path.
+constexpr std::chrono::milliseconds kDefaultMmioOpTimeout{30};
 
 std::chrono::milliseconds mmio_op_timeout() {
     static const std::chrono::milliseconds value = [] {

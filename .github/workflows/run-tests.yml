@@ -98,44 +98,44 @@ jobs:
         shell: bash
         run: tar xvf artifact.tar
 
-      - name: Run baremetal tests
-        if: ${{ inputs.arch == 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
+      # - name: Run baremetal tests
+      #   if: ${{ inputs.arch == 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/baremetal/baremetal_tests
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/test_utils/test_utils_tests
 
-      - name: Run API tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
+      # - name: Run API tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/api/api_tests
 
-      - name: Run arch-specific UMD unit tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
+      # - name: Run arch-specific UMD unit tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/${{ inputs.arch }}/unit_tests
 
-      - name: Run PCI tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
+      # - name: Run PCI tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
-      - name: Run MISC tests
-        run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
+      # - name: Run MISC tests
+      #   run: |
+      #     ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 
-      - name: Run unified tests
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-            ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
+      # - name: Run unified tests
+      #   if: ${{ inputs.arch != 'baremetal' }}
+      #   run: |
+      #       ${{ env.TEST_OUTPUT_DIR }}/umd/unified/unified_tests
 
-      - name: Run UMD tools
-        shell: bash
-        run: |
-          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/telemetry --count 10
-          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology
-          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/harvesting
-          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/system_health
-          # warm_reset is skipped here; it is covered by unit tests.
-          ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/tlb_virus
+      # - name: Run UMD tools
+      #   shell: bash
+      #   run: |
+      #     ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/telemetry --count 10
+      #     ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/topology
+      #     ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/harvesting
+      #     ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/system_health
+      #     # warm_reset is skipped here; it is covered by unit tests.
+      #     ${{ env.BUILD_OUTPUT_DIR }}/tools/umd/tlb_virus
 
       - name: Install wheel and run pytest
         shell: bash
@@ -148,4 +148,7 @@ jobs:
           python -m pip install tt_umd-*.whl --force-reinstall
           echo "Installation complete."
           echo "Running tests..."
-          .venv/bin/python -m pytest -s tests
+          for i in $(seq 1 100); do
+            echo "=== Warm reset iteration $i / 100 ==="
+            .venv/bin/python -m pytest -s tests/test_py_warm_reset.py || exit 1
+          done

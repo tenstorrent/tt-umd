@@ -230,12 +230,17 @@ def render_detail_section(
     return "\n".join(lines)
 
 
-def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
-    """Top-level renderer. Returns (markdown document, gated_breaches).
+def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
+    """Top-level renderer. Returns (markdown document, gated_breaches, missing_gated).
 
     `gated_breaches` is a list of (title, case, arch, status, dpct, tol) for
     cases that breached tolerance AND carry `gate: true` in baselines.yaml —
     the caller exits non-zero when this list is non-empty.
+
+    `missing_gated` is a list of (title, case, arch) for gated cases present
+    in baselines.yaml but absent from this run's JSON (whole-arch missing or
+    per-case missing). Surfaced as a warning so a partial benchmark run can't
+    be confused with a clean one; does not fail the job.
     """
     meta = baselines.get("metadata") or {}
     calibrated_at = meta.get("calibrated_at", "unknown date")
@@ -253,6 +258,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
     # Per-(test, arch): collect (counts, breached_rows, stable_rows).
     cell_state: dict = {}
     gated_breaches: list = []
+    missing_gated: list = []
     for title in test_titles:
         for arch in arch_order:
             counts = {"OK": 0, "UP": 0, "DOWN": 0, "CRIT": 0}
@@ -272,12 +278,15 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
                 cell_state[(title, arch)] = (counts, breached, stable, "no baseline")
                 continue
             if not arch_results:
+                for case_name, baseline_entry in cases_with_baseline.items():
+                    if baseline_entry.get("gate") is True:
+                        missing_gated.append((title, case_name, arch))
                 cell_state[(title, arch)] = (counts, breached, stable, "no result")
                 continue
             for case_name, baseline_entry in cases_with_baseline.items():
                 if case_name not in arch_results:
-                    # Case is in baselines.yaml but missing from this run's JSON.
-                    # Treat as missing; counts toward "no result" if all missing.
+                    if baseline_entry.get("gate") is True:
+                        missing_gated.append((title, case_name, arch))
                     continue
                 current_entry = arch_results[case_name]
                 current_thr = current_entry["throughput"]
@@ -360,7 +369,27 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list]:
                 f"{dpct:+.2f}% | ±{tol:g}% |"
             )
 
-    return "\n".join(lines) + "\n", gated_breaches
+    if missing_gated:
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+        lines.append(
+            f"### Missing gated cases — not failing the job ({len(missing_gated)})"
+        )
+        lines.append("")
+        lines.append(
+            "_Cases below carry `gate: true` in baselines.yaml but produced no "
+            "result in this run. A partial benchmark run (e.g. binary crashed "
+            "mid-suite) will surface here; an intentional case rename/removal "
+            "will too, until the next baseline refresh._"
+        )
+        lines.append("")
+        lines.append("| Test | Case | Arch |")
+        lines.append("|------|------|------|")
+        for title, case, arch in missing_gated:
+            lines.append(f"| {title} | {case} | {arch} |")
+
+    return "\n".join(lines) + "\n", gated_breaches, missing_gated
 
 
 # --- Main ------------------------------------------------------------------------
@@ -412,9 +441,17 @@ def main() -> int:
         )
         return 1
 
-    summary, gated_breaches = render_summary(current, baselines)
+    summary, gated_breaches, missing_gated = render_summary(current, baselines)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(summary)
+    if missing_gated:
+        print(
+            f"WARN: {len(missing_gated)} gated case(s) missing from this run "
+            f"(see Missing gated cases section).",
+            file=sys.stderr,
+        )
+        for title, case, arch in missing_gated:
+            print(f"  - {title} :: {case} :: {arch}", file=sys.stderr)
     # Soft alerts (non-gated breaches) never fail; cases with `gate: true` in
     # baselines.yaml fail the job when they breach DOWN or CRIT.
     if gated_breaches:

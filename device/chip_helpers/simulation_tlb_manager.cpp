@@ -58,8 +58,6 @@ std::unique_ptr<TlbWindow> SimulationTlbManager::allocate_default_tlb_window() {
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_2MB);
         case tt::ARCH::WORMHOLE_B0:
             return allocate_tlb_window({}, TlbMapping::WC, SIZE_16MB);
-        case tt::ARCH::QUASAR:
-            return allocate_tlb_window({}, TlbMapping::WC, /*tlb_size=*/0);
         default:
             log_debug(
                 LogUMD,

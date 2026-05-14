@@ -19,9 +19,14 @@ script is complementary, not a replacement.
 
 import argparse
 import json
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+# nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
+# Python's json parser rejects (it only accepts the capitalized `NaN`).
+_NAN_RE = re.compile(r"-?\bnan\b")
 
 import yaml
 
@@ -48,9 +53,53 @@ def arch_label_from_artifact(name: str) -> str | None:
 # --- Data collection -------------------------------------------------------------
 
 
+def read_arch_results(json_dir: Path, arch_label: str = "(unknown)") -> dict:
+    """Read every `<title>.json` file directly inside `json_dir` and return
+    per-test/per-case throughputs for a single arch.
+
+    Returns: { test_title: { case_name: { "throughput": float, "unit": str } } }
+
+    `arch_label` is only used for diagnostic warnings. This is the per-arch
+    building block used both by the CI walker (`collect_current_results`) and
+    by `compare_to_baseline.py` for local runs.
+    """
+    per_arch: dict = defaultdict(dict)
+    for path in sorted(json_dir.glob("*.json")):
+        title = path.stem
+        if title == "machine_host_spec":
+            continue
+        try:
+            text = _NAN_RE.sub("NaN", path.read_text())
+            data = json.loads(text)
+        except (json.JSONDecodeError, OSError) as e:
+            print(
+                f"WARN: skipping {arch_label}/{title}: cannot read JSON ({e})",
+                file=sys.stderr,
+            )
+            continue
+        for r in data.get("results", []):
+            case = r.get("name")
+            med = r.get("median(elapsed)")
+            batch = r.get("batch")
+            unit = r.get("unit") or "byte"
+            if case is None or med is None or batch is None:
+                continue
+            if med == 0 or batch == 0:
+                print(
+                    f"WARN: skipping {arch_label}/{title}/{case}: med={med} batch={batch}",
+                    file=sys.stderr,
+                )
+                continue
+            per_arch[title][case] = {
+                "throughput": batch / med,
+                "unit": unit,
+            }
+    return per_arch
+
+
 def collect_current_results(current_dir: Path) -> dict:
-    """Walk `current_dir` looking for `benchmark-json-*` subdirs and harvest
-    per-case throughputs.
+    """Walk `current_dir` looking for `benchmark-json-*` subdirs (one per
+    arch) and harvest per-case throughputs.
 
     Returns: { arch_label: { test_title: { case_name: { "throughput": float, "unit": str } } } }
 
@@ -70,36 +119,7 @@ def collect_current_results(current_dir: Path) -> dict:
                 file=sys.stderr,
             )
             continue
-        for path in sorted(artifact_dir.glob("*.json")):
-            title = path.stem
-            if title == "machine_host_spec":
-                continue
-            try:
-                with open(path) as f:
-                    data = json.load(f)
-            except (json.JSONDecodeError, OSError) as e:
-                print(
-                    f"WARN: skipping {arch}/{title}: cannot read JSON ({e})",
-                    file=sys.stderr,
-                )
-                continue
-            for r in data.get("results", []):
-                case = r.get("name")
-                med = r.get("median(elapsed)")
-                batch = r.get("batch")
-                unit = r.get("unit") or "byte"
-                if case is None or med is None or batch is None:
-                    continue
-                if med == 0 or batch == 0:
-                    print(
-                        f"WARN: skipping {arch}/{title}/{case}: med={med} batch={batch}",
-                        file=sys.stderr,
-                    )
-                    continue
-                results[arch][title][case] = {
-                    "throughput": batch / med,
-                    "unit": unit,
-                }
+        results[arch] = read_arch_results(artifact_dir, arch)
     return results
 
 

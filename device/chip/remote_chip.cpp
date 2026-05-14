@@ -91,6 +91,12 @@ void RemoteChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void RemoteChip::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);
+    // FIX BY (#42429): relay broken means we cannot reach this chip via read_non_mmio.
+    // get_clock() uses WormholeArcMessenger → RemoteCommunicationLegacyFirmware::read_non_mmio,
+    // which would timeout and throw from the destructor. Skip entirely when relay is known broken.
+    if (is_relay_broken()) {
+        return;
+    }
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {

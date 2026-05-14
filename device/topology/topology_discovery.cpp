@@ -674,6 +674,14 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
             return false;
         }
 
+        // FIX BS (#42429): Base UMD relay firmware writes a static 0xABCDxxxx marker that does not
+        // increment. Requiring counter change (previous != current) within 50ms always fails for
+        // healthy base-firmware channels. Accept 0xABCD immediately (consistent with FIX TW in
+        // risc_firmware_initializer.cpp).
+        if (signature == erisc_firmware::BASE_FW_HEARTBEAT_SIGNATURE) {
+            return true;
+        }
+
         if (previous_reading != current_reading) {
             return true;
         }

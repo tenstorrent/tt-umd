@@ -115,8 +115,6 @@ def classify(
         return "OK", delta_pct
     if delta_pct > tolerance_pct:
         return "UP", delta_pct
-    if delta_pct < -2 * tolerance_pct:
-        return "CRIT", delta_pct
     return "DOWN", delta_pct
 
 
@@ -128,8 +126,7 @@ def classify(
 STATUS_DECORATION = {
     "OK": "OK",
     "UP": "🟢 UP",
-    "DOWN": "🟡 DOWN",
-    "CRIT": "🔴 CRIT",
+    "DOWN": "🔴 DOWN",
 }
 
 
@@ -139,12 +136,10 @@ def decorate_status(status: str) -> str:
 
 def format_cell(counts: dict, total: int) -> str:
     """Build the coarse-table cell string from per-status counts."""
-    crit, down, up = counts.get("CRIT", 0), counts.get("DOWN", 0), counts.get("UP", 0)
-    if crit + down + up == 0:
+    down, up = counts.get("DOWN", 0), counts.get("UP", 0)
+    if down + up == 0:
         return f"OK ({total}/{total})"
     parts = []
-    if crit:
-        parts.append(f"{crit} {decorate_status('CRIT')}")
     if down:
         parts.append(f"{down} {decorate_status('DOWN')}")
     if up:
@@ -268,7 +263,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
     missing_gated: list = []
     for title in test_titles:
         for arch in arch_order:
-            counts = {"OK": 0, "UP": 0, "DOWN": 0, "CRIT": 0}
+            counts = {"OK": 0, "UP": 0, "DOWN": 0}
             breached, stable = [], []
 
             arch_results = current.get(arch, {}).get(title, {})
@@ -315,10 +310,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
                     stable.append(row)
                 else:
                     breached.append(row)
-                    if baseline_entry.get("gate") is True and status in {
-                        "DOWN",
-                        "CRIT",
-                    }:
+                    if baseline_entry.get("gate") is True and status == "DOWN":
                         gated_breaches.append(
                             (title, case_name, arch, status, dpct, tolerance_pct)
                         )
@@ -460,7 +452,7 @@ def main() -> int:
         for title, case, arch in missing_gated:
             print(f"  - {title} :: {case} :: {arch}", file=sys.stderr)
     # Soft alerts (non-gated breaches) never fail; cases with `gate: true` in
-    # baselines.yaml fail the job when they breach DOWN or CRIT.
+    # baselines.yaml fail the job when they breach DOWN.
     if gated_breaches:
         print(
             f"FAIL: {len(gated_breaches)} gated case(s) breached tolerance.",

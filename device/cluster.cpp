@@ -30,6 +30,7 @@
 #include "hugepage.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
@@ -778,11 +779,32 @@ void Cluster::ethernet_broadcast_write(
         }
     } else {
         // Broadcast not supported. Implement this at the software level as a for loop.
+        // TODO: temporary until the fallback mechanism is moved out in the following PR. Only
+        // broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
+        // broadcast). The row/col exclusion masks are bit positions in NOC0 space when
+        // use_translated_coords is false, or in virtual space when true — iterate each core type
+        // in the coord system that matches the exclusion semantics so ETH/ARC/PCIe stay untouched.
+        const CoordSystem iter_coord_system = use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
+            const SocDescriptor& soc = get_soc_descriptor(chip);
+            for (const CoreCoord core : soc.get_cores(CoreType::TENSIX, iter_coord_system)) {
+                uint32_t row_key = core.y;
+                uint32_t col_key = core.x;
+                if (use_translated_coords) {
+                    row_key = wormhole::TRANSLATED_TO_VIRTUAL_Y.at(core.y - wormhole::translated_coordinate_start_y);
+                    col_key = wormhole::TRANSLATED_TO_VIRTUAL_X.at(core.x - wormhole::translated_coordinate_start_x);
+                }
+                if (cols_to_exclude.find(col_key) == cols_to_exclude.end() &&
+                    rows_to_exclude.find(row_key) == rows_to_exclude.end()) {
+                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                }
+            }
+            // DRAM cores have translated coords equal to their NOC0 coords on Wormhole, which also
+            // coincide with their virtual coords, so no remapping is needed.
+            for (const CoreCoord core : soc.get_cores(CoreType::DRAM, iter_coord_system)) {
                 if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
                     rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
                     write_to_device(mem_ptr, size_in_bytes, chip, core, address);

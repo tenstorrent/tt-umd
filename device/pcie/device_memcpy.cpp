@@ -43,7 +43,7 @@ namespace {
 // TT_UMD_MMIO_OP_TIMEOUT_MS. Applied to every TLB-touching store/load. Set to 30 ms
 // so post-reset reads (which can legitimately take >5 ms before the device settles)
 // don't trip the timeout on the happy path.
-constexpr std::chrono::milliseconds kDefaultMmioOpTimeout{30};
+constexpr std::chrono::milliseconds kDefaultMmioOpTimeout{100};
 
 std::chrono::milliseconds mmio_op_timeout() {
     static const std::chrono::milliseconds value = [] {

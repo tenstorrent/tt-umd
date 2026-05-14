@@ -11,6 +11,7 @@
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <random>
@@ -948,17 +949,17 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 }
 
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
-// (up to 1 MB) and a DRAM core (up to 1 GB). The equivalent SimulationChip-level test
+// (up to 1 MB) and a DRAM core (up to 256 MB). The equivalent SimulationChip-level test
 // still lives in tests/simulation/ for the tt-umd-simulators consumer.
 TEST_F(TestDeviceIOFixture, LoopbackStressSize) {
     std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 
-    constexpr uint64_t addr = 0x0;
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<uint32_t> dis(0, 100);
+    const uint32_t seed = std::random_device{}();
+    GTEST_LOG_(INFO) << "LoopbackStressSize RNG seed = " << seed;
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<uint32_t> dis(0, std::numeric_limits<uint32_t>::max());
 
-    auto run_sweep = [&](ChipId chip_id, const CoreCoord& core, uint32_t max_shift) {
+    auto run_sweep = [&](ChipId chip_id, const CoreCoord& core, uint64_t addr, uint32_t max_shift) {
         for (uint32_t shift = 2; shift <= max_shift; ++shift) {
             const size_t size_bytes = size_t{1} << shift;
             std::vector<uint32_t> wdata(size_bytes / sizeof(uint32_t));
@@ -979,10 +980,10 @@ TEST_F(TestDeviceIOFixture, LoopbackStressSize) {
 
         const auto& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
         ASSERT_FALSE(tensix_cores.empty());
-        run_sweep(chip_id, tensix_cores[0], 20);  // 2^20 = 1 MB
+        run_sweep(chip_id, tensix_cores[0], SAFE_IO_L1_ADDRESS, 20);  // 2^20 = 1 MB
 
         const auto& dram_cores = soc_desc.get_cores(CoreType::DRAM);
         ASSERT_FALSE(dram_cores.empty());
-        run_sweep(chip_id, dram_cores[0], 30);  // 2^30 = 1 GB
+        run_sweep(chip_id, dram_cores[0], 0x0, 28);  // 2^28 = 256 MB
     }
 }

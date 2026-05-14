@@ -89,4 +89,8 @@ jobs:
     secrets: inherit
     needs: run-benchmarks
     if: ${{ !cancelled() && needs.run-benchmarks.result != 'skipped' }}
+    permissions:
+      contents: read
+      packages: read
+      actions: read
     uses: ./.github/workflows/regression-check.yml

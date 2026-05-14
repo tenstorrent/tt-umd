@@ -14,15 +14,17 @@
 
 #include <cerrno>
 #include <cstring>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 
-#include "assert.hpp"
+#include "umd/device/utils/error.hpp"
 
 // NOLINTBEGIN.
-#define DLSYM_FUNCTION(func_name)                                                           \
-    pfn_##func_name##_ = (decltype(pfn_##func_name##_))dlsym(libttsim_handle_, #func_name); \
-    if (!pfn_##func_name##_) {                                                              \
-        TT_THROW("Failed to find symbol: {} {}", #func_name, dlerror());                    \
+#define DLSYM_FUNCTION(func_name)                                                                           \
+    pfn_##func_name##_ = (decltype(pfn_##func_name##_))dlsym(libttsim_handle_, #func_name);                 \
+    if (!pfn_##func_name##_) {                                                                              \
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to find symbol: {} {}", #func_name, dlerror())); \
     }
 
 // NOLINTEND.
@@ -125,7 +127,7 @@ void TTSimCommunicator::create_simulator_binary() {
     const std::string memfd_name = (filename + "_communicator" + extension);
     copied_simulator_fd_ = memfd_create(memfd_name.c_str(), MFD_CLOEXEC | MFD_ALLOW_SEALING);
     if (copied_simulator_fd_ < 0) {
-        TT_THROW("Failed to create memfd: {}", strerror(errno));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to create memfd: {}", strerror(errno)));
     }
 }
 
@@ -134,13 +136,13 @@ off_t TTSimCommunicator::resize_simulator_binary(int src_fd) {
     if (fstat(src_fd, &st) < 0) {
         close(src_fd);
         close_simulator_binary();
-        TT_THROW("Failed to get file size: {}", strerror(errno));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to get file size: {}", strerror(errno)));
     }
     off_t file_size = st.st_size;
     if (ftruncate(copied_simulator_fd_, file_size) < 0) {
         close(src_fd);
         close_simulator_binary();
-        TT_THROW("Failed to allocate space in memfd: {}", strerror(errno));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to allocate space in memfd: {}", strerror(errno)));
     }
     return file_size;
 }
@@ -149,7 +151,10 @@ void TTSimCommunicator::copy_simulator_binary() {
     int src_fd = open(simulator_directory_.c_str(), O_RDONLY | O_CLOEXEC);
     if (src_fd < 0) {
         close_simulator_binary();
-        TT_THROW("Failed to open simulator file for reading: {} - {}", simulator_directory_.string(), strerror(errno));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to open simulator file for reading: {} - {}", simulator_directory_.string(), strerror(errno)));
     }
     off_t file_size = resize_simulator_binary(src_fd);
     off_t offset = 0;
@@ -157,18 +162,20 @@ void TTSimCommunicator::copy_simulator_binary() {
     close(src_fd);
     if (bytes_copied < 0) {
         close_simulator_binary();
-        TT_THROW("Failed to copy file with sendfile: {}", strerror(errno));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to copy file with sendfile: {}", strerror(errno)));
     }
     if (bytes_copied != file_size) {
         close_simulator_binary();
-        TT_THROW("Incomplete copy with sendfile: copied {} of {} bytes", bytes_copied, file_size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Incomplete copy with sendfile: copied {} of {} bytes", bytes_copied, file_size));
     }
 }
 
 void TTSimCommunicator::secure_simulator_binary() {
     if (fcntl(copied_simulator_fd_, F_ADD_SEALS, F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_SEAL) < 0) {
         close_simulator_binary();
-        TT_THROW("Failed to seal memfd: {}", strerror(errno));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to seal memfd: {}", strerror(errno)));
     }
 }
 
@@ -176,7 +183,7 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     libttsim_handle_ = dlopen(path.c_str(), RTLD_LAZY);
     if (!libttsim_handle_) {
         close_simulator_binary();
-        TT_THROW("Failed to dlopen simulator library: {}", dlerror());
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
     }
     DLSYM_FUNCTION(libttsim_init)
     DLSYM_FUNCTION(libttsim_exit)

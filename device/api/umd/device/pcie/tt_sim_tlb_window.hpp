@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/pcie/tlb_window.hpp"
@@ -12,6 +14,8 @@ namespace tt::umd {
 
 // Forward declaration.
 class TTSimCommunicator;
+class TlbHandle;
+struct tlb_data;
 
 /**
  * Simulation TlbWindow implementation that uses TTSimCommunicator
@@ -36,9 +40,6 @@ public:
     void safe_write16(uint64_t offset, uint16_t value) override;
 
     uint16_t safe_read16(uint64_t offset) override;
-
-protected:
-    tt::ARCH get_arch() const override;
 
 private:
     /**

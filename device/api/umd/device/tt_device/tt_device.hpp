@@ -6,9 +6,14 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
 
 #include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
@@ -19,17 +24,22 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -37,6 +47,17 @@ namespace tt::umd {
 class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
+class SimulationSysmemManager;
+class JtagDevice;
+class JtagInterface;
+class PCIDevice;
+class PcieInterface;
+class RemoteInterface;
+class TLBManager;
+enum class NocId : uint8_t;
+enum class RiscType : std::uint64_t;
+enum class TensixSoftResetOptions : std::uint32_t;
+struct CoreCoord;
 
 // Represents the status of the ETH core.
 enum class EthTrainingStatus {
@@ -165,6 +186,8 @@ public:
     // to get the information to form cluster of chips, or just use base TTDevice functions.
     virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -178,6 +201,16 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+
+    /**
+     * NOC multicast write function that will write data to all TENSIX cores in the grid.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_multicast_write(void *src, size_t size, uint64_t addr) = 0;
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -326,6 +359,12 @@ public:
 
     virtual uint32_t get_min_clock_freq() = 0;
 
+    // Advance the device by one clock cycle. No-op by default; overridden by devices with a
+    // controllable clock (e.g. simulation). Simulator clocking must be deterministic, so the
+    // clock is advanced synchronously from the calling thread rather than driven by a
+    // background thread.
+    virtual void advance_device_execution();
+
     uint64_t get_board_id();
 
     uint8_t get_asic_location();
@@ -340,7 +379,9 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    void init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
+        const std::string &soc_descriptor_path = "");
 
     uint64_t get_refclk_counter();
 
@@ -354,6 +395,7 @@ public:
      * @param core Core to get soft reset for, in translated coordinates
      */
     uint32_t get_risc_reset_state(tt_xy_pair core);
+    uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
      * Set the soft reset signal for the given riscs.
@@ -362,6 +404,7 @@ public:
      * @param risc_flags bitmask of riscs to set soft reset for
      */
     void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
+    void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
      * Send tensix risc reset for a specific core.
@@ -417,6 +460,24 @@ public:
      */
     virtual void deassert_risc_reset_write_only(tt_xy_pair core);
 
+    virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
+
+    virtual TLBManager *get_tlb_manager() { return nullptr; }
+
+    /**
+     * Allocate a TlbWindow for use by callers (typically TLBManager).
+     *
+     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
+     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
+     * subclasses override this to allocate from their backend-specific path.
+     *
+     * @param config tlb_data configuration applied to the new window.
+     * @param mapping UC or WC.
+     * @param size Requested TLB size in bytes (0 means try arch-supported sizes in order).
+     */
+    virtual std::unique_ptr<TlbWindow> get_io_window(
+        tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
+
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
@@ -444,6 +505,8 @@ public:
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
+    const SocDescriptor &get_soc_descriptor() const;
+
 protected:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
@@ -467,9 +530,14 @@ protected:
 
     tt_xy_pair arc_core;
 
+    // Assigns default SocDescriptor.
+    void construct_soc_descriptor(const std::string &soc_descriptor_path = "");
+    void set_soc_descriptor(const SocDescriptor &soc_descriptor);
+
 private:
     void probe_arc();
 
+    std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;

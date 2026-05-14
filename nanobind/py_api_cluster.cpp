@@ -10,18 +10,24 @@
 #include "umd/device/topology/topology_discovery.hpp"
 
 namespace nb = nanobind;
+// Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
+// allowing other Python threads to run in parallel while this binding executes. Pass
+// release_gil() as a call guard to nb::class_::def() on methods that don't touch the
+// Python interpreter (e.g. blocking device I/O), so callers can drive UMD concurrently
+// from multiple Python threads.
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt::umd;
 
 void bind_cluster(nb::module_ &m) {
     nb::class_<Cluster>(m, "Cluster")
-        .def(nb::init<>())
-        .def("get_target_device_ids", &Cluster::get_target_device_ids)
-        .def("get_clocks", &Cluster::get_clocks)
+        .def(nb::init<>(), release_gil())
+        .def("get_target_device_ids", &Cluster::get_target_device_ids, release_gil())
+        .def("get_clocks", &Cluster::get_clocks, release_gil())
         // Explicitly close all devices (MMIO + remote) in the cluster.
         // Calling this before the Cluster object is destroyed ensures ETH
         // channels are torn down cleanly — the default Cluster::~Cluster()
         // does NOT call close_device(), leaving ETH in base-UMD firmware
         // state (0x49706550 sentinel) which contaminates subsequent callers.
-        .def("close_device", &Cluster::close_device);
+        .def("close_device", &Cluster::close_device, release_gil());
 }

@@ -4,18 +4,19 @@
 
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 
+#include <fmt/format.h>
 #include <fmt/ranges.h>
 
 #include <chrono>
-#include <cstdint>
-#include <stdexcept>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
-#include "noc_access.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -126,7 +127,7 @@ uint32_t WormholeArcMessenger::send_message(
             fmt::format(
                 "Timed out after waiting {} ms for ARC to respond. Message code 0x{:x} with arguments 0x{:x} and "
                 "0x{:x}",
-                timeout_ms,
+                timeout_ms.count(),
                 msg_code,
                 arg0,
                 arg1));

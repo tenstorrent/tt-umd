@@ -4,19 +4,22 @@
 
 #include "api/umd/device/coordinates/coordinate_manager.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <memory>
-#include <stdexcept>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -35,6 +38,7 @@ CoordinateManager::CoordinateManager(
     const std::vector<tt_xy_pair>& router_cores,
     const std::vector<tt_xy_pair>& security_cores,
     const std::vector<tt_xy_pair>& l2cpu_cores,
+    const std::vector<tt_xy_pair>& dispatch_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
     const std::vector<uint32_t>& noc0_y_to_noc1_y) :
     noc_translation_enabled(noc_translation_enabled),
@@ -52,6 +56,7 @@ CoordinateManager::CoordinateManager(
     router_cores(router_cores),
     security_cores(security_cores),
     l2cpu_cores(l2cpu_cores),
+    dispatch_cores(dispatch_cores),
     noc0_x_to_noc1_x(noc0_x_to_noc1_x),
     noc0_y_to_noc1_y(noc0_y_to_noc1_y) {}
 
@@ -66,6 +71,7 @@ void CoordinateManager::initialize() {
     this->translate_router_coords();
     this->translate_security_coords();
     this->translate_l2cpu_coords();
+    this->translate_dispatch_coords();
     this->add_noc1_to_noc0_mapping();
 }
 
@@ -127,10 +133,21 @@ void CoordinateManager::identity_map_noc0_cores() {
         const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::L2CPU, CoordSystem::NOC0);
         add_core_translation(core_coord, core);
     }
+
+    for (auto& core : dispatch_cores) {
+        const CoreCoord core_coord = CoreCoord(core.x, core.y, CoreType::DISPATCH, CoordSystem::NOC0);
+        add_core_translation(core_coord, core);
+    }
 }
 
 CoreCoord CoordinateManager::translate_coord_to(
     const CoreCoord core_coord, const CoordSystem target_coord_system) const {
+    if (core_coord.coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "Cannot translate from LITERAL coord system.");
+    }
+    if (target_coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "Cannot translate to LITERAL coord system.");
+    }
     auto noc0_coord_it = to_noc0_map.find(core_coord);
     if (noc0_coord_it == to_noc0_map.end()) {
         UMD_THROW(
@@ -160,6 +177,9 @@ CoreCoord CoordinateManager::translate_coord_to(
 }
 
 CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSystem coord_system) const {
+    if (coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "LITERAL coords are not used in CoordinateManager.");
+    }
     if (coord_system == CoordSystem::LOGICAL) {
         UMD_THROW(error::RuntimeError, "Coordinate is ambiguous for logical coordinate system.");
     }
@@ -176,6 +196,12 @@ CoreCoord CoordinateManager::get_coord_at(const tt_xy_pair core, const CoordSyst
 
 CoreCoord CoordinateManager::translate_coord_to(
     const tt_xy_pair core, const CoordSystem input_coord_system, const CoordSystem target_coord_system) const {
+    if (input_coord_system == CoordSystem::LITERAL) {
+        UMD_THROW(error::RuntimeError, "Cannot translate from LITERAL coord system.");
+    }
+    if (target_coord_system == CoordSystem::LITERAL) {
+        return CoreCoord(core);
+    }
     CoreCoord core_coord = get_coord_at(core, input_coord_system);
     return translate_coord_to(core_coord, target_coord_system);
 }
@@ -313,6 +339,16 @@ void CoordinateManager::translate_l2cpu_coords() {
     }
 }
 
+void CoordinateManager::translate_dispatch_coords() {
+    // Just do identity mapping for translated DISPATCH coordinates.
+    // No logical coordinates available for DISPATCH cores.
+    for (tt_xy_pair dispatch_core : dispatch_cores) {
+        CoreCoord translated_coord = CoreCoord(dispatch_core, CoreType::DISPATCH, CoordSystem::TRANSLATED);
+
+        add_core_translation(translated_coord, dispatch_core);
+    }
+}
+
 void CoordinateManager::fill_eth_default_noc0_translated_mapping() {
     for (size_t eth_channel = 0; eth_channel < num_eth_channels; eth_channel++) {
         const tt_xy_pair noc0_pair = eth_cores[eth_channel];
@@ -442,6 +478,8 @@ const std::vector<tt_xy_pair>& CoordinateManager::get_noc0_pairs(const CoreType 
             return security_cores;
         case CoreType::L2CPU:
             return l2cpu_cores;
+        case CoreType::DISPATCH:
+            return dispatch_cores;
         default:
             UMD_THROW(error::RuntimeError, "Core type is not supported for getting NOC0 pairs.");
     }
@@ -505,6 +543,10 @@ std::vector<CoreCoord> CoordinateManager::get_l2cpu_cores() const { return get_a
 
 std::vector<CoreCoord> CoordinateManager::get_harvested_l2cpu_cores() const { return {}; }
 
+std::vector<CoreCoord> CoordinateManager::get_dispatch_cores() const { return get_all_noc0_cores(CoreType::DISPATCH); }
+
+std::vector<CoreCoord> CoordinateManager::get_harvested_dispatch_cores() const { return {}; }
+
 std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) const {
     switch (core_type) {
         case CoreType::TENSIX:
@@ -517,6 +559,8 @@ std::vector<CoreCoord> CoordinateManager::get_cores(const CoreType core_type) co
             return get_pcie_cores();
         case CoreType::L2CPU:
             return get_l2cpu_cores();
+        case CoreType::DISPATCH:
+            return get_dispatch_cores();
         case CoreType::ARC:
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
@@ -538,6 +582,13 @@ tt_xy_pair CoordinateManager::get_grid_size(const CoreType core_type) const {
             return arc_grid_size;
         case CoreType::PCIE:
             return pcie_grid_size;
+        case CoreType::ETH:
+        case CoreType::ROUTER_ONLY:
+        case CoreType::SECURITY:
+        case CoreType::L2CPU:
+        case CoreType::DISPATCH:
+            // These cores are not arranged in a regular grid.
+            return {0, 0};
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_grid_size().");
     }
@@ -557,6 +608,7 @@ std::vector<CoreCoord> CoordinateManager::get_harvested_cores(const CoreType cor
         case CoreType::ROUTER_ONLY:
         case CoreType::SECURITY:
         case CoreType::L2CPU:
+        case CoreType::DISPATCH:
             return {};
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_harvested_cores().");
@@ -577,6 +629,12 @@ tt_xy_pair CoordinateManager::get_harvested_grid_size(const CoreType core_type) 
             return get_harvested_dram_grid_size();
         case CoreType::ARC:
         case CoreType::PCIE:
+        case CoreType::ETH:
+        case CoreType::ROUTER_ONLY:
+        case CoreType::SECURITY:
+        case CoreType::L2CPU:
+        case CoreType::DISPATCH:
+            // These cores are not arranged in a regular grid.
             return {0, 0};
         default:
             UMD_THROW(error::RuntimeError, "Unsupported core type for get_harvested_grid_size().");
@@ -615,6 +673,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 wormhole::ROUTER_CORES_NOC0,
                 wormhole::SECURITY_CORES_NOC0,
                 wormhole::L2CPU_CORES_NOC0,
+                {},
                 wormhole::NOC0_X_TO_NOC1_X,
                 wormhole::NOC0_Y_TO_NOC1_Y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
@@ -635,6 +694,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 blackhole::ROUTER_CORES_NOC0,
                 blackhole::SECURITY_CORES_NOC0,
                 blackhole::L2CPU_CORES_NOC0,
+                {},
                 blackhole::NOC0_X_TO_NOC1_X,
                 blackhole::NOC0_Y_TO_NOC1_Y);
         }
@@ -660,6 +720,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
     const std::vector<tt_xy_pair>& router_cores,
     const std::vector<tt_xy_pair>& security_cores,
     const std::vector<tt_xy_pair>& l2cpu_cores,
+    const std::vector<tt_xy_pair>& dispatch_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
     const std::vector<uint32_t>& noc0_y_to_noc1_y) {
     switch (arch) {
@@ -679,6 +740,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 router_cores,
                 security_cores,
                 l2cpu_cores,
+                dispatch_cores,
                 noc0_x_to_noc1_x,
                 noc0_y_to_noc1_y);
         case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
@@ -698,6 +760,7 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 router_cores,
                 security_cores,
                 l2cpu_cores,
+                dispatch_cores,
                 noc0_x_to_noc1_x,
                 noc0_y_to_noc1_y);
         default:
@@ -755,6 +818,7 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
     map_noc0_to_noc1_cores(router_cores, CoreType::ROUTER_ONLY);
     map_noc0_to_noc1_cores(security_cores, CoreType::SECURITY);
     map_noc0_to_noc1_cores(l2cpu_cores, CoreType::L2CPU);
+    map_noc0_to_noc1_cores(dispatch_cores, CoreType::DISPATCH);
 }
 
 }  // namespace tt::umd

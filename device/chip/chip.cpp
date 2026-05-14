@@ -4,27 +4,32 @@
 
 #include "umd/device/chip/chip.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <stdexcept>
+#include <memory>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
 
-#include "assert.hpp"
-#include "noc_access.hpp"
 #include "tracy.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+enum class TensixSoftResetOptions : std::uint32_t;
 
 Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
     set_default_params(soc_descriptor_.arch);
@@ -90,8 +95,9 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
 }
 
 void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
-    TT_ASSERT(
+    UMD_ASSERT(
         soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
+        error::RuntimeError,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
     auto start = std::chrono::steady_clock::now();
@@ -110,8 +116,9 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
 
 // TODO: Remove this API once we switch to the new one.
 void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    TT_ASSERT(
+    UMD_ASSERT(
         core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
+        error::RuntimeError,
         "Cannot control soft reset on a non-tensix or harvested core");
     get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
 }
@@ -124,8 +131,7 @@ void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
 }
 
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
-    uint32_t soft_reset_current_state =
-        get_tt_device()->get_risc_reset_state(get_soc_descriptor().translate_chip_coord_to_translated(core));
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core);
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 
@@ -213,8 +219,14 @@ int Chip::arc_msg(
     return exit_code;
 }
 
+void Chip::advance_device_execution() {
+    if (auto* td = get_tt_device()) {
+        td->advance_device_execution();
+    }
+}
+
 void Chip::set_power_state(DevicePowerState state) {
-    ZoneScopedN("UMD_Chip::set_power_state");
+    ZoneScoped;
     int exit_code = 0;
     if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
@@ -228,7 +240,10 @@ void Chip::set_power_state(DevicePowerState state) {
                 (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
         }
     }
-    TT_ASSERT(exit_code == 0, "Failed to set power state to {} with exit code: {}", (int)state, exit_code);
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set power state to {} with exit code: {}", (int)state, exit_code));
     wait_for_aiclk_value(get_tt_device(), state);
 }
 
@@ -246,15 +261,35 @@ void Chip::wait_for_aiclk_value(
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms.count()) {
+            auto* telemetry = tt_device->get_arc_telemetry_reader();
+            std::string arb_max_info;
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+                const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+                const uint32_t arb_freq = arb_max & 0xFFFF;
+                const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
+                arb_max_info = fmt::format(", AICLK clamped by max-arbiter index {} at {} MHz", arb_idx, arb_freq);
+            }
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
-                "{}",
-                timeout_ms,
+                "{}{}",
+                timeout_ms.count(),
                 target_aiclk,
                 aiclk,
-                tt_device->get_asic_temperature());
+                tt_device->get_asic_temperature(),
+                arb_max_info);
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+                const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+                if (timeout_ms.count() <= update_telem_speed_ms) {
+                    log_warning(
+                        LogUMD,
+                        "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
+                        "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                        timeout_ms.count(),
+                        update_telem_speed_ms);
+                }
+            }
             return;
         }
         aiclk = tt_device->get_clock();
@@ -264,7 +299,7 @@ void Chip::wait_for_aiclk_value(
 void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        TT_THROW("noc_multicast_write is only supported for Tensix cores.");
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
         dst,

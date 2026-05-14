@@ -4,7 +4,10 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 
@@ -13,17 +16,24 @@
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
 class RtlSimCommunicator;
+class SimulationSysmemManager;
+class SimulationTlbManager;
+class SocDescriptor;
+class TlbWindow;
 
 class RtlSimulationTTDevice : public TTDevice {
 public:
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,
-        SocDescriptor soc_descriptor,
+        const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels = 0);
     ~RtlSimulationTTDevice();
@@ -33,8 +43,6 @@ public:
 
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-
-    SocDescriptor* get_soc_descriptor() { return &soc_descriptor_; }
 
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
@@ -59,11 +67,15 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
+    void noc_multicast_write(void* src, size_t size, uint64_t addr) override;
+
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager* get_sysmem_manager() { return sysmem_manager_.get(); }
+    SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager* get_tlb_manager();
+    TLBManager* get_tlb_manager() override;
+
+    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
@@ -73,7 +85,6 @@ private:
     std::recursive_mutex device_lock;
 
     std::filesystem::path simulator_directory_;
-    SocDescriptor soc_descriptor_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::unique_ptr<SimulationTlbManager> tlb_manager_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;

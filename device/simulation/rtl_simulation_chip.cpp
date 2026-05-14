@@ -4,12 +4,13 @@
 
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 
-#include <iostream>
-#include <string>
+#include <mutex>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 
-#include "assert.hpp"
 #include "tracy.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
@@ -26,7 +27,7 @@ RtlSimulationChip::RtlSimulationChip(
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 }
 
-void RtlSimulationChip::start_device() {}
+void RtlSimulationChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void RtlSimulationChip::close_device() {}
 

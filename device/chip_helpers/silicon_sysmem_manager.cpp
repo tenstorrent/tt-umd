@@ -6,26 +6,34 @@
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
+#include <fmt/format.h>
 #include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap
 #include <sys/stat.h>    // for fstat
+#include <unistd.h>
 
 #include <cerrno>
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <ostream>
+#include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <vector>
 
-#include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tracy.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -75,20 +83,22 @@ static void *mmap_with_hugepage_fallback(size_t size) {
     return addr;
 }
 
-SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
-    tlb_manager_ = tlb_manager;
-    tt_device_ = tlb_manager_->get_tt_device();
-    pcie_base_ = get_pcie_base_for_arch(tlb_manager->get_tt_device()->get_arch());
-    TT_ASSERT(
+SiliconSysmemManager::SiliconSysmemManager(TTDevice *tt_device, uint32_t num_host_mem_channels) {
+    tt_device_ = tt_device;
+    pci_device_ = tt_device->get_pci_device();
+    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
+    pcie_base_ = get_pcie_base_for_arch(pci_device_->get_arch());
+    UMD_ASSERT(
         num_host_mem_channels <= 4,
-        "Only 4 host memory channels are supported per device, but {} requested.",
-        num_host_mem_channels);
+        error::RuntimeError,
+        fmt::format("Only 4 host memory channels are supported per device, but {} requested.", num_host_mem_channels));
 
-    init_sysmem(num_host_mem_channels);
+    SiliconSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
-    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+    ZoneScopedC(tracy::Color::Yellow);
+    if (pci_device_->is_iommu_enabled()) {
         return pin_or_map_iommu();
     } else {
         return pin_or_map_hugepages();
@@ -106,7 +116,8 @@ SiliconSysmemManager::~SiliconSysmemManager() {
 }
 
 bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
-    if (tt_device_->get_pci_device()->is_iommu_enabled()) {
+    ZoneScopedC(tracy::Color::Yellow);
+    if (pci_device_->is_iommu_enabled()) {
         return init_iommu(num_host_mem_channels);
     } else {
         return init_hugepages(num_host_mem_channels);
@@ -114,29 +125,31 @@ bool SiliconSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 }
 
 void SiliconSysmemManager::unpin_or_unmap_sysmem() {
+    ZoneScopedC(tracy::Color::Yellow);
     // This will unmap the iommu buffer if it was mapped through kmd.
     sysmem_buffer_.reset();
     if (iommu_mapping != nullptr) {
         // This means we have initialized IOMMU mapping, and need to unmap it.
         // It also means that HugepageMappings are faked, so don't unmap them.
+        TracyFreeN(iommu_mapping, "Sysmem");
         munmap(iommu_mapping, iommu_mapping_size);
         iommu_mapping = nullptr;
     } else {
         for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
-            auto &HugepageMapping = hugepage_mapping_per_channel[ch];
-            if (HugepageMapping.physical_address &&
-                tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
+            auto &hugepage_mapping = hugepage_mapping_per_channel[ch];
+            if (hugepage_mapping.physical_address && pci_device_->is_mapping_buffer_to_noc_supported()) {
                 // This will unmap the hugepage if it was mapped through kmd.
                 // This is a hack for the 4th hugepage channel which is limited to 768MB.
-                size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+                size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                          ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
-                                         : HugepageMapping.mapping_size;
-                tt_device_->get_pci_device()->unmap_for_dma(HugepageMapping.mapping, actual_size);
+                                         : hugepage_mapping.mapping_size;
+                pci_device_->unmap_for_dma(hugepage_mapping.mapping, actual_size);
             }
-            if (HugepageMapping.mapping) {
+            if (hugepage_mapping.mapping) {
                 // Note that we mmap full hugepage, but don't map it filly to NOC.
                 // So the hack for 4th hugepage channel is not present in this branch.
-                munmap(HugepageMapping.mapping, HugepageMapping.mapping_size);
+                TracyFreeN(hugepage_mapping.mapping, "Hugepage");
+                munmap(hugepage_mapping.mapping, hugepage_mapping.mapping_size);
             }
         }
     }
@@ -155,18 +168,18 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
     // application might try to use the channels it asked for.  We should
     // just fail early since the error message will be actionable instead of
     // a segfault or memory corruption.
-    uint16_t pcie_device_id = tt_device_->get_pci_device()->get_pci_device_id();
-    uint32_t pcie_revision = tt_device_->get_pci_device()->get_pci_revision();
+    uint16_t pcie_device_id = pci_device_->get_pci_device_id();
+    uint32_t pcie_revision = pci_device_->get_pci_revision();
     num_host_mem_channels = get_available_num_host_mem_channels(num_host_mem_channels, pcie_device_id, pcie_revision);
 
     log_debug(
         LogUMD,
         "Using {} Hugepages/NumHostMemChannels for PCIDevice {}",
         num_host_mem_channels,
-        tt_device_->get_pci_device()->get_device_num());
+        pci_device_->get_device_num());
 
     const size_t hugepage_size = HUGEPAGE_REGION_SIZE;
-    auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
+    auto physical_device_id = pci_device_->get_device_num();
 
     std::string hugepage_dir = find_hugepage_dir(hugepage_size);
     if (hugepage_dir.empty()) {
@@ -242,13 +255,14 @@ bool SiliconSysmemManager::init_hugepages(uint32_t num_host_mem_channels) {
         }
 
         hugepage_mapping_per_channel[ch] = {mapping, hugepage_size, 0};
+        TracyAllocN(mapping, hugepage_size, "Hugepage");
     }
 
     return success;
 }
 
 bool SiliconSysmemManager::pin_or_map_hugepages() {
-    auto physical_device_id = tt_device_->get_pci_device()->get_device_num();
+    auto physical_device_id = pci_device_->get_device_num();
 
     bool success = true;
 
@@ -256,15 +270,14 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
     for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         void *mapping = hugepage_mapping_per_channel.at(ch).mapping;
         size_t hugepage_size = hugepage_mapping_per_channel.at(ch).mapping_size;
-        size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+        size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
-        bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
+        bool map_buffer_to_noc = pci_device_->is_mapping_buffer_to_noc_supported();
         uint64_t physical_address;
         uint64_t noc_address;
         if (map_buffer_to_noc) {
-            std::tie(noc_address, physical_address) =
-                tt_device_->get_pci_device()->map_hugepage_to_noc(mapping, actual_size);
+            std::tie(noc_address, physical_address) = pci_device_->map_hugepage_to_noc(mapping, actual_size);
             uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
             log_info(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
@@ -277,7 +290,7 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
                     "behavior");
             }
         } else {
-            physical_address = tt_device_->get_pci_device()->map_for_hugepage(mapping, actual_size);
+            physical_address = pci_device_->map_for_hugepage(mapping, actual_size);
         }
 
         if (physical_address == 0) {
@@ -318,10 +331,9 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
 
     constexpr size_t carveout_size = HUGEPAGE_REGION_SIZE - HUGEPAGE_CHANNEL_3_SIZE_LIMIT;  // 1GB - 768MB = 256MB
     const size_t size = num_fake_mem_channels * HUGEPAGE_REGION_SIZE;
-    TTDevice *tt_device_ = tlb_manager_->get_tt_device();
 
     // Caclulate the size of the mapping in order to avoid overlap with PCIE registers on WH.
-    if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) {
+    if (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && num_fake_mem_channels == 4) {
         iommu_mapping_size = (num_fake_mem_channels == 4) ? (size - carveout_size) : size;
     } else {
         iommu_mapping_size = size;
@@ -329,26 +341,29 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
 
     log_info(LogUMD, "Initializing iommu for sysmem (size: {:#x}).", iommu_mapping_size);
 
-    if (!tt_device_->get_pci_device()->is_iommu_enabled()) {
-        TT_THROW("IOMMU is required for sysmem without hugepages.");
+    if (!pci_device_->is_iommu_enabled()) {
+        UMD_THROW(error::RuntimeError, "IOMMU is required for sysmem without hugepages.");
     }
 
     log_info(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
     iommu_mapping = mmap_with_hugepage_fallback(size);
 
     if (iommu_mapping == MAP_FAILED) {
-        TT_THROW(
-            "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
-            size,
-            strerror(errno));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "UMD: Failed to allocate memory for device/host shared buffer (size: {} errno: {}).",
+                size,
+                strerror(errno)));
     }
+    TracyAllocN(iommu_mapping, iommu_mapping_size, "Sysmem");
 
     hugepage_mapping_per_channel.resize(num_fake_mem_channels);
 
     // Support for more than 1GB host memory accessible per device, via channels.
     for (size_t ch = 0; ch < num_fake_mem_channels; ch++) {
         uint8_t *fake_mapping = static_cast<uint8_t *>(iommu_mapping) + ch * HUGEPAGE_REGION_SIZE;
-        size_t actual_size = (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
+        size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : HUGEPAGE_REGION_SIZE;
         hugepage_mapping_per_channel[ch] = {fake_mapping, actual_size, 0};
@@ -363,14 +378,14 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         return true;
     }
 
-    bool map_buffer_to_noc = tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported();
+    bool map_buffer_to_noc = pci_device_->is_mapping_buffer_to_noc_supported();
 
     sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, map_buffer_to_noc);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
     if (map_buffer_to_noc && !noc_address.has_value()) {
-        TT_THROW("NOC address is not set for sysmem buffer.");
+        UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
     }
 
     if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
@@ -378,7 +393,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
         log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        TT_THROW("Proceeding could lead to undefined behavior");
+        UMD_THROW(error::RuntimeError, "Proceeding could lead to undefined behavior");
     }
 
     log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
@@ -403,9 +418,12 @@ void SiliconSysmemManager::print_file_contents(const std::string &filename, cons
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
+    ZoneScopedC(tracy::Color::Yellow);
     void *mapping = mmap_with_hugepage_fallback(sysmem_buffer_size);
     if (mapping == MAP_FAILED) {
-        TT_THROW("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }
@@ -413,7 +431,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tlb_manager_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc);
 }
 
 }  // namespace tt::umd

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 const uint32_t NOC_SIZE_X = 10;
 const uint32_t NOC_SIZE_Y = 12;

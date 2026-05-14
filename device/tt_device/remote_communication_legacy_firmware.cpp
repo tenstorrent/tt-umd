@@ -8,15 +8,19 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
-#include "umd/device/chip/local_chip.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/topology/topology_utils.hpp"
-#include "umd/device/utils/common.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
@@ -151,9 +155,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
     bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && system_mem_available;
-    // Print a warning in case of missing perf for larger transfers.
-    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
-        log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
+    // Print a warning in case of missing perf for larger transfers (once per instance).
+    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available && !large_transfer_warning_printed_) {
+        log_warning(LogUMD, "Large transfer to remote chip without system memory setup. Performance will be degraded.");
+        large_transfer_warning_printed_ = true;
     }
 
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
@@ -206,8 +211,9 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         }
 
         // Send the read request.
-        TT_ASSERT(
+        UMD_ASSERT(
             (req_flags == eth_interface_params.cmd_rd_req) || (((core_src + offset) & 0x1F) == 0),
+            error::RuntimeError,
             "Block mode offset must be 32-byte aligned.");  // Block mode offset must be 32-byte aligned.
         new_cmd->sys_addr =
             get_sys_addr(noc_params, target_chip.x, target_chip.y, target_core.x, target_core.y, core_src + offset);
@@ -313,8 +319,9 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                         data_block.data(), remote_transfer_ethernet_core, buf_address, block_size);
                 }
                 // assert(dest.size() - (offset/DATA_WORD_SIZE) >= (block_size * DATA_WORD_SIZE));
-                TT_ASSERT(
+                UMD_ASSERT(
                     (data_block.size() * DATA_WORD_SIZE) >= block_size,
+                    error::RuntimeError,
                     "Incorrect data size read back from sysmem/device");
                 // Account for misalignment by skipping any padding bytes in the copied data_block.
                 memcpy(
@@ -333,7 +340,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 eth_interface_params.cmd_counters_size_bytes,
             erisc_resp_q_rptr.size() * DATA_WORD_SIZE);
         tt_driver_atomics::sfence();
-        TT_ASSERT(erisc_resp_flags[0] == resp_flags, "Unexpected ERISC Response Flags.");
+        UMD_ASSERT(erisc_resp_flags[0] == resp_flags, error::RuntimeError, "Unexpected ERISC Response Flags.");
 
         offset += block_size;
     }
@@ -379,12 +386,14 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
     bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && system_mem_available;
-    // Print a warning in case of missing perf for larger transfers.
-    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
-        log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
+    // Print a warning in case of missing perf for larger transfers (once per instance).
+    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available && !large_transfer_warning_printed_) {
+        log_warning(LogUMD, "Large transfer to remote chip without system memory setup. Performance will be degraded.");
+        large_transfer_warning_printed_ = true;
     }
 
-    TT_ASSERT(!broadcast || system_mem_available, "Broadcasts not available without system memory.");
+    UMD_ASSERT(
+        !broadcast || system_mem_available, error::RuntimeError, "Broadcasts not available without system memory.");
     uint32_t max_block_size =
         use_host_dram ? host_address_params.eth_routing_block_size : eth_interface_params.max_block_size;
 
@@ -487,8 +496,9 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
         }
 
         // Send the read request.
-        TT_ASSERT(
+        UMD_ASSERT(
             broadcast || (req_flags == eth_interface_params.cmd_wr_req) || (((core_dest + offset) % 32) == 0),
+            error::RuntimeError,
             "Block mode address must be 32-byte aligned.");  // Block mode address must be 32-byte aligned.
 
         if (broadcast) {
@@ -568,7 +578,10 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
         return;
     }
     if (flush_non_mmio_) {
-        TT_ASSERT(local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE, "Non-MMIO flush not supported in Blackhole");
+        UMD_ASSERT(
+            local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE,
+            error::RuntimeError,
+            "Non-MMIO flush not supported in Blackhole");
 
         if (local_tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
             auto eth_interface_params = local_tt_device_->get_architecture_implementation()->get_eth_interface_params();

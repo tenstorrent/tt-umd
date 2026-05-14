@@ -13,12 +13,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <limits>
 #include <map>
 #include <memory>
 #include <set>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
@@ -27,13 +25,12 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/arch/blackhole_implementation.hpp"
-#include "api/umd/device/arch/grendel_implementation.hpp"
-#include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/types/cluster_descriptor_types.hpp"
-#include "assert.hpp"
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -309,9 +306,11 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
                 }
             }
             if (!matched_bdf_pattern) {
-                TT_THROW(
-                    "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
-                    device_token);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Invalid BDF in TT_VISIBLE_DEVICES: {}. Valid BDFs are part of the cluster descriptor.",
+                        device_token));
             }
             continue;
         }
@@ -327,16 +326,22 @@ std::unordered_set<ChipId> ClusterDescriptor::get_target_chip_ids_from_visible_d
                 log_debug(
                     LogUMD, "Added chip id {} because of token filter {}.", std::stoi(device_token), device_token);
             } else {
-                TT_THROW(
-                    "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs in "
-                    "the cluster.",
-                    device_token);
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format(
+                        "Invalid chip ID in TT_VISIBLE_DEVICES: {}. Valid ID needs to be in range of actual chip IDs "
+                        "in "
+                        "the cluster.",
+                        device_token));
             }
         } else {
-            TT_THROW(
-                "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either integers or "
-                "part of the BDF string.",
-                device_token);
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Invalid device identifier in TT_VISIBLE_DEVICES: {}.  Valid device identifiers are either "
+                    "integers or "
+                    "part of the BDF string.",
+                    device_token));
         }
     }
 
@@ -597,7 +602,7 @@ void ClusterDescriptor::fill_mock_hardcoded_data(ChipId logical_id) {
 }
 
 void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(YAML::Node &yaml) {
-    TT_ASSERT(yaml["ethernet_connections"].IsSequence(), "Invalid YAML");
+    UMD_ASSERT(yaml["ethernet_connections"].IsSequence(), error::RuntimeError, "Invalid YAML");
 
     // Preload idle eth channels.
     for (const auto &chip : all_chips) {
@@ -613,12 +618,13 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     }
 
     for (YAML::Node &connected_endpoints : yaml["ethernet_connections"].as<std::vector<YAML::Node>>()) {
-        TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+        UMD_ASSERT(connected_endpoints.IsSequence(), error::RuntimeError, "Invalid YAML");
 
         std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
-        TT_ASSERT(
+        UMD_ASSERT(
             endpoints.size() <= 3,
-            "Ethernet connections in YAML should always contatin information on connected endpoints and optionally "
+            error::RuntimeError,
+            "Ethernet connections in YAML should always contain information on connected endpoints and optionally "
             "information on whether "
             "routing is enabled.");
 
@@ -628,18 +634,20 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
         int channel_1 = endpoints.at(1)["chan"].as<int>();
         auto &eth_conn_chip_0 = ethernet_connections.at(chip_0);
         if (eth_conn_chip_0.find(channel_0) != eth_conn_chip_0.end()) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 (std::get<0>(eth_conn_chip_0.at(channel_0)) == chip_1) &&
                     (std::get<1>(eth_conn_chip_0.at(channel_0)) == channel_1),
+                error::RuntimeError,
                 "Duplicate eth connection found in cluster desc yaml");
         } else {
             eth_conn_chip_0.insert({channel_0, {chip_1, channel_1}});
         }
         auto &eth_conn_chip_1 = ethernet_connections.at(chip_1);
         if (eth_conn_chip_1.find(channel_1) != eth_conn_chip_1.end()) {
-            TT_ASSERT(
+            UMD_ASSERT(
                 (std::get<0>(eth_conn_chip_1.at(channel_1)) == chip_0) &&
                     (std::get<1>(eth_conn_chip_1.at(channel_1)) == channel_0),
+                error::RuntimeError,
                 "Duplicate eth connection found in cluster desc yaml");
         } else {
             eth_conn_chip_1.insert({channel_1, {chip_0, channel_0}});
@@ -682,12 +690,13 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
     if (yaml["ethernet_connections_to_remote_devices"].IsDefined()) {
         for (YAML::Node &connected_endpoints :
              yaml["ethernet_connections_to_remote_devices"].as<std::vector<YAML::Node>>()) {
-            TT_ASSERT(connected_endpoints.IsSequence(), "Invalid YAML");
+            UMD_ASSERT(connected_endpoints.IsSequence(), error::RuntimeError, "Invalid YAML");
 
             std::vector<YAML::Node> endpoints = connected_endpoints.as<std::vector<YAML::Node>>();
-            TT_ASSERT(
+            UMD_ASSERT(
                 endpoints.size() == 2,
-                "Remote ethernet connections in YAML should always contatin information on connected endpoints and "
+                error::RuntimeError,
+                "Remote ethernet connections in YAML should always contain information on connected endpoints and "
                 "channels");
 
             ChipId chip_0 = endpoints.at(0)["chip"].as<ChipId>();
@@ -736,7 +745,8 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     for (YAML::const_iterator node = yaml["chips"].begin(); node != yaml["chips"].end(); ++node) {
         ChipId chip_id = node->first.as<int>();
         std::vector<int> chip_rack_coords = node->second.as<std::vector<int>>();
-        TT_ASSERT(chip_rack_coords.size() == 4, "Galaxy (x, y, rack, shelf) coords must be size 4");
+        UMD_ASSERT(
+            chip_rack_coords.size() == 4, error::RuntimeError, "Galaxy (x, y, rack, shelf) coords must be size 4");
         EthCoord chip_location{
             chip_id, chip_rack_coords.at(0), chip_rack_coords.at(1), chip_rack_coords.at(2), chip_rack_coords.at(3)};
 
@@ -919,8 +929,9 @@ const std::unordered_map<ChipId, EthCoord> &ClusterDescriptor::get_chip_location
 const std::unordered_map<ChipId, uint64_t> &ClusterDescriptor::get_chip_unique_ids() const { return chip_unique_ids; }
 
 ChipId ClusterDescriptor::get_shelf_local_physical_chip_coords(ChipId virtual_coord) {
-    TT_ASSERT(
+    UMD_ASSERT(
         !this->chip_locations.empty(),
+        error::RuntimeError,
         "Getting physical chip coordinates is only valid for systems where chips have coordinates");
     // NoC 0 coordinates of chip inside a single rack. Calculated based on Galaxy topology.
     // See:
@@ -938,8 +949,10 @@ const std::unordered_set<ChipId> &ClusterDescriptor::get_all_chips() const { ret
 std::vector<ChipId> ClusterDescriptor::get_chips_local_first(const std::unordered_set<ChipId> &chips) const {
     std::vector<ChipId> chips_local_first;
     for (const auto &chip : chips) {
-        TT_ASSERT(
-            this->all_chips.find(chip) != this->all_chips.end(), "Chip {} not found in cluster descriptor.", chip);
+        UMD_ASSERT(
+            this->all_chips.find(chip) != this->all_chips.end(),
+            error::RuntimeError,
+            fmt::format("Chip {} not found in cluster descriptor.", chip));
     }
     for (const auto &chip : chips) {
         if (is_chip_mmio_capable(chip)) {
@@ -961,32 +974,32 @@ const std::unordered_map<ChipId, bool> &ClusterDescriptor::get_noc_translation_t
 std::size_t ClusterDescriptor::get_number_of_chips() const { return this->all_chips.size(); }
 
 BoardType ClusterDescriptor::get_board_type(ChipId chip_id) const {
-    TT_ASSERT(
+    UMD_ASSERT(
         chip_board_type.find(chip_id) != chip_board_type.end(),
-        "Chip {} does not have a board type in the cluster descriptor",
-        chip_id);
+        error::RuntimeError,
+        fmt::format("Chip {} does not have a board type in the cluster descriptor", chip_id));
     return chip_board_type.at(chip_id);
 }
 
 tt::ARCH ClusterDescriptor::get_arch() const {
     const std::unordered_set<ChipId> &chips = get_all_chips();
     if (chips.empty()) {
-        TT_THROW("Unable to determine architecture because no chips were detected.");
+        UMD_THROW(error::RuntimeError, "Unable to determine architecture because no chips were detected.");
     }
 
     // We already validated that all chips have the same arch.
     tt::ARCH arch = get_arch(*chips.begin());
     if (arch == tt::ARCH::Invalid) {
-        TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+        UMD_THROW(error::RuntimeError, fmt::format("Chip {} has invalid architecture.", *chips.begin()));
     }
     return arch;
 }
 
 tt::ARCH ClusterDescriptor::get_arch(ChipId chip_id) const {
-    TT_ASSERT(
+    UMD_ASSERT(
         chip_arch.find(chip_id) != chip_arch.end(),
-        "Chip {} does not have an architecture in the cluster descriptor",
-        chip_id);
+        error::RuntimeError,
+        fmt::format("Chip {} does not have an architecture in the cluster descriptor", chip_id));
     return chip_arch.at(chip_id);
 }
 
@@ -1242,12 +1255,12 @@ bool ClusterDescriptor::verify_same_architecture() {
     if (!chips.empty()) {
         tt::ARCH arch = get_arch(*chips.begin());
         if (arch == tt::ARCH::Invalid) {
-            TT_THROW("Chip {} has invalid architecture.", *chips.begin());
+            UMD_THROW(error::RuntimeError, fmt::format("Chip {} has invalid architecture.", *chips.begin()));
         }
         bool all_same_arch =
             std::all_of(chips.begin(), chips.end(), [&](ChipId chip_id) { return this->get_arch(chip_id) == arch; });
         if (!all_same_arch) {
-            TT_THROW("Chips with differing architectures detected. This is unsupported.");
+            UMD_THROW(error::RuntimeError, "Chips with differing architectures detected. This is unsupported.");
         }
     }
 
@@ -1364,5 +1377,19 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     }
     return it->second;
 }
+
+std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
+    const BoardType board = get_board_type(chip_id);
+    if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
+        return std::nullopt;
+    }
+    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
+    if (!arch_impl) {
+        return std::nullopt;
+    }
+    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
+}
+
+const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
 
 }  // namespace tt::umd

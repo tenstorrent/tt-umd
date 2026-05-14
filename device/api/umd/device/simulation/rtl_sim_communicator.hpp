@@ -6,6 +6,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -14,7 +15,6 @@
 #include <thread>
 
 #include "umd/device/simulation/simulation_host.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -74,6 +74,28 @@ public:
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
     /**
+     * Read data from a tile core via SMN.
+     *
+     * @param x Core X coordinate
+     * @param y Core Y coordinate
+     * @param addr Address to read from
+     * @param data Buffer to store read data
+     * @param size Number of bytes to read
+     */
+    void smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+
+    /**
+     * Write data to a tile core via SMN.
+     *
+     * @param x Core X coordinate
+     * @param y Core Y coordinate
+     * @param addr Address to write to
+     * @param data Data to write
+     * @param size Number of bytes to write
+     */
+    void smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
+    /**
      * Assert reset for all Tensix cores.
      *
      * @param x Core X coordinate
@@ -122,6 +144,32 @@ public:
      * @param dm_index DM core index (0-7)
      */
     void neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t dm_index);
+
+    /**
+     * Assert uncore reset for all NEO DM cores across all tensix cores.
+     */
+    void all_neo_dms_uncore_reset_assert();
+
+    /**
+     * Deassert uncore reset for all NEO DM cores across all tensix cores.
+     */
+    void all_neo_dms_uncore_reset_deassert();
+
+    /**
+     * Assert uncore reset for NEO DM cores on a specific tensix core.
+     *
+     * @param x Core X coordinate.
+     * @param y Core Y coordinate.
+     */
+    void neo_dm_uncore_reset_assert(uint32_t x, uint32_t y);
+
+    /**
+     * Deassert uncore reset for NEO DM cores on a specific tensix core.
+     *
+     * @param x Core X coordinate.
+     * @param y Core Y coordinate.
+     */
+    void neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y);
 
     /**
      * Get the simulation host reference.

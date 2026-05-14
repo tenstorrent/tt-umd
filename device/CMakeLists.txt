@@ -76,6 +76,7 @@ target_sources(
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
+        pcie/device_memcpy.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
@@ -105,6 +106,7 @@ target_sources(
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
+        soc_arch_descriptor.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
@@ -119,6 +121,7 @@ target_sources(
         arc/spi_tt_device.cpp
         noc_access.cpp
         warm_reset.cpp
+        warm_reset_with_recovery.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -146,6 +149,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
+            chip_helpers/simulation_tlb_allocator.cpp
             chip_helpers/simulation_tlb_manager.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
@@ -190,6 +194,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
+                api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
                 api/umd/device/chip_helpers/simulation_tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
@@ -208,6 +213,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
+                api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
@@ -237,7 +243,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
@@ -247,6 +252,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
+                api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp
@@ -293,12 +299,13 @@ target_include_directories(
 
 target_link_libraries(
     tt-umd
+    PUBLIC
+        fmt::fmt-header-only
     PRIVATE
         umd::Firmware
         hwloc
         rt
         spdlog::spdlog_header_only
-        fmt::fmt-header-only
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )

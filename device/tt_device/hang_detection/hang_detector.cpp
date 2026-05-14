@@ -9,6 +9,7 @@
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 namespace tt::umd {
 

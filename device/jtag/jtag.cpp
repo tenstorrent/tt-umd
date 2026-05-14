@@ -4,16 +4,16 @@
 
 #include "umd/device/jtag/jtag.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_map>
 #include <vector>
 
-#include "assert.hpp"
 #include "umd/device/utils/error.hpp"
 
 using namespace tt::umd;
@@ -29,10 +29,12 @@ void DlCloser::operator()(void* handle) const {
 
 void Jtag::openLibrary(const std::string& filePath, int flags) {
     if (!std::filesystem::exists(filePath)) {
-        TT_THROW(
-            "You do not have a JTAG library at {}.\n"
-            "File path could be wrong.",
-            filePath);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "You do not have a JTAG library at {}.\n"
+                "File path could be wrong.",
+                filePath));
     }
     if (handle != nullptr) {
         return;
@@ -41,7 +43,7 @@ void Jtag::openLibrary(const std::string& filePath, int flags) {
     handle = DlHandle(dlopen(filePath.c_str(), flags));
 
     if (!handle) {
-        TT_THROW("Failed to open JTAG library: {}", dlerror());
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to open JTAG library: {}", dlerror()));
     }
 
     log_info(tt::LogUMD, "JTAG library {} opened successfully.", filePath);

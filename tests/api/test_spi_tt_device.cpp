@@ -9,18 +9,24 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arc/spi_tt_device.hpp"
-#include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
-#include "utils.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // SPI Address Constants.
@@ -48,35 +54,14 @@ struct SpiTestDevices {
 
 // Helper function to set up devices for SPI testing.
 SpiTestDevices setup_spi_test_devices() {
-    auto [cluster_desc, _] = TopologyDiscovery::discover({});
+    auto [cluster_desc, tt_devices] = TopologyDiscovery::discover({});
     SpiTestDevices result;
 
     for (ChipId chip_id : cluster_desc->get_chips_local_first(cluster_desc->get_all_chips())) {
         std::cout << "Setting up device " << chip_id << " local: " << cluster_desc->is_chip_mmio_capable(chip_id)
                   << std::endl;
 
-        if (cluster_desc->is_chip_mmio_capable(chip_id)) {
-            int physical_device_id = cluster_desc->get_chips_with_mmio().at(chip_id);
-            auto tt_device = TTDevice::create(physical_device_id, IODeviceType::PCIe);
-            tt_device->set_power_state(true);
-            tt_device->init_tt_device();
-            result.tt_devices[chip_id] = std::move(tt_device);
-        } else {
-            ChipId closest_mmio_chip_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-            std::unique_ptr<TTDevice>& local_tt_device = result.tt_devices.at(closest_mmio_chip_id);
-
-            SocDescriptor local_soc_descriptor =
-                SocDescriptor(local_tt_device->get_arch(), local_tt_device->get_chip_info());
-            EthCoord target_chip = cluster_desc->get_chip_locations().at(chip_id);
-            auto remote_communication = RemoteCommunication::create_remote_communication(
-                local_tt_device.get(), target_chip, nullptr);  // nullptr for sysmem_manager
-            remote_communication->set_remote_transfer_ethernet_cores(local_soc_descriptor.get_eth_xy_pairs_for_channels(
-                cluster_desc->get_active_eth_channels(closest_mmio_chip_id)));
-            std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-            remote_tt_device->init_tt_device();
-            result.tt_devices[chip_id] = std::move(remote_tt_device);
-        }
-
+        result.tt_devices[chip_id] = std::move(tt_devices.at(chip_id));
         result.spi_devices[chip_id] = SPITTDevice::create(result.tt_devices[chip_id].get());
     }
 

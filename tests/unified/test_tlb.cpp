@@ -7,12 +7,20 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -469,11 +477,11 @@ TEST(TestTlb, TLBStaticTensix) {
         cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
     }
 
-    Writer writer = cluster->get_static_tlb_writer(0, tensix_core_0);
+    TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
 
     const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {
-        writer.write(4 * i, i);
+        window->write32(4 * i, i);
     }
 
     std::vector<uint32_t> readback(num_writes, 0);

@@ -4,15 +4,23 @@
 
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 
+#include <flatbuffers/buffer.h>
+#include <flatbuffers/flatbuffer_builder.h>
+#include <flatbuffers/vector.h>
+#include <fmt/format.h>
 #include <nng/nng.h>
 #include <uv.h>
 
 #include <cstring>
+#include <exception>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <utility>
 #include <vector>
 
-#include "assert.hpp"
 #include "simulation_device_generated.h"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -50,7 +58,8 @@ inline void send_command_to_simulation_host(SimulationHost &host, const flatbuff
 RtlSimCommunicator::RtlSimCommunicator(const std::filesystem::path &simulator_directory) :
     simulator_directory_(simulator_directory) {
     if (!std::filesystem::exists(simulator_directory_)) {
-        TT_THROW("Simulator directory not found at: {}", simulator_directory_.string());
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Simulator directory not found at: {}", simulator_directory_.string()));
     }
 }
 
@@ -84,7 +93,7 @@ void RtlSimCommunicator::initialize() {
     uv_loop_t *loop = uv_default_loop();
     std::string simulator_path_string = simulator_directory_ / "run.sh";
     if (!std::filesystem::exists(simulator_path_string)) {
-        TT_THROW("Simulator binary not found at: {}", simulator_path_string);
+        UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_path_string));
     }
 
     uv_stdio_container_t child_stdio[3];
@@ -103,7 +112,7 @@ void RtlSimCommunicator::initialize() {
     uv_process_t child_p;
     int rv = uv_spawn(loop, &child_p, &child_options);
     if (rv) {
-        TT_THROW("Failed to spawn simulator process: {}", uv_strerror(rv));
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to spawn simulator process: {}", uv_strerror(rv)));
     } else {
         log_info(tt::LogEmulationDriver, "Simulator process spawned with PID: {}", child_p.pid);
     }
@@ -120,7 +129,7 @@ void RtlSimCommunicator::initialize() {
     size_t buf_size = host_.recv_from_device(&buf_ptr);
     auto buf = GetDeviceRequestResponse(buf_ptr);
     auto cmd = buf->command();
-    TT_ASSERT(cmd == DEVICE_COMMAND_EXIT, "Did not receive expected command from remote.");
+    UMD_ASSERT(cmd == DEVICE_COMMAND_EXIT, error::RuntimeError, "Did not receive expected command from remote.");
     nng_free(buf_ptr, buf_size);
 
     // Start notification handler thread.
@@ -157,7 +166,8 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
     // Get read response from the command queue (populated by notification thread).
     auto msg = wait_for_command_response();
     if (msg.data == nullptr || msg.size == 0) {
-        TT_THROW("Failed to receive response from device - notification thread may have stopped.");
+        UMD_THROW(
+            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
     }
 
     auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
@@ -165,11 +175,10 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
     log_debug(tt::LogEmulationDriver, "Device reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
 
     uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
-    TT_ASSERT(
+    UMD_ASSERT(
         response_bytes >= size,
-        "tile_read_bytes response size {} is smaller than requested size {}.",
-        response_bytes,
-        size);
+        error::RuntimeError,
+        fmt::format("tile_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
     std::memcpy(data, rd_resp_buf->data()->data(), size);
     nng_free(msg.data, msg.size);
 }
@@ -184,6 +193,52 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
 
     send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
+}
+
+void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    {
+        std::lock_guard<std::mutex> lock(device_lock_);
+        tt_xy_pair core = {x, y};
+
+        // Send SMN read request.
+        send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_SMN_READ, {0}, core, addr, size));
+    }
+
+    // Get read response from the command queue (populated by notification thread).
+    auto msg = wait_for_command_response();
+    if (msg.data == nullptr || msg.size == 0) {
+        UMD_THROW(
+            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
+    }
+
+    auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
+
+    log_debug(tt::LogEmulationDriver, "Device SMN reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
+
+    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
+    UMD_ASSERT(
+        response_bytes >= size,
+        error::RuntimeError,
+        fmt::format("smn_tile_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
+    std::memcpy(data, rd_resp_buf->data()->data(), size);
+    nng_free(msg.data, msg.size);
+}
+
+void RtlSimCommunicator::smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Device SMN writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
+
+    UMD_ASSERT(
+        size % sizeof(uint32_t) == 0,
+        error::RuntimeError,
+        fmt::format("smn_tile_write_bytes size {} must be a multiple of {} bytes.", size, sizeof(uint32_t)));
+
+    tt_xy_pair core = {x, y};
+    const uint32_t num_elements = size / sizeof(uint32_t);
+    const auto *data_ptr = static_cast<const uint32_t *>(data);
+    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
+
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_SMN_WRITE, data_vec, core, addr));
 }
 
 void RtlSimCommunicator::all_tensix_reset_assert(uint32_t x, uint32_t y) {
@@ -233,6 +288,34 @@ void RtlSimCommunicator::neo_dm_reset_deassert(uint32_t x, uint32_t y, uint32_t 
     tt_xy_pair core = {x, y};
     send_command_to_simulation_host(
         host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_RESET_DEASSERT, {0}, core, dm_index));
+}
+
+void RtlSimCommunicator::all_neo_dms_uncore_reset_assert() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_uncore_reset_assert signal.");
+    tt_xy_pair core = {0, 0};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_ASSERT, core));
+}
+
+void RtlSimCommunicator::all_neo_dms_uncore_reset_deassert() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending all_neo_dms_uncore_reset_deassert signal.");
+    tt_xy_pair core = {0, 0};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_ALL_NEO_DMS_UNCORE_RESET_DEASSERT, core));
+}
+
+void RtlSimCommunicator::neo_dm_uncore_reset_assert(uint32_t x, uint32_t y) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending neo_dm_uncore_reset_assert signal to core ({}, {}).", x, y);
+    tt_xy_pair core = {x, y};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_ASSERT, core));
+}
+
+void RtlSimCommunicator::neo_dm_uncore_reset_deassert(uint32_t x, uint32_t y) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Sending neo_dm_uncore_reset_deassert signal to core ({}, {}).", x, y);
+    tt_xy_pair core = {x, y};
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_NEO_DM_UNCORE_RESET_DEASSERT, core));
 }
 
 void RtlSimCommunicator::set_ram_callbacks(RamWriteCallback write_cb, RamReadCallback read_cb) {
@@ -300,11 +383,10 @@ void RtlSimCommunicator::handle_ram_write_notification(const void *notification)
 
     if (ram_write_callback_ && buf->data() && buf->data()->size() > 0) {
         uint32_t payload_bytes = buf->data()->size() * sizeof(uint32_t);
-        TT_ASSERT(
+        UMD_ASSERT(
             payload_bytes >= size,
-            "RAM write notification payload {} is smaller than reported size {}.",
-            payload_bytes,
-            size);
+            error::RuntimeError,
+            fmt::format("RAM write notification payload {} is smaller than reported size {}.", payload_bytes, size));
         ram_write_callback_(address, buf->data()->data(), size);
     } else if (!ram_write_callback_) {
         log_warning(tt::LogEmulationDriver, "[AXI_RAM_WRITE] No callback registered, dropping write.");

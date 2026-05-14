@@ -4,17 +4,17 @@
 
 #include "umd/device/arch/blackhole_implementation.hpp"
 
+#include <fmt/format.h>
+
 #include <cstdint>
-#include <stdexcept>
-#include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
-#include "assert.hpp"
 #include "blackhole/eth_interface.h"
 #include "blackhole/eth_l1_address_map.h"
 #include "blackhole/host_mem_address_map.h"
 #include "blackhole/l1_address_map.h"
-#include "umd/device/cluster.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
 
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
@@ -126,7 +126,7 @@ uint64_t blackhole_implementation::get_noc_reg_base(
 uint32_t blackhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
-        TT_THROW("NEO risc cores should not be used on Blackhole architecture.");
+        UMD_THROW(error::RuntimeError, "NEO risc cores should not be used on Blackhole architecture.");
     }
 
     // Fill up Tensix related bits based on architecture agnostic bits.

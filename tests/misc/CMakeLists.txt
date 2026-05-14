@@ -1,6 +1,5 @@
 set(UMD_MISC_TESTS_SRCS
     test_semver.cpp
-    test_assert.cpp
     test_errors.cpp
 )
 

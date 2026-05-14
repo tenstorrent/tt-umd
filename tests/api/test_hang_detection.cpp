@@ -2,26 +2,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 
 #include <cstdint>
 #include <memory>
+#include <set>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "assert.hpp"
 #include "device/api/umd/device/warm_reset.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
-#include "tests/test_utils/test_api_common.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 using namespace tt;
@@ -50,7 +54,7 @@ protected:
     void init_device(int pci_device_id) {
         tt_device_ = TTDevice::create(pci_device_id);
         tt_device_->init_tt_device();
-        soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_arch(), tt_device_->get_chip_info());
+        soc_desc_ = std::make_unique<SocDescriptor>(tt_device_->get_soc_descriptor());
     }
 
     // Deliberately hangs the specified NOC by reading an address that causes the NOC transaction to
@@ -72,7 +76,7 @@ protected:
         int pci_device_id = tt_device_->get_pci_device()->get_device_num();
         tt_device_.reset();
         soc_desc_.reset();
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
 
         auto cluster = std::make_unique<Cluster>();
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";
@@ -89,7 +93,7 @@ private:
             case tt::ARCH::BLACKHOLE:
                 return BH_NOC_HANG_ADDR;
             default:
-                TT_THROW("Invalid architecture: {}.", arch);
+                UMD_THROW(error::RuntimeError, fmt::format("Invalid architecture: {}.", arch));
         }
     }
 };
@@ -115,7 +119,7 @@ protected:
                 (noc == NocId::NOC0) ? blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR : blackhole::NIU_CFG_NOC1_BAR_PCIE_ADDR;
             return niu_base + blackhole::NOC_NODE_ID_OFFSET;
         }
-        TT_THROW("Unsupported architecture.");
+        UMD_THROW(error::RuntimeError, "Unsupported architecture.");
     }
 };
 

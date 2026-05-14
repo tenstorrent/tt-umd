@@ -5,9 +5,14 @@
  */
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <string>
+
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 // Don't use the top 256MB of the 4th hugepage region on WH.  Two reasons:
 // 1. There are PCIE PHY registers at the top
@@ -16,7 +21,7 @@ static constexpr size_t HUGEPAGE_CHANNEL_3_SIZE_LIMIT = 768 * (1 << 20);
 
 class SiliconSysmemManager : public SysmemManager {
 public:
-    SiliconSysmemManager(TLBManager* tlb_manager, uint32_t num_host_mem_channels);
+    SiliconSysmemManager(TTDevice* tt_device, uint32_t num_host_mem_channels);
     ~SiliconSysmemManager() override;
 
     bool pin_or_map_sysmem_to_device() override;

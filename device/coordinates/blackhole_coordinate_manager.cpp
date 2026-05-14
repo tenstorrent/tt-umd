@@ -5,13 +5,15 @@
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <stdexcept>
+#include <iterator>
+#include <map>
 #include <string>
-#include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <vector>
+
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -30,6 +32,7 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
     const std::vector<tt_xy_pair>& router_cores,
     const std::vector<tt_xy_pair>& security_cores,
     const std::vector<tt_xy_pair>& l2cpu_cores,
+    const std::vector<tt_xy_pair>& dispatch_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
     const std::vector<uint32_t>& noc0_y_to_noc1_y) :
     CoordinateManager(
@@ -47,6 +50,7 @@ BlackholeCoordinateManager::BlackholeCoordinateManager(
         router_cores,
         security_cores,
         l2cpu_cores,
+        dispatch_cores,
         noc0_x_to_noc1_x,
         noc0_y_to_noc1_y) {
     initialize();

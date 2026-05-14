@@ -4,15 +4,30 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <set>
+#include <string>
+#include <unordered_set>
+
 #include "umd/device/chip/chip.hpp"
 // TODO : tt-metal uses SysmemBuffer transitively through this header. Remove once tt-metal includes it directly.
 // Link to issue: https://github.com/tenstorrent/tt-umd/issues/2437.
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+
+namespace tt {
+struct EthCoord;
+}  // namespace tt
 
 namespace tt::umd {
 class LocalChip;
+class RemoteCommunication;
+class SocDescriptor;
 
 class RemoteChip : public Chip {
 public:
@@ -36,7 +51,7 @@ public:
 
     bool is_mmio_capable() const override;
 
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     TTDevice* get_tt_device() override;
@@ -65,7 +80,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
     void deassert_risc_resets() override;
     int get_clock() override;

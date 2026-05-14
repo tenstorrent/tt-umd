@@ -969,6 +969,7 @@ TEST_F(TestDeviceIOFixture, LoopbackStressSize) {
             std::vector<uint32_t> rdata(wdata.size(), 0);
 
             cluster->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), chip_id, core, addr);
+            cluster->wait_for_non_mmio_flush(chip_id);
             cluster->read_from_device(rdata.data(), chip_id, core, addr, rdata.size() * sizeof(uint32_t));
 
             ASSERT_EQ(wdata, rdata) << "Mismatch on core " << core.str() << " with size " << size_bytes;

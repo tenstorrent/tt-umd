@@ -422,7 +422,9 @@ void LocalChip::ethernet_broadcast_write(
 }
 
 void LocalChip::wait_for_non_mmio_flush() {
-    // This is a local chip, so no need to flush remote communication.
+    if (remote_communication_) {
+        remote_communication_->wait_for_non_mmio_flush();
+    }
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {

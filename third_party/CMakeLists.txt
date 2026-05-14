@@ -26,7 +26,7 @@ if(TT_UMD_BUILD_TESTS)
             "INSTALL_GTEST OFF"
     )
     if(GTest_ADDED)
-        target_compile_options(GTest PRIVATE -Wno-implicit-int-float-conversion)
+        target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
     endif()
 endif()
 

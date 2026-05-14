@@ -186,6 +186,10 @@ TEST(MicrobenchmarkTLB, CompareMulticastandUnicast) {
     for (size_t batch_size : BATCH_SIZES) {
         auto bench = ankerl::nanobench::Bench().title("TLB_Tensix_Unicast_v_Multicast").unit("byte");
         std::vector<uint8_t> pattern(batch_size);
+        // "Unicast, 72 cores, 2048 bytes" skipped in bench to visualise missing gated section.
+        if (batch_size == 2048) {
+            continue;
+        }
         bench.batch(batch_size)
             .name(fmt::format("Unicast, {} cores, {} bytes", tensix_cores.size(), batch_size))
             .relative(true)

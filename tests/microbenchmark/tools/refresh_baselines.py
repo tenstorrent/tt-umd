@@ -188,9 +188,10 @@ def render_yaml(
     existing_gates: dict,
     runs_used: int,
     workflow: str,
-) -> tuple[str, list]:
-    """Render baselines.yaml content. Returns (text, diff_lines)."""
+) -> tuple[str, list, list]:
+    """Render baselines.yaml content. Returns (text, diff_lines, low_sample_lines)."""
     diff_lines: list[str] = []
+    low_sample_lines: list[str] = []
     out = io.StringIO()
 
     out.write(f"# tests/microbenchmark/expected/baselines.yaml\n")
@@ -244,6 +245,10 @@ def render_yaml(
                         f"  {title} :: {case} :: {arch}: "
                         f"tolerance {old_tolerance:g}% -> {tolerance_pct:g}%"
                     )
+                if len(series) < MIN_SAMPLES_FOR_RELIABLE:
+                    low_sample_lines.append(
+                        f"  {title} :: {case} :: {arch}: {len(series)} sample(s)"
+                    )
                 out.write(
                     f"    {_yaml_escape(arch)}: "
                     f"{{ median_throughput: {median_thr:.4g}, "
@@ -251,7 +256,7 @@ def render_yaml(
                 )
         out.write("\n")
 
-    return out.getvalue(), diff_lines
+    return out.getvalue(), diff_lines, low_sample_lines
 
 
 def _yaml_escape(s: str) -> str:
@@ -330,7 +335,7 @@ def main() -> int:
     output_path = args.output.resolve()
 
     existing_gates = load_existing_gates(output_path)
-    yaml_text, diff_lines = render_yaml(
+    yaml_text, diff_lines, low_sample_lines = render_yaml(
         samples, existing_gates, len(runs), args.workflow
     )
 
@@ -351,6 +356,15 @@ def main() -> int:
             "\n(No tolerance shifts > 5 percentage points vs existing YAML.)",
             file=sys.stderr,
         )
+
+    if low_sample_lines:
+        print(
+            f"\n{len(low_sample_lines)} case(s) calibrated from fewer than "
+            f"{MIN_SAMPLES_FOR_RELIABLE} samples (review before committing):",
+            file=sys.stderr,
+        )
+        for line in low_sample_lines:
+            print(line, file=sys.stderr)
 
     return 0
 

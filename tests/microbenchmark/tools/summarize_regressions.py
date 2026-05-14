@@ -74,8 +74,15 @@ def collect_current_results(current_dir: Path) -> dict:
             title = path.stem
             if title == "machine_host_spec":
                 continue
-            with open(path) as f:
-                data = json.load(f)
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                print(
+                    f"WARN: skipping {arch}/{title}: cannot read JSON ({e})",
+                    file=sys.stderr,
+                )
+                continue
             for r in data.get("results", []):
                 case = r.get("name")
                 med = r.get("median(elapsed)")

@@ -44,7 +44,8 @@ TEST_P(LoopbackAllCoresParam, LoopbackSingleTensix) {
     std::vector<uint32_t> rdata(wdata.size(), 0);
     if ((GetParam() == tt_xy_pair{1, 0} || GetParam() == tt_xy_pair{1, 1}) &&
         device->get_soc_descriptor().arch == ARCH::QUASAR) {
-        GTEST_SKIP() << "Skipping Quasar test for pairs (1, 0) and (1, 1) since they don't exist in simulation soc desc.";
+        GTEST_SKIP()
+            << "Skipping Quasar test for pairs (1, 0) and (1, 1) since they don't exist in simulation soc desc.";
     }
     auto &soc_desc = device->get_soc_descriptor();
     CoreCoord core = soc_desc.get_coord_at(GetParam(), CoordSystem::TRANSLATED);

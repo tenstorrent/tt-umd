@@ -462,6 +462,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
         // Broadcast to Tensix.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
+        cluster.wait_for_non_mmio_flush();
         // Broadcast to DRAM.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
@@ -541,6 +542,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
         // Broadcast to Tensix.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(), vector_to_write.size() * 4, address, {}, rows_to_exclude, cols_to_exclude);
+        cluster.wait_for_non_mmio_flush();
         // Broadcast to DRAM.
         cluster.broadcast_write_to_cluster(
             vector_to_write.data(),
@@ -641,6 +643,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
                 chips_to_exclude,
                 rows_to_exclude,
                 cols_to_exclude);
+            cluster.wait_for_non_mmio_flush();
 
             // Broadcast to DRAM.
             cluster.broadcast_write_to_cluster(

@@ -59,27 +59,11 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     return options;
 }
 
-class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {
-protected:
-    static constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
-
-    // Creates a Cluster with the given options, overriding chip_type/target_devices/simulator_directory
-    // to use simulation when TT_UMD_SIMULATOR is set.
-    std::unique_ptr<Cluster> make_cluster(ClusterOptions options = {}) {
-        if (const char* sim_path = std::getenv(TT_UMD_SIMULATOR_ENV)) {
-            options.chip_type = ChipType::SIMULATION;
-            options.target_devices = {0};
-            options.simulator_directory = std::filesystem::path(sim_path);
-        }
-        return std::make_unique<Cluster>(options);
-    }
-
-    bool is_simulation() const { return std::getenv(TT_UMD_SIMULATOR_ENV) != nullptr; }
-};
+class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {};
 
 TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster();
+    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -123,7 +107,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
 
 TEST_P(TestDeviceIOFixture, RemoteFlush) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster();
+    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -166,7 +150,7 @@ TEST_P(TestDeviceIOFixture, RemoteFlush) {
 
 TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster(ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -215,7 +199,7 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     // to be reconfigured for each transaction
     const CoreType core_type = GetParam();
 
-    std::unique_ptr<Cluster> cluster = make_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -256,13 +240,13 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 }
 
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster();
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
     }
 
-    if (is_simulation()) {
+    if (is_simulation_test()) {
         GTEST_SKIP() << "DMA multicast write is not supported in simulation.";
     }
 
@@ -546,7 +530,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 
     uint32_t channels;
     uint32_t channels_to_test;
-    if (is_simulation()) {
+    if (is_simulation_test()) {
         channels = 4;
         channels_to_test = 1;
     } else {
@@ -556,7 +540,8 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         channels_to_test = channels;
     }
 
-    std::unique_ptr<Cluster> cluster = make_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
+    std::unique_ptr<Cluster> cluster =
+        make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
     constexpr auto mmio_chip_id = 0;
     const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
     const auto pcie_core = pci_cores.at(0);
@@ -569,7 +554,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         return dis(gen);
     };
 
-    if (!is_simulation()) {
+    if (!is_simulation_test()) {
         test_utils::safe_test_cluster_start(cluster.get());
     }
 
@@ -578,7 +563,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 
         ASSERT_NE(sysmem, nullptr);
 
-        if (is_simulation()) {
+        if (is_simulation_test()) {
             for (size_t i = 0; i < ONE_GIG; i++) {
                 sysmem[i] = i % 256;
             }
@@ -587,7 +572,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         }
 
         std::vector<uint64_t> test_offsets;
-        if (is_simulation()) {
+        if (is_simulation_test()) {
             test_offsets = {0x0};
         } else {
             test_offsets = {
@@ -623,7 +608,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 
             cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
 
-            if (!is_simulation() && value != expected) {
+            if (!is_simulation_test() && value != expected) {
                 std::stringstream error_msg;
                 const bool is_vm = test_utils::is_virtual_machine();
                 const bool has_iommu = test_utils::is_iommu_available();
@@ -673,7 +658,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, RegReadWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster();
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -718,7 +703,7 @@ TEST_F(TestDeviceIOFixture, RegReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
-    std::unique_ptr<Cluster> cluster = make_cluster();
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 

@@ -9,6 +9,9 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -132,3 +135,19 @@ class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {
 // by ARC firmware (doppler throttle state), so tests must start at or above this address.
 // In some cases you also have to be careful about not overwriting the membar address.
 constexpr uint64_t SAFE_IO_L1_ADDRESS = 0x1000;
+
+// True when the test should run against a simulator, indicated by TT_UMD_SIMULATOR
+// pointing at the simulator binary directory.
+inline bool is_simulation_test() { return std::getenv("TT_UMD_SIMULATOR") != nullptr; }
+
+// Creates a Cluster for an API test. If TT_UMD_SIMULATOR is set the chip_type,
+// target_devices, and simulator_directory fields of `options` are overridden to
+// target the simulator; otherwise `options` is used as-is (default = silicon).
+inline std::unique_ptr<Cluster> make_cluster_for_test(ClusterOptions options = {}) {
+    if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
+        options.chip_type = ChipType::SIMULATION;
+        options.target_devices = {0};
+        options.simulator_directory = std::filesystem::path(sim_path);
+    }
+    return std::make_unique<Cluster>(options);
+}

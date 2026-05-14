@@ -258,6 +258,16 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     // shortly after startup; checking immediately would race with fresh boots where
     // the heartbeat has not yet been written.
     constexpr auto heartbeat_check_after_ms = std::chrono::milliseconds(2000);
+    // FIX CQ (#42429): Base UMD firmware (0xABCDxxxx heartbeat) may write its heartbeat
+    // but then stall before writing ETH_TRAIN_STATUS_ADDR, leaving it stuck at IN_PROGRESS
+    // (== 0, indistinguishable from zero-initialized L1 post-force-reset). This happens
+    // when FIX XZ teardown force-resets channels and the new session starts within ~10ms —
+    // BRISC crosses the heartbeat threshold but hasn't written training status yet.
+    // Real base firmware completes training within ~500ms of writing its heartbeat.
+    // If IN_PROGRESS persists for base_fw_grace_ms after the first 0xABCDxxxx detection,
+    // the channel is stuck and we return early rather than waiting up to 900s.
+    constexpr auto base_fw_grace_ms = std::chrono::milliseconds(3000);
+    std::optional<std::chrono::steady_clock::time_point> base_fw_detected_at;
 
     auto start = std::chrono::steady_clock::now();
     while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
@@ -275,6 +285,25 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
                     duration.count(),
                     heartbeat);
                 return duration;
+            }
+            // Heartbeat is 0xABCDxxxx — base UMD firmware is running. Start or check the
+            // grace-period timer (FIX CQ).
+            if (!base_fw_detected_at.has_value()) {
+                base_fw_detected_at = end;
+            } else {
+                auto base_fw_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() - *base_fw_detected_at);
+                if (base_fw_elapsed >= base_fw_grace_ms) {
+                    log_debug(
+                        LogUMD,
+                        "FIX CQ: ETH core {} still IN_PROGRESS {}ms after 0xABCDxxxx heartbeat "
+                        "first seen (heartbeat={:#010x}). Base firmware wrote heartbeat but stalled "
+                        "before completing training — skipping to avoid 900s hang.",
+                        eth_core.str(),
+                        base_fw_elapsed.count(),
+                        heartbeat);
+                    return duration;
+                }
             }
         }
         if (duration > timeout_ms) {

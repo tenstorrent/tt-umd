@@ -7,6 +7,9 @@ on:
         description: 'How long to occupy the runner (seconds)'
         required: false
         default: '300'
+  push:
+    branches:
+      - ajovanovic/dedicated_machine_reservation_script
 
 jobs:
   occupy:
@@ -19,7 +22,9 @@ jobs:
           echo "Worker PID: $$"
           pgrep -af 'Runner\.Worker' || true
       - name: Sleep
+        env:
+          SLEEP_SECONDS: ${{ inputs.sleep_seconds || '300' }}
         run: |
-          echo "Sleeping for ${{ inputs.sleep_seconds }} seconds..."
-          sleep "${{ inputs.sleep_seconds }}"
+          echo "Sleeping for ${SLEEP_SECONDS} seconds..."
+          sleep "${SLEEP_SECONDS}"
           echo "Done."

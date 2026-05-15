@@ -476,8 +476,12 @@ public:
      * @param size_in_bytes Size of data to write.
      * @param address Address to write to.
      * @param chips_to_exclude Chips to exclude from the broadcast.
-     * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
-     * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param rows_to_exclude Rows to exclude from the broadcast, in NOC0 space when
+     *                        @p use_translated_coords is false, or in translated-index space when true.
+     * @param columns_to_exclude Columns to exclude from the broadcast, in NOC0 space when
+     *                           @p use_translated_coords is false, or in translated-index space when true.
+     * @param use_translated_coords Selects the coordinate space of @p rows_to_exclude and
+     *                              @p columns_to_exclude; callers must supply values in the matching space.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -485,7 +489,8 @@ public:
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude);
+        std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords);
 
     /**
      * Provide fast read/write access to a statically-mapped TLB.
@@ -714,6 +719,16 @@ private:
     // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
+
+    // Validates that the caller-supplied rows/columns lie in the coordinate space selected by
+    // @p use_translated_coords (NOC0 when false, translated-index when true) and emits their
+    // virtual-space equivalents used by the ethernet broadcast path.
+    static void adjust_coordinates_for_ethernet_broadcast(
+        const std::set<uint32_t>& rows_to_exclude,
+        const std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords,
+        std::set<uint32_t>& rows_to_exclude_virtual,
+        std::set<uint32_t>& cols_to_exclude_virtual);
 
     // Communication Functions.
     void ethernet_broadcast_write(

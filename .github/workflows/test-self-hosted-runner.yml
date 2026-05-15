@@ -1,0 +1,25 @@
+name: Test self-hosted runner (bgd-lab-06)
+
+on:
+  workflow_dispatch:
+    inputs:
+      sleep_seconds:
+        description: 'How long to occupy the runner (seconds)'
+        required: false
+        default: '300'
+
+jobs:
+  occupy:
+    runs-on: [self-hosted, bgd-lab-06]
+    steps:
+      - name: Identify
+        run: |
+          echo "Running on: $(hostname)"
+          echo "User:       $(whoami)"
+          echo "Worker PID: $$"
+          pgrep -af 'Runner\.Worker' || true
+      - name: Sleep
+        run: |
+          echo "Sleeping for ${{ inputs.sleep_seconds }} seconds..."
+          sleep "${{ inputs.sleep_seconds }}"
+          echo "Done."

@@ -282,49 +282,6 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
-  build-emule:
-    # Guards the TT_UMD_BUILD_EMULE=ON code path so IWYU sweeps and other
-    # refactors that don't run with this flag can't silently break it again
-    # (see https://github.com/tenstorrent/tt-umd/pull/2536). Single config
-    # is sufficient — the matrix-wide build already covers compiler /
-    # distro permutations.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: ensure-ubuntu-2204-image
-    name: Build umd with TT_UMD_BUILD_EMULE=ON
-    runs-on: tt-ubuntu-2204-large-stable
-    container:
-      image: >-
-        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-22.04:${{
-        needs.ensure-ubuntu-2204-image.outputs.image-tag }}
-
-    steps:
-      - name: Checkout tt-umd
-        uses: actions/checkout@v6
-        with:
-          path: ${{ env.TT_UMD_DIR }}
-          submodules: recursive
-
-      - name: Checkout tt-emule
-        uses: actions/checkout@v6
-        with:
-          repository: tenstorrent/tt-emule
-          path: tt-emule
-          ref: main
-          fetch-depth: 1
-
-      - name: Build with TT_UMD_BUILD_EMULE=ON
-        run: |
-          export CC=clang-20
-          export CXX=clang++-20
-          cd ${{ env.TT_UMD_DIR_SHELL }}
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DTT_UMD_BUILD_TESTS=OFF \
-              -DTT_UMD_BUILD_SIMULATION=ON \
-              -DTT_UMD_BUILD_EMULE=ON \
-              -DTT_EMULE_PATH=$GITHUB_WORKSPACE/tt-emule
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }}
-
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.

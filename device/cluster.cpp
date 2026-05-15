@@ -814,36 +814,36 @@ void Cluster::ethernet_broadcast_write(
     }
 }
 
-void Cluster::broadcast_write_to_cluster(
-    const void* mem_ptr,
-    uint32_t size_in_bytes,
-    uint64_t address,
-    const std::set<ChipId>& chips_to_exclude,
-    std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& columns_to_exclude,
-    bool use_translated_coords) {
-    if (arch_name != tt::ARCH::WORMHOLE_B0) {
-        UMD_THROW(error::RuntimeError, "Broadcast write is only supported on Wormhole architecture.");
-    }
-
+void Cluster::adjust_coordinates_for_ethernet_broadcast(
+    const std::set<uint32_t>& rows_to_exclude,
+    const std::set<uint32_t>& columns_to_exclude,
+    bool use_translated_coords,
+    std::set<uint32_t>& rows_to_exclude_virtual,
+    std::set<uint32_t>& cols_to_exclude_virtual) {
     if (use_translated_coords) {
+        const uint32_t translated_row_end =
+            wormhole::translated_coordinate_start_y + wormhole::TRANSLATED_TO_VIRTUAL_Y.size();
+        const uint32_t translated_col_end =
+            wormhole::translated_coordinate_start_x + wormhole::TRANSLATED_TO_VIRTUAL_X.size();
         for (const auto& row : rows_to_exclude) {
             UMD_ASSERT(
-                row >= wormhole::translated_coordinate_start_y,
+                row >= wormhole::translated_coordinate_start_y && row < translated_row_end,
                 error::RuntimeError,
                 fmt::format(
-                    "Row {} must be in translated coordinate space (>= {}).",
+                    "Row {} must be in translated coordinate space [{}, {}).",
                     row,
-                    wormhole::translated_coordinate_start_y));
+                    wormhole::translated_coordinate_start_y,
+                    translated_row_end));
         }
         for (const auto& col : columns_to_exclude) {
             UMD_ASSERT(
-                col >= wormhole::translated_coordinate_start_x,
+                col >= wormhole::translated_coordinate_start_x && col < translated_col_end,
                 error::RuntimeError,
                 fmt::format(
-                    "Col {} must be in translated coordinate space (>= {}).",
+                    "Col {} must be in translated coordinate space [{}, {}).",
                     col,
-                    wormhole::translated_coordinate_start_x));
+                    wormhole::translated_coordinate_start_x,
+                    translated_col_end));
         }
     } else {
         for (const auto& row : rows_to_exclude) {
@@ -862,8 +862,6 @@ void Cluster::broadcast_write_to_cluster(
         }
     }
 
-    std::set<uint32_t> rows_to_exclude_virtual;
-    std::set<uint32_t> cols_to_exclude_virtual;
     for (const auto& row : rows_to_exclude) {
         rows_to_exclude_virtual.insert(
             use_translated_coords ? wormhole::TRANSLATED_TO_VIRTUAL_Y.at(row - wormhole::translated_coordinate_start_y)
@@ -875,8 +873,26 @@ void Cluster::broadcast_write_to_cluster(
             use_translated_coords ? wormhole::TRANSLATED_TO_VIRTUAL_X.at(col - wormhole::translated_coordinate_start_x)
                                   : col);
     }
+}
 
-    auto architecture_implementation = architecture_implementation::create(arch_name);
+void Cluster::broadcast_write_to_cluster(
+    const void* mem_ptr,
+    uint32_t size_in_bytes,
+    uint64_t address,
+    const std::set<ChipId>& chips_to_exclude,
+    std::set<uint32_t>& rows_to_exclude,
+    std::set<uint32_t>& columns_to_exclude,
+    bool use_translated_coords) {
+    if (arch_name != tt::ARCH::WORMHOLE_B0) {
+        UMD_THROW(error::RuntimeError, "Broadcast write is only supported on Wormhole architecture.");
+    }
+
+    std::set<uint32_t> rows_to_exclude_virtual;
+    std::set<uint32_t> cols_to_exclude_virtual;
+    adjust_coordinates_for_ethernet_broadcast(
+        rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
+
+    auto architecture_implementation = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
     if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
         cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
         UMD_ASSERT(

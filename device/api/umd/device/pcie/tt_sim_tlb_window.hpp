@@ -42,6 +42,9 @@ public:
     uint16_t safe_read16(uint64_t offset) override;
 
 private:
+    void translate_and_write(uint64_t offset, const void* data, size_t size);
+    void translate_and_read(uint64_t offset, void* data, size_t size);
+
     /**
      * Get the physical address for a TLB window offset.
      * This combines the TLB's base address with the given offset.

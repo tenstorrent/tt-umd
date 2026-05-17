@@ -448,7 +448,7 @@ jobs:
             *This release was automatically generated when the VERSION file was updated.
             Release notes were extracted from CHANGELOG file.*
           files: ./final-assets/*
-          draft: true
+          draft: false
           prerelease: true
           make_latest: false
 

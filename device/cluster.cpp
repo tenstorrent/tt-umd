@@ -856,14 +856,16 @@ void Cluster::broadcast_write_to_cluster(
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
-            // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED coordinates
-            // are requested, so we need to manually adjust the exclusion list to include NOC0 coordinates of DRAM cores
-            // if they're requested in translated space.
-            if (columns_to_exclude.find(16) != columns_to_exclude.end() && use_translated_coords) {
-                columns_to_exclude.insert(0);
-            }
-            if (columns_to_exclude.find(17) != columns_to_exclude.end() && use_translated_coords) {
-                columns_to_exclude.insert(5);
+            if (use_translated_coords && arch_name == tt::ARCH::WORMHOLE_B0) {
+                // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED
+                // coordinates are requested, so we need to manually adjust the exclusion list to include NOC0
+                // coordinates of DRAM cores if they're requested in translated space.
+                if (columns_to_exclude.find(16) != columns_to_exclude.end()) {
+                    columns_to_exclude.insert(0);
+                }
+                if (columns_to_exclude.find(17) != columns_to_exclude.end()) {
+                    columns_to_exclude.insert(5);
+                }
             }
             for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
                 for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
@@ -1036,15 +1038,13 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     std::set<uint32_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
         if (use_translated_coords_for_eth_broadcast) {
-            rows_to_exclude = {0, 1};
-            columns_to_exclude = {0, 8, 9};
-        } else {
             // PCIE and ETH are on these rows in translated space.
-            // Note: But the algorithm won't ever try even writing to them, since ethernet broadcast is disabled for
-            // blackhole.
             rows_to_exclude = {24, 25};
             // DRAM is on these columns in translated space.
             columns_to_exclude = {17, 18};
+        } else {
+            rows_to_exclude = {0, 1};
+            columns_to_exclude = {0, 8, 9};
         }
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         if (use_translated_coords_for_eth_broadcast) {

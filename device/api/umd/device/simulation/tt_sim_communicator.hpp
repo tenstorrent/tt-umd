@@ -183,6 +183,7 @@ private:
     // v3.5 multi-chip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
     void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
     void  (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
+    void  (*pfn_libttsim_clock_devices_)(uint32_t n_clocks) = nullptr;
 
     // v3.5 commit #6 — eth-MAC wiring.
     void *dev_handle_ = nullptr;

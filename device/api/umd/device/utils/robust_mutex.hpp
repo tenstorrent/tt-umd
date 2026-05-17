@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -70,8 +71,10 @@ private:
     struct pthread_mutex_wrapper {
         pthread_mutex_t mutex;
         uint64_t initialized;
-        pid_t owner_tid;  // TID of the thread holding the lock, 0 if no owner
-        pid_t owner_pid;  // PID of the thread holding the lock, 0 if no owner
+        // Owner TID/PID are read without holding the mutex (see probe_lock), so they must be atomic.
+        // std::atomic<pid_t> is lock-free and layout-compatible with pid_t, safe to use in shared memory.
+        std::atomic<pid_t> owner_tid;  // TID of the thread holding the lock, 0 if no owner
+        std::atomic<pid_t> owner_pid;  // PID of the thread holding the lock, 0 if no owner
     };
 
     // Closes the mutex, doesn't remove the backing mutex file.

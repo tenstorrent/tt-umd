@@ -32,6 +32,16 @@ TTSimTlbManager::TTSimTlbManager(TTDevice* tt_device) : TLBManager(tt_device) {
     initialize_architecture_config();
 }
 
+TTSimTlbManager::~TTSimTlbManager() {
+    // TTSimTlbHandle::~TTSimTlbHandle calls back into this manager to release
+    // the simulated TLB index. Clear the base-owned windows while the derived
+    // allocation state and mutex are still alive; otherwise the base destructor
+    // would destroy the windows after this manager's members are gone.
+    tlb_windows_.clear();
+    map_core_to_tlb_.clear();
+    tlb_config_map_.clear();
+}
+
 int TTSimTlbManager::allocate_tlb_index(size_t size) {
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 

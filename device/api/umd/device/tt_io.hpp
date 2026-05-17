@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <stdexcept>
 
+#include "umd/device/pcie/tlb_window.hpp"
+
 namespace tt::umd {
 
 /**
@@ -40,6 +42,11 @@ public:
             throw std::runtime_error("Unaligned write");
         }
 
+        if (tlb_window != nullptr) {
+            tlb_window->write_register(address, &value, sizeof(T));
+            return;
+        }
+
         *reinterpret_cast<volatile T *>(dst) = value;
     }
 
@@ -50,13 +57,15 @@ private:
      * @param base pointer to the base address of a mapped TLB.
      * @param tlb_size size of the mapped TLB.
      */
-    Writer(void *base, size_t tlb_size) : base(base), tlb_size(tlb_size) {
+    Writer(void *base, size_t tlb_size, TlbWindow* tlb_window = nullptr) :
+        base(base), tlb_size(tlb_size), tlb_window(tlb_window) {
         assert(base);
         assert(tlb_size > 0);
     }
 
     void *base{nullptr};
     size_t tlb_size{0};
+    TlbWindow* tlb_window{nullptr};
 };
 
 }  // namespace tt::umd

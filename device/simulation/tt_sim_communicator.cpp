@@ -36,6 +36,7 @@ namespace tt::umd {
 void *TTSimCommunicator::s_shared_handle_ = nullptr;
 int   TTSimCommunicator::s_shared_refcount_ = 0;
 std::mutex TTSimCommunicator::s_shared_init_mutex_;
+std::mutex TTSimCommunicator::device_lock_;
 
 TTSimCommunicator::TTSimCommunicator(const std::filesystem::path &simulator_directory,
                                      bool copy_sim_binary,

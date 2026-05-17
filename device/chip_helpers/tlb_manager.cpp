@@ -39,10 +39,12 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
+    auto pci_device = tt_device_->get_pci_device();
+    int device_num = pci_device ? pci_device->get_device_num() : -1;
     log_debug(
         LogUMD,
         "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",
-        tt_device_->get_pci_device()->get_device_num(),
+        device_num,
         core.str(),
         tlb_size,
         address,
@@ -83,8 +85,9 @@ Writer TLBManager::get_static_tlb_writer(tt_xy_pair core) {
     auto tlb_index = map_core_to_tlb_.at(core);
     auto tlb_data = tt_device_->get_architecture_implementation()->get_tlb_configuration(tlb_index);
     TlbWindow* tlb_window = tlb_windows_.at(tlb_index).get();
+    auto pci_device = tt_device_->get_pci_device();
 
-    return Writer(tlb_window->handle_ref().get_base(), tlb_data.size);
+    return Writer(tlb_window->handle_ref().get_base(), tlb_data.size, pci_device ? nullptr : tlb_window);
 }
 
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {

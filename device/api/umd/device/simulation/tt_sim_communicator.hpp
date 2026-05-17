@@ -202,8 +202,10 @@ private:
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
 
-    // Thread safety.
-    mutable std::mutex device_lock_;
+    // Thread safety. In v3.5 shared-dlopen mode, libttsim_select_device_by_id()
+    // and the following libttsim I/O call must be serialized across all
+    // communicators because the active device selector is process-global.
+    static std::mutex device_lock_;
 };
 
 }  // namespace tt::umd

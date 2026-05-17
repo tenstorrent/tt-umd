@@ -19,6 +19,7 @@ class TTSimTTDevice;
 class TTSimTlbManager : public TLBManager {
 public:
     TTSimTlbManager(TTDevice* tt_device);
+    ~TTSimTlbManager() override;
 
     std::unique_ptr<TlbWindow> allocate_tlb_window(
         tlb_data config, const TlbMapping mapping = TlbMapping::WC, const size_t tlb_size = 0) override;

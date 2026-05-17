@@ -3,6 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "api/umd/device/cluster.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
 
 #include <dirent.h>
 #include <fmt/format.h>
@@ -404,6 +407,53 @@ Cluster::Cluster(ClusterOptions options) {
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device,
                 options.simulator_directory));
+    }
+
+    // -------------------------------------------------------------------
+    // v3.5 commit #6 — eth-MAC wiring pre-pass.
+    // For SIMULATION ChipType with v3.5-aware libttsim, populate the magic
+    // switch routing table and pre-write peer DEST_MAC into each eth tile.
+    // See craq-sim-multichip/docs/v3_5_commit6_eth_mac_wiring.md.
+    // -------------------------------------------------------------------
+    if (options.chip_type == ChipType::SIMULATION &&
+        options.simulator_directory.extension() == ".so") {
+        auto get_comm = [&](ChipId cid) -> tt::umd::TTSimCommunicator* {
+            auto it = chips_.find(cid);
+            if (it == chips_.end()) return nullptr;
+            auto* sim_chip = dynamic_cast<tt::umd::TTSimChip*>(it->second.get());
+            if (!sim_chip) return nullptr;
+            auto* sim_tt = dynamic_cast<tt::umd::TTSimTTDevice*>(sim_chip->get_tt_device());
+            return sim_tt ? sim_tt->get_communicator() : nullptr;
+        };
+        auto eth_sim_mac = [](ChipId cid, int chan) -> uint64_t {
+            return 0x021E52000000ULL | (uint64_t(cid & 0xFF) << 8) | uint64_t(chan & 0xFF);
+        };
+        // Switch reset via any communicator (singleton, process-global).
+        if (!chips_.empty()) {
+            ChipId c0 = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips()).front();
+            if (auto* c = get_comm(c0)) c->switch_reset();
+        }
+        const auto& eth_conns = cluster_desc->get_ethernet_connections();
+        for (const auto& [chip_a, chan_map] : eth_conns) {
+            for (const auto& [chan_a, remote] : chan_map) {
+                ChipId chip_b = std::get<0>(remote);
+                int       chan_b = std::get<1>(remote);
+                if (chip_a >= chip_b) continue;
+                auto* ca = get_comm(chip_a);
+                auto* cb = get_comm(chip_b);
+                if (!ca || !cb) continue;
+                uint64_t mac_a = eth_sim_mac(chip_a, chan_a);
+                uint64_t mac_b = eth_sim_mac(chip_b, chan_b);
+                ca->register_eth_endpoint(uint32_t(chan_a), mac_a);
+                cb->register_eth_endpoint(uint32_t(chan_b), mac_b);
+                // Wire peer info for source-aware routing (BH BCAST/MCAST MAC).
+                ca->register_peer(uint32_t(chan_a), cb->get_dev_handle(), uint32_t(chan_b));
+                cb->register_peer(uint32_t(chan_b), ca->get_dev_handle(), uint32_t(chan_a));
+                log_info(tt::LogEmulationDriver,
+                    "TTSim eth: {}:ch{} mac={:#014x}  <->  {}:ch{} mac={:#014x}",
+                    chip_a, chan_a, mac_a, chip_b, chan_b, mac_b);
+            }
+        }
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device, options.chip_type);

@@ -26,9 +26,17 @@ public:
      * Constructor for TTSimCommunicator.
      *
      * @param simulator_directory Path to the simulator binary/directory
-     * @param copy_sim_binary If true, copy the simulator binary to memory for security
+     * @param copy_sim_binary If true, copy the simulator binary to memory for
+     *   security AND the loaded .so doesn't support the v3.5 chip-id ABI. If
+     *   the .so exports libttsim_create_device_by_id, v3.5 shared-library
+     *   mode is auto-enabled at initialize() time, ignoring this flag.
+     * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
+     *   in v3.5 multichip mode (per docs/v3_5_umd_patch_sketch.md). Default 0
+     *   for legacy single-chip consumers.
      */
-    TTSimCommunicator(const std::filesystem::path &simulator_directory, bool copy_sim_binary = false);
+    TTSimCommunicator(const std::filesystem::path &simulator_directory,
+                      bool copy_sim_binary = false,
+                      uint32_t chip_id = 0);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -120,6 +128,13 @@ public:
 
     void start_sim();
 
+    // v3.5 commit #6 — eth-MAC wiring.
+    void *get_dev_handle() const { return dev_handle_; }
+    void switch_reset();
+    void register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac);
+    void switch_drain();
+    void register_peer(uint32_t eth_tile_id, void* peer_dev, uint32_t peer_tile_id);
+
 private:
     // Library management.
     void create_simulator_binary();
@@ -141,6 +156,17 @@ private:
     // Flag to indicate if binary should be copied to memory.
     bool copy_sim_binary_;
 
+    // v3.5 multi-chip mode: when v3.5 symbols are present in the .so, all
+    // TTSimCommunicators sharing the same simulator_directory_ share one
+    // dlopen (held via s_shared_handle_ + refcounted via s_shared_refcount_).
+    // Each communicator records its chip_id_ and calls
+    // libttsim_select_device_by_id(chip_id_) before every I/O.
+    bool v3_5_multichip_mode_ = false;
+    uint32_t chip_id_ = 0;
+    static void *s_shared_handle_;
+    static int s_shared_refcount_;
+    static std::mutex s_shared_init_mutex_;
+
     // Function pointers to simulator library functions.
     void (*pfn_libttsim_init_)() = nullptr;
     void (*pfn_libttsim_exit_)() = nullptr;
@@ -153,6 +179,18 @@ private:
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
+
+    // v3.5 multi-chip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
+    void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
+    void  (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
+
+    // v3.5 commit #6 — eth-MAC wiring.
+    void *dev_handle_ = nullptr;
+    void (*pfn_libttsim_switch_reset_)(void) = nullptr;
+    void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
+    void (*pfn_libttsim_configure_eth_link_virtual_)(void *dev, uint32_t tile_id, uint64_t local_mac) = nullptr;
+    void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) = nullptr;
+    void (*pfn_libttsim_switch_drain_)(void) = nullptr;
 
     // Stored callbacks for DMA memory operations.
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;

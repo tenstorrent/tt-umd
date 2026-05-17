@@ -343,6 +343,10 @@ public:
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
 
+    // Advance one deterministic device tick when the backing device exposes a
+    // host-driven clock. Real silicon leaves this as a no-op.
+    virtual void advance_device_execution();
+
 protected:
     std::shared_ptr<PCIDevice> pci_device_;
     std::shared_ptr<JtagDevice> jtag_device_;

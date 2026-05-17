@@ -7,6 +7,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <functional>
+#include <optional>
+
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -48,6 +51,12 @@ public:
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
     SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(
+        void* buffer_va,
+        size_t buffer_size,
+        uint64_t device_io_addr,
+        std::optional<uint64_t> noc_addr = std::nullopt,
+        std::function<void()> unmap_callback = {});
     ~SysmemBuffer();
 
     /**
@@ -137,6 +146,8 @@ private:
     std::optional<uint64_t> noc_addr_;
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+
+    std::function<void()> unmap_callback_;
 };
 
 }  // namespace tt::umd

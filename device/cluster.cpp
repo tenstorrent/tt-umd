@@ -833,6 +833,8 @@ void Cluster::read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, u
     get_chip(src_device_id)->read_from_sysmem(channel, mem_ptr, addr, size);
 }
 
+void Cluster::advance_device_execution(ChipId device_id) { get_chip(device_id)->advance_device_execution(); }
+
 void Cluster::l1_membar(const ChipId chip, const std::unordered_set<CoreCoord>& cores) {
     get_chip(chip)->l1_membar(cores);
 }

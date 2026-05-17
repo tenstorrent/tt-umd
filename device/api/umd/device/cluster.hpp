@@ -570,6 +570,8 @@ public:
      */
     void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id);
 
+    void advance_device_execution(ChipId device_id);
+
     /**
      * Query number of memory channels on Host device allocated for a specific device during initialization.
      *

@@ -856,6 +856,15 @@ void Cluster::broadcast_write_to_cluster(
             if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
                 continue;
             }
+            // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED coordinates
+            // are requested, so we need to manually adjust the exclusion list to include NOC0 coordinates of DRAM cores
+            // if they're requested in translated space.
+            if (columns_to_exclude.find(16) != columns_to_exclude.end() && use_translated_coords) {
+                columns_to_exclude.insert(0);
+            }
+            if (columns_to_exclude.find(17) != columns_to_exclude.end() && use_translated_coords) {
+                columns_to_exclude.insert(5);
+            }
             for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
                 for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
                          core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {

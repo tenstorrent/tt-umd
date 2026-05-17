@@ -71,6 +71,9 @@ jobs:
             TTSIM_VERSION="v1.0.0"
           fi
           echo "Extracted ttsim version: $TTSIM_VERSION"
+          # TODO: Temporarily hardcoded to v1.5.8 because the newest version has an issue and tests don't pass.
+          TTSIM_VERSION="v1.5.8"
+          echo "Using ttsim version: $TTSIM_VERSION"
           echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
       - name: Download ttsim binary (wh)

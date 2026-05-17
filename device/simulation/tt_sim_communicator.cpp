@@ -113,7 +113,7 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
         DLSYM_FUNCTION(libttsim_create_device_by_id)
         DLSYM_FUNCTION(libttsim_select_device_by_id)
-        DLSYM_FUNCTION(libttsim_clock_devices)
+        DLSYM_FUNCTION(libttsim_clock_all_devices)
         DLSYM_FUNCTION(libttsim_switch_reset)
         DLSYM_FUNCTION(libttsim_switch_register)
         DLSYM_FUNCTION(libttsim_switch_drain)
@@ -206,13 +206,13 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    if (v3_5_multichip_mode_ && pfn_libttsim_clock_devices_) {
+    if (v3_5_multichip_mode_ && pfn_libttsim_clock_all_devices_) {
         // v3.5-#8: in shared-dlopen multichip mode, tick ALL chips together so
         // cross-chip eth handshakes converge (chip A waiting on a packet from chip B
         // would otherwise stall — only the chip being read gets advanced).
-        // libttsim_clock_devices drains the eth switch internally in sort order, so
-        // we do not need a separate switch_drain call here.
-        pfn_libttsim_clock_devices_(n_clocks);
+        // libttsim_clock_all_devices walks the simulator chip_id registry internally
+        // and drains the eth switch in sort order, so no extra switch_drain call.
+        pfn_libttsim_clock_all_devices_(n_clocks);
         return;
     }
     SELECT_CHIP_IF_NEEDED();

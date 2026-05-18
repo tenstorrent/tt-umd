@@ -17,8 +17,13 @@
 #include "assert.hpp"
 #include "cpuset_lib.hpp"
 #include "hugepage.hpp"
+#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
 
 namespace tt::umd {
+
+std::unique_ptr<SysmemManager> SysmemManager::create(TLBManager *tlb_manager, uint32_t num_host_mem_channels) {
+    return std::make_unique<SiliconSysmemManager>(tlb_manager, num_host_mem_channels);
+}
 
 void SysmemManager::write_to_sysmem(uint16_t channel, const void *src, uint64_t sysmem_dest, uint32_t size) {
     HugepageMapping hugepage_map = get_hugepage_mapping(channel);

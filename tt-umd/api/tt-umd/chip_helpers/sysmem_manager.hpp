@@ -17,6 +17,8 @@ public:
     SysmemManager() = default;
     virtual ~SysmemManager() = default;
 
+    static std::unique_ptr<SysmemManager> create(TLBManager* tlb_manager, uint32_t num_host_mem_channels);
+
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
 

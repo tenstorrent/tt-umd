@@ -40,6 +40,8 @@ private:
     bool pin_or_map_hugepages();
     bool pin_or_map_iommu();
 
+    void init_pcie_iatus();
+
     void print_file_contents(const std::string& filename, const std::string& hint = "");
 };
 

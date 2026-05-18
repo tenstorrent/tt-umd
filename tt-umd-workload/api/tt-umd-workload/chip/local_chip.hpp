@@ -99,8 +99,6 @@ private:
     void initialize_default_chip_mutexes();
     void initialize_membars();
 
-    void init_pcie_iatus();
-
     void set_membar_flag(
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);

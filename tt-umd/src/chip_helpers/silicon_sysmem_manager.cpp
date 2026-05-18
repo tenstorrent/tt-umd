@@ -19,6 +19,7 @@
 #include <iostream>
 #include <memory>
 #include <ostream>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
@@ -89,10 +90,33 @@ SiliconSysmemManager::SiliconSysmemManager(TLBManager *tlb_manager, uint32_t num
 }
 
 bool SiliconSysmemManager::pin_or_map_sysmem_to_device() {
+    bool result;
     if (tt_device_->get_pci_device()->is_iommu_enabled()) {
-        return pin_or_map_iommu();
+        result = pin_or_map_iommu();
     } else {
-        return pin_or_map_hugepages();
+        result = pin_or_map_hugepages();
+    }
+    if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
+        // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
+        init_pcie_iatus();
+    }
+    return result;
+}
+
+void SiliconSysmemManager::init_pcie_iatus() {
+    for (size_t channel = 0; channel < get_num_host_mem_channels(); channel++) {
+        HugepageMapping hugepage_map = get_hugepage_mapping(channel);
+        size_t region_size = hugepage_map.mapping_size;
+
+        if (!hugepage_map.mapping) {
+            throw std::runtime_error("Hugepages are not allocated for ch: " + std::to_string(channel));
+        }
+
+        if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && channel == 3) {
+            // Don't use the top 256MB of the 4th hugepage region on WH.
+            region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
+        }
+        tt_device_->configure_iatu_region(channel, hugepage_map.physical_address, region_size);
     }
 }
 

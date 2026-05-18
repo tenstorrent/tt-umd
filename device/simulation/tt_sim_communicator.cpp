@@ -110,6 +110,14 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
         DLSYM_FUNCTION(libttsim_tile_rd_bytes)
         DLSYM_FUNCTION(libttsim_tile_wr_bytes)
+        pfn_libttsim_dram_rd_bytes_by_id_ = (decltype(pfn_libttsim_dram_rd_bytes_by_id_))dlsym(
+            libttsim_handle_, "libttsim_dram_rd_bytes_by_id");
+        pfn_libttsim_dram_wr_bytes_by_id_ = (decltype(pfn_libttsim_dram_wr_bytes_by_id_))dlsym(
+            libttsim_handle_, "libttsim_dram_wr_bytes_by_id");
+        pfn_libttsim_dram_core_rd_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_rd_bytes_by_id_))dlsym(
+            libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id");
+        pfn_libttsim_dram_core_wr_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_wr_bytes_by_id_))dlsym(
+            libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id");
         DLSYM_FUNCTION(libttsim_clock)
         DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
         DLSYM_FUNCTION(libttsim_create_device_by_id)
@@ -183,6 +191,24 @@ void TTSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, v
     std::lock_guard<std::mutex> lock(device_lock_);
     SELECT_CHIP_IF_NEEDED();
     pfn_libttsim_tile_rd_bytes_(x, y, addr, data, size);
+}
+
+bool TTSimCommunicator::dram_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    if (!v3_5_multichip_mode_ || pfn_libttsim_dram_core_wr_bytes_by_id_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_dram_core_wr_bytes_by_id_(chip_id_, x, y, addr, data, size);
+    return true;
+}
+
+bool TTSimCommunicator::dram_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    if (!v3_5_multichip_mode_ || pfn_libttsim_dram_core_rd_bytes_by_id_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_dram_core_rd_bytes_by_id_(chip_id_, x, y, addr, data, size);
+    return true;
 }
 
 void TTSimCommunicator::pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size) {

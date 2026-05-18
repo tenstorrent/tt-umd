@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.25)
+project(tt-umd)
 set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
 
@@ -25,6 +27,10 @@ if(TT_UMD_BUILD_SIMULATION)
     add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
     add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
+
+add_library(tt-umd-api INTERFACE)
+add_library(${PROJECT_NAME}::tt-umd-api ALIAS tt-umd-api)
+target_include_directories(tt-umd-api INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>)
 
 if(TT_UMD_BUILD_STATIC)
     add_library(tt-umd STATIC)
@@ -131,16 +137,12 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
     )
 endif()
 
-target_include_directories(
-    tt-umd
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/api>
-    PRIVATE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
-)
+target_include_directories(tt-umd PRIVATE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
 
 target_link_libraries(
     tt-umd
+    PUBLIC
+        tt-umd-api
     PRIVATE
         umd::Firmware
         hwloc
@@ -184,6 +186,13 @@ endif()
 # Install functionality requires CMake 3.23+ for FILE_SET support
 # Skip install for static libraries as they are typically used for internal linking only
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23 AND NOT TT_UMD_BUILD_STATIC)
+    install(
+        TARGETS
+            tt-umd-api
+        EXPORT ${PROJECT_NAME}Targets
+        COMPONENT
+        umd-dev
+    )
     install(
         TARGETS
             tt-umd

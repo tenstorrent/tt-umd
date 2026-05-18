@@ -13,6 +13,22 @@
 
 namespace tt::umd {
 
+void write16_to_device(volatile void* dest, std::uint16_t value) {
+    *reinterpret_cast<volatile std::uint16_t*>(dest) = value;
+}
+
+void write32_to_device(volatile void* dest, std::uint32_t value) {
+    *reinterpret_cast<volatile std::uint32_t*>(dest) = value;
+}
+
+std::uint16_t read16_from_device(const volatile void* src) {
+    return *reinterpret_cast<const volatile std::uint16_t*>(src);
+}
+
+std::uint32_t read32_from_device(const volatile void* src) {
+    return *reinterpret_cast<const volatile std::uint32_t*>(src);
+}
+
 void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     auto* d = static_cast<volatile std::uint8_t*>(dest);
     auto* s = static_cast<const std::uint8_t*>(src);

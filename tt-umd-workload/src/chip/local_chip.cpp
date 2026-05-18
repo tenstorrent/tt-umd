@@ -19,7 +19,7 @@
 #include "assert.hpp"
 #include "tracy.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
-#include "tt-umd/chip_helpers/silicon_sysmem_manager.hpp"
+#include "tt-umd/chip_helpers/sysmem_manager.hpp"
 #include "tt-umd/chip_helpers/tlb_manager.hpp"
 #include "tt-umd/driver_atomics.hpp"
 #include "tt-umd/noc_access.hpp"
@@ -122,7 +122,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
     // responsible for initializing the driver with this field set to cleanup after an aborted process.
-    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+    int pci_device_id = tt_device_->get_board_id();
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
@@ -454,7 +454,7 @@ void LocalChip::set_membar_flag(
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads.
-    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_board_id());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }

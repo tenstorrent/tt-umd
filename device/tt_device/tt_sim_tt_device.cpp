@@ -74,6 +74,12 @@ void TTSimTTDevice::start_device() {}
 
 void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 
+void TTSimTTDevice::advance_device_execution() {
+    if (communicator_) {
+        communicator_->advance_clock(1);
+    }
+}
+
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (architecture_impl_->get_architecture() != ARCH::WORMHOLE_B0 &&

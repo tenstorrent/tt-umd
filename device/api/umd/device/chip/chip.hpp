@@ -103,6 +103,7 @@ public:
     virtual void set_power_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
+    void advance_device_execution();
 
     virtual int arc_msg(
         uint32_t msg_code,

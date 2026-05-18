@@ -60,6 +60,7 @@ public:
 
     void close_device();
     void start_device();
+    void advance_device_execution() override;
 
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets);
     void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);

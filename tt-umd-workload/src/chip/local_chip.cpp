@@ -567,7 +567,8 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
 
     // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        TT_THROW("noc_multicast_write is only supported on PCIe devices.");
+        tt_device_->noc_multicast_write(dst, size, core_start, core_end, addr);
+        return;
     }
 
     std::lock_guard<std::mutex> lock(wc_tlb_lock);

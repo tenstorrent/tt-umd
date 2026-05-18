@@ -718,9 +718,11 @@ TEST(SocDescriptor, SerializeSimulatorBlackhole) {
 }
 
 TEST(SocDescriptor, SerializeSimulatorQuasar) {
+    // Quasar does not support ETH harvesting (the CoordinateManager rejects a non-zero
+    // eth_harvesting_mask on any non-Blackhole arch), so use the all-zero default here.
     const SocDescriptor& soc_descriptor = SocDescriptor(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("quasar_simulation_1x1.yaml")),
-        {.noc_translation_enabled = false, .harvesting_masks = {.eth_harvesting_mask = example_eth_harvesting_mask}});
+        {.noc_translation_enabled = false});
 
     std::filesystem::path file_path = soc_descriptor.serialize_to_file();
     SocDescriptor soc(

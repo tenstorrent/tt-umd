@@ -44,6 +44,12 @@ protected:
         }
         tt_device.reset(sim_device);
         device.release();  // NOLINT(bugprone-unused-return-value)
+
+        const tt::ARCH arch = tt_device->get_soc_descriptor().arch;
+        if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "tile_wr_bytes/tile_rd_bytes are no longer supported on TTSim for arch "
+                         << tt::arch_to_str(arch);
+        }
     }
 
     void TearDown() override {

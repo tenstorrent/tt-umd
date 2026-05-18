@@ -68,10 +68,10 @@ std::unique_ptr<LocalChip> LocalChip::create(
 
     // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
-    if (tt_device->get_pci_device() != nullptr) {
-        tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = SysmemManager::create(tlb_manager.get(), num_host_mem_channels);
-    }
+    // if (tt_device->get_pci_device() != nullptr) {
+    tlb_manager = std::make_unique<TLBManager>(tt_device.get());
+    sysmem_manager = SysmemManager::create(tlb_manager.get(), num_host_mem_channels);
+    // }
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     SysmemManager* sysmem_ptr =
         (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
@@ -100,9 +100,7 @@ LocalChip::LocalChip(
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
     wait_chip_to_be_ready();
-    if (tlb_manager_ != nullptr) {
-        initialize_default_chip_mutexes();
-    }
+    initialize_default_chip_mutexes();
 }
 
 LocalChip::~LocalChip() {

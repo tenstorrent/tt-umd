@@ -5,9 +5,11 @@
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
 #include <utility>
@@ -32,6 +34,28 @@
 namespace tt::umd {
 
 static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstract.");
+
+namespace {
+
+bool sim_dram_teleport_enabled() {
+    const char* env = std::getenv("TT_METAL_SIMULATOR_DRAM_TELEPORT");
+    if (env == nullptr) {
+        return false;
+    }
+    std::string_view value(env);
+    return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
+}
+
+bool is_translated_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
+    for (const auto& dram_core : soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED)) {
+        if (dram_core.x == core.x && dram_core.y == core.y) {
+            return true;
+        }
+    }
+    return false;
+}
+
+}  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
@@ -156,6 +180,15 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    if (sim_dram_teleport_enabled()) {
+        if (is_translated_dram_core(soc_descriptor_, core)) {
+            if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+                return;
+            }
+            communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+            return;
+        }
+    }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
@@ -165,6 +198,15 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    if (sim_dram_teleport_enabled()) {
+        if (is_translated_dram_core(soc_descriptor_, core)) {
+            if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
+                communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+            }
+            communicator_->advance_clock(10);
+            return;
+        }
+    }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {

@@ -272,7 +272,7 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
             std::tie(noc_address, physical_address) = pci_device_->map_hugepage_to_noc(mapping, actual_size);
             uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
-            log_info(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
+            log_debug(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
             // Note that the truncated page is the final one, so there is no need to
             // give expected_noc_address special treatment for a subsequent page.
             if (noc_address != expected_noc_address) {
@@ -331,13 +331,11 @@ bool SiliconSysmemManager::init_iommu(uint32_t num_fake_mem_channels) {
         iommu_mapping_size = size;
     }
 
-    log_info(LogUMD, "Initializing iommu for sysmem (size: {:#x}).", iommu_mapping_size);
-
     if (!pci_device_->is_iommu_enabled()) {
         UMD_THROW(error::RuntimeError, "IOMMU is required for sysmem without hugepages.");
     }
 
-    log_info(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
+    log_debug(LogUMD, "Allocating sysmem for IOMMU (size: {:#x}).", iommu_mapping_size);
     iommu_mapping = mmap_with_hugepage_fallback(size);
 
     if (iommu_mapping == MAP_FAILED) {
@@ -388,7 +386,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         UMD_THROW(error::RuntimeError, "Proceeding could lead to undefined behavior");
     }
 
-    log_info(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
+    log_debug(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;

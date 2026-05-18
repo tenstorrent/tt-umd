@@ -262,7 +262,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Harvesting masks for Chip {}: Tensix: {:#x} DRAM: {:#x} ETH: {:#x} PCIe: {:#x} L2CPU: {:#x}",
         chip_id,

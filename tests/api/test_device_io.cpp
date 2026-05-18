@@ -693,13 +693,13 @@ TEST_F(TestDeviceIOFixture, RegReadWrite) {
         uint32_t readback_value = 0;
         cluster->read_from_device_reg(&readback_value, 0, tensix_core, addr, sizeof(readback_value));
 
-        EXPECT_EQ(value, readback_value);
+        ASSERT_EQ(value, readback_value);
 
         if (addr + 4 < l1_size) {
             // Ensure that the garbage value is still there.
             uint32_t readback = 0;
             cluster->read_from_device_reg(&readback, 0, tensix_core, addr + 4, sizeof(readback));
-            EXPECT_EQ(0xDEADBEEF, readback);
+            ASSERT_EQ(0xDEADBEEF, readback);
         }
 
         value += 4;
@@ -727,14 +727,14 @@ TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
     cluster->read_from_device(
         readback_vec.data(), 0, tensix_core, SAFE_IO_L1_ADDRESS, readback_vec.size() * sizeof(uint32_t));
 
-    EXPECT_EQ(write_data_l1, readback_vec);
+    ASSERT_EQ(write_data_l1, readback_vec);
 
     for (size_t i = 0; i < test_size / 4; i++) {
         uint32_t readback_value = 0;
         cluster->read_from_device_reg(
             &readback_value, 0, tensix_core, SAFE_IO_L1_ADDRESS + i * 4, sizeof(readback_value));
 
-        EXPECT_EQ(write_data_l1[i], readback_value);
+        ASSERT_EQ(write_data_l1[i], readback_value);
     }
 }
 

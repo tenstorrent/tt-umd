@@ -24,9 +24,11 @@ on:
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
   pull_request:
+    when: manual
   merge_group:
   push:
     branches: ["main"]
+    when: manual
 
 # Granted to all jobs that don't declare their own `permissions:` block.
 # `actions: write` is required so the merge-queue fail-fast watchers (inside

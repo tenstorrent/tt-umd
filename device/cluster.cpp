@@ -57,7 +57,6 @@
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
-namespace tt::umd {
 class TlbWindow;
 
 struct routing_cmd_t {

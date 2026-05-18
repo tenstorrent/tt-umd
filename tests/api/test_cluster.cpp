@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -41,7 +42,7 @@ using namespace tt::umd;
 // Galaxy.
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(); }
 
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();

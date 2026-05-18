@@ -33,7 +33,7 @@ public:
 
     // Chip lifecycle — no-ops.
     bool is_mmio_capable() const override;
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     // Hardware accessors — not applicable.
@@ -61,7 +61,7 @@ public:
     void wait_for_non_mmio_flush() override;
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
     void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;

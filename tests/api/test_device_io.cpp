@@ -542,6 +542,10 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 
     std::unique_ptr<Cluster> cluster =
         make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
+    if (cluster->get_soc_descriptor(0).arch == tt::ARCH::QUASAR) {
+        GTEST_SKIP() << "Skipping the test for quasar since Sysmem is not supported yet.";
+    }
+
     constexpr auto mmio_chip_id = 0;
     const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
     const auto pcie_core = pci_cores.at(0);

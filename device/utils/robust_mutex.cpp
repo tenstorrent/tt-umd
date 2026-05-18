@@ -351,8 +351,8 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
     // Initialize owner TID and PID to 0 (no owner).
-    mutex_wrapper_ptr_->owner_tid = 0;
-    mutex_wrapper_ptr_->owner_pid = 0;
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, 0, __ATOMIC_RELAXED);
 }
 
 size_t RobustMutex::get_file_size(int fd) {
@@ -386,8 +386,8 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::record_acquisition() {
-    mutex_wrapper_ptr_->owner_tid = static_cast<pid_t>(::syscall(SYS_gettid));
-    mutex_wrapper_ptr_->owner_pid = getpid();
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, static_cast<pid_t>(::syscall(SYS_gettid)), __ATOMIC_RELAXED);
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, getpid(), __ATOMIC_RELAXED);
     tsan_annotate_mutex_acquire(mutex_name_);
 }
 
@@ -395,8 +395,8 @@ void RobustMutex::unlock() {
     tsan_annotate_mutex_release(mutex_name_);
 
     // Clear the owner TID and PID before unlocking.
-    mutex_wrapper_ptr_->owner_tid = 0;
-    mutex_wrapper_ptr_->owner_pid = 0;
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, 0, __ATOMIC_RELAXED);
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         UMD_THROW(
@@ -432,7 +432,11 @@ std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seco
         record_acquisition();
         return std::nullopt;
     } else if (lock_res == EBUSY || lock_res == ETIMEDOUT) {
-        return std::make_pair(mutex_wrapper_ptr_->owner_pid, mutex_wrapper_ptr_->owner_tid);
+        // Best-effort snapshot of the current owner; we do not hold the mutex here, so use relaxed
+        // atomic loads to avoid a data race with record_acquisition()/unlock() on the owner.
+        return std::make_pair(
+            __atomic_load_n(&mutex_wrapper_ptr_->owner_pid, __ATOMIC_RELAXED),
+            __atomic_load_n(&mutex_wrapper_ptr_->owner_tid, __ATOMIC_RELAXED));
     } else {
         UMD_THROW(
             error::RuntimeError,

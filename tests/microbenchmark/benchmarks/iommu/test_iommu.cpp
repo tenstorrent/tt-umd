@@ -15,6 +15,7 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;

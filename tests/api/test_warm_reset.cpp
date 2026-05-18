@@ -28,6 +28,7 @@
 #include "tt-umd-workload/cluster.hpp"
 #include "tt-umd/arch/blackhole_implementation.hpp"
 #include "tt-umd/arch/wormhole_implementation.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
 #include "tt-umd/utils/error.hpp"
 #include "tt-umd/warm_reset.hpp"

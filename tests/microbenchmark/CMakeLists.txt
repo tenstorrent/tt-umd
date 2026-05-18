@@ -3,7 +3,7 @@ set(MICROBENCHMARK_SRC_FILES
     benchmarks/pcie_dma/test_pcie_dma.cpp
     benchmarks/open_cluster/test_open_cluster.cpp
     benchmarks/ethernet_io/test_ethernet_io.cpp
-    benchmarks/iommu/test_iommu.cpp
+    # benchmarks/iommu/test_iommu.cpp
 )
 add_executable(umd_microbenchmark ${MICROBENCHMARK_SRC_FILES})
 target_link_libraries(

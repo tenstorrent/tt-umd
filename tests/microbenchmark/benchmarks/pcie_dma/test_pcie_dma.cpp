@@ -194,10 +194,10 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
 // and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
-    }
+    // std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+    //     GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    // }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_DRAM_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;
@@ -228,10 +228,10 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
 // to address 0 of Tensix core, then reading them back and verifying.
 // This test measures bandwidth of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
 TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
-    }
+    // std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+    //     GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    // }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_ZeroCopy").unit("byte").epochs(1).epochIterations(1000);
     const uint64_t ADDRESS = 0x0;
@@ -263,13 +263,13 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 // and no copying is done. It uses SysmemManager to map the buffer and then uses DMA to transfer data
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
-        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
-    }
-    if (PCIDevice(pci_device_ids.at(0)).get_arch() == tt::ARCH::BLACKHOLE) {
-        GTEST_SKIP() << "Skipping test since PCIe DMA is not enabled for Blackhole.";
-    }
+    // std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    // if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+    //     GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    // }
+    // if (PCIDevice(pci_device_ids.at(0)).get_arch() == tt::ARCH::BLACKHOLE) {
+    //     GTEST_SKIP() << "Skipping test since PCIe DMA is not enabled for Blackhole.";
+    // }
 
     auto bench = ankerl::nanobench::Bench().title("DMA_Tensix_MapBuffer_ZeroCopy").unit("byte");
     const uint64_t ADDRESS = 0x0;

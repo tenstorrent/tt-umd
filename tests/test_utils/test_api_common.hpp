@@ -13,6 +13,7 @@
 
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "tt-umd-workload/cluster.hpp"
+#include "tt-umd/pcie/pci_device.hpp"
 #include "tt-umd/types/tensix_soft_reset_options.hpp"
 
 using namespace tt::umd;

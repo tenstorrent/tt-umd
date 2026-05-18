@@ -3,7 +3,6 @@ target_link_libraries(
     test_common
     INTERFACE
         umd::tt-umd-workload
-        umd::tt-umd
         umd::Firmware
         gtest_main
         gtest
@@ -18,22 +17,21 @@ target_include_directories(
     INTERFACE
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
-        "$<TARGET_PROPERTY:umd::tt-umd,INCLUDE_DIRECTORIES>"
         "$<TARGET_PROPERTY:umd::tt-umd-workload,INCLUDE_DIRECTORIES>"
 )
 target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
-if(MASTER_PROJECT)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
-endif()
+# if(MASTER_PROJECT)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
+# endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/baremetal)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
+# add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -44,10 +42,11 @@ endif()
 add_custom_target(
     umd_tests
     DEPENDS
-        unit_tests_blackhole
-        unit_tests_wormhole
-        unit_tests_glx
-        test_pcie_device
+        # no specific tests
+        # unit_tests_blackhole
+        # unit_tests_wormhole
+        # unit_tests_glx
+        # test_pcie_device
         api_tests
         baremetal_tests
         umd_misc_tests

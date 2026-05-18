@@ -121,12 +121,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
         case tt::ARCH::WORMHOLE_B0:
             cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
             break;
-        case tt::ARCH::QUASAR: {
-            // Bypass the bitmap allocator with a fixed index; Quasar has no real TLBs.
-            auto handle = RtlSimTlbHandle::create(tlb_allocator_, 0, SIZE_4GB, TlbMapping::WC);
-            cached_tlb_window_ = std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), tlb_data{});
+        case tt::ARCH::QUASAR:
+            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_4GB);
             break;
-        }
         default:
             log_debug(
                 LogUMD,
@@ -141,7 +138,9 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config,
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
     }
-    size_t actual_size = tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested
+    // size through, since get_tlb_size_from_index has no pool to look up for the bypass index.
+    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
     auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, actual_size, mapping);
     return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }

@@ -282,7 +282,7 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
         try {
             return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
         } catch (const std::exception &e) {
-            log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
         }
     }
 

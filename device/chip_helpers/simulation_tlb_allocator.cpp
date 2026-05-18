@@ -24,6 +24,14 @@ SimulationTlbAllocator::SimulationTlbAllocator(
 
 int SimulationTlbAllocator::allocate_tlb_index(size_t size) {
     ZoneScopedC(tracy::Color::Cyan);
+
+    // QUASAR has no real TLBs; the pools are empty by design (simulator's communicator
+    // handles all I/O underneath). Hand back an auto-incrementing dummy index so
+    // TLBManager bookkeeping (keyed by tlb id) does not collide across allocations.
+    if (architecture_ == tt::ARCH::QUASAR) {
+        return next_bypass_tlb_id_++;
+    }
+
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Walk size classes smallest-first; pick the first free slot in the first

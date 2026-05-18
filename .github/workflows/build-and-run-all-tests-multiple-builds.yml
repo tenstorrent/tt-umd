@@ -43,8 +43,7 @@ jobs:
   # With this environment, we can control how the jobs run on main, for exammple delayed or waiting for approval.
   gatekeeper:
     # Only use the environment (the pause) if it's a push to main
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' ||
-      github.event_name == 'pull_request'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: main-gate
     steps:

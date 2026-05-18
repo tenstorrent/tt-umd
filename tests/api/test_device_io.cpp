@@ -48,13 +48,14 @@ constexpr std::uint32_t ETH_BARRIER_BASE = 256 * 1024 - 32;
 constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
 std::vector<ClusterOptions> get_cluster_options_for_param_test() {
+    constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
+    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
         options.push_back(ClusterOptions{
             .chip_type = ChipType::SIMULATION,
             .target_devices = {0},
-            .simulator_directory = std::filesystem::path(sim_path)});
+            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
     }
     return options;
 }

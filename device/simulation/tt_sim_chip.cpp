@@ -25,6 +25,7 @@ TTSimChip::TTSimChip(
     SimulationChip(simulator_directory, soc_descriptor, chip_id) {
     tt_device_ = std::make_unique<TTSimTTDevice>(
         simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
+    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
 }
 
 TTSimChip::~TTSimChip() = default;
@@ -65,6 +66,6 @@ void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_risc
         soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
 }
 
-TLBManager* TTSimChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
+TLBManager* TTSimChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 }  // namespace tt::umd

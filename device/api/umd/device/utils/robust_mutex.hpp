@@ -80,7 +80,7 @@ private:
     };
 
     static_assert(
-        __atomic_always_lock_free(sizeof(pid_t), 0),
+        __atomic_always_lock_free(sizeof(pid_t), nullptr),
         "owner_tid/owner_pid must be lock-free for cross-process shared-memory use");
 
     // Closes the mutex, doesn't remove the backing mutex file.

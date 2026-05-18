@@ -76,6 +76,14 @@ public:
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
     /**
+     * Fast simulator-only DRAM access. Returns false when the loaded simulator
+     * does not export the direct DRAM ABI, allowing callers to fall back to the
+     * normal tile/TLB path.
+     */
+    bool dram_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+    bool dram_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
+    /**
      * Read data from PCI memory.
      *
      * @param paddr Physical address
@@ -173,6 +181,10 @@ private:
     void (*pfn_libttsim_pci_mem_wr_bytes_)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_rd_bytes_by_id_)(uint32_t chip_id, uint32_t dram_channel, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_wr_bytes_by_id_)(uint32_t chip_id, uint32_t dram_channel, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_core_rd_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_core_wr_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),

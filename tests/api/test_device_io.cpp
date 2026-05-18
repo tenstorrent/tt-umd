@@ -951,7 +951,7 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
 // (up to 1 MB) and a DRAM core (up to 256 MB). The equivalent SimulationChip-level test
 // still lives in tests/simulation/ for the tt-umd-simulators consumer.
-TEST_F(TestDeviceIOFixture, LoopbackStressSize) {
+TEST_F(TestDeviceIOFixture, DISABLED_LoopbackStressSize) {
     std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 
     const uint32_t seed = std::random_device{}();

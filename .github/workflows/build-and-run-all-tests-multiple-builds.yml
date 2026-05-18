@@ -56,6 +56,7 @@ jobs:
   ensure-image:
     name: Ensure Docker image
     needs: gatekeeper
+    if: always() # Don't skip if gatekeeper is skipped.
     permissions:
       packages: write
     secrets: inherit

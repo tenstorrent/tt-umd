@@ -266,6 +266,7 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
+// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
     PCIDevice *pci = get_pci_device();
     UMD_ASSERT(
@@ -281,14 +282,13 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
         try {
             return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
         } catch (const std::exception &e) {
-            log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
         }
     }
 
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     get_pcie_interface()->write_regs(dest, src, word_len);
 }

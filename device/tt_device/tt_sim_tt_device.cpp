@@ -150,6 +150,10 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapp
 
 TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
+void TTSimTTDevice::start_device() {}
+
+void TTSimTTDevice::close_device() { communicator_->shutdown(); }
+
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {

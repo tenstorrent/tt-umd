@@ -114,6 +114,7 @@ public:
     virtual void set_power_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
+    void advance_device_execution();
 
     // Advance the chip by one clock cycle. Delegates to the underlying TTDevice, which
     // is a no-op for chips without a controllable clock and drives the simulator clock

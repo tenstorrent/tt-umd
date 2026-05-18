@@ -15,6 +15,7 @@
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
+#include <utility>
 
 #include "noc_access.hpp"
 #include "tracy.hpp"
@@ -43,6 +44,22 @@ SysmemBuffer::SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_s
         noc_addr_ = std::nullopt;
     }
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
+}
+
+SysmemBuffer::SysmemBuffer(
+    void* buffer_va,
+    size_t buffer_size,
+    uint64_t device_io_addr,
+    std::optional<uint64_t> noc_addr,
+    std::function<void()> unmap_callback) :
+    tlb_manager_(nullptr),
+    buffer_va_(buffer_va),
+    mapped_buffer_size_(buffer_size),
+    buffer_size_(buffer_size),
+    device_io_addr_(device_io_addr),
+    noc_addr_(noc_addr),
+    unmap_callback_(std::move(unmap_callback)) {
+    align_address_and_size();
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
@@ -160,6 +177,13 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
 SysmemBuffer::~SysmemBuffer() {
     TracyFreeN(buffer_va_, "SysmemBuffer");
+    if (unmap_callback_) {
+        unmap_callback_();
+        return;
+    }
+    if (tlb_manager_ == nullptr) {
+        return;
+    }
     try {
         pci_device_->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {

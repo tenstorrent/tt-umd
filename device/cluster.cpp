@@ -34,6 +34,10 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+// SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
+// runs without that flag set so it can't see the use; mark the include to
+// stop future IWYU sweeps from deleting it again (see #2536).
+#include "umd/device/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"

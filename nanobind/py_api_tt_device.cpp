@@ -693,8 +693,7 @@ void bind_tt_device(nb::module_ &m) {
             "Get firmware bundle version from SPI (Blackhole only). "
             "Returns raw 32-bit value with format [component][major][minor][patch] (each 8 bits).");
 
-#ifdef TT_UMD_BUILD_SIMULATION
-    // Add simulation TTDevice factory binding - must be inside TT_UMD_BUILD_SIMULATION guard.
+    // Add simulation TTDevice factory binding.
     m.def(
         "create_simulation_tt_device",
         &create_simulation_tt_device,
@@ -796,7 +795,6 @@ void bind_tt_device(nb::module_ &m) {
             nb::rv_policy::reference_internal,
             release_gil(),
             "Get the SocDescriptor associated with this RTL simulation device.");
-#endif
 
     m.def(
         "create_remote_tt_device",

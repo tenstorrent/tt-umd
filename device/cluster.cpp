@@ -195,16 +195,9 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 #endif
     }
     if (chip_type == ChipType::SIMULATION) {
-#ifdef TT_UMD_BUILD_SIMULATION
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
-#else
-        UMD_THROW(
-            error::RuntimeError,
-            "Simulation device is not supported in this build. Set '-DTT_UMD_BUILD_SIMULATION=ON' during cmake "
-            "configuration to enable simulation device.");
-#endif
     }
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
@@ -309,9 +302,8 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
     chips_.emplace(chip_id, std::move(chip));
 }
 
-// Options is intentionally taken by value because it may be mutated when TT_UMD_BUILD_SIMULATION is enabled.
-// NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
-Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
+// Options is intentionally taken by value because it may be mutated below for simulation chips.
+Cluster::Cluster(ClusterOptions options) {
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
     log_info(LogUMD, "Cluster constructor started.");
     options_ = options;
@@ -335,7 +327,6 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;
-#ifdef TT_UMD_BUILD_SIMULATION
                 if (options.chip_type == ChipType::SIMULATION) {
                     if (options.sdesc_path.empty()) {
                         options.sdesc_path =
@@ -343,7 +334,6 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                     }
                     arch = SocDescriptor::get_arch_from_soc_descriptor_path(options.sdesc_path);
                 }
-#endif
                 // Noc translation is enabled for mock chips and for ttsim simulation, but disabled for versim/vcs
                 // simulation.
                 bool is_ttsim_simulation =

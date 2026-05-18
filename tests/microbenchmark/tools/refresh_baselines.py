@@ -5,13 +5,17 @@
 benchmarks workflow.
 
 Per (test, case, arch) tuple, collects throughput samples across runs,
-computes the median and the sample standard deviation, and writes:
+computes the median and the median absolute deviation (MAD), and writes:
     median_throughput = median(samples)
-    tolerance_pct     = max(5, ceil(3 * stdev_pct))
+    tolerance_pct     = max(5, ceil(4.5 * mad_pct))
 
-Three-sigma covers ~99.7% of a normal distribution; the 5% floor stops
-near-deterministic tests from getting a 0% tolerance that would alert on
-rounding noise; ceil keeps tolerance slightly wider rather than tighter.
+MAD is the median of |sample - median|. It is robust to single-run
+outliers — one noisy CI run shifts MAD by at most one rank, whereas it
+would inflate stdev disproportionately because stdev squares deviations.
+The K=4.5 factor gives ~99.7% coverage of a normal distribution. 
+The 5% floor stops near-deterministic tests from getting a 0% tolerance
+ that would alert on rounding noise; ceil keeps tolerance slightly wider
+   rather than tighter.
 
 Existing `gate: true` flags in the YAML are preserved across refreshes —
 the refresh tool should never silently un-gate a case.
@@ -49,6 +53,9 @@ from summarize_regressions import arch_label_from_artifact  # noqa: E402
 REPO_DEFAULT = "tenstorrent/tt-umd"
 MIN_SAMPLES_FOR_RELIABLE = 10
 TOLERANCE_FLOOR_PCT = 5
+# Multiplier on MAD-as-percent for the tolerance band. 4.5 gives ~99.7%
+# coverage of a normal distribution.
+MAD_K = 4.5
 
 
 # --- GitHub API access -----------------------------------------------------------
@@ -170,14 +177,16 @@ def derive_baseline_entry(samples: list[float]) -> tuple[float, float, str]:
         suffix = f"  # only {len(samples)} samples — tolerance may be too tight/loose"
     else:
         suffix = ""
-    median_thr = statistics.median(samples)
+    median_throughput = statistics.median(samples)
     if len(samples) < 2:
-        # Can't compute stdev with one sample — use the floor.
-        return median_thr, float(TOLERANCE_FLOOR_PCT), suffix
-    stdev_thr = statistics.stdev(samples)
-    stdev_pct = stdev_thr / median_thr * 100 if median_thr else 0.0
-    tolerance_pct = max(TOLERANCE_FLOOR_PCT, math.ceil(3 * stdev_pct))
-    return median_thr, float(tolerance_pct), suffix
+        # No spread to measure with one sample — use the floor.
+        return median_throughput, float(TOLERANCE_FLOOR_PCT), suffix
+    # Robust spread: median of absolute deviations from the median, expressed
+    # as a percentage of the median so the tolerance is unit-agnostic.
+    mad = statistics.median(abs(s - median_throughput) for s in samples)
+    mad_pct = mad / median_throughput * 100 if median_throughput else 0.0
+    tolerance_pct = max(TOLERANCE_FLOOR_PCT, math.ceil(MAD_K * mad_pct))
+    return median_throughput, float(tolerance_pct), suffix
 
 
 # --- YAML rendering --------------------------------------------------------------

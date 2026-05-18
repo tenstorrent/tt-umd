@@ -11,6 +11,7 @@
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <random>
@@ -946,4 +947,45 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 
     // start_device is a no-op for mock chips, but this verifies the API compiles and is callable.
     EXPECT_NO_THROW(cluster.start_device({.init_device = true, .dram_membar_subchannel = 1}));
+}
+
+// Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
+// (up to 1 MB) and a DRAM core (up to 256 MB). The equivalent SimulationChip-level test
+// still lives in tests/simulation/ for the tt-umd-simulators consumer.
+TEST_F(TestDeviceIOFixture, DISABLED_LoopbackStressSize) {
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+
+    const uint32_t seed = std::random_device{}();
+    GTEST_LOG_(INFO) << "LoopbackStressSize RNG seed = " << seed;
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<uint32_t> dis(0, std::numeric_limits<uint32_t>::max());
+
+    auto run_sweep = [&](ChipId chip_id, const CoreCoord& core, uint64_t addr, uint32_t max_shift) {
+        for (uint32_t shift = 2; shift <= max_shift; ++shift) {
+            const size_t size_bytes = size_t{1} << shift;
+            std::vector<uint32_t> wdata(size_bytes / sizeof(uint32_t));
+            for (auto& v : wdata) {
+                v = dis(gen);
+            }
+            std::vector<uint32_t> rdata(wdata.size(), 0);
+
+            cluster->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), chip_id, core, addr);
+            cluster->wait_for_non_mmio_flush(chip_id);
+            cluster->read_from_device(rdata.data(), chip_id, core, addr, rdata.size() * sizeof(uint32_t));
+
+            ASSERT_EQ(wdata, rdata) << "Mismatch on core " << core.str() << " with size " << size_bytes;
+        }
+    };
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+
+        const auto& tensix_cores = soc_desc.get_cores(CoreType::TENSIX);
+        ASSERT_FALSE(tensix_cores.empty());
+        run_sweep(chip_id, tensix_cores[0], SAFE_IO_L1_ADDRESS, 20);  // 2^20 = 1 MB
+
+        const auto& dram_cores = soc_desc.get_cores(CoreType::DRAM);
+        ASSERT_FALSE(dram_cores.empty());
+        run_sweep(chip_id, dram_cores[0], 0x0, 28);  // 2^28 = 256 MB
+    }
 }

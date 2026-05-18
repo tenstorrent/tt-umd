@@ -24,11 +24,9 @@ on:
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
   pull_request:
-    when: manual
   merge_group:
   push:
     branches: ["main"]
-    when: manual
 
 # Granted to all jobs that don't declare their own `permissions:` block.
 # `actions: write` is required so the merge-queue fail-fast watchers (inside
@@ -41,11 +39,24 @@ permissions:
   packages: read
 
 jobs:
+  # Gatekeeper job allows us to define an environent which only affects pushes to main, but not other types of jobs.
+  # With this environment, we can control how the jobs run on main, for exammple delayed or waiting for approval.
+  gatekeeper:
+    # Only use the environment (the pause) if it's a push to main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' ||
+      github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment: main-gate
+    steps:
+      - name: Gate Open
+        run: true
+
   # Ensure the Docker image for CI exists. If the Dockerfile (or its
   # install scripts) changed on this branch the image is rebuilt and pushed
   # with a content-hash tag.  Otherwise the existing image is reused.
   ensure-image:
     name: Ensure Docker image
+    needs: gatekeeper
     permissions:
       packages: write
     secrets: inherit

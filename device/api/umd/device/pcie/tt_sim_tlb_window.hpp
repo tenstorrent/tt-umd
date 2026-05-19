@@ -22,6 +22,9 @@ struct tlb_data;
  * for memory access instead of direct pointer dereferencing.
  * This allows TLB operations to work with TTSim where the device
  * memory is not mapped into the user process.
+ *
+ * IoOptions are accepted by the base class but ignored: TTSim goes through a
+ * library shim rather than the AXI master, so user_bits are not exposed here.
  */
 class TTSimTlbWindow : public TlbWindow {
 public:

@@ -10,6 +10,7 @@
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/io_options.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -20,6 +21,13 @@ namespace tt::umd {
  * Base class for TlbWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
+ *
+ * IoOptions (currently just the AXI snoop bit) attach to the TLB window as
+ * state set via set_io_options(). Basic read/write methods use the stored
+ * options. The _reconfigure family additionally takes IoOptions as a per-call
+ * argument, which updates the stored options as part of the reconfigure.
+ * Only the simulation path (RtlSimTlbWindow) honors these today; silicon and
+ * TTSim ignore them.
  */
 class TlbWindow {
 public:
@@ -39,7 +47,13 @@ public:
 
     // Shared higher-level methods that use the virtual methods above.
     virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {});
 
     virtual void write_block_reconfigure(
         const void* mem_ptr,
@@ -47,7 +61,8 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {});
 
     virtual void noc_multicast_write_reconfigure(
         void* dst,
@@ -56,7 +71,8 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {});
 
     virtual void safe_write16(uint64_t offset, uint16_t value) = 0;
 
@@ -80,10 +96,17 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {});
 
     virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {});
 
     virtual void safe_noc_multicast_write_reconfigure(
         void* dst,
@@ -92,7 +115,8 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {});
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;
@@ -100,12 +124,19 @@ public:
     void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
 
+    // Update / read the IoOptions applied to subsequent (non-reconfigure)
+    // reads/writes through this window. _reconfigure methods also call
+    // set_io_options(options) internally as part of the reconfigure.
+    void set_io_options(const IoOptions& options);
+    const IoOptions& get_io_options() const;
+
 protected:
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
+    IoOptions io_options_{};
 };
 
 }  // namespace tt::umd

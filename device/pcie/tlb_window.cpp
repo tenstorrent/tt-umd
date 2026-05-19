@@ -11,6 +11,7 @@
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/io_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -24,7 +25,14 @@ TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
 }
 
 void TlbWindow::read_block_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    void* mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    uint64_t ordering,
+    const IoOptions& options) {
+    set_io_options(options);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
@@ -50,7 +58,14 @@ void TlbWindow::read_block_reconfigure(
 }
 
 void TlbWindow::write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    const void* mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    uint64_t ordering,
+    const IoOptions& options) {
+    set_io_options(options);
     const uint8_t* buffer_addr = static_cast<const uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;
@@ -83,7 +98,9 @@ void TlbWindow::noc_multicast_write_reconfigure(
     tt_xy_pair core_end,
     uint64_t addr,
     NocId noc_id,
-    uint64_t ordering) {
+    uint64_t ordering,
+    const IoOptions& options) {
+    set_io_options(options);
     uint8_t* buffer_addr = static_cast<uint8_t*>(dst);
     tlb_data config{};
     config.local_offset = addr;
@@ -135,6 +152,10 @@ uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }
 
+void TlbWindow::set_io_options(const IoOptions& options) { io_options_ = options; }
+
+const IoOptions& TlbWindow::get_io_options() const { return io_options_; }
+
 void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
 
 uint32_t TlbWindow::safe_read32(uint64_t offset) { return read32(offset); }
@@ -150,13 +171,25 @@ void TlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size)
 void TlbWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
 
 void TlbWindow::safe_write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    write_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
+    const void* mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    uint64_t ordering,
+    const IoOptions& options) {
+    write_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering, options);
 }
 
 void TlbWindow::safe_read_block_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    read_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
+    void* mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    uint64_t ordering,
+    const IoOptions& options) {
+    read_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering, options);
 }
 
 void TlbWindow::safe_noc_multicast_write_reconfigure(
@@ -166,8 +199,9 @@ void TlbWindow::safe_noc_multicast_write_reconfigure(
     tt_xy_pair core_end,
     uint64_t addr,
     NocId noc_id,
-    uint64_t ordering) {
-    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, noc_id, ordering);
+    uint64_t ordering,
+    const IoOptions& options) {
+    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, noc_id, ordering, options);
 }
 
 }  // namespace tt::umd

@@ -21,6 +21,11 @@ struct tlb_data;
  * into tile_read_bytes/tile_write_bytes calls on RtlSimCommunicator.
  * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
  * is used to reconstruct the target core and address for each access.
+ *
+ * The stored IoOptions (set via TlbWindow::set_io_options or by a _reconfigure
+ * call) are converted to AXI awuser/aruser bits before being forwarded to the
+ * communicator. Currently only the snoop bit (user_bits[8] / cce_cmd_snoop) is
+ * mapped.
  */
 class RtlSimTlbWindow : public TlbWindow {
 public:

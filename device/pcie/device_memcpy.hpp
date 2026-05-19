@@ -48,8 +48,10 @@ using MemcpyTimeoutFn = std::function<bool()>;
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
  * sub-DWORD writes natively, so no read-modify-write is required).
  *
- * Per-op budget: every individual TLB-touching store must complete within a hard-coded
- * budget (default 30 ms, overridable at process start via TT_UMD_MMIO_OP_TIMEOUT_MS).
+ * Per-op budget: TLB-touching stores must complete within a hard-coded budget
+ * (default 100 ms, overridable at process start via TT_UMD_MMIO_OP_TIMEOUT_MS).
+ * The check is applied once per 256-byte block in the bulk AVX2 phase, and once
+ * per op in the 32 / 16 / 4-byte and byte-wide tail phases.
  * On overrun:
  *   - if no on_timeout is provided, throws tt::umd::error::DeviceTimeoutError;
  *   - if on_timeout is provided and returns true, throws DeviceTimeoutError;

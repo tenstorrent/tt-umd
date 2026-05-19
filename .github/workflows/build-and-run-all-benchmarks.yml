@@ -45,10 +45,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # TEMP first-iteration scope: n150 only, to validate the regression-check
+        # wiring end-to-end on a single dedicated runner (bgd-lab-06). Restore
+        # n300 / p150b once the pipeline is proven on n150.
         test-group: [
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable, timeout: 45},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable, timeout: 45},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable, timeout: 45},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable, timeout: 45},
+          # {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable, timeout: 45},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',
@@ -67,10 +70,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # TEMP first-iteration scope: n150 only (see run-benchmarks matrix note).
         test-group: [
           {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
-          {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
+          # {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
+          # {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

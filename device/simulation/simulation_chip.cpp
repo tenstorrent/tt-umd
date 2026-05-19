@@ -6,12 +6,14 @@
 
 #include <fmt/format.h>
 
+#include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
+#include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/simulation/rtl_simulation_chip.hpp"
-#include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
@@ -24,12 +26,16 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
     ChipId chip_id,
     size_t num_chips,
     int num_host_mem_channels) {
+    std::unique_ptr<TTDevice> tt_device;
     if (simulator_directory.extension() == ".so") {
-        return std::make_unique<TTSimChip>(
+        tt_device = std::make_unique<TTSimTTDevice>(
             simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
     } else {
-        return std::make_unique<RtlSimulationChip>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
+        log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
+        tt_device = std::make_unique<RtlSimulationTTDevice>(
+            simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
     }
+    return std::make_unique<SimulationChip>(simulator_directory, soc_descriptor, chip_id, std::move(tt_device));
 }
 
 std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path) {
@@ -38,14 +44,48 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
 }
 
 SimulationChip::SimulationChip(
-    const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id) :
-    Chip(soc_descriptor), arch_name(soc_descriptor.arch), chip_id_(chip_id), simulator_directory_(simulator_directory) {
+    const std::filesystem::path& simulator_directory,
+    const SocDescriptor& soc_descriptor,
+    ChipId chip_id,
+    std::unique_ptr<TTDevice> tt_device) :
+    Chip(soc_descriptor),
+    arch_name(soc_descriptor.arch),
+    chip_id_(chip_id),
+    simulator_directory_(simulator_directory),
+    tt_device_(std::move(tt_device)),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }
 }
 
-// Base class implementations (common simple methods).
+void SimulationChip::start_device(uint32_t dram_membar_subchannel) {}
+
+void SimulationChip::close_device() {}
+
+void SimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->write_to_device(src, soc_descriptor_.translate_chip_coord_to_translated(core), l1_dest, size);
+}
+
+void SimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->read_from_device(dest, soc_descriptor_.translate_chip_coord_to_translated(core), l1_src, size);
+}
+
+void SimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    ZoneScopedC(tracy::Color::DarkRed);
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->assert_risc_reset(soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs);
+}
+
+void SimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    std::lock_guard<std::mutex> lock(device_lock);
+    tt_device_->deassert_risc_reset(
+        soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
+}
+
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
     write_to_device(core, src, reg_dest, size);
 }
@@ -162,15 +202,11 @@ int SimulationChip::get_numa_node() {
     UMD_THROW(error::RuntimeError, "SimulationChip::get_numa_node() is not available for this chip.");
 }
 
-TTDevice* SimulationChip::get_tt_device() {
-    UMD_THROW(error::RuntimeError, "SimulationChip::get_tt_device() is not available for this chip.");
-}
+TTDevice* SimulationChip::get_tt_device() { return tt_device_.get(); }
 
-SysmemManager* SimulationChip::get_sysmem_manager() { return nullptr; }
+SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_->get_sysmem_manager(); }
 
-TLBManager* SimulationChip::get_tlb_manager() {
-    UMD_THROW(error::RuntimeError, "SimulationChip::get_tlb_manager() is not available for this chip.");
-}
+TLBManager* SimulationChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 

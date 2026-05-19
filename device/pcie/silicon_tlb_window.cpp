@@ -16,7 +16,6 @@
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <string>
 #include <utility>
 
 #include "device_memcpy.hpp"
@@ -72,22 +71,22 @@ SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_
 
 void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
-    *reinterpret_cast<volatile uint16_t *>(tlb_handle->get_base() + get_total_offset(offset)) = value;
+    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value);
 }
 
 uint16_t SiliconTlbWindow::read16(uint64_t offset) {
     validate(offset, sizeof(uint16_t));
-    return *reinterpret_cast<volatile uint16_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset));
 }
 
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
-    *reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset)) = value;
+    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value);
 }
 
 uint32_t SiliconTlbWindow::read32(uint64_t offset) {
     validate(offset, sizeof(uint32_t));
-    return *reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
+    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset));
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
@@ -222,16 +221,16 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
 
 void SiliconTlbWindow::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     while (word_len-- != 0) {
-        *dest++ = *src++;
+        write32_to_device(dest++, *src++);
     }
 }
 
 void SiliconTlbWindow::read_regs(void *src_reg, uint32_t word_len, void *data) {
-    const volatile uint32_t *src = reinterpret_cast<uint32_t *>(src_reg);
-    uint32_t *dest = reinterpret_cast<uint32_t *>(data);
+    auto *src = static_cast<const volatile uint32_t *>(src_reg);
+    auto *dest = reinterpret_cast<uint32_t *>(data);
 
     while (word_len-- != 0) {
-        uint32_t temp = *src++;
+        uint32_t temp = read32_from_device(src++);
         memcpy(dest++, &temp, sizeof(temp));
     }
 }

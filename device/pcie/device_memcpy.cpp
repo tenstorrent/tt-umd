@@ -74,7 +74,7 @@ bool mmio_timing_enabled() {
 }
 
 struct OpTiming {
-    std::int64_t delta_ns;
+    std::chrono::nanoseconds delta;
     std::uint32_t size_bytes;
 };
 
@@ -95,30 +95,30 @@ void dump_timings(const char* fn, std::size_t bytes, const std::vector<OpTiming>
         std::fprintf(stderr, "[%s] size=%zu ops=0\n", fn, bytes);
         return;
     }
-    std::int64_t total = 0;
-    std::int64_t min_ns = ops[0].delta_ns;
-    std::int64_t max_ns = ops[0].delta_ns;
+    std::chrono::nanoseconds total{0};
+    std::chrono::nanoseconds min = ops[0].delta;
+    std::chrono::nanoseconds max = ops[0].delta;
     for (const auto& op : ops) {
-        total += op.delta_ns;
-        min_ns = std::min(min_ns, op.delta_ns);
-        max_ns = std::max(max_ns, op.delta_ns);
+        total += op.delta;
+        min = std::min(min, op.delta);
+        max = std::max(max, op.delta);
     }
-    std::int64_t mean_ns = total / static_cast<std::int64_t>(ops.size());
+    std::chrono::nanoseconds mean = total / ops.size();
 
     std::string line;
     line.reserve(ops.size() * 10 + 128);
     line.append("[").append(fn).append("] size=").append(std::to_string(bytes));
     line.append(" ops=").append(std::to_string(ops.size()));
-    line.append(" min=").append(std::to_string(min_ns)).append("ns");
-    line.append(" max=").append(std::to_string(max_ns)).append("ns");
-    line.append(" mean=").append(std::to_string(mean_ns)).append("ns");
-    line.append(" total=").append(std::to_string(total)).append("ns");
+    line.append(" min=").append(std::to_string(min.count())).append("ns");
+    line.append(" max=").append(std::to_string(max.count())).append("ns");
+    line.append(" mean=").append(std::to_string(mean.count())).append("ns");
+    line.append(" total=").append(std::to_string(total.count())).append("ns");
     line.append(" ops_ns:bytes=");
     for (std::size_t i = 0; i < ops.size(); ++i) {
         if (i != 0) {
             line.append(",");
         }
-        line.append(std::to_string(ops[i].delta_ns));
+        line.append(std::to_string(ops[i].delta.count()));
         line.append(":");
         line.append(std::to_string(ops[i].size_bytes));
     }
@@ -146,8 +146,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         auto t_now = std::chrono::steady_clock::now();
         auto delta = t_now - t_before;
         if (timing_enabled) {
-            auto delta_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(delta).count();
-            timings.push_back({delta_ns, op_bytes});
+            timings.push_back({std::chrono::duration_cast<std::chrono::nanoseconds>(delta), op_bytes});
         }
         if (delta < op_timeout) {
             return;
@@ -372,8 +371,7 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, 
         auto t_now = std::chrono::steady_clock::now();
         auto delta = t_now - t_before;
         if (timing_enabled) {
-            auto delta_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(delta).count();
-            timings.push_back({delta_ns, op_bytes});
+            timings.push_back({std::chrono::duration_cast<std::chrono::nanoseconds>(delta), op_bytes});
         }
         if (delta < op_timeout) {
             return;

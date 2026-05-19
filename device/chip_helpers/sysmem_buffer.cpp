@@ -4,40 +4,56 @@
 
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 
+#include <fmt/format.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <tuple>
 
-#include "assert.hpp"
 #include "noc_access.hpp"
+#include "tracy.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
-SysmemBuffer::SysmemBuffer(TLBManager* tlb_manager, void* buffer_va, size_t buffer_size, bool map_to_noc) :
-    tlb_manager_(tlb_manager), buffer_va_(buffer_va), mapped_buffer_size_(buffer_size), buffer_size_(buffer_size) {
+SysmemBuffer::SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc) :
+    pci_device_(tt_device->get_pci_device()),
+    tt_device_(tt_device),
+    buffer_va_(buffer_va),
+    mapped_buffer_size_(buffer_size),
+    buffer_size_(buffer_size) {
+    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
     align_address_and_size();
-    PCIDevice* pci_device = tlb_manager->get_tt_device()->get_pci_device();
     if (map_to_noc) {
-        std::tie(noc_addr_, device_io_addr_) = pci_device->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);
+        std::tie(noc_addr_, device_io_addr_) = pci_device_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);
     } else {
-        device_io_addr_ = pci_device->map_for_dma(buffer_va_, mapped_buffer_size_);
+        device_io_addr_ = pci_device_->map_for_dma(buffer_va_, mapped_buffer_size_);
         noc_addr_ = std::nullopt;
     }
+    TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+    ZoneScopedC(tracy::Color::Yellow);
 
-    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        TT_THROW(
-            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
-            tt_device_->get_pci_device()->get_device_num());
+    if (pci_device_->get_dma_buffer().buffer == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+                pci_device_->get_device_num()));
     }
 
     validate(offset);
@@ -55,11 +71,11 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
+    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
     TlbWindow* tlb_window = get_cached_tlb_window();
     tlb_window->configure(config);
 
-    auto axi_address_base = tt_device_->get_architecture_implementation()
+    auto axi_address_base = pci_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
@@ -87,12 +103,14 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
-    TTDevice* tt_device_ = tlb_manager_->get_tt_device();
+    ZoneScopedC(tracy::Color::Yellow);
 
-    if (tt_device_->get_pci_device()->get_dma_buffer().buffer == nullptr) {
-        TT_THROW(
-            "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
-            tt_device_->get_pci_device()->get_device_num());
+    if (pci_device_->get_dma_buffer().buffer == nullptr) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "DMA buffer is not allocated on PCI device {}, PCIe DMA operations not supported.",
+                pci_device_->get_device_num()));
     }
 
     validate(offset);
@@ -109,12 +127,12 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     config.y_end = core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = tlb_manager_->get_tt_device()->get_architecture_implementation()->get_static_vc();
+    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
 
     TlbWindow* tlb_window = get_cached_tlb_window();
     tlb_window->configure(config);
 
-    auto axi_address_base = tt_device_->get_architecture_implementation()
+    auto axi_address_base = pci_device_->get_architecture_implementation()
                                 ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .tlb_offset;
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
@@ -141,8 +159,9 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 }
 
 SysmemBuffer::~SysmemBuffer() {
+    TracyFreeN(buffer_va_, "SysmemBuffer");
     try {
-        tlb_manager_->get_tt_device()->get_pci_device()->unmap_for_dma(buffer_va_, mapped_buffer_size_);
+        pci_device_->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {
         log_warning(
             LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);
@@ -168,16 +187,16 @@ uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
 
 void SysmemBuffer::validate(const size_t offset) const {
     if (offset >= buffer_size_) {
-        TT_THROW("Offset {:#x} is out of bounds for SysmemBuffer of size {:#x}", offset, buffer_size_);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Offset {:#x} is out of bounds for SysmemBuffer of size {:#x}", offset, buffer_size_));
     }
 }
 
 TlbWindow* SysmemBuffer::get_cached_tlb_window() {
     if (cached_tlb_window == nullptr) {
-        cached_tlb_window =
-            std::make_unique<SiliconTlbWindow>(tlb_manager_->get_tt_device()->get_pci_device()->allocate_tlb(
-                tlb_manager_->get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(),
-                TlbMapping::WC));
+        cached_tlb_window = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
+            pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
         return cached_tlb_window.get();
     }
     return cached_tlb_window.get();

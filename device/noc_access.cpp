@@ -4,6 +4,8 @@
 
 #include "noc_access.hpp"
 
+#include "umd/device/types/noc_id.hpp"
+
 namespace tt::umd {
 
 // NocId that is stored for current thread in TLS.

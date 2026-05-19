@@ -4,16 +4,20 @@
 
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 
+#include <fmt/format.h>
+
 #include <chrono>
-#include <cstdint>
-#include <stdexcept>
+#include <string>
 #include <thread>
 #include <vector>
 
 #include "noc_access.hpp"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -39,9 +43,12 @@ void SmBusArcTelemetryReader::get_telemetry_address() {
 
 uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     if (!is_entry_available(telemetry_tag)) {
-        throw std::runtime_error(fmt::format(
-            "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
-            telemetry_tag));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is "
+                "available.",
+                telemetry_tag));
     }
 
     uint32_t telemetry_value;

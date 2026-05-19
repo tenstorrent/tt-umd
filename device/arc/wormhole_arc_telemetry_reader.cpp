@@ -5,10 +5,12 @@
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 
 #include <cstdint>
+#include <vector>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/types/telemetry.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 

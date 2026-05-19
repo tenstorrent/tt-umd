@@ -6,22 +6,27 @@
 
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
 
+#include <utility>
+
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 
 namespace tt::umd {
 
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {}
 
-void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 
-bool RemoteProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+bool RemoteProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t, NocId) {
+    return false;
+}
 
 int RemoteProtocol::get_mmio_id() { return remote_communication_->get_local_device()->get_communication_device_id(); }
 

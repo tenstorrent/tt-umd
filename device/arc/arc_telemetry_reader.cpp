@@ -4,12 +4,11 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <chrono>
-#include <cstdint>
 #include <memory>
-#include <stdexcept>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -18,7 +17,9 @@
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -48,7 +49,7 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
             reader = std::make_unique<BlackholeArcTelemetryReader>(tt_device);
             break;
         default:
-            throw std::runtime_error("Unsupported architecture for creating Arc telemetry reader.");
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for creating ArcTelemetryReader.");
     }
     reader->wait_for_telemetry_initialized(timeout_ms);
     return reader;
@@ -92,9 +93,12 @@ void ArcTelemetryReader::initialize_telemetry() {
 
 uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
     if (!is_entry_available(telemetry_tag)) {
-        throw std::runtime_error(fmt::format(
-            "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is available.",
-            telemetry_tag));
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Telemetry entry {} not available. You can use is_entry_available() to check if the entry is "
+                "available.",
+                telemetry_tag));
     }
 
     if (static_entries.find(telemetry_tag) != static_entries.end()) {

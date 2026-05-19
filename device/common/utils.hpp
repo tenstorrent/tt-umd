@@ -9,15 +9,16 @@
 
 #include <array>
 #include <chrono>
+#include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
 
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error_detail.hpp"
 
 namespace tt::umd::utils {
 
@@ -38,7 +39,8 @@ inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
         try {
             result_set.insert(std::stoi(token));
         } catch (const std::exception& e) {
-            throw std::runtime_error(
+            UMD_THROW(
+                error::RuntimeError,
                 fmt::format("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what()));
         }
     }
@@ -119,6 +121,43 @@ inline bool check_timeout(
     return elapsed > timeout;
 }
 
+/**
+ * Adaptive polling loop. Busy-polls `predicate` for `busy_poll_window`, then sleeps
+ * `poll_interval` between checks until the predicate returns true or `timeout` elapses.
+ *
+ * @param predicate Callable returning bool; polled until it returns true.
+ * @param timeout Maximum total time to wait.
+ * @param busy_poll_window How long to spin before backing off to sleep-based polling.
+ * @param poll_interval Sleep duration between checks once past the busy window.
+ * @returns True if predicate became true before timeout, false otherwise.
+ *          Caller is responsible for handling the timeout case.
+ */
+template <typename Predicate>
+inline bool poll_until(
+    Predicate predicate,
+    const std::chrono::milliseconds timeout,
+    const std::chrono::microseconds busy_poll_window,
+    const std::chrono::microseconds poll_interval) {
+    // Ensure the predicate is callable.
+    static_assert(std::is_invocable_v<Predicate>, "poll_until: The predicate provided must be callable.");
+
+    // Enforce strict bool return type.
+    using ReturnType = std::invoke_result_t<Predicate>;
+    static_assert(std::is_same_v<ReturnType, bool>, "poll_until: Predicate must return 'bool'.");
+
+    const auto start = std::chrono::steady_clock::now();
+    while (!predicate()) {
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        if (elapsed > timeout) {
+            return false;
+        }
+        if (elapsed > busy_poll_window) {
+            std::this_thread::sleep_for(poll_interval);
+        }
+    }
+    return true;
+}
+
 enum class TimeoutAction { Throw, Return };
 
 /**
@@ -161,7 +200,9 @@ public:
                     close(child_pipes[j][PIPE_WRITE]);
                 }
                 errno = saved_errno;
-                throw std::runtime_error("Failed to create synchronization pipe");
+                UMD_THROW(
+                    error::RuntimeError,
+                    "Failed to create synchronization pipe. errno: {}" + std::string(std::strerror(saved_errno)));
             }
         }
     }

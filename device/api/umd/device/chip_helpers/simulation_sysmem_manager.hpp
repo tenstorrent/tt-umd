@@ -4,7 +4,14 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 

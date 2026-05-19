@@ -17,6 +17,12 @@
 #include "umd/device/types/wormhole_telemetry.hpp"
 
 namespace nb = nanobind;
+// Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
+// allowing other Python threads to run in parallel while this binding executes. Pass
+// release_gil() as a call guard to nb::class_::def() on methods that don't touch the
+// Python interpreter (e.g. blocking device I/O), so callers can drive UMD concurrently
+// from multiple Python threads.
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt::umd;
 
@@ -77,7 +83,8 @@ void bind_telemetry(nb::module_& m) {
         .value("ETH_LIVE_STATUS", wormhole::LegacyTelemetryTag::ETH_LIVE_STATUS)
         .value("FW_BUNDLE_VERSION", wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION)
         .value("NUMBER_OF_TAGS", wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS)
-        .def("__int__", [](wormhole::LegacyTelemetryTag tag) { return static_cast<int>(tag); });
+        .def(
+            "__int__", [](wormhole::LegacyTelemetryTag tag) { return static_cast<int>(tag); }, release_gil());
 
     // Universal telemetry tags for all archs for newer firmware.
     nb::enum_<TelemetryTag>(m, "TelemetryTag")
@@ -141,8 +148,13 @@ void bind_telemetry(nb::module_& m) {
         .value("ASIC_ID_LOW", TelemetryTag::ASIC_ID_LOW)
         .value("AICLK_LIMIT_MAX", TelemetryTag::AICLK_LIMIT_MAX)
         .value("TDP_LIMIT_MAX", TelemetryTag::TDP_LIMIT_MAX)
+        .value("AICLK_ARB_MIN", TelemetryTag::AICLK_ARB_MIN)
+        .value("AICLK_ARB_MAX", TelemetryTag::AICLK_ARB_MAX)
+        .value("ENABLED_MIN_ARB", TelemetryTag::ENABLED_MIN_ARB)
+        .value("ENABLED_MAX_ARB", TelemetryTag::ENABLED_MAX_ARB)
         .value("NUMBER_OF_TAGS", TelemetryTag::NUMBER_OF_TAGS)
-        .def("__int__", [](TelemetryTag tag) { return static_cast<int>(tag); });
+        .def(
+            "__int__", [](TelemetryTag tag) { return static_cast<int>(tag); }, release_gil());
 
     nb::enum_<GddrModule>(m, "GddrModule", "GDDR module indices for Blackhole")
         .value("GDDR_0", GddrModule::GDDR_0)
@@ -153,7 +165,8 @@ void bind_telemetry(nb::module_& m) {
         .value("GDDR_5", GddrModule::GDDR_5)
         .value("GDDR_6", GddrModule::GDDR_6)
         .value("GDDR_7", GddrModule::GDDR_7)
-        .def("__int__", [](GddrModule gddr) { return static_cast<int>(gddr); });
+        .def(
+            "__int__", [](GddrModule gddr) { return static_cast<int>(gddr); }, release_gil());
 
     nb::class_<GddrModuleTelemetry>(m, "GddrModuleTelemetry", "Per-module GDDR telemetry (temp, errors, status).")
         .def_ro("dram_temperature_top", &GddrModuleTelemetry::dram_temperature_top)
@@ -174,58 +187,70 @@ void bind_telemetry(nb::module_& m) {
         });
 
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
-        .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
-        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+        .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"), release_gil())
+        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"), release_gil());
 
     // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
-        .def(nb::init<TTDevice*>(), nb::arg("tt_device"))
-        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"))
-        .def("is_entry_available", &SmBusArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"));
+        .def(nb::init<TTDevice*>(), nb::arg("tt_device"), release_gil())
+        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"), release_gil())
+        .def(
+            "is_entry_available",
+            &SmBusArcTelemetryReader::is_entry_available,
+            nb::arg("telemetry_tag"),
+            release_gil());
 
     nb::enum_<tt::DramTrainingStatus>(m, "DramTrainingStatus")
         .value("IN_PROGRESS", tt::DramTrainingStatus::IN_PROGRESS)
         .value("FAIL", tt::DramTrainingStatus::FAIL)
         .value("SUCCESS", tt::DramTrainingStatus::SUCCESS)
-        .def("__int__", [](tt::DramTrainingStatus status) { return static_cast<int>(status); });
+        .def(
+            "__int__", [](tt::DramTrainingStatus status) { return static_cast<int>(status); }, release_gil());
 
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
-        .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version)
-        .def("get_board_id", &FirmwareInfoProvider::get_board_id)
-        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version)
-        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
-        .def("get_aiclk", &FirmwareInfoProvider::get_aiclk)
-        .def("get_axiclk", &FirmwareInfoProvider::get_axiclk)
-        .def("get_arcclk", &FirmwareInfoProvider::get_arcclk)
-        .def("get_fan_speed", &FirmwareInfoProvider::get_fan_speed)
-        .def("get_tdp", &FirmwareInfoProvider::get_tdp)
-        .def("get_tdc", &FirmwareInfoProvider::get_tdc)
-        .def("get_vcore", &FirmwareInfoProvider::get_vcore)
-        .def("get_board_temperature", &FirmwareInfoProvider::get_board_temperature)
-        .def("get_dram_training_status", &FirmwareInfoProvider::get_dram_training_status, nb::arg("num_dram_channels"))
-        .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq)
-        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location)
-        .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat)
-        .def("get_aggregated_dram_telemetry", &FirmwareInfoProvider::get_aggregated_dram_telemetry)
-        .def("get_dram_telemetry", &FirmwareInfoProvider::get_dram_telemetry, nb::arg("gddr_module"))
-        .def("get_dram_speed", &FirmwareInfoProvider::get_dram_speed)
-        .def("get_current_max_dram_temperature", &FirmwareInfoProvider::get_current_max_dram_temperature)
-        .def("get_thm_limit_shutdown", &FirmwareInfoProvider::get_thm_limit_shutdown)
-        .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit)
-        .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle)
-        .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count)
-        .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status)
-        .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status)
+        .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version, release_gil())
+        .def("get_board_id", &FirmwareInfoProvider::get_board_id, release_gil())
+        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version, release_gil())
+        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location, release_gil())
+        .def("get_aiclk", &FirmwareInfoProvider::get_aiclk, release_gil())
+        .def("get_axiclk", &FirmwareInfoProvider::get_axiclk, release_gil())
+        .def("get_arcclk", &FirmwareInfoProvider::get_arcclk, release_gil())
+        .def("get_fan_speed", &FirmwareInfoProvider::get_fan_speed, release_gil())
+        .def("get_tdp", &FirmwareInfoProvider::get_tdp, release_gil())
+        .def("get_tdc", &FirmwareInfoProvider::get_tdc, release_gil())
+        .def("get_vcore", &FirmwareInfoProvider::get_vcore, release_gil())
+        .def("get_board_temperature", &FirmwareInfoProvider::get_board_temperature, release_gil())
+        .def(
+            "get_dram_training_status",
+            &FirmwareInfoProvider::get_dram_training_status,
+            nb::arg("num_dram_channels"),
+            release_gil())
+        .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq, release_gil())
+        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location, release_gil())
+        .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat, release_gil())
+        .def("get_aggregated_dram_telemetry", &FirmwareInfoProvider::get_aggregated_dram_telemetry, release_gil())
+        .def("get_dram_telemetry", &FirmwareInfoProvider::get_dram_telemetry, nb::arg("gddr_module"), release_gil())
+        .def("get_dram_speed", &FirmwareInfoProvider::get_dram_speed, release_gil())
+        .def("get_current_max_dram_temperature", &FirmwareInfoProvider::get_current_max_dram_temperature, release_gil())
+        .def("get_thm_limit_shutdown", &FirmwareInfoProvider::get_thm_limit_shutdown, release_gil())
+        .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit, release_gil())
+        .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle, release_gil())
+        .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())
+        .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status, release_gil())
+        .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status, release_gil())
         .def_static(
             "get_minimum_compatible_firmware_version",
             &FirmwareInfoProvider::get_minimum_compatible_firmware_version,
-            nb::arg("arch"))
+            nb::arg("arch"),
+            release_gil())
         .def_static(
             "get_latest_supported_firmware_version",
             &FirmwareInfoProvider::get_latest_supported_firmware_version,
-            nb::arg("arch"))
+            nb::arg("arch"),
+            release_gil())
         .def_static(
             "create_firmware_info_provider",
             &FirmwareInfoProvider::create_firmware_info_provider,
-            nb::arg("tt_device"));
+            nb::arg("tt_device"),
+            release_gil());
 }

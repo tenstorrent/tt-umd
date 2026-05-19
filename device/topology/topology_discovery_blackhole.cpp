@@ -4,28 +4,33 @@
 
 #include "umd/device/topology/topology_discovery_blackhole.hpp"
 
-#include <cstdint>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <set>
-#include <stdexcept>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
-#include "noc_access.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/tt_device/blackhole_tt_device.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
+enum class IODeviceType;
 
 TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
     const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
@@ -33,26 +38,18 @@ TopologyDiscoveryBlackhole::TopologyDiscoveryBlackhole(
 
 std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
     std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
-    // ETH coord is not used for Blackhole, as Blackhole does not have a concept of ETH coordinates.
-    std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_device, {0, 0, 0, 0});
-    remote_communication->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor(gateway_device)
-            .get_eth_xy_pairs_for_channels(gateway_eth_channels, CoordSystem::TRANSLATED));
-    std::unique_ptr<TTDevice> remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
-    return remote_tt_device;
+    return nullptr;
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, CoreCoord eth_core) {
     return std::nullopt;
 }
 
-std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* tt_device, tt_xy_pair eth_core) {
+std::optional<EthCoord> TopologyDiscoveryBlackhole::get_remote_eth_coord(TTDevice* tt_device, CoreCoord eth_core) {
     return std::nullopt;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         // See comment in get_local_board_id.
         return get_remote_asic_id(tt_device, eth_core);
@@ -67,7 +64,7 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_board_id(TTDevice* tt_device, tt
     return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         // For 6U, since the whole trays have the same board ID, and we'd want to be able to open
         // only some chips, we hack the board_id to be the asic ID. That way, the TT_VISIBLE_DEVICES filter
@@ -86,7 +83,7 @@ uint64_t TopologyDiscoveryBlackhole::get_local_board_id(TTDevice* tt_device, tt_
     return (static_cast<uint64_t>(board_id_hi) << 32) | board_id_lo;
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         uint32_t asic_id_hi;
         tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFD4, sizeof(asic_id_hi));
@@ -104,7 +101,7 @@ uint64_t TopologyDiscoveryBlackhole::get_local_asic_id(TTDevice* tt_device, tt_x
     return mangle_asic_id(board_id, asic_location);
 }
 
-uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
         uint32_t asic_id_hi;
         tt_device->read_from_device(&asic_id_hi, eth_core, 0x7CFF4, sizeof(asic_id_hi));
@@ -122,23 +119,13 @@ uint64_t TopologyDiscoveryBlackhole::get_remote_asic_id(TTDevice* tt_device, tt_
     return mangle_asic_id(board_id, asic_location);
 }
 
-tt_xy_pair TopologyDiscoveryBlackhole::get_remote_eth_core(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    throw std::runtime_error(
-        "get_remote_eth_core is not implemented for Blackhole. Calling this function for Blackhole likely indicates a "
-        "bug.");
+uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {
+    uint8_t remote_eth_channel = 0;
+    tt_device->read_from_device(&remote_eth_channel, local_eth_core, 0x7CFE2, sizeof(remote_eth_channel));
+    return remote_eth_channel;
 }
 
-uint32_t TopologyDiscoveryBlackhole::get_remote_eth_id(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    uint8_t remote_eth_id;
-    tt_device->read_from_device(&remote_eth_id, local_eth_core, 0x7CFE2, sizeof(remote_eth_id));
-    return remote_eth_id;
-}
-
-uint32_t TopologyDiscoveryBlackhole::get_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
-    return get_remote_eth_id(tt_device, local_eth_core);
-}
-
-uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt_device, tt_xy_pair local_eth_core) {
+uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {
     uint8_t remote_logical_eth_id;
     tt_device->read_from_device(&remote_logical_eth_id, local_eth_core, 0x7CFE3, sizeof(remote_logical_eth_id));
 
@@ -148,7 +135,8 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
         return remote_logical_eth_id;
     }
     if (tt_device->get_chip_info().board_type != BoardType::P150) {
-        throw std::runtime_error(
+        UMD_THROW(
+            error::RuntimeError,
             "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");
     }
     // Adding 4 here, since for P150, the logical eth chan id stored at address 0x7CFE3 hides
@@ -174,7 +162,7 @@ void TopologyDiscoveryBlackhole::patch_eth_connections() {
         auto eth_core_noc0 = blackhole::ETH_CORES_NOC0[remote_channel];
         CoreCoord eth_core_coord = CoreCoord(eth_core_noc0.x, eth_core_noc0.y, CoreType::ETH, CoordSystem::NOC0);
         CoreCoord logical_coord =
-            get_soc_descriptor(remote_device_ptr).translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
+            remote_device_ptr->get_soc_descriptor().translate_coord_to(eth_core_coord, CoordSystem::LOGICAL);
 
         ethernet_connections_fixed.insert({{local_device, local_channel}, {remote_device, logical_coord.y}});
     }
@@ -191,7 +179,7 @@ void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 
-bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
     SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
     uint64_t current_device_asic_id = get_asic_id(tt_device);
 
@@ -231,7 +219,7 @@ uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_devi
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 
-uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t heartbeat_value = 0;
     tt_device->read_from_device(
         &heartbeat_value,
@@ -241,7 +229,7 @@ uint32_t TopologyDiscoveryBlackhole::get_eth_heartbeat(TTDevice* tt_device, tt_x
     return heartbeat_value;
 }
 
-uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, tt_xy_pair eth_core) {
+uint32_t TopologyDiscoveryBlackhole::get_eth_postcode(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t postcode = 0;
     tt_device->read_from_device(
         &postcode,

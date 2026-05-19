@@ -4,80 +4,46 @@
 
 #pragma once
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <iostream>
-#include <map>
+#include <iterator>
+#include <memory>
 #include <optional>
+#include <set>
 #include <string>
-#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-
-namespace YAML {
-class Node;
-}
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-
-std::string format_node(tt_xy_pair xy);
-
-tt_xy_pair format_node(const std::string& str);
-
-//! SocNodeDescriptor contains information regarding the Node/Core
-/*!
-    Should only contain relevant configuration for SOC
-*/
-struct CoreDescriptor {
-    tt_xy_pair coord = tt_xy_pair(0, 0);
-    CoreType type;
-
-    std::size_t l1_size = 0;
-};
-
-struct SocDescriptorInfo {
-    tt::ARCH arch;
-    tt_xy_pair grid_size;
-    std::vector<tt_xy_pair> tensix_cores;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;
-    std::vector<tt_xy_pair> eth_cores;
-    std::vector<tt_xy_pair> arc_cores;
-    std::vector<tt_xy_pair> pcie_cores;
-    std::vector<tt_xy_pair> router_cores;
-    std::vector<tt_xy_pair> security_cores;
-    std::vector<tt_xy_pair> l2cpu_cores;
-
-    uint32_t worker_l1_size;
-    uint32_t eth_l1_size;
-    uint64_t dram_bank_size;
-    std::vector<uint32_t> noc0_x_to_noc1_x;
-    std::vector<uint32_t> noc0_y_to_noc1_y;
-};
+class CoordinateManager;
+class SocArchDescriptor;
 
 //! SocDescriptor contains information regarding the SOC configuration targetted.
 /*!
-    Should only contain relevant configuration for SOC
+    Should only contain relevant configuration for SOC.
 */
 class SocDescriptor {
 public:
-    // Default constructor. Creates uninitialized object with public access to all of its attributes.
-    SocDescriptor() = default;
-    // Constructor used to build object from device descriptor file.
-    SocDescriptor(const std::string& device_descriptor_path, const ChipInfo chip_info = {});
-
-    SocDescriptor(const tt::ARCH arch, const ChipInfo chip_info = {});
+    SocDescriptor(std::shared_ptr<const SocArchDescriptor> arch_desc, const ChipInfo chip_info = {});
 
     // Helpers for extracting info from soc descriptor file.
     static tt::ARCH get_arch_from_soc_descriptor_path(const std::string& soc_descriptor_path);
     static tt_xy_pair get_grid_size_from_soc_descriptor_path(const std::string& soc_descriptor_path);
+
+    // Access the underlying static architecture descriptor.
+    const SocArchDescriptor& get_arch_descriptor() const;
 
     // CoreCoord conversions.
     CoreCoord translate_coord_to(const CoreCoord core_coord, const CoordSystem coord_system) const;
@@ -132,9 +98,12 @@ public:
     std::pair<int, int> get_dram_channel_for_core(
         const CoreCoord& core_coord, const CoordSystem coord_system = CoordSystem::NOC0) const;
 
+    // Public data members kept for backward compatibility (Phase 1).
+    // These are copied from the SocArchDescriptor at construction time.
+    // In a future phase, they will be replaced by getter methods.
     tt::ARCH arch;
     tt_xy_pair grid_size;
-    std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip..
+    std::vector<std::size_t> trisc_sizes;  // Most of software stack assumes same trisc size for whole chip.
     std::string device_descriptor_file_path = std::string("");
 
     int overlay_version;
@@ -159,22 +128,8 @@ public:
     HarvestingMasks harvesting_masks;
 
 private:
+    void init_from_arch_descriptor(const ChipInfo& chip_info);
     void create_coordinate_manager(const BoardType board_type, const uint8_t asic_location);
-    void get_cores_and_grid_size_from_coordinate_manager();
-    void load_from_yaml(YAML::Node& device_descriptor_yaml);
-    void load_from_soc_desc_info(const SocDescriptorInfo& soc_desc_info);
-    void load_core_descriptors_from_soc_desc_info(const SocDescriptorInfo& soc_desc_info);
-    void load_soc_features_from_soc_desc_info(const SocDescriptorInfo& soc_desc_info);
-
-    static std::vector<tt_xy_pair> convert_to_tt_xy_pair(const std::vector<std::string>& core_strings);
-    static std::vector<std::vector<tt_xy_pair>> convert_dram_cores_from_yaml(
-        YAML::Node& device_descriptor_yaml, const std::string& dram_core = "dram");
-
-    static SocDescriptorInfo get_soc_descriptor_info(tt::ARCH arch);
-
-    static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair>& cores);
-    std::vector<CoreCoord> translate_coordinates(
-        const std::vector<CoreCoord>& noc0_cores, const CoordSystem coord_system) const;
 
     static std::filesystem::path get_default_soc_descriptor_file_path();
 
@@ -183,35 +138,16 @@ private:
     void write_core_locations(void* out, const CoreType& core_type) const;
     void serialize_dram_cores(void* out, const std::vector<std::vector<CoreCoord>>& cores) const;
 
-    // Internal structures, read from yaml.
-    tt_xy_pair worker_grid_size;
-    std::unordered_map<tt_xy_pair, CoreDescriptor> cores;
-    std::vector<tt_xy_pair> arc_cores;
-    std::vector<tt_xy_pair> workers;
-    std::vector<tt_xy_pair> pcie_cores;
-    std::vector<std::vector<tt_xy_pair>> dram_cores;  // per channel list of dram cores
+    std::vector<CoreCoord> translate_coordinates(
+        const std::vector<CoreCoord>& noc0_cores, const CoordSystem coord_system) const;
 
-    std::unordered_map<tt_xy_pair, std::tuple<int, int>> dram_core_channel_map;  // map dram core to chan/subchan
-    std::vector<tt_xy_pair> ethernet_cores;                                      // ethernet cores (index == channel id)
-    std::unordered_map<tt_xy_pair, int> ethernet_core_channel_map;
-    std::vector<tt_xy_pair> router_cores;
-    std::vector<tt_xy_pair> security_cores;
-    std::vector<tt_xy_pair> l2cpu_cores;
-    std::vector<uint32_t> noc0_x_to_noc1_x;
-    std::vector<uint32_t> noc0_y_to_noc1_y;
+    // The static architecture descriptor (shared across chips of the same arch).
+    std::shared_ptr<const SocArchDescriptor> arch_desc_;
 
     // TODO: change this to unique pointer as soon as copying of SocDescriptor
     // is not needed anymore. Soc descriptor and coordinate manager should be
     // created once per chip.
     std::shared_ptr<CoordinateManager> coordinate_manager = nullptr;
-    std::map<CoreType, std::vector<CoreCoord>> cores_map;
-    std::map<CoreType, tt_xy_pair> grid_size_map;
-    std::map<CoreType, std::vector<CoreCoord>> harvested_cores_map;
-    std::map<CoreType, tt_xy_pair> harvested_grid_size_map;
-
-    // DRAM cores are kept in additional vector struct since one DRAM bank
-    // has multiple NOC endpoints, so some UMD clients prefer vector of vectors returned.
-    std::vector<std::vector<CoreCoord>> dram_cores_core_coord;
 };
 
 }  // namespace tt::umd

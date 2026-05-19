@@ -3,48 +3,69 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cassert>
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_io.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
 
 class ClusterDescriptor;
 class LocalChip;
 class RemoteChip;
+class PCIDevice;
+class TLBManager;
+class TlbWindow;
 
 /**
  * Chip type to create under the Cluster class.
  * - Silicon means that the chips under cluster will be connected to actual physical devices connected to the system.
  * - Simulation is used for simulation runs.
  * - Mock is used for testing purposes, implementation of all functions is empty.
+ * - SWEmule uses software emulation via tt-emule with memory-backed I/O and no physical hardware.
+ *   Requires TT_UMD_BUILD_EMULE=ON at build time.
  */
 enum ChipType {
     SILICON,
     SIMULATION,
     MOCK,
+    SWEMULE,
 };
 
 /**
@@ -60,8 +81,10 @@ struct ClusterOptions {
 
     /**
      * Number of host memory channels (hugepages) per MMIO device.
+     * If not provided, the value is determined automatically by determining the max
+     * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    uint32_t num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -73,13 +96,12 @@ struct ClusterOptions {
      * Used to constrain Cluster by specifying which chips should be present.
      * For chip_type == ChipType::MOCK, used to specify list of mock chips.
      * Uses logical IDs.
+     * This has no effect on SILICON chip type, use TT_VISIBLE_DEVICES instead.
      */
     std::unordered_set<ChipId> target_devices;
 
     /**
-     * If not passed, topology discovery will be ran and ClusterDescriptor will be constructed. If passed, and chip
-     * type is SILICON, the constructor will throw if cluster_descriptor configuration shows chips which don't exist on
-     * the system.
+     * Only used for SIMULATION and MOCK chip types. Throws an error if passed for SILICON.
      */
     ClusterDescriptor* cluster_descriptor = nullptr;
 
@@ -454,8 +476,12 @@ public:
      * @param size_in_bytes Size of data to write.
      * @param address Address to write to.
      * @param chips_to_exclude Chips to exclude from the broadcast.
-     * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
-     * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param rows_to_exclude Rows to exclude from the broadcast, in NOC0 space when
+     *                        @p use_translated_coords is false, or in translated-index space when true.
+     * @param columns_to_exclude Columns to exclude from the broadcast, in NOC0 space when
+     *                           @p use_translated_coords is false, or in translated-index space when true.
+     * @param use_translated_coords Selects the coordinate space of @p rows_to_exclude and
+     *                              @p columns_to_exclude; callers must supply values in the matching space.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -463,19 +489,8 @@ public:
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude);
-
-    /**
-     * Provide fast write access to a statically-mapped TLB.
-     * It is the caller's responsibility to ensure that
-     * - the target has a static TLB mapping configured.
-     * - the mapping is unchanged during the lifetime of the returned object.
-     * - the Cluster instance outlives the returned object.
-     * - use of the returned object is congruent with the target's TLB setup.
-     *
-     * @param target The target chip and core to write to.
-     */
-    Writer get_static_tlb_writer(const ChipId chip, const CoreCoord core);
+        std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords);
 
     /**
      * Provide fast read/write access to a statically-mapped TLB.
@@ -509,8 +524,9 @@ public:
      *
      * @param chip Chip to target.
      * @param channels Channels being targeted.
+     * @param subchannel DRAM subchannel to target (default 0).
      */
-    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels);
+    void dram_membar(const ChipId chip, const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0);
 
     /**
      * DRAM memory barrier.
@@ -570,6 +586,8 @@ public:
      * @param src_device_id Chip to target.
      */
     void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id);
+
+    void advance_device_execution(ChipId device_id);
 
     /**
      * Query number of memory channels on Host device allocated for a specific device during initialization.
@@ -702,6 +720,16 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
     void deassert_resets_and_set_power_state();
 
+    // Validates that the caller-supplied rows/columns lie in the coordinate space selected by
+    // @p use_translated_coords (NOC0 when false, translated-index when true) and emits their
+    // virtual-space equivalents used by the ethernet broadcast path.
+    static void adjust_coordinates_for_ethernet_broadcast(
+        const std::set<uint32_t>& rows_to_exclude,
+        const std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords,
+        std::set<uint32_t>& rows_to_exclude_virtual,
+        std::set<uint32_t>& cols_to_exclude_virtual);
+
     // Communication Functions.
     void ethernet_broadcast_write(
         const void* mem_ptr,
@@ -747,8 +775,8 @@ private:
     ClusterOptions options_;
 
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast = true;
-    bool use_translated_coords_for_eth_broadcast = true;
+    bool use_ethernet_broadcast = false;
+    bool use_translated_coords_for_eth_broadcast = false;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;
 };

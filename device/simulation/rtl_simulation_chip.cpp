@@ -4,12 +4,13 @@
 
 #include "umd/device/simulation/rtl_simulation_chip.hpp"
 
-#include <iostream>
-#include <string>
+#include <mutex>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 
-#include "assert.hpp"
 #include "tracy.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
@@ -22,11 +23,12 @@ RtlSimulationChip::RtlSimulationChip(
     int num_host_mem_channels) :
     SimulationChip(simulator_directory, soc_descriptor, chip_id),
     tt_device_(
-        std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels)) {
+        std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels)),
+    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
 }
 
-void RtlSimulationChip::start_device() {}
+void RtlSimulationChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void RtlSimulationChip::close_device() {}
 
@@ -65,6 +67,6 @@ void RtlSimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selec
     tt_device_->deassert_risc_reset(translate_core, selected_riscs, staggered_start);
 }
 
-TLBManager* RtlSimulationChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
+TLBManager* RtlSimulationChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 }  // namespace tt::umd

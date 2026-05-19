@@ -5,8 +5,10 @@
 #include "umd/device/types/tlb.hpp"
 
 #include <cstdint>
-#include <stdexcept>
+#include <string>
 #include <utility>
+
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -38,7 +40,7 @@ void pack_bits(std::uint64_t &lower, std::uint64_t &upper, std::uint64_t value, 
 
 std::pair<std::uint64_t, std::uint64_t> tlb_data::apply_offset(const tlb_offsets &offset) const {
     if (this->check(offset)) {
-        throw std::runtime_error("Invalid offsets for TLB index");
+        UMD_THROW(error::RuntimeError, "Invalid offsets for TLB index.");
     }
 
     std::uint64_t lower = 0;

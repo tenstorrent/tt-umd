@@ -4,10 +4,13 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "umd/device/types/arch.hpp"
@@ -16,6 +19,10 @@
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+
+namespace tt {
+enum class CoreType;
+}  // namespace tt
 
 namespace tt::umd {
 
@@ -104,6 +111,10 @@ public:
 
     // Whether static_vc should be used for tlb configuration.
     virtual bool get_static_vc() const = 0;
+
+    // Map a PCI bus id to a UBB tray id (1..4). Returns std::nullopt for archs without UBB
+    // boards or when the bus id does not correspond to a known tray.
+    virtual std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const { return std::nullopt; }
 };
 
 }  // namespace tt::umd

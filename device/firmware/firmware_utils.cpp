@@ -5,28 +5,21 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 
 #include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <iterator>
 #include <memory>
-#include <optional>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -80,7 +73,7 @@ SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARC
     return SemVer(0, 0, 0);
 }
 
-SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
+SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0: {
             uint32_t eth_fw_version_read;
@@ -98,7 +91,7 @@ SemVer get_eth_fw_version(TTDevice* tt_device, tt_xy_pair eth_core) {
             return SemVer(major, minor, patch);
         }
         default:
-            throw std::runtime_error("Getting ETH FW version is not supported for this device.");
+            UMD_THROW(error::RuntimeError, "Getting ETH FW version is not supported for this device.");
     }
 }
 

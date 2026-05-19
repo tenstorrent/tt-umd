@@ -4,13 +4,24 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <vector>
+
 #include "sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 
+namespace tt {
+enum class ARCH;
+}  // namespace tt
+
 namespace tt::umd {
+class PCIDevice;
+class TTDevice;
 
 class SysmemManager {
 public:
@@ -50,7 +61,7 @@ public:
 protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 
-    TLBManager* tlb_manager_ = nullptr;
+    PCIDevice* pci_device_ = nullptr;
     TTDevice* tt_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.
     uint64_t pcie_base_ = 0;

@@ -8,16 +8,15 @@
 
 #include <algorithm>
 #include <chrono>
-#include <stdexcept>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <utility>
 #include <vector>
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
@@ -151,7 +150,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
 
     auto* messenger = device_->get_arc_messenger();
     if (!messenger) {
-        throw std::runtime_error("ARC messenger not available for SPI read on Blackhole.");
+        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI read on Blackhole.");
     }
 
     auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
@@ -170,7 +169,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
             {chunk_addr, chunk_size, buffer_addr});
 
         if (rc != 0) {
-            throw std::runtime_error("Failed to read from SPI on Blackhole.");
+            UMD_THROW(error::RuntimeError, "Failed to read from SPI on Blackhole.");
         }
 
         // Read data from buffer.
@@ -188,7 +187,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 
     auto* messenger = device_->get_arc_messenger();
     if (!messenger) {
-        throw std::runtime_error("ARC messenger not available for SPI write on Blackhole.");
+        UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI write on Blackhole.");
     }
 
     auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
@@ -202,7 +201,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         uint32_t rc =
             messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
         if (rc != 0) {
-            throw std::runtime_error("Failed to unlock SPI for write on Blackhole (fw >= 19.0).");
+            UMD_THROW(error::RuntimeError, "Failed to unlock SPI for write on Blackhole (fw >= 19.0).");
         }
     }
 
@@ -232,7 +231,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
                     std::vector<uint32_t> lock_ret;
                     messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
                 }
-                throw std::runtime_error("Failed to write to SPI on Blackhole.");
+                UMD_THROW(error::RuntimeError, "Failed to write to SPI on Blackhole.");
             }
         }
 
@@ -244,7 +243,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         std::vector<uint32_t> lock_ret;
         uint32_t rc = messenger->send_message(static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
         if (rc != 0) {
-            throw std::runtime_error("Failed to lock SPI after write on Blackhole (fw >= 19.0).");
+            UMD_THROW(error::RuntimeError, "Failed to lock SPI after write on Blackhole (fw >= 19.0).");
         }
     }
 }
@@ -254,14 +253,14 @@ uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
     auto cmfwcfg_fd = find_boot_fs_tag("cmfwcfg");
 
     if (!cmfwcfg_fd.has_value()) {
-        throw std::runtime_error("cmfwcfg tag not found in boot FS table");
+        UMD_THROW(error::RuntimeError, "cmfwcfg tag not found in boot FS table.");
     }
 
     // Read the protobuf data from SPI.
     uint32_t proto_size = cmfwcfg_fd->flags.image_size();
 
     if (proto_size == 0 || proto_size > 1024 * 1024) {  // Sanity check: max 1MB
-        throw std::runtime_error("Invalid cmfwcfg size: " + std::to_string(proto_size));
+        UMD_THROW(error::RuntimeError, "Invalid cmfwcfg size: " + std::to_string(proto_size));
     }
 
     std::vector<uint8_t> proto_data(proto_size);
@@ -270,7 +269,7 @@ uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
     // Remove padding from protobuf data
     // Last byte indicates padding length.
     if (proto_data.empty()) {
-        throw std::runtime_error("Empty cmfwcfg data");
+        UMD_THROW(error::RuntimeError, "Empty cmfwcfg data.");
     }
 
     uint8_t last_byte = proto_data[proto_data.size() - 1];
@@ -280,7 +279,7 @@ uint32_t BlackholeSPITTDevice::get_spi_fw_bundle_version() {
     // Field number 1 corresponds to fw_bundle_version in the FwTable protobuf definition.
     auto fw_bundle_version = extract_protobuf_uint32_field(proto_data.data(), actual_size, 1);
     if (!fw_bundle_version.has_value()) {
-        throw std::runtime_error("fw_bundle_version field not found in cmfwcfg protobuf");
+        UMD_THROW(error::RuntimeError, "fw_bundle_version field not found in cmfwcfg protobuf.");
     }
 
     return *fw_bundle_version;

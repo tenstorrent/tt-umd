@@ -34,12 +34,10 @@ namespace tt::umd {
 FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
         SmBusArcTelemetryReader smbus_reader(tt_device);
-        smbus_reader.wait_for_telemetry_initialized();
         return FirmwareBundleVersion::from_firmware_bundle_tag(
             smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    telemetry->wait_for_telemetry_initialized();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
                ? FirmwareBundleVersion::from_firmware_bundle_tag(
                      telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))

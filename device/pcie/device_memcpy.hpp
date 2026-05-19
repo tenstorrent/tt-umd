@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 namespace tt::umd {
 
@@ -37,5 +38,16 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
  * Handles arbitrary alignment and size.
  */
 void memcpy_from_device(void* dest, const volatile void* src, std::size_t size);
+
+/**
+ * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Centralizing these
+ * here (alongside the bulk memcpy routines) keeps every TLB-touching store/load behind a
+ * single set of primitives that future improvements (per-op timeouts, instrumentation,
+ * etc.) can wrap uniformly.
+ */
+void write16_to_device(volatile void* dest, std::uint16_t value);
+void write32_to_device(volatile void* dest, std::uint32_t value);
+std::uint16_t read16_from_device(const volatile void* src);
+std::uint32_t read32_from_device(const volatile void* src);
 
 }  // namespace tt::umd

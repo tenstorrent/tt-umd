@@ -7,12 +7,20 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -41,7 +49,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     uint32_t value_check = 0;
 
@@ -87,7 +95,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
         val++;
     }
 
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     uint32_t value_check = 0;
 
@@ -136,7 +144,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
 
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
-    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -179,7 +187,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config_write;
@@ -223,7 +231,7 @@ TEST(TestTlb, TestTlbWindowReadWrite16) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -292,7 +300,7 @@ TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -346,7 +354,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     std::vector<uint8_t> write_pattern(0x100, 0);
     for (size_t i = 0; i < write_pattern.size(); ++i) {
@@ -409,7 +417,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device().get();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
 
     for (CoreCoord core : tensix_cores) {
         tlb_data config;
@@ -469,11 +477,11 @@ TEST(TestTlb, TLBStaticTensix) {
         cluster->configure_tlb(0, tensix_core, tlb_size, 0, tlb_data::Strict);
     }
 
-    Writer writer = cluster->get_static_tlb_writer(0, tensix_core_0);
+    TlbWindow* window = cluster->get_static_tlb_window(0, tensix_core_0);
 
     const int num_writes = 1024;
     for (int i = 0; i < num_writes; i++) {
-        writer.write(4 * i, i);
+        window->write32(4 * i, i);
     }
 
     std::vector<uint32_t> readback(num_writes, 0);

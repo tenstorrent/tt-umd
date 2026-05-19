@@ -6,13 +6,20 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
+#include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -22,6 +29,7 @@ TEST(TestTelemetry, BasicTelemetry) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
         if (tt_device->get_firmware_version() < FirmwareBundleVersion(18, 4, 0)) {
             log_warning(
@@ -39,6 +47,8 @@ TEST(TestTelemetry, BasicTelemetry) {
 
         const uint64_t board_id = ((uint64_t)board_id_high << 32) | (board_id_low);
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
+
+        tt_device->set_power_state(false);
     }
 }
 
@@ -47,6 +57,7 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
         ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
 
@@ -55,6 +66,8 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
 
         // Blackhole tag table is still not finalized, but we are probably never going to have 200 tags.
         EXPECT_FALSE(arc_telemetry_reader->is_entry_available(200));
+
+        tt_device->set_power_state(false);
     }
 }
 

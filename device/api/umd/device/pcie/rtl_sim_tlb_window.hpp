@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <memory>
 
 #include "umd/device/pcie/tlb_window.hpp"
@@ -11,6 +13,8 @@
 namespace tt::umd {
 
 class RtlSimCommunicator;
+class TlbHandle;
+struct tlb_data;
 
 /**
  * RTL simulation TlbWindow implementation that translates TLB-based memory access
@@ -33,9 +37,6 @@ public:
 
     void safe_write16(uint64_t offset, uint16_t value) override;
     uint16_t safe_read16(uint64_t offset) override;
-
-protected:
-    tt::ARCH get_arch() const override;
 
 private:
     /**

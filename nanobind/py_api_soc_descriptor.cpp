@@ -14,6 +14,12 @@
 #include "umd/device/types/core_coordinates.hpp"
 
 namespace nb = nanobind;
+// Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
+// allowing other Python threads to run in parallel while this binding executes. Pass
+// release_gil() as a call guard to nb::class_::def() on methods that don't touch the
+// Python interpreter (e.g. blocking device I/O), so callers can drive UMD concurrently
+// from multiple Python threads.
+using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 using namespace tt;
 using namespace tt::umd;
@@ -33,8 +39,11 @@ void bind_soc_descriptor(nb::module_ &m) {
         .value("HARVESTED", CoreType::HARVESTED)
         .value("ETH", CoreType::ETH)
         .value("WORKER", CoreType::WORKER)
-        .def("__str__", [](CoreType ct) { return to_str(ct); })
-        .def("__repr__", [](CoreType ct) { return "CoreType." + to_str(ct); });
+        .value("UNSPECIFIED", CoreType::UNSPECIFIED)
+        .def(
+            "__str__", [](CoreType ct) { return to_str(ct); }, release_gil())
+        .def(
+            "__repr__", [](CoreType ct) { return "CoreType." + to_str(ct); }, release_gil());
 
     // Bind CoordSystem enum.
     nb::enum_<CoordSystem>(m, "CoordSystem")
@@ -42,8 +51,11 @@ void bind_soc_descriptor(nb::module_ &m) {
         .value("NOC0", CoordSystem::NOC0)
         .value("TRANSLATED", CoordSystem::TRANSLATED)
         .value("NOC1", CoordSystem::NOC1)
-        .def("__str__", [](CoordSystem cs) { return to_str(cs); })
-        .def("__repr__", [](CoordSystem cs) { return "CoordSystem." + to_str(cs); });
+        .value("LITERAL", CoordSystem::LITERAL)
+        .def(
+            "__str__", [](CoordSystem cs) { return to_str(cs); }, release_gil())
+        .def(
+            "__repr__", [](CoordSystem cs) { return "CoordSystem." + to_str(cs); }, release_gil());
 
     // Bind CoreCoord struct.
     nb::class_<CoreCoord>(m, "CoreCoord")
@@ -52,24 +64,27 @@ void bind_soc_descriptor(nb::module_ &m) {
             nb::arg("x"),
             nb::arg("y"),
             nb::arg("core_type"),
-            nb::arg("coord_system"))
+            nb::arg("coord_system"),
+            release_gil())
         .def_ro("x", &CoreCoord::x)
         .def_ro("y", &CoreCoord::y)
         .def_ro("core_type", &CoreCoord::core_type)
         .def_ro("coord_system", &CoreCoord::coord_system)
-        .def("__str__", &CoreCoord::str)
-        .def("__repr__", [](const CoreCoord &cc) { return cc.str(); })
-        .def("__eq__", &CoreCoord::operator==)
-        .def("__lt__", &CoreCoord::operator<);
+        .def("__str__", &CoreCoord::str, release_gil())
+        .def(
+            "__repr__", [](const CoreCoord &cc) { return cc.str(); }, release_gil())
+        .def("__eq__", &CoreCoord::operator==, release_gil())
+        .def("__lt__", &CoreCoord::operator<, release_gil());
 
     // Bind SocDescriptor class.
     nb::class_<SocDescriptor>(m, "SocDescriptor")
         .def(
             "__init__",
             [](SocDescriptor *soc_desc, TTDevice &tt_device) {
-                new (soc_desc) SocDescriptor(tt_device.get_arch(), tt_device.get_chip_info());
+                new (soc_desc) SocDescriptor(tt_device.get_soc_descriptor());
             },
             nb::arg("tt_device"),
+            release_gil(),
             "Create a SocDescriptor from a TTDevice")
         .def(
             "get_cores",
@@ -77,22 +92,26 @@ void bind_soc_descriptor(nb::module_ &m) {
             nb::arg("core_type"),
             nb::arg("coord_system") = CoordSystem::NOC0,
             nb::arg("channel") = std::nullopt,
+            release_gil(),
             "Get all cores of a specific type in the specified coordinate system")
         .def(
             "get_harvested_cores",
             &SocDescriptor::get_harvested_cores,
             nb::arg("core_type"),
             nb::arg("coord_system") = CoordSystem::NOC0,
+            release_gil(),
             "Get all harvested cores of a specific type in the specified coordinate system")
         .def(
             "get_all_cores",
             &SocDescriptor::get_all_cores,
             nb::arg("coord_system") = CoordSystem::NOC0,
+            release_gil(),
             "Get all cores in the specified coordinate system")
         .def(
             "get_all_harvested_cores",
             &SocDescriptor::get_all_harvested_cores,
             nb::arg("coord_system") = CoordSystem::NOC0,
+            release_gil(),
             "Get all harvested cores in the specified coordinate system")
         .def(
             "serialize_to_file",
@@ -101,18 +120,21 @@ void bind_soc_descriptor(nb::module_ &m) {
                 return file_path.string();
             },
             nb::arg("dest_file") = "",
+            release_gil(),
             "Serialize the soc descriptor to a YAML file")
         .def(
             "get_eth_cores_for_channels",
             &SocDescriptor::get_eth_cores_for_channels,
             nb::arg("eth_channels"),
             nb::arg("coord_system") = CoordSystem::NOC0,
+            release_gil(),
             "Get ethernet cores for specified channels in the specified coordinate system")
         .def(
             "translate_coord_to",
             nb::overload_cast<const CoreCoord, const CoordSystem>(&SocDescriptor::translate_coord_to, nb::const_),
             nb::arg("core_coord"),
             nb::arg("coord_system"),
+            release_gil(),
             "Translate a CoreCoord to the specified coordinate system")
         .def(
             "translate_coord_to",
@@ -121,21 +143,25 @@ void bind_soc_descriptor(nb::module_ &m) {
             nb::arg("core_location"),
             nb::arg("input_coord_system"),
             nb::arg("target_coord_system"),
+            release_gil(),
             "Translate a tt_xy_pair from one coordinate system to another")
         .def(
             "translate_chip_coord_to_translated",
             &SocDescriptor::translate_chip_coord_to_translated,
             nb::arg("core"),
+            release_gil(),
             "Translate a chip coordinate to translated coordinate system in tt_xy_pair")
         .def(
             "translate_chip_coord_to_translated_coord",
             &SocDescriptor::translate_chip_coord_to_translated_coord,
             nb::arg("core"),
+            release_gil(),
             "Translate a chip coordinate to the correct pre-translation coordinates for device access")
         .def(
             "get_coord_at",
             &SocDescriptor::get_coord_at,
             nb::arg("core"),
             nb::arg("coord_system"),
+            release_gil(),
             "Get a CoreCoord at the given tt_xy_pair location in the specified coordinate system");
 }

@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <fmt/core.h>
 #include <fmt/format.h>
 
 #include <cstdint>
@@ -13,6 +12,7 @@
 #include <unordered_map>
 
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 // Types in this file can be used without using the driver, hence they aren't in tt::umd namespace.
@@ -34,7 +34,7 @@ enum BoardType : uint32_t {
     UBB,
     UBB_WORMHOLE = UBB,
     UBB_BLACKHOLE,
-    QUASAR,
+    QUASAR_BOARD,
     UNKNOWN,
 };
 
@@ -50,7 +50,7 @@ static_assert(GALAXY == 8, "GALAXY must be 8");
 static_assert(UBB == 9, "UBB must be 9");
 static_assert(UBB_WORMHOLE == 9, "WH_UBB must equal UBB");
 static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
-static_assert(QUASAR == 11, "QUASAR must be 11");
+static_assert(QUASAR_BOARD == 11, "QUASAR must be 11");
 static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
 
 // Small performant hash combiner taken from boost library.
@@ -108,7 +108,7 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
     {"ubb", BoardType::UBB},
     {"ubb_blackhole", BoardType::UBB_BLACKHOLE},
     {"ubb_wormhole", BoardType::UBB_WORMHOLE},
-    {"quasar", BoardType::QUASAR},
+    {"quasar", BoardType::QUASAR_BOARD},
     {"unknown", BoardType::UNKNOWN},
     // Aliases (input only).
     {"p150a", BoardType::P150},
@@ -130,7 +130,7 @@ inline const std::unordered_map<BoardType, std::string_view> board_type_canonica
     {BoardType::UBB, "ubb"},
     {BoardType::UBB_BLACKHOLE, "ubb_blackhole"},
     {BoardType::UBB_WORMHOLE, "ubb_wormhole"},
-    {BoardType::QUASAR, "quasar"},
+    {BoardType::QUASAR_BOARD, "quasar"},
     {BoardType::UNKNOWN, "unknown"},
 };
 
@@ -138,7 +138,7 @@ inline std::string board_type_to_string(const BoardType board_type) {
     if (auto it = board_type_canonical_name_map.find(board_type); it != board_type_canonical_name_map.end()) {
         return std::string(it->second);
     }
-    throw std::runtime_error("Unknown board type passed for conversion to string.");
+    UMD_THROW(umd::error::RuntimeError, "Unknown board type passed for conversion to string.");
 }
 
 inline BoardType board_type_from_string(std::string_view board_type_str) {
@@ -160,7 +160,7 @@ enum BlackholeChipType : uint32_t {
 inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, const uint8_t asic_location) {
     if (asic_location != 0) {
         if (board_type != BoardType::P300) {
-            throw std::runtime_error("Remote chip is supported only for Blackhole P300 board.");
+            UMD_THROW(umd::error::RuntimeError, "Remote chip is supported only for Blackhole P300 board.");
         }
     }
 
@@ -176,11 +176,12 @@ inline BlackholeChipType get_blackhole_chip_type(const BoardType board_type, con
                 case 1:
                     return BlackholeChipType::Type1;
                 default:
-                    throw std::runtime_error(
-                        "Invalid asic location for Blackhole P300 board: " + std::to_string(asic_location));
+                    UMD_THROW(
+                        umd::error::RuntimeError,
+                        "Invalid ASIC location for Blackhole P300 board: " + std::to_string(asic_location));
             }
         default:
-            throw std::runtime_error("Invalid board type for Blackhole architecture.");
+            UMD_THROW(umd::error::RuntimeError, "Invalid board type for Blackhole architecture.");
     }
 }
 
@@ -199,8 +200,10 @@ inline uint32_t get_number_of_chips_from_board_type(const BoardType board_type) 
         case BoardType::UBB:
         case BoardType::UBB_BLACKHOLE:
             return 32;
+        case BoardType::QUASAR_BOARD:  // Mock device only
+            return 1;
         default:
-            throw std::runtime_error("Unknown board type for number of chips calculation.");
+            UMD_THROW(umd::error::RuntimeError, "Unknown board type.");
     }
 }
 
@@ -217,7 +220,8 @@ inline const std::unordered_map<uint64_t, BoardType> board_upi_map = {
     {0x14, BoardType::N300},
     // TODO: move 0x35 constant to be equal to UBB_WORMHOLE once we delete UBB.
     {0x35, BoardType::UBB},
-    {0x47, BoardType::UBB_BLACKHOLE}};
+    {0x47, BoardType::UBB_BLACKHOLE},
+    {0x50, BoardType::QUASAR_BOARD}};  // Fictional board UPI for Quasar mock device
 
 inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
     uint64_t upi = (board_id >> 36) & 0xFFFFF;
@@ -227,7 +231,7 @@ inline BoardType get_board_type_from_board_id(const uint64_t board_id) {
         return board_type_it->second;
     }
 
-    throw std::runtime_error(fmt::format("No existing board type for board id 0x{:x}", board_id));
+    UMD_THROW(umd::error::RuntimeError, fmt::format("No existing board type for board ID: {:#x}", board_id));
 }
 
 static const std::unordered_map<BoardType, uint32_t> expected_tensix_harvested_units_map = {

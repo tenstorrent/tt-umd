@@ -6,6 +6,21 @@
 """Tests for Python bindings of UMD logging configuration."""
 
 import pytest
+import tt_umd
+
+
+@pytest.fixture(autouse=True)
+def _restore_log_level():
+    """Save the global logging level and restore it after each test.
+
+    set_level() is process-global, so a test that ends with Level.Off would
+    silence all subsequent tests' C++ logs. Snapshotting before and restoring
+    after keeps tests independent.
+    """
+    saved = tt_umd.logging.get_level()
+    # Note that the way pytest fixtures work, you should put initialization code before the yield and cleanup code after. The test will run at the point of the yield statement.
+    yield
+    tt_umd.logging.set_level(saved)
 
 
 def test_logging_level_enum():

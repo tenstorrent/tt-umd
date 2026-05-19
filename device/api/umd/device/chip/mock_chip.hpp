@@ -4,15 +4,26 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <unordered_set>
+#include <vector>
+
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class SocDescriptor;
+
 class MockChip : public Chip {
 public:
     MockChip(SocDescriptor soc_descriptor);
     bool is_mmio_capable() const override;
 
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     TTDevice* get_tt_device() override;
@@ -24,8 +35,8 @@ public:
     void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) override;
     void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) override;
 
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
@@ -44,7 +55,7 @@ public:
     void wait_for_non_mmio_flush() override;
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
     void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;

@@ -61,6 +61,7 @@ enum TelemetryTag : uint8_t {
     MAX_GDDR_TEMP = 51,
     ASIC_LOCATION = 52,
     BOARD_POWER_LIMIT = 53,
+    INPUT_POWER = 54,
     TDC_LIMIT_MAX = 55,
     THM_LIMIT_THROTTLE = 56,
     TT_FLASH_VERSION = 58,
@@ -69,7 +70,11 @@ enum TelemetryTag : uint8_t {
     ASIC_ID_LOW = 62,
     AICLK_LIMIT_MAX = 63,
     TDP_LIMIT_MAX = 64,
-    NUMBER_OF_TAGS = 65,
+    AICLK_ARB_MIN = 65,
+    AICLK_ARB_MAX = 66,
+    ENABLED_MIN_ARB = 67,
+    ENABLED_MAX_ARB = 68,
+    NUMBER_OF_TAGS = 69,
 };
 
 }  // namespace tt::umd

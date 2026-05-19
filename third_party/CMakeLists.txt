@@ -17,7 +17,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 ####################################################################################################################
 if(TT_UMD_BUILD_TESTS)
     CPMAddPackage(
-        NAME googletest
+        NAME GTest
         GITHUB_REPOSITORY google/googletest
         GIT_TAG v1.13.0
         VERSION 1.13.0
@@ -25,7 +25,7 @@ if(TT_UMD_BUILD_TESTS)
         OPTIONS
             "INSTALL_GTEST OFF"
     )
-    if(googletest_ADDED)
+    if(GTest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
     endif()
 endif()
@@ -118,7 +118,7 @@ endif()
 # fmt : https://github.com/fmtlib/fmt
 ###################################################################################################################
 
-CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
 
 ###################################################################################################################
 # nanobench (for uBenchmarking)
@@ -140,6 +140,7 @@ CPMAddPackage(
         "SPDLOG_FMT_EXTERNAL_HO ON"
         "SPDLOG_INSTALL ON"
         "BUILD_SHARED_LIBS OFF"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 ####################################################################################################################
@@ -165,7 +166,7 @@ CPMAddPackage(
 ####################################################################################################################
 if(CPM_LOCAL_PACKAGES_ONLY)
     # When using only local packages, CPM uses "find_package".
-    # nanobind wants python included before CPM calls "find_package". 
+    # nanobind wants python included before CPM calls "find_package".
     find_package(
         Python
         COMPONENTS
@@ -183,35 +184,6 @@ CPMAddPackage(
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
 )
-
-####################################################################################################################
-# picosha2
-####################################################################################################################
-if(NOT CPM_LOCAL_PACKAGES_ONLY)
-    CPMAddPackage(
-        NAME picosha2
-        GITHUB_REPOSITORY okdshin/PicoSHA2
-        GIT_TAG v1.0.1
-        SYSTEM YES
-        OPTIONS
-            "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
-        DOWNLOAD_ONLY YES
-    )
-endif()
-
-if(CPM_LOCAL_PACKAGES_ONLY AND NOT DEFINED picosha2_SOURCE_DIR)
-    message(
-        FATAL_ERROR
-        "CPM_LOCAL_PACKAGES_ONLY is ON, but picosha2_SOURCE_DIR is not defined. Please provide the path to the PicoSHA2 source."
-    )
-endif()
-
-if(picosha2_ADDED OR CPM_LOCAL_PACKAGES_ONLY)
-    # picosha2 is header-only, create an interface library
-    add_library(picosha2 INTERFACE)
-    target_include_directories(picosha2 SYSTEM INTERFACE ${picosha2_SOURCE_DIR})
-    add_library(picosha2::picosha2 ALIAS picosha2)
-endif()
 
 ####################################################################################################################
 # asio (Standalone)
@@ -249,5 +221,20 @@ if(TT_UMD_ENABLE_TRACY)
         SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    )
+endif()
+
+############################################################################################################################
+# tt-emule (software emulation support)
+############################################################################################################################
+if(TT_UMD_BUILD_EMULE)
+    # NOTE: CPM will fetch tt-emule from GitHub. If you don't have access to the
+    # tenstorrent/tt-emule repo, set TT_EMULE_PATH to a local checkout instead.
+    CPMAddPackage(
+        NAME tt_emule
+        GITHUB_REPOSITORY tenstorrent/tt-emule
+        GIT_TAG acf8473de76a3138086acfd3e48aa2748a025126
+        SYSTEM YES
+        EXCLUDE_FROM_ALL YES
     )
 endif()

@@ -4,37 +4,30 @@
 
 // This file holds RISC processor specific API tests for brisc, ncrisc, and other RISC cores.
 
-#include <fmt/format.h>
-#include <fmt/xchar.h>
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
-#include <iostream>
 #include <memory>
 #include <optional>
-#include <random>
-#include <sstream>
-#include <stdexcept>
+#include <set>
 #include <string>
-#include <unordered_map>
+#include <tuple>
 #include <unordered_set>
 #include <vector>
 
+#include "test_utils/assembly_programs_for_tests.hpp"
 #include "test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/grendel_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
-#include "umd/device/warm_reset.hpp"
-#include "utils.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
 
 using namespace tt::umd;
 
@@ -47,7 +40,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t readback = 0;
 
@@ -71,6 +64,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 simple_brisc_program.data(),
                 simple_brisc_program.size() * sizeof(uint32_t),
@@ -106,7 +100,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
     constexpr uint64_t counter_address = 0x10000;
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;
@@ -124,6 +118,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
 
             cluster->assert_risc_reset(chip_id, tensix_core, select_all_tensix_riscv_cores);
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 counter_brisc_program.data(),
                 counter_brisc_program.size() * sizeof(uint32_t),
@@ -192,7 +187,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
     const auto& configurations_of_risc_cores = GetParam();
 
-    constexpr uint64_t brisc_code_address = 0;
+    constexpr uint64_t brisc_code_address = 0x20;
 
     uint32_t first_readback_value = 0;
     uint32_t second_readback_value = 0;
@@ -221,6 +216,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
 
             cluster->l1_membar(chip_id, {tensix_core});
 
+            cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
             cluster->write_to_device(
                 brisc_configuration_program.value().data(),
                 brisc_configuration_program.value().size() * sizeof(uint32_t),
@@ -318,57 +314,36 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     cluster->close_device();
 }
 
-TEST(TestRiscProgram, DISABLED_EriscFirmwareHashCheck) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
-
-    auto eth_fw_version = cluster->get_ethernet_firmware_version();
-    if (!eth_fw_version.has_value()) {
-        GTEST_SKIP() << "No ETH cores in Cluster. Skipping test.";
-    }
-    auto first_chip = cluster->get_chip(*cluster->get_target_device_ids().begin());
-    auto first_eth_core = first_chip->get_soc_descriptor().get_cores(tt::CoreType::ETH)[0];
-
-    const std::unordered_map<SemVer, erisc_firmware::HashedAddressRange>* eth_fw_hashes = nullptr;
-    switch (first_chip->get_tt_device()->get_arch()) {
-        case ARCH::WORMHOLE_B0:
-            eth_fw_hashes = &erisc_firmware::WH_ERISC_FW_HASHES;
-            break;
-        case ARCH::BLACKHOLE:
-            eth_fw_hashes = &erisc_firmware::BH_ERISC_FW_HASHES;
-            break;
-        default:
-            GTEST_SKIP() << "Unsupported architecture for test.";
+// Mirrors SimpleApiTest from tests/simulation/test_simulation_device.cpp:
+// a basic write/read loopback on the first TENSIX core followed by assert/deassert
+// of a variety of RiscType masks (ALL_TENSIX, ALL_NEO_DMS, BRISC, custom DM bitmask).
+// Sim-only: silicon liveness validation would require an arch-specific RISC program;
+// this only confirms the API accepts the masks without throwing.
+TEST(TestRiscProgram, SimpleApiTest) {
+    if (!is_simulation_test()) {
+        GTEST_SKIP() << "SimpleApiTest is currently sim-only.";
     }
 
-    // Check hash without changes, should pass.
-    std::cout << "Checking ETH FW without changes." << std::endl;
-    auto result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
-    if (!result.has_value()) {
-        GTEST_SKIP() << "No known hash for found ETH firmware version.";
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+
+    for (auto chip_id : cluster->get_target_device_ids()) {
+        const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
+        const CoreCoord core = soc_desc.get_cores(CoreType::TENSIX)[0];
+
+        std::vector<uint32_t> wdata = {1, 2, 3, 4, 5};
+        std::vector<uint32_t> rdata(wdata.size(), 0);
+
+        cluster->write_to_device(wdata.data(), wdata.size() * sizeof(uint32_t), chip_id, core, 0x100);
+        cluster->read_from_device(rdata.data(), chip_id, core, 0x100, rdata.size() * sizeof(uint32_t));
+        ASSERT_EQ(wdata, rdata);
+
+        cluster->assert_risc_reset(chip_id, core, RiscType::ALL_TENSIX);
+        cluster->assert_risc_reset(chip_id, core, RiscType::ALL_NEO_DMS);
+        cluster->deassert_risc_reset(chip_id, core, RiscType::BRISC, /*staggered_start=*/true);
+        cluster->deassert_risc_reset(chip_id, core, RiscType::ALL_NEO_DMS, /*staggered_start=*/true);
+
+        const RiscType example_dm_cores = RiscType::DM0 | RiscType::DM1 | RiscType::DM7;
+        cluster->assert_risc_reset(chip_id, core, example_dm_cores);
+        cluster->deassert_risc_reset(chip_id, core, example_dm_cores, /*staggered_start=*/true);
     }
-    ASSERT_EQ(result, true);
-    std::cout << "Passed hash check." << std::endl;
-
-    // Corrupt a part of ERISC FW code.
-    std::cout << fmt::format("Corrupting ETH core {} firmware.", first_eth_core.str()) << std::endl;
-    const erisc_firmware::HashedAddressRange& range = eth_fw_hashes->find(eth_fw_version.value())->second;
-    size_t start_addr = range.start_address;
-    std::vector<uint32_t> ebreak_instr_vector(32, 0x00100073);
-
-    first_chip->assert_risc_reset(RiscType::ALL);
-    first_chip->write_to_device(first_eth_core, ebreak_instr_vector.data(), start_addr, ebreak_instr_vector.size());
-    first_chip->l1_membar(std::unordered_set<CoreCoord>{first_eth_core});
-    first_chip->deassert_risc_reset(RiscType::ALL, false);
-
-    result = verify_eth_fw_integrity(first_chip->get_tt_device(), first_eth_core, eth_fw_version.value());
-    EXPECT_EQ(result.value(), false);
-    std::cout << "Passed hash check." << std::endl;
-
-    // Revert ERISC FW state with warm reset.
-    if (is_galaxy_configuration(cluster.get())) {
-        WarmReset::ubb_warm_reset();
-    } else {
-        WarmReset::warm_reset();
-    }
-    std::cout << "Completed warm reset." << std::endl;
 }

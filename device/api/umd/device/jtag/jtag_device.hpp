@@ -8,10 +8,15 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/types/arch.hpp"
+
+class Jtag;
 
 typedef enum { DEVICE_FAMILY_UNKNOWN, DEVICE_FAMILY_WORMHOLE, DEVICE_FAMILY_BLACKHOLE } DeviceFamily;
 
@@ -27,7 +32,7 @@ public:
     explicit JtagDevice(std::unique_ptr<Jtag> jtag_device, const std::unordered_set<int>& jtag_target_devices = {});
     ~JtagDevice();
 
-    static std::shared_ptr<JtagDevice> create(
+    static std::unique_ptr<JtagDevice> create(
         const std::filesystem::path& binary_directory = jtag_library_path,
         const std::unordered_set<int>& jtag_target_devices = {});
 

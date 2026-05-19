@@ -24,28 +24,156 @@ on:
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
   pull_request:
+  merge_group:
   push:
     branches: ["main"]
 
+# Granted to all jobs that don't declare their own `permissions:` block.
+# `actions: write` is required so the merge-queue fail-fast watchers (inside
+# build-and-run-all-tests.yml) can call the cancel-workflow API.
+# `contents: read` and `packages: read` mirror the GitHub-default set the
+# build/test reusable workflows rely on (checkout, ghcr.io image pulls).
+permissions:
+  contents: read
+  actions: write
+  packages: read
+
 jobs:
-  build-and-run-all-tests:
-    name: ""
+  # Ensure the Docker image for CI exists. If the Dockerfile (or its
+  # install scripts) changed on this branch the image is rebuilt and pushed
+  # with a content-hash tag.  Otherwise the existing image is reused.
+  ensure-image:
+    name: Ensure Docker image
+    permissions:
+      packages: write
     secrets: inherit
-    strategy:
-      fail-fast: false
-      matrix:
-        # By default we run ASan build on PRs since it adds a marginal perf hit compared to normal Release build
-        # but is very useful in catching memory access bugs, and additionally it runs all asserts which are normally
-        # optimized out in the Release.
-        # We run both ASan and TSan build on push events to main. TSan is slower but catches hard race condition bugs.
-        # When workflow is requested, all the requested build-types are run.
-        build-type: ${{ fromJson(github.event_name == 'pull_request' && '["ASan"]' ||
-                                 github.event_name == 'push' && '["ASan", "TSan"]' ||
-                                 github.event_name == 'workflow_dispatch' && github.event.inputs['build-types']) }}
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04
+
+  # On pull_request, only Release should run. But GitHub applies the same required-status-check
+  # rules to PRs and merge queues — if a check is required for merge_group it must also be
+  # present on the PR. Skipped jobs count as passing, so all jobs are defined for all events
+  # but their if-conditions gate which ones actually execute per event type:
+  #
+  #   pull_request/push:      Release
+  #   merge_group:  Release, ASan, TSan
+  #   workflow_dispatch: whichever build-types the caller requests
+  #
+  # The merge queue policy is the strictest, and is the real guard against regressions.
+  # On pull requests we run only Release to get faster feedback.
+  # On main we also run only Release to maintain a consistent baseline, but don't want to spend resources
+  # on extensive testing at this point.
+
+  build-release:
+    name: "Build and Test (Release)"
+    needs: ensure-image
+    # Skipped: (none)
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'merge_group' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'Release'))
+    secrets: inherit
     uses: ./.github/workflows/build-and-run-all-tests.yml
     with:
-      build-type: ${{ matrix.build-type }}
-      # Debug and TSan builds are slower, so give them more time to run.
-      timeout: ${{ (matrix.build-type == 'Debug' || matrix.build-type == 'TSan') && 50 || 25 }}
+      build-type: Release
+      timeout: 25
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-asan:
+    name: "Build and Test (ASan)"
+    needs: ensure-image
+    # Skipped: pull_request, push
+    if: >-
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'ASan'))
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: ASan
+      timeout: 25
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-tsan:
+    name: "Build and Test (TSan)"
+    needs: ensure-image
+    # Skipped: pull_request, push
+    if: >-
+      github.event_name == 'merge_group' ||
+      (github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'TSan'))
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: TSan
+      timeout: 50
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-relwithdebinfo:
+    name: "Build and Test (RelWithDebInfo)"
+    needs: ensure-image
+    # Skipped: pull_request, merge_group, push
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'RelWithDebInfo')
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: RelWithDebInfo
+      timeout: 25
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  build-debug:
+    name: "Build and Test (Debug)"
+    needs: ensure-image
+    # Skipped: pull_request, merge_group, push
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      contains(fromJson(github.event.inputs['build-types']), 'Debug')
+    secrets: inherit
+    uses: ./.github/workflows/build-and-run-all-tests.yml
+    with:
+      build-type: Debug
+      timeout: 50
+      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      triggering-event: ${{ github.event_name }}
+      log-params: |
+        echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
+
+  # Single leaf check that can be required in branch rulesets.
+  # Treats skipped jobs as passing (expected on pull_request), fails on failure or cancellation.
+  all-builds-passed:
+    name: All builds and tests passed
+    runs-on: ubuntu-latest
+    needs: [build-release, build-asan, build-tsan, build-relwithdebinfo, build-debug]
+    if: always()
+    steps:
+      - name: Check no job failed or was cancelled
+        run: |
+          echo "build-release:        ${{ needs.build-release.result }}"
+          echo "build-asan:           ${{ needs.build-asan.result }}"
+          echo "build-tsan:           ${{ needs.build-tsan.result }}"
+          echo "build-relwithdebinfo: ${{ needs.build-relwithdebinfo.result }}"
+          echo "build-debug:          ${{ needs.build-debug.result }}"
+          results="${{ join(needs.*.result, ' ') }}"
+          for r in $results; do
+            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
+              echo "A required job failed or was cancelled."
+              exit 1
+            fi
+          done

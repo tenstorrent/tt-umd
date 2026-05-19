@@ -9,6 +9,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 
 namespace tt::umd {
+class TTDevice;
 
 class WormholeArcTelemetryReader : public ArcTelemetryReader {
 public:

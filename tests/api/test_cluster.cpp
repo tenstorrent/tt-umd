@@ -6,26 +6,35 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
-#include <filesystem>
+#include <iostream>
+#include <map>
 #include <memory>
 #include <optional>
-#include <random>
+#include <set>
 #include <string>
-#include <unordered_set>
+#include <utility>
 #include <vector>
 
-#include "test_utils/setup_risc_cores.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
-#include "utils.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/semver.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // These tests are intended to be run with the same code on all kinds of systems:
@@ -33,7 +42,7 @@ using namespace tt::umd;
 // Galaxy.
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(); }
 
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
@@ -105,6 +114,11 @@ TEST(TestCluster, TestClusterAICLKControl) {
     }
 }
 
+TEST(TestCluster, RefreshClusterDescriptionDoesNotThrow) {
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    EXPECT_NO_THROW(cluster->refresh_cluster_description());
+}
+
 TEST(TestCluster, GetEthernetFirmware) {
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
 
@@ -115,5 +129,44 @@ TEST(TestCluster, GetEthernetFirmware) {
         EXPECT_FALSE(eth_version.has_value());
     } else {
         EXPECT_TRUE(eth_version.has_value());
+    }
+}
+
+TEST(TestCluster, TestDifferentPowerModes) {
+    {
+        if (PCIDevice::get_pcie_arch() != tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "Different power modes is supported only for Blackhole.";
+        }
+    }
+
+    {
+        TopologyDiscoveryOptions default_options;
+        auto [desc_default, devices_default] = TopologyDiscovery::discover(default_options);
+        for (auto& [chip_id, tt_device] : devices_default) {
+            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
+            std::cout << "Default mode - Chip " << chip_id << " power: " << power << std::endl;
+        }
+    }
+
+    {
+        TopologyDiscoveryOptions power_options;
+        power_options.low_power = true;
+        auto [desc_low_power, devices_low_power] = TopologyDiscovery::discover(power_options);
+        for (auto& [chip_id, tt_device] : devices_low_power) {
+            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
+            std::cout << "Low power mode - Chip " << chip_id << " power: " << power << std::endl;
+        }
+    }
+
+    {
+        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        for (ChipId chip_id : cluster->get_target_device_ids()) {
+            TTDevice* tt_device = cluster->get_tt_device(chip_id);
+            ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();
+            uint32_t power = telemetry_reader->read_entry(TelemetryTag::INPUT_POWER);
+            std::cout << "Cluster mode - Chip " << chip_id << " power: " << power << std::endl;
+        }
     }
 }

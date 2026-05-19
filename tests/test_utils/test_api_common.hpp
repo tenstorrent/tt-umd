@@ -9,6 +9,10 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
@@ -105,4 +109,45 @@ inline bool has_remote_chips() {
 
 inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
 
+// Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores
+// in translated coordinates for the given SoC descriptor.
+inline std::vector<CoreCoord> get_tensix_corners(const SocDescriptor& soc_desc) {
+    const auto cores = soc_desc.get_cores(tt::CoreType::TENSIX, tt::CoordSystem::TRANSLATED);
+    if (cores.empty()) {
+        throw std::runtime_error("No TENSIX cores found in SoC descriptor");
+    }
+    CoreCoord top_left = cores[0];
+    CoreCoord bottom_right = cores[0];
+    for (const auto& core : cores) {
+        if (core.x < top_left.x || core.y < top_left.y) {
+            top_left = core;
+        }
+        if (core.x > bottom_right.x || core.y > bottom_right.y) {
+            bottom_right = core;
+        }
+    }
+    return {top_left, bottom_right};
+}
+
 class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {};
+
+// Safe L1 address for use in API tests. Low addresses (e.g. 0x10) are reserved on Blackhole
+// by ARC firmware (doppler throttle state), so tests must start at or above this address.
+// In some cases you also have to be careful about not overwriting the membar address.
+constexpr uint64_t SAFE_IO_L1_ADDRESS = 0x1000;
+
+// True when the test should run against a simulator, indicated by TT_UMD_SIMULATOR
+// pointing at the simulator binary directory.
+inline bool is_simulation_test() { return std::getenv("TT_UMD_SIMULATOR") != nullptr; }
+
+// Creates a Cluster for an API test. If TT_UMD_SIMULATOR is set the chip_type,
+// target_devices, and simulator_directory fields of `options` are overridden to
+// target the simulator; otherwise `options` is used as-is (default = silicon).
+inline std::unique_ptr<Cluster> make_cluster_for_test(ClusterOptions options = {}) {
+    if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
+        options.chip_type = ChipType::SIMULATION;
+        options.target_devices = {0};
+        options.simulator_directory = std::filesystem::path(sim_path);
+    }
+    return std::make_unique<Cluster>(options);
+}

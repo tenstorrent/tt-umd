@@ -5,13 +5,11 @@
 #include "umd/device/chip/mock_chip.hpp"
 
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
-#include <set>
 #include <type_traits>
-#include <unordered_set>
 #include <utility>
-#include <vector>
+
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
 
@@ -21,7 +19,7 @@ MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor
 
 bool MockChip::is_mmio_capable() const { return false; }
 
-void MockChip::start_device() {}
+void MockChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void MockChip::close_device() {}
 
@@ -39,9 +37,9 @@ void MockChip::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysme
 
 void MockChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {}
 
-void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) {}
+void MockChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {}
 
-void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) {}
+void MockChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {}
 
 void MockChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {}
 
@@ -73,7 +71,7 @@ void MockChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
-void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels) {}
+void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {}
 
 void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {}
 

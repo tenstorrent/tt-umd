@@ -4,7 +4,6 @@
 
 #include "umd/device/types/telemetry.hpp"
 
-#include <fmt/core.h>
 #include <fmt/format.h>
 
 #include <chrono>
@@ -123,7 +122,7 @@ int main(int argc, char* argv[]) {
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
                     telemetry_message = run_default_telemetry(chip_id, firmware_info_provider);
                 } else {
-                    throw std::runtime_error("Unsupported device architecture");
+                    UMD_THROW(error::RuntimeError, "Unsupported device architecture.");
                 }
             } else {
                 uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);

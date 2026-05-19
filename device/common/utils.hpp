@@ -4,20 +4,21 @@
 
 #pragma once
 
+#include <fmt/ranges.h>
 #include <unistd.h>
 
 #include <array>
 #include <chrono>
-#include <filesystem>
-#include <iostream>
+#include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 #include <vector>
 
-#include "fmt/ranges.h"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd::utils {
 
@@ -38,7 +39,8 @@ inline std::optional<std::unordered_set<int>> get_unordered_set_from_string(cons
         try {
             result_set.insert(std::stoi(token));
         } catch (const std::exception& e) {
-            throw std::runtime_error(
+            UMD_THROW(
+                error::RuntimeError,
                 fmt::format("Input string is not a valid set of integers: '{}'. Error: {}", input, e.what()));
         }
     }
@@ -102,13 +104,67 @@ std::string to_hex_string(T value) {
     return fmt::format("{:#x}", value);
 }
 
+/**
+ * Checks if `timeout` amount of time has elapsed since `start_time`.
+ * @param start_time Point in time when the measured event started.
+ * @param timeout Time expected for event to complete.
+ * @returns True if `timeout` amount of time has elapsed since `start_time`.
+ */
+inline bool check_timeout(
+    const std::chrono::steady_clock::time_point start_time, const std::chrono::milliseconds timeout) noexcept {
+    // A timeout of 0 can never time out.
+    if (timeout.count() == 0) {
+        return false;
+    }
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
+    return elapsed > timeout;
+}
+
+/**
+ * Adaptive polling loop. Busy-polls `predicate` for `busy_poll_window`, then sleeps
+ * `poll_interval` between checks until the predicate returns true or `timeout` elapses.
+ *
+ * @param predicate Callable returning bool; polled until it returns true.
+ * @param timeout Maximum total time to wait.
+ * @param busy_poll_window How long to spin before backing off to sleep-based polling.
+ * @param poll_interval Sleep duration between checks once past the busy window.
+ * @returns True if predicate became true before timeout, false otherwise.
+ *          Caller is responsible for handling the timeout case.
+ */
+template <typename Predicate>
+inline bool poll_until(
+    Predicate predicate,
+    const std::chrono::milliseconds timeout,
+    const std::chrono::microseconds busy_poll_window,
+    const std::chrono::microseconds poll_interval) {
+    // Ensure the predicate is callable.
+    static_assert(std::is_invocable_v<Predicate>, "poll_until: The predicate provided must be callable.");
+
+    // Enforce strict bool return type.
+    using ReturnType = std::invoke_result_t<Predicate>;
+    static_assert(std::is_same_v<ReturnType, bool>, "poll_until: Predicate must return 'bool'.");
+
+    const auto start = std::chrono::steady_clock::now();
+    while (!predicate()) {
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        if (elapsed > timeout) {
+            return false;
+        }
+        if (elapsed > busy_poll_window) {
+            std::this_thread::sleep_for(poll_interval);
+        }
+    }
+    return true;
+}
+
 enum class TimeoutAction { Throw, Return };
 
 /**
  * Throw std::runtime_error or return true if `timeout` amount of time has elapsed since `start_time`.
  * @param start_time Point in time when the measured event started.
  * @param timeout Time expected for event to complete.
- * @param error_msg Error message to log or pass to std::runtime_error.
+ * @param error_msg Error message to log or pass to RuntimeError.
  * @param action Decide which action (throw or return false) is done when timeout elapses.
  */
 inline bool check_timeout(
@@ -116,20 +172,12 @@ inline bool check_timeout(
     const std::chrono::milliseconds timeout,
     const std::string& error_msg,
     TimeoutAction action = TimeoutAction::Throw) {
-    // A timeout of 0 can never time out.
-    if (timeout.count() == 0) {
-        return false;
+    bool timed_out = check_timeout(start_time, timeout);
+    if (timed_out) {
+        auto error = UMD_THROW_OR_RETURN(action == TimeoutAction::Throw, error::RuntimeError, error_msg);
+        log_warning(LogUMD, error.message());
     }
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time);
-    if (elapsed > timeout) {
-        if (action == TimeoutAction::Throw) {
-            throw std::runtime_error(error_msg);
-        }
-        log_warning(LogUMD, error_msg);
-        return true;
-    }
-    return false;
+    return timed_out;
 }
 
 class MultiProcessPipe {
@@ -152,7 +200,9 @@ public:
                     close(child_pipes[j][PIPE_WRITE]);
                 }
                 errno = saved_errno;
-                throw std::runtime_error("Failed to create synchronization pipe");
+                UMD_THROW(
+                    error::RuntimeError,
+                    "Failed to create synchronization pipe. errno: {}" + std::string(std::strerror(saved_errno)));
             }
         }
     }
@@ -223,8 +273,6 @@ public:
     }
 };
 
-}  // namespace tt::umd::utils
-
 constexpr bool is_arm_platform() {
 #if defined(__aarch64__) || defined(__arm__)
     return true;
@@ -240,3 +288,5 @@ constexpr bool is_riscv_platform() {
     return false;
 #endif
 }
+
+}  // namespace tt::umd::utils

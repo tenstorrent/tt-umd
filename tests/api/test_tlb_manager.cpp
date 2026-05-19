@@ -9,13 +9,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
-#include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/tt_io.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tlb.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.
@@ -25,14 +33,14 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         const size_t tlb_tensix_size = tt_device->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
+        tt_device->set_power_state(true);
         tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        ChipInfo chip_info = tt_device->get_chip_info();
 
-        SocDescriptor soc_desc(tt_device->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        std::int32_t c_zero_address = 0;
+        std::int32_t c_zero_address = SAFE_IO_L1_ADDRESS;
 
         for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
             tlb_manager->configure_tlb(translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
@@ -42,11 +50,10 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         // TODO: Maybe accept tlb_index only?
-        uint64_t address_l1_to_write = 0;
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
-        // Writing to TLB over Writer class.
-        // TODO: This should be converted to AbstractIO writer.
-        Writer writer = tlb_manager->get_static_tlb_writer(any_worker_translated_core);
-        writer.write(address_l1_to_write, buffer_to_write[0]);
+        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
+        window->write_register(SAFE_IO_L1_ADDRESS, buffer_to_write.data(), buffer_to_write.size());
+
+        tt_device->set_power_state(false);
     }
 }

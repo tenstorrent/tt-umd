@@ -4,16 +4,33 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
+
+namespace tt {
+enum class ARCH;
+}  // namespace tt
 
 namespace tt::umd {
+class ClusterDescriptor;
+class SocDescriptor;
+enum class TensixSoftResetOptions : std::uint32_t;
 
 // Base class for all simulation devices.
 class SimulationChip : public Chip {
@@ -55,7 +72,7 @@ public:
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
     void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
@@ -73,12 +90,12 @@ public:
         uint32_t* return_4 = nullptr) override;
 
     // Pure virtual methods that derived classes must implement.
-    void start_device() override = 0;
+    void start_device(uint32_t dram_membar_subchannel = 0) override = 0;
     void close_device() override = 0;
 
     // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, uint32_t size) override = 0;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, uint32_t size) override = 0;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override = 0;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override = 0;
 
     virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
     void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;

@@ -22,6 +22,18 @@ on:
         required: false
         type: boolean
         default: true
+      build-tracy:
+        required: false
+        type: boolean
+        default: false
+        description: >-
+          When true, the build job runs an additional matrix entry with
+          TT_UMD_ENABLE_TRACY=ON. The Tracy artifact uses a -tracy suffix.
+      image-tag:
+        required: false
+        type: string
+        default: latest
+        description: 'Content-hash tag from docker-image.yml. Defaults to latest.'
   workflow_dispatch:
     inputs:
       ubuntu-docker-version:
@@ -45,6 +57,11 @@ on:
           - Debug
           - ASan
           - TSan
+      build-tracy:
+        required: false
+        description: 'Also build a Tracy-enabled variant'
+        type: boolean
+        default: false
 
 
 env:
@@ -63,13 +80,27 @@ env:
 
 jobs:
   build:
-    name: Build (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    name: >-
+      Build (${{ inputs.build-type }},
+      ${{ inputs.ubuntu-docker-version }}${{ matrix.use_tracy && ', tracy' || '' }})
     # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
+    strategy:
+      fail-fast: false
+      # When build-tracy is true, the matrix expands to two jobs: one regular and one Tracy-enabled.
+      # When false (default), only the regular build runs - so existing callers see no behavior change.
+      matrix:
+        use_tracy: ${{ fromJSON(inputs.build-tracy && '[false, true]' || '[false]') }}
+
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
+
+    env:
+      # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
+      # This skips Tracy's runtime TSC check; harmless when Tracy is disabled.
+      TRACY_NO_INVARIANT_CHECK: 1
 
     steps:
       - name: Print all params
@@ -78,8 +109,9 @@ jobs:
           echo build-tests - ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
           echo build-tests - timeout: ${{ inputs.timeout }}
           echo build-tests - build-type: ${{ inputs.build-type }}
+          echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -94,6 +126,8 @@ jobs:
             -DTT_UMD_BUILD_EXAMPLES=OFF \
             -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -111,9 +145,11 @@ jobs:
           ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Upload build artifacts archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+          name: >-
+            build-artifacts-${{ inputs.ubuntu-docker-version
+            }}-${{ inputs.build-type }}${{ matrix.use_tracy && '-tracy' || '' }}
           path: artifact.tar
 
   build-wheel:
@@ -124,17 +160,12 @@ jobs:
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
     runs-on: tt-ubuntu-2204-large-stable
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
-
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
 
       - name: Build wheel
         shell: bash
@@ -143,7 +174,7 @@ jobs:
           rm -rf ${{ env.WHEEL_OUTPUT_DIR }}
           mkdir -p ${{ env.WHEEL_OUTPUT_DIR }}
           echo "Setting up virtual environment..."
-          python -m venv .venv
+          python3 -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip wheel auditwheel
           echo "Compiling the code..."
@@ -157,7 +188,7 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
 
           # This is done so that all the necessary libraries are included in the wheel.
           # Specifically, this will make the wheel runnable on exalens ci image.
@@ -172,7 +203,7 @@ jobs:
           cp -r ${{ env.NANOBIND_TEST_DIR }} ${{ env.WHEEL_OUTPUT_DIR }}/tests
 
       - name: Upload wheel
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           # Note that wheel is built with hardcoded Release build type at the moment.
           name: wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
@@ -183,10 +214,10 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-exalens
           ref: main
@@ -205,8 +236,8 @@ jobs:
           rm -f build/sfpi_*
 
       - name: Upload kernels as artifacts
-        uses: pyTooling/upload-artifact@v4
+        uses: pyTooling/upload-artifact@v1.10.0
         with:
-          name: ttexalens-build
+          name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: |
             build

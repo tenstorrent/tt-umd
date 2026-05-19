@@ -36,9 +36,16 @@ else()
     message(STATUS "Building tt-umd library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
-# Alias for old name
-add_library(${PROJECT_NAME}::device ALIAS tt-umd)
-add_library(device ALIAS tt-umd)
+
+# Set version
+set_target_properties(
+    tt-umd
+    PROPERTIES
+        VERSION
+            ${CMAKE_PROJECT_VERSION}
+        SOVERSION
+            ${CMAKE_PROJECT_VERSION_MAJOR}
+)
 
 # Enable unity builds for faster compilation 
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
@@ -62,12 +69,14 @@ target_sources(
         chip/local_chip.cpp
         chip/mock_chip.cpp
         chip/remote_chip.cpp
+        $<$<BOOL:${TT_UMD_BUILD_EMULE}>:chip/sw_emule_chip.cpp>
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
+        pcie/device_memcpy.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
@@ -83,8 +92,11 @@ target_sources(
         cluster_descriptor.cpp
         tt_device/blackhole_tt_device.cpp
         tt_device/tt_device.cpp
+        tt_device/tt_device_error.cpp
         tt_device/wormhole_tt_device.cpp
-        tt_device/remote_wormhole_tt_device.cpp
+        tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/wormhole_hang_detector.cpp
+        tt_device/hang_detection/blackhole_hang_detector.cpp
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
@@ -94,9 +106,11 @@ target_sources(
         firmware/firmware_utils.cpp
         types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
+        soc_arch_descriptor.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
+        coordinates/quasar_coordinate_manager.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
@@ -108,6 +122,7 @@ target_sources(
         arc/spi_tt_device.cpp
         noc_access.cpp
         warm_reset.cpp
+        warm_reset_with_recovery.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -135,7 +150,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
-            chip_helpers/simulation_tlb_manager.cpp
+            chip_helpers/simulation_tlb_allocator.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
@@ -144,6 +159,11 @@ if(TT_UMD_BUILD_SIMULATION)
             ${FBS_GENERATED_HEADER}
     )
     target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
+endif()
+
+if(TT_UMD_BUILD_EMULE)
+    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_EMULE)
+    target_link_libraries(tt-umd PRIVATE tt-emule::headers)
 endif()
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
@@ -163,17 +183,19 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/wormhole_arc_messenger.hpp
                 api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
+                api/umd/device/coordinates/quasar_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
                 api/umd/device/chip/mock_chip.hpp
+                api/umd/device/chip/sw_emule_chip.hpp
                 api/umd/device/chip/remote_chip.hpp
                 api/umd/device/chip_helpers/sysmem_manager.hpp
                 api/umd/device/chip_helpers/simulation_sysmem_manager.hpp
                 api/umd/device/chip_helpers/silicon_sysmem_manager.hpp
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
-                api/umd/device/chip_helpers/simulation_tlb_manager.hpp
+                api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
@@ -191,14 +213,15 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
+                api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/blackhole_tt_device.hpp
                 api/umd/device/tt_device/tt_device.hpp
+                api/umd/device/tt_device/tt_device_error.hpp
                 api/umd/device/tt_device/wormhole_tt_device.hpp
-                api/umd/device/tt_device/remote_wormhole_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/simulation_device_factory.hpp
@@ -212,12 +235,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/pcie_dma/dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
+                api/umd/device/tt_device/hang_detection/hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/tt_io.hpp
                 api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
@@ -227,6 +252,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
+                api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp
                 api/umd/device/topology/topology_discovery_blackhole.hpp
                 api/umd/device/topology/topology_discovery_wormhole.hpp
@@ -234,7 +260,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
                 api/umd/device/utils/common.hpp
-                api/umd/device/utils/exceptions.hpp
+                api/umd/device/utils/error_detail.hpp
+                api/umd/device/utils/error.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
@@ -272,13 +299,13 @@ target_include_directories(
 
 target_link_libraries(
     tt-umd
+    PUBLIC
+        fmt::fmt-header-only
     PRIVATE
         umd::Firmware
         hwloc
         rt
         spdlog::spdlog_header_only
-        fmt::fmt-header-only
-        picosha2::picosha2
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )
@@ -310,7 +337,7 @@ endif()
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
     target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
-    message(STATUS "Tracy profiling enabled for device library")
+    message(STATUS "Tracy profiling enabled for tt-umd library")
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support
@@ -344,13 +371,18 @@ else()
     message(STATUS "Install functionality disabled: CMake ${CMAKE_VERSION} < 3.23 required for FILE_SET support")
 endif()
 
-# Add a custom command to copy the library to build/lib
-add_custom_command(
-    TARGET tt-umd
-    POST_BUILD
-    COMMAND
-        ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib
-    COMMAND
-        ${CMAKE_COMMAND} -E copy $<TARGET_FILE:tt-umd> ${CMAKE_BINARY_DIR}/lib/
-    COMMENT "Copying tt-umd library to build/lib"
-)
+if(TT_UMD_BUILD_STATIC)
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            ARCHIVE_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+else()
+    set_target_properties(
+        tt-umd
+        PROPERTIES
+            LIBRARY_OUTPUT_DIRECTORY
+                ${PROJECT_BINARY_DIR}/lib
+    )
+endif()

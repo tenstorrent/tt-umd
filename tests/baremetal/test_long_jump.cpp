@@ -5,19 +5,26 @@
  */
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <atomic>
+#include <chrono>
 #include <csetjmp>
 #include <csignal>
-#include <cstring>
+#include <cstdio>
+#include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <thread>
 #include <vector>
 
-#include "umd/device/utils/exceptions.hpp"
+#include "umd/device/utils/error.hpp"
+
+using namespace tt::umd;
 
 // ASan and TSan often fail with siglongjmp because the jump bypasses
 // stack unwinding/poisoning updates that the sanitizers rely on.
@@ -78,7 +85,7 @@ public:
         } else {
             jump_set.store(false);
             std::atomic_signal_fence(std::memory_order_seq_cst);
-            throw tt::umd::SigbusError("SIGBUS signal detected: Device access failed.");
+            throw error::SigbusError("SIGBUS signal detected: Device access failed.");
         }
     }
 };
@@ -143,7 +150,7 @@ TEST_F(SigBusMechanismTest, ThreadIsolation) {
                 // Odd threads succeed.
                 device.safe_execute([]() { /* do nothing */ });
             }
-        } catch (const tt::umd::SigbusError& e) {
+        } catch (const error::SigbusError& e) {
             success_count++;
         } catch (...) {
             // Should not happen for odd threads.
@@ -205,7 +212,7 @@ TEST_F(SigBusMechanismTest, ThreadSharing) {
                     }
                 });
                 success_count++;
-            } catch (const tt::umd::SigbusError& e) {
+            } catch (const error::SigbusError& e) {
                 caught_count++;
             } catch (const std::runtime_error& e) {
                 failure_count++;
@@ -258,7 +265,7 @@ TEST_F(SigBusMechanismTest, MultiProcessMultiThreadStress) {
                         // Odd threads run normally.
                         device.safe_execute([]() { /* Happy path */ });
                     }
-                } catch (const tt::umd::SigbusError& e) {
+                } catch (const error::SigbusError& e) {
                     if (id % 2 == 0) {
                         success_count++;
                     } else {

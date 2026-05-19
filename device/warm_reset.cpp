@@ -4,8 +4,10 @@
 
 #include "api/umd/device/warm_reset.hpp"
 
-#include <fmt/color.h>
+#include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <glob.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <asio.hpp>
@@ -21,6 +23,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -31,11 +34,11 @@
 #include <utility>
 #include <vector>
 
-#include "api/umd/device/arch/blackhole_implementation.hpp"
-#include "api/umd/device/arch/grendel_implementation.hpp"
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
@@ -44,8 +47,9 @@ namespace tt::umd {
 
 // TODO: Add more specific comments on what M3 reset does
 // reset_m3 flag sends specific ARC message to do a M3 board level reset
-bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset) {
-    if constexpr (is_arm_platform()) {
+bool WarmReset::warm_reset(
+    std::vector<int> pci_device_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
+    if constexpr (utils::is_arm_platform()) {
         log_warning(tt::LogUMD, "Warm reset is disabled on ARM platforms due to instability. Skipping reset.");
         return false;
     }
@@ -63,8 +67,7 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     WarmResetCommunication::Notifier::notify_all_listeners_pre_reset(std::chrono::milliseconds(2000));
 
     if (PCIDevice::is_arch_agnostic_reset_supported()) {
-        reset_success =
-            warm_reset_arch_agnostic(pci_device_ids, reset_m3, timeout::WARM_RESET_M3_TIMEOUT, secondary_bus_reset);
+        reset_success = warm_reset_arch_agnostic(pci_device_ids, reset_m3, m3_delay, secondary_bus_reset);
     } else if (auto enumerate_devices = PCIDevice::enumerate_devices_info(); enumerate_devices.empty()) {
         // Re-enumerate here as a safety net for potential race conditions where devices disappear
         // between the pre-reset notification and now. Clients are still guaranteed to receive the
@@ -94,7 +97,8 @@ bool WarmReset::warm_reset(std::vector<int> pci_device_ids, bool reset_m3, bool 
     return reset_success;
 }
 
-bool WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset_chip_id(
+    const std::vector<int>& chip_ids, bool reset_m3, bool secondary_bus_reset, std::chrono::milliseconds m3_delay) {
     std::vector<int> pci_ids;
     std::vector<int> enumerated_ids = PCIDevice::enumerate_devices();
     for (const auto& id : chip_ids) {
@@ -104,10 +108,14 @@ bool WarmReset::warm_reset_chip_id(const std::vector<int>& chip_ids, bool reset_
         }
         pci_ids.push_back(enumerated_ids[id]);
     }
-    return warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+    return warm_reset(pci_ids, reset_m3, secondary_bus_reset, m3_delay);
 }
 
-bool WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bool reset_m3, bool secondary_bus_reset) {
+bool WarmReset::warm_reset_pci_bdfs(
+    const std::vector<std::string>& pci_bdfs,
+    bool reset_m3,
+    bool secondary_bus_reset,
+    std::chrono::milliseconds m3_delay) {
     std::vector<int> pci_ids;
     std::map<int, PciDeviceInfo> pci_devices_info = PCIDevice::enumerate_devices_info();
     for (const auto& [id, info] : pci_devices_info) {
@@ -116,7 +124,7 @@ bool WarmReset::warm_reset_pci_bdfs(const std::vector<std::string>& pci_bdfs, bo
         }
     }
 
-    return warm_reset(pci_ids, reset_m3, secondary_bus_reset);
+    return warm_reset(pci_ids, reset_m3, secondary_bus_reset, m3_delay);
 }
 
 int wait_for_pci_bdf_to_reappear(
@@ -296,8 +304,10 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
 
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
-        if (!tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
-            log_warning(tt::LogUMD, "Reset failed for PCI id {} - ARC core init failed", i);
+        try {
+            tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+        } catch (error::ArcStartupError& arc_error) {
+            log_warning(LogUMD, arc_error.message());
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));

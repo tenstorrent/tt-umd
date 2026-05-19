@@ -223,15 +223,14 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
                 cluster_desc->get_cluster_io_device_type());
         }
 
-        SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
-        if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
-            sysmem_ptr = nullptr;
-        }
-        remote_communications_[chip_id] =
-            RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
-
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
+            SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
+            if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
+                sysmem_ptr = nullptr;
+            }
+            remote_communications_[chip_id] =
+                RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
             remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
                 chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
                     cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
@@ -423,6 +422,11 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    // Remote communication is only set up on architectures that support it (currently Wormhole). On other
+    // architectures there is nothing to configure for remote ethernet transfers.
+    if (remote_communications_.find(mmio_chip) == remote_communications_.end()) {
+        return;
+    }
     // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
     // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
     // and set the active ethernet cores for them.

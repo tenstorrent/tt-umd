@@ -65,6 +65,13 @@ jobs:
           merge-multiple: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Debug — inspect downloaded artifacts
+        run: |
+          echo "--- ls of ${RESULTS_DIR} ---"
+          ls -la "${RESULTS_DIR}" || echo "(directory missing)"
+          echo "--- find ${RESULTS_DIR} (max depth 3) ---"
+          find "${RESULTS_DIR}" -maxdepth 3 -print || true
+
       - name: Summarize regressions
         run: |
           . /tmp/venv/bin/activate

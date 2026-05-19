@@ -82,9 +82,10 @@ jobs:
       card: ${{ matrix.test-group.card}}
       baseline-run-id: ${{ inputs.baseline-run-id }}
 
-  # Regression check against in-repo baselines.yaml (median of N main runs +
-  # per-case tolerance). Runs in parallel with analyze-results, which answers a
-  # different question (drift vs. the single latest main run).
+  # Regression check against in-repo per-arch baseline YAMLs (median calibrated
+  # on the dedicated runner + per-case tolerance). Runs in parallel with
+  # analyze-results, which answers a different question (drift vs. the single
+  # latest main run).
   regression-check:
     secrets: inherit
     needs: run-benchmarks

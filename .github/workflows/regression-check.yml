@@ -1,9 +1,9 @@
-# Regression check against in-repo baselines.yaml.
+# Regression check against in-repo per-arch baseline YAMLs.
 # Complementary to analyze_results.yml (which diffs current run vs the single
 # latest main run). This workflow compares against the median of N main runs
-# stored in tests/microbenchmark/expected/baselines.yaml, applies per-case
-# tolerances, and emits a coarse cross-arch summary plus per-(test, arch) detail
-# sections to $GITHUB_STEP_SUMMARY.
+# stored in tests/microbenchmark/expected/baselines/<arch>.yaml, applies
+# per-case tolerances, and emits a coarse cross-arch summary plus per-(test,
+# arch) detail sections to $GITHUB_STEP_SUMMARY.
 #
 # Pilot: soft by default, but can hard-fail when gate: true breaches.
 name: Regression check against in-repo baseline
@@ -18,7 +18,7 @@ env:
 
 jobs:
   regression-check:
-    name: Regression summary vs baselines.yaml
+    name: Regression summary vs per-arch baselines
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
-            tests/microbenchmark/expected/baselines.yaml
+            tests/microbenchmark/expected/baselines/
             tests/microbenchmark/tools/summarize_regressions.py
             tests/microbenchmark/tools/analyze_results.py
           sparse-checkout-cone-mode: false
@@ -74,7 +74,7 @@ jobs:
           set +e
           python3 tests/microbenchmark/tools/summarize_regressions.py \
             --current "${RESULTS_DIR}" \
-            --baselines tests/microbenchmark/expected/baselines.yaml \
+            --baselines-dir tests/microbenchmark/expected/baselines \
             --output "${SUMMARY_PATH}"
           rc=$?
           set -e

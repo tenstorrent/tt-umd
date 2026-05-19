@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 # SPDX-License-Identifier: Apache-2.0
 
-"""Cross-architecture regression summary against an in-repo baseline.
+"""Cross-architecture regression summary against in-repo per-arch baselines.
 
 Reads benchmark JSON artifacts produced by `run-benchmarks.yml` (one artifact
 directory per architecture, each containing nanobench JSONs) and compares each
-case's throughput against a stored `median_throughput` from
-`tests/microbenchmark/expected/baselines.yaml`. Emits markdown with:
+case's throughput against the stored `median_throughput` from the per-arch
+YAMLs in `tests/microbenchmark/expected/baselines/`. Emits markdown with:
 
   1. A coarse cross-arch table (one row per test, one column per arch),
      reporting only breach counts per severity tier — never an aggregated Δ%.
@@ -33,7 +33,7 @@ import yaml
 # --- Arch label canonicalization -------------------------------------------------
 # Artifact names look like:
 #   benchmark-json-wormhole_b0-tt-ubuntu-2204-n150-viommu-stable-ubuntu-22.04
-# We canonicalize to short labels matching the keys in baselines.yaml.
+# We canonicalize to short labels matching the per-arch YAML filenames.
 # Substring match keeps this robust to minor variations (e.g. -iter1 suffixes).
 ARCH_PATTERNS = [
     ("WH n150", ["n150"]),
@@ -123,6 +123,50 @@ def collect_current_results(current_dir: Path) -> dict:
     return results
 
 
+def load_baselines_dir(baselines_dir: Path) -> dict:
+    """Load every `<arch>.yaml` file in `baselines_dir` and combine into the
+    nested shape that `render_summary` consumes:
+
+        { test_title: { case_name: { arch_label: entry } } }
+
+    Plus a top-level `metadata` dict that records per-arch calibration info:
+
+        { "metadata": { "archs": { "<arch label>": {
+              "runner_hostname": ...,
+              "calibrated_at": ...,
+              "calibrated_from_runs": ...,
+          } } } }
+
+    The arch label is taken from each file's `metadata.arch` field so the
+    filename is not load-bearing.
+    """
+    combined: dict = {"metadata": {"archs": {}}}
+    for yaml_path in sorted(baselines_dir.glob("*.yaml")):
+        with open(yaml_path) as f:
+            data = yaml.safe_load(f) or {}
+        per_arch_meta = data.get("metadata") or {}
+        arch = per_arch_meta.get("arch")
+        if not arch:
+            print(
+                f"WARN: {yaml_path} has no metadata.arch field; skipping",
+                file=sys.stderr,
+            )
+            continue
+        combined["metadata"]["archs"][arch] = {
+            "runner_hostname": per_arch_meta.get("runner_hostname"),
+            "calibrated_at": per_arch_meta.get("calibrated_at"),
+            "calibrated_from_runs": per_arch_meta.get("calibrated_from_runs"),
+        }
+        for title, cases in data.items():
+            if title == "metadata":
+                continue
+            if not isinstance(cases, dict):
+                continue
+            for case_name, entry in cases.items():
+                combined.setdefault(title, {}).setdefault(case_name, {})[arch] = entry
+    return combined
+
+
 # --- Classification --------------------------------------------------------------
 
 
@@ -177,8 +221,8 @@ def render_detail_subtable(title: str, rows: list) -> str:
     `rows` is a list of (case_name, current_thr, baseline_thr, delta_pct,
     tolerance_pct, status, unit) tuples, presumed already sorted.
     """
-    # there is function import from sumarize_regressions.py → refresh_baselines.py so dont want unnecessary module imports
-    # in this case from analyze_results.py, that is the reason for this local import here
+    # Local import of analyze_results to avoid a top-level dependency cycle
+    # (analyze_results pulls in pandas, which isn't needed for the loading path).
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from analyze_results import format_throughput
 
@@ -256,17 +300,16 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
     """Top-level renderer. Returns (markdown document, gated_breaches, missing_gated).
 
     `gated_breaches` is a list of (title, case, arch, status, dpct, tol) for
-    cases that breached tolerance AND carry `gate: true` in baselines.yaml —
+    cases that breached tolerance AND carry `gate: true` in the per-arch baselines —
     the caller exits non-zero when this list is non-empty.
 
     `missing_gated` is a list of (title, case, arch) for gated cases present
-    in baselines.yaml but absent from this run's JSON (whole-arch missing or
+    in the per-arch baselines but absent from this run's JSON (whole-arch missing or
     per-case missing). Surfaced as a warning so a partial benchmark run can't
     be confused with a clean one; does not fail the job.
     """
     meta = baselines.get("metadata") or {}
-    calibrated_at = meta.get("calibrated_at", "unknown date")
-    calibrated_from_runs = meta.get("calibrated_from_runs", "unknown")
+    archs_meta: dict = meta.get("archs") or {}
 
     # Tests come from baselines (so a missing-from-baseline test is visible but
     # never alerts).
@@ -287,7 +330,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
             breached, stable = [], []
 
             arch_results = current.get(arch, {}).get(title, {})
-            # Tests in baselines.yaml define which cases we evaluate. A new case
+            # Tests in the per-arch baselines define which cases we evaluate. A new case
             # in CI that's not in baselines is informational and skipped here
             # (added in next refresh). A baseline case missing from CI marks
             # the cell as "no result".
@@ -342,12 +385,27 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
     lines = [
         "## UMD perf regression check vs in-repo baseline",
         "",
-        f"_Baseline: median of last {calibrated_from_runs} successful main runs "
-        f"(calibrated {calibrated_at})._",
-        "",
-        "| " + " | ".join(header_cols) + " |",
-        "|" + "|".join(["---"] * len(header_cols)) + "|",
     ]
+    # Per-arch calibration line: each arch may have its own runner and refresh
+    # date now that the baselines live in per-arch YAMLs.
+    if archs_meta:
+        per_arch_notes = []
+        for arch in arch_order:
+            m = archs_meta.get(arch) or {}
+            per_arch_notes.append(
+                f"**{arch}**: {m.get('calibrated_from_runs', '?')} runs on "
+                f"`{m.get('runner_hostname', '?')}` ({m.get('calibrated_at', '?')})"
+            )
+        lines.append("_Baselines: " + "; ".join(per_arch_notes) + "._")
+    else:
+        lines.append("_Baselines: (no metadata found)._")
+    lines.extend(
+        [
+            "",
+            "| " + " | ".join(header_cols) + " |",
+            "|" + "|".join(["---"] * len(header_cols)) + "|",
+        ]
+    )
     for title in test_titles:
         row = [title]
         for arch in arch_order:
@@ -397,7 +455,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
         )
         lines.append("")
         lines.append(
-            "_Cases below carry `gate: true` in baselines.yaml but produced no "
+            "_Cases below carry `gate: true` in the per-arch baselines but produced no "
             "result in this run. A partial benchmark run (e.g. binary crashed "
             "mid-suite) will surface here; an intentional case rename/removal "
             "will too, until the next baseline refresh._"
@@ -423,10 +481,10 @@ def main() -> int:
         help="Directory containing per-arch `benchmark-json-*` subdirs (this CI run).",
     )
     p.add_argument(
-        "--baselines",
+        "--baselines-dir",
         type=Path,
         required=True,
-        help="Path to in-repo baselines.yaml.",
+        help="Directory of per-arch baseline YAMLs (one file per arch).",
     )
     p.add_argument(
         "--output",
@@ -438,18 +496,19 @@ def main() -> int:
 
     try:
         current_path = args.current.resolve(strict=True)
-        baselines_path = args.baselines.resolve(strict=True)
+        baselines_dir = args.baselines_dir.resolve(strict=True)
     except FileNotFoundError as e:
         sys.exit(f"input path does not exist: {e.filename}")
     output_path = args.output.resolve()
 
     if not current_path.is_dir():
         sys.exit(f"--current is not a directory: {current_path}")
-    if not baselines_path.is_file():
-        sys.exit(f"--baselines is not a file: {baselines_path}")
+    if not baselines_dir.is_dir():
+        sys.exit(f"--baselines-dir is not a directory: {baselines_dir}")
 
-    with open(baselines_path) as f:
-        baselines = yaml.safe_load(f) or {}
+    baselines = load_baselines_dir(baselines_dir)
+    if not baselines.get("metadata", {}).get("archs"):
+        sys.exit(f"--baselines-dir contains no usable per-arch YAMLs: {baselines_dir}")
 
     current = collect_current_results(current_path)
 
@@ -472,7 +531,7 @@ def main() -> int:
         for title, case, arch in missing_gated:
             print(f"  - {title} :: {case} :: {arch}", file=sys.stderr)
     # Soft alerts (non-gated breaches) never fail; cases with `gate: true` in
-    # baselines.yaml fail the job when they breach DOWN.
+    # the per-arch baselines fail the job when they breach DOWN.
     if gated_breaches:
         print(
             f"FAIL: {len(gated_breaches)} gated case(s) breached tolerance.",

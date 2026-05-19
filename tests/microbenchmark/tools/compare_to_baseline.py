@@ -6,7 +6,7 @@
 Run benchmarks locally (with `UMD_MICROBENCHMARK_RESULTS_PATH` set so the C++
 exporter actually writes JSON), then point this script at the resulting
 directory and your arch to get a markdown regression report against the
-in-repo `baselines.yaml`.
+in-repo per-arch baseline YAML for that arch.
 
 Example:
 
@@ -18,8 +18,8 @@ Example:
     python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'WH n150'
 
 The summary is printed to stdout. Exit code is 1 if any `gate: true` case in
-`baselines.yaml` breached as DOWN/CRIT (same gating rule as the CI workflow);
-0 otherwise.
+the per-arch baseline YAML breached as DOWN (same gating rule as the CI
+workflow); 0 otherwise.
 """
 
 import argparse
@@ -27,17 +27,37 @@ import os
 import sys
 from pathlib import Path
 
-import yaml
-
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from summarize_regressions import (  # noqa: E402
     ARCH_PATTERNS,
+    load_baselines_dir,
     read_arch_results,
     render_summary,
 )
 
 KNOWN_ARCH_LABELS = [label for label, _ in ARCH_PATTERNS]
-BASELINES_DEFAULT = Path(__file__).resolve().parents[1] / "expected" / "baselines.yaml"
+BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "expected" / "baselines"
+
+
+def _filter_baselines_to_arch(combined: dict, arch: str) -> dict:
+    """Return a copy of the combined baselines dict containing only `arch`'s
+    column under each (title, case). The shape is the same as the input
+    (`{ test: { case: { arch: entry } } }` + `metadata.archs`), so it can be
+    fed straight into `render_summary` for a single-arch local comparison.
+    """
+    archs_meta = (combined.get("metadata") or {}).get("archs") or {}
+    filtered: dict = {"metadata": {"archs": {}}}
+    if arch in archs_meta:
+        filtered["metadata"]["archs"][arch] = archs_meta[arch]
+    for title, cases in combined.items():
+        if title == "metadata":
+            continue
+        for case_name, arch_entries in cases.items():
+            if arch in arch_entries:
+                filtered.setdefault(title, {}).setdefault(case_name, {})[arch] = (
+                    arch_entries[arch]
+                )
+    return filtered
 
 
 def main() -> int:
@@ -55,13 +75,16 @@ def main() -> int:
         "--arch",
         required=True,
         choices=KNOWN_ARCH_LABELS,
-        help="Arch label to compare against (must match a key in baselines.yaml).",
+        help="Arch label to compare against (must match a file in --baselines-dir).",
     )
     p.add_argument(
-        "--baselines",
+        "--baselines-dir",
         type=Path,
-        default=BASELINES_DEFAULT,
-        help=f"Path to baselines.yaml (default: {BASELINES_DEFAULT}).",
+        default=BASELINES_DIR_DEFAULT,
+        help=(
+            "Directory of per-arch baseline YAMLs "
+            f"(default: {BASELINES_DIR_DEFAULT})."
+        ),
     )
     p.add_argument(
         "--output",
@@ -78,11 +101,16 @@ def main() -> int:
         )
     if not args.results.is_dir():
         sys.exit(f"--results is not a directory: {args.results}")
-    if not args.baselines.is_file():
-        sys.exit(f"--baselines is not a file: {args.baselines}")
+    if not args.baselines_dir.is_dir():
+        sys.exit(f"--baselines-dir is not a directory: {args.baselines_dir}")
 
-    with open(args.baselines) as f:
-        baselines = yaml.safe_load(f) or {}
+    combined = load_baselines_dir(args.baselines_dir)
+    if args.arch not in (combined.get("metadata") or {}).get("archs", {}):
+        sys.exit(
+            f"No baseline YAML for arch '{args.arch}' found in {args.baselines_dir}. "
+            f"Known archs: {sorted((combined.get('metadata') or {}).get('archs', {}))}"
+        )
+    baselines = _filter_baselines_to_arch(combined, args.arch)
 
     per_arch = read_arch_results(args.results, args.arch)
     if not per_arch:

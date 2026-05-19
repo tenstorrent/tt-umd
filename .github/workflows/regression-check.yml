@@ -65,12 +65,25 @@ jobs:
           merge-multiple: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug — inspect downloaded artifacts
+      - name: Normalize artifact layout
+        # actions/download-artifact@v8 with merge-multiple:false drops the
+        # contents directly into RESULTS_DIR when only one artifact matches the
+        # pattern, instead of into RESULTS_DIR/<artifact-name>/ as the loader
+        # expects. Re-wrap into a per-artifact subdir using the artifact name
+        # we already know from the upload step (run-benchmarks.yml). The shell
+        # is the regression-check container, so paths are local.
+        shell: bash
         run: |
-          echo "--- ls of ${RESULTS_DIR} ---"
-          ls -la "${RESULTS_DIR}" || echo "(directory missing)"
-          echo "--- find ${RESULTS_DIR} (max depth 3) ---"
-          find "${RESULTS_DIR}" -maxdepth 3 -print || true
+          cd "${RESULTS_DIR}"
+          # Multi-artifact case (full matrix): subdirs already exist. No-op.
+          # Single-artifact case (first-iteration n150 only): JSONs are at root.
+          if compgen -G "*.json" > /dev/null; then
+            SUBDIR="benchmark-json-wormhole_b0-tt-ubuntu-2204-n150-viommu-stable-ubuntu-22.04"
+            mkdir -p "$SUBDIR"
+            mv ./*.json "$SUBDIR/"
+            echo "wrapped single-artifact contents into $SUBDIR/"
+          fi
+          ls -la
 
       - name: Summarize regressions
         run: |

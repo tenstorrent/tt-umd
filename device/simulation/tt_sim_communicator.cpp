@@ -118,6 +118,10 @@ void TTSimCommunicator::initialize() {
             libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id");
         pfn_libttsim_dram_core_wr_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_wr_bytes_by_id_))dlsym(
             libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id");
+        pfn_libttsim_l1_rd_bytes_by_id_ = (decltype(pfn_libttsim_l1_rd_bytes_by_id_))dlsym(
+            libttsim_handle_, "libttsim_l1_rd_bytes_by_id");
+        pfn_libttsim_l1_wr_bytes_by_id_ = (decltype(pfn_libttsim_l1_wr_bytes_by_id_))dlsym(
+            libttsim_handle_, "libttsim_l1_wr_bytes_by_id");
         DLSYM_FUNCTION(libttsim_clock)
         DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
         DLSYM_FUNCTION(libttsim_create_device_by_id)
@@ -214,6 +218,24 @@ bool TTSimCommunicator::dram_read_bytes(uint32_t x, uint32_t y, uint64_t addr, v
     }
     std::lock_guard<std::mutex> lock(device_lock_);
     pfn_libttsim_dram_core_rd_bytes_by_id_(chip_id_, x, y, addr, data, size);
+    return true;
+}
+
+bool TTSimCommunicator::l1_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    if (!v3_5_multichip_mode_ || pfn_libttsim_l1_wr_bytes_by_id_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_l1_wr_bytes_by_id_(chip_id_, x, y, addr, data, size);
+    return true;
+}
+
+bool TTSimCommunicator::l1_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    if (!v3_5_multichip_mode_ || pfn_libttsim_l1_rd_bytes_by_id_ == nullptr) {
+        return false;
+    }
+    std::lock_guard<std::mutex> lock(device_lock_);
+    pfn_libttsim_l1_rd_bytes_by_id_(chip_id_, x, y, addr, data, size);
     return true;
 }
 
@@ -395,6 +417,17 @@ void TTSimCommunicator::register_fabric_node_id(uint32_t mesh_id, uint32_t chip_
 
 void TTSimCommunicator::register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction) {
     std::lock_guard<std::mutex> lock(device_lock_);
+    if (std::getenv("TTSIM_FABRIC_TERMINAL_TRACE")) {
+        fprintf(
+            stderr,
+            "[ttsim-fabric-terminal] umd-register-direction chip_id=%u tile=E%u dir=%u v3_5=%u dev=%p sym=%p\n",
+            chip_id_,
+            eth_tile_id,
+            direction,
+            v3_5_multichip_mode_ ? 1u : 0u,
+            dev_handle_,
+            reinterpret_cast<void*>(pfn_libttsim_switch_register_fabric_endpoint_direction_));
+    }
     if (!v3_5_multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_fabric_endpoint_direction_) return;
     pfn_libttsim_switch_register_fabric_endpoint_direction_(dev_handle_, eth_tile_id, direction);
 }

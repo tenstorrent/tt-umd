@@ -20,14 +20,18 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 
 namespace {
 
-bool sim_dram_teleport_enabled() {
-    const char* env = std::getenv("TT_METAL_SIMULATOR_DRAM_TELEPORT");
+bool sim_env_enabled(const char* name) {
+    const char* env = std::getenv(name);
     if (env == nullptr) {
         return false;
     }
     std::string_view value(env);
     return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
 }
+
+bool sim_dram_teleport_enabled() { return sim_env_enabled("TT_METAL_SIMULATOR_DRAM_TELEPORT"); }
+
+bool sim_l1_teleport_enabled() { return sim_env_enabled("TT_METAL_SIMULATOR_L1_TELEPORT"); }
 
 bool is_translated_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
     for (const auto& dram_core : soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED)) {
@@ -36,6 +40,25 @@ bool is_translated_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair cor
         }
     }
     return false;
+}
+
+uint64_t get_translated_l1_size(
+    const std::vector<std::pair<tt_xy_pair, uint64_t>>& translated_l1_cores, tt_xy_pair core) {
+    for (const auto& [l1_core, l1_size] : translated_l1_cores) {
+        if (l1_core.x == core.x && l1_core.y == core.y) {
+            return l1_size;
+        }
+    }
+    return 0;
+}
+
+bool is_plain_l1_access(
+    const std::vector<std::pair<tt_xy_pair, uint64_t>>& translated_l1_cores,
+    tt_xy_pair core,
+    uint64_t addr,
+    uint32_t size) {
+    uint64_t l1_size = get_translated_l1_size(translated_l1_cores, core);
+    return size != 0 && l1_size != 0 && addr < l1_size && size <= l1_size - addr;
 }
 
 }  // namespace
@@ -74,6 +97,12 @@ TTSimTTDevice::TTSimTTDevice(
     log_info(tt::LogEmulationDriver, "PCI vendor_id=0x{:x} device_id=0x{:x}", vendor_id, libttsim_pci_device_id);
     TT_ASSERT(vendor_id == 0x1E52, "Unexpected PCI vendor ID.");
 
+    const auto translated_tensix_cores = soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    translated_l1_cores_.reserve(translated_tensix_cores.size());
+    for (const auto& tensix_core : translated_tensix_cores) {
+        translated_l1_cores_.push_back({tt_xy_pair(tensix_core), static_cast<uint64_t>(soc_descriptor_.worker_l1_size)});
+    }
+
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         // Compute physical address of BAR0 from PCI config registers.
@@ -106,6 +135,11 @@ void TTSimTTDevice::advance_device_execution() {
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    if (sim_l1_teleport_enabled() && is_plain_l1_access(translated_l1_cores_, core, addr, size)) {
+        if (communicator_->l1_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+            return;
+        }
+    }
     if (sim_dram_teleport_enabled()) {
         if (is_translated_dram_core(soc_descriptor_, core)) {
             if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
@@ -127,6 +161,12 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, uint32_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    if (sim_l1_teleport_enabled() && is_plain_l1_access(translated_l1_cores_, core, addr, size)) {
+        if (communicator_->l1_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
+            communicator_->advance_clock(10);
+            return;
+        }
+    }
     if (sim_dram_teleport_enabled()) {
         if (is_translated_dram_core(soc_descriptor_, core)) {
             if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {

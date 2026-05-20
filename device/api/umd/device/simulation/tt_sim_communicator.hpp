@@ -84,6 +84,14 @@ public:
     bool dram_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
     /**
+     * Fast simulator-only L1 access. Returns false when the loaded simulator
+     * does not export the direct L1 ABI, allowing callers to fall back to the
+     * normal TLB path.
+     */
+    bool l1_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
+    bool l1_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
+
+    /**
      * Read data from PCI memory.
      *
      * @param paddr Physical address
@@ -187,6 +195,8 @@ private:
     void (*pfn_libttsim_dram_wr_bytes_by_id_)(uint32_t chip_id, uint32_t dram_channel, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_dram_core_rd_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_dram_core_wr_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_l1_rd_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_l1_wr_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),

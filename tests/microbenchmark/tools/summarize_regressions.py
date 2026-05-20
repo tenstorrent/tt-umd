@@ -134,7 +134,6 @@ def load_baselines_dir(baselines_dir: Path) -> dict:
         { "metadata": { "archs": { "<arch label>": {
               "runner_hostname": ...,
               "calibrated_at": ...,
-              "calibrated_from_runs": ...,
           } } } }
 
     The arch label is taken from each file's `metadata.arch` field so the
@@ -155,7 +154,6 @@ def load_baselines_dir(baselines_dir: Path) -> dict:
         combined["metadata"]["archs"][arch] = {
             "runner_hostname": per_arch_meta.get("runner_hostname"),
             "calibrated_at": per_arch_meta.get("calibrated_at"),
-            "calibrated_from_runs": per_arch_meta.get("calibrated_from_runs"),
         }
         for title, cases in data.items():
             if title == "metadata":
@@ -393,8 +391,8 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
         for arch in arch_order:
             m = archs_meta.get(arch) or {}
             per_arch_notes.append(
-                f"**{arch}**: {m.get('calibrated_from_runs', '?')} runs on "
-                f"`{m.get('runner_hostname', '?')}` ({m.get('calibrated_at', '?')})"
+                f"**{arch}**: `{m.get('runner_hostname', '?')}` "
+                f"({m.get('calibrated_at', '?')})"
             )
         lines.append("_Baselines: " + "; ".join(per_arch_notes) + "._")
     else:

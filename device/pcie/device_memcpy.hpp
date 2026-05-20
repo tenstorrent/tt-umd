@@ -88,5 +88,4 @@ void write32_to_device(volatile void* dest, std::uint32_t value);
 std::uint16_t read16_from_device(const volatile void* src);
 std::uint32_t read32_from_device(const volatile void* src);
 
-
 }  // namespace tt::umd

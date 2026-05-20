@@ -1,65 +1,71 @@
 # SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 # SPDX-License-Identifier: Apache-2.0
 
-"""Calibrate one arch's baseline YAML by running the microbenchmark binary N
-times locally on its dedicated runner.
+"""Calibrate one arch's baseline YAML from a single microbenchmark invocation
+on its dedicated runner.
 
-Runs the bench N times on the machine it's invoked on, takes one median per
-run, and derives `median_throughput` + `tolerance_pct` per (test, case) via
-MAD K=4.5. Designed for dedicated self-hosted runners where the across-run
-noise floor is small and a handful of invocations is enough to size
-tolerances accurately.
+Runs the bench once on the machine it's invoked on, reads
+`median(elapsed)` + `medianAbsolutePercentError(elapsed)` per case from the
+nanobench JSON, and writes:
+    median_throughput = batch / median(elapsed)
+    tolerance_pct     = max(5, ceil(MAPE_K * mape_pct))
+
+`mape_pct` is the within-run epoch spread reported by nanobench, already as a
+percent of the median. MAPE_K=1 means "tolerance equals the observed
+within-run spread". If CI's run-to-run noise turns out to exceed within-run
+noise (cold-cache or between-process effects), raise MAPE_K — K≈2.5 covers
+~3σ of a median-vs-median comparison under normal-distribution assumptions.
 
 Output: a single `<arch_slug>.yaml` in `tests/microbenchmark/expected/baselines/`,
 identified by the runner's hostname (or `--arch` override). Other arch files
-in that directory are untouched.
+in that directory are untouched. Existing `gate: true` flags are preserved.
 
 Usage on `bgd-lab-06` (WH n150):
 
-    python3 tests/microbenchmark/tools/calibrate_on_runner.py --iters 10
+    python3 tests/microbenchmark/tools/calibrate_on_runner.py
 
-Override the arch if needed (smoke tests, calibrating multiple archs from
-one host, etc.):
+Override the arch if needed (smoke tests, calibrating from a different host):
 
-    python3 tests/microbenchmark/tools/calibrate_on_runner.py --iters 5 \\
-        --arch 'WH n300'
+    python3 tests/microbenchmark/tools/calibrate_on_runner.py --arch 'WH n300'
 
-Dry-run shows the diff against the existing YAML without writing:
+Dry-run shows what would be written without modifying the YAML:
 
     python3 tests/microbenchmark/tools/calibrate_on_runner.py --dry-run
 """
 
 import argparse
 import io
+import json
 import math
 import os
+import re
 import socket
-import statistics
 import subprocess
 import sys
 import tempfile
-from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from summarize_regressions import read_arch_results  # noqa: E402
-
 # --- Tolerance math -------------------------------------------------------------
 #
-# Tolerance band = max(5, ceil(MAD_K * mad_pct)). MAD_K = 4.5 ≈ 3σ (since
-# σ ≈ 1.4826 × MAD for roughly-normal data), so the band covers ~99.7 % of
-# single-sample observations from the same distribution — i.e. one new CI run
-# vs the calibrated median. The 5 % floor stops near-deterministic tests from
-# getting a 0 % tolerance that would alert on rounding noise. MAD itself is
-# robust against single-iteration outliers (one bad sample shifts MAD by at
-# most one rank), unlike stdev which squares deviations.
+# Tolerance band = max(5, ceil(MAPE_K * mape_pct)).
+#
+# mape_pct is nanobench's medianAbsolutePercentError(elapsed) for a single
+# run: the spread of epoch medians within that run, expressed as a percent of
+# the median. MAPE_K=1 sizes tolerance to equal that observed spread.
+#
+# Bump MAPE_K up if CI's run-to-run variance turns out larger than within-run
+# variance (likely on shared/noisy hosts; less likely on a clean dedicated
+# runner with appropriately tuned epoch counts).
 
-MIN_SAMPLES_FOR_RELIABLE = 10
 TOLERANCE_FLOOR_PCT = 5
-MAD_K = 4.5
+MAPE_K = 1
+
+# nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
+# Python's json parser rejects (it only accepts the capitalized `NaN`).
+_NAN_RE = re.compile(r"-?\bnan\b")
 
 
 def arch_slug(arch_label: str) -> str:
@@ -67,25 +73,6 @@ def arch_slug(arch_label: str) -> str:
     "WH n150" -> "wh_n150", "BH p150b" -> "bh_p150b".
     """
     return arch_label.lower().replace(" ", "_")
-
-
-def derive_baseline_entry(samples: list[float]) -> tuple[float, float, str]:
-    """Return (median_throughput, tolerance_pct, comment).
-
-    `comment` is a free-text suffix (may be empty) appended to the YAML line.
-    """
-    if len(samples) < MIN_SAMPLES_FOR_RELIABLE:
-        suffix = f"  # only {len(samples)} samples — tolerance may be too tight/loose"
-    else:
-        suffix = ""
-    median_throughput = statistics.median(samples)
-    if len(samples) < 2:
-        # No spread to measure with one sample — use the floor.
-        return median_throughput, float(TOLERANCE_FLOOR_PCT), suffix
-    mad = statistics.median(abs(s - median_throughput) for s in samples)
-    mad_pct = mad / median_throughput * 100 if median_throughput else 0.0
-    tolerance_pct = max(TOLERANCE_FLOOR_PCT, math.ceil(MAD_K * mad_pct))
-    return median_throughput, float(tolerance_pct), suffix
 
 
 def _yaml_escape(s: str) -> str:
@@ -115,12 +102,10 @@ BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "expected" / "base
 def resolve_arch(arch_arg: str | None, hostname: str) -> tuple[str, str]:
     """Return (arch_label, yaml_filename) for this calibration run.
 
-    Priority: explicit --arch flag (looked up against the canonical labels in
-    RUNNER_ARCH_MAP) > hostname-based detection. Exits non-zero with a clear
-    message if neither resolves.
+    Priority: explicit --arch flag > hostname-based detection. Exits non-zero
+    with a clear message if neither resolves.
     """
     if arch_arg:
-        # Find the entry for this arch label, regardless of hostname.
         for label, filename in RUNNER_ARCH_MAP.values():
             if label == arch_arg:
                 return label, filename
@@ -135,56 +120,68 @@ def resolve_arch(arch_arg: str | None, hostname: str) -> tuple[str, str]:
     )
 
 
-def run_bench_iters(
+def run_bench(
     bench_cmd: str,
     gtest_filter: str | None,
-    iters: int,
-    results_root: Path,
-) -> list[Path]:
-    """Run the benchmark binary `iters` times, each with a unique
-    UMD_MICROBENCHMARK_RESULTS_PATH. Returns the list of iter directories.
-
-    Aborts the script on any failed invocation — partial calibrations would
-    silently bias toward the iterations that happened to succeed.
+    results_dir: Path,
+) -> None:
+    """Run the benchmark binary once with UMD_MICROBENCHMARK_RESULTS_PATH set
+    to `results_dir`. Aborts on non-zero exit.
     """
-    iter_dirs: list[Path] = []
-    base_env = os.environ.copy()
     cmd_parts = [bench_cmd]
     if gtest_filter:
         cmd_parts.append(f"--gtest_filter={gtest_filter}")
-    for i in range(iters):
-        iter_dir = results_root / f"iter_{i:03d}"
-        iter_dir.mkdir(parents=True, exist_ok=True)
-        env = {**base_env, "UMD_MICROBENCHMARK_RESULTS_PATH": str(iter_dir)}
-        print(
-            f"[{i + 1}/{iters}] running: {' '.join(cmd_parts)} "
-            f"(UMD_MICROBENCHMARK_RESULTS_PATH={iter_dir})",
-            file=sys.stderr,
-        )
-        result = subprocess.run(cmd_parts, env=env, capture_output=True, text=True)
-        if result.returncode != 0:
-            sys.stderr.write(result.stdout)
-            sys.stderr.write(result.stderr)
-            sys.exit(
-                f"\nBench exited {result.returncode} on iter {i}. "
-                f"Aborting — calibration is not partial-safe."
-            )
-        iter_dirs.append(iter_dir)
-    return iter_dirs
+    env = {**os.environ, "UMD_MICROBENCHMARK_RESULTS_PATH": str(results_dir)}
+    print(
+        f"running: {' '.join(cmd_parts)} "
+        f"(UMD_MICROBENCHMARK_RESULTS_PATH={results_dir})",
+        file=sys.stderr,
+    )
+    result = subprocess.run(cmd_parts, env=env, capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stdout)
+        sys.stderr.write(result.stderr)
+        sys.exit(f"\nBench exited {result.returncode}. Aborting.")
 
 
-def aggregate_samples(iter_dirs: list[Path], arch_label: str) -> dict:
-    """Combine per-iter benchmark outputs into per-(title, case) sample lists.
+def derive_entry(
+    median_elapsed: float, batch: float, mape_pct: float
+) -> tuple[float, float]:
+    """Compute (median_throughput, tolerance_pct) from one nanobench result.
 
-    Returns: { title: { case: [throughput_iter0, throughput_iter1, ...] } }
+    `mape_pct` is the percent-of-median spread (already converted from
+    nanobench's fraction form). Returns the entry that lands in the YAML.
     """
-    samples: dict = defaultdict(lambda: defaultdict(list))
-    for iter_dir in iter_dirs:
-        per_arch = read_arch_results(iter_dir, arch_label)
-        for title, cases in per_arch.items():
-            for case_name, entry in cases.items():
-                samples[title][case_name].append(entry["throughput"])
-    return samples
+    median_throughput = batch / median_elapsed
+    tolerance_pct = max(TOLERANCE_FLOOR_PCT, math.ceil(MAPE_K * mape_pct))
+    return median_throughput, float(tolerance_pct)
+
+
+def collect_entries(results_dir: Path) -> dict:
+    """Read every `<title>.json` in `results_dir` and return:
+    { title: { case_name: (median_throughput, tolerance_pct) } }
+    """
+    entries: dict = {}
+    for path in sorted(results_dir.glob("*.json")):
+        title = path.stem
+        if title == "machine_host_spec":
+            continue
+        try:
+            text = _NAN_RE.sub("NaN", path.read_text())
+            data = json.loads(text)
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"WARN: skipping {path}: {e}", file=sys.stderr)
+            continue
+        for result in data.get("results", []):
+            case = result.get("name")
+            med = result.get("median(elapsed)")
+            batch = result.get("batch")
+            if case is None or med is None or batch is None or med == 0 or batch == 0:
+                continue
+            # nanobench stores MAPE as a fraction (0.03 == 3%); convert to %.
+            mape_pct = (result.get("medianAbsolutePercentError(elapsed)") or 0.0) * 100
+            entries.setdefault(title, {})[case] = derive_entry(med, batch, mape_pct)
+    return entries
 
 
 def load_existing_arch_yaml(path: Path) -> dict:
@@ -198,25 +195,22 @@ def load_existing_arch_yaml(path: Path) -> dict:
 def render_arch_yaml(
     arch: str,
     runner_hostname: str,
-    samples_for_arch: dict,
+    new_entries: dict,
     existing: dict,
-    iters: int,
-) -> tuple[str, list, list, list]:
-    """Render the per-arch YAML text from local-bench samples.
+) -> tuple[str, list, list]:
+    """Render the per-arch YAML text from one bench run's results.
 
     Returns:
-        (text, change_lines, low_sample_lines, skipped_new_cases)
+        (text, change_lines, skipped_new_cases)
+
+    `new_entries` is { title: { case: (median_throughput, tolerance_pct) } } as
+    produced by `collect_entries`.
 
     `change_lines` lists every case whose median or tolerance moved vs the
-    existing file (one line each).
-    `low_sample_lines` flags any case with fewer than MIN_SAMPLES_FOR_RELIABLE
-    iterations (should not happen if iters >= 10 and bench succeeded, but is
-    logged defensively in case a single test crashed or was skipped).
-    `skipped_new_cases` lists cases present in samples but not in the existing
-    YAML — the script does not insert them automatically.
+    existing YAML. `skipped_new_cases` lists cases present in this run but not
+    in the existing YAML — the script does not insert them automatically.
     """
     change_lines: list[str] = []
-    low_sample_lines: list[str] = []
     skipped_new_cases: list[str] = []
 
     existing_tests = {t: cases for t, cases in existing.items() if t != "metadata"}
@@ -225,8 +219,8 @@ def render_arch_yaml(
     slug = arch_slug(arch)
     out.write(f"# tests/microbenchmark/expected/baselines/{slug}.yaml\n")
     out.write(
-        f"# Calibrated for {arch} on dedicated runner {runner_hostname!r} from "
-        f"{iters} local bench invocations.\n"
+        f"# Calibrated for {arch} on dedicated runner {runner_hostname!r} "
+        "from a single bench invocation.\n"
     )
     out.write(
         "# To recalibrate: tests/microbenchmark/tools/calibrate_on_runner.py "
@@ -236,7 +230,8 @@ def render_arch_yaml(
     out.write("# Schema (no in-file arch label — the file is dedicated to one arch):\n")
     out.write(
         "#   <bench_title>:\n"
-        "#     <case_name>: { median_throughput: <float>, tolerance_pct: <float>[, gate: true] }\n"
+        "#     <case_name>: { median_throughput: <float>, "
+        "tolerance_pct: <float>[, gate: true] }\n"
     )
     out.write("\n")
     out.write("metadata:\n")
@@ -244,53 +239,42 @@ def render_arch_yaml(
     out.write(f'  arch: "{arch}"\n')
     out.write(f'  runner_hostname: "{runner_hostname}"\n')
     out.write(f'  calibrated_at: "{date.today().isoformat()}"\n')
-    out.write(f"  calibrated_from_runs: {iters}\n")
     out.write(
         '  notes: "Calibrated locally via tests/microbenchmark/tools/calibrate_on_runner.py."\n'
     )
     out.write("\n")
 
     # Iterate tests in the order they appear in the existing YAML so the diff
-    # is readable. New tests (in samples but not the YAML) would normally be
-    # appended here, but the script skips them and warns instead — adding a
-    # case to baselines should be an intentional review action, not a side
-    # effect of running calibration.
-    seen_test_titles: set = set()
+    # is readable. New tests (in this run's results but not the YAML) are
+    # collected as skipped_new_cases for human follow-up — adding a case to
+    # baselines should be an intentional review action, not a side effect.
     for title, existing_cases in existing_tests.items():
         if not isinstance(existing_cases, dict):
             continue
-        seen_test_titles.add(title)
         case_lines: list[str] = []
         for case_name, existing_entry in existing_cases.items():
             if not isinstance(existing_entry, dict):
                 continue
-            new_samples = samples_for_arch.get(title, {}).get(case_name)
-            if not new_samples:
-                # Missing from this calibration — keep the existing values
-                # rather than dropping the row.
+            new = new_entries.get(title, {}).get(case_name)
+            if not new:
+                # Missing from this run — keep existing values.
                 median_throughput = existing_entry.get("median_throughput")
                 tolerance_pct = existing_entry.get("tolerance_pct")
                 if median_throughput is None or tolerance_pct is None:
                     print(
-                        f"WARN: {title}/{case_name}: no samples and existing "
+                        f"WARN: {title}/{case_name}: no result and existing "
                         f"entry is incomplete; skipping.",
                         file=sys.stderr,
                     )
                     continue
                 change_lines.append(
-                    f"  {title} :: {case_name}: no samples collected — "
+                    f"  {title} :: {case_name}: no result — "
                     f"keeping existing median {median_throughput:.4g}, "
                     f"tolerance ±{tolerance_pct:g}%"
                 )
-                suffix = "  # no new samples this calibration"
+                suffix = "  # no new result this calibration"
             else:
-                median_throughput, tolerance_pct, suffix = derive_baseline_entry(
-                    new_samples
-                )
-                if len(new_samples) < MIN_SAMPLES_FOR_RELIABLE:
-                    low_sample_lines.append(
-                        f"  {title} :: {case_name}: {len(new_samples)} sample(s)"
-                    )
+                median_throughput, tolerance_pct = new
                 old_median = existing_entry.get("median_throughput")
                 old_tolerance = existing_entry.get("tolerance_pct")
                 change_lines.append(
@@ -298,6 +282,7 @@ def render_arch_yaml(
                     f"median {old_median:.4g} -> {median_throughput:.4g}, "
                     f"tolerance ±{old_tolerance:g}% -> ±{tolerance_pct:g}%"
                 )
+                suffix = ""
             gate = existing_entry.get("gate") is True
             gate_str = ", gate: true" if gate else ""
             case_lines.append(
@@ -311,15 +296,14 @@ def render_arch_yaml(
                 out.write(line + "\n")
             out.write("\n")
 
-    # Cases present in samples but not in the existing YAML — flag for human
-    # follow-up rather than auto-inserting.
-    for title, cases in samples_for_arch.items():
+    # Cases present in this run but not in the existing YAML — flag.
+    for title, cases in new_entries.items():
         for case_name in cases:
             existing_cases = existing_tests.get(title)
             if not isinstance(existing_cases, dict) or case_name not in existing_cases:
                 skipped_new_cases.append(f"  {title} :: {case_name}")
 
-    return out.getvalue(), change_lines, low_sample_lines, skipped_new_cases
+    return out.getvalue(), change_lines, skipped_new_cases
 
 
 # --- Main ------------------------------------------------------------------------
@@ -327,12 +311,6 @@ def render_arch_yaml(
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument(
-        "--iters",
-        type=int,
-        default=10,
-        help="Number of bench invocations to sample. Must be >= 2 (default: 10).",
-    )
     p.add_argument(
         "--bench-cmd",
         default=BENCH_CMD_DEFAULT,
@@ -355,16 +333,13 @@ def main() -> int:
         "--baselines-dir",
         type=Path,
         default=BASELINES_DIR_DEFAULT,
-        help=(
-            "Directory of per-arch baseline YAMLs "
-            f"(default: {BASELINES_DIR_DEFAULT})."
-        ),
+        help=f"Directory of per-arch baseline YAMLs (default: {BASELINES_DIR_DEFAULT}).",
     )
     p.add_argument(
-        "--results-root",
+        "--results-dir",
         type=Path,
         default=None,
-        help="Where to put per-iter benchmark outputs (default: a fresh temp dir).",
+        help="Where to put benchmark JSON outputs (default: a fresh temp dir).",
     )
     p.add_argument(
         "--dry-run",
@@ -373,46 +348,40 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    if args.iters < 2:
-        sys.exit(f"--iters must be >= 2 (got {args.iters})")
-
     hostname = socket.gethostname()
     arch_label, yaml_filename = resolve_arch(args.arch, hostname)
     print(f"Hostname: {hostname}", file=sys.stderr)
     print(f"Arch:     {arch_label}", file=sys.stderr)
     print(f"Output:   {args.baselines_dir / yaml_filename}", file=sys.stderr)
 
-    # Where to land per-iter benchmark outputs.
-    if args.results_root is None:
-        results_root = Path(
+    if args.results_dir is None:
+        results_dir = Path(
             tempfile.mkdtemp(prefix=f"calibrate_{arch_slug(arch_label)}_")
         )
     else:
-        results_root = args.results_root
-        results_root.mkdir(parents=True, exist_ok=True)
-    print(f"Results:  {results_root}", file=sys.stderr)
+        results_dir = args.results_dir
+        results_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Results:  {results_dir}", file=sys.stderr)
 
-    iter_dirs = run_bench_iters(
-        args.bench_cmd, args.gtest_filter, args.iters, results_root
-    )
+    run_bench(args.bench_cmd, args.gtest_filter, results_dir)
 
-    samples = aggregate_samples(iter_dirs, arch_label)
-    if not samples:
+    new_entries = collect_entries(results_dir)
+    if not new_entries:
         sys.exit(
-            f"No samples collected after {args.iters} bench invocations. "
+            f"No results collected from {results_dir}. "
             f"Check that {args.bench_cmd} writes JSON to "
             f"$UMD_MICROBENCHMARK_RESULTS_PATH."
         )
 
     out_path = args.baselines_dir / yaml_filename
     existing = load_existing_arch_yaml(out_path)
-    yaml_text, change_lines, low_sample_lines, skipped_new = render_arch_yaml(
-        arch_label, hostname, samples, existing, args.iters
+    yaml_text, change_lines, skipped_new = render_arch_yaml(
+        arch_label, hostname, new_entries, existing
     )
 
     if args.dry_run:
         print(
-            "--- dry-run: would write the following to " f"{out_path} ---",
+            f"--- dry-run: would write the following to {out_path} ---",
             file=sys.stderr,
         )
         sys.stdout.write(yaml_text)
@@ -425,17 +394,9 @@ def main() -> int:
         print(f"\nChanges ({len(change_lines)}):", file=sys.stderr)
         for line in change_lines:
             print(line, file=sys.stderr)
-    if low_sample_lines:
-        print(
-            f"\n{len(low_sample_lines)} case(s) calibrated from fewer than "
-            f"{MIN_SAMPLES_FOR_RELIABLE} samples (review before committing):",
-            file=sys.stderr,
-        )
-        for line in low_sample_lines:
-            print(line, file=sys.stderr)
     if skipped_new:
         print(
-            f"\n{len(skipped_new)} new case(s) seen in samples but absent from "
+            f"\n{len(skipped_new)} new case(s) seen in this run but absent from "
             f"{out_path.name}; add manually if intended:",
             file=sys.stderr,
         )

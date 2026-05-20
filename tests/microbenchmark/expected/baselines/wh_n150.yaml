@@ -1,5 +1,5 @@
 # tests/microbenchmark/expected/baselines/wh_n150.yaml
-# Calibrated for WH n150 on dedicated runner 'bgd-lab-06' from 30 local bench invocations.
+# Calibrated for WH n150 on dedicated runner 'bgd-lab-06' from a single bench invocation.
 # To recalibrate: tests/microbenchmark/tools/calibrate_on_runner.py (must be run on bgd-lab-06).
 #
 # Schema (no in-file arch label — the file is dedicated to one arch):
@@ -10,11 +10,10 @@ metadata:
   schema_version: 1
   arch: "WH n150"
   runner_hostname: "bgd-lab-06"
-  calibrated_at: "2026-05-19"
-  calibrated_from_runs: 30
+  calibrated_at: "2026-05-20"
   notes: "Calibrated locally via tests/microbenchmark/tools/calibrate_on_runner.py."
 
 ClusterConstructor:
-  default: { median_throughput: 247.5, tolerance_pct: 5 }
-  from sdesc: { median_throughput: 200.8, tolerance_pct: 7 }
+  default: { median_throughput: 247.7, tolerance_pct: 5 }
+  from sdesc: { median_throughput: 219.7, tolerance_pct: 6 }
 

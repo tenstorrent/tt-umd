@@ -88,7 +88,7 @@ public:
     size_t get_size() const;
 
 private:
-    /**
+    /**-
      * @brief Custom deleter type used for resource cleanup on destruction.
      *
      * Set by the SystemMemoryAllocator. For library-allocated buffers, the deleter

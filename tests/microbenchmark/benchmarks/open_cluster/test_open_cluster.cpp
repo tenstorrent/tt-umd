@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "common/microbenchmark_utils.hpp"
@@ -42,10 +43,14 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
     bench.name("default").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
         ankerl::nanobench::doNotOptimizeAway(cluster);
+        // Intentional slowdown to validate that the in-repo regression check
+        // detects and hard-fails (gate: true) on a real per-op delta.
+        std::this_thread::sleep_for(std::chrono::microseconds(1000));
     });
     bench.name("from sdesc").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
         ankerl::nanobench::doNotOptimizeAway(cluster);
+        std::this_thread::sleep_for(std::chrono::microseconds(1000));
     });
     test::utils::export_results(bench);
 }

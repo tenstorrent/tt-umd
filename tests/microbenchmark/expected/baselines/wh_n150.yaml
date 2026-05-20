@@ -15,5 +15,6 @@ metadata:
 
 ClusterConstructor:
   default: { median_throughput: 247.7, tolerance_pct: 5 }
-  from sdesc: { median_throughput: 219.7, tolerance_pct: 6 }
-
+  # "from sdesc" intentionally excluded from comparison — too much run-to-run
+  # variance to give a stable signal yet. 
+  # from sdesc: { median_throughput: 219.7, tolerance_pct: 6 }

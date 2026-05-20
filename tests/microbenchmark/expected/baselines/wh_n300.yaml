@@ -1,55 +1,10 @@
-# tests/microbenchmark/expected/baselines/wh_n300.yaml
-# Calibrated for WH n300 (runner: bgd-lab-05) from 30 successful main runs of build-and-run-all-benchmarks.yml.
-# To recalibrate on the dedicated runner: tests/microbenchmark/tools/calibrate_on_runner.py
-#
-# Schema (no in-file arch label — the file is dedicated to one arch):
-#   <bench_title>:
-#     <case_name>: { median_throughput: <float>, tolerance_pct: <float>[, gate: true] }
-#
-# Tolerance policy: small-payload cases run on shared CI hardware historically
-# showed run-to-run variance > 30%. Tolerances re-derived on dedicated runners
-# should be tighter. Never set `gate: true` on a row with tolerance_pct > 30.
-
 # metadata:
 #   schema_version: 1
 #   arch: "WH n300"
 #   runner_hostname: "bgd-lab-05"
 #   calibrated_at: "2026-05-11"
 #   calibrated_from_runs: 30
-#   notes: "Migrated from combined baselines.yaml. Re-calibrate via calibrate_on_runner.py on the dedicated runner."
 
 # ClusterConstructor:
 #   default: { median_throughput: 41.16, tolerance_pct: 16 }
 #   from sdesc: { median_throughput: 36.76, tolerance_pct: 20 }
-
-# TLB_Tensix_Unicast_v_Multicast:
-#   "Multicast, 64 cores, 1 bytes": { median_throughput: 4.738e+05, tolerance_pct: 30 }
-#   "Multicast, 64 cores, 1024 bytes": { median_throughput: 4.206e+08, tolerance_pct: 9 }
-#   "Multicast, 64 cores, 1048576 bytes": { median_throughput: 4.86e+08, tolerance_pct: 7 }
-#   "Multicast, 64 cores, 131072 bytes": { median_throughput: 4.856e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 16384 bytes": { median_throughput: 4.817e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 2 bytes": { median_throughput: 9.427e+05, tolerance_pct: 29 }
-#   "Multicast, 64 cores, 2048 bytes": { median_throughput: 4.509e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 262144 bytes": { median_throughput: 4.859e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 32768 bytes": { median_throughput: 4.839e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 4 bytes": { median_throughput: 4.702e+06, tolerance_pct: 58 }
-#   "Multicast, 64 cores, 4096 bytes": { median_throughput: 4.678e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 524288 bytes": { median_throughput: 4.86e+08, tolerance_pct: 6 }
-#   "Multicast, 64 cores, 65536 bytes": { median_throughput: 4.85e+08, tolerance_pct: 5 }
-#   "Multicast, 64 cores, 8 bytes": { median_throughput: 9.674e+06, tolerance_pct: 57 }
-#   "Multicast, 64 cores, 8192 bytes": { median_throughput: 4.768e+08, tolerance_pct: 5 }
-#   "Unicast, 64 cores, 1 bytes": { median_throughput: 7599, tolerance_pct: 43 }
-#   "Unicast, 64 cores, 1024 bytes": { median_throughput: 2.181e+07, tolerance_pct: 46 }
-#   "Unicast, 64 cores, 1048576 bytes": { median_throughput: 3.518e+07, tolerance_pct: 8 }
-#   "Unicast, 64 cores, 131072 bytes": { median_throughput: 3.517e+07, tolerance_pct: 8 }
-#   "Unicast, 64 cores, 16384 bytes": { median_throughput: 3.46e+07, tolerance_pct: 8 }
-#   "Unicast, 64 cores, 2 bytes": { median_throughput: 1.51e+04, tolerance_pct: 42 }
-#   "Unicast, 64 cores, 2048 bytes": { median_throughput: 3.008e+07, tolerance_pct: 7 }
-#   "Unicast, 64 cores, 262144 bytes": { median_throughput: 3.519e+07, tolerance_pct: 7 }
-#   "Unicast, 64 cores, 32768 bytes": { median_throughput: 3.501e+07, tolerance_pct: 8 }
-#   "Unicast, 64 cores, 4 bytes": { median_throughput: 7.456e+04, tolerance_pct: 93 }
-#   "Unicast, 64 cores, 4096 bytes": { median_throughput: 3.245e+07, tolerance_pct: 7 }
-#   "Unicast, 64 cores, 524288 bytes": { median_throughput: 3.521e+07, tolerance_pct: 8 }
-#   "Unicast, 64 cores, 65536 bytes": { median_throughput: 3.51e+07, tolerance_pct: 7 }
-#   "Unicast, 64 cores, 8 bytes": { median_throughput: 1.513e+05, tolerance_pct: 91 }
-#   "Unicast, 64 cores, 8192 bytes": { median_throughput: 3.378e+07, tolerance_pct: 10 }

@@ -1,16 +1,18 @@
 # Regression check against in-repo per-arch baseline YAMLs.
-# Complementary to analyze_results.yml (which diffs current run vs the single
-# latest main run). This workflow compares against the median of N main runs
-# stored in tests/microbenchmark/expected/baselines/<arch>.yaml, applies
-# per-case tolerances, and emits a coarse cross-arch summary plus per-(test,
-# arch) detail sections to $GITHUB_STEP_SUMMARY.
+#
+# Compares the current run against the per-arch baselines in
+# tests/microbenchmark/expected/baselines/<arch>.yaml (each calibrated on its
+# dedicated runner via tests/microbenchmark/tools/calibrate_on_runner.py —
+# median(elapsed) + MAPE-derived tolerance from a single bench invocation),
+# applies per-case tolerances, and emits a coarse cross-arch summary plus
+# per-(test, arch) detail sections to $GITHUB_STEP_SUMMARY.
 #
 # Pilot: soft by default, but can hard-fail when gate: true breaches.
 name: Regression check against in-repo baseline
 
 on:
   workflow_call:
-    # No inputs — downloads benchmark-json-* artifacts from the parent run.
+  # No inputs — downloads benchmark-json-* artifacts from the parent run.
 
 env:
   RESULTS_DIR: /tmp/all-arch-results
@@ -64,26 +66,6 @@ jobs:
           path: ${{ env.RESULTS_DIR }}
           merge-multiple: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Normalize artifact layout
-        # actions/download-artifact@v8 with merge-multiple:false drops the
-        # contents directly into RESULTS_DIR when only one artifact matches the
-        # pattern, instead of into RESULTS_DIR/<artifact-name>/ as the loader
-        # expects. Re-wrap into a per-artifact subdir using the artifact name
-        # we already know from the upload step (run-benchmarks.yml). The shell
-        # is the regression-check container, so paths are local.
-        shell: bash
-        run: |
-          cd "${RESULTS_DIR}"
-          # Multi-artifact case (full matrix): subdirs already exist. No-op.
-          # Single-artifact case (first-iteration n150 only): JSONs are at root.
-          if compgen -G "*.json" > /dev/null; then
-            SUBDIR="benchmark-json-wormhole_b0-tt-ubuntu-2204-n150-viommu-stable-ubuntu-22.04"
-            mkdir -p "$SUBDIR"
-            mv ./*.json "$SUBDIR/"
-            echo "wrapped single-artifact contents into $SUBDIR/"
-          fi
-          ls -la
 
       - name: Summarize regressions
         run: |

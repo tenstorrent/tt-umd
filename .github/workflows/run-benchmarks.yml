@@ -13,6 +13,16 @@ on:
       card:
         required: true
         type: string
+      runner-label:
+        required: true
+        type: string
+        description: >-
+          GHA runner label to bind the job to. Temporary for testing (for now
+          just n150 - bgd-lab-06 included in regression detection): this input
+          is used to pin n150 to the bgd-lab-06 hostname; for the other arches
+          the card label is passed here, same as how labels are used for those
+          cards elsewhere. Will be revisited once dedicated runners are set up
+          for all three arches.
       timeout:
         required: true
         type: number
@@ -33,13 +43,8 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Run benchmarks for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
-    # TEMP first-iteration scope: pin runs-on to the bgd-lab-06 hostname label
-    # so the job lands on the calibrated dedicated runner. Restore the
-    # `${{ inputs.card }}` label match below once bgd-lab-05 / bh-40 come
-    # online and the matrix expands beyond n150.
     runs-on:
-      - bgd-lab-06
-      # - ${{ inputs.card }}
+      - ${{ inputs.runner-label }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       # Set dummy var for baremetal, as options has to have some value
@@ -95,35 +100,30 @@ jobs:
             python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
             --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
 
-      # TEMP first-iteration scope: only the OpenCluster benchmark runs in CI
-      # so we can validate the regression-check wiring end-to-end on a single
-      # test before expanding. Restore the TLB / PCIe / IOMMU / EthernetIO
-      # steps below once the pipeline is proven.
-      # - name: Run TLB benchmarks
-      #   if: ${{ inputs.arch != 'baremetal' }}
-      #   run: |
-      #     ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkTLB*
-      #
-      # - name: Run PCIe benchmarks
-      #   if: ${{ inputs.arch != 'baremetal' }}
-      #   run: |
-      #     ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkPCIeDMA*
-      #
-      # - name: Run IOMMU benchmarks
-      #   if: ${{ inputs.arch != 'baremetal' }}
-      #   run: |
-      #     ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkIOMMU*
+      - name: Run TLB benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkTLB*
+
+      - name: Run PCIe benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkPCIeDMA*
+
+      - name: Run IOMMU benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkIOMMU*
 
       - name: Run Cluster open benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark \
-            --gtest_filter=MicrobenchmarkOpenCluster.ClusterConstructor
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkOpenCluster*
 
-      # - name: Run ethernet IO benchmarks
-      #   if: ${{ inputs.arch != 'baremetal' }}
-      #   run: |
-      #     ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
+      - name: Run ethernet IO benchmarks
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
 
       - name: Upload JSON benchmark results
         uses: actions/upload-artifact@v7

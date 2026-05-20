@@ -12,7 +12,7 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -25,7 +25,6 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
-class SimulationTlbManager;
 class SocDescriptor;
 class TlbWindow;
 
@@ -73,9 +72,9 @@ public:
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager* get_tlb_manager() override;
-
     std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+
+    SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
@@ -86,7 +85,7 @@ private:
 
     std::filesystem::path simulator_directory_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
-    std::unique_ptr<SimulationTlbManager> tlb_manager_;
+    std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

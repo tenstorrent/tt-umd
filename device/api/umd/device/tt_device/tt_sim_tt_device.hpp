@@ -12,7 +12,7 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
@@ -27,7 +27,6 @@ namespace tt::umd {
 
 class TTSimCommunicator;
 class SimulationSysmemManager;
-class SimulationTlbManager;
 class SocDescriptor;
 
 class TTSimTTDevice : public TTDevice {
@@ -82,9 +81,9 @@ public:
 
     SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager *get_tlb_manager() override;
-
     std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+
+    SimulationTlbAllocator *get_tlb_allocator() { return tlb_allocator_.get(); }
 
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
@@ -107,7 +106,7 @@ private:
 
     uint32_t libttsim_pci_device_id;
 
-    std::unique_ptr<SimulationTlbManager> tlb_manager_;
+    std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 };
 }  // namespace tt::umd

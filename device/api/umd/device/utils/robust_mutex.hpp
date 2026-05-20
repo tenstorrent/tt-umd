@@ -70,9 +70,18 @@ private:
     struct pthread_mutex_wrapper {
         pthread_mutex_t mutex;
         uint64_t initialized;
+        // Owner TID/PID are read without holding the mutex (see probe_lock), so accesses must be atomic.
+        // The wrapper lives in mmap'd shared memory and its C++ object lifetime is never started
+        // (no placement-new), so std::atomic members would technically be UB. Instead we keep these as
+        // plain pid_t and use the compiler's __atomic_* builtins at every access site; the builtins
+        // operate on raw memory, are recognized as atomic by TSAN, and require no C++ object lifetime.
         pid_t owner_tid;  // TID of the thread holding the lock, 0 if no owner
         pid_t owner_pid;  // PID of the thread holding the lock, 0 if no owner
     };
+
+    static_assert(
+        __atomic_always_lock_free(sizeof(pid_t), nullptr),
+        "owner_tid/owner_pid must be lock-free for cross-process shared-memory use");
 
     // Closes the mutex, doesn't remove the backing mutex file.
     void close_mutex() noexcept;

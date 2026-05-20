@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -57,6 +58,7 @@ private:
     void load_simulator_library(const std::filesystem::path& path);
 
     std::unique_ptr<TTSimTTDevice> tt_device_;
+    std::unique_ptr<TLBManager> tlb_manager_;
 };
 
 }  // namespace tt::umd

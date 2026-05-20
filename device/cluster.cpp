@@ -262,7 +262,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Harvesting masks for Chip {}: Tensix: {:#x} DRAM: {:#x} ETH: {:#x} PCIe: {:#x} L2CPU: {:#x}",
         chip_id,
@@ -757,63 +757,27 @@ void Cluster::ethernet_broadcast_write(
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
-    if (use_ethernet_broadcast) {
-        // Broadcast through ERISC core supported.
-        std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
-            get_ethernet_broadcast_headers(chips_to_exclude);
-        // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
-        // broadcast headers on future/
-        std::uint32_t row_exclusion_mask = 0;
-        std::uint32_t col_exclusion_mask = 0;
-        for (const auto& row : rows_to_exclude) {
-            row_exclusion_mask |= 1 << row;
-        }
+    // Broadcast through ERISC core supported.
+    std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
+        get_ethernet_broadcast_headers(chips_to_exclude);
+    // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
+    // broadcast headers on future/
+    std::uint32_t row_exclusion_mask = 0;
+    std::uint32_t col_exclusion_mask = 0;
+    for (const auto& row : rows_to_exclude) {
+        row_exclusion_mask |= 1 << row;
+    }
 
-        for (const auto& col : cols_to_exclude) {
-            col_exclusion_mask |= 1 << (16 + col);
-        }
-        // Write broadcast block to device.
-        for (auto& mmio_group : broadcast_headers) {
-            for (auto& header : mmio_group.second) {
-                header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
-                header.at(4) |= row_exclusion_mask;
-                header.at(4) |= col_exclusion_mask;
-                get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
-            }
-        }
-    } else {
-        // Broadcast not supported. Implement this at the software level as a for loop.
-        // TODO: temporary until the fallback mechanism is moved out in the following PR. Only
-        // broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
-        // broadcast). The row/col exclusion masks are bit positions in NOC0 space when
-        // use_translated_coords is false, or in virtual space when true — iterate each core type
-        // in the coord system that matches the exclusion semantics so ETH/ARC/PCIe stay untouched.
-        const CoordSystem iter_coord_system = use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
-        for (const auto& chip : all_chip_ids_) {
-            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
-                continue;
-            }
-            const SocDescriptor& soc = get_soc_descriptor(chip);
-            for (const CoreCoord core : soc.get_cores(CoreType::TENSIX, iter_coord_system)) {
-                uint32_t row_key = core.y;
-                uint32_t col_key = core.x;
-                if (use_translated_coords) {
-                    row_key = wormhole::TRANSLATED_TO_VIRTUAL_Y.at(core.y - wormhole::translated_coordinate_start_y);
-                    col_key = wormhole::TRANSLATED_TO_VIRTUAL_X.at(core.x - wormhole::translated_coordinate_start_x);
-                }
-                if (cols_to_exclude.find(col_key) == cols_to_exclude.end() &&
-                    rows_to_exclude.find(row_key) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
-                }
-            }
-            // DRAM cores have translated coords equal to their NOC0 coords on Wormhole, which also
-            // coincide with their virtual coords, so no remapping is needed.
-            for (const CoreCoord core : soc.get_cores(CoreType::DRAM, iter_coord_system)) {
-                if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
-                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
-                }
-            }
+    for (const auto& col : cols_to_exclude) {
+        col_exclusion_mask |= 1 << (16 + col);
+    }
+    // Write broadcast block to device.
+    for (auto& mmio_group : broadcast_headers) {
+        for (auto& header : mmio_group.second) {
+            header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
+            header.at(4) |= row_exclusion_mask;
+            header.at(4) |= col_exclusion_mask;
+            get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
         }
     }
 }
@@ -887,6 +851,39 @@ void Cluster::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& columns_to_exclude,
     bool use_translated_coords) {
+    if (!use_ethernet_broadcast) {
+        // Broadcast not supported. Implement this at the software level as a for loop.
+        // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
+        // broadcast). The row/col exclusion masks are bit positions in NOC0 space when
+        // use_translated_coords is false, or in translated space when true.
+        for (const auto& chip : all_chip_ids_) {
+            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
+                continue;
+            }
+            if (use_translated_coords && arch_name == tt::ARCH::WORMHOLE_B0) {
+                // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED
+                // coordinates are requested, so we need to manually adjust the exclusion list to include NOC0
+                // coordinates of DRAM cores if they're requested in translated space.
+                if (columns_to_exclude.find(16) != columns_to_exclude.end()) {
+                    columns_to_exclude.insert(0);
+                }
+                if (columns_to_exclude.find(17) != columns_to_exclude.end()) {
+                    columns_to_exclude.insert(5);
+                }
+            }
+            for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
+                for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
+                         core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
+                    if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
+                        rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
+                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                    }
+                }
+            }
+        }
+        return;
+    }
+
     if (arch_name != tt::ARCH::WORMHOLE_B0) {
         UMD_THROW(error::RuntimeError, "Broadcast write is only supported on Wormhole architecture.");
     }
@@ -1045,15 +1042,13 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
     std::set<uint32_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
         if (use_translated_coords_for_eth_broadcast) {
-            rows_to_exclude = {0, 1};
-            columns_to_exclude = {0, 8, 9};
-        } else {
             // PCIE and ETH are on these rows in translated space.
-            // Note: But the algorithm won't ever try even writing to them, since ethernet broadcast is disabled for
-            // blackhole.
             rows_to_exclude = {24, 25};
             // DRAM is on these columns in translated space.
             columns_to_exclude = {17, 18};
+        } else {
+            rows_to_exclude = {0, 1};
+            columns_to_exclude = {0, 8, 9};
         }
     } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
         if (use_translated_coords_for_eth_broadcast) {

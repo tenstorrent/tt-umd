@@ -110,6 +110,7 @@ target_sources(
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
+        coordinates/quasar_coordinate_manager.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
@@ -150,7 +151,6 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
-            chip_helpers/simulation_tlb_manager.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
@@ -183,6 +183,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/wormhole_arc_messenger.hpp
                 api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
+                api/umd/device/coordinates/quasar_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
@@ -195,7 +196,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
-                api/umd/device/chip_helpers/simulation_tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp

@@ -148,7 +148,9 @@ void SiliconTlbWindow::memcpy_from_device(
     if (src_misalignment != 0) {
         sp = reinterpret_cast<copy_t *>(src_addr - src_misalignment);
 
-        copy_t tmp = *sp++;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), on_timeout);
+        sp++;
 
         auto leading_len = std::min(sizeof(tmp) - src_misalignment, num_bytes);
         memcpy(dest, reinterpret_cast<char *>(&tmp) + src_misalignment, leading_len);
@@ -170,7 +172,8 @@ void SiliconTlbWindow::memcpy_from_device(
     // Finally copy any sub-word trailer.
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
-        copy_t tmp = *sp;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), on_timeout);
         memcpy(dp, &tmp, trailing_len);
     }
 }
@@ -190,7 +193,8 @@ void SiliconTlbWindow::memcpy_to_device(
         // Read-modify-write for the first dest element.
         dp = reinterpret_cast<copy_t *>(dest_addr - dest_misalignment);
 
-        copy_t tmp = *dp;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), on_timeout);
 
         auto leading_len = std::min(sizeof(tmp) - dest_misalignment, num_bytes);
 
@@ -198,7 +202,8 @@ void SiliconTlbWindow::memcpy_to_device(
         num_bytes -= leading_len;
         src = static_cast<const char *>(src) + leading_len;
 
-        *dp++ = tmp;
+        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), on_timeout);
+        dp++;
 
     } else {
         dp = static_cast<copy_t *>(dest);
@@ -215,11 +220,12 @@ void SiliconTlbWindow::memcpy_to_device(
     // Finally copy any sub-word trailer, again RMW on the destination.
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
-        copy_t tmp = *dp;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), on_timeout);
 
         memcpy(&tmp, sp, trailing_len);
 
-        *dp++ = tmp;
+        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), on_timeout);
     }
 }
 

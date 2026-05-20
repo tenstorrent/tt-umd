@@ -142,7 +142,7 @@ void TopologyDiscovery::get_connected_devices() {
                 "Low power mode is not yet supported. The device will remain in high power mode while UMD holds open "
                 "file descriptors.");
         } else {
-            // Setting power state is disabled until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
+            // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
             tt_device->set_power_state(true);
         }
         if (tt_device->get_arch() != get_topology_arch()) {

@@ -570,6 +570,34 @@ TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     return tt_device;
 }
 
+void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id) {
+    if (std::getenv("TTSIM_FABRIC_TERMINAL_TRACE")) {
+        fprintf(
+            stderr,
+            "[ttsim-fabric-terminal] umd-cluster-register-node chip=%d fabric=(%u,%u)\n",
+            chip_id,
+            mesh_id,
+            fabric_chip_id);
+    }
+    auto chip_it = chips_.find(chip_id);
+    if (chip_it == chips_.end()) {
+        return;
+    }
+    auto* sim_chip = dynamic_cast<TTSimChip*>(chip_it->second.get());
+    if (!sim_chip) {
+        return;
+    }
+    auto* sim_tt = dynamic_cast<TTSimTTDevice*>(sim_chip->get_tt_device());
+    if (!sim_tt) {
+        return;
+    }
+    auto* communicator = sim_tt->get_communicator();
+    if (!communicator) {
+        return;
+    }
+    communicator->register_fabric_node_id(mesh_id, fabric_chip_id);
+}
+
 void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction) {
     auto chip_it = chips_.find(chip_id);
     if (chip_it == chips_.end()) {

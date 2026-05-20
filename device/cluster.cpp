@@ -570,6 +570,26 @@ TTDevice* Cluster::get_tt_device(ChipId device_id) const {
     return tt_device;
 }
 
+void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction) {
+    auto chip_it = chips_.find(chip_id);
+    if (chip_it == chips_.end()) {
+        return;
+    }
+    auto* sim_chip = dynamic_cast<TTSimChip*>(chip_it->second.get());
+    if (!sim_chip) {
+        return;
+    }
+    auto* sim_tt = dynamic_cast<TTSimTTDevice*>(sim_chip->get_tt_device());
+    if (!sim_tt) {
+        return;
+    }
+    auto* communicator = sim_tt->get_communicator();
+    if (!communicator) {
+        return;
+    }
+    communicator->register_fabric_endpoint_direction(eth_tile_id, direction);
+}
+
 TLBManager* Cluster::get_tlb_manager(ChipId device_id) const { return get_chip(device_id)->get_tlb_manager(); }
 
 Chip* Cluster::get_chip(ChipId device_id) const {

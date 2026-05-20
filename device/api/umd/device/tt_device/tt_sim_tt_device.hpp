@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tt_sim_tlb_manager.hpp"
@@ -105,6 +107,7 @@ private:
     ChipId chip_id_;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+    std::vector<std::pair<tt_xy_pair, uint64_t>> translated_l1_cores_;
 
     uint32_t libttsim_pci_device_id;
 

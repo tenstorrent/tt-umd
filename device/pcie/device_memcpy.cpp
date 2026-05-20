@@ -166,12 +166,14 @@ public:
                 return;
             }
         }
-        auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
-        auto budget_ms = op_timeout_.count();
         throw error::DeviceTimeoutError(
-            std::string(fn_name_) + " per-op timeout: " + std::to_string(op_bytes) + "B " + op_verb_ + " took " +
-            std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget_ms) + " ms), " +
-            std::to_string(remaining_) + " of " + std::to_string(total_size_) + " bytes remaining.");
+            fn_name_,
+            op_verb_,
+            op_bytes,
+            std::chrono::duration_cast<std::chrono::nanoseconds>(delta),
+            op_timeout_,
+            remaining_,
+            total_size_);
     }
 
     void dump() const {

@@ -12,7 +12,7 @@ Example:
 
     export UMD_MICROBENCHMARK_RESULTS_PATH=/tmp/umd-bench
     mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
-    ./build/tests/microbenchmark/microbenchmark_tests \\
+      ./build/test/umd/microbenchmark/umd_microbenchmark \\
         --gtest_filter='MicrobenchmarkTLB.CompareMulticastandUnicast'
 
     python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'WH n150'

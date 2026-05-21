@@ -180,7 +180,7 @@ void TTSimTTDevice::close_device() { communicator_->shutdown(); }
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (sim_dram_teleport_enabled()) {
-        if (is_translated_dram_core(soc_descriptor_, core)) {
+        if (is_translated_dram_core(get_soc_descriptor(), core)) {
             if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
                 return;
             }
@@ -198,7 +198,7 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (sim_dram_teleport_enabled()) {
-        if (is_translated_dram_core(soc_descriptor_, core)) {
+        if (is_translated_dram_core(get_soc_descriptor(), core)) {
             if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
                 communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
             }

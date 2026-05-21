@@ -45,8 +45,6 @@ void TLBManager::configure_tlb(tt_xy_pair core, size_t tlb_size, uint64_t addres
     config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
     std::unique_ptr<TlbWindow> tlb_window = allocate_tlb_window(config, TlbMapping::WC, tlb_size);
 
-    auto pci_device = tt_device_->get_pci_device();
-    int device_num = pci_device ? pci_device->get_device_num() : -1;
     log_debug(
         LogUMD,
         "Configured TLB window for chip: {} core: {} size: {} address: {} ordering: {} tlb_id: {}",

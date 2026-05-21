@@ -24,6 +24,7 @@
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt {
 enum class ARCH;
@@ -160,7 +161,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     void* mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-    TT_ASSERT(mapping != MAP_FAILED, "Simulation sysmem buffer mmap() failed");
+    UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
     owned_allocations_.push_back({mapping, sysmem_buffer_size});
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }

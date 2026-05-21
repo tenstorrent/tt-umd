@@ -34,9 +34,8 @@ public:
      *   in v3.5 multichip mode (per docs/v3_5_umd_patch_sketch.md). Default 0
      *   for legacy single-chip consumers.
      */
-    TTSimCommunicator(const std::filesystem::path &simulator_directory,
-                      bool copy_sim_binary = false,
-                      uint32_t chip_id = 0);
+    TTSimCommunicator(
+        const std::filesystem::path &simulator_directory, bool copy_sim_binary = false, uint32_t chip_id = 0);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -138,10 +137,11 @@ public:
 
     // v3.5 commit #6 — eth-MAC wiring.
     void *get_dev_handle() const { return dev_handle_; }
+
     void switch_reset();
     void register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac);
     void switch_drain();
-    void register_peer(uint32_t eth_tile_id, void* peer_dev, uint32_t peer_tile_id);
+    void register_peer(uint32_t eth_tile_id, void *peer_dev, uint32_t peer_tile_id);
 
 private:
     // Library management.
@@ -183,10 +183,14 @@ private:
     void (*pfn_libttsim_pci_mem_wr_bytes_)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_dram_rd_bytes_by_id_)(uint32_t chip_id, uint32_t dram_channel, uint64_t addr, void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_dram_wr_bytes_by_id_)(uint32_t chip_id, uint32_t dram_channel, uint64_t addr, const void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_dram_core_rd_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_dram_core_wr_bytes_by_id_)(uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_rd_bytes_by_id_)(
+        uint32_t chip_id, uint32_t dram_channel, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_wr_bytes_by_id_)(
+        uint32_t chip_id, uint32_t dram_channel, uint64_t addr, const void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_core_rd_bytes_by_id_)(
+        uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
+    void (*pfn_libttsim_dram_core_wr_bytes_by_id_)(
+        uint32_t chip_id, uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
     void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
@@ -194,15 +198,16 @@ private:
 
     // v3.5 multi-chip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
     void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
-    void  (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
-    void  (*pfn_libttsim_clock_all_devices_)(uint32_t n_cycles) = nullptr;
+    void (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
+    void (*pfn_libttsim_clock_all_devices_)(uint32_t n_cycles) = nullptr;
 
     // v3.5 commit #6 — eth-MAC wiring.
     void *dev_handle_ = nullptr;
     void (*pfn_libttsim_switch_reset_)(void) = nullptr;
     void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
     void (*pfn_libttsim_configure_eth_link_virtual_)(void *dev, uint32_t tile_id, uint64_t local_mac) = nullptr;
-    void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) = nullptr;
+    void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) =
+        nullptr;
     void (*pfn_libttsim_switch_drain_)(void) = nullptr;
 
     // Stored callbacks for DMA memory operations.

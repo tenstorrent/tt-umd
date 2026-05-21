@@ -3,9 +3,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "api/umd/device/cluster.hpp"
-#include "umd/device/simulation/tt_sim_chip.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
-#include "umd/device/simulation/tt_sim_communicator.hpp"
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
@@ -37,6 +34,9 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+#include "umd/device/simulation/tt_sim_chip.hpp"
+#include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
@@ -416,13 +416,16 @@ Cluster::Cluster(ClusterOptions options) {
     // switch routing table and pre-write peer DEST_MAC into each eth tile.
     // See craq-sim-multichip/docs/v3_5_commit6_eth_mac_wiring.md.
     // -------------------------------------------------------------------
-    if (options.chip_type == ChipType::SIMULATION &&
-        options.simulator_directory.extension() == ".so") {
+    if (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so") {
         auto get_comm = [&](ChipId cid) -> tt::umd::TTSimCommunicator* {
             auto it = chips_.find(cid);
-            if (it == chips_.end()) return nullptr;
+            if (it == chips_.end()) {
+                return nullptr;
+            }
             auto* sim_chip = dynamic_cast<tt::umd::TTSimChip*>(it->second.get());
-            if (!sim_chip) return nullptr;
+            if (!sim_chip) {
+                return nullptr;
+            }
             auto* sim_tt = dynamic_cast<tt::umd::TTSimTTDevice*>(sim_chip->get_tt_device());
             return sim_tt ? sim_tt->get_communicator() : nullptr;
         };
@@ -432,17 +435,23 @@ Cluster::Cluster(ClusterOptions options) {
         // Switch reset via any communicator (singleton, process-global).
         if (!chips_.empty()) {
             ChipId c0 = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips()).front();
-            if (auto* c = get_comm(c0)) c->switch_reset();
+            if (auto* c = get_comm(c0)) {
+                c->switch_reset();
+            }
         }
         const auto& eth_conns = cluster_desc->get_ethernet_connections();
         for (const auto& [chip_a, chan_map] : eth_conns) {
             for (const auto& [chan_a, remote] : chan_map) {
                 ChipId chip_b = std::get<0>(remote);
-                int       chan_b = std::get<1>(remote);
-                if (chip_a >= chip_b) continue;
+                int chan_b = std::get<1>(remote);
+                if (chip_a >= chip_b) {
+                    continue;
+                }
                 auto* ca = get_comm(chip_a);
                 auto* cb = get_comm(chip_b);
-                if (!ca || !cb) continue;
+                if (!ca || !cb) {
+                    continue;
+                }
                 uint64_t mac_a = eth_sim_mac(chip_a, chan_a);
                 uint64_t mac_b = eth_sim_mac(chip_b, chan_b);
                 ca->register_eth_endpoint(uint32_t(chan_a), mac_a);
@@ -450,9 +459,15 @@ Cluster::Cluster(ClusterOptions options) {
                 // Wire peer info for source-aware routing (BH BCAST/MCAST MAC).
                 ca->register_peer(uint32_t(chan_a), cb->get_dev_handle(), uint32_t(chan_b));
                 cb->register_peer(uint32_t(chan_b), ca->get_dev_handle(), uint32_t(chan_a));
-                log_info(tt::LogEmulationDriver,
+                log_info(
+                    tt::LogEmulationDriver,
                     "TTSim eth: {}:ch{} mac={:#014x}  <->  {}:ch{} mac={:#014x}",
-                    chip_a, chan_a, mac_a, chip_b, chan_b, mac_b);
+                    chip_a,
+                    chan_a,
+                    mac_a,
+                    chip_b,
+                    chan_b,
+                    mac_b);
             }
         }
     }
@@ -490,7 +505,8 @@ std::unique_ptr<Cluster> Cluster::create_simulation_cluster_with_descriptor(
         .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
         .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
         .cluster_descriptor = cluster_descriptor,
-        .simulator_directory = simulator_path != nullptr ? std::filesystem::path(simulator_path) : std::filesystem::path{},
+        .simulator_directory =
+            simulator_path != nullptr ? std::filesystem::path(simulator_path) : std::filesystem::path{},
     };
     return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
 }
@@ -504,7 +520,8 @@ std::unique_ptr<Cluster> Cluster::create_mock_cluster(const char* sdesc_path, Cl
     return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
 }
 
-std::unique_ptr<Cluster> Cluster::create_swemule_cluster(const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
+std::unique_ptr<Cluster> Cluster::create_swemule_cluster(
+    const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
     ClusterOptions options{
         .chip_type = ChipType::SWEMULE,
         .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",

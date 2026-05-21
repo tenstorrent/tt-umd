@@ -87,8 +87,6 @@ bool TLBManager::is_tlb_mapped(tt_xy_pair core, uint64_t address, uint32_t size_
            address + size_in_bytes <= tlb_window->get_base_address() + tlb_window->get_size();
 }
 
-
-
 tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
     UMD_ASSERT(is_tlb_mapped(core), error::RuntimeError, fmt::format("TLB not mapped for core: {}", core.str()));
 

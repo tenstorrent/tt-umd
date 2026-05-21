@@ -42,21 +42,15 @@ Chip::Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor) :
 
 SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
 
-// TODO: This will be moved to LocalChip.
-void Chip::set_default_params(ARCH arch) {
-    auto architecture_implementation = architecture_implementation::create(arch);
-
-    // Default initialize l1_address_params based on detected arch.
-    l1_address_params = architecture_implementation->get_l1_address_params();
-
-    // Default initialize dram_address_params.
-    dram_address_params = {0u};
+void Chip::set_default_params(ARCH /*arch*/) {
+    // Address params now live on TTDevice; default-initialized there from architecture_impl_.
 }
 
 void Chip::set_barrier_address_params(const BarrierAddressParams& barrier_address_params) {
-    l1_address_params.tensix_l1_barrier_base = barrier_address_params.tensix_l1_barrier_base;
-    l1_address_params.eth_l1_barrier_base = barrier_address_params.eth_l1_barrier_base;
-    dram_address_params.DRAM_BARRIER_BASE = barrier_address_params.dram_barrier_base;
+    TTDevice* tt_device = get_tt_device();
+    if (tt_device != nullptr) {
+        tt_device->set_barrier_address_params(barrier_address_params);
+    }
 }
 
 const ChipInfo& Chip::get_chip_info() { return chip_info_; }

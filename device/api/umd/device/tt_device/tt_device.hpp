@@ -13,6 +13,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 #include <utility>
 
 #include "tt_device_error.hpp"
@@ -32,6 +33,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -211,6 +213,33 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(void *src, size_t size, uint64_t addr) = 0;
+
+    /**
+     * Insert an L1 memory barrier on the given cores (or all L1-bearing cores if empty).
+     * Default impl runs the PCIe set/reset-flag barrier dance using the MEM_BARRIER interprocess mutex.
+     * Simulator backends override to no-op.
+     */
+    virtual void l1_membar(const std::unordered_set<CoreCoord> &cores);
+
+    /**
+     * Insert a DRAM memory barrier on the given cores (or all DRAM cores if empty).
+     */
+    virtual void dram_membar(const std::unordered_set<CoreCoord> &cores);
+
+    /**
+     * Insert a DRAM memory barrier on the given channels (or all channels if empty).
+     */
+    virtual void dram_membar(const std::unordered_set<uint32_t> &channels, uint32_t subchannel = 0);
+
+    /**
+     * Configure the host-to-device barrier flag addresses. Forwarded from Chip::set_barrier_address_params.
+     */
+    void set_barrier_address_params(const BarrierAddressParams &barrier_address_params);
+
+    /**
+     * Initialize all membar flags (TENSIX/ETH L1, DRAM) to RESET. Called from LocalChip::start_device.
+     */
+    virtual void initialize_membars(uint32_t dram_subchannel);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -496,6 +525,12 @@ protected:
     LockManager lock_manager;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    DeviceL1AddressParams l1_address_params_{};
+    DeviceDramAddressParams dram_address_params_{};
+
+    void set_membar_flag(
+        const std::vector<CoreCoord> &cores, const uint32_t barrier_value, const uint32_t barrier_addr);
+    void insert_host_to_device_barrier(const std::vector<CoreCoord> &cores, const uint32_t barrier_addr);
 
     TTDevice();
     TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);

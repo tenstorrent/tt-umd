@@ -147,11 +147,13 @@ void SimulationChip::noc_multicast_write(
 
 void SimulationChip::wait_for_non_mmio_flush() {}
 
-void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { tt_device_->l1_membar(cores); }
 
-void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {}
+void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
+    tt_device_->dram_membar(channels, subchannel);
+}
 
-void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
+void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { tt_device_->dram_membar(cores); }
 
 void SimulationChip::deassert_risc_resets() {}
 

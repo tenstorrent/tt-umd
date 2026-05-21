@@ -139,31 +139,8 @@ void LocalChip::initialize_default_chip_mutexes() {
         lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
     }
 
-    // Initialize interprocess mutexes to make host -> device memory barriers atomic.
-    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
-
     // Initialize mutex guarding initialized chips.
     lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
-}
-
-void LocalChip::initialize_membars(uint32_t dram_subchannel) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
-        MemBarFlag::RESET,
-        l1_address_params.tensix_l1_barrier_base);
-    set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
-        MemBarFlag::RESET,
-        l1_address_params.eth_l1_barrier_base);
-
-    std::vector<CoreCoord> dram_cores_vector = {};
-    dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
-    for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-        dram_cores_vector.push_back(
-            soc_descriptor_.get_dram_core_for_channel(dram_idx, dram_subchannel, CoordSystem::TRANSLATED));
-    }
-    set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
 
 TTDevice* LocalChip::get_tt_device() { return tt_device_.get(); }
@@ -189,7 +166,7 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();
     }
-    initialize_membars(dram_membar_subchannel);
+    tt_device_->initialize_membars(dram_membar_subchannel);
 }
 
 void LocalChip::close_device() {
@@ -469,112 +446,12 @@ void LocalChip::init_pcie_iatus() {
     }
 }
 
-void LocalChip::set_membar_flag(
-    const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr) {
-    tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered
-    std::unordered_set<CoreCoord> cores_synced = {};
-    std::vector<uint32_t> barrier_val_vec = {barrier_value};
-    for (const auto& core : cores) {
-        write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
-    }
-    tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
-    while (cores_synced.size() != cores.size()) {
-        for (const auto& core : cores) {
-            if (cores_synced.find(core) == cores_synced.end()) {
-                uint32_t readback_val;
-                read_from_device(core, &readback_val, barrier_addr, sizeof(std::uint32_t));
-                if (readback_val == barrier_value) {
-                    cores_synced.insert(core);
-                } else {
-                    log_trace(
-                        LogUMD,
-                        "Waiting for core {} to recieve mem bar flag {} in function",
-                        core.str(),
-                        barrier_value);
-                }
-            }
-        }
-    }
-    // Ensure that reads or writes after this do not get reordered.
-    // Reordering can cause races where data gets transferred before the barrier has returned.
-    tt_driver_atomics::mfence();
-}
+void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { tt_device_->l1_membar(cores); }
 
-void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
-    // Ensure that this memory barrier is atomic across processes/threads.
-    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
-    set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
-    set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
-}
-
-void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
-    const bool include_dram_in_l1_membar = soc_descriptor_.arch == tt::ARCH::BLACKHOLE;
-    if (!cores.empty()) {
-        // Insert barrier on specific cores with L1.
-        std::vector<CoreCoord> workers_to_sync = {};
-        std::vector<CoreCoord> eth_to_sync = {};
-        std::vector<CoreCoord> dram_to_sync = {};
-
-        for (const auto& core : cores) {
-            auto core_from_soc = soc_descriptor_.get_coord_at(core, core.coord_system);
-            if (core_from_soc.core_type == CoreType::TENSIX) {
-                workers_to_sync.push_back(core);
-            } else if (core_from_soc.core_type == CoreType::ETH) {
-                eth_to_sync.push_back(core);
-            } else if (include_dram_in_l1_membar && core_from_soc.core_type == CoreType::DRAM) {
-                dram_to_sync.push_back(core);
-            } else {
-                UMD_THROW(error::RuntimeError, "Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
-            }
-        }
-        insert_host_to_device_barrier(workers_to_sync, l1_address_params.tensix_l1_barrier_base);
-        insert_host_to_device_barrier(eth_to_sync, l1_address_params.eth_l1_barrier_base);
-        if (include_dram_in_l1_membar) {
-            insert_host_to_device_barrier(dram_to_sync, dram_address_params.DRAM_BARRIER_BASE);
-        }
-    } else {
-        // Insert barrier on all cores with L1.
-        insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
-            l1_address_params.tensix_l1_barrier_base);
-        insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
-        if (include_dram_in_l1_membar) {
-            insert_host_to_device_barrier(
-                soc_descriptor_.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED),
-                dram_address_params.DRAM_BARRIER_BASE);
-        }
-    }
-}
-
-void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
-    if (!cores.empty()) {
-        for (const auto& core : cores) {
-            UMD_ASSERT(
-                soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
-                error::RuntimeError,
-                "Can only insert a DRAM Memory barrier on DRAM cores.");
-        }
-        std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
-        insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
-    } else {
-        // Insert Barrier on all DRAM Cores.
-        std::vector<CoreCoord> dram_cores_vector = {};
-        dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
-        for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
-            dram_cores_vector.push_back(
-                soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
-        }
-        insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
-    }
-}
+void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) { tt_device_->dram_membar(cores); }
 
 void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
-    std::unordered_set<CoreCoord> dram_cores_to_sync = {};
-    for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, subchannel, CoordSystem::TRANSLATED));
-    }
-    dram_membar(dram_cores_to_sync);
+    tt_device_->dram_membar(channels, subchannel);
 }
 
 void LocalChip::deassert_risc_resets() {

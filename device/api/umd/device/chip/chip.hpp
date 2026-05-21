@@ -135,11 +135,6 @@ public:
     // TODO: To be moved to private implementation once methods are moved to chip.
     void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
 
-    // TODO: This should be private, once enough stuff is moved inside chip.
-    // Probably also moved to LocalChip.
-    DeviceDramAddressParams dram_address_params;
-    DeviceL1AddressParams l1_address_params;
-
 protected:
     void wait_chip_to_be_ready();
 

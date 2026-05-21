@@ -68,6 +68,14 @@ public:
 
     void noc_multicast_write(void* src, size_t size, uint64_t addr) override;
 
+    void l1_membar(const std::unordered_set<CoreCoord>& cores) override {}
+
+    void dram_membar(const std::unordered_set<CoreCoord>& cores) override {}
+
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override {}
+
+    void initialize_membars(uint32_t dram_subchannel) override {}
+
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }

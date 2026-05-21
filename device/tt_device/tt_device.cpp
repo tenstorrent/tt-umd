@@ -61,12 +61,14 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    l1_address_params_(architecture_impl_->get_l1_address_params()) {
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
-    // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
+    // Initialize cross-process mutexes through LockManager.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+    lock_manager.initialize_mutex(MutexType::MEM_BARRIER, communication_device_id_, communication_device_type_);
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
@@ -79,7 +81,8 @@ TTDevice::TTDevice(
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    l1_address_params_(architecture_impl_->get_l1_address_params()) {
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
@@ -91,7 +94,8 @@ TTDevice::TTDevice(
     communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
     communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
     architecture_impl_(std::move(architecture_impl)),
-    arch(architecture_impl_->get_architecture()) {
+    arch(architecture_impl_->get_architecture()),
+    l1_address_params_(architecture_impl_->get_l1_address_params()) {
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_capabilities_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
@@ -100,7 +104,9 @@ TTDevice::TTDevice(
 TTDevice::TTDevice() = default;
 
 TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
+    architecture_impl_(std::move(architecture_impl)),
+    arch(architecture_impl_->get_architecture()),
+    l1_address_params_(architecture_impl_->get_l1_address_params()) {}
 
 void TTDevice::probe_arc() {
     uint32_t dummy;
@@ -494,6 +500,142 @@ void TTDevice::noc_multicast_write(void *src, size_t size, CoreCoord core_start,
         soc_desc.translate_chip_coord_to_translated(core_start),
         soc_desc.translate_chip_coord_to_translated(core_end),
         addr);
+}
+
+void TTDevice::set_barrier_address_params(const BarrierAddressParams &barrier_address_params) {
+    l1_address_params_.tensix_l1_barrier_base = barrier_address_params.tensix_l1_barrier_base;
+    l1_address_params_.eth_l1_barrier_base = barrier_address_params.eth_l1_barrier_base;
+    dram_address_params_.DRAM_BARRIER_BASE = barrier_address_params.dram_barrier_base;
+}
+
+void TTDevice::set_membar_flag(
+    const std::vector<CoreCoord> &cores, const uint32_t barrier_value, const uint32_t barrier_addr) {
+    tt_driver_atomics::sfence();  // Ensure that writes before this do not get reordered
+    std::unordered_set<CoreCoord> cores_synced = {};
+    std::vector<uint32_t> barrier_val_vec = {barrier_value};
+    for (const auto &core : cores) {
+        write_to_device(barrier_val_vec.data(), core, barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
+    }
+    tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
+    while (cores_synced.size() != cores.size()) {
+        for (const auto &core : cores) {
+            if (cores_synced.find(core) == cores_synced.end()) {
+                uint32_t readback_val;
+                read_from_device(&readback_val, core, barrier_addr, sizeof(std::uint32_t));
+                if (readback_val == barrier_value) {
+                    cores_synced.insert(core);
+                } else {
+                    log_trace(
+                        LogUMD,
+                        "Waiting for core {} to recieve mem bar flag {} in function",
+                        core.str(),
+                        barrier_value);
+                }
+            }
+        }
+    }
+    // Ensure that reads or writes after this do not get reordered.
+    // Reordering can cause races where data gets transferred before the barrier has returned.
+    tt_driver_atomics::mfence();
+}
+
+void TTDevice::insert_host_to_device_barrier(const std::vector<CoreCoord> &cores, const uint32_t barrier_addr) {
+    // Ensure that this memory barrier is atomic across processes/threads.
+    auto lock =
+        lock_manager.acquire_mutex(MutexType::MEM_BARRIER, communication_device_id_, communication_device_type_);
+    set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
+    set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
+}
+
+void TTDevice::l1_membar(const std::unordered_set<CoreCoord> &cores) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    const bool include_dram_in_l1_membar = soc_desc.arch == tt::ARCH::BLACKHOLE;
+    if (!cores.empty()) {
+        // Insert barrier on specific cores with L1.
+        std::vector<CoreCoord> workers_to_sync = {};
+        std::vector<CoreCoord> eth_to_sync = {};
+        std::vector<CoreCoord> dram_to_sync = {};
+
+        for (const auto &core : cores) {
+            auto core_from_soc = soc_desc.get_coord_at(core, core.coord_system);
+            if (core_from_soc.core_type == CoreType::TENSIX) {
+                workers_to_sync.push_back(core);
+            } else if (core_from_soc.core_type == CoreType::ETH) {
+                eth_to_sync.push_back(core);
+            } else if (include_dram_in_l1_membar && core_from_soc.core_type == CoreType::DRAM) {
+                dram_to_sync.push_back(core);
+            } else {
+                UMD_THROW(error::RuntimeError, "Can only insert an L1 Memory barrier on Tensix or Ethernet cores.");
+            }
+        }
+        insert_host_to_device_barrier(workers_to_sync, l1_address_params_.tensix_l1_barrier_base);
+        insert_host_to_device_barrier(eth_to_sync, l1_address_params_.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(dram_to_sync, dram_address_params_.DRAM_BARRIER_BASE);
+        }
+    } else {
+        // Insert barrier on all cores with L1.
+        insert_host_to_device_barrier(
+            soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED), l1_address_params_.tensix_l1_barrier_base);
+        insert_host_to_device_barrier(
+            soc_desc.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params_.eth_l1_barrier_base);
+        if (include_dram_in_l1_membar) {
+            insert_host_to_device_barrier(
+                soc_desc.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED), dram_address_params_.DRAM_BARRIER_BASE);
+        }
+    }
+}
+
+void TTDevice::dram_membar(const std::unordered_set<CoreCoord> &cores) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    if (!cores.empty()) {
+        for (const auto &core : cores) {
+            UMD_ASSERT(
+                soc_desc.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                error::RuntimeError,
+                "Can only insert a DRAM Memory barrier on DRAM cores.");
+        }
+        std::vector<CoreCoord> dram_cores_vector = std::vector<CoreCoord>(cores.begin(), cores.end());
+        insert_host_to_device_barrier(dram_cores_vector, dram_address_params_.DRAM_BARRIER_BASE);
+    } else {
+        // Insert Barrier on all DRAM Cores.
+        std::vector<CoreCoord> dram_cores_vector = {};
+        dram_cores_vector.reserve(soc_desc.get_num_dram_channels());
+        for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
+            dram_cores_vector.push_back(soc_desc.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+        }
+        insert_host_to_device_barrier(dram_cores_vector, dram_address_params_.DRAM_BARRIER_BASE);
+    }
+}
+
+void TTDevice::dram_membar(const std::unordered_set<uint32_t> &channels, uint32_t subchannel) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    std::unordered_set<CoreCoord> dram_cores_to_sync = {};
+    for (const auto &chan : channels) {
+        dram_cores_to_sync.insert(soc_desc.get_dram_core_for_channel(chan, subchannel, CoordSystem::TRANSLATED));
+    }
+    dram_membar(dram_cores_to_sync);
+}
+
+void TTDevice::initialize_membars(uint32_t dram_subchannel) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    set_membar_flag(
+        soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
+        MemBarFlag::RESET,
+        l1_address_params_.tensix_l1_barrier_base);
+    set_membar_flag(
+        soc_desc.get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
+        MemBarFlag::RESET,
+        l1_address_params_.eth_l1_barrier_base);
+
+    std::vector<CoreCoord> dram_cores_vector = {};
+    dram_cores_vector.reserve(soc_desc.get_num_dram_channels());
+    for (std::uint32_t dram_idx = 0; dram_idx < soc_desc.get_num_dram_channels(); dram_idx++) {
+        dram_cores_vector.push_back(
+            soc_desc.get_dram_core_for_channel(dram_idx, dram_subchannel, CoordSystem::TRANSLATED));
+    }
+    set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params_.DRAM_BARRIER_BASE);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {

@@ -66,6 +66,14 @@ public:
 
     void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
 
+    void l1_membar(const std::unordered_set<CoreCoord> &cores) override {}
+
+    void dram_membar(const std::unordered_set<CoreCoord> &cores) override {}
+
+    void dram_membar(const std::unordered_set<uint32_t> &channels, uint32_t subchannel = 0) override {}
+
+    void initialize_membars(uint32_t dram_subchannel) override {}
+
     void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets) override;
     void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) override;
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;

@@ -98,7 +98,7 @@ void TTSimCommunicator::initialize() {
         if (!s_shared_handle_) {
             s_shared_handle_ = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
             if (!s_shared_handle_) {
-                TT_THROW("Failed to dlopen simulator library (shared): {}", dlerror());
+                UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library (shared): {}", dlerror()));
             }
         }
         s_shared_refcount_++;

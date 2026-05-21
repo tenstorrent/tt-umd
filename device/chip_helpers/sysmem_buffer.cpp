@@ -52,7 +52,8 @@ SysmemBuffer::SysmemBuffer(
     uint64_t device_io_addr,
     std::optional<uint64_t> noc_addr,
     std::function<void()> unmap_callback) :
-    tlb_manager_(nullptr),
+    pci_device_(nullptr),
+    tt_device_(nullptr),
     buffer_va_(buffer_va),
     mapped_buffer_size_(buffer_size),
     buffer_size_(buffer_size),
@@ -181,7 +182,7 @@ SysmemBuffer::~SysmemBuffer() {
         unmap_callback_();
         return;
     }
-    if (tlb_manager_ == nullptr) {
+    if (pci_device_ == nullptr) {
         return;
     }
     try {

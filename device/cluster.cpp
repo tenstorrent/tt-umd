@@ -317,10 +317,9 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 
 // Options is intentionally taken by value because it may be mutated when TT_UMD_BUILD_SIMULATION is enabled.
 // NOLINT is needed because clang-tidy cannot see the mutation when simulation is compiled out.
-Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-value-param)
+Cluster::Cluster(ClusterOptions options) {
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
     log_info(LogUMD, "Cluster constructor started.");
-    options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
@@ -458,7 +457,59 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
     }
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
+    options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
+}
+
+std::unique_ptr<Cluster> Cluster::create_silicon_cluster(std::optional<uint32_t> num_host_mem_ch_per_mmio_device) {
+    ClusterOptions options{};
+    options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+}
+
+std::unique_ptr<Cluster> Cluster::create_single_chip_simulation_cluster(
+    uint32_t num_host_mem_ch_per_mmio_device, ChipId chip_id, const char* simulator_path) {
+    ClusterOptions options{};
+    options.chip_type = ChipType::SIMULATION;
+    options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    options.target_devices = {chip_id};
+    if (simulator_path != nullptr) {
+        options.simulator_directory = std::filesystem::path(simulator_path);
+    }
+    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+}
+
+std::unique_ptr<Cluster> Cluster::create_simulation_cluster_with_descriptor(
+    uint32_t num_host_mem_ch_per_mmio_device,
+    const char* simulator_path,
+    const char* sdesc_path,
+    ClusterDescriptor* cluster_descriptor) {
+    ClusterOptions options{
+        .chip_type = ChipType::SIMULATION,
+        .num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device,
+        .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
+        .cluster_descriptor = cluster_descriptor,
+        .simulator_directory = simulator_path != nullptr ? std::filesystem::path(simulator_path) : std::filesystem::path{},
+    };
+    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+}
+
+std::unique_ptr<Cluster> Cluster::create_mock_cluster(const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
+    ClusterOptions options{
+        .chip_type = ChipType::MOCK,
+        .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
+        .cluster_descriptor = cluster_descriptor,
+    };
+    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+}
+
+std::unique_ptr<Cluster> Cluster::create_swemule_cluster(const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
+    ClusterOptions options{
+        .chip_type = ChipType::SWEMULE,
+        .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
+        .cluster_descriptor = cluster_descriptor,
+    };
+    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

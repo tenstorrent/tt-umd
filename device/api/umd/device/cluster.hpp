@@ -84,7 +84,7 @@ struct ClusterOptions {
      * If not provided, the value is determined automatically by determining the max
      * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -142,7 +142,23 @@ public:
      * - Perform this for each of the chips connected to the system.
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
-    Cluster(ClusterOptions options = {});
+    Cluster() : Cluster(ClusterOptions{}) {}
+    explicit Cluster(ClusterOptions options);
+
+    // Factories that build ClusterOptions inside libtt-umd to avoid cross-DSO STL ABI issues.
+    static std::unique_ptr<Cluster> create_silicon_cluster(
+        std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt);
+    static std::unique_ptr<Cluster> create_single_chip_simulation_cluster(
+        uint32_t num_host_mem_ch_per_mmio_device, ChipId chip_id, const char* simulator_path);
+    static std::unique_ptr<Cluster> create_simulation_cluster_with_descriptor(
+        uint32_t num_host_mem_ch_per_mmio_device,
+        const char* simulator_path,
+        const char* sdesc_path,
+        ClusterDescriptor* cluster_descriptor);
+    static std::unique_ptr<Cluster> create_mock_cluster(
+        const char* sdesc_path, ClusterDescriptor* cluster_descriptor = nullptr);
+    static std::unique_ptr<Cluster> create_swemule_cluster(
+        const char* sdesc_path, ClusterDescriptor* cluster_descriptor = nullptr);
     /**
      * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
      * leave the device in a state where it can be re-initialized.

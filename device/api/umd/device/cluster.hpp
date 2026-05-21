@@ -717,7 +717,7 @@ public:
 private:
     // Helper functions
     // Broadcast.
-    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
+    void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
     void deassert_resets_and_set_power_state();
 
     // Validates that the caller-supplied rows/columns lie in the coordinate space selected by

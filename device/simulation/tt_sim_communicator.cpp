@@ -36,16 +36,13 @@ namespace tt::umd {
 // TTSimCommunicators share a single dlopen of the .so so they also share its
 // process-global state (eth_switch routing table, Device* registry).
 void *TTSimCommunicator::s_shared_handle_ = nullptr;
-int   TTSimCommunicator::s_shared_refcount_ = 0;
+int TTSimCommunicator::s_shared_refcount_ = 0;
 std::mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
 
-TTSimCommunicator::TTSimCommunicator(const std::filesystem::path &simulator_directory,
-                                     bool copy_sim_binary,
-                                     uint32_t chip_id) :
-    simulator_directory_(simulator_directory),
-    copy_sim_binary_(copy_sim_binary),
-    chip_id_(chip_id) {}
+TTSimCommunicator::TTSimCommunicator(
+    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id) :
+    simulator_directory_(simulator_directory), copy_sim_binary_(copy_sim_binary), chip_id_(chip_id) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
     if (v3_5_multichip_mode_) {
@@ -82,8 +79,8 @@ void TTSimCommunicator::initialize() {
             probe = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
         }
         if (probe) {
-            v3_5_supported = dlsym(probe, "libttsim_create_device_by_id") != nullptr
-                          && dlsym(probe, "libttsim_select_device_by_id") != nullptr;
+            v3_5_supported = dlsym(probe, "libttsim_create_device_by_id") != nullptr &&
+                             dlsym(probe, "libttsim_select_device_by_id") != nullptr;
             // Close only if we did the fresh open. RTLD_NOLOAD doesn't bump refcount
             // beyond existing, but to be safe always close our probe handle.
             dlclose(probe);
@@ -92,13 +89,13 @@ void TTSimCommunicator::initialize() {
 
     if (v3_5_supported) {
         v3_5_multichip_mode_ = true;
-        log_info(tt::LogEmulationDriver,
-                 "TTSim v3.5 multichip mode enabled (chip_id={}, shared dlopen)", chip_id_);
+        log_info(tt::LogEmulationDriver, "TTSim v3.5 multichip mode enabled (chip_id={}, shared dlopen)", chip_id_);
         std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
         if (!s_shared_handle_) {
             s_shared_handle_ = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
             if (!s_shared_handle_) {
-                UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library (shared): {}", dlerror()));
+                UMD_THROW(
+                    error::RuntimeError, fmt::format("Failed to dlopen simulator library (shared): {}", dlerror()));
             }
         }
         s_shared_refcount_++;
@@ -110,10 +107,10 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
         DLSYM_FUNCTION(libttsim_tile_rd_bytes)
         DLSYM_FUNCTION(libttsim_tile_wr_bytes)
-        pfn_libttsim_dram_rd_bytes_by_id_ = (decltype(pfn_libttsim_dram_rd_bytes_by_id_))dlsym(
-            libttsim_handle_, "libttsim_dram_rd_bytes_by_id");
-        pfn_libttsim_dram_wr_bytes_by_id_ = (decltype(pfn_libttsim_dram_wr_bytes_by_id_))dlsym(
-            libttsim_handle_, "libttsim_dram_wr_bytes_by_id");
+        pfn_libttsim_dram_rd_bytes_by_id_ =
+            (decltype(pfn_libttsim_dram_rd_bytes_by_id_))dlsym(libttsim_handle_, "libttsim_dram_rd_bytes_by_id");
+        pfn_libttsim_dram_wr_bytes_by_id_ =
+            (decltype(pfn_libttsim_dram_wr_bytes_by_id_))dlsym(libttsim_handle_, "libttsim_dram_wr_bytes_by_id");
         pfn_libttsim_dram_core_rd_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_rd_bytes_by_id_))dlsym(
             libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id");
         pfn_libttsim_dram_core_wr_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_wr_bytes_by_id_))dlsym(
@@ -155,8 +152,7 @@ void TTSimCommunicator::start_sim() {
         }
         // Register this chip in the shared chip_id registry.
         // v3.5 commit #6: capture Device* handle for later eth-MAC registration.
-        dev_handle_ = pfn_libttsim_create_device_by_id_(
-            chip_id_, /*chip_x=*/int(chip_id_), /*chip_y=*/0);
+        dev_handle_ = pfn_libttsim_create_device_by_id_(chip_id_, /*chip_x=*/int(chip_id_), /*chip_y=*/0);
         return;
     }
     pfn_libttsim_init_();
@@ -177,8 +173,10 @@ void TTSimCommunicator::shutdown() {
 // v3.5: in multi-chip mode, every I/O entry point first selects the right
 // chip via libttsim_select_device_by_id(chip_id_) under the held device_lock_.
 // The shared libttsim's internal recursive_mutex provides defense-in-depth.
-#define SELECT_CHIP_IF_NEEDED() \
-    do { if (v3_5_multichip_mode_) pfn_libttsim_select_device_by_id_(chip_id_); } while (0)
+#define SELECT_CHIP_IF_NEEDED()                                                \
+    do {                                                                       \
+        if (v3_5_multichip_mode_) pfn_libttsim_select_device_by_id_(chip_id_); \
+    } while (0)
 
 void TTSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
     std::lock_guard<std::mutex> lock(device_lock_);
@@ -357,7 +355,9 @@ void TTSimCommunicator::switch_reset() {
 
 void TTSimCommunicator::register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    if (!v3_5_multichip_mode_ || !dev_handle_) return;
+    if (!v3_5_multichip_mode_ || !dev_handle_) {
+        return;
+    }
     // Prefer configure_eth_link_virtual: sets link_mode=Virtual + writes
     // link-up sentinel + registers MAC. Falls back to switch_register if
     // configure_eth_link_virtual is not exported.
@@ -368,10 +368,11 @@ void TTSimCommunicator::register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac
     }
 }
 
-
-void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void* peer_dev, uint32_t peer_tile_id) {
+void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void *peer_dev, uint32_t peer_tile_id) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    if (!v3_5_multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_peer_) return;
+    if (!v3_5_multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_peer_) {
+        return;
+    }
     pfn_libttsim_switch_register_peer_(dev_handle_, eth_tile_id, peer_dev, peer_tile_id);
 }
 

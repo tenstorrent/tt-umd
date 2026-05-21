@@ -6,10 +6,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
-
-#include <functional>
 
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"

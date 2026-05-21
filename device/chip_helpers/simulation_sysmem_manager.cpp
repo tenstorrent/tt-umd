@@ -24,7 +24,6 @@
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/error.hpp"
 
 namespace tt {
 enum class ARCH;
@@ -36,9 +35,7 @@ namespace {
 
 constexpr uint64_t kHostMemChannelSize = 1ULL << 30;
 
-uint64_t align_up(uint64_t value, uint64_t alignment) {
-    return (value + alignment - 1) & ~(alignment - 1);
-}
+uint64_t align_up(uint64_t value, uint64_t alignment) { return (value + alignment - 1) & ~(alignment - 1); }
 
 }  // namespace
 
@@ -125,15 +122,13 @@ void SimulationSysmemManager::remove_mapped_buffer(uint64_t base) {
         mapped_buffers_.end());
 }
 
-void SimulationSysmemManager::write_to_sysmem(
-    uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
+void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
     const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_dest;
     {
         std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
         auto mapped_buffer = find_mapped_buffer(base, size);
         if (mapped_buffer.has_value()) {
-            std::memcpy(
-                static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), src, size);
+            std::memcpy(static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), src, size);
             return;
         }
     }
@@ -141,15 +136,13 @@ void SimulationSysmemManager::write_to_sysmem(
     SysmemManager::write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
-void SimulationSysmemManager::read_from_sysmem(
-    uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
+void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
     const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_src;
     {
         std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
         auto mapped_buffer = find_mapped_buffer(base, size);
         if (mapped_buffer.has_value()) {
-            std::memcpy(
-                dest, static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), size);
+            std::memcpy(dest, static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), size);
             return;
         }
     }
@@ -167,7 +160,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
@@ -181,12 +174,9 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
 
     const uint64_t device_io_addr = pcie_base_ + mapped_base;
     std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
-    return std::make_unique<SysmemBuffer>(
-        buffer,
-        sysmem_buffer_size,
-        device_io_addr,
-        noc_addr,
-        [this, mapped_base]() { remove_mapped_buffer(mapped_base); });
+    return std::make_unique<SysmemBuffer>(buffer, sysmem_buffer_size, device_io_addr, noc_addr, [this, mapped_base]() {
+        remove_mapped_buffer(mapped_base);
+    });
 }
 
 }  // namespace tt::umd

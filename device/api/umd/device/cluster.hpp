@@ -142,6 +142,7 @@ public:
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
     Cluster() : Cluster(ClusterOptions{}) {}
+
     explicit Cluster(ClusterOptions options);
 
     // Factories that build ClusterOptions inside libtt-umd to avoid cross-DSO STL ABI issues.

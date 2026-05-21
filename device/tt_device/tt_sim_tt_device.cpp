@@ -83,8 +83,8 @@ TTSimTTDevice::TTSimTTDevice(
     // multichip ABI (libttsim_create_device_by_id + libttsim_select_device_by_id),
     // the communicator will auto-detect at initialize() time and switch to
     // shared-dlopen mode regardless of copy_sim_binary.
-    communicator_(std::make_unique<TTSimCommunicator>(
-        simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id))),
+    communicator_(
+        std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id))),
     simulator_directory_(simulator_directory),
     chip_id_(chip_id),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {

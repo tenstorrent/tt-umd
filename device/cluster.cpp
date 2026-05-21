@@ -432,9 +432,20 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
-void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
+void Cluster::assert_risc_reset() {
+    // Raise reset signal for all cores.
+    uint32_t reset_reg_value =
+        architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
+    broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
+}
 
-void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
+void Cluster::deassert_risc_reset() {
+    // Lower the reset signal for BRISC only, with staggered start enabled.
+    auto arch_impl = architecture_implementation::create(arch_name);
+    uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
+                               arch_impl->get_soft_reset_staggered_start();
+    broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
+}
 
 void Cluster::deassert_risc_reset_at_core(
     const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
@@ -1022,21 +1033,12 @@ int Cluster::arc_msg(
     return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4);
 }
 
-void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
+void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     if (chips_.empty()) {
         // Nowhere to broadcast to.
         return;
     }
-    // If ethernet broadcast is not supported, do it one by one.
-    if (!use_ethernet_broadcast) {
-        for (auto& chip_id : all_chip_ids_) {
-            get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
-        }
-        return;
-    }
 
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;
     std::set<uint32_t> columns_to_exclude;
@@ -1060,7 +1062,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOption
         }
     }
     broadcast_write_to_cluster(
-        &valid_val,
+        &reg_value,
         sizeof(uint32_t),
         0xFFB121B0,
         chips_to_exclude,
@@ -1080,7 +1082,7 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 void Cluster::deassert_resets_and_set_power_state() {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
+    assert_risc_reset();
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();

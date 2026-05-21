@@ -53,7 +53,8 @@ SimulationChip::SimulationChip(
     chip_id_(chip_id),
     simulator_directory_(simulator_directory),
     tt_device_(std::move(tt_device)),
-    tlb_manager_(std::make_unique<TLBManager>(tt_device_.get())) {
+    tlb_manager_(tt_device_ ? std::make_unique<TLBManager>(tt_device_.get()) : nullptr) {
+    UMD_ASSERT(tt_device_ != nullptr, error::RuntimeError, "SimulationChip requires a non-null TTDevice.");
     if (!std::filesystem::exists(simulator_directory_)) {
         UMD_THROW(error::RuntimeError, fmt::format("Simulator binary not found at: {}", simulator_directory_.string()));
     }

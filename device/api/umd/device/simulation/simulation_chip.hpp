@@ -101,7 +101,6 @@ public:
     void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
-    // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
     void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
 

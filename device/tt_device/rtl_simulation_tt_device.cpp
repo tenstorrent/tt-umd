@@ -184,11 +184,10 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     }
 }
 
-// Three overloads exist for send_tensix_risc_reset:
+// Two overloads exist for send_tensix_risc_reset:
 // 1. (tt_xy_pair, TensixSoftResetOptions) - main implementation used by C++ callers.
-// 2. (tt_xy_pair, bool) - convenience wrapper used by the Python (nanobind) bindings.
-// 3. (TensixSoftResetOptions) - required by the chip-level interface contract; throws because RTL
-//    simulation always requires an explicit core coordinate.
+// 2. (TensixSoftResetOptions) - required by the chip-level interface contract; routes through (0,0),
+//    which the RTL backend interprets as a broadcast.
 void RtlSimulationTTDevice::send_tensix_risc_reset(
     tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
@@ -204,7 +203,7 @@ void RtlSimulationTTDevice::send_tensix_risc_reset(
 }
 
 void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core not supported for RTL simulation.");
+    send_tensix_risc_reset(tt_xy_pair(0, 0), soft_resets);
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

@@ -336,6 +336,21 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
 
+void RtlSimulationTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    // RTL sim has no hardware multicast; fall back to per-core unicast.
+    // TODO: investigate proper multicast support for simulations so we can remove this workaround.
+    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+            // BLACKHOLE: x==8 is ARC/L2CPU and x==9 is GDDR, not actual Tensix cores.
+            if (arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
+                continue;
+            }
+            write_to_device(src, tt_xy_pair{x, y}, addr, size);
+        }
+    }
+}
+
 void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in RTL simulation device.");
 }

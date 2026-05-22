@@ -120,12 +120,12 @@ static constexpr uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 class TTDevice {
 public:
     /**
-     * @brief Creates a TTDevice instance for a locally attached physical device.
+     * @brief Creates a local TTDevice instance.
      *
      * This factory method is used for hardware that the host system can directly
      * enumerate and access via memory-mapped IO (MMIO), such as devices on the PCIe
-     * bus or a JTAG chain. The underlying physical transport interface (PCIDevice or
-     * JtagDevice) is instantiated internally based on the provided topology index.
+     * bus or a JTAG chain. The underlying physical transport interface is instantiated internally
+     * based on the provided topology index.
      *
      * @param device_number The zero-based index of the device as enumerated by the host OS.
      * @param device_type   The transport protocol to establish (PCIe or JTAG). Defaults to PCIe.
@@ -137,7 +137,7 @@ public:
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
 
     /**
-     * @brief Creates a TTDevice instance for a standalone, network-attached accelerator.
+     * @brief Creates a remote TTDevice instance.
      *
      * This factory method is used for devices reachable over Ethernet rather than a
      * local physical bus. Because the host OS cannot natively enumerate standalone network

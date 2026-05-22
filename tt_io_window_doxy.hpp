@@ -38,7 +38,7 @@ struct TargetIoWindowConfig {
  * @brief Describes the host-side properties for an I/O window.
  *
  * Controls the host memory caching strategy and requested window size.
- * A size of 0 instructs the implementation to pick an architecture-appropriate size.
+ * A size of 0 is valid and delegates the window size selection to the concrete implementation.
  */
 struct HostIoWindowConfig {
     HostMemoryCaching mapping = HostMemoryCaching::WC;
@@ -46,28 +46,28 @@ struct HostIoWindowConfig {
 };
 
 /**
- * @brief Abstract base class representing a host memory-mapped window into device address space.
+ * @brief Abstract base class representing the interface to a host memory-mapped window into device address space.
  *
- * An IoWindow maps a fixed-size region of host virtual address space to a configurable
+ * An IoWindow maps a fixed-size region of host virtual address space to a
  * region of device address space. Through this window, the host can read and write device
  * memory using direct pointer operations.
  *
  * The window has a fixed size determined at construction, but can be reconfigured at
  * runtime to point to different device addresses.
  *
- * Concrete implementations:
- * - TlbWindow: silicon/PCIe devices — owns the BAR mapping and hardware TLB entry directly.
- * - TTSimIoWindow: TTSim simulation backend.
- * - RtlSimIoWindow: RTL simulation backend.
+ * Ordering guarantees for all operations are determined by the concrete
+ * implementation, which accounts for both host-side factors (e.g., memory
+ * caching strategy) and device-side factors (e.g., hardware ordering rules).
+ * The APIs below indicate which use cases they are more suited for, but
+ * provide minimal guarantees at the interface level.
+ *
  */
 class IoWindow {
 public:
     virtual ~IoWindow() = default;
 
-    // -- Data access (unordered) ----------------------------------------------
-
     /**
-     * @brief Writes a block of data through the window with no memory ordering guarantees.
+     * @brief Writes a block of data through the window. More suited for bulk data transactions.
      * @param offset Byte offset from the window base.
      * @param data Pointer to the source data.
      * @param size Number of bytes to write.
@@ -75,60 +75,56 @@ public:
     virtual void write_block(uint64_t offset, const void* data, size_t size) = 0;
 
     /**
-     * @brief Reads a block of data through the window with no memory ordering guarantees.
+     * @brief Reads a block of data through the window. More suited for bulk data transactions.
      * @param offset Byte offset from the window base.
      * @param data Pointer to the destination buffer.
      * @param size Number of bytes to read.
      */
     virtual void read_block(uint64_t offset, void* data, size_t size) = 0;
 
-    // -- Register access (ordered) --------------------------------------------
-
     /**
-     * @brief Writes a 16-bit value with strict memory ordering guarantees.
+     * @brief Writes a 16-bit value through the window. Suitable for both data and register transactions.
      * @param offset Byte offset from the window base.
      * @param value The 16-bit value to write.
      */
     virtual void write16(uint64_t offset, uint16_t value) = 0;
 
     /**
-     * @brief Reads a 16-bit value with strict memory ordering guarantees.
+     * @brief Reads a 16-bit value through the window. Suitable for both data and register transactions.
      * @param offset Byte offset from the window base.
      * @return uint16_t The value read.
      */
     virtual uint16_t read16(uint64_t offset) = 0;
 
     /**
-     * @brief Writes a 32-bit value with strict memory ordering guarantees.
+     * @brief Writes a 32-bit value through the window. Suitable for both data and register transactions.
      * @param offset Byte offset from the window base.
      * @param value The 32-bit value to write.
      */
     virtual void write32(uint64_t offset, uint32_t value) = 0;
 
     /**
-     * @brief Reads a 32-bit value with strict memory ordering guarantees.
+     * @brief Reads a 32-bit value through the window. Suitable for both data and register transactions.
      * @param offset Byte offset from the window base.
      * @return uint32_t The value read.
      */
     virtual uint32_t read32(uint64_t offset) = 0;
 
     /**
-     * @brief Writes to a device register with strict memory ordering guarantees.
+     * @brief Writes 4-byte aligned data through the window. More suited for register transactions.
      * @param offset Byte offset from the window base. Must be 4-byte aligned.
      * @param data Pointer to the source data.
      * @param size Number of bytes to write. Must be a multiple of 4.
      */
-    virtual void write_register(uint64_t offset, const void* data, size_t size) = 0;
+    virtual void write_aligned(uint64_t offset, const void* data, size_t size) = 0;
 
     /**
-     * @brief Reads from a device register with strict memory ordering guarantees.
+     * @brief Reads 4-byte aligned data through the window. More suited for register transactions.
      * @param offset Byte offset from the window base. Must be 4-byte aligned.
      * @param data Pointer to the destination buffer.
      * @param size Number of bytes to read. Must be a multiple of 4.
      */
-    virtual void read_register(uint64_t offset, void* data, size_t size) = 0;
-
-    // -- Configuration --------------------------------------------------------
+    virtual void read_aligned(uint64_t offset, void* data, size_t size) = 0;
 
     /**
      * @brief Reconfigures the window to map to a different region of device address space.
@@ -139,8 +135,6 @@ public:
      * @param config Device-side target describing the core, address, and optional NOC.
      */
     virtual void configure(const TargetIoWindowConfig& config) = 0;
-
-    // -- Properties -----------------------------------------------------------
 
     /**
      * @brief Returns the current device-side target configuration of this window.

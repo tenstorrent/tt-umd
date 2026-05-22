@@ -17,14 +17,15 @@ namespace tt::umd {
  * @brief Host memory caching strategy for an I/O window.
  */
 enum class HostMemoryCaching {
-    WC,  ///< Write-Combining — higher write throughput, relaxed ordering.
-    UC,  ///< Uncacheable — strict ordering, suitable for register access.
+    WC,  ///< Write-Combining — bypasses cache, batches small writes into bus bursts. Higher throughput, relaxed
+         ///< ordering.
+    UC,  ///< Uncacheable — bypasses cache, every access hits hardware immediately. Strict ordering.
 };
 
 /**
  * @brief Describes the device-side target for an I/O window.
  *
- * Specifies which core and address the window maps to, and optionally which
+ * Specifies which core and address the window maps to on the device, and optionally which
  * NOC to route through. When the mapped address space is not NOC-routed
  * (e.g., direct BAR register space), noc is left as std::nullopt.
  */
@@ -157,9 +158,6 @@ public:
      * @return HostMemoryCaching The caching type (WC or UC), fixed at construction.
      */
     virtual HostMemoryCaching get_memory_caching_type() const = 0;
-
-protected:
-    IoWindow() = default;
 };
 
 }  // namespace tt::umd

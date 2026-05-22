@@ -1,11 +1,12 @@
 # Regression check against in-repo per-arch baseline YAMLs.
 #
 # Compares the current run against the per-arch baselines in
-# tests/microbenchmark/expected/baselines/<arch>.yaml (each calibrated on its
-# dedicated runner via tests/microbenchmark/tools/calibrate_on_runner.py —
-# median(elapsed) + MAPE-derived tolerance from a single bench invocation),
-# applies per-case tolerances, and emits a coarse cross-arch summary plus
-# per-(test, arch) detail sections to $GITHUB_STEP_SUMMARY.
+# tests/microbenchmark/expected/baselines/<arch>.yaml (each derived from a
+# single benchmark-json-* artifact of a prior CI run via
+# tests/microbenchmark/tools/update_baseline.py — median(elapsed) +
+# MAPE-derived tolerance), applies per-case tolerances, and emits a coarse
+# cross-arch summary plus per-(test, arch) detail sections to
+# $GITHUB_STEP_SUMMARY.
 #
 # Pilot: soft by default, but can hard-fail when gate: true breaches.
 name: Regression check against in-repo baseline

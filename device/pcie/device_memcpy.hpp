@@ -19,6 +19,10 @@ namespace tt::umd {
  * On x86_64: bulk transfers use AVX2 unaligned loads/stores (VMOVDQU 256-bit), with
  * 16-byte (SSE), 4-byte and byte-wide tails.
  *
+ * On non-x86 with GCC/Clang (e.g. AArch64): uses vector extensions for
+ * 32/16-byte wide stores; Clang gets non-temporal stores (STNP on AArch64)
+ * with 2 KB software prefetch.
+ *
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile stores.
  *
  * Handles arbitrary alignment and size — leading/trailing bytes smaller than a DWORD are
@@ -32,6 +36,9 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
  *
  * On x86_64: bulk transfers use AVX2 unaligned loads/stores (VMOVDQU 256-bit), with
  * 16-byte (SSE), 4-byte and byte-wide tails.
+ *
+ * On non-x86 with GCC/Clang (e.g. AArch64): uses vector extensions for
+ * 32/16-byte wide loads/stores (LDP/STP on AArch64) with 2 KB prefetch.
  *
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.
  *

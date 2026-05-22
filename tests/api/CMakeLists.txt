@@ -4,6 +4,7 @@ set(API_TESTS_SRCS
     test_cluster.cpp
     test_soc_descriptor.cpp
     test_device_io.cpp
+    test_device_memcpy.cpp
     test_risc_program.cpp
     test_tlb_manager.cpp
     test_sysmem_manager.cpp

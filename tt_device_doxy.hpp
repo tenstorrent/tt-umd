@@ -465,7 +465,7 @@ public:
      * @brief Retrieves the hardware identity and physical configuration of the chip.
      * * Provides the actual physical state of the device, including:
      * - The active state of NOC address translation.
-     * - Bitmasks indicating which functional blocks (e.g., compute cores, DRAM) are harvested (disabled).
+     * - Bitmasks indicating which functional blocks (e.g., Tensix cores, DRAM cores) are harvested (disabled).
      * - Physical board topology, including board type, unique board ID, and specific ASIC location.
      * @return ChipInfo Struct containing the chip's physical state and identity.
      */

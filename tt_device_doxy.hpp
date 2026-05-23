@@ -85,7 +85,8 @@ struct HarvestingMasks {
 };
 
 struct CoreCoord;
-struct io_window_config;
+struct TargetIoWindowConfig;
+struct HostIoWindowConfig;
 
 struct ChipInfo {
     bool noc_translation_enabled = false;
@@ -674,23 +675,24 @@ public:
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
 
     /**
-     * @brief Creates and allocates an I/O window for host-to-device memory-mapped access.
-     * * The default implementation uses the underlying hardware driver (e.g., PCIDevice)
-     * to allocate a hardware TLB, while simulation subclasses allocate from their specific backends.
-     * @param config The hardware configuration applied to the newly created I/O window.
-     * @param mapping The host memory mapping strategy to use (e.g., HostMapping::WC for Write-Combining,
-     * HostMapping::UC for Uncacheable). Defaults to WC for higher write throughput.
-     * @param size Requested window size in bytes. A value of 0 instructs the driver to attempt
-     * architecture-supported sizes in descending order.
+     * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
+     *
+     * The returned window supports direct pointer-style reads and writes to device memory.
+     * It can be reconfigured at runtime to point to different device addresses.
+     *
+     * @param target Device-side target describing the core, address, and optional NOC.
+     * @param host Host-side properties (caching strategy and requested size). A size of 0
+     *        delegates size selection to the concrete implementation.
      * @return std::unique_ptr<IoWindow> An exclusively owned handle to the newly created I/O window.
      */
-    virtual std::unique_ptr<IoWindow> create_io_window(
-        io_window_config config, HostMapping mapping = HostMapping::WC, size_t size = 0);
+    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
 
     /**
-     * @brief Configures a safe signal handler for SIGBUS errors.
-     * * Useful for preventing hard crashes when a PCIe device drops off the bus or when
-     * accessing unmapped/invalid device memory regions during runtime.
+     * @brief Installs or removes a safe SIGBUS signal handler.
+     *
+     * Once installed, a SIGBUS raises an exception instead of crashing the process,
+     * allowing the caller to discard stale PCIe mappings and establish new ones.
+     *
      * @param set_safe_handler If true, installs the safe handler. If false, restores default behavior.
      */
     static void set_sigbus_safe_handler(bool set_safe_handler);
@@ -782,18 +784,11 @@ private:
      */
     void probe_firmware();
 
-    // --- Core Device State ---
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
     ARCH arch_ = ARCH::Invalid;
+    LockManager lock_manager_;
 
-    /**
-     * @brief Pointer to the system lock manager.
-     * * Note: Forward declared to decouple compilation dependencies.
-     */
-    LockManager *lock_manager_;  // actually not a pointer but depends will explain
-
-    // --- Owned Subsystems ---
     std::unique_ptr<architecture_implementation> architecture_impl_;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
@@ -801,7 +796,6 @@ private:
     std::unique_ptr<FirmwareTelemetryReader> firmware_telemetry_reader_;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider_;
 
-    // --- Capability Views (Non-owning pointers downcasted from device_protocol_) ---
     PcieInterface *pcie_interface_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;

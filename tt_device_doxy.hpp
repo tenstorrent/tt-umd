@@ -4,7 +4,6 @@
 
 #include <chrono>
 #include <memory>
-#include <stdexcept>
 #include <string>
 
 class FirmwareMessenger;

@@ -129,7 +129,7 @@ public:
      *
      * @param device_number The zero-based index of the device as enumerated by the host OS.
      * @param device_type   The transport protocol to establish (PCIe or JTAG). Defaults to PCIe.
-     * @param use_safe_api  If true, enables additional runtime boundary checks, safe handlers,
+     * @param use_safe_api  If true, enables additional runtime checks, safe handlers,
      * and validations for device interactions.
      * @return std::unique_ptr<TTDevice> A fully instantiated device orchestrator ready for initialization.
      */
@@ -140,12 +140,12 @@ public:
      * @brief Creates a remote TTDevice instance.
      *
      * This factory method is used for devices reachable over Ethernet rather than a
-     * local physical bus. Because the host OS cannot natively enumerate standalone network
-     * hardware using a simple integer index, the client must establish the network
-     * routing, IP, and socket state externally and inject it into the factory.
+     * local physical bus. Because the host cannot reach the remote device directly
+     * it depends on an MMIO path, which is encapsulated in the remote_communication
+     * which targets the MMIO chip's remote hardware (e.g. ethernet cores).
      *
-     * @param remote_communication A uniquely owned, pre-configured network handler
-     * established to communicate with the target Ethernet device.
+     * @param remote_communication A pre-configured communication mechanism
+     * used for communication with remote chips.
      * @return std::unique_ptr<TTDevice> A fully instantiated device orchestrator ready for initialization.
      */
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
@@ -153,7 +153,7 @@ public:
     /**
      * @brief Virtual destructor for TTDevice.
      * * Ensures proper cleanup of derived classes, which is specifically
-     * critical when using derived classes (e.g. in testing, etc.).
+     * critical when using derived classes.
      */
     virtual ~TTDevice() = default;
 
@@ -166,31 +166,35 @@ public:
     architecture_implementation *get_architecture_implementation();
 
     /**
-     * @brief Retrieves the underlying physical PCIe device interface.
-     * * Acts as an "escape hatch" for executing transport-specific PCIe operations
-     * that do not belong in the generic DeviceProtocol abstraction.
-     * * @return PCIDevice* Pointer to the local PCIe device, or nullptr if this
+     * @brief Retrieves the underlying physical PCIe device.
+     *
+     * Lowest layer in the stack. Only use when DeviceProtocol and PcieInterface
+     * are not sufficient.
+     *
+     * @return PCIDevice* Pointer to the local PCIe device, or nullptr if this
      * TTDevice is not connected via PCIe.
      */
     PCIDevice *get_pci_device();
 
     /**
-     * @brief Retrieves the underlying physical JTAG device interface.
-     * * Acts as an "escape hatch" for executing transport-specific JTAG operations
-     * (e.g., direct TAP controller manipulation) that do not belong in the
-     * generic DeviceProtocol abstraction.
-     * * @return JtagDevice* Pointer to the local JTAG device, or nullptr if this
+     * @brief Retrieves the underlying physical JTAG device.
+     *
+     * Lowest layer in the stack. Only use when DeviceProtocol and JtagInterface
+     * are not sufficient.
+     *
+     * @return JtagDevice* Pointer to the local JTAG device, or nullptr if this
      * TTDevice is not connected via JTAG.
      */
     JtagDevice *get_jtag_device();
 
     /**
-     * @brief Retrieves the underlying Remote Ethernet communication interface.
-     * * Acts as an "escape hatch" for executing network-specific operations
-     * (e.g., querying MAC/IP addresses, checking socket health) for standalone
-     * Ethernet-attached accelerators.
-     * * @return RemoteCommunication* Pointer to the remote communication handler,
-     * or nullptr if this TTDevice is not connected over an Ethernet network.
+     * @brief Retrieves the underlying Remote Ethernet communication handler.
+     *
+     * Lowest layer in the stack. Only use when DeviceProtocol and RemoteInterface
+     * are not sufficient.
+     *
+     * @return RemoteCommunication* Pointer to the remote communication handler,
+     * or nullptr if this TTDevice is not reachable via MMIO.
      */
     RemoteCommunication *get_remote_communication();
 
@@ -206,25 +210,34 @@ public:
 
     /**
      * @brief Retrieves the PCIe-specific capability interface.
-     * * Used to access PCIe-only transport features, such as hardware DMA.
-     * * @return PcieInterface* Pointer to the PCIe interface, or nullptr if the active
-     * transport is not PCIe.
+     *
+     * Provides access to hardware DMA transfers, NOC multicast writes,
+     * and direct BAR register access.
+     *
+     * @return PcieInterface* Pointer to the PCIe interface, or nullptr if the
+     * active transport is not PCIe.
      */
     PcieInterface *get_pcie_interface();
 
     /**
      * @brief Retrieves the JTAG-specific capability interface.
-     * * Used to access JTAG-only transport features and state machine controls.
-     * * @return JtagInterface* Pointer to the JTAG interface, or nullptr if the active
-     * transport is not JTAG.
+     *
+     * Provides access to the underlying JTAG device for AXI/NOC reads and writes,
+     * TDR register access, debug bus operations, and J-Link management.
+     *
+     * @return JtagInterface* Pointer to the JTAG interface, or nullptr if the
+     * active transport is not JTAG.
      */
     JtagInterface *get_jtag_interface();
 
     /**
-     * @brief Retrieves the Remote (Ethernet) capability interface.
-     * * Used to access network-specific features for standalone Ethernet-attached devices.
-     * * @return RemoteInterface* Pointer to the Remote interface, or nullptr if the active
-     * transport is not Remote/Ethernet.
+     * @brief Retrieves the Remote Ethernet capability interface.
+     *
+     * Provides access to the underlying remote communication handler
+     * and non-MMIO flush synchronization.
+     *
+     * @return RemoteInterface* Pointer to the Remote interface, or nullptr if the
+     * active transport is not Remote/Ethernet.
      */
     RemoteInterface *get_remote_interface();
 
@@ -239,7 +252,7 @@ public:
      */
     enum class HangAction {
         THROW,   ///< Throw std::runtime_error (default).
-        RETURN,  ///< Return instead of throwing.
+        RETURN,  ///< Return a value instead of throwing.
     };
 
     /**
@@ -253,81 +266,85 @@ public:
      *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
      *                   after any BAR read that returned a suspicious value.
      * @param action     What to do when a hang is confirmed. Defaults to Throw.
-     * @return true if the PCIe communication appears hung (only reachable with ReturnValue).
-     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     * @return true if the PCIe communication appears hung. Only meaningful when action is RETURN.
+     * @throws std::runtime_error if a hang is confirmed and action is THROW.
      */
     bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
 
     /**
      * Check if NOC traffic to the device is hung.
      *
-     * Sends a read over the specified NOC and compares the result against the
-     * hang signature. Only meaningful for locally accessible devices; on remote
-     * devices the check is skipped and false is returned.
+     * Sends a read to a register with a known value over the specified NOC and
+     * compares the result against the hang signature. Only meaningful for locally accessible devices;
+     * on remote devices the check is skipped and false is returned.
      *
      * @param noc     NOC to check (NOC0 or NOC1).
      * @param action  What to do when a hang is confirmed. Defaults to Throw.
-     * @return true if the NOC appears hung (only reachable with ReturnValue).
-     * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
+     * @return true if the NOC appears hung. Only meaningful when action is RETURN.
+     * @throws std::runtime_error if a hang is confirmed and action is THROW.
      */
     bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
     /**
-     * @brief Reads an unordered block of data from the device.
-     * * Optimized for performance with no memory ordering guarantees.
-     * * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
-     * All other coordinate systems require init_tt_device() to be invoked first to generate the SocDescriptor.
+     * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
+     *
+     * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
+     * All other coordinate systems require init_device() to be invoked first.
+     *
      * @param dst Destination host memory pointer.
      * @param core Target core coordinates.
-     * @param addr Source address on the device.
+     * @param addr Device address on the target core.
      * @param size Number of bytes to read.
      * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
     virtual void read_data(void *dst, CoreCoord core, uint64_t addr, size_t size, NocId noc = NocId::DEFAULT);
 
     /**
-     * @brief Writes an unordered block of data to the device.
-     * * Optimized for performance with no memory ordering guarantees.
-     * * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
-     * All other coordinate systems require init_tt_device() to be invoked first.
+     * @brief Writes a block of host data to a device core, suited for bulk data transfers.
+     *
+     * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
+     * All other coordinate systems require init_device() to be invoked first.
+     *
      * @param src Source host memory pointer.
      * @param core Target core coordinates.
-     * @param addr Destination address on the device.
+     * @param addr Device address on the target core.
      * @param size Number of bytes to write.
      * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
     virtual void write_data(const void *src, CoreCoord core, uint64_t addr, size_t size, NocId noc = NocId::DEFAULT);
 
     /**
-     * @brief Reads from device registers with strict memory ordering guarantees.
-     * * Bypasses performance optimizations to ensure safe access to control and status registers (CSRs).
-     * * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
-     * All other coordinate systems require init_tt_device() to be invoked first.
+     * @brief Reads data from a device core into a host buffer, suited for register and control transactions.
+     *
+     * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
+     * All other coordinate systems require init_device() to be invoked first.
+     *
      * @param dst Destination host memory pointer.
      * @param core Target core coordinates.
-     * @param addr Source register address on the device.
+     * @param addr Device address on the target core.
      * @param size Number of bytes to read.
      * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
-    virtual void read_regs(void *dst, CoreCoord core, uint64_t addr, size_t size, NocId noc = NocId::DEFAULT);
+    virtual void read_ctrl(void *dst, CoreCoord core, uint64_t addr, size_t size, NocId noc = NocId::DEFAULT);
 
     /**
-     * @brief Writes to device registers with strict memory ordering guarantees.
-     * * Guarantees that the write is flushed and ordered correctly for safe CSR manipulation.
-     * * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
-     * All other coordinate systems require init_tt_device() to be invoked first.
+     * @brief Writes host data to a device core, suited for register and control transactions.
+     *
+     * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
+     * All other coordinate systems require init_device() to be invoked first.
+     *
      * @param src Source host memory pointer.
      * @param core Target core coordinates.
-     * @param addr Destination register address on the device.
+     * @param addr Device address on the target core.
      * @param size Number of bytes to write.
      * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
-    virtual void write_regs(const void *src, CoreCoord core, uint64_t addr, size_t size, NocId noc = NocId::DEFAULT);
+    virtual void write_ctrl(const void *src, CoreCoord core, uint64_t addr, size_t size, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Broadcasts data to a specific rectangular grid of cores via NOC multicast.
      * * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
-     * All other coordinate systems require init_tt_device() to be invoked first.
+     * All other coordinate systems require init_device() to be invoked first.
      * @param src Source host memory pointer.
      * @param size Number of bytes to write.
      * @param core_start Starting core coordinates of the multicast grid.
@@ -355,68 +372,83 @@ public:
 
     /**
      * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.
-     * * The driver handles copying the standard host memory into an internal pinned
-     * staging buffer before executing the hardware DMA.
-     * @param src Pointer to the standard host memory containing the data to send.
-     * @param dst_addr The destination address on the target device core.
-     * @param size The number of bytes to transfer.
-     * @param core The target core coordinate on the device.
+     *
+     * Copies from the user-provided buffer into an internal pinned staging buffer
+     * before issuing the hardware DMA to the device.
+     *
+     * @param src Pointer to the user-provided buffer containing the data to send.
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
      */
     virtual void dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core);
 
     /**
      * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.
-     * * The driver DMAs the data to an internal pinned staging buffer and then
-     * copies it into the provided standard host memory pointer.
-     * @param dst Pointer to the standard host memory where data will be received.
-     * @param src_addr The source address on the target device core.
-     * @param size The number of bytes to transfer.
-     * @param core The source core coordinate on the device.
+     *
+     * DMAs data into an internal pinned staging buffer and then copies it into the
+     * user-provided buffer.
+     *
+     * @param dst Pointer to the user-provided buffer where data will be received.
+     * @param src_addr Source address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Source core coordinate on the device.
      */
     virtual void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core);
 
     /**
      * @brief Executes a multicast Host-to-Device DMA transfer using an internal bounce buffer.
-     * * Broadcasts data to a rectangular grid of cores.
-     * @param src Pointer to the standard host memory containing the data to send.
-     * @param dst_addr The destination address on the target device cores.
-     * @param size The number of bytes to transfer.
-     * @param core_start The top-left core coordinate of the multicast grid.
-     * @param core_end The bottom-right core coordinate of the multicast grid.
+     *
+     * Broadcasts data to a rectangular grid of cores via the internal staging buffer.
+     *
+     * @param src Pointer to the user-provided buffer containing the data to send.
+     * @param dst_addr Destination address on the target device cores.
+     * @param size Number of bytes to transfer.
+     * @param core_start Top-left core coordinate of the multicast grid.
+     * @param core_end Bottom-right core coordinate of the multicast grid.
      */
     virtual void dma_multicast_write(
         const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end);
 
     /**
-     * @brief Executes a true zero-copy Host-to-Device (H2D) DMA transfer.
-     * * Operates directly on caller-managed pinned host memory using its I/O Virtual Address.
-     * @param src_iova The physical or I/O Virtual Address of the source host memory buffer.
-     * @param dst_addr The destination address on the target device core.
-     * @param size The number of bytes to transfer.
-     * @param core The target core coordinate on the device.
+     * @brief Executes a zero-copy Host-to-Device (H2D) DMA transfer.
+     *
+     * Operates directly on caller-managed pinned host memory identified by its IOVA,
+     * bypassing the internal staging buffer.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
      */
-    virtual void dma_write(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core);
+    virtual void dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core);
 
     /**
-     * @brief Executes a true zero-copy Device-to-Host (D2H) DMA transfer.
-     * * Operates directly on caller-managed pinned host memory using its I/O Virtual Address.
-     * @param dst_iova The physical or I/O Virtual Address of the destination host memory buffer.
-     * @param src_addr The source address on the target device core.
-     * @param size The number of bytes to transfer.
-     * @param core The source core coordinate on the device.
+     * @brief Executes a zero-copy Device-to-Host (D2H) DMA transfer.
+     *
+     * Operates directly on caller-managed pinned host memory identified by its IOVA,
+     * bypassing the internal staging buffer.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr Source address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Source core coordinate on the device.
      */
-    virtual void dma_read(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core);
+    virtual void dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core);
 
     /**
-     * @brief Executes a true zero-copy multicast Host-to-Device DMA transfer.
-     * * Broadcasts data to a rectangular grid of cores directly from pinned host memory.
-     * @param src_iova The physical or I/O Virtual Address of the source host memory buffer.
-     * @param dst_addr The destination address on the target device cores.
-     * @param size The number of bytes to transfer.
-     * @param core_start The top-left core coordinate of the multicast grid.
-     * @param core_end The bottom-right core coordinate of the multicast grid.
+     * @brief Executes a zero-copy multicast Host-to-Device DMA transfer.
+     *
+     * Broadcasts data to a rectangular grid of cores directly from caller-managed
+     * pinned host memory, bypassing the internal staging buffer.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr Destination address on the target device cores.
+     * @param size Number of bytes to transfer.
+     * @param core_start Top-left core coordinate of the multicast grid.
+     * @param core_end Bottom-right core coordinate of the multicast grid.
      */
-    virtual void dma_multicast_write(
+    virtual void dma_multicast_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end);
 
     /**

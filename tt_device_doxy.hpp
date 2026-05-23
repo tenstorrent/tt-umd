@@ -453,8 +453,10 @@ public:
 
     /**
      * @brief Binds a host memory buffer IO address to the device's address.
-     * * Abstracts hardware-specific translation mechanisms (e.g., PCIe iATU, lookup tables)
-     * to allow device-side hardware and software to directly access host system memory.
+     *
+     * Maps a host-side IO address to a device-side address so that device hardware
+     * and firmware can directly access host system memory.
+     *
      * @param host_io_address The physical address (PA) or I/O Virtual Address (IOVA) of the host buffer.
      * @param device_address The device-side address (e.g., NOC mapped address) targeting the host memory.
      * @param size The size of the memory window to bind in bytes.
@@ -508,7 +510,7 @@ public:
 
     /**
      * @brief Retrieves the interface for sending commands to the device's management firmware.
-     * * Abstracts away the specific firmware implementation.
+     *
      * @return FirmwareMessenger* Pointer to the firmware messaging interface.
      */
     FirmwareMessenger *get_firmware_messenger() const;
@@ -598,7 +600,7 @@ public:
      * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
      * * Used to guarantee memory consistency. Ensures that posted bulk data transfers
      * (which lack strict memory ordering guarantees) are fully flushed and visible in
-     * device memory before proceeding.
+     * the remote device memory before proceeding.
      */
     virtual void wait_for_non_mmio_flush();
 

@@ -121,6 +121,22 @@ static constexpr uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 class TTDevice {
 public:
     /**
+     * @brief Controls what happens when a hang is confirmed.
+     */
+    enum class HangAction {
+        THROW,   ///< Throw std::runtime_error (default).
+        RETURN,  ///< Return a value instead of throwing.
+    };
+
+    /**
+     * @brief Defines the requested power domain state for the device.
+     */
+    enum class PowerState {
+        BUSY,  ///< Claims all power domains, requesting maximum performance.
+        IDLE   ///< Releases power domains, allowing the device to enter lower power states.
+    };
+
+    /**
      * @brief Creates a local TTDevice instance.
      *
      * This factory method is used for hardware that the host system can directly
@@ -151,140 +167,20 @@ public:
      */
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    /**
-     * @brief Virtual destructor for TTDevice.
-     * * Ensures proper cleanup of derived classes, which is specifically
-     * critical when using derived classes.
-     */
     virtual ~TTDevice() = default;
 
     /**
-     * @brief Retrieves the architecture-specific implementation handler.
-     * * Provides access to the underlying hardware architecture definitions
-     * (e.g., Wormhole, Blackhole) managed by this device.
-     * * @return architecture_implementation* Pointer to the architecture implementation.
+     * @brief Executes the full device initialization sequence.
+     *
+     * Waits for firmware startup, polls necessary hardware states, and generates the
+     * SocDescriptor required for NOC coordinate translation.
+     *
+     * @param timeout_ms Maximum time to wait for the firmware/hardware to become ready.
+     * @param soc_descriptor_path Optional path to a specific SoC descriptor file. If empty,
+     * the descriptor is dynamically generated or read from the default hardware configuration.
      */
-    architecture_implementation *get_architecture_implementation();
-
-    /**
-     * @brief Retrieves the underlying physical PCIe device.
-     *
-     * Lowest layer in the stack. Only use when DeviceProtocol and PcieInterface
-     * are not sufficient.
-     *
-     * @return PCIDevice* Pointer to the local PCIe device, or nullptr if this
-     * TTDevice is not connected via PCIe.
-     */
-    PCIDevice *get_pci_device();
-
-    /**
-     * @brief Retrieves the underlying physical JTAG device.
-     *
-     * Lowest layer in the stack. Only use when DeviceProtocol and JtagInterface
-     * are not sufficient.
-     *
-     * @return JtagDevice* Pointer to the local JTAG device, or nullptr if this
-     * TTDevice is not connected via JTAG.
-     */
-    JtagDevice *get_jtag_device();
-
-    /**
-     * @brief Retrieves the underlying Remote Ethernet communication handler.
-     *
-     * Lowest layer in the stack. Only use when DeviceProtocol and RemoteInterface
-     * are not sufficient.
-     *
-     * @return RemoteCommunication* Pointer to the remote communication handler,
-     * or nullptr if this TTDevice is not reachable via MMIO.
-     */
-    RemoteCommunication *get_remote_communication();
-
-    /**
-     * @brief Retrieves the base device protocol interface.
-     * * Provides the common I/O operations supported across all transports:
-     * - Unordered block data read/writes.
-     * - Ordered register read/writes.
-     * - Core range multicast writes.
-     * * @return DeviceProtocol* Pointer to the base protocol interface.
-     */
-    DeviceProtocol *get_device_protocol();
-
-    /**
-     * @brief Retrieves the PCIe-specific capability interface.
-     *
-     * Provides access to hardware DMA transfers, NOC multicast writes,
-     * and direct BAR register access.
-     *
-     * @return PcieInterface* Pointer to the PCIe interface, or nullptr if the
-     * active transport is not PCIe.
-     */
-    PcieInterface *get_pcie_interface();
-
-    /**
-     * @brief Retrieves the JTAG-specific capability interface.
-     *
-     * Provides access to the underlying JTAG device for AXI/NOC reads and writes,
-     * TDR register access, debug bus operations, and J-Link management.
-     *
-     * @return JtagInterface* Pointer to the JTAG interface, or nullptr if the
-     * active transport is not JTAG.
-     */
-    JtagInterface *get_jtag_interface();
-
-    /**
-     * @brief Retrieves the Remote Ethernet capability interface.
-     *
-     * Provides access to the underlying remote communication handler
-     * and non-MMIO flush synchronization.
-     *
-     * @return RemoteInterface* Pointer to the Remote interface, or nullptr if the
-     * active transport is not Remote/Ethernet.
-     */
-    RemoteInterface *get_remote_interface();
-
-    /**
-     * @brief Retrieves the hardware architecture of the device.
-     * @return ARCH Enum representing the architecture (e.g., WORMHOLE_B0, BLACKHOLE).
-     */
-    ARCH get_arch() const;
-
-    /**
-     * @brief Controls what happens when a hang is confirmed.
-     */
-    enum class HangAction {
-        THROW,   ///< Throw std::runtime_error (default).
-        RETURN,  ///< Return a value instead of throwing.
-    };
-
-    /**
-     * Check if the PCIe communication is hung.
-     *
-     * Reads a known register over BAR and compares the result against the hang
-     * signature. If the device is not locally accessible (e.g. JTAG or remote),
-     * the check is skipped and false is returned.
-     *
-     * @param data_read  Value to compare against the hang signature. Defaults to
-     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
-     *                   after any BAR read that returned a suspicious value.
-     * @param action     What to do when a hang is confirmed. Defaults to Throw.
-     * @return true if the PCIe communication appears hung. Only meaningful when action is RETURN.
-     * @throws std::runtime_error if a hang is confirmed and action is THROW.
-     */
-    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
-
-    /**
-     * Check if NOC traffic to the device is hung.
-     *
-     * Sends a read to a register with a known value over the specified NOC and
-     * compares the result against the hang signature. Only meaningful for locally accessible devices;
-     * on remote devices the check is skipped and false is returned.
-     *
-     * @param noc     NOC to check (NOC0 or NOC1).
-     * @param action  What to do when a hang is confirmed. Defaults to Throw.
-     * @return true if the NOC appears hung. Only meaningful when action is RETURN.
-     * @throws std::runtime_error if a hang is confirmed and action is THROW.
-     */
-    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
+    void init_device(
+        std::chrono::milliseconds timeout_ms = timeout::STARTUP_TIMEOUT, const std::string &soc_descriptor_path = "");
 
     /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
@@ -344,8 +240,10 @@ public:
 
     /**
      * @brief Broadcasts data to a specific rectangular grid of cores via NOC multicast.
-     * * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
+     *
+     * Coordinate constraint: CoordSystem::LITERAL bypasses translation and is always valid.
      * All other coordinate systems require init_device() to be invoked first.
+     *
      * @param src Source host memory pointer.
      * @param size Number of bytes to write.
      * @param core_start Starting core coordinates of the multicast grid.
@@ -363,7 +261,9 @@ public:
 
     /**
      * @brief Broadcasts data to all TENSIX cores on the device via NOC multicast.
-     * * Implicitly targets the entire compute grid.
+     *
+     * Implicitly targets the entire compute grid.
+     *
      * @param src Source host memory pointer.
      * @param size Number of bytes to write.
      * @param addr Destination address on the cores.
@@ -465,28 +365,10 @@ public:
     virtual void bind_host_memory(uint64_t host_io_address, uint64_t device_address, size_t size);
 
     /**
-     * @brief Retrieves the hardware identity and physical configuration of the chip.
-     * * Provides the actual physical state of the device, including:
-     * - The active state of NOC address translation.
-     * - Bitmasks indicating which functional blocks (e.g., Tensix cores, DRAM cores) are harvested (disabled).
-     * - Physical board topology, including board type, unique board ID, and specific ASIC location.
-     * @return ChipInfo Struct containing the chip's physical state and identity.
-     */
-    virtual ChipInfo get_chip_info();
-
-    /**
-     * @brief Retrieves the version of the firmware bundle currently running on the device.
-     * * Returns the combined semantic version of the loaded firmware bundle rather than
-     * individual component versions. Useful for host-side compatibility verification
-     * and diagnostics.
-     * @return FirmwareBundleVersion The semantic version of the active firmware.
-     */
-    FirmwareBundleVersion get_firmware_version();
-
-    /**
      * @brief Waits for the device firmware to signal that it is fully initialized and operational.
-     * * Guarantees the device is in a correct state for subsequent operations.
-     * * Must be successfully called before initiating communication via the FirmwareMessenger.
+     *
+     * Must be successfully called before initiating communication via the FirmwareMessenger.
+     *
      * @param timeout_ms Maximum duration to wait for the firmware startup sequence.
      */
     virtual void wait_firmware_startup(
@@ -510,60 +392,245 @@ public:
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     /**
-     * @brief Retrieves the interface for sending commands to the device's management firmware.
+     * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
      *
+     * Ensures that posted bulk data transfers (which lack strict memory ordering guarantees)
+     * are fully flushed and visible in remote device memory before proceeding.
+     */
+    virtual void wait_for_non_mmio_flush();
+
+    /**
+     * @brief Check if the PCIe communication is hung.
+     *
+     * Reads a known register over BAR and compares the result against the hang
+     * signature. If the device is not locally accessible (e.g. JTAG or remote),
+     * the check is skipped and false is returned.
+     *
+     * @param data_read  Value to compare against the hang signature. Defaults to
+     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   after any BAR read that returned a suspicious value.
+     * @param action     What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the PCIe communication appears hung. Only meaningful when action is RETURN.
+     * @throws std::runtime_error if a hang is confirmed and action is THROW.
+     */
+    bool is_pcie_hung(uint32_t data_read = HANG_READ_VALUE, HangAction action = HangAction::THROW);
+
+    /**
+     * @brief Check if NOC traffic to the device is hung.
+     *
+     * Sends a read to a register with a known value over the specified NOC and
+     * compares the result against the hang signature. Only meaningful for locally accessible devices;
+     * on remote devices the check is skipped and false is returned.
+     *
+     * @param noc     NOC to check (NOC0 or NOC1).
+     * @param action  What to do when a hang is confirmed. Defaults to Throw.
+     * @return true if the NOC appears hung. Only meaningful when action is RETURN.
+     * @throws std::runtime_error if a hang is confirmed and action is THROW.
+     */
+    bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
+
+    /**
+     * @brief Returns which RISC processors are currently held in soft reset.
+     * @param core Target core coordinates.
+     * @return Bitmask of RISCs currently in reset.
+     */
+    virtual RiscType get_risc_reset_state(CoreCoord core);
+
+    /**
+     * @brief Asserts the soft reset signal for specific RISC processors on a given core.
+     *
+     * Halts the execution of the targeted RISCs, putting them in a safe state for binary loading.
+     *
+     * @param core Target core coordinates.
+     * @param selected_riscs Strongly typed bitmask specifying which RISCs to reset.
+     */
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+
+    /**
+     * @brief Deasserts the soft reset signal, allowing the specified RISC processors to begin execution.
+     * @param core Target core coordinates.
+     * @param selected_riscs Strongly typed bitmask specifying which RISCs to release from reset.
+     * @param staggered_start If true, staggers the startup of the RISCs to mitigate sudden power draw spikes. Defaults
+     * to false.
+     */
+    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start = false);
+
+    /**
+     * @brief Broadcasts a soft reset to all Tensix cores across the entire compute grid.
+     *
+     * The base TTDevice implementation throws by default. Subclasses override this to
+     * implement hardware-accelerated all-core reset semantics.
+     *
+     * @param soft_resets Strongly typed configuration struct defining the reset behavior.
+     */
+    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
+
+    /**
+     * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
+     *
+     * The returned window supports direct pointer-style reads and writes to device memory.
+     * It can be reconfigured at runtime to point to different device addresses.
+     *
+     * @param target Device-side target describing the core, address, and optional NOC.
+     * @param host Host-side properties (caching strategy and requested size). A size of 0
+     *        delegates size selection to the concrete implementation.
+     * @return std::unique_ptr<IoWindow> An exclusively owned handle to the newly created I/O window.
+     */
+    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
+
+    /**
+     * @brief Retrieves the base device protocol interface.
+     *
+     * Provides the common I/O operations supported across all transports:
+     * data read/writes, control read/writes, and core range multicast writes.
+     *
+     * @return DeviceProtocol* Pointer to the base protocol interface.
+     */
+    DeviceProtocol *get_device_protocol();
+
+    /**
+     * @brief Retrieves the PCIe-specific capability interface.
+     *
+     * Provides access to hardware DMA transfers, NOC multicast writes,
+     * and direct BAR register access.
+     *
+     * @return PcieInterface* Pointer to the PCIe interface, or nullptr if the
+     * active transport is not PCIe.
+     */
+    PcieInterface *get_pcie_interface();
+
+    /**
+     * @brief Retrieves the JTAG-specific capability interface.
+     *
+     * Provides access to the underlying JTAG device for AXI/NOC reads and writes,
+     * TDR register access, debug bus operations, and J-Link management.
+     *
+     * @return JtagInterface* Pointer to the JTAG interface, or nullptr if the
+     * active transport is not JTAG.
+     */
+    JtagInterface *get_jtag_interface();
+
+    /**
+     * @brief Retrieves the Remote Ethernet capability interface.
+     *
+     * Provides access to the underlying remote communication handler
+     * and non-MMIO flush synchronization.
+     *
+     * @return RemoteInterface* Pointer to the Remote interface, or nullptr if the
+     * active transport is not Remote/Ethernet.
+     */
+    RemoteInterface *get_remote_interface();
+
+    /**
+     * @brief Retrieves the interface for sending commands to the device's management firmware.
      * @return FirmwareMessenger* Pointer to the firmware messaging interface.
      */
     FirmwareMessenger *get_firmware_messenger() const;
 
     /**
      * @brief Retrieves the interface for reading telemetry published by the device's firmware.
-     * * Used to monitor device health, temperatures, voltages, and runtime status.
      * @return FirmwareTelemetryReader* Pointer to the firmware telemetry interface.
      */
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     /**
-     * @brief Retrieves the provider interface for querying static firmware metadata.
-     * * Used to fetch bundle configurations and versioning details.
+     * @brief Retrieves the provider interface for querying firmware metadata and device telemetry.
      * @return FirmwareInfoProvider* Pointer to the firmware info provider.
      */
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**
-     * @brief Defines the requested power domain state for the device.
+     * @brief Retrieves the underlying physical PCIe device.
+     *
+     * Lowest layer in the stack. Only use when DeviceProtocol and PcieInterface
+     * are not sufficient.
+     *
+     * @return PCIDevice* Pointer to the local PCIe device, or nullptr if this
+     * TTDevice is not connected via PCIe.
      */
-    enum class PowerState {
-        BUSY,  ///< Claims all power domains, requesting maximum performance.
-        IDLE   ///< Releases power domains, allowing the device to enter lower power states.
-    };
+    PCIDevice *get_pci_device();
 
     /**
-     * @brief Requests a specific power state from the Kernel Mode Driver (KMD).
-     * * Acts as a hint to the KMD to either claim or release full power domains.
-     * * Note: This is a no-op for remote devices and for local devices running KMD
-     * versions older than 2.6.0.
-     * @param state The requested power state (BUSY or IDLE).
+     * @brief Retrieves the underlying physical JTAG device.
+     *
+     * Lowest layer in the stack. Only use when DeviceProtocol and JtagInterface
+     * are not sufficient.
+     *
+     * @return JtagDevice* Pointer to the local JTAG device, or nullptr if this
+     * TTDevice is not connected via JTAG.
      */
-    virtual void set_power_state(PowerState state);
+    JtagDevice *get_jtag_device();
 
     /**
-     * @brief Retrieves the current operating clock frequency of the device.
-     * @return uint32_t Current clock frequency (typically in MHz).
+     * @brief Retrieves the underlying Remote Ethernet communication handler.
+     *
+     * Lowest layer in the stack. Only use when DeviceProtocol and RemoteInterface
+     * are not sufficient.
+     *
+     * @return RemoteCommunication* Pointer to the remote communication handler,
+     * or nullptr if this TTDevice is not reachable via MMIO.
      */
-    virtual uint32_t get_clock_freq() const;
+    RemoteCommunication *get_remote_communication();
 
     /**
-     * @brief Retrieves the maximum supported clock frequency of the device.
-     * @return uint32_t Maximum clock frequency (typically in MHz).
+     * @brief Retrieves the hardware architecture of the device.
+     * @return ARCH Enum representing the architecture (e.g., WORMHOLE_B0, BLACKHOLE).
      */
-    virtual uint32_t get_max_clock_freq() const;
+    ARCH get_arch() const;
 
     /**
-     * @brief Retrieves the minimum supported clock frequency of the device.
-     * @return uint32_t Minimum clock frequency (typically in MHz).
+     * @brief Retrieves the hardware identity and physical configuration of the chip.
+     *
+     * Returns the actual physical state of the device, including:
+     * - The active state of NOC address translation.
+     * - Bitmasks indicating which functional blocks (e.g., Tensix cores, DRAM cores) are harvested (disabled).
+     * - Physical board topology, including board type, unique board ID, and specific ASIC location.
+     *
+     * @return ChipInfo Struct containing the chip's physical state and identity.
      */
-    virtual uint32_t get_min_clock_freq() const;
+    virtual ChipInfo get_chip_info();
+
+    /**
+     * @brief Retrieves the System-on-Chip (SoC) descriptor for the device.
+     *
+     * Contains the physical topology of the chip, including grid sizes,
+     * active/harvested core locations, and memory bank mapping details.
+     *
+     * @return const SocDescriptor& Reference to the device's topology descriptor.
+     */
+    const SocDescriptor &get_soc_descriptor() const;
+
+    /**
+     * @brief Retrieves the architecture-specific implementation handler.
+     * @return architecture_implementation* Pointer to the architecture implementation.
+     */
+    architecture_implementation *get_architecture_implementation();
+
+    /**
+     * @brief Retrieves the version of the firmware bundle currently running on the device.
+     *
+     * Returns the combined semantic version of the loaded firmware bundle rather than
+     * individual component versions.
+     *
+     * @return FirmwareBundleVersion The semantic version of the active firmware.
+     */
+    FirmwareBundleVersion get_firmware_version();
+
+    /**
+     * @brief Checks if NOC coordinate translation is currently active on the device.
+     *
+     * When active, core coordinates use a translation table that accounts for
+     * hardware harvesting (disabled rows/columns).
+     *
+     * @return true if translation is enabled, false otherwise.
+     */
+    virtual bool get_noc_translation_enabled() const = 0;
+
+    /**
+     * @brief Indicates whether the device is accessed via a remote network transport.
+     * @return true if the device is remote.
+     */
+    virtual bool is_remote() const;
 
     /**
      * @brief Retrieves the unique physical identifier of the board hosting the chip.
@@ -584,54 +651,44 @@ public:
     virtual BoardType get_board_type() const;
 
     /**
-     * @brief Checks if NOC coordinate translation is currently active on the device.
-     * * When active, core coordinates have a different translation table which
-     * accounts for hardware harvesting (disabled rows/columns).
-     * @return true if translation is enabled, false otherwise.
-     */
-    virtual bool get_noc_translation_enabled() const = 0;
-
-    /**
      * @brief Retrieves the current operating temperature of the ASIC.
      * @return double Temperature in degrees Celsius.
      */
     double get_asic_temperature() const;
 
     /**
-     * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
-     * * Used to guarantee memory consistency. Ensures that posted bulk data transfers
-     * (which lack strict memory ordering guarantees) are fully flushed and visible in
-     * the remote device memory before proceeding.
+     * @brief Retrieves the current operating clock frequency of the device.
+     * @return uint32_t Current clock frequency (typically in MHz).
      */
-    virtual void wait_for_non_mmio_flush();
+    virtual uint32_t get_clock_freq() const;
 
     /**
-     * @brief Indicates whether the device is accessed via a remote network transport.
-     * @return true if the device is remote.
+     * @brief Retrieves the maximum supported clock frequency of the device.
+     * @return uint32_t Maximum clock frequency (typically in MHz).
      */
-    virtual bool is_remote() const;
+    virtual uint32_t get_max_clock_freq() const;
 
     /**
-     * @brief Executes the full device initialization sequence.
-     * * This includes waiting for firmware startup, polling necessary hardware states,
-     * and generating the SocDescriptor required for NOC coordinate translation.
-     * @param timeout_ms Maximum time to wait for the firmware/hardware to become ready.
-     * @param soc_descriptor_path Optional path to a specific SoC descriptor file. If empty,
-     * the descriptor is dynamically generated or read from the default hardware configuration.
+     * @brief Retrieves the minimum supported clock frequency of the device.
+     * @return uint32_t Minimum clock frequency (typically in MHz).
      */
-    void init_device(
-        std::chrono::milliseconds timeout_ms = timeout::STARTUP_TIMEOUT, const std::string &soc_descriptor_path = "");
+    virtual uint32_t get_min_clock_freq() const;
 
     /**
      * @brief Retrieves the current value of the hardware's free-running reference clock counter.
-     * * Useful for on-device performance profiling, latency measurements, and timestamping.
+     *
+     * Useful for on-device performance profiling, latency measurements, and timestamping.
+     *
      * @return uint64_t The current reference clock tick count.
      */
     uint64_t get_refclk_counter() const;
 
     /**
      * @brief Retrieves the identifier of the underlying communication link.
-     * * Depending on the transport, this maps to the local PCIe device index, J-Link ID, or remote node ID.
+     *
+     * Depending on the transport, this maps to the local PCIe device index,
+     * J-Link ID, or remote node ID.
+     *
      * @return int The communication device identifier.
      */
     int get_communication_device_id() const;
@@ -643,49 +700,21 @@ public:
     IODeviceType get_communication_device_type() const;
 
     /**
-     * @brief Returns which RISC processors are currently held in soft reset.
-     * @param core Target core coordinates.
-     * @return Bitmask of RISCs currently in reset.
+     * @brief Reads the hardware link training status of a specific Ethernet core.
+     * @param eth_core The target Ethernet core coordinates.
+     * @return EthTrainingStatus The current training status of the specified core.
      */
-    virtual RiscType get_risc_reset_state(CoreCoord core);
+    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
 
     /**
-     * @brief Asserts the soft reset signal for specific RISC processors on a given core.
-     * Halts the execution of the targeted RISCs, putting them in a safe state for binary loading.
-     * @param core Target core coordinates.
-     * @param selected_riscs Strongly typed bitmask specifying which RISCs to reset.
-     */
-    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
-
-    /**
-     * @brief Deasserts the soft reset signal, allowing the specified RISC processors to begin execution.
-     * @param core Target core coordinates.
-     * @param selected_riscs Strongly typed bitmask specifying which RISCs to release from reset.
-     * @param staggered_start If true, staggers the startup of the RISCs to mitigate sudden power draw spikes. Defaults
-     * to false.
-     */
-    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start = false);
-
-    /**
-     * @brief Broadcasts a soft reset to all Tensix cores across the entire compute grid.
-     * The base TTDevice implementation throws by default. Subclasses (e.g., PCIe/Wormhole)
-     * override this to implement hardware-accelerated all-core reset semantics.
-     * @param soft_resets Strongly typed configuration struct defining the reset behavior.
-     */
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
-
-    /**
-     * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
+     * @brief Requests a specific power state from the Kernel Mode Driver (KMD).
      *
-     * The returned window supports direct pointer-style reads and writes to device memory.
-     * It can be reconfigured at runtime to point to different device addresses.
+     * Acts as a hint to the KMD to either claim or release full power domains.
+     * No-op for remote devices and for local devices running KMD versions older than 2.6.0.
      *
-     * @param target Device-side target describing the core, address, and optional NOC.
-     * @param host Host-side properties (caching strategy and requested size). A size of 0
-     *        delegates size selection to the concrete implementation.
-     * @return std::unique_ptr<IoWindow> An exclusively owned handle to the newly created I/O window.
+     * @param state The requested power state (BUSY or IDLE).
      */
-    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
+    virtual void set_power_state(PowerState state);
 
     /**
      * @brief Installs or removes a safe SIGBUS signal handler.
@@ -696,22 +725,6 @@ public:
      * @param set_safe_handler If true, installs the safe handler. If false, restores default behavior.
      */
     static void set_sigbus_safe_handler(bool set_safe_handler);
-
-    /**
-     * @brief Reads the hardware link training status of a specific Ethernet core.
-     * * Used to verify if the ethernet links between remote devices have successfully initialized.
-     * @param eth_core The target Ethernet core coordinates.
-     * @return EthTrainingStatus The current training status of the specified core.
-     */
-    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
-
-    /**
-     * @brief Retrieves the System-on-Chip (SoC) descriptor for the device.
-     * * The descriptor contains the physical topology of the chip, including grid sizes,
-     * active/harvested core locations, and memory bank mapping details.
-     * @return const SocDescriptor& Reference to the device's topology descriptor.
-     */
-    const SocDescriptor &get_soc_descriptor() const;
 
 protected:
     /**
@@ -800,5 +813,3 @@ private:
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
 };
-
-int main() { return 0; }

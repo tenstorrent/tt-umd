@@ -97,8 +97,8 @@ struct ChipInfo {
 
 namespace timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
-inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
-inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
+inline constexpr auto FIRMWARE_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
+inline constexpr auto FIRMWARE_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
 inline constexpr auto STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
 inline constexpr auto ARC_POST_RESET_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_LONG_POST_RESET_TIMEOUT = std::chrono::milliseconds(300'000);
@@ -486,7 +486,8 @@ public:
      * * Must be successfully called before initiating communication via the FirmwareMessenger.
      * @param timeout_ms Maximum duration to wait for the firmware startup sequence.
      */
-    virtual void wait_firmware_startup(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual void wait_firmware_startup(
+        const std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT) = 0;
 
     /**
      * @brief Waits for the specified Ethernet core to complete its link training sequence.

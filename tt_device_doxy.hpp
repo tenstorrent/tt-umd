@@ -25,7 +25,7 @@ namespace tt::umd {
  *
  * | Type | Description |
  * |------|-------------|
- * | CoreCoord | Physical core coordinate (row, col) with coordinate system tag nad core type |
+ * | CoreCoord | Physical core coordinate (row, col) with coordinate system tag and core type |
  * | xy_pair | Raw NOC coordinate pair |
  * | NocId | NOC selection |
  * | IODeviceType | Transport type (PCIe / JTAG) |

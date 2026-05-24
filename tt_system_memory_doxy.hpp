@@ -13,8 +13,8 @@ public:
     /**
      * @brief Copies data from a host buffer into the system memory buffer.
      *
-     * Performs a bounded memcpy from the caller-provided source into the
-     * pinned system memory region at the specified offset.
+     * Copies from the caller-provided source buffer into the
+     * system memory buffer at the specified offset.
      *
      * @param src Pointer to the source host memory.
      * @param size Number of bytes to copy.
@@ -25,8 +25,8 @@ public:
     /**
      * @brief Copies data from the system memory buffer into a host buffer.
      *
-     * Performs a bounded memcpy from the pinned system memory region at the
-     * specified offset into the caller-provided destination.
+     * Copies from the system memory buffer at the specified offset
+     * into the caller-provided destination buffer.
      *
      * @param dest Pointer to the destination host memory.
      * @param size Number of bytes to copy.
@@ -73,7 +73,7 @@ public:
      * the PCIe tile which can target the IOVA directly.
      *
      * The binding operation is injected at construction by the SystemMemoryAllocator
-     * as a captured lambda that holds the necessary device context (e.g., PCIDevice).
+     * as a callable that holds the necessary device context (e.g., PCIDevice).
      * This ensures the buffer does not directly depend on PCIDevice while still
      * supporting deferred NOC binding.
      *
@@ -88,10 +88,10 @@ public:
     size_t get_size() const;
 
 private:
-    /**-
+    /**
      * @brief Custom deleter type used for resource cleanup on destruction.
      *
-     * Set by the SystemMemoryAllocator. For library-allocated buffers, the deleter
+     * Set by the SystemMemoryAllocator. For driver-allocated buffers, the deleter
      * unmaps DMA and frees the memory. For user-mapped buffers, it only unpins the
      * pages.
      */
@@ -100,7 +100,7 @@ private:
     /**
      * @brief Callback type for deferred NOC address binding.
      *
-     * Injected by the SystemMemoryAllocator at construction. The lambda captures
+     * Injected by the SystemMemoryAllocator at construction. The callable holds
      * the device context (e.g., PCIDevice) needed to program the hardware address
      * translation. Returns the resulting NOC address.
      */

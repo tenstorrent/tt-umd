@@ -72,7 +72,7 @@ public:
      * device tiles can access this system memory buffer via the NOC, not just
      * the PCIe tile which can target the IOVA directly.
      *
-     * The binding operation is injected at construction by the SystemMemoryAllocator
+     * The binding operation is injected at construction by the @ref SystemMemoryAllocator
      * as a callable that holds the necessary device context (e.g., PCIDevice).
      * This ensures the buffer does not directly depend on PCIDevice while still
      * supporting deferred NOC binding.
@@ -161,7 +161,7 @@ public:
      * @param size Requested buffer size in bytes.
      * @param bind_to_noc If true, additionally binds the buffer to a NOC address so
      *        that all device tiles (not just the PCIe tile) can access it.
-     * @return std::unique_ptr<SystemMemoryBuffer> An exclusively owned system memory buffer.
+     * @return std::unique_ptr<@ref SystemMemoryBuffer> An exclusively owned system memory buffer.
      */
     virtual std::unique_ptr<SystemMemoryBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) = 0;
 

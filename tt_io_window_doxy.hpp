@@ -14,39 +14,6 @@
 namespace tt::umd {
 
 /**
- * @brief Host memory caching strategy for an I/O window.
- */
-enum class HostMemoryCaching {
-    WC,  ///< Write-Combining — bypasses cache, batches small writes into bus bursts. Higher throughput, relaxed
-         ///< ordering.
-    UC,  ///< Uncacheable — bypasses cache, every access hits hardware immediately. Strict ordering.
-};
-
-/**
- * @brief Describes the device-side target for an I/O window.
- *
- * Specifies which core and address the window maps to on the device, and optionally which
- * NOC to route through. When the mapped address space is not NOC-routed
- * (e.g., direct BAR register space), noc is left as std::nullopt.
- */
-struct TargetIoWindowConfig {
-    tt_xy_pair core;
-    uint64_t addr;
-    std::optional<NocId> noc = std::nullopt;
-};
-
-/**
- * @brief Describes the host-side properties for an I/O window.
- *
- * Controls the host memory caching strategy and requested window size.
- * A size of 0 is valid and delegates the window size selection to the concrete implementation.
- */
-struct HostIoWindowConfig {
-    HostMemoryCaching mapping = HostMemoryCaching::WC;
-    size_t size = 0;
-};
-
-/**
  * @brief Host memory-mapped window into device address space.
  *
  * Maps a fixed-size region of host virtual address space to device address space.
@@ -133,6 +100,7 @@ public:
      * target the new device address.
      *
      * @param config Device-side target describing the core, address, and optional NOC.
+     * See @ref TargetIoWindowConfig.
      */
     virtual void configure(const TargetIoWindowConfig& config) = 0;
 
@@ -146,7 +114,7 @@ public:
      * @brief Returns the actual size of this I/O window in bytes.
      *
      * The size is determined by the concrete implementation during construction
-     * and may differ from what was requested in HostIoWindowConfig.
+     * and may differ from what was requested in @ref HostIoWindowConfig.
      *
      * @return size_t Window size as allocated by the implementation.
      */
@@ -154,7 +122,7 @@ public:
 
     /**
      * @brief Returns the host memory caching strategy of this window.
-     * @return HostMemoryCaching The caching type (WC or UC), fixed at construction.
+     * @return @ref HostMemoryCaching The caching type (WC or UC), fixed at construction.
      */
     virtual HostMemoryCaching get_memory_caching_type() const = 0;
 };

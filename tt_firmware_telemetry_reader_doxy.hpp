@@ -9,22 +9,23 @@
 namespace tt::umd {
 
 /**
- * @brief Abstract interface for reading telemetry entries from device firmware.
+ * @defgroup tt_firmware_telemetry_reader FirmwareTelemetryReader
+ * @{
  *
- * Provides firmware-agnostic access to device telemetry. The telemetry tag
- * is a uint8_t identifier (max 255 entries) that the concrete implementation
- * maps to its firmware-specific table layout.
+ * @brief Low-level reader for raw telemetry values from device firmware.
  *
- * Concrete implementations own the discovery of the telemetry table
- * address and the tag-to-offset mapping.
+ * Reads individual telemetry entries by tag from the firmware's telemetry
+ * table. Tags are uint8_t identifiers (max 255 entries) defined by the
+ * firmware. Higher-level interpretation is handled by @ref FirmwareInfoProvider.
+ *
  */
+
 class FirmwareTelemetryReader {
 public:
     virtual ~FirmwareTelemetryReader() = default;
 
     /**
      * @brief Reads a telemetry entry by tag.
-     *
      * @param tag Telemetry tag identifying the entry to read.
      * @return uint32_t The telemetry value.
      */
@@ -32,11 +33,12 @@ public:
 
     /**
      * @brief Checks whether a telemetry entry is available.
-     *
      * @param tag Telemetry tag identifying the entry to check.
      * @return true if the entry exists in the firmware telemetry table.
      */
     virtual bool is_entry_available(uint8_t tag) = 0;
 };
+
+/** @} */  // end of tt_firmware_telemetry_reader group
 
 }  // namespace tt::umd

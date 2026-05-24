@@ -11,23 +11,23 @@
 namespace tt::umd {
 
 /**
- * @brief Base interface for all device communication protocols.
+ * @defgroup tt_device_protocol DeviceProtocol
+ * @{
  *
- * Each concrete protocol (PCIe, JTAG, Remote/Ethernet) implements this interface,
- * providing a uniform way to perform basic device I/O regardless of the underlying
- * transport.
+ * @brief Uniform device I/O interface across all transports.
  *
- * The interface distinguishes between data and control paths. Data operations
- * are optimized for throughput. Control operations are optimized for ordered
- * transactions, where visibility and completion ordering matter.
+ * Implemented by each transport (PCIe, JTAG, Remote/Ethernet) to provide
+ * data and control path operations. Data operations are optimized for
+ * throughput. Control operations are optimized for ordered transactions.
+ *
  */
+
 class DeviceProtocol {
 public:
     virtual ~DeviceProtocol() = default;
 
     /**
      * @brief Writes a block of host data to a device core, suited for bulk data transfers.
-     *
      * @param src Pointer to the source host memory.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
@@ -38,7 +38,6 @@ public:
 
     /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
-     *
      * @param dst Pointer to the destination host buffer.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
@@ -49,7 +48,6 @@ public:
 
     /**
      * @brief Writes host data to a device core, suited for register and control transactions.
-     *
      * @param src Pointer to the source host memory.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
@@ -60,7 +58,6 @@ public:
 
     /**
      * @brief Reads data from a device core into a host buffer, suited for register and control transactions.
-     *
      * @param dst Pointer to the destination host buffer.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
@@ -72,8 +69,8 @@ public:
     /**
      * @brief Writes data to a range of cores via hardware multicast, if supported.
      *
-     * Marked [[nodiscard]] — not all protocols support hardware multicast, so the
-     * caller must check the return value to handle unsupported cases.
+     * Not all transports support hardware multicast. The caller must check the
+     * return value to handle unsupported cases.
      *
      * @param src Pointer to the source host memory.
      * @param core_start First core in the multicast rectangle.
@@ -93,5 +90,7 @@ public:
      */
     virtual int get_mmio_id() = 0;
 };
+
+/** @} */  // end of tt_device_protocol group
 
 }  // namespace tt::umd

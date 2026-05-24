@@ -14,6 +14,9 @@
 namespace tt::umd {
 
 /**
+ * @defgroup tt_io_window IoWindow
+ * @{
+ *
  * @brief Host memory-mapped window into device address space.
  *
  * Maps a fixed-size region of host virtual address space to device address space.
@@ -28,7 +31,16 @@ namespace tt::umd {
  * The APIs below indicate which use cases they are more suited for, but
  * provide minimal guarantees at the interface level.
  *
+ * ## Key Types
+ *
+ * | Type | Description |
+ * |------|-------------|
+ * | @ref TargetIoWindowConfig | Device-side target: core, address, and optional NOC |
+ * | @ref HostIoWindowConfig | Host-side properties: caching strategy and requested size |
+ * | @ref HostMemoryCaching | Caching strategy (WC or UC) |
+ *
  */
+
 class IoWindow {
 public:
     virtual ~IoWindow() = default;
@@ -126,5 +138,7 @@ public:
      */
     virtual HostMemoryCaching get_memory_caching_type() const = 0;
 };
+
+/** @} */  // end of tt_io_window group
 
 }  // namespace tt::umd

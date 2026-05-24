@@ -25,6 +25,9 @@ namespace tt::umd {
  * Provides a stable interface to firmware metadata and device telemetry
  * regardless of the firmware version running on the device.
  *
+ * All telemetry getters return `std::nullopt` when the value is not
+ * available for the current firmware version.
+ *
  * ## Key Types
  *
  * | Type | Description |
@@ -43,8 +46,8 @@ public:
     /**
      * @brief Creates a FirmwareInfoProvider for the given telemetry reader and architecture.
      *
-     * Selects the appropriate feature-to-telemetry mapping table based on the
-     * architecture and the firmware version read from the telemetry reader.
+     * Resolves the correct feature-to-telemetry mapping for the given
+     * architecture and firmware version.
      *
      * @param telemetry_reader Non-owning pointer to the device's telemetry reader.
      * @param arch Device architecture.
@@ -62,6 +65,9 @@ public:
     FirmwareInfoProvider(FirmwareTelemetryReader* telemetry_reader, ARCH arch);
 
     ~FirmwareInfoProvider() = default;
+
+    /** @name Firmware Versions */
+    /** @{ */
 
     /**
      * @brief Retrieves the firmware bundle version running on the device.
@@ -85,18 +91,6 @@ public:
      * @return FirmwareBundleVersion Latest supported version.
      */
     static FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
-
-    /**
-     * @brief Retrieves the unique board identifier.
-     * @return std::optional<uint64_t> Board ID, or std::nullopt if unavailable.
-     */
-    std::optional<uint64_t> get_board_id() const;
-
-    /**
-     * @brief Retrieves the physical slot index of this chip on a multi-chip board.
-     * @return std::optional<uint8_t> ASIC location index, or std::nullopt if unavailable.
-     */
-    std::optional<uint8_t> get_asic_location() const;
 
     /**
      * @brief Retrieves the Ethernet firmware version as a raw tag value.
@@ -140,6 +134,28 @@ public:
      */
     std::optional<SemVer> get_tt_flash_version() const;
 
+    /** @} */
+
+    /** @name Board Identity */
+    /** @{ */
+
+    /**
+     * @brief Retrieves the unique board identifier.
+     * @return std::optional<uint64_t> Board ID, or std::nullopt if unavailable.
+     */
+    std::optional<uint64_t> get_board_id() const;
+
+    /**
+     * @brief Retrieves the physical slot index of this chip on a multi-chip board.
+     * @return std::optional<uint8_t> ASIC location index, or std::nullopt if unavailable.
+     */
+    std::optional<uint8_t> get_asic_location() const;
+
+    /** @} */
+
+    /** @name Thermal */
+    /** @{ */
+
     /**
      * @brief Retrieves the ASIC temperature.
      * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
@@ -169,6 +185,11 @@ public:
      * @return std::optional<uint32_t> Number of thermal trips, or std::nullopt if unavailable.
      */
     std::optional<uint32_t> get_therm_trip_count() const;
+
+    /** @} */
+
+    /** @name Clocks and Power */
+    /** @{ */
 
     /**
      * @brief Retrieves the current AICLK frequency.
@@ -230,6 +251,11 @@ public:
      */
     std::optional<uint32_t> get_fan_rpm() const;
 
+    /** @} */
+
+    /** @name Ethernet */
+    /** @{ */
+
     /**
      * @brief Retrieves per-link Ethernet heartbeat status.
      *
@@ -247,6 +273,11 @@ public:
      * @return std::optional<std::vector<bool>> Per-link status (true = retrained), or std::nullopt if unavailable.
      */
     std::optional<std::vector<bool>> get_eth_retrain_status() const;
+
+    /** @} */
+
+    /** @name DRAM */
+    /** @{ */
 
     /**
      * @brief Retrieves per-channel DRAM training status.
@@ -280,6 +311,11 @@ public:
      */
     std::optional<double> get_current_max_dram_temperature() const;
 
+    /** @} */
+
+    /** @name Heartbeat */
+    /** @{ */
+
     /**
      * @brief Retrieves the firmware heartbeat counter.
      *
@@ -288,6 +324,8 @@ public:
      * @return std::optional<uint32_t> Heartbeat counter, or std::nullopt if unavailable.
      */
     std::optional<uint32_t> get_heartbeat() const;
+
+    /** @} */
 
 private:
     /**

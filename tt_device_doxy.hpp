@@ -491,6 +491,9 @@ public:
      */
     RemoteCommunication *get_remote_communication();
 
+    /** @name Device Identity and Topology */
+    /** @{ */
+
     /**
      * @brief Retrieves the hardware architecture of the device.
      * @return @ref ARCH Enum representing the architecture (e.g., WORMHOLE_B0, BLACKHOLE).
@@ -569,6 +572,11 @@ public:
      */
     virtual BoardType get_board_type() const;
 
+    /** @} */
+
+    /** @name Clock and Thermal */
+    /** @{ */
+
     /**
      * @brief Retrieves the current operating temperature of the ASIC.
      * @return double Temperature in degrees Celsius.
@@ -599,6 +607,11 @@ public:
      */
     uint64_t get_refclk_counter() const;
 
+    /** @} */
+
+    /** @name Communication */
+    /** @{ */
+
     /**
      * @brief Retrieves the identifier of the underlying communication link.
      *
@@ -621,6 +634,8 @@ public:
      * @return @ref EthTrainingStatus The current training status of the specified core.
      */
     virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
+
+    /** @} */
 
     /**
      * @brief Requests a specific power state from the Kernel Mode Driver (KMD).

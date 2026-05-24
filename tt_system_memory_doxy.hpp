@@ -6,6 +6,8 @@
 #include <memory>
 #include <optional>
 
+namespace tt::umd {
+
 /**
  * @defgroup tt_system_memory System Memory
  * @{
@@ -182,3 +184,5 @@ public:
 };
 
 /** @} */  // end of tt_system_memory group
+
+}  // namespace tt::umd

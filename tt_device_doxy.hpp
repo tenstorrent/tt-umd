@@ -8,6 +8,33 @@
 
 namespace tt::umd {
 
+/**
+ * @defgroup tt_device TTDevice
+ * @{
+ *
+ * @brief TTDevice is the base layer facade and lifetime manager for a single Tenstorrent device.
+ *
+ * It owns the physical transport (PCIe, JTAG, or remote Ethernet), drives the
+ * device initialization and teardown sequences, and exposes the primitives that
+ * the Chip/Cluster workload layer builds on.
+ *
+ * ## Common Types
+ *
+ * The following types appear throughout the TTDevice API and are defined in
+ * @ref tt_base_types "Base Layer Types and Constants".
+ *
+ * | Type | Description |
+ * |------|-------------|
+ * | CoreCoord | Physical core coordinate (row, col) with coordinate system tag nad core type |
+ * | xy_pair | Raw NOC coordinate pair |
+ * | NocId | NOC selection |
+ * | IODeviceType | Transport type (PCIe / JTAG) |
+ * | ChipInfo | Device metadata (harvesting masks, board type, board ID) |
+ * | RiscType | Bitmask identifying which RISCs to target |
+ * | PowerState | Requested power domain state (BUSY / IDLE) |
+ *
+ */
+
 class TTDevice {
 public:
     /**
@@ -703,5 +730,7 @@ private:
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
 };
+
+/** @} */  // end of tt_device group
 
 }  // namespace tt::umd

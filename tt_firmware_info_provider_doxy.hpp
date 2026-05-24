@@ -16,16 +16,28 @@
 
 namespace tt::umd {
 
-class FirmwareTelemetryReader;
-
 /**
- * @brief Data-driven provider for firmware information and device telemetry.
+ * @defgroup tt_firmware_info_provider FirmwareInfoProvider
+ * @{
  *
- * Abstracts away firmware version differences while maintaining backward
- * compatibility. Internally maps firmware features to telemetry tags via a
- * configuration table selected at construction based on architecture and
- * firmware version.
+ * @brief Unified interface for firmware metadata and device telemetry.
+ *
+ * Provides a stable interface to firmware metadata and device telemetry
+ * regardless of the firmware version running on the device.
+ *
+ * ## Key Types
+ *
+ * | Type | Description |
+ * |------|-------------|
+ * | @ref FirmwareTelemetryReader | Low-level reader for raw telemetry values |
+ * | @ref SemVer | Semantic version (major.minor.patch) |
+ * | @ref DramTrainingStatus | Per-channel DRAM training result |
+ * | @ref GddrTelemetry | Aggregated GDDR telemetry across all modules |
+ * | @ref GddrModuleTelemetry | Per-module GDDR telemetry |
+ * | @ref GddrModule | GDDR module identifier |
+ *
  */
+
 class FirmwareInfoProvider final {
 public:
     /**
@@ -320,5 +332,7 @@ private:
     /// Feature-to-telemetry mapping table, selected by architecture and firmware version.
     FirmwareFeatures firmware_feature_map;
 };
+
+/** @} */  // end of tt_firmware_info_provider group
 
 }  // namespace tt::umd

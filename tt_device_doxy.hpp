@@ -23,99 +23,7 @@ class SocDescriptor;
 class LockManager;
 class HangDetector;
 
-// enums
-enum class NocId : uint8_t { DEFAULT = 0, NOC = 0, NOC0 = 0, NOC1 = 1, SYSTEM_NOC = 1 };
-enum class RiscType : std::uint64_t;
-enum class TensixSoftResetOptions : std::uint32_t;
-enum class HostMapping { WC, UC };
-
-enum class EthTrainingStatus {
-    IN_PROGRESS = 0,
-    SUCCESS = 1,
-    FAIL = 2,
-    NOT_CONNECTED = 3,
-};
-
-enum class IODeviceType {
-    PCIe,
-    JTAG,
-    UNDEFINED,
-};
-
-enum class ARCH {
-    WORMHOLE_B0 = 2,
-    BLACKHOLE = 3,
-    QUASAR = 4,
-    Invalid = 0xFF,
-};
-
-enum BoardType : uint32_t {
-    E75,
-    E150,
-    E300,
-    N150,
-    N300,
-    P100,
-    P150,
-    P300,
-    GALAXY,
-    UBB,
-    UBB_WORMHOLE = UBB,
-    UBB_BLACKHOLE,
-    QUASAR_BOARD,
-    UNKNOWN,
-};
-
-struct HarvestingMasks {
-    size_t tensix_harvesting_mask = 0;
-    size_t dram_harvesting_mask = 0;
-    size_t eth_harvesting_mask = 0;
-    size_t pcie_harvesting_mask = 0;
-    size_t l2cpu_harvesting_mask = 0;
-
-    HarvestingMasks operator|(const HarvestingMasks &other) const {
-        return HarvestingMasks{
-            .tensix_harvesting_mask = this->tensix_harvesting_mask | other.tensix_harvesting_mask,
-            .dram_harvesting_mask = this->dram_harvesting_mask | other.dram_harvesting_mask,
-            .eth_harvesting_mask = this->eth_harvesting_mask | other.eth_harvesting_mask,
-            .pcie_harvesting_mask = this->pcie_harvesting_mask | other.pcie_harvesting_mask,
-            .l2cpu_harvesting_mask = this->l2cpu_harvesting_mask | other.l2cpu_harvesting_mask};
-    }
-};
-
-struct CoreCoord;
-struct TargetIoWindowConfig;
-struct HostIoWindowConfig;
-
-struct ChipInfo {
-    bool noc_translation_enabled = false;
-    HarvestingMasks harvesting_masks = {0, 0, 0, 0};
-    BoardType board_type = BoardType::UNKNOWN;
-    uint64_t board_id = 0;
-    uint8_t asic_location = 0;
-};
-
-namespace timeout {
-inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
-inline constexpr auto FIRMWARE_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
-inline constexpr auto FIRMWARE_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
-inline constexpr auto STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
-inline constexpr auto ARC_POST_RESET_TIMEOUT = std::chrono::milliseconds(1'000);
-inline constexpr auto ARC_LONG_POST_RESET_TIMEOUT = std::chrono::milliseconds(300'000);
-inline constexpr auto DRAM_TRAINING_TIMEOUT = std::chrono::milliseconds(300'000);
-inline constexpr auto ETH_QUEUE_ENABLE_TIMEOUT = std::chrono::milliseconds(30'000);
-inline constexpr auto ETH_TRAINING_TIMEOUT = std::chrono::milliseconds(900'000);
-inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);
-inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
-inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(100);
-inline constexpr auto WARM_RESET_M3_TIMEOUT = std::chrono::milliseconds(20'000);
-inline constexpr auto WARM_RESET_REAPPEAR_POLL_INTERVAL = std::chrono::milliseconds(100);
-inline constexpr auto WARM_RESET_DEVICES_REAPPEAR_TIMEOUT = std::chrono::milliseconds(10'000);
-inline constexpr auto UBB_WARM_RESET_TIMEOUT = std::chrono::milliseconds(100'000);
-inline constexpr auto BH_WARM_RESET_TIMEOUT = std::chrono::milliseconds(2'000);
-}  // namespace timeout
-
-static constexpr uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
+namespace tt::umd {
 
 class TTDevice {
 public:
@@ -812,3 +720,5 @@ private:
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
 };
+
+}  // namespace tt::umd

@@ -724,7 +724,7 @@ private:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
     ARCH arch_ = ARCH::Invalid;
-    @ref LockManager lock_manager_;  ///< Interprocess lock manager using shared-memory robust mutexes.
+    LockManager lock_manager_;  ///< Interprocess lock manager (@ref LockManager) using shared-memory robust mutexes.
 
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<DeviceProtocol> device_protocol_;

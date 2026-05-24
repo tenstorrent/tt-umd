@@ -47,11 +47,10 @@ struct HostIoWindowConfig {
 };
 
 /**
- * @brief Abstract base class representing the interface to a host memory-mapped window into device address space.
+ * @brief Host memory-mapped window into device address space.
  *
- * An IoWindow maps a fixed-size region of host virtual address space to a
- * region of device address space. Through this window, the host can read and write device
- * memory using direct pointer operations.
+ * Maps a fixed-size region of host virtual address space to device address space.
+ * Through this window, the host can read and write device memory directly.
  *
  * The window has a fixed size determined at construction, but can be reconfigured at
  * runtime to point to different device addresses.

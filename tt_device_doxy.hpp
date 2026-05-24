@@ -469,7 +469,7 @@ public:
      * Lowest layer in the stack. Only use when DeviceProtocol and PcieInterface
      * are not sufficient.
      *
-     * @return PCIDevice* Pointer to the local PCIe device, or nullptr if this
+     * @return @ref PCIDevice* Pointer to the local PCIe device, or nullptr if this
      * TTDevice is not connected via PCIe.
      */
     PCIDevice *get_pci_device();
@@ -480,7 +480,7 @@ public:
      * Lowest layer in the stack. Only use when DeviceProtocol and JtagInterface
      * are not sufficient.
      *
-     * @return JtagDevice* Pointer to the local JTAG device, or nullptr if this
+     * @return @ref JtagDevice* Pointer to the local JTAG device, or nullptr if this
      * TTDevice is not connected via JTAG.
      */
     JtagDevice *get_jtag_device();
@@ -724,7 +724,7 @@ private:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
     ARCH arch_ = ARCH::Invalid;
-    LockManager lock_manager_;
+    @ref LockManager lock_manager_;  ///< Interprocess lock manager using shared-memory robust mutexes.
 
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<DeviceProtocol> device_protocol_;

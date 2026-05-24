@@ -346,14 +346,14 @@ public:
     bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
     /**
-     * @brief Returns which RISC processors are currently held in soft reset.
+     * @brief Returns which baby RISCs are currently held in soft reset.
      * @param core Target core coordinates.
      * @return Bitmask of RISCs currently in reset.
      */
     virtual RiscType get_risc_reset_state(CoreCoord core);
 
     /**
-     * @brief Asserts the soft reset signal for specific RISC processors on a given core.
+     * @brief Asserts the soft reset signal for specific baby RISCs on a given core.
      *
      * Halts the execution of the targeted RISCs, putting them in a safe state for binary loading.
      *
@@ -363,7 +363,7 @@ public:
     virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
-     * @brief Deasserts the soft reset signal, allowing the specified RISC processors to begin execution.
+     * @brief Deasserts the soft reset signal, allowing the specified baby RISCs to begin execution.
      * @param core Target core coordinates.
      * @param selected_riscs Strongly typed bitmask specifying which RISCs to release from reset.
      * @param staggered_start If true, staggers the startup of the RISCs to mitigate sudden power draw spikes. Defaults

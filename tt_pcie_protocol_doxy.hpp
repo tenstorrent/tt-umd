@@ -19,7 +19,8 @@ namespace tt::umd {
  * PcieProtocol implements both @ref DeviceProtocol and PcieInterface for
  * PCIe-connected devices.
  *
- * All core coordinates at this layer are tt_xy_pair (physical NOC coordinates).
+ * All core coordinates at this layer are tt_xy_pair — a raw (x, y) pair
+ * used directly in the I/O transaction with no coordinate translation.
  * The @ref TTDevice layer translates CoreCoord to tt_xy_pair before delegating here.
  *
  * ## Key Types
@@ -186,7 +187,7 @@ public:
 
     /**
      * @brief Returns a pointer to the underlying @ref PCIDevice.
-     * @return PCIDevice* Non-owning pointer to the PCIe device handle.
+     * @return PCIDevice* pointer to the PCIe device handle.
      */
     virtual PCIDevice* get_pci_device() = 0;
 };

@@ -11,22 +11,22 @@
 namespace tt::umd {
 
 /**
- * @brief Result of a firmware command execution.
+ * @defgroup tt_firmware_messenger FirmwareMessenger
+ * @{
  *
- * Bundles the exit code and any return values from the firmware into a single
- * return type, eliminating the need for out-parameters.
+ * @brief Host-to-firmware command channel.
+ *
+ * Sends commands to the management firmware running on a device and returns
+ * the result, regardless of the underlying firmware and hardware configuration.
+ *
+ * ## Key Types
+ *
+ * | Type | Description |
+ * |------|-------------|
+ * | @ref DeviceCommandResult | Exit code and return values from a firmware command |
+ *
  */
-struct DeviceCommandResult {
-    uint32_t exit_code;
-    std::vector<uint32_t> return_values;
-};
 
-/**
- * @brief Abstract interface for host-to-firmware communication.
- *
- * Represents a command channel to the management firmware running on a device,
- * regardless of the underlying firmware and hardware configuration.
- */
 class FirmwareMessenger {
 public:
     virtual ~FirmwareMessenger() = default;
@@ -44,5 +44,7 @@ public:
         const std::vector<uint32_t>& args = {},
         std::chrono::milliseconds timeout = std::chrono::milliseconds{0}) = 0;
 };
+
+/** @} */  // end of tt_firmware_messenger group
 
 }  // namespace tt::umd

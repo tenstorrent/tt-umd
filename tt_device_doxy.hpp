@@ -56,16 +56,14 @@ public:
     /**
      * @brief Creates a local TTDevice instance.
      *
-     * This factory method is used for hardware that the host system can directly
-     * enumerate and access via memory-mapped IO (MMIO), such as devices on the PCIe
-     * bus or a JTAG chain. The underlying physical transport interface is instantiated internally
-     * based on the provided topology index.
+     * For hardware directly accessible via MMIO (PCIe bus or JTAG chain).
+     * The physical transport is instantiated internally based on the device index.
      *
      * @param device_number The zero-based index of the device as enumerated by the host OS.
      * @param device_type   The transport protocol to establish (PCIe or JTAG). Defaults to PCIe.
      * @param use_safe_api  If true, enables additional runtime checks, safe handlers,
      * and validations for device interactions.
-     * @return std::unique_ptr<TTDevice> A fully instantiated device orchestrator ready for initialization.
+     * @return std::unique_ptr<TTDevice> A fully instantiated device ready for initialization.
      */
     static std::unique_ptr<TTDevice> create(
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
@@ -73,14 +71,11 @@ public:
     /**
      * @brief Creates a remote TTDevice instance.
      *
-     * This factory method is used for devices reachable over Ethernet rather than a
-     * local physical bus. Because the host cannot reach the remote device directly
-     * it depends on an MMIO path, which is encapsulated in the remote_communication
-     * which targets the MMIO chip's remote hardware (e.g. ethernet cores).
+     * For devices reachable over Ethernet via another MMIO chip's ethernet cores.
      *
      * @param remote_communication A pre-configured communication mechanism
      * used for communication with remote chips.
-     * @return std::unique_ptr<TTDevice> A fully instantiated device orchestrator ready for initialization.
+     * @return std::unique_ptr<TTDevice> A fully instantiated device ready for initialization.
      */
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 

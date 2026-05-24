@@ -310,8 +310,8 @@ public:
     /**
      * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
      *
-     * Ensures that posted bulk data transfers (which lack strict memory ordering guarantees)
-     * are fully flushed and visible in remote device memory before proceeding.
+     * Guarantees that all transactions sent via remote communication have completed
+     * before proceeding.
      */
     virtual void wait_for_non_mmio_flush();
 

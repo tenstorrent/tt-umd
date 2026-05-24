@@ -93,11 +93,13 @@ public:
      * SocDescriptor required for NOC coordinate translation.
      *
      * @param timeout_ms Maximum time to wait for the firmware/hardware to become ready.
+     * Defaults to @ref timeout::FIRMWARE_STARTUP_TIMEOUT.
      * @param soc_descriptor_path Optional path to a specific SoC descriptor file. If empty,
      * the descriptor is dynamically generated or read from the default hardware configuration.
      */
     void init_device(
-        std::chrono::milliseconds timeout_ms = timeout::STARTUP_TIMEOUT, const std::string &soc_descriptor_path = "");
+        std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT,
+        const std::string &soc_descriptor_path = "");
 
     /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
@@ -295,6 +297,7 @@ public:
      * @brief Waits for the specified Ethernet core to complete its link training sequence.
      * @param eth_core Target Ethernet core coordinates.
      * @param timeout_ms Maximum duration to wait for training completion.
+     * Defaults to @ref timeout::ETH_TRAINING_TIMEOUT.
      * @return std::chrono::milliseconds Elapsed time taken for the training to complete.
      */
     virtual std::chrono::milliseconds wait_eth_core_training(
@@ -304,6 +307,7 @@ public:
      * @brief Waits for the specified DRAM channel to complete its hardware training and calibration.
      * @param dram_channel The index of the DRAM channel to poll.
      * @param timeout_ms Maximum duration to wait for training completion.
+     * Defaults to @ref timeout::DRAM_TRAINING_TIMEOUT.
      */
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
@@ -324,7 +328,7 @@ public:
      * the check is skipped and false is returned.
      *
      * @param data_read  Value to compare against the hang signature. Defaults to
-     *                   HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
+     *                   @ref HANG_READ_VALUE so callers can simply invoke is_pcie_hung()
      *                   after any BAR read that returned a suspicious value.
      * @param action     What to do when a hang is confirmed. Defaults to Throw.
      * @return true if the PCIe communication appears hung. Only meaningful when action is RETURN.
@@ -379,6 +383,7 @@ public:
      * implement hardware-accelerated all-core reset semantics.
      *
      * @param soft_resets Strongly typed configuration struct defining the reset behavior.
+     * See @ref TensixSoftResetOptions.
      */
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
 
@@ -389,9 +394,11 @@ public:
      * It can be reconfigured at runtime to point to different device addresses.
      *
      * @param target Device-side target describing the core, address, and optional NOC.
+     * See @ref TargetIoWindowConfig.
      * @param host Host-side properties (caching strategy and requested size). A size of 0
      *        delegates size selection to the concrete implementation.
-     * @return std::unique_ptr<IoWindow> An exclusively owned handle to the newly created I/O window.
+     * See @ref HostIoWindowConfig.
+     * @return std::unique_ptr<@ref IoWindow> An exclusively owned handle to the newly created I/O window.
      */
     virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
 
@@ -401,7 +408,7 @@ public:
      * Provides the common I/O operations supported across all transports:
      * data read/writes, control read/writes, and core range multicast writes.
      *
-     * @return DeviceProtocol* Pointer to the base protocol interface.
+     * @return @ref DeviceProtocol* Pointer to the base protocol interface.
      */
     DeviceProtocol *get_device_protocol();
 
@@ -411,7 +418,7 @@ public:
      * Provides access to hardware DMA transfers, NOC multicast writes,
      * and direct BAR register access.
      *
-     * @return PcieInterface* Pointer to the PCIe interface, or nullptr if the
+     * @return @ref PcieInterface* Pointer to the PCIe interface, or nullptr if the
      * active transport is not PCIe.
      */
     PcieInterface *get_pcie_interface();
@@ -422,7 +429,7 @@ public:
      * Provides access to the underlying JTAG device for AXI/NOC reads and writes,
      * TDR register access, debug bus operations, and J-Link management.
      *
-     * @return JtagInterface* Pointer to the JTAG interface, or nullptr if the
+     * @return @ref JtagInterface* Pointer to the JTAG interface, or nullptr if the
      * active transport is not JTAG.
      */
     JtagInterface *get_jtag_interface();
@@ -491,7 +498,7 @@ public:
 
     /**
      * @brief Retrieves the hardware architecture of the device.
-     * @return ARCH Enum representing the architecture (e.g., WORMHOLE_B0, BLACKHOLE).
+     * @return @ref ARCH Enum representing the architecture (e.g., WORMHOLE_B0, BLACKHOLE).
      */
     ARCH get_arch() const;
 
@@ -513,15 +520,15 @@ public:
      * Contains the physical topology of the chip, including grid sizes,
      * active/harvested core locations, and memory bank mapping details.
      *
-     * @return const SocDescriptor& Reference to the device's topology descriptor.
+     * @return const @ref SocDescriptor& Reference to the device's topology descriptor.
      */
     const SocDescriptor &get_soc_descriptor() const;
 
     /**
      * @brief Retrieves the architecture-specific implementation handler.
-     * @return architecture_implementation* Pointer to the architecture implementation.
+     * @return @ref ArchitectureImplementation* Pointer to the architecture implementation.
      */
-    architecture_implementation *get_architecture_implementation();
+    ArchitectureImplementation *get_architecture_implementation();
 
     /**
      * @brief Retrieves the version of the firmware bundle currently running on the device.
@@ -529,7 +536,7 @@ public:
      * Returns the combined semantic version of the loaded firmware bundle rather than
      * individual component versions.
      *
-     * @return FirmwareBundleVersion The semantic version of the active firmware.
+     * @return @ref FirmwareBundleVersion The semantic version of the active firmware.
      */
     FirmwareBundleVersion get_firmware_version();
 
@@ -563,7 +570,7 @@ public:
 
     /**
      * @brief Retrieves the hardware model or SKU of the board.
-     * @return BoardType Enum representing the board type (e.g., e75, N300).
+     * @return @ref BoardType Enum representing the board type (e.g., e75, N300).
      */
     virtual BoardType get_board_type() const;
 
@@ -619,7 +626,7 @@ public:
     /**
      * @brief Reads the hardware link training status of a specific Ethernet core.
      * @param eth_core The target Ethernet core coordinates.
-     * @return EthTrainingStatus The current training status of the specified core.
+     * @return @ref EthTrainingStatus The current training status of the specified core.
      */
     virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
 
@@ -652,7 +659,7 @@ protected:
      */
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<architecture_implementation> architecture_impl,
+        std::unique_ptr<ArchitectureImplementation> architecture_impl,
         bool use_safe_api);
 
     /**
@@ -664,7 +671,7 @@ protected:
     TTDevice(
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<ArchitectureImplementation> architecture_impl);
 
     /**
      * @brief Initializes a TTDevice over a Remote Ethernet transport.
@@ -673,10 +680,10 @@ protected:
      */
     TTDevice(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<ArchitectureImplementation> architecture_impl);
 
     TTDevice();
-    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(std::unique_ptr<ArchitectureImplementation> architecture_impl);
 
     /**
      * @brief Internal hook for derived classes to initiate a DRAM channel retraining sequence.
@@ -692,7 +699,7 @@ protected:
 
     /**
      * @brief Injects a custom hang detector for monitoring device execution state.
-     * @param hang_detector Exclusively owned pointer to the detector instance.
+     * @param hang_detector Exclusively owned pointer to the @ref HangDetector instance.
      */
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
@@ -719,7 +726,7 @@ private:
     ARCH arch_ = ARCH::Invalid;
     LockManager lock_manager_;
 
-    std::unique_ptr<architecture_implementation> architecture_impl_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     std::unique_ptr<FirmwareMessenger> firmware_messenger_;

@@ -358,14 +358,14 @@ public:
      * Halts the execution of the targeted RISCs, putting them in a safe state for binary loading.
      *
      * @param core Target core coordinates.
-     * @param selected_riscs Strongly typed bitmask specifying which RISCs to reset.
+     * @param selected_riscs Bitmask specifying which RISCs to reset.
      */
     virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
      * @brief Deasserts the soft reset signal, allowing the specified baby RISCs to begin execution.
      * @param core Target core coordinates.
-     * @param selected_riscs Strongly typed bitmask specifying which RISCs to release from reset.
+     * @param selected_riscs Bitmask specifying which RISCs to release from reset.
      * @param staggered_start If true, staggers the startup of the RISCs to mitigate sudden power draw spikes. Defaults
      * to false.
      */
@@ -377,7 +377,7 @@ public:
      * The base TTDevice implementation throws by default. Subclasses override this to
      * implement hardware-accelerated all-core reset semantics.
      *
-     * @param soft_resets Strongly typed configuration struct defining the reset behavior.
+     * @param soft_resets Configuration struct defining the reset behavior.
      * See @ref TensixSoftResetOptions.
      */
     virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
@@ -595,9 +595,6 @@ public:
 
     /**
      * @brief Retrieves the current value of the hardware's free-running reference clock counter.
-     *
-     * Useful for on-device performance profiling, latency measurements, and timestamping.
-     *
      * @return uint64_t The current reference clock tick count.
      */
     uint64_t get_refclk_counter() const;

@@ -6,23 +6,6 @@
 #include <memory>
 #include <string>
 
-class FirmwareMessenger;
-class FirmwareTelemetryReader;
-class IoWindow;
-class architecture_implementation;
-class DeviceProtocol;
-class RemoteCommunication;
-class JtagDevice;
-class JtagInterface;
-class PCIDevice;
-class PcieInterface;
-class RemoteInterface;
-class FirmwareBundleVersion;
-class FirmwareInfoProvider;
-class SocDescriptor;
-class LockManager;
-class HangDetector;
-
 namespace tt::umd {
 
 class TTDevice {

@@ -33,10 +33,11 @@ public:
      * @brief Discovers all Tenstorrent devices in the system and builds the cluster topology.
      *
      * Enumerates local devices (PCIe or JTAG), then walks ethernet links to find remote devices.
-     * Returns a ClusterDescriptor with the full topology and a map of all discovered TTDevice
-     * instances keyed by ChipId. Returns empty results if no devices are found.
+     * Returns a @ref ClusterDescriptor with the full topology and a map of all discovered @ref TTDevice
+     * instances keyed by @ref ChipId. Returns empty results if no devices are found.
      *
      * @param options Error handling policy and feature toggles for the discovery process.
+     * See @ref TopologyDiscoveryOptions.
      * @param io_device_type Transport used to reach local devices (PCIe or JTAG).
      * @param soc_descriptor_path Optional SoC descriptor file override.
      * @return ClusterDescriptor and a map of ChipId to TTDevice for every discovered device.

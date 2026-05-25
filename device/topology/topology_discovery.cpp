@@ -35,7 +35,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -256,10 +255,12 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (tt_device->get_risc_reset_state(eth_core) & static_cast<uint32_t>(TensixSoftResetOptions::BRISC)) {
+            const RiscType risc_reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(
+                tt_device->get_risc_reset_state(eth_core));
+            if ((risc_reset_state & RiscType::ERISC0) != RiscType::NONE) {
                 log_debug(
                     LogUMD,
-                    "Skipping disabled ETH core {} on device ASIC ID: {} (BRISC reset bit is high)",
+                    "Skipping disabled ETH core {} on device ASIC ID: {} (ERISC0 reset bit is high)",
                     eth_core.str(),
                     current_device_asic_id);
                 continue;

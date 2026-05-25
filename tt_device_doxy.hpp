@@ -654,20 +654,19 @@ public:
     /** @} */
 
     /**
-     * @brief Requests a specific power state from the Kernel Mode Driver (KMD).
+     * @brief Requests a hardware power domain state change.
      *
-     * Acts as a hint to the KMD to either claim or release full power domains.
-     * No-op for remote devices and for local devices running KMD versions older than 2.6.0.
+     * Claims or releases full power domains. No-op for remote devices.
      *
      * @param state The requested power state (BUSY or IDLE).
      */
     virtual void set_power_state(PowerState state);
 
     /**
-     * @brief Sets the AICLK frequency via a firmware command.
+     * @brief Sets the device clock frequency.
      *
-     * Distinct from set_power_state(), which is a KMD ioctl for hardware power domains.
-     * This controls the actual clock frequency the device runs at.
+     * Controls the AICLK frequency the device runs at. Distinct from
+     * set_power_state(), which manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */

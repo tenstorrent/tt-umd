@@ -7,7 +7,13 @@
 #include <chrono>
 
 namespace tt::umd::timeout {
-inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
+// FIX ZA: Increased from 5s to 30s. During firmware init, noc_multicast_write
+// for remote WH chips degrades to per-core unicast (64 write_to_device calls
+// per span). Post-reset Tensix NOC ports may be transiently unavailable, causing
+// relay NOC ACKs (wr_resp) to stall briefly. 5s was too tight; 30s gives the
+// NOC path time to warm up without masking genuine relay failures (post-init
+// writes complete in <1s so detection remains effective).
+inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(30'000);
 
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);

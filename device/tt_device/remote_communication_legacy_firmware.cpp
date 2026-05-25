@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <fmt/format.h>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -593,6 +594,7 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
             auto start_time = std::chrono::steady_clock::now();
 
             // wait for all queues to be empty.
+            // (#42429 FIX UV diag) Phase 1: relay ERISC cmd queue drain (wrptr==rdptr)
             for (tt_xy_pair& core : remote_transfer_eth_cores_) {
                 do {
                     local_tt_device_->read_from_device(
@@ -602,17 +604,26 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                         eth_interface_params.remote_update_ptr_size_bytes * 2);
 
                     utils::check_timeout(
-                        start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
+                        start_time, timeout_ms,
+                        fmt::format(
+                            "Timeout waiting for Ethernet core service remote IO request flush "
+                            "[PHASE1-cmd-queue: core=({},{}) wrptr=0x{:x} rdptr=0x{:x}] (#42429)",
+                            core.x, core.y, erisc_q_ptrs[0], erisc_q_ptrs[4]));
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
+            // (#42429 FIX UV diag) Phase 2: NOC write ACK (wr_req==wr_resp)
             for (tt_xy_pair& core : remote_transfer_eth_cores_) {
                 do {
                     local_tt_device_->read_from_device(
                         erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8);
 
                     utils::check_timeout(
-                        start_time, timeout_ms, "Timeout waiting for Ethernet core service remote IO request flush.");
+                        start_time, timeout_ms,
+                        fmt::format(
+                            "Timeout waiting for Ethernet core service remote IO request flush "
+                            "[PHASE2-NOC-ACK: core=({},{}) wr_req=0x{:x} wr_resp=0x{:x}] (#42429)",
+                            core.x, core.y, erisc_txn_counters[0], erisc_txn_counters[1]));
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
             }
         }

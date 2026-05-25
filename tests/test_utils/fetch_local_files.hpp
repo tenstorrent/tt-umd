@@ -76,6 +76,7 @@ inline std::vector<std::string> GetAllSocDescs() {
              "quasar_32_arch.yaml",
              "quasar_simulation_1x3.yaml",
              "quasar_simulation_2x3.yaml",
+             "quasar_simulation_9x4.yaml",
          }) {
         soc_desc_names.push_back(GetSocDescAbsPath(soc_desc_name));
     }

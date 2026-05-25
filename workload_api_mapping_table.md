@@ -2,55 +2,334 @@
 
 ## Cluster → Chip → TTDevice
 
-| **API** | **Parameters / Return** | **UMD Workload** | **UMD Base Layer** | **Description** |
-| --- | --- | --- | --- | --- |
-| constructor() | **Parameters:** <br> - options: `ClusterOptions` — chip type, sdesc path, target devices, cluster descriptor, simulator directory, IO device type, topology discovery options (all defaulted) <br> **Returns:** <br> - N/A | 1. Create ChipIds and pair with TTDevices <br> 2. Construct Chips from TTDevices <br> 3. Construct Cluster | **`TTDevice::create()`** | Creates ChipIds, creates TTDevices via factory, wraps each in a Chip, assembles Cluster. <br><br> **Note:** Backend selection (silicon/emu/sim/mock) belongs in TTDevice factory, not in Cluster constructor switch case. |
-| destructor() | — | 1. Delete ClusterDescriptor | — | Destroys Cluster and its owned resources. Manual cleanup should become automatic RAII. |
-| create_cluster_descriptor() | **Parameters:** <br> - sdesc_path: `const std::string&` — SOC descriptor path (default: `{}`) <br> - device_type: `IODeviceType` — transport type (default: `PCIe`) <br> - topology_discovery_options: `const TopologyDiscoveryOptions&` — discovery options (default: `{}`) <br> **Returns:** <br> - `std::unique_ptr<ClusterDescriptor>` | 1. Modify parameters and call TopologyDiscovery (`TopologyDiscovery::discover()`) | **`TopologyDiscovery::discover()`** | Static factory. Invokes topology discovery and constructs ClusterDescriptor. Target: split into TopologyDiscoveryDescriptor (from discovery) + Cluster-level data (enriched by Cluster). |
-| get_cluster_descriptor() | **Returns:** <br> - `ClusterDescriptor*` | 1. Return cached ClusterDescriptor | — | Returns cached ClusterDescriptor. Pointer is valid until next `refresh_cluster_descriptor()` call. |
-| refresh_cluster_descriptor() | **Returns:** <br> - `void` | 1. Re-run `get_cluster_descriptor()` <br> 2. Move new ClusterDescriptor into Cluster <br> 3. Update dependent mappings | — | Refreshes cached ClusterDescriptor and updates internal mappings. Only supported for SILICON chip type. |
-| get_target_device_ids() | **Returns:** <br> - `std::set<ChipId>` | 1. Return cached device ordinals | — | Returns all device IDs in the cluster. Cached at construction. |
-| get_target_mmio_device_ids() | **Returns:** <br> - `std::set<ChipId>` | 1. Return cached local device ordinals | — | Returns device IDs for locally connected (PCIe) devices. Cached at construction. |
-| get_target_remote_device_ids() | **Returns:** <br> - `std::set<ChipId>` | 1. Return cached remote device ordinals | — | Returns device IDs for remote (ethernet-connected) devices. Cached at construction. |
-| get_soc_descriptor() | **Parameters:** <br> - chip_id: `ChipId` — chip to query <br> **Returns:** <br> - `const SocDescriptor&` | 1. Return descriptor via Chip (`TTDevice::get_soc_descriptor()`) | **`TTDevice::get_soc_descriptor()`** | Passthrough facade via Chip (see Chip table). |
-| set_barrier_address_params() | **Parameters:** <br> - barrier_address_params: `const BarrierAddressParams&` — L1 and DRAM barrier addresses <br> **Returns:** <br> - `void` | 1. Set barrier parameters on Chip (`Chip::set_barrier_address_params()`) | — | Sets L1/DRAM barrier addresses on the target Chip. Workload-only — no base layer interaction. |
-
-| configure_active_ethernet_cores_for_mmio_device() | **Parameters:** <br> - mmio_chip: `ChipId` — MMIO device to target <br> - active_eth_cores_per_chip: `const std::unordered_set<CoreCoord>&` — active ethernet cores <br> **Returns:** <br> - `void` | 1. Designate ethernet cores for remote transfer (LocalChip ↔ RemoteChip) <br> 2. Set ethernet cores used for broadcast on LocalChip | **`RemoteCommunication::set_remote_transfer_ethernet_cores()`** | Configures which ethernet cores are used for remote transfer and broadcast. Sets up both sides of LocalChip ↔ RemoteChip connection. |
-| start_device() | **Parameters:** <br> - device_params: `const DeviceParams&` — initialization configuration <br> **Returns:** <br> - `void` | 1. Call `Chip::start_device()` per chip <br> 2. Call `deassert_resets_and_set_power_state()`: <br> &nbsp;&nbsp;• Put tensix into reset (`TTDevice::assert_risc_reset()`) <br> &nbsp;&nbsp;• Put tensix out of reset (`TTDevice::deassert_risc_reset()`) <br> &nbsp;&nbsp;• Enable eth queues (`TTDevice::send_device_command()`) <br> &nbsp;&nbsp;• Set AI clock (`TTDevice::set_clock_state()`) | **`TTDevice::assert_risc_reset()`** <br> **`TTDevice::deassert_risc_reset()`** <br> **`TTDevice::send_device_command()`** <br> **`TTDevice::set_clock_state()`** | Session bring-up across all chips. Calls Chip::start_device() then performs cluster-wide reset/clock sequence. Via Chip (see Chip table). <br><br> **Note:** `deassert_resets_and_set_power_state()` duplicates steps already in `Chip::start_device()`. Target: Chip owns full sequence, Cluster can disable per-chip steps when broadcast is available (e.g. `broadcast_tensix_risc_reset_to_cluster()`). |
-| stop_device() <br> *currently: `close_device()`* | **Returns:** <br> - `void` | 1. Call `Chip::stop_device()` on remote chips first <br> 2. Call `Chip::stop_device()` on MMIO chips second <br><br> Ordering is important — remote chips must be stopped before local chips | — | Session teardown across all chips. Via Chip (see Chip table). Remote chips stopped first, then local. Mirror of start_device(). |
-| set_clock_state() <br> *currently: `set_power_state()`* | **Parameters:** <br> - state: `PowerState` — target clock state <br> **Returns:** <br> - `void` | 1. Call `Chip::set_clock_state()` | **`TTDevice::set_clock_state()`** | Sets AICLK frequency. Passthrough facade via Chip (see Chip table). |
-| assert_risc_reset() (broadcast) | **Returns:** <br> - `void` | 1. Call `broadcast_tensix_risc_reset_to_cluster()` with assert parameter | — | Cluster-wide broadcast reset. Workload-layer orchestration — iterates over chips calling base primitives. |
-| deassert_risc_reset() (broadcast) | **Returns:** <br> - `void` | 1. Call `broadcast_tensix_risc_reset_to_cluster()` with deassert parameter | — | Cluster-wide broadcast deassert. Workload-layer orchestration — iterates over chips calling base primitives. |
-| assert_risc_reset_at_core() | **Parameters:** <br> - chip: `const ChipId` — chip to target <br> - core: `const CoreCoord` — core to target <br> - soft_resets: `const TensixSoftResetOptions&` — reset configuration (default: `TENSIX_ASSERT_SOFT_RESET`) <br> **Returns:** <br> - `void` | 1. Call `Chip::assert_risc_reset()` on target chip/core | **`TTDevice::assert_risc_reset()`** | Old per-core API using `TensixSoftResetOptions`. Passthrough facade via Chip (see Chip table). |
-| deassert_risc_reset_at_core() | **Parameters:** <br> - chip: `const ChipId` — chip to target <br> - core: `const CoreCoord` — core to target <br> - soft_resets: `const TensixSoftResetOptions&` — reset configuration (default: `TENSIX_DEASSERT_SOFT_RESET`) <br> **Returns:** <br> - `void` | 1. Call `Chip::deassert_risc_reset()` on target chip/core | **`TTDevice::deassert_risc_reset()`** | Old per-core API using `TensixSoftResetOptions`. Passthrough facade via Chip (see Chip table). |
-| get_risc_reset_state() | **Parameters:** <br> - chip: `const ChipId` — chip to target <br> - core: `const CoreCoord` — core to target <br> **Returns:** <br> - `RiscType` | 1. Call `Chip::get_risc_reset_state()` on target chip/core | **`TTDevice::get_risc_reset_state()`** | Passthrough facade via Chip (see Chip table). |
-| assert_risc_reset() (per core) | **Parameters:** <br> - chip: `const ChipId` — chip to target <br> - core: `const CoreCoord` — core to target <br> - risc_type: `const RiscType` — which riscs to assert <br> **Returns:** <br> - `void` | 1. Call `Chip::assert_risc_reset()` on target chip/core | **`TTDevice::assert_risc_reset()`** | New per-core API using `RiscType`. Passthrough facade via Chip (see Chip table). |
-| deassert_risc_reset() (per core) | **Parameters:** <br> - chip: `const ChipId` — chip to target <br> - core: `const CoreCoord` — core to target <br> - risc_type: `const RiscType` — which riscs to deassert <br> - staggered_start: `bool` — stagger risc start times (default: `true`) <br> **Returns:** <br> - `void` | 1. Call `Chip::deassert_risc_reset()` on target chip/core | **`TTDevice::deassert_risc_reset()`** | New per-core API using `RiscType`. Passthrough facade via Chip (see Chip table). |
-| write_to_data() <br> *currently: `write_to_device()`* | **Parameters:** <br> - mem_ptr: `const void*` — source data <br> - size_in_bytes: `size_t` — bytes to write <br> - chip: `ChipId` — chip to target <br> - core: `CoreCoord` — core to target <br> - addr: `uint64_t` — destination address <br> **Returns:** <br> - `void` | 1. Call `Chip::write_data()` on target chip | **`TTDevice::write_data()`** | Passthrough facade via Chip (see Chip table). Data path (WC-mapped). |
-| read_from_data() <br> *currently: `read_from_device()`* | **Parameters:** <br> - mem_ptr: `void*` — destination buffer <br> - chip: `ChipId` — chip to target <br> - core: `CoreCoord` — core to target <br> - addr: `uint64_t` — source address <br> - size: `size_t` — bytes to read <br> **Returns:** <br> - `void` | 1. Call `Chip::read_data()` on target chip | **`TTDevice::read_data()`** | Passthrough facade via Chip (see Chip table). Data path (WC-mapped). |
-| write_to_regs() <br> *currently: `write_to_device_reg()`* | **Parameters:** <br> - mem_ptr: `const void*` — source data <br> - size_in_bytes: `uint32_t` — bytes to write <br> - chip: `ChipId` — chip to target <br> - core: `CoreCoord` — core to target <br> - addr: `uint64_t` — register address <br> **Returns:** <br> - `void` | 1. Call `Chip::write_ctrl()` on target chip | **`TTDevice::write_ctrl()`** | Passthrough facade via Chip (see Chip table). Control path (UC-mapped). |
-| read_from_regs() <br> *currently: `read_from_device_reg()`* | **Parameters:** <br> - mem_ptr: `void*` — destination buffer <br> - chip: `ChipId` — chip to target <br> - core: `CoreCoord` — core to target <br> - addr: `uint64_t` — register address <br> - size: `uint32_t` — bytes to read <br> **Returns:** <br> - `void` | 1. Call `Chip::read_ctrl()` on target chip | **`TTDevice::read_ctrl()`** | Passthrough facade via Chip (see Chip table). Control path (UC-mapped). |
-| write_to_core_range() <br> *currently: `noc_multicast_write()`* | **Parameters:** <br> - dst: `void*` — source buffer <br> - size: `size_t` — bytes to write <br> - chip: `ChipId` — chip to target <br> - core_start: `CoreCoord` — start of core range <br> - core_end: `CoreCoord` — end of core range <br> - addr: `uint64_t` — destination address on each core <br> **Returns:** <br> - `void` | 1. Call `Chip::write_to_core_range()` on target chip | **`TTDevice::write_to_core_range()`** | Passthrough facade via Chip (see Chip table). NOC multicast. |
-| dma_write_to_device() | **Parameters:** <br> - src: `const void*` — source data <br> - size: `size_t` — bytes to write <br> - chip: `ChipId` — chip to target (must be local) <br> - core: `CoreCoord` — core to target <br> - addr: `uint64_t` — destination address <br> **Returns:** <br> - `void` | 1. Call `Chip::dma_write()` on target chip | **`TTDevice::dma_write()`** | Passthrough facade via Chip (see Chip table). |
-| dma_read_from_device() | **Parameters:** <br> - dst: `void*` — destination buffer <br> - size: `size_t` — bytes to read <br> - chip: `ChipId` — chip to target (must be local) <br> - core: `CoreCoord` — core to target <br> - addr: `uint64_t` — source address <br> **Returns:** <br> - `void` | 1. Call `Chip::dma_read()` on target chip | **`TTDevice::dma_read()`** | Passthrough facade via Chip (see Chip table). |
-| dma_multicast_write() | **Parameters:** <br> - src: `void*` — source data <br> - size: `size_t` — bytes to write <br> - chip: `ChipId` — chip to target (must be local) <br> - core_start: `CoreCoord` — start of core range <br> - core_end: `CoreCoord` — end of core range <br> - addr: `uint64_t` — destination address on each core <br> **Returns:** <br> - `void` | 1. Call `Chip::dma_multicast_write()` on target chip | **`TTDevice::dma_multicast_write()`** | Passthrough facade via Chip (see Chip table). DMA multicast. |
-| ethernet_broadcast_write() <br> *currently: `broadcast_write_to_cluster()`* | **Parameters:** <br> - mem_ptr: `const void*` — data to write <br> - size_in_bytes: `uint32_t` — bytes to write <br> - address: `uint64_t` — destination address <br> - chips_to_exclude: `const std::set<ChipId>&` — chips to skip <br> - rows_to_exclude: `std::set<uint32_t>&` — NOC0 rows to skip <br> - columns_to_exclude: `std::set<uint32_t>&` — NOC0 columns to skip <br> **Returns:** <br> - `void` | 1. Call `tensix_or_eth_in_broadcast()` <br> 2. Call `ethernet_broadcast_write()` | — | Broadcasts data to remote chips via ethernet. Current implementation mixes architecture-specific logic (`tensix_or_eth_in_broadcast()`) with broadcast mechanics. <br><br> **Note:** Low priority — no remote chips for IP clients. Should be encapsulated into a dedicated class. |
-
-| l1_membar() | **Parameters:** <br> - chip: `const ChipId` — chip to target <br> - cores: `const std::unordered_set<CoreCoord>&` — cores to barrier (default: `{}` = all) <br> **Returns:** <br> - `void` | 1. Call `Chip::l1_membar()` on target chip | — | Passthrough facade. Cluster → Chip. Workload-only — no base layer interaction. |
-| dram_membar() | **Parameters (overload 1):** <br> - chip: `const ChipId` — chip to target <br> - channels: `const std::unordered_set<uint32_t>&` — DRAM channels to barrier <br> **Parameters (overload 2):** <br> - chip: `const ChipId` — chip to target <br> - cores: `const std::unordered_set<CoreCoord>&` — DRAM cores to barrier (default: `{}` = all) <br> **Returns:** <br> - `void` | 1. Call `Chip::dram_membar()` on target chip | — | Passthrough facade. Cluster → Chip. Workload-only — no base layer interaction. |
-| wait_for_non_mmio_flush() | **Parameters (overload 1):** <br> - none (all chips) <br> **Parameters (overload 2):** <br> - chip_id: `const ChipId` — chip to target <br> **Returns:** <br> - `void` | 1. Overload 1: Call `Chip::wait_for_non_mmio_flush()` on all chips <br> 2. Overload 2: Call `Chip::wait_for_non_mmio_flush()` on target chip | **`TTDevice::wait_for_non_mmio_flush()`** | Ethernet barrier. Flushes all in-flight ethernet transactions. Via Chip (see Chip table). No-op for local chips, real implementation for remote. |
-| write_to_sysmem() | **Parameters:** <br> - mem_ptr: `const void*` — data to write <br> - size: `uint32_t` — bytes to write <br> - offset: `uint64_t` — offset into system memory buffer <br> - src_device_id: `ChipId` — chip to target <br> **Returns:** <br> - `void` | 1. Call `Chip::write_to_sysmem()` on target chip | — | Passthrough facade. Cluster → Chip → SystemMemoryBuffer. Workload-only — no base layer interaction at call time. |
-| read_from_sysmem() | **Parameters:** <br> - mem_ptr: `void*` — destination buffer <br> - offset: `uint64_t` — offset into system memory buffer <br> - size: `uint32_t` — bytes to read <br> - src_device_id: `ChipId` — chip to target <br> **Returns:** <br> - `void` | 1. Call `Chip::read_from_sysmem()` on target chip | — | Passthrough facade. Cluster → Chip → SystemMemoryBuffer. Workload-only — no base layer interaction at call time. |
-
-| host_dma_address() | **Parameters:** <br> - offset: `uint64_t` — offset into system memory buffer <br> - src_device_id: `ChipId` — device to target <br> **Returns:** <br> - `void*` | 1. Call `Chip::host_dma_address()` on target chip | — | Returns host DMA address for a given buffer offset. Currently hugepage-only. Needs redesign to account for `SystemMemoryBuffer`. |
-| get_pcie_base_addr_from_device() | **Parameters:** <br> - chip_id: `const ChipId` — chip to target <br> **Returns:** <br> - `uint64_t` | 1. Call `Chip::get_pcie_base_addr_from_device()` on target chip | **`TTDevice::get_pcie_base_addr_from_device()`** | Passthrough facade via Chip (see Chip table). |
-| send_device_command() <br> *currently: `arc_msg()`* | **Parameters:** <br> - logical_device_id: `int` — chip to target <br> - msg_code: `uint32_t` — command code <br> - args: `const std::vector<uint32_t>&` — command arguments (default: `{}`) <br> - timeout_ms: `std::chrono::milliseconds` — timeout (default: ARC_MESSAGE_TIMEOUT) <br> **Returns (target):** <br> - `DeviceCommandResult{exit_code, return_values}` | 1. Call `Chip::send_device_command()` on target chip | **`TTDevice::send_device_command()`** | Passthrough facade via Chip (see Chip table). See Chip table for `send_device_command()` details. |
-| get_clocks() | **Returns:** <br> - `std::map<int, int>` — clock freq per MMIO device | 1. Iterate all MMIO chips, call `Chip::get_clock_freq()` on each <br> 2. Collect into map | **`TTDevice::get_clock_freq()`** | Collects AICLK frequency from all MMIO devices. Not a per-chip passthrough — iterates all local chips and aggregates results. |
-| get_numa_node_for_pcie_device() | **Parameters:** <br> - device_id: `uint32_t` — device to query <br> **Returns:** <br> - `uint32_t` | 1. Call `Chip::get_numa_node()` on target chip | **`TTDevice::get_numa_node()`** | Passthrough facade via Chip (see Chip table). |
-| get_ethernet_firmware_version() | **Returns:** <br> - `std::optional<SemVer>` | 1. Return cached value from ClusterDescriptor | — | Returns cached ethernet firmware version. Convenience getter over ClusterDescriptor. |
-| get_firmware_bundle_version() | **Returns:** <br> - `std::optional<FirmwareBundleVersion>` | 1. Return cached value from ClusterDescriptor | — | Returns cached firmware bundle version. Convenience getter over ClusterDescriptor. |
-| get_chip() | **Parameters:** <br> - device_id: `ChipId` — device to target <br> **Returns:** <br> - `Chip*` | 1. Return Chip by device ID | — | Accessor. Returns Chip pointer from internal map. |
-| get_local_chip() | **Parameters:** <br> - device_id: `ChipId` — device to target <br> **Returns:** <br> - `LocalChip*` | 1. Return LocalChip by device ID | — | Accessor. Returns LocalChip pointer from internal map. Asserts chip is local. |
-| get_remote_chip() | **Parameters:** <br> - device_id: `ChipId` — device to target <br> **Returns:** <br> - `RemoteChip*` | 1. Return RemoteChip by device ID | — | Accessor. Returns RemoteChip pointer from internal map. Asserts chip is remote. |
-
-| get_tt_device() | **Parameters:** <br> - device_id: `ChipId` — device to target <br> **Returns:** <br> - `TTDevice*` | 1. Get TTDevice via Chip | — | Accessor. Returns TTDevice pointer from Chip. Workload convenience — no base layer call. |
+<table>
+<tr>
+<th><b>API</b></th>
+<th><b>Parameters / Return</b></th>
+<th><b>UMD Workload</b></th>
+<th><b>UMD Base Layer</b></th>
+<th><b>Description</b></th>
+</tr>
+<tr>
+<td>constructor()</td>
+<td><b>Parameters:</b> <br> - options: <code>ClusterOptions</code> — chip type, sdesc path, target devices, cluster descriptor, simulator directory, IO device type, topology discovery options (all defaulted) <br> <b>Returns:</b> <br> - N/A</td>
+<td>1. Create ChipIds and pair with TTDevices <br> 2. Construct Chips from TTDevices <br> 3. Construct Cluster</td>
+<td><b><code>TTDevice::create()</code></b></td>
+<td>Creates ChipIds, creates TTDevices via factory, wraps each in a Chip, assembles Cluster. <br><br> <b>Note:</b> Backend selection (silicon/emu/sim/mock) belongs in TTDevice factory, not in Cluster constructor switch case.</td>
+</tr>
+<tr>
+<td>destructor()</td>
+<td>—</td>
+<td>1. Delete ClusterDescriptor</td>
+<td>—</td>
+<td>Destroys Cluster and its owned resources. Manual cleanup should become automatic RAII.</td>
+</tr>
+<tr>
+<td>create_cluster_descriptor()</td>
+<td><b>Parameters:</b> <br> - sdesc_path: <code>const std::string&</code> — SOC descriptor path (default: <code>{}</code>) <br> - device_type: <code>IODeviceType</code> — transport type (default: <code>PCIe</code>) <br> - topology_discovery_options: <code>const TopologyDiscoveryOptions&</code> — discovery options (default: <code>{}</code>) <br> <b>Returns:</b> <br> - <code>std::unique_ptr&lt;ClusterDescriptor&gt;</code></td>
+<td>1. Modify parameters and call TopologyDiscovery (<code>TopologyDiscovery::discover()</code>)</td>
+<td><b><code>TopologyDiscovery::discover()</code></b></td>
+<td>Static factory. Invokes topology discovery and constructs ClusterDescriptor. Target: split into TopologyDiscoveryDescriptor (from discovery) + Cluster-level data (enriched by Cluster).</td>
+</tr>
+<tr>
+<td>get_cluster_descriptor()</td>
+<td><b>Returns:</b> <br> - <code>ClusterDescriptor*</code></td>
+<td>1. Return cached ClusterDescriptor</td>
+<td>—</td>
+<td>Returns cached ClusterDescriptor. Pointer is valid until next <code>refresh_cluster_descriptor()</code> call.</td>
+</tr>
+<tr>
+<td>refresh_cluster_descriptor()</td>
+<td><b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Re-run <code>get_cluster_descriptor()</code> <br> 2. Move new ClusterDescriptor into Cluster <br> 3. Update dependent mappings</td>
+<td>—</td>
+<td>Refreshes cached ClusterDescriptor and updates internal mappings. Only supported for SILICON chip type.</td>
+</tr>
+<tr>
+<td>get_target_device_ids()</td>
+<td><b>Returns:</b> <br> - <code>std::set&lt;ChipId&gt;</code></td>
+<td>1. Return cached device ordinals</td>
+<td>—</td>
+<td>Returns all device IDs in the cluster. Cached at construction.</td>
+</tr>
+<tr>
+<td>get_target_mmio_device_ids()</td>
+<td><b>Returns:</b> <br> - <code>std::set&lt;ChipId&gt;</code></td>
+<td>1. Return cached local device ordinals</td>
+<td>—</td>
+<td>Returns device IDs for locally connected (PCIe) devices. Cached at construction.</td>
+</tr>
+<tr>
+<td>get_target_remote_device_ids()</td>
+<td><b>Returns:</b> <br> - <code>std::set&lt;ChipId&gt;</code></td>
+<td>1. Return cached remote device ordinals</td>
+<td>—</td>
+<td>Returns device IDs for remote (ethernet-connected) devices. Cached at construction.</td>
+</tr>
+<tr>
+<td>get_soc_descriptor()</td>
+<td><b>Parameters:</b> <br> - chip_id: <code>ChipId</code> — chip to query <br> <b>Returns:</b> <br> - <code>const SocDescriptor&</code></td>
+<td>1. Return descriptor via Chip (<code>TTDevice::get_soc_descriptor()</code>)</td>
+<td><b><code>TTDevice::get_soc_descriptor()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>set_barrier_address_params()</td>
+<td><b>Parameters:</b> <br> - barrier_address_params: <code>const BarrierAddressParams&</code> — L1 and DRAM barrier addresses <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Set barrier parameters on Chip (<code>Chip::set_barrier_address_params()</code>)</td>
+<td>—</td>
+<td>Sets L1/DRAM barrier addresses on the target Chip. Workload-only — no base layer interaction.</td>
+</tr>
+<tr>
+<td>configure_active_ethernet_cores_for_mmio_device()</td>
+<td><b>Parameters:</b> <br> - mmio_chip: <code>ChipId</code> — MMIO device to target <br> - active_eth_cores_per_chip: <code>const std::unordered_set&lt;CoreCoord&gt;&</code> — active ethernet cores <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Designate ethernet cores for remote transfer (LocalChip ↔ RemoteChip) <br> 2. Set ethernet cores used for broadcast on LocalChip</td>
+<td><b><code>RemoteCommunication::set_remote_transfer_ethernet_cores()</code></b></td>
+<td>Configures which ethernet cores are used for remote transfer and broadcast. Sets up both sides of LocalChip ↔ RemoteChip connection.</td>
+</tr>
+<tr>
+<td>start_device()</td>
+<td><b>Parameters:</b> <br> - device_params: <code>const DeviceParams&</code> — initialization configuration <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::start_device()</code> per chip <br> 2. Call <code>deassert_resets_and_set_power_state()</code>: <br> &nbsp;&nbsp;• Put tensix into reset (<code>TTDevice::assert_risc_reset()</code>) <br> &nbsp;&nbsp;• Put tensix out of reset (<code>TTDevice::deassert_risc_reset()</code>) <br> &nbsp;&nbsp;• Enable eth queues (<code>TTDevice::send_device_command()</code>) <br> &nbsp;&nbsp;• Set AI clock (<code>TTDevice::set_clock_state()</code>)</td>
+<td><b><code>TTDevice::assert_risc_reset()</code></b> <br> <b><code>TTDevice::deassert_risc_reset()</code></b> <br> <b><code>TTDevice::send_device_command()</code></b> <br> <b><code>TTDevice::set_clock_state()</code></b></td>
+<td>Session bring-up across all chips. Calls Chip::start_device() then performs cluster-wide reset/clock sequence. Via Chip (see Chip table). <br><br> <b>Note:</b> <code>deassert_resets_and_set_power_state()</code> duplicates steps already in <code>Chip::start_device()</code>. Target: Chip owns full sequence, Cluster can disable per-chip steps when broadcast is available (e.g. <code>broadcast_tensix_risc_reset_to_cluster()</code>).</td>
+</tr>
+<tr>
+<td>stop_device() <br> <i>currently: <code>close_device()</code></i></td>
+<td><b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::stop_device()</code> on remote chips first <br> 2. Call <code>Chip::stop_device()</code> on MMIO chips second <br><br> Ordering is important — remote chips must be stopped before local chips</td>
+<td>—</td>
+<td>Session teardown across all chips. Via Chip (see Chip table). Remote chips stopped first, then local. Mirror of start_device().</td>
+</tr>
+<tr>
+<td>set_clock_state() <br> <i>currently: <code>set_power_state()</code></i></td>
+<td><b>Parameters:</b> <br> - state: <code>PowerState</code> — target clock state <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::set_clock_state()</code></td>
+<td><b><code>TTDevice::set_clock_state()</code></b></td>
+<td>Sets AICLK frequency. Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>assert_risc_reset() (broadcast)</td>
+<td><b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>broadcast_tensix_risc_reset_to_cluster()</code> with assert parameter</td>
+<td>—</td>
+<td>Cluster-wide broadcast reset. Workload-layer orchestration — iterates over chips calling base primitives.</td>
+</tr>
+<tr>
+<td>deassert_risc_reset() (broadcast)</td>
+<td><b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>broadcast_tensix_risc_reset_to_cluster()</code> with deassert parameter</td>
+<td>—</td>
+<td>Cluster-wide broadcast deassert. Workload-layer orchestration — iterates over chips calling base primitives.</td>
+</tr>
+<tr>
+<td>assert_risc_reset_at_core()</td>
+<td><b>Parameters:</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - core: <code>const CoreCoord</code> — core to target <br> - soft_resets: <code>const TensixSoftResetOptions&</code> — reset configuration (default: <code>TENSIX_ASSERT_SOFT_RESET</code>) <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::assert_risc_reset()</code> on target chip/core</td>
+<td><b><code>TTDevice::assert_risc_reset()</code></b></td>
+<td>Old per-core API using <code>TensixSoftResetOptions</code>. Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>deassert_risc_reset_at_core()</td>
+<td><b>Parameters:</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - core: <code>const CoreCoord</code> — core to target <br> - soft_resets: <code>const TensixSoftResetOptions&</code> — reset configuration (default: <code>TENSIX_DEASSERT_SOFT_RESET</code>) <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::deassert_risc_reset()</code> on target chip/core</td>
+<td><b><code>TTDevice::deassert_risc_reset()</code></b></td>
+<td>Old per-core API using <code>TensixSoftResetOptions</code>. Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>get_risc_reset_state()</td>
+<td><b>Parameters:</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - core: <code>const CoreCoord</code> — core to target <br> <b>Returns:</b> <br> - <code>RiscType</code></td>
+<td>1. Call <code>Chip::get_risc_reset_state()</code> on target chip/core</td>
+<td><b><code>TTDevice::get_risc_reset_state()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>assert_risc_reset() (per core)</td>
+<td><b>Parameters:</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - core: <code>const CoreCoord</code> — core to target <br> - risc_type: <code>const RiscType</code> — which riscs to assert <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::assert_risc_reset()</code> on target chip/core</td>
+<td><b><code>TTDevice::assert_risc_reset()</code></b></td>
+<td>New per-core API using <code>RiscType</code>. Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>deassert_risc_reset() (per core)</td>
+<td><b>Parameters:</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - core: <code>const CoreCoord</code> — core to target <br> - risc_type: <code>const RiscType</code> — which riscs to deassert <br> - staggered_start: <code>bool</code> — stagger risc start times (default: <code>true</code>) <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::deassert_risc_reset()</code> on target chip/core</td>
+<td><b><code>TTDevice::deassert_risc_reset()</code></b></td>
+<td>New per-core API using <code>RiscType</code>. Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>write_to_data() <br> <i>currently: <code>write_to_device()</code></i></td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>const void*</code> — source data <br> - size_in_bytes: <code>size_t</code> — bytes to write <br> - chip: <code>ChipId</code> — chip to target <br> - core: <code>CoreCoord</code> — core to target <br> - addr: <code>uint64_t</code> — destination address <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::write_data()</code> on target chip</td>
+<td><b><code>TTDevice::write_data()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). Data path (WC-mapped).</td>
+</tr>
+<tr>
+<td>read_from_data() <br> <i>currently: <code>read_from_device()</code></i></td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>void*</code> — destination buffer <br> - chip: <code>ChipId</code> — chip to target <br> - core: <code>CoreCoord</code> — core to target <br> - addr: <code>uint64_t</code> — source address <br> - size: <code>size_t</code> — bytes to read <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::read_data()</code> on target chip</td>
+<td><b><code>TTDevice::read_data()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). Data path (WC-mapped).</td>
+</tr>
+<tr>
+<td>write_to_regs() <br> <i>currently: <code>write_to_device_reg()</code></i></td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>const void*</code> — source data <br> - size_in_bytes: <code>uint32_t</code> — bytes to write <br> - chip: <code>ChipId</code> — chip to target <br> - core: <code>CoreCoord</code> — core to target <br> - addr: <code>uint64_t</code> — register address <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::write_ctrl()</code> on target chip</td>
+<td><b><code>TTDevice::write_ctrl()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). Control path (UC-mapped).</td>
+</tr>
+<tr>
+<td>read_from_regs() <br> <i>currently: <code>read_from_device_reg()</code></i></td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>void*</code> — destination buffer <br> - chip: <code>ChipId</code> — chip to target <br> - core: <code>CoreCoord</code> — core to target <br> - addr: <code>uint64_t</code> — register address <br> - size: <code>uint32_t</code> — bytes to read <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::read_ctrl()</code> on target chip</td>
+<td><b><code>TTDevice::read_ctrl()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). Control path (UC-mapped).</td>
+</tr>
+<tr>
+<td>write_to_core_range() <br> <i>currently: <code>noc_multicast_write()</code></i></td>
+<td><b>Parameters:</b> <br> - dst: <code>void*</code> — source buffer <br> - size: <code>size_t</code> — bytes to write <br> - chip: <code>ChipId</code> — chip to target <br> - core_start: <code>CoreCoord</code> — start of core range <br> - core_end: <code>CoreCoord</code> — end of core range <br> - addr: <code>uint64_t</code> — destination address on each core <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::write_to_core_range()</code> on target chip</td>
+<td><b><code>TTDevice::write_to_core_range()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). NOC multicast.</td>
+</tr>
+<tr>
+<td>dma_write_to_device()</td>
+<td><b>Parameters:</b> <br> - src: <code>const void*</code> — source data <br> - size: <code>size_t</code> — bytes to write <br> - chip: <code>ChipId</code> — chip to target (must be local) <br> - core: <code>CoreCoord</code> — core to target <br> - addr: <code>uint64_t</code> — destination address <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::dma_write()</code> on target chip</td>
+<td><b><code>TTDevice::dma_write()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>dma_read_from_device()</td>
+<td><b>Parameters:</b> <br> - dst: <code>void*</code> — destination buffer <br> - size: <code>size_t</code> — bytes to read <br> - chip: <code>ChipId</code> — chip to target (must be local) <br> - core: <code>CoreCoord</code> — core to target <br> - addr: <code>uint64_t</code> — source address <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::dma_read()</code> on target chip</td>
+<td><b><code>TTDevice::dma_read()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>dma_multicast_write()</td>
+<td><b>Parameters:</b> <br> - src: <code>void*</code> — source data <br> - size: <code>size_t</code> — bytes to write <br> - chip: <code>ChipId</code> — chip to target (must be local) <br> - core_start: <code>CoreCoord</code> — start of core range <br> - core_end: <code>CoreCoord</code> — end of core range <br> - addr: <code>uint64_t</code> — destination address on each core <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::dma_multicast_write()</code> on target chip</td>
+<td><b><code>TTDevice::dma_multicast_write()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). DMA multicast.</td>
+</tr>
+<tr>
+<td>ethernet_broadcast_write() <br> <i>currently: <code>broadcast_write_to_cluster()</code></i></td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>const void*</code> — data to write <br> - size_in_bytes: <code>uint32_t</code> — bytes to write <br> - address: <code>uint64_t</code> — destination address <br> - chips_to_exclude: <code>const std::set&lt;ChipId&gt;&</code> — chips to skip <br> - rows_to_exclude: <code>std::set&lt;uint32_t&gt;&</code> — NOC0 rows to skip <br> - columns_to_exclude: <code>std::set&lt;uint32_t&gt;&</code> — NOC0 columns to skip <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>tensix_or_eth_in_broadcast()</code> <br> 2. Call <code>ethernet_broadcast_write()</code></td>
+<td>—</td>
+<td>Broadcasts data to remote chips via ethernet. Current implementation mixes architecture-specific logic (<code>tensix_or_eth_in_broadcast()</code>) with broadcast mechanics. <br><br> <b>Note:</b> Low priority — no remote chips for IP clients. Should be encapsulated into a dedicated class.</td>
+</tr>
+<tr>
+<td>l1_membar()</td>
+<td><b>Parameters:</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - cores: <code>const std::unordered_set&lt;CoreCoord&gt;&</code> — cores to barrier (default: <code>{}</code> = all) <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::l1_membar()</code> on target chip</td>
+<td>—</td>
+<td>Passthrough facade. Cluster → Chip. Workload-only — no base layer interaction.</td>
+</tr>
+<tr>
+<td>dram_membar()</td>
+<td><b>Parameters (overload 1):</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - channels: <code>const std::unordered_set&lt;uint32_t&gt;&</code> — DRAM channels to barrier <br> <b>Parameters (overload 2):</b> <br> - chip: <code>const ChipId</code> — chip to target <br> - cores: <code>const std::unordered_set&lt;CoreCoord&gt;&</code> — DRAM cores to barrier (default: <code>{}</code> = all) <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::dram_membar()</code> on target chip</td>
+<td>—</td>
+<td>Passthrough facade. Cluster → Chip. Workload-only — no base layer interaction.</td>
+</tr>
+<tr>
+<td>wait_for_non_mmio_flush()</td>
+<td><b>Parameters (overload 1):</b> <br> - none (all chips) <br> <b>Parameters (overload 2):</b> <br> - chip_id: <code>const ChipId</code> — chip to target <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Overload 1: Call <code>Chip::wait_for_non_mmio_flush()</code> on all chips <br> 2. Overload 2: Call <code>Chip::wait_for_non_mmio_flush()</code> on target chip</td>
+<td><b><code>TTDevice::wait_for_non_mmio_flush()</code></b></td>
+<td>Ethernet barrier. Flushes all in-flight ethernet transactions. Via Chip (see Chip table). No-op for local chips, real implementation for remote.</td>
+</tr>
+<tr>
+<td>write_to_sysmem()</td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>const void*</code> — data to write <br> - size: <code>uint32_t</code> — bytes to write <br> - offset: <code>uint64_t</code> — offset into system memory buffer <br> - src_device_id: <code>ChipId</code> — chip to target <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::write_to_sysmem()</code> on target chip</td>
+<td>—</td>
+<td>Passthrough facade. Cluster → Chip → SystemMemoryBuffer. Workload-only — no base layer interaction at call time.</td>
+</tr>
+<tr>
+<td>read_from_sysmem()</td>
+<td><b>Parameters:</b> <br> - mem_ptr: <code>void*</code> — destination buffer <br> - offset: <code>uint64_t</code> — offset into system memory buffer <br> - size: <code>uint32_t</code> — bytes to read <br> - src_device_id: <code>ChipId</code> — chip to target <br> <b>Returns:</b> <br> - <code>void</code></td>
+<td>1. Call <code>Chip::read_from_sysmem()</code> on target chip</td>
+<td>—</td>
+<td>Passthrough facade. Cluster → Chip → SystemMemoryBuffer. Workload-only — no base layer interaction at call time.</td>
+</tr>
+<tr>
+<td>host_dma_address()</td>
+<td><b>Parameters:</b> <br> - offset: <code>uint64_t</code> — offset into system memory buffer <br> - src_device_id: <code>ChipId</code> — device to target <br> <b>Returns:</b> <br> - <code>void*</code></td>
+<td>1. Call <code>Chip::host_dma_address()</code> on target chip</td>
+<td>—</td>
+<td>Returns host DMA address for a given buffer offset. Currently hugepage-only. Needs redesign to account for <code>SystemMemoryBuffer</code>.</td>
+</tr>
+<tr>
+<td>get_pcie_base_addr_from_device()</td>
+<td><b>Parameters:</b> <br> - chip_id: <code>const ChipId</code> — chip to target <br> <b>Returns:</b> <br> - <code>uint64_t</code></td>
+<td>1. Call <code>Chip::get_pcie_base_addr_from_device()</code> on target chip</td>
+<td><b><code>TTDevice::get_pcie_base_addr_from_device()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>send_device_command() <br> <i>currently: <code>arc_msg()</code></i></td>
+<td><b>Parameters:</b> <br> - logical_device_id: <code>int</code> — chip to target <br> - msg_code: <code>uint32_t</code> — command code <br> - args: <code>const std::vector&lt;uint32_t&gt;&</code> — command arguments (default: <code>{}</code>) <br> - timeout_ms: <code>std::chrono::milliseconds</code> — timeout (default: ARC_MESSAGE_TIMEOUT) <br> <b>Returns (target):</b> <br> - <code>DeviceCommandResult{exit_code, return_values}</code></td>
+<td>1. Call <code>Chip::send_device_command()</code> on target chip</td>
+<td><b><code>TTDevice::send_device_command()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table). See Chip table for <code>send_device_command()</code> details.</td>
+</tr>
+<tr>
+<td>get_clocks()</td>
+<td><b>Returns:</b> <br> - <code>std::map&lt;int, int&gt;</code> — clock freq per MMIO device</td>
+<td>1. Iterate all MMIO chips, call <code>Chip::get_clock_freq()</code> on each <br> 2. Collect into map</td>
+<td><b><code>TTDevice::get_clock_freq()</code></b></td>
+<td>Collects AICLK frequency from all MMIO devices. Not a per-chip passthrough — iterates all local chips and aggregates results.</td>
+</tr>
+<tr>
+<td>get_numa_node_for_pcie_device()</td>
+<td><b>Parameters:</b> <br> - device_id: <code>uint32_t</code> — device to query <br> <b>Returns:</b> <br> - <code>uint32_t</code></td>
+<td>1. Call <code>Chip::get_numa_node()</code> on target chip</td>
+<td><b><code>TTDevice::get_numa_node()</code></b></td>
+<td>Passthrough facade via Chip (see Chip table).</td>
+</tr>
+<tr>
+<td>get_ethernet_firmware_version()</td>
+<td><b>Returns:</b> <br> - <code>std::optional&lt;SemVer&gt;</code></td>
+<td>1. Return cached value from ClusterDescriptor</td>
+<td>—</td>
+<td>Returns cached ethernet firmware version. Convenience getter over ClusterDescriptor.</td>
+</tr>
+<tr>
+<td>get_firmware_bundle_version()</td>
+<td><b>Returns:</b> <br> - <code>std::optional&lt;FirmwareBundleVersion&gt;</code></td>
+<td>1. Return cached value from ClusterDescriptor</td>
+<td>—</td>
+<td>Returns cached firmware bundle version. Convenience getter over ClusterDescriptor.</td>
+</tr>
+<tr>
+<td>get_chip()</td>
+<td><b>Parameters:</b> <br> - device_id: <code>ChipId</code> — device to target <br> <b>Returns:</b> <br> - <code>Chip*</code></td>
+<td>1. Return Chip by device ID</td>
+<td>—</td>
+<td>Accessor. Returns Chip pointer from internal map.</td>
+</tr>
+<tr>
+<td>get_local_chip()</td>
+<td><b>Parameters:</b> <br> - device_id: <code>ChipId</code> — device to target <br> <b>Returns:</b> <br> - <code>LocalChip*</code></td>
+<td>1. Return LocalChip by device ID</td>
+<td>—</td>
+<td>Accessor. Returns LocalChip pointer from internal map. Asserts chip is local.</td>
+</tr>
+<tr>
+<td>get_remote_chip()</td>
+<td><b>Parameters:</b> <br> - device_id: <code>ChipId</code> — device to target <br> <b>Returns:</b> <br> - <code>RemoteChip*</code></td>
+<td>1. Return RemoteChip by device ID</td>
+<td>—</td>
+<td>Accessor. Returns RemoteChip pointer from internal map. Asserts chip is remote.</td>
+</tr>
+<tr>
+<td>get_tt_device()</td>
+<td><b>Parameters:</b> <br> - device_id: <code>ChipId</code> — device to target <br> <b>Returns:</b> <br> - <code>TTDevice*</code></td>
+<td>1. Get TTDevice via Chip</td>
+<td>—</td>
+<td>Accessor. Returns TTDevice pointer from Chip. Workload convenience — no base layer call.</td>
+</tr>
+</table>

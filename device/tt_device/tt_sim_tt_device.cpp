@@ -113,13 +113,13 @@ TTSimTTDevice::TTSimTTDevice(
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     switch (arch) {
         case tt::ARCH::BLACKHOLE:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
             break;
         case tt::ARCH::WORMHOLE_B0:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
             break;
         case tt::ARCH::QUASAR:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
             break;
         default:
             log_debug(

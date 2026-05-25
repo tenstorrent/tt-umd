@@ -675,8 +675,11 @@ public:
     /**
      * @brief Installs or removes a safe SIGBUS signal handler.
      *
-     * Once installed, a SIGBUS raises an exception instead of crashing the process,
-     * allowing the caller to discard stale PCIe mappings and establish new ones.
+     * When a PCIe device is reset or drops off the bus, existing MMIO mappings
+     * become stale. Accessing them triggers SIGBUS, which by default kills the
+     * process. Once this handler is installed, such faults raise a C++ exception
+     * instead, giving the caller a chance to tear down the stale mappings and
+     * re-establish new ones.
      *
      * @param set_safe_handler If true, installs the safe handler. If false, restores default behavior.
      */

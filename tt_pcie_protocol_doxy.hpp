@@ -186,6 +186,12 @@ public:
     /** @} */
 
     /**
+     * @brief Returns the NUMA node associated with this PCIe device.
+     * @return int NUMA node ID, or -1 if the system is non-NUMA.
+     */
+    virtual int get_numa_node() const = 0;
+
+    /**
      * @brief Returns a pointer to the underlying @ref PCIDevice.
      * @return PCIDevice* pointer to the PCIe device handle.
      */
@@ -223,6 +229,7 @@ public:
 
     /** @name PcieInterface Overrides */
     /** @{ */
+    int get_numa_node() const override;
     PCIDevice* get_pci_device() override;
     [[nodiscard]] bool dma_write(
         const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) override;

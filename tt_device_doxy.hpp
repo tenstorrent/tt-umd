@@ -645,6 +645,12 @@ public:
     IODeviceType get_communication_device_type() const;
 
     /**
+     * @brief Returns the NUMA node associated with this device.
+     * @return int NUMA node ID, or -1 if the device is not PCIe-connected or the system is non-NUMA.
+     */
+    virtual int get_numa_node() const;
+
+    /**
      * @brief Reads the hardware link training status of a specific Ethernet core.
      * @param eth_core The target Ethernet core coordinates.
      * @return @ref EthTrainingStatus The current training status of the specified core.

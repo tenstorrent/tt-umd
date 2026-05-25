@@ -398,6 +398,22 @@ public:
     virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
 
     /**
+     * @brief Sends a command to the device's management firmware and waits for the result.
+     *
+     * Delegates to the underlying FirmwareMessenger. Acquires the device lock
+     * before forwarding the command.
+     *
+     * @param msg_code Command identifier understood by the firmware.
+     * @param args Arguments for the command (device-specific limits apply).
+     * @param timeout Timeout for the command to complete.
+     * @return DeviceCommandResult The exit code and any return values from the firmware.
+     */
+    DeviceCommandResult send_device_command(
+        uint32_t msg_code,
+        const std::vector<uint32_t> &args = {},
+        std::chrono::milliseconds timeout = timeout::FIRMWARE_MESSAGE_TIMEOUT);
+
+    /**
      * @brief Retrieves the base device protocol interface.
      *
      * Provides the common I/O operations supported across all transports:
@@ -646,6 +662,16 @@ public:
      * @param state The requested power state (BUSY or IDLE).
      */
     virtual void set_power_state(PowerState state);
+
+    /**
+     * @brief Sets the AICLK frequency via a firmware command.
+     *
+     * Distinct from set_power_state(), which is a KMD ioctl for hardware power domains.
+     * This controls the actual clock frequency the device runs at.
+     *
+     * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
+     */
+    void set_clock_state(PowerState state);
 
     /**
      * @brief Installs or removes a safe SIGBUS signal handler.

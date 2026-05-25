@@ -42,7 +42,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = "tt-umd"
+PROJECT_NAME           = "UMD Base Layer Specification"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -68,7 +68,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = "build/docs/"
+OUTPUT_DIRECTORY       =
 
 # If the CREATE_SUBDIRS tag is set to YES then doxygen will create up to 4096
 # sub-directories (in 2 levels) under the output directory of each output format
@@ -499,13 +499,13 @@ NUM_PROC_THREADS       = 1
 # normally produced when WARNINGS is set to YES.
 # The default value is: NO.
 
-EXTRACT_ALL            = NO
+EXTRACT_ALL            = YES
 
 # If the EXTRACT_PRIVATE tag is set to YES, all private members of a class will
 # be included in the documentation.
 # The default value is: NO.
 
-EXTRACT_PRIVATE        = NO
+EXTRACT_PRIVATE        = YES
 
 # If the EXTRACT_PRIV_VIRTUAL tag is set to YES, documented private virtual
 # methods of a class will be included in the documentation.
@@ -662,7 +662,7 @@ INLINE_INFO            = YES
 # name. If set to NO, the members will appear in declaration order.
 # The default value is: YES.
 
-SORT_MEMBER_DOCS       = YES
+SORT_MEMBER_DOCS       = NO
 
 # If the SORT_BRIEF_DOCS tag is set to YES then doxygen will sort the brief
 # descriptions of file, namespace and class members alphabetically by member
@@ -765,14 +765,14 @@ SHOW_USED_FILES        = YES
 # (if specified).
 # The default value is: YES.
 
-SHOW_FILES             = YES
+SHOW_FILES             = NO
 
 # Set the SHOW_NAMESPACES tag to NO to disable the generation of the Namespaces
 # page. This will remove the Namespaces entry from the Quick Index and from the
 # Folder Tree View (if specified).
 # The default value is: YES.
 
-SHOW_NAMESPACES        = YES
+SHOW_NAMESPACES        = NO
 
 # The FILE_VERSION_FILTER tag can be used to specify a program or script that
 # doxygen should invoke to get the current version for each file (typically from
@@ -917,7 +917,16 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = device/cluster.h device/pcie/pci_device.hpp
+INPUT                  = tt_device_doxy.hpp \
+                         tt_topology_discovery_doxy.hpp \
+                         tt_io_window_doxy.hpp \
+                         tt_device_protocol_doxy.hpp \
+                         tt_pcie_protocol_doxy.hpp \
+                         tt_firmware_messenger_doxy.hpp \
+                         tt_firmware_telemetry_reader_doxy.hpp \
+                         tt_firmware_info_provider_doxy.hpp \
+                         tt_system_memory_doxy.hpp \
+                         tt_enums_structs_constants_doxy.hpp 
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -1295,7 +1304,7 @@ IGNORE_PREFIX          =
 # If the GENERATE_HTML tag is set to YES, doxygen will generate HTML output
 # The default value is: YES.
 
-GENERATE_HTML          = YES
+GENERATE_HTML          = NO
 
 # The HTML_OUTPUT tag is used to specify where the HTML docs will be put. If a
 # relative path is entered the value of OUTPUT_DIRECTORY will be put in front of
@@ -2218,7 +2227,7 @@ MAN_LINKS              = NO
 # captures the structure of the code including all documentation.
 # The default value is: NO.
 
-GENERATE_XML           = YES
+GENERATE_XML           = NO
 
 # The XML_OUTPUT tag is used to specify where the XML pages will be put. If a
 # relative path is entered the value of OUTPUT_DIRECTORY will be put in front of
@@ -2329,7 +2338,7 @@ ENABLE_PREPROCESSING   = YES
 # The default value is: NO.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-MACRO_EXPANSION        = YES
+MACRO_EXPANSION        = NO
 
 # If the EXPAND_ONLY_PREDEF and MACRO_EXPANSION tags are both set to YES then
 # the macro expansion is limited to the macros specified with the PREDEFINED and
@@ -2337,7 +2346,7 @@ MACRO_EXPANSION        = YES
 # The default value is: NO.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-EXPAND_ONLY_PREDEF     = YES
+EXPAND_ONLY_PREDEF     = NO
 
 # If the SEARCH_INCLUDES tag is set to YES, the include files in the
 # INCLUDE_PATH will be searched if a #include is found.
@@ -2370,12 +2379,7 @@ INCLUDE_FILE_PATTERNS  =
 # recursively expanded use the := operator instead of the = operator.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-PREDEFINED             = __DOXYGEN__ \
-                         FORCE_INLINE= \
-                         DATA_FORMATS_DEFINED= \
-                         ALWI= \
-                         tt_l1_ptr= \
-                         tt_reg_ptr=
+PREDEFINED             =
 
 # If the MACRO_EXPANSION and EXPAND_ONLY_PREDEF tags are set to YES then this
 # tag can be used to specify a list of macro names that should be expanded. The
@@ -2523,7 +2527,7 @@ DOT_FONTPATH           =
 # Possible values are: NO, YES, TEXT and GRAPH.
 # The default value is: YES.
 
-CLASS_GRAPH            = YES
+CLASS_GRAPH            = NO
 
 # If the COLLABORATION_GRAPH tag is set to YES then doxygen will generate a
 # graph for each documented class showing the direct and indirect implementation

@@ -34,9 +34,14 @@
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+// Simulation-specific headers — only needed when TT_UMD_BUILD_SIMULATION is set.
+// The includes are unconditional to avoid IWYU churn; the code that uses these
+// types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
+#ifdef TT_UMD_BUILD_SIMULATION
 #include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#endif  // TT_UMD_BUILD_SIMULATION
 // SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
 // runs without that flag set so it can't see the use; mark the include to
 // stop future IWYU sweeps from deleting it again (see #2536).
@@ -409,13 +414,18 @@ Cluster::Cluster(ClusterOptions options) {
                 std::move(tt_device)));
     }
 
+#ifdef TT_UMD_BUILD_SIMULATION
     // -------------------------------------------------------------------
     // v3.5 commit #6 — eth-MAC wiring pre-pass.
-    // For SIMULATION ChipType with v3.5-aware libttsim, populate the magic
-    // switch routing table and pre-write peer DEST_MAC into each eth tile.
+    // For SIMULATION ChipType with v3.5-aware libttsim, populate the virtual
+    // switch routing table and pre-write peer DEST_MAC into each eth tile so
+    // that firmware sees correctly wired neighbours at boot time.
+    // Only compiled when TT_UMD_BUILD_SIMULATION=ON; requires TTSimChip and
+    // TTSimCommunicator which are not present in hardware builds.
     // See craq-sim-multichip/docs/v3_5_commit6_eth_mac_wiring.md.
     // -------------------------------------------------------------------
     if (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so") {
+        // Walk chips_ and return the TTSimCommunicator for a given chip.
         auto get_comm = [&](ChipId cid) -> tt::umd::TTSimCommunicator* {
             auto it = chips_.find(cid);
             if (it == chips_.end()) {
@@ -428,16 +438,21 @@ Cluster::Cluster(ClusterOptions options) {
             auto* sim_tt = dynamic_cast<tt::umd::TTSimTTDevice*>(sim_chip->get_tt_device());
             return sim_tt ? sim_tt->get_communicator() : nullptr;
         };
+        // Deterministic per-(chip, channel) MAC: top byte is OUI, next byte
+        // encodes chip_id, bottom byte encodes channel.
         auto eth_sim_mac = [](ChipId cid, int chan) -> uint64_t {
             return 0x021E52000000ULL | (uint64_t(cid & 0xFF) << 8) | uint64_t(chan & 0xFF);
         };
-        // Switch reset via any communicator (singleton, process-global).
+        // Reset the virtual switch once (singleton, process-global state).
         if (!chips_.empty()) {
             ChipId c0 = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips()).front();
             if (auto* c = get_comm(c0)) {
                 c->switch_reset();
             }
         }
+        // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
+        // register MACs and peer handles.  Process each undirected edge once
+        // (chip_a < chip_b) to avoid double-registration.
         const auto& eth_conns = cluster_desc->get_ethernet_connections();
         for (const auto& [chip_a, chan_map] : eth_conns) {
             for (const auto& [chan_a, remote] : chan_map) {
@@ -455,7 +470,7 @@ Cluster::Cluster(ClusterOptions options) {
                 uint64_t mac_b = eth_sim_mac(chip_b, chan_b);
                 ca->register_eth_endpoint(uint32_t(chan_a), mac_a);
                 cb->register_eth_endpoint(uint32_t(chan_b), mac_b);
-                // Wire peer info for source-aware routing (BH BCAST/MCAST MAC).
+                // Wire bidirectional peer info for source-aware routing (BH BCAST/MCAST MAC).
                 ca->register_peer(uint32_t(chan_a), cb->get_dev_handle(), uint32_t(chan_b));
                 cb->register_peer(uint32_t(chan_b), ca->get_dev_handle(), uint32_t(chan_a));
                 log_info(
@@ -470,6 +485,7 @@ Cluster::Cluster(ClusterOptions options) {
             }
         }
     }
+#endif  // TT_UMD_BUILD_SIMULATION
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
     options_ = std::move(options);
@@ -543,6 +559,11 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
+#ifdef TT_UMD_BUILD_SIMULATION
+// Passthroughs to libttsim_switch_register_fabric_* — allow tt-metal fabric
+// init to wire mock multichip topologies under craq-sim v3.5.
+// Only compiled when TT_UMD_BUILD_SIMULATION=ON.
+
 void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction) {
     auto it = chips_.find(chip_id);
     if (it == chips_.end()) {
@@ -578,6 +599,7 @@ void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint
         communicator->register_fabric_node_id(mesh_id, fabric_chip_id);
     }
 }
+#endif  // TT_UMD_BUILD_SIMULATION
 
 std::set<ChipId> Cluster::get_target_device_ids() { return all_chip_ids_; }
 

@@ -37,6 +37,7 @@ namespace tt::umd {
 // process-global state (eth_switch routing table, Device* registry).
 void *TTSimCommunicator::s_shared_handle_ = nullptr;
 int TTSimCommunicator::s_shared_refcount_ = 0;
+bool TTSimCommunicator::s_sim_initialized_ = false;
 std::mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
 
@@ -57,6 +58,7 @@ TTSimCommunicator::~TTSimCommunicator() {
             }
             dlclose(s_shared_handle_);
             s_shared_handle_ = nullptr;
+            s_sim_initialized_ = false;
         }
     } else if (libttsim_handle_) {
         dlclose(libttsim_handle_);
@@ -151,10 +153,9 @@ void TTSimCommunicator::start_sim() {
         // libttsim_init only on the first communicator. Subsequent
         // communicators register their chip into the shared registry.
         std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
-        static bool s_init_called = false;
-        if (!s_init_called) {
+        if (!s_sim_initialized_) {
             pfn_libttsim_init_();
-            s_init_called = true;
+            s_sim_initialized_ = true;
         }
         // Register this chip in the shared chip_id registry.
         // v3.5 commit #6: capture Device* handle for later eth-MAC registration.

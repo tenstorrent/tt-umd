@@ -175,6 +175,7 @@ private:
     uint32_t chip_id_ = 0;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
+    static bool s_sim_initialized_;
     static std::mutex s_shared_init_mutex_;
 
     // Function pointers to simulator library functions.

@@ -205,7 +205,7 @@ private:
 
     // v3.5 commit #6 — eth-MAC wiring.
     void *dev_handle_ = nullptr;
-    void (*pfn_libttsim_switch_reset_)(void) = nullptr;
+    void (*pfn_libttsim_switch_reset_)() = nullptr;
     void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
     void (*pfn_libttsim_configure_eth_link_virtual_)(void *dev, uint32_t tile_id, uint64_t local_mac) = nullptr;
     void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) =
@@ -213,7 +213,7 @@ private:
     void (*pfn_libttsim_switch_register_fabric_node_id_)(void *dev, uint32_t mesh_id, uint32_t chip_id) = nullptr;
     void (*pfn_libttsim_switch_register_fabric_endpoint_direction_)(void *dev, uint32_t tile_id, uint32_t direction) =
         nullptr;
-    void (*pfn_libttsim_switch_drain_)(void) = nullptr;
+    void (*pfn_libttsim_switch_drain_)() = nullptr;
 
     // Stored callbacks for DMA memory operations.
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;

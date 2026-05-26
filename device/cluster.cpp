@@ -496,7 +496,7 @@ Cluster::Cluster(ClusterOptions options) {
 std::unique_ptr<Cluster> Cluster::create_silicon_cluster(std::optional<uint32_t> num_host_mem_ch_per_mmio_device) {
     ClusterOptions options{};
     options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
-    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+    return std::make_unique<Cluster>(std::move(options));
 }
 
 std::unique_ptr<Cluster> Cluster::create_single_chip_simulation_cluster(
@@ -508,7 +508,7 @@ std::unique_ptr<Cluster> Cluster::create_single_chip_simulation_cluster(
     if (simulator_path != nullptr) {
         options.simulator_directory = std::filesystem::path(simulator_path);
     }
-    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+    return std::make_unique<Cluster>(std::move(options));
 }
 
 std::unique_ptr<Cluster> Cluster::create_simulation_cluster_with_descriptor(
@@ -524,7 +524,7 @@ std::unique_ptr<Cluster> Cluster::create_simulation_cluster_with_descriptor(
         .simulator_directory =
             simulator_path != nullptr ? std::filesystem::path(simulator_path) : std::filesystem::path{},
     };
-    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+    return std::make_unique<Cluster>(std::move(options));
 }
 
 std::unique_ptr<Cluster> Cluster::create_mock_cluster(const char* sdesc_path, ClusterDescriptor* cluster_descriptor) {
@@ -533,7 +533,7 @@ std::unique_ptr<Cluster> Cluster::create_mock_cluster(const char* sdesc_path, Cl
         .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
         .cluster_descriptor = cluster_descriptor,
     };
-    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+    return std::make_unique<Cluster>(std::move(options));
 }
 
 std::unique_ptr<Cluster> Cluster::create_swemule_cluster(
@@ -543,7 +543,7 @@ std::unique_ptr<Cluster> Cluster::create_swemule_cluster(
         .sdesc_path = sdesc_path != nullptr ? sdesc_path : "",
         .cluster_descriptor = cluster_descriptor,
     };
-    return std::unique_ptr<Cluster>(new Cluster(std::move(options)));
+    return std::make_unique<Cluster>(std::move(options));
 }
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(

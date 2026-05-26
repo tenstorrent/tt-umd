@@ -544,6 +544,42 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
     get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
 }
 
+void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction) {
+    auto it = chips_.find(chip_id);
+    if (it == chips_.end()) {
+        return;
+    }
+    auto* sim_chip = dynamic_cast<TTSimChip*>(it->second.get());
+    if (!sim_chip) {
+        return;
+    }
+    auto* sim_tt = dynamic_cast<TTSimTTDevice*>(sim_chip->get_tt_device());
+    if (!sim_tt) {
+        return;
+    }
+    if (auto* communicator = sim_tt->get_communicator()) {
+        communicator->register_fabric_endpoint_direction(eth_tile_id, direction);
+    }
+}
+
+void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id) {
+    auto chip_it = chips_.find(chip_id);
+    if (chip_it == chips_.end()) {
+        return;
+    }
+    auto* sim_chip = dynamic_cast<TTSimChip*>(chip_it->second.get());
+    if (!sim_chip) {
+        return;
+    }
+    auto* sim_tt = dynamic_cast<TTSimTTDevice*>(sim_chip->get_tt_device());
+    if (!sim_tt) {
+        return;
+    }
+    if (auto* communicator = sim_tt->get_communicator()) {
+        communicator->register_fabric_node_id(mesh_id, fabric_chip_id);
+    }
+}
+
 std::set<ChipId> Cluster::get_target_device_ids() { return all_chip_ids_; }
 
 std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_; }

@@ -38,12 +38,16 @@ static_assert(!std::is_abstract<TTSimTTDevice>(), "TTSimChip must be non-abstrac
 namespace {
 
 bool sim_dram_teleport_enabled() {
-    const char* env = std::getenv("TT_METAL_SIMULATOR_DRAM_TELEPORT");
-    if (env == nullptr) {
-        return false;
-    }
-    std::string_view value(env);
-    return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
+    // Cache the result since this is called on every device read/write.
+    static const bool enabled = [] {
+        const char* env = std::getenv("TT_METAL_SIMULATOR_DRAM_TELEPORT");
+        if (env == nullptr) {
+            return false;
+        }
+        std::string_view value(env);
+        return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
+    }();
+    return enabled;
 }
 
 bool is_translated_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {

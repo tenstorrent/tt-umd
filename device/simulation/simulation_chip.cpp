@@ -101,15 +101,6 @@ void SimulationChip::dma_multicast_write(
     UMD_THROW(error::RuntimeError, "dma_multicast_write is not supported in SimulationChip.");
 }
 
-void SimulationChip::noc_multicast_write(
-    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    // TODO: Support other core types once needed.
-    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
-    }
-    tt_device_->noc_multicast_write(src, size, core_start, core_end, addr);
-}
-
 void SimulationChip::wait_for_non_mmio_flush() {}
 
 void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}

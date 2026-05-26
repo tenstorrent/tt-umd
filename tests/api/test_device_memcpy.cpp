@@ -17,9 +17,8 @@
 
 #include <gtest/gtest.h>
 
-#include <algorithm>
 #include <cstdint>
-#include <numeric>
+#include <string>
 #include <vector>
 
 #include "pcie/device_memcpy.hpp"
@@ -130,11 +129,19 @@ static const MemcpyParam kCases[] = {
     {64,   1, 0}, {64,   2, 0}, {64,   3, 0},
     {256,  1, 0}, {256,  2, 0}, {256,  3, 0},
     {1024, 1, 0}, {1024, 3, 0},
+    // --- 4-byte-aligned but 16-byte-misaligned: triggers GNUC 16-byte alignment loop ---
+    {256,  4, 0}, {256,  8, 0}, {256, 12, 0},
+    {1024, 4, 0}, {1024, 8, 0}, {1024, 12, 0},
     // --- Unaligned source ---
     {64,   0, 1}, {64,   0, 2}, {64,   0, 3},
     {256,  0, 1}, {1024, 0, 3},
+    // --- 4-byte-aligned but 16-byte-misaligned source ---
+    {256,  0, 4}, {256,  0, 8}, {256,  0, 12},
+    {1024, 0, 4}, {1024, 0, 12},
     // --- Both unaligned ---
     {64,   1, 3}, {256,  3, 1}, {1024, 2, 3},
+    // --- Both 16-byte-misaligned ---
+    {256,  4, 8}, {1024, 8, 4},
 };
 // clang-format on
 

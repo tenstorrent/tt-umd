@@ -107,14 +107,14 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
         DLSYM_FUNCTION(libttsim_tile_rd_bytes)
         DLSYM_FUNCTION(libttsim_tile_wr_bytes)
-        pfn_libttsim_dram_rd_bytes_by_id_ =
-            (decltype(pfn_libttsim_dram_rd_bytes_by_id_))dlsym(libttsim_handle_, "libttsim_dram_rd_bytes_by_id");
-        pfn_libttsim_dram_wr_bytes_by_id_ =
-            (decltype(pfn_libttsim_dram_wr_bytes_by_id_))dlsym(libttsim_handle_, "libttsim_dram_wr_bytes_by_id");
-        pfn_libttsim_dram_core_rd_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_rd_bytes_by_id_))dlsym(
-            libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id");
-        pfn_libttsim_dram_core_wr_bytes_by_id_ = (decltype(pfn_libttsim_dram_core_wr_bytes_by_id_))dlsym(
-            libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id");
+        pfn_libttsim_dram_rd_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_rd_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_rd_bytes_by_id"));
+        pfn_libttsim_dram_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_wr_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_wr_bytes_by_id"));
+        pfn_libttsim_dram_core_rd_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_rd_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id"));
+        pfn_libttsim_dram_core_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_wr_bytes_by_id_)>(
+            dlsym(libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id"));
         DLSYM_FUNCTION(libttsim_clock)
         DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
         DLSYM_FUNCTION(libttsim_create_device_by_id)
@@ -125,11 +125,12 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_switch_drain)
         DLSYM_FUNCTION(libttsim_configure_eth_link_virtual)
         DLSYM_FUNCTION(libttsim_switch_register_peer)
-        pfn_libttsim_switch_register_fabric_node_id_ = (decltype(pfn_libttsim_switch_register_fabric_node_id_))dlsym(
-            libttsim_handle_, "libttsim_switch_register_fabric_node_id");
+        pfn_libttsim_switch_register_fabric_node_id_ =
+            reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_node_id_)>(
+                dlsym(libttsim_handle_, "libttsim_switch_register_fabric_node_id"));
         pfn_libttsim_switch_register_fabric_endpoint_direction_ =
-            (decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_))dlsym(
-                libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction");
+            reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_)>(
+                dlsym(libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction"));
         return;
     }
 

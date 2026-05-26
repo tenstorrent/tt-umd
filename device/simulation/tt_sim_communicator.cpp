@@ -125,9 +125,8 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_switch_drain)
         DLSYM_FUNCTION(libttsim_configure_eth_link_virtual)
         DLSYM_FUNCTION(libttsim_switch_register_peer)
-        pfn_libttsim_switch_register_fabric_node_id_ =
-            (decltype(pfn_libttsim_switch_register_fabric_node_id_))dlsym(
-                libttsim_handle_, "libttsim_switch_register_fabric_node_id");
+        pfn_libttsim_switch_register_fabric_node_id_ = (decltype(pfn_libttsim_switch_register_fabric_node_id_))dlsym(
+            libttsim_handle_, "libttsim_switch_register_fabric_node_id");
         pfn_libttsim_switch_register_fabric_endpoint_direction_ =
             (decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_))dlsym(
                 libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction");

@@ -47,12 +47,10 @@ bool sim_dram_teleport_enabled() {
 }
 
 bool is_translated_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
-    for (const auto& dram_core : soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED)) {
-        if (dram_core.x == core.x && dram_core.y == core.y) {
-            return true;
-        }
-    }
-    return false;
+    const auto& dram_cores = soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    return std::any_of(dram_cores.begin(), dram_cores.end(), [&core](const auto& dram_core) {
+        return dram_core.x == core.x && dram_core.y == core.y;
+    });
 }
 
 }  // namespace

@@ -1,0 +1,14 @@
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#pragma once
+
+namespace tt::umd {
+
+class RemoteCommunication {
+public:
+    virtual ~RemoteCommunication() = default;
+};
+
+}  // namespace tt::umd

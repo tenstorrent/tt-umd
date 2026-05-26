@@ -282,7 +282,9 @@ jobs:
   # One watcher per job by design — a single watcher with multi-job `needs` would wait for
   # every need to settle before evaluating `if: failure()`, defeating the purpose.
   fail-fast-build-tests:
-    if: failure() && inputs.triggering-event == 'merge_group'
+    if: |
+      always() && inputs.triggering-event == 'merge_group' &&
+      contains(fromJSON('["failure", "cancelled"]'), needs.build-tests.result)
     needs: [build-tests]
     runs-on: ubuntu-latest
     permissions:
@@ -291,7 +293,9 @@ jobs:
       - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
 
   fail-fast-test-all:
-    if: failure() && inputs.triggering-event == 'merge_group'
+    if: |
+      always() && inputs.triggering-event == 'merge_group' &&
+      contains(fromJSON('["failure", "cancelled"]'), needs.test-all.result)
     needs: [test-all]
     runs-on: ubuntu-latest
     permissions:
@@ -300,7 +304,9 @@ jobs:
       - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
 
   fail-fast-ttsim:
-    if: failure() && inputs.triggering-event == 'merge_group'
+    if: |
+      always() && inputs.triggering-event == 'merge_group' &&
+      contains(fromJSON('["failure", "cancelled"]'), needs.run-ttsim-tests.result)
     needs: [run-ttsim-tests]
     runs-on: ubuntu-latest
     permissions:
@@ -309,7 +315,9 @@ jobs:
       - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
 
   fail-fast-tooling:
-    if: failure() && inputs.triggering-event == 'merge_group'
+    if: |
+      always() && inputs.triggering-event == 'merge_group' &&
+      contains(fromJSON('["failure", "cancelled"]'), needs.run-tooling-tests.result)
     needs: [run-tooling-tests]
     runs-on: ubuntu-latest
     permissions:
@@ -318,7 +326,9 @@ jobs:
       - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
 
   fail-fast-exalens:
-    if: failure() && inputs.triggering-event == 'merge_group'
+    if: |
+      always() && inputs.triggering-event == 'merge_group' &&
+      contains(fromJSON('["failure", "cancelled"]'), needs.run-exalens-tests.result)
     needs: [run-exalens-tests]
     runs-on: ubuntu-latest
     permissions:
@@ -327,7 +337,9 @@ jobs:
       - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
 
   fail-fast-tracy:
-    if: failure() && inputs.triggering-event == 'merge_group'
+    if: |
+      always() && inputs.triggering-event == 'merge_group' &&
+      contains(fromJSON('["failure", "cancelled"]'), needs.run-tracy.result)
     needs: [run-tracy]
     runs-on: ubuntu-latest
     permissions:

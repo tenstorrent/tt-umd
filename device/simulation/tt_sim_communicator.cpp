@@ -125,6 +125,12 @@ void TTSimCommunicator::initialize() {
         DLSYM_FUNCTION(libttsim_switch_drain)
         DLSYM_FUNCTION(libttsim_configure_eth_link_virtual)
         DLSYM_FUNCTION(libttsim_switch_register_peer)
+        pfn_libttsim_switch_register_fabric_node_id_ =
+            (decltype(pfn_libttsim_switch_register_fabric_node_id_))dlsym(
+                libttsim_handle_, "libttsim_switch_register_fabric_node_id");
+        pfn_libttsim_switch_register_fabric_endpoint_direction_ =
+            (decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_))dlsym(
+                libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction");
         return;
     }
 
@@ -374,6 +380,22 @@ void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void *peer_dev, uint
         return;
     }
     pfn_libttsim_switch_register_peer_(dev_handle_, eth_tile_id, peer_dev, peer_tile_id);
+}
+
+void TTSimCommunicator::register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!v3_5_multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_fabric_node_id_) {
+        return;
+    }
+    pfn_libttsim_switch_register_fabric_node_id_(dev_handle_, mesh_id, chip_id);
+}
+
+void TTSimCommunicator::register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!v3_5_multichip_mode_ || !dev_handle_ || !pfn_libttsim_switch_register_fabric_endpoint_direction_) {
+        return;
+    }
+    pfn_libttsim_switch_register_fabric_endpoint_direction_(dev_handle_, eth_tile_id, direction);
 }
 
 void TTSimCommunicator::switch_drain() {

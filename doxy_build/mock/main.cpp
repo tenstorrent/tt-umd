@@ -17,30 +17,39 @@ int main() {
     printf("\n--- System Memory + Zero-Copy DMA ---\n");
 
     MockSystemMemoryAllocator sysmem;
-    auto buffer = sysmem.allocate(4096);
+    auto buffer = sysmem.allocate_buffer(4096);
     printf("Allocated %zu bytes at IOVA 0x%lx\n", buffer->get_size(), buffer->get_iova());
 
-    auto *host = static_cast<uint32_t *>(buffer->get_ptr());
-    host[0] = 0xDEADBEEF;
-    host[1] = 0xCAFEBABE;
+    // Write to host buffer via SystemMemoryBuffer API.
+    uint32_t write_data[2] = {0xDEADBEEF, 0xCAFEBABE};
+    buffer->write_to_sysmem(write_data, sizeof(write_data), 0);
 
     CoreCoord core(1, 1);
-    device->dma_write_zero_copy(buffer->get_iova(), 0x1000, 2 * sizeof(uint32_t), core);
 
+    // Zero-copy DMA: host buffer -> device (uses IOVA directly).
+    device->dma_write_zero_copy(buffer->get_iova(), 0x1000, sizeof(write_data), core);
+
+    // Read back from device via regular path.
     uint32_t readback[2] = {};
     device->read_data(readback, core, 0x1000, sizeof(readback));
-    printf("Write: 0x%08X 0x%08X\n", host[0], host[1]);
+    printf("Write: 0x%08X 0x%08X\n", write_data[0], write_data[1]);
     printf(
         "Read:  0x%08X 0x%08X  %s\n",
         readback[0],
         readback[1],
         (readback[0] == 0xDEADBEEF && readback[1] == 0xCAFEBABE) ? "PASS" : "FAIL");
 
-    // Zero-copy read back into a different host buffer.
-    auto read_buf = sysmem.allocate(sizeof(uint32_t));
+    // Zero-copy read: device -> host buffer.
+    auto read_buf = sysmem.allocate_buffer(sizeof(uint32_t));
     device->dma_read_zero_copy(read_buf->get_iova(), 0x1000, sizeof(uint32_t), core);
-    uint32_t zc_result = *static_cast<uint32_t *>(read_buf->get_ptr());
+    uint32_t zc_result = 0;
+    read_buf->read_from_sysmem(&zc_result, sizeof(zc_result), 0);
     printf("Zero-copy readback: 0x%08X  %s\n", zc_result, zc_result == 0xDEADBEEF ? "PASS" : "FAIL");
+
+    // Map user buffer with NOC binding.
+    uint32_t user_val = 0x1234;
+    auto mapped = sysmem.map_user_buffer(&user_val, sizeof(user_val), true);
+    printf("Mapped user buf IOVA: 0x%lx, NOC addr: 0x%lx\n", mapped->get_iova(), mapped->get_noc_address().value());
 
     // --- Regular I/O Round-Trip ---
     printf("\n--- Regular I/O ---\n");

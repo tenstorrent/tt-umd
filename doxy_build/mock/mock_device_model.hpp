@@ -6,7 +6,6 @@
 
 #include <cstdlib>
 #include <cstring>
-#include <functional>
 
 #include "system_memory.hpp"
 #include "tt_device.hpp"
@@ -45,34 +44,41 @@ public:
 
 // --- Mock System Memory ---
 
-class MockSystemMemoryBuffer : public SystemMemoryBuffer {
-    void *ptr_;
-    size_t size_;
-    std::function<void(void *)> deleter_;
-
-public:
-    explicit MockSystemMemoryBuffer(size_t size) :
-        ptr_(std::malloc(size)), size_(size), deleter_([](void *p) { std::free(p); }) {
-        std::memset(ptr_, 0, size);
-    }
-
-    ~MockSystemMemoryBuffer() override {
-        if (ptr_) {
-            deleter_(ptr_);
-        }
-    }
-
-    void *get_ptr() const override { return ptr_; }
-
-    uint64_t get_iova() const override { return reinterpret_cast<uint64_t>(ptr_); }
-
-    size_t get_size() const override { return size_; }
-};
-
 class MockSystemMemoryAllocator : public SystemMemoryAllocator {
 public:
-    std::unique_ptr<SystemMemoryBuffer> allocate(size_t size) override {
-        return std::make_unique<MockSystemMemoryBuffer>(size);
+    std::unique_ptr<SystemMemoryBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override {
+        void *ptr = std::malloc(size);
+        std::memset(ptr, 0, size);
+        uint64_t iova = reinterpret_cast<uint64_t>(ptr);
+
+        SystemMemoryBuffer::NocBinder binder = nullptr;
+        if (bind_to_noc) {
+            binder = [iova]() -> uint64_t { return iova + 0x20000000000ULL; };
+        }
+
+        auto buf = make_buffer(
+            ptr, size, iova, [](void *p) { std::free(p); }, std::move(binder));
+        if (bind_to_noc) {
+            buf->bind_noc_address();
+        }
+        return buf;
+    }
+
+    std::unique_ptr<SystemMemoryBuffer> map_user_buffer(
+        void *user_ptr, size_t size, bool bind_to_noc = false) override {
+        uint64_t iova = reinterpret_cast<uint64_t>(user_ptr);
+
+        SystemMemoryBuffer::NocBinder binder = nullptr;
+        if (bind_to_noc) {
+            binder = [iova]() -> uint64_t { return iova + 0x20000000000ULL; };
+        }
+
+        auto buf = make_buffer(
+            user_ptr, size, iova, [](void *) {}, std::move(binder));
+        if (bind_to_noc) {
+            buf->bind_noc_address();
+        }
+        return buf;
     }
 };
 

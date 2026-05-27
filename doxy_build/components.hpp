@@ -13,7 +13,6 @@
 #include "firmware_telemetry_reader.hpp"
 #include "hang_detector.hpp"
 #include "io_window.hpp"
-#include "io_window_factory.hpp"
 #include "jtag_interface.hpp"
 #include "pcie_interface.hpp"
 #include "remote_communication.hpp"

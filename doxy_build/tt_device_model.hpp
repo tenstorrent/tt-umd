@@ -11,6 +11,7 @@
 #include "firmware_info_provider.hpp"
 #include "firmware_telemetry_reader.hpp"
 #include "hang_detector.hpp"
+#include "io_window.hpp"
 
 namespace tt::umd {
 
@@ -23,6 +24,9 @@ public:
     virtual std::unique_ptr<DeviceProtocol> create_device_protocol() = 0;
     virtual std::unique_ptr<DeviceFirmware> create_device_firmware() = 0;
     virtual std::unique_ptr<ArchitectureImplementation> create_architecture_impl() = 0;
+    virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
+
+    virtual std::unique_ptr<DeviceController> create_device_controller() { return nullptr; }
 
     virtual std::unique_ptr<HangDetector> create_hang_detector() { return nullptr; }
 

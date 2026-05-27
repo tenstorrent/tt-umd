@@ -108,16 +108,19 @@ private:
 
     std::unique_ptr<TTDeviceModel> model_;
 
-    std::unique_ptr<DeviceProtocol> device_protocol_;
-    std::unique_ptr<DeviceFirmware> device_firmware_;
-    std::unique_ptr<HangDetector> hang_detector_;
-    std::unique_ptr<FirmwareTelemetryReader> firmware_telemetry_reader_;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider_;
-    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    // Mandatory.
+    std::unique_ptr<DeviceProtocol> device_protocol_ = nullptr;
+    std::unique_ptr<DeviceFirmware> device_firmware_ = nullptr;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_ = nullptr;
+
+    // Optional.
+    std::unique_ptr<DeviceController> device_controller_ = nullptr;
+    std::unique_ptr<HangDetector> hang_detector_ = nullptr;
+    std::unique_ptr<FirmwareTelemetryReader> firmware_telemetry_reader_ = nullptr;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider_ = nullptr;
 
     PcieInterface *pcie_interface_ = nullptr;
     DmaInterface *dma_interface_ = nullptr;
-    IoWindowFactory *io_window_factory_ = nullptr;
     JtagInterface *jtag_interface_ = nullptr;
     RemoteInterface *remote_interface_ = nullptr;
 

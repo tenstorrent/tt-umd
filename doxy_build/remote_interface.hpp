@@ -12,6 +12,7 @@ class RemoteInterface {
 public:
     virtual ~RemoteInterface() = default;
     virtual RemoteCommunication *get_remote_communication() = 0;
+    virtual void wait_for_non_mmio_flush() = 0;
 };
 
 }  // namespace tt::umd

@@ -111,6 +111,16 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     const std::chrono::milliseconds timeout_ms) {
     auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
 
+    // FIX YZ (#42429): If relay is broken, skip immediately instead of spinning
+    // in the ETH CMD queue wait for up to NON_MMIO_RW_TIMEOUT (30s).
+    // Mirrors the existing relay_broken_ guard in wait_for_non_mmio_flush().
+    if (relay_broken_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "FIX YZ: read_non_mmio skipped — relay already known broken (relay_broken_=true). "
+            "Would have blocked for 30s in ETH service CMD queue wait.");
+    }
+
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
 
@@ -364,6 +374,16 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     const std::chrono::milliseconds timeout_ms) {
     auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
     flush_non_mmio_ = true;
+
+    // FIX YZ (#42429): If relay is broken, skip immediately instead of spinning
+    // in the ETH CMD queue wait for up to NON_MMIO_RW_TIMEOUT (30s).
+    // Mirrors the existing relay_broken_ guard in wait_for_non_mmio_flush().
+    if (relay_broken_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "FIX YZ: write_to_non_mmio skipped — relay already known broken (relay_broken_=true). "
+            "Would have blocked for 30s in ETH service CMD queue wait.");
+    }
 
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);

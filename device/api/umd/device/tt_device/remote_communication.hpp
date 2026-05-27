@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -78,6 +79,13 @@ protected:
     int active_eth_core_idx = 0;
     bool flush_non_mmio_ = false;
     bool relay_broken_ = false;
+
+    // FIX XY (#42429): Per-relay-core Phase2 frozen-wr_req detection.
+    // If wr_req hasn't changed across N=3 consecutive Phase2 timeout cycles (~15s),
+    // the relay ERISC's NOC NIC is permanently stuck — declare relay broken and throw.
+    // Key: (core.x << 16 | core.y) — unique per tt_xy_pair.
+    std::unordered_map<uint32_t, uint32_t> phase2_last_wr_req_;   // last wr_req seen on timeout
+    std::unordered_map<uint32_t, int>      phase2_frozen_count_;  // consecutive frozen cycles
 
     TTDevice* local_tt_device_;
 

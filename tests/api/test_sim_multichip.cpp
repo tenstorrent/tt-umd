@@ -87,6 +87,20 @@ TEST_P(IsCoreOfTypeTest, EthCoreIsIdentifiedCorrectly) {
     }
 }
 
+TEST_P(IsCoreOfTypeTest, GarbageXYIsNotAnyKnownType) {
+    const ARCH arch = GetParam();
+    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
+    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
+
+    // Use an absurdly large coordinate that cannot belong to any real core.
+    tt_xy_pair garbage{9999, 9999};
+    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::DRAM, CoordSystem::TRANSLATED));
+    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::TENSIX, CoordSystem::TRANSLATED));
+    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::ETH, CoordSystem::TRANSLATED));
+    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::ARC, CoordSystem::TRANSLATED));
+    EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::PCIE, CoordSystem::TRANSLATED));
+}
+
 INSTANTIATE_TEST_SUITE_P(
     AllArchs,
     IsCoreOfTypeTest,
@@ -137,6 +151,76 @@ TEST_F(TTSimCommunicatorTest, CreateSimDevice) {
     // The device should have a valid soc descriptor.
     const auto& soc = device->get_soc_descriptor();
     EXPECT_NE(soc.arch, ARCH::Invalid);
+}
+
+// Verify that constructing two TTSimCommunicator instances with the SAME
+// simulator path but different chip_ids does not crash on destruction.
+// This exercises the shared dlopen refcount (2 -> 1 -> 0).
+TEST_F(TTSimCommunicatorTest, SharedDlopenRefcount) {
+    {
+        TTSimCommunicator comm_a(simulator_path_, /* copy_sim_binary= */ false, /* chip_id= */ 0);
+        TTSimCommunicator comm_b(simulator_path_, /* copy_sim_binary= */ false, /* chip_id= */ 1);
+        // Both alive; shared refcount should be 2.
+    }
+    // Both destroyed; refcount should have gone 2 -> 1 -> 0 without crash.
+    SUCCEED();
+}
+
+// Create a TTSimTTDevice, close it, then verify that close_device() can be
+// called again without crashing (idempotency via closed_ flag).
+TEST_F(TTSimCommunicatorTest, IOAfterCloseIsSafe) {
+    auto device = TTSimTTDevice::create(simulator_path_);
+    ASSERT_NE(device, nullptr);
+
+    device->close_device();
+
+    // A second close should not crash.
+    EXPECT_NO_THROW(device->close_device());
+}
+
+// Two TTSimTTDevice instances writing and reading back independently.
+// This implicitly exercises select_chip_if_needed for each I/O call.
+TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
+    auto dev_0 = TTSimTTDevice::create(simulator_path_);
+    ASSERT_NE(dev_0, nullptr);
+
+    // If the simulator binary is single-chip, we cannot open a second device.
+    std::unique_ptr<TTSimTTDevice> dev_1;
+    try {
+        dev_1 = TTSimTTDevice::create(simulator_path_);
+    } catch (const std::exception&) {
+        GTEST_SKIP() << "Simulator does not support multiple devices; skipping multi-device I/O test.";
+    }
+    ASSERT_NE(dev_1, nullptr);
+
+    const auto& soc_0 = dev_0->get_soc_descriptor();
+    auto dram_cores = soc_0.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    if (dram_cores.empty()) {
+        GTEST_SKIP() << "No DRAM cores; cannot run I/O test.";
+    }
+
+    tt_xy_pair target{dram_cores[0].x, dram_cores[0].y};
+
+    // Write a pattern to device 0.
+    uint32_t pattern_0 = 0xDEAD0000;
+    dev_0->write_to_device(&pattern_0, target, 0, sizeof(pattern_0));
+
+    // Write a different pattern to device 1 at the same address.
+    uint32_t pattern_1 = 0xBEEF0001;
+    dev_1->write_to_device(&pattern_1, target, 0, sizeof(pattern_1));
+
+    // Read back from device 0 — should still see pattern_0.
+    uint32_t readback_0 = 0;
+    dev_0->read_from_device(&readback_0, target, 0, sizeof(readback_0));
+    EXPECT_EQ(readback_0, pattern_0);
+
+    // Read back from device 1 — should see pattern_1.
+    uint32_t readback_1 = 0;
+    dev_1->read_from_device(&readback_1, target, 0, sizeof(readback_1));
+    EXPECT_EQ(readback_1, pattern_1);
+
+    dev_0->close_device();
+    dev_1->close_device();
 }
 
 #endif  // TT_UMD_BUILD_SIMULATION

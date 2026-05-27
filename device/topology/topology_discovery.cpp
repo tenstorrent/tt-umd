@@ -134,12 +134,14 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type, options.use_safe_api);
-        if (!options.low_power) {
+        if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
                 LogUMD,
-                "Low power mode is disabled while UMD holds open file descriptors. The device will return to low power "
-                "mode once all file descriptors are closed.");
+                "Low power mode is not yet supported. The device will remain in high power mode while UMD holds open "
+                "file descriptors.");
+        } else {
+            // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
             tt_device->set_power_state(true);
         }
         if (tt_device->get_arch() != get_topology_arch()) {

@@ -433,9 +433,8 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
 void Cluster::assert_risc_reset() {
-    // Raise reset signal for all cores. RiscType::ALL is the architecture-agnostic flag that each
-    // implementation maps to its own all-cores set (ALL_TENSIX for Tensix, ALL_NEO for NEO).
-
+    // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
+    // loop all chips and issues the reset separately.
     if (arch_name == tt::ARCH::QUASAR) {
         for (const auto& chip : all_chip_ids_) {
             get_chip(chip)->assert_risc_reset(RiscType::ALL);
@@ -443,14 +442,14 @@ void Cluster::assert_risc_reset() {
         return;
     }
 
-    uint32_t reset_reg_value = architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL);
+    uint32_t reset_reg_value =
+        architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
 void Cluster::deassert_risc_reset() {
-    // Lower the reset signal for the primary data-movement core only (BRISC on Tensix,
-    // DM0 on NEO), with staggered start enabled. The primary DM then brings up the others.
-
+    // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
+    // loop all chips and issues the reset separately.
     if (arch_name == tt::ARCH::QUASAR) {
         for (const auto& chip : all_chip_ids_) {
             get_chip(chip)->deassert_risc_reset(RiscType::ALL, false);

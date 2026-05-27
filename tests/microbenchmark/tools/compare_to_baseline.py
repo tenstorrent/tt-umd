@@ -12,8 +12,8 @@ Example:
 
     export UMD_MICROBENCHMARK_RESULTS_PATH=/tmp/umd-bench
     mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
-      ./build/test/umd/microbenchmark/umd_microbenchmark \\
-        --gtest_filter='MicrobenchmarkTLB.CompareMulticastandUnicast'
+    ./build/test/umd/microbenchmark/umd_microbenchmark \\
+        --gtest_filter='MicrobenchmarkOpenCluster.ClusterConstructor'
 
     python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'WH n150'
 

@@ -99,7 +99,7 @@ jobs:
   regression-check:
     secrets: inherit
     needs: run-benchmarks
-    if: ${{ !cancelled() && needs.run-benchmarks.result != 'skipped' }}
+    if: ${{ needs.run-benchmarks.result == 'success' }}
     permissions:
       contents: read
       packages: read

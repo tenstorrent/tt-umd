@@ -6,7 +6,7 @@
 #
 # Schema (no in-file arch label — the file is dedicated to one arch):
 #   <bench_title>:
-#     <case_name>: { median_throughput: <float>, tolerance_pct: <float>[, gate: true] }
+#     <case_name>: { median_value: <float>, tolerance_pct: <float>[, gate: true] }
 
 metadata:
   schema_version: 1
@@ -16,5 +16,5 @@ metadata:
   notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."
 
 ClusterConstructor:
-  default: { median_throughput: 248.7, tolerance_pct: 5 }
-  from sdesc: { median_throughput: 194.5, tolerance_pct: 5 }
+  default: { median_value: 248.7, tolerance_pct: 5 }
+  from sdesc: { median_value: 194.5, tolerance_pct: 5 }

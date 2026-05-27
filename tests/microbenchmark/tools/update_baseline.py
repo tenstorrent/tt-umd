@@ -5,7 +5,7 @@
 
 Reads `median(elapsed)` + `medianAbsolutePercentError(elapsed)` per case from
 each `<title>.json` in the supplied directory and writes:
-    median_throughput = batch / median(elapsed)
+    median_value = batch / median(elapsed)
     tolerance_pct     = max(5, ceil(MAPE_K * mape_pct))
 into the per-arch YAML under `tests/microbenchmark/expected/baselines/`.
 
@@ -100,19 +100,19 @@ def _yaml_escape(s: str) -> str:
 def derive_entry(
     median_elapsed: float, batch: float, mape_pct: float
 ) -> tuple[float, float]:
-    """Compute (median_throughput, tolerance_pct) from one nanobench result.
+    """Compute (median_value, tolerance_pct) from one nanobench result.
 
     `mape_pct` is the percent-of-median spread (already converted from
     nanobench's fraction form). Returns the entry that lands in the YAML.
     """
-    median_throughput = batch / median_elapsed
+    median_value = batch / median_elapsed
     tolerance_pct = max(TOLERANCE_FLOOR_PCT, math.ceil(MAPE_K * mape_pct))
-    return median_throughput, float(tolerance_pct)
+    return median_value, float(tolerance_pct)
 
 
 def collect_entries(results_dir: Path) -> dict:
     """Read every `<title>.json` in `results_dir` and return:
-    { title: { case_name: (median_throughput, tolerance_pct) } }
+    { title: { case_name: (median_value, tolerance_pct) } }
     """
     entries: dict = {}
     for path in sorted(results_dir.glob("*.json")):
@@ -166,7 +166,7 @@ def render_arch_yaml(
     Returns:
         (text, change_lines)
 
-    `new_entries` is { title: { case: (median_throughput, tolerance_pct) } } as
+    `new_entries` is { title: { case: (median_value, tolerance_pct) } } as
     produced by `collect_entries`.
 
     Every case in `new_entries` is written to the output. Cases present in
@@ -197,7 +197,7 @@ def render_arch_yaml(
     out.write("# Schema (no in-file arch label — the file is dedicated to one arch):\n")
     out.write(
         "#   <bench_title>:\n"
-        "#     <case_name>: { median_throughput: <float>, "
+        "#     <case_name>: { median_value: <float>, "
         "tolerance_pct: <float>[, gate: true] }\n"
     )
     out.write("\n")
@@ -246,25 +246,25 @@ def render_arch_yaml(
             gate_str = ", gate: true" if gate else ""
 
             if new is not None:
-                median_throughput, tolerance_pct = new
+                median_value, tolerance_pct = new
                 if existing_entry is not None:
-                    old_median = existing_entry.get("median_throughput")
+                    old_median = existing_entry.get("median_value")
                     old_tolerance = existing_entry.get("tolerance_pct")
                     if old_median is not None and old_tolerance is not None:
                         change_lines.append(
                             f"  {title} :: {case_name}: "
-                            f"median {old_median:.4g} -> {median_throughput:.4g}, "
+                            f"median {old_median:.4g} -> {median_value:.4g}, "
                             f"tolerance ±{old_tolerance:g}% -> ±{tolerance_pct:g}%"
                         )
                     else:
                         change_lines.append(
                             f"  {title} :: {case_name}: new entry "
-                            f"(median {median_throughput:.4g}, tolerance ±{tolerance_pct:g}%)"
+                            f"(median {median_value:.4g}, tolerance ±{tolerance_pct:g}%)"
                         )
                 else:
                     change_lines.append(
                         f"  {title} :: {case_name}: new entry "
-                        f"(median {median_throughput:.4g}, tolerance ±{tolerance_pct:g}%)"
+                        f"(median {median_value:.4g}, tolerance ±{tolerance_pct:g}%)"
                     )
                 suffix = ""
             else:
@@ -273,9 +273,9 @@ def render_arch_yaml(
                 # entries we just don't have fresh numbers for.
                 if existing_entry is None:
                     continue
-                median_throughput = existing_entry.get("median_throughput")
+                median_value = existing_entry.get("median_value")
                 tolerance_pct = existing_entry.get("tolerance_pct")
-                if median_throughput is None or tolerance_pct is None:
+                if median_value is None or tolerance_pct is None:
                     print(
                         f"WARN: {title}/{case_name}: no result and existing "
                         f"entry is incomplete; skipping.",
@@ -284,14 +284,14 @@ def render_arch_yaml(
                     continue
                 change_lines.append(
                     f"  {title} :: {case_name}: no result — "
-                    f"keeping existing median {median_throughput:.4g}, "
+                    f"keeping existing median {median_value:.4g}, "
                     f"tolerance ±{tolerance_pct:g}%"
                 )
                 suffix = "  # no new result this calibration"
 
             case_lines.append(
                 f"  {_yaml_escape(case_name)}: "
-                f"{{ median_throughput: {median_throughput:.4g}, "
+                f"{{ median_value: {median_value:.4g}, "
                 f"tolerance_pct: {tolerance_pct:g}{gate_str} }}{suffix}"
             )
         if case_lines:

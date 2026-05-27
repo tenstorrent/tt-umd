@@ -5,7 +5,7 @@
 
 Reads benchmark JSON artifacts produced by `run-benchmarks.yml` (one artifact
 directory per architecture, each containing nanobench JSONs) and compares each
-case's throughput against the stored `median_throughput` from the per-arch
+case's throughput against the stored `median_value` from the per-arch
 YAMLs in `tests/microbenchmark/expected/baselines/`. Emits markdown with:
 
   1. A coarse cross-arch table (one row per test, one column per arch),
@@ -25,11 +25,14 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from analyze_results import format_throughput  # noqa: E402
+
 # nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
 # Python's json parser rejects (it only accepts the capitalized `NaN`).
 _NAN_RE = re.compile(r"-?\bnan\b")
-
-import yaml
 
 # --- Arch label canonicalization -------------------------------------------------
 # Artifact names look like:
@@ -227,11 +230,6 @@ def render_detail_subtable(title: str, rows: list) -> str:
     `rows` is a list of (case_name, current_thr, baseline_thr, delta_pct,
     tolerance_pct, status, unit) tuples, presumed already sorted.
     """
-    # Local import of analyze_results to avoid a top-level dependency cycle
-    # (analyze_results pulls in pandas, which isn't needed for the loading path).
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from analyze_results import format_throughput
-
     lines = [f"**{title} ({len(rows)})**", ""]
     lines.append("| Case | Current | Baseline | Δ% | Tolerance | Status |")
     lines.append("|------|--------:|---------:|---:|----------:|:-------|")
@@ -362,7 +360,7 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
                 current_entry = arch_results[case_name]
                 current_thr = current_entry["throughput"]
                 unit = current_entry["unit"]
-                baseline_thr = baseline_entry["median_throughput"]
+                baseline_thr = baseline_entry["median_value"]
                 tolerance_pct = baseline_entry["tolerance_pct"]
                 status, dpct = classify(current_thr, baseline_thr, tolerance_pct)
                 row = (

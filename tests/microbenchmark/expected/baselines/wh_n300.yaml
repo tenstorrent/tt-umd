@@ -6,5 +6,5 @@
 #   calibrated_from_runs: 30
 
 # ClusterConstructor:
-#   default: { median_throughput: 41.16, tolerance_pct: 16 }
-#   from sdesc: { median_throughput: 36.76, tolerance_pct: 20 }
+#   default: { median_value: 41.16, tolerance_pct: 16 }
+#   from sdesc: { median_value: 36.76, tolerance_pct: 20 }

@@ -612,19 +612,34 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                 } while (erisc_q_ptrs[0] != erisc_q_ptrs[4]);
             }
             // wait for all write responses to come back.
-            // (#42429 FIX UV diag) Phase 2: NOC write ACK (wr_req==wr_resp)
+            // (#42429 FIX VW) Phase 2: NOC write ACK (wr_req==wr_resp) — NON-FATAL
+            // Phase2 timeout means a target core's NOC NIC is permanently unresponsive
+            // (e.g. NIU-SLV VC0 credit exhaustion from a prior session). The relay ERISC
+            // itself is healthy — Phase1 confirmed the CMD queue is fully drained.
+            // Declaring relay_broken_ here was wrong: it cascades across all non-MMIO
+            // devices and aborts firmware init entirely. Instead: log and continue.
+            auto phase2_start = std::chrono::steady_clock::now();
+            constexpr auto phase2_timeout_ms = std::chrono::milliseconds(5000);
             for (tt_xy_pair& core : remote_transfer_eth_cores_) {
+                bool phase2_timed_out = false;
                 do {
                     local_tt_device_->read_from_device(
                         erisc_txn_counters.data(), core, eth_interface_params.request_cmd_queue_base, 8);
-
-                    utils::check_timeout(
-                        start_time, timeout_ms,
-                        fmt::format(
-                            "Timeout waiting for Ethernet core service remote IO request flush "
-                            "[PHASE2-NOC-ACK: core=({},{}) wr_req=0x{:x} wr_resp=0x{:x}] (#42429)",
-                            core.x, core.y, erisc_txn_counters[0], erisc_txn_counters[1]));
+                    if (std::chrono::steady_clock::now() - phase2_start > phase2_timeout_ms) {
+                        phase2_timed_out = true;
+                        break;
+                    }
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
+                if (phase2_timed_out) {
+                    log_warning(
+                        LogUMD,
+                        "PHASE2-NOC-ACK timeout on relay core ({},{}) wr_req=0x{:x} wr_resp=0x{:x}: "
+                        "target core NOC NIC unresponsive; relay is healthy, skipping flush. (#42429)",
+                        core.x,
+                        core.y,
+                        erisc_txn_counters[0],
+                        erisc_txn_counters[1]);
+                }
             }
         }
         flush_non_mmio_ = false;

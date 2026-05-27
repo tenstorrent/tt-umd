@@ -4,7 +4,6 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
-#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
@@ -48,13 +47,6 @@ bool sim_dram_teleport_enabled() {
         return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
     }();
     return enabled;
-}
-
-bool is_translated_dram_core(const SocDescriptor& soc_descriptor, tt_xy_pair core) {
-    const auto& dram_cores = soc_descriptor.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
-    return std::any_of(dram_cores.begin(), dram_cores.end(), [&core](const auto& dram_core) {
-        return dram_core.x == core.x && dram_core.y == core.y;
-    });
 }
 
 }  // namespace
@@ -189,7 +181,7 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (sim_dram_teleport_enabled()) {
-        if (is_translated_dram_core(get_soc_descriptor(), core)) {
+        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
             if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
                 return;
             }
@@ -210,7 +202,7 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (sim_dram_teleport_enabled()) {
-        if (is_translated_dram_core(get_soc_descriptor(), core)) {
+        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
             if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
                 communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
             }

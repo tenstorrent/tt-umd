@@ -445,9 +445,9 @@ Cluster::Cluster(ClusterOptions options) {
         };
         // Reset the virtual switch once (singleton, process-global state).
         if (!chips_.empty()) {
-            ChipId c0 = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips()).front();
-            if (auto* c = get_comm(c0)) {
-                c->switch_reset();
+            ChipId first_chip_id = cluster_desc->get_chips_local_first(cluster_desc->get_all_chips()).front();
+            if (auto* first_chip_comm = get_comm(first_chip_id)) {
+                first_chip_comm->switch_reset();
             }
         }
         // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
@@ -461,18 +461,18 @@ Cluster::Cluster(ClusterOptions options) {
                 if (chip_a >= chip_b) {
                     continue;
                 }
-                auto* ca = get_comm(chip_a);
-                auto* cb = get_comm(chip_b);
-                if (!ca || !cb) {
+                auto* comm_a = get_comm(chip_a);
+                auto* comm_b = get_comm(chip_b);
+                if (!comm_a || !comm_b) {
                     continue;
                 }
                 uint64_t mac_a = eth_sim_mac(chip_a, chan_a);
                 uint64_t mac_b = eth_sim_mac(chip_b, chan_b);
-                ca->register_eth_endpoint(uint32_t(chan_a), mac_a);
-                cb->register_eth_endpoint(uint32_t(chan_b), mac_b);
+                comm_a->register_eth_endpoint(uint32_t(chan_a), mac_a);
+                comm_b->register_eth_endpoint(uint32_t(chan_b), mac_b);
                 // Wire bidirectional peer info for source-aware routing (BH BCAST/MCAST MAC).
-                ca->register_peer(uint32_t(chan_a), cb->get_dev_handle(), uint32_t(chan_b));
-                cb->register_peer(uint32_t(chan_b), ca->get_dev_handle(), uint32_t(chan_a));
+                comm_a->register_peer(uint32_t(chan_a), comm_b->get_dev_handle(), uint32_t(chan_b));
+                comm_b->register_peer(uint32_t(chan_b), comm_a->get_dev_handle(), uint32_t(chan_a));
                 log_info(
                     tt::LogEmulationDriver,
                     "TTSim eth: {}:ch{} mac={:#014x}  <->  {}:ch{} mac={:#014x}",

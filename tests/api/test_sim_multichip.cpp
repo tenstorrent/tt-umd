@@ -39,7 +39,7 @@ class IsCoreOfTypeTest : public ::testing::TestWithParam<ARCH> {};
 
 TEST_P(IsCoreOfTypeTest, DramCoreIsIdentifiedCorrectly) {
     const ARCH arch = GetParam();
-    const std::string sdesc_path = get_soc_descriptor_path(arch);
+    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
     SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
 
     // Every core returned by get_cores(DRAM, TRANSLATED) must satisfy is_core_of_type.
@@ -55,7 +55,7 @@ TEST_P(IsCoreOfTypeTest, DramCoreIsIdentifiedCorrectly) {
 
 TEST_P(IsCoreOfTypeTest, TensixCoreIsNotDram) {
     const ARCH arch = GetParam();
-    const std::string sdesc_path = get_soc_descriptor_path(arch);
+    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
     SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
 
     auto tensix_cores = soc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -72,7 +72,7 @@ TEST_P(IsCoreOfTypeTest, TensixCoreIsNotDram) {
 
 TEST_P(IsCoreOfTypeTest, EthCoreIsIdentifiedCorrectly) {
     const ARCH arch = GetParam();
-    const std::string sdesc_path = get_soc_descriptor_path(arch);
+    const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
     SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
 
     auto eth_cores = soc.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);

@@ -25,7 +25,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -163,33 +162,6 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
     // in the absence of an API reliably called from all spin loops polling the device
     communicator_->advance_clock(1);
-}
-
-void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
-        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-        uint32_t reset_value = uint32_t(soft_resets);
-        write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else if (libttsim_pci_device_id == TT_GRENDEL_PCI_DEVICE_ID) {
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-        uint64_t reset_value = uint64_t(soft_resets);
-        if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-            reset_value = 0xF0000;  // This is using old API, translate to QSR values
-        } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-            reset_value = 0xFFF00;  // This is using old API, translate to QSR values
-        }
-        write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else {
-        UMD_THROW(error::RuntimeError, "Missing implementation of reset for this chip.");
-    }
-}
-
-void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const tt_xy_pair core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
-    }
 }
 
 void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

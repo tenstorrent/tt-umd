@@ -51,7 +51,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -461,16 +460,6 @@ void Cluster::deassert_risc_reset() {
     uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
                                arch_impl->get_soft_reset_staggered_start();
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
-}
-
-void Cluster::deassert_risc_reset_at_core(
-    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
-}
-
-void Cluster::assert_risc_reset_at_core(
-    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
 }
 
 RiscType Cluster::get_risc_reset_state(const ChipId chip, const CoreCoord core) {

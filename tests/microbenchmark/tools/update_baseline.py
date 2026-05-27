@@ -131,8 +131,19 @@ def collect_entries(results_dir: Path) -> dict:
             batch = result.get("batch")
             if case is None or med is None or batch is None or med == 0 or batch == 0:
                 continue
+            if not (math.isfinite(med) and math.isfinite(batch)):
+                print(
+                    f"WARN: skipping {title}/{case}: non-finite median/batch",
+                    file=sys.stderr,
+                )
+                continue
             # nanobench stores MAPE as a fraction (0.03 == 3%); convert to %.
-            mape_pct = (result.get("medianAbsolutePercentError(elapsed)") or 0.0) * 100
+            raw_mape = result.get("medianAbsolutePercentError(elapsed)")
+            mape_pct = (
+                raw_mape * 100
+                if raw_mape is not None and math.isfinite(raw_mape)
+                else 0.0
+            )
             entries.setdefault(title, {})[case] = derive_entry(med, batch, mape_pct)
     return entries
 
@@ -141,8 +152,7 @@ def load_existing_arch_yaml(path: Path) -> dict:
     """Load a per-arch YAML if it exists; return {} otherwise."""
     if not path.exists():
         return {}
-    with open(path) as f:
-        return yaml.safe_load(f) or {}
+    return yaml.safe_load(path.read_text()) or {}
 
 
 def render_arch_yaml(

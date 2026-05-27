@@ -19,6 +19,7 @@ script is complementary, not a replacement.
 
 import argparse
 import json
+import math
 import re
 import sys
 from collections import defaultdict
@@ -87,6 +88,13 @@ def read_arch_results(json_dir: Path, arch_label: str = "(unknown)") -> dict:
             if med == 0 or batch == 0:
                 print(
                     f"WARN: skipping {arch_label}/{title}/{case}: med={med} batch={batch}",
+                    file=sys.stderr,
+                )
+                continue
+            if not (math.isfinite(med) and math.isfinite(batch)):
+                print(
+                    f"WARN: skipping {arch_label}/{title}/{case}: "
+                    f"non-finite med={med} batch={batch}",
                     file=sys.stderr,
                 )
                 continue

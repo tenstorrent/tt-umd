@@ -21,6 +21,7 @@
 
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/hugepage.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -32,9 +33,9 @@ namespace tt::umd {
 
 namespace {
 
-// Size of one host memory channel (1 GiB).  Matches the hugepage region size
-// used by SysmemManager and the channel stride in pci_dma_{read,write}_bytes.
-constexpr uint64_t kHostMemChannelSize = 1ULL << 30;
+// Channel stride matches the hugepage region size used by SysmemManager
+// and the pci_dma_{read,write}_bytes address layout.
+constexpr uint64_t kHostMemChannelSize = HUGEPAGE_REGION_SIZE;
 
 uint64_t align_up(uint64_t value, uint64_t alignment) { return (value + alignment - 1) & ~(alignment - 1); }
 
@@ -116,9 +117,19 @@ std::optional<SimulationSysmemManager::MappedBuffer> SimulationSysmemManager::fi
 }
 
 void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    // First check the mapped-buffer table: these are simulator-only synthetic
-    // IOVAs allocated by allocate_sysmem_buffer / map_sysmem_buffer, bypassing
-    // the hugepage channel layout.
+    // Two distinct backing stores exist in simulation:
+    //
+    //  1. Mapped-buffer table (allocate_sysmem_buffer / map_sysmem_buffer):
+    //     Synthetic IOVAs bump-allocated above the hugepage arena.  The device
+    //     address is pcie_base_ + mapped_base.  libttsim DMA callbacks arrive
+    //     with these addresses; we memcpy directly to/from the host pointer.
+    //
+    //  2. Hugepage arena (base class SysmemManager):
+    //     Traditional channel-stride layout backed by anonymous mmap.  Used for
+    //     DMA from firmware through the normal hugepage path.
+    //
+    // Check the mapped-buffer table first; if the address doesn't match, fall
+    // through to the base class for the hugepage path.
     const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_dest;
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
@@ -129,13 +140,11 @@ void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src,
         }
     }
 
-    // Fall through to the base class which handles the traditional
-    // hugepage/channel-based sysmem layout.
     SysmemManager::write_to_sysmem(channel, src, sysmem_dest, size);
 }
 
 void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    // Same two-path logic as write_to_sysmem: mapped buffers first, then base class.
+    // Same two-path logic as write_to_sysmem (see comment there).
     const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_src;
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);

@@ -631,14 +631,50 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                     }
                 } while (erisc_txn_counters[0] != erisc_txn_counters[1]);
                 if (phase2_timed_out) {
+                    uint32_t delta = erisc_txn_counters[0] - erisc_txn_counters[1];
+                    // AUDIT GAP-P1 (#42429): Read the last-queued CMD's sys_addr to identify the
+                    // stuck target core.  sys_addr encodes chip_y|chip_x|noc_y|noc_x|offset via
+                    // get_sys_addr().  We read the CMD slot at (wr_req-1) & mask — the most recent
+                    // write CMD that the relay forwarded but the target NOC NIC never ACKed.
+                    uint64_t stuck_sys_addr = 0;
+                    uint32_t stuck_noc_x = 0, stuck_noc_y = 0;
+                    try {
+                        uint32_t last_cmd_idx =
+                            (erisc_txn_counters[0] - 1) & eth_interface_params.cmd_buf_size_mask;
+                        uint32_t cmd_addr =
+                            eth_interface_params.request_routing_cmd_queue_base +
+                            (sizeof(routing_cmd_t) * last_cmd_idx);
+                        // Read just the 8-byte sys_addr field from the CMD slot.
+                        std::vector<uint32_t> cmd_sys_addr_buf(2);
+                        local_tt_device_->read_from_device(
+                            cmd_sys_addr_buf.data(), core, cmd_addr, 8);
+                        stuck_sys_addr =
+                            static_cast<uint64_t>(cmd_sys_addr_buf[1]) << 32 | cmd_sys_addr_buf[0];
+                        // Decode noc_x and noc_y from sys_addr:
+                        //   sys_addr = chip_y | chip_x | noc_y | noc_x | local_offset
+                        // noc_x is in bits [noc_addr_local_bits .. noc_addr_local_bits+node_id_bits-1]
+                        // noc_y is in bits [noc_addr_local_bits+node_id_bits .. +2*node_id_bits-1]
+                        auto noc_params = local_tt_device_->get_architecture_implementation()->get_noc_params();
+                        uint32_t node_mask = (1U << noc_params.noc_addr_node_id_bits) - 1;
+                        stuck_noc_x = (stuck_sys_addr >> noc_params.noc_addr_local_bits) & node_mask;
+                        stuck_noc_y = (stuck_sys_addr >> (noc_params.noc_addr_local_bits +
+                                                          noc_params.noc_addr_node_id_bits)) & node_mask;
+                    } catch (...) {
+                        // Best-effort: if read fails, we still log the basic counters.
+                    }
                     log_warning(
                         LogUMD,
-                        "PHASE2-NOC-ACK timeout on relay core ({},{}) wr_req=0x{:x} wr_resp=0x{:x}: "
+                        "PHASE2-NOC-ACK timeout on relay core ({},{}) wr_req=0x{:x} wr_resp=0x{:x} "
+                        "delta={} last_cmd_target_noc=({},{}) last_cmd_sys_addr=0x{:016x}: "
                         "target core NOC NIC unresponsive; relay is healthy, skipping flush. (#42429)",
                         core.x,
                         core.y,
                         erisc_txn_counters[0],
-                        erisc_txn_counters[1]);
+                        erisc_txn_counters[1],
+                        delta,
+                        stuck_noc_x,
+                        stuck_noc_y,
+                        stuck_sys_addr);
                 }
             }
         }

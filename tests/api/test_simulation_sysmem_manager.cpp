@@ -8,6 +8,7 @@
 #include <cstring>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
@@ -179,4 +180,50 @@ TEST(ApiSimulationSysmemManager, DestroyedBufferUnmapsCleanly) {
     // Allocating another buffer should succeed (no leaked state).
     auto buffer2 = sysmem->allocate_sysmem_buffer(4096);
     EXPECT_NE(buffer2, nullptr);
+}
+
+// Verify that concurrent allocations do not crash (tests the mutex on owned_allocations_).
+TEST(ApiSimulationSysmemManager, ConcurrentAllocateDoesNotCrash) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+
+    constexpr int kThreads = 4;
+    constexpr size_t kBufSize = 4096;
+    std::vector<std::unique_ptr<SysmemBuffer>> results(kThreads);
+    std::vector<std::thread> threads;
+    threads.reserve(kThreads);
+
+    for (int i = 0; i < kThreads; ++i) {
+        threads.emplace_back([&sysmem, &results, i]() { results[i] = sysmem->allocate_sysmem_buffer(kBufSize); });
+    }
+    for (auto& t : threads) {
+        t.join();
+    }
+
+    // Every allocation should have succeeded with a unique device address.
+    for (int i = 0; i < kThreads; ++i) {
+        ASSERT_NE(results[i], nullptr) << "Thread " << i << " got null buffer";
+        EXPECT_NE(results[i]->get_buffer_va(), nullptr);
+    }
+    for (int i = 0; i < kThreads; ++i) {
+        for (int j = i + 1; j < kThreads; ++j) {
+            EXPECT_NE(results[i]->get_device_io_addr(), results[j]->get_device_io_addr())
+                << "Buffers from threads " << i << " and " << j << " have same device addr";
+        }
+    }
+}
+
+// Destroy the SimulationSysmemManager while a SysmemBuffer still exists.
+// The buffer's unmap callback must not crash (weak_ptr / captured-reference safety).
+TEST(ApiSimulationSysmemManager, ManagerDestroyedBeforeBuffer) {
+    std::unique_ptr<SysmemBuffer> buffer;
+    {
+        auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+        buffer = sysmem->allocate_sysmem_buffer(4096);
+        ASSERT_NE(buffer, nullptr);
+        // sysmem is destroyed here.
+    }
+    // buffer goes out of scope — its unmap callback fires after the manager is gone.
+    // This must not crash.
+    buffer.reset();
+    SUCCEED();
 }

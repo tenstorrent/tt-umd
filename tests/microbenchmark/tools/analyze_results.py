@@ -13,22 +13,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-
-def format_throughput(throughput, unit):
-    """Format throughput with appropriate units (bytes/s, KB/s, MB/s, GB/s)"""
-    if unit and unit != "byte":
-        # If a specific unit is defined (and not "byte"), use it
-        return f"{throughput:.2f} {unit}/s"
-
-    # Otherwise use binary units (KiB, MiB, GiB)
-    if throughput >= 1024**3:
-        return f"{throughput / (1024**3):.2f} GiB/s"
-    elif throughput >= 1024**2:
-        return f"{throughput / (1024**2):.2f} MiB/s"
-    elif throughput >= 1024:
-        return f"{throughput / 1024:.2f} KiB/s"
-    else:
-        return f"{throughput:.2f} B/s"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from formatting import format_throughput  # noqa: E402
 
 
 def format_time(time_sec):

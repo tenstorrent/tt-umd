@@ -38,7 +38,7 @@ jobs:
           sparse-checkout: |
             tests/microbenchmark/expected/baselines/
             tests/microbenchmark/tools/summarize_regressions.py
-            tests/microbenchmark/tools/analyze_results.py
+            tests/microbenchmark/tools/formatting.py
           sparse-checkout-cone-mode: false
 
       # Container is Ubuntu 24.04 (PEP 668-enforced); install into a venv to
@@ -58,7 +58,7 @@ jobs:
       - name: Install python dependencies
         run: |
           . /tmp/venv/bin/activate
-          python3 -m pip install --no-cache-dir pandas psutil pyyaml tabulate
+          python3 -m pip install --no-cache-dir pyyaml
 
       - name: Download all benchmark JSON artifacts
         uses: actions/download-artifact@v8

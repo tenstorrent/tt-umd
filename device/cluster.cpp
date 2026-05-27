@@ -415,8 +415,8 @@ Cluster::Cluster(ClusterOptions options) {
 
 #ifdef TT_UMD_BUILD_SIMULATION
     // -------------------------------------------------------------------
-    // v3.5 eth-MAC wiring pre-pass.
-    // For SIMULATION ChipType with v3.5-aware libttsim, populate the virtual
+    // Multichip eth-MAC wiring pre-pass.
+    // For SIMULATION ChipType with multichip-aware libttsim, populate the virtual
     // switch routing table and pre-write peer DEST_MAC into each eth tile so
     // that firmware sees correctly wired neighbours at boot time.
     // -------------------------------------------------------------------
@@ -497,7 +497,7 @@ Cluster::Cluster(ClusterOptions options) {
 
 #ifdef TT_UMD_BUILD_SIMULATION
 // Passthroughs to libttsim_switch_register_fabric_* -- allow tt-metal fabric
-// init to wire mock multichip topologies under craq-sim v3.5.
+// init to wire mock multichip topologies under craq-sim.
 
 void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction) {
     auto it = chips_.find(chip_id);

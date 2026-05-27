@@ -22,11 +22,11 @@ public:
      *
      * @param simulator_directory Path to the simulator binary/directory
      * @param copy_sim_binary If true, copy the simulator binary to memory for
-     *   security AND the loaded .so doesn't support the v3.5 chip-id ABI. If
-     *   the .so exports libttsim_create_device_by_id, v3.5 shared-library
+     *   security AND the loaded .so doesn't support the multichip ABI. If
+     *   the .so exports libttsim_create_device_by_id, multichip shared-library
      *   mode is auto-enabled at initialize() time, ignoring this flag.
      * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
-     *   in v3.5 multichip mode (per docs/v3_5_umd_patch_sketch.md). Default 0
+     *   in multichip mode. Default 0
      *   for legacy single-chip consumers.
      */
     TTSimCommunicator(
@@ -130,7 +130,7 @@ public:
 
     void start_sim();
 
-    // v3.5 eth-MAC wiring: returns the libttsim Device* handle for peer registration.
+    // Multichip eth-MAC wiring: returns the libttsim Device* handle for peer registration.
     void *get_dev_handle() const { return dev_handle_; }
 
     void switch_reset();
@@ -142,6 +142,7 @@ public:
 
     // Mark device as closed; further I/O calls become no-ops.
     void mark_closed() { closed_ = true; }
+
     bool is_closed() const { return closed_; }
 
 private:
@@ -152,6 +153,9 @@ private:
     void secure_simulator_binary();
     void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path &path);
+
+    // In multichip mode, selects this communicator's chip before an I/O call.
+    void select_chip_if_needed();
 
     // Dynamic library handle.
     void *libttsim_handle_ = nullptr;
@@ -166,9 +170,9 @@ private:
     bool copy_sim_binary_;
 
     // --------------------------------------------------------------------------
-    // v3.5 multichip model
+    // Multichip model
     //
-    // When the loaded libttsim.so exports the v3.5 ABI (libttsim_create_device_by_id,
+    // When the loaded libttsim.so exports the multichip ABI (libttsim_create_device_by_id,
     // libttsim_select_device_by_id, etc.), all TTSimCommunicators in the process
     // share a single dlopen of the .so via s_shared_handle_ (refcounted by
     // s_shared_refcount_).  This gives them a common process-global state: the
@@ -183,9 +187,9 @@ private:
     // at boot time.  See the #ifdef TT_UMD_BUILD_SIMULATION block there.
     // --------------------------------------------------------------------------
 
-    // True when the loaded .so supports the v3.5 multichip ABI and this
+    // True when the loaded .so supports the multichip ABI and this
     // communicator is using the shared dlopen path.
-    bool v3_5_multichip_mode_ = false;
+    bool multichip_mode_ = false;
     uint32_t chip_id_ = 0;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
@@ -213,12 +217,12 @@ private:
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
 
-    // v3.5 multi-chip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
+    // Multichip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
     void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
     void (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
     void (*pfn_libttsim_clock_all_devices_)(uint32_t n_cycles) = nullptr;
 
-    // v3.5 eth-MAC wiring function pointers.
+    // Multichip eth-MAC wiring function pointers.
     void *dev_handle_ = nullptr;
     void (*pfn_libttsim_switch_reset_)() = nullptr;
     void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
@@ -243,7 +247,7 @@ private:
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
 
-    // Thread safety. In v3.5 shared-dlopen mode, libttsim_select_device_by_id()
+    // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all
     // communicators because the active device selector is process-global.
     // NOTE: Also serializes legacy single-chip mode -- multiple independent legacy

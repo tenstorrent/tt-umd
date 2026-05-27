@@ -35,12 +35,25 @@ using namespace tt::umd;
 // SocDescriptor::is_core_of_type
 // ---------------------------------------------------------------------------
 
+// Return a ChipInfo that satisfies per-arch harvesting constraints so that
+// SocDescriptor construction does not throw.
+//
+// Blackhole: BlackholeCoordinateManager requires exactly 2 or NUM_ETH_CHANNELS
+// ETH cores harvested on a full grid.  Use the minimal valid case (2 channels).
+static ChipInfo make_valid_chip_info(ARCH arch) {
+    ChipInfo info{};
+    if (arch == ARCH::BLACKHOLE) {
+        info.harvesting_masks.eth_harvesting_mask = 0x3;  // harvest channels 0 & 1
+    }
+    return info;
+}
+
 class IsCoreOfTypeTest : public ::testing::TestWithParam<ARCH> {};
 
 TEST_P(IsCoreOfTypeTest, DramCoreIsIdentifiedCorrectly) {
     const ARCH arch = GetParam();
     const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
+    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
 
     // Every core returned by get_cores(DRAM, TRANSLATED) must satisfy is_core_of_type.
     auto dram_cores = soc.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
@@ -56,7 +69,7 @@ TEST_P(IsCoreOfTypeTest, DramCoreIsIdentifiedCorrectly) {
 TEST_P(IsCoreOfTypeTest, TensixCoreIsNotDram) {
     const ARCH arch = GetParam();
     const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
+    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
 
     auto tensix_cores = soc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
     if (tensix_cores.empty()) {
@@ -73,7 +86,7 @@ TEST_P(IsCoreOfTypeTest, TensixCoreIsNotDram) {
 TEST_P(IsCoreOfTypeTest, EthCoreIsIdentifiedCorrectly) {
     const ARCH arch = GetParam();
     const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
+    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
 
     auto eth_cores = soc.get_cores(CoreType::ETH, CoordSystem::TRANSLATED);
     if (eth_cores.empty()) {
@@ -90,7 +103,7 @@ TEST_P(IsCoreOfTypeTest, EthCoreIsIdentifiedCorrectly) {
 TEST_P(IsCoreOfTypeTest, GarbageXYIsNotAnyKnownType) {
     const ARCH arch = GetParam();
     const std::string sdesc_path = test_utils::get_soc_descriptor_path(arch);
-    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path));
+    SocDescriptor soc(std::make_shared<SocArchDescriptor>(sdesc_path), make_valid_chip_info(arch));
 
     // Use an absurdly large coordinate that cannot belong to any real core.
     tt_xy_pair garbage{9999, 9999};

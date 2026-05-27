@@ -69,7 +69,16 @@ public:
     // When set, wait_for_non_mmio_flush() returns immediately instead of polling dead
     // ERISC CMD queues for up to 5 seconds.
     void set_relay_broken() { relay_broken_ = true; }
-    void clear_relay_broken() { relay_broken_ = false; }
+    void clear_relay_broken() {
+        relay_broken_ = false;
+        // AUDIT GAP-A (#42429): Also clear FIX XY frozen-detection state.
+        // Without this, stale phase2_last_wr_req_ entries from a prior broken-relay
+        // session could cause false-positive "PERMANENTLY FROZEN" detection after
+        // relay recovery (e.g. FIX XY-2 clears relay_broken after ERISC force-reset,
+        // but FIX XY maps still hold the old wr_req values).
+        phase2_last_wr_req_.clear();
+        phase2_frozen_count_.clear();
+    }
     bool is_relay_broken() const { return relay_broken_; }
 
 protected:

@@ -21,7 +21,7 @@
 
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/hugepage.hpp"
+#include "hugepage.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
 

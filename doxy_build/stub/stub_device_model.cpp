@@ -35,30 +35,27 @@ class StubDeviceFirmware : public DeviceFirmware {
 public:
     void wait_firmware_startup(std::chrono::milliseconds) override {}
 
-    std::chrono::milliseconds wait_eth_core_training(CoreCoord, std::chrono::milliseconds t) override { return t; }
-
-    void wait_dram_channel_training(uint32_t, std::chrono::milliseconds) override {}
-
-    void wait_for_non_mmio_flush() override {}
-
     DeviceCommandResult send_device_command(
         uint32_t, const std::vector<uint32_t> &, std::chrono::milliseconds) override {
         return {};
     }
 
-    EthTrainingStatus read_eth_core_training_status(CoreCoord) override { return EthTrainingStatus::NOT_CONNECTED; }
-
-    ChipInfo get_chip_info() override { return {}; }
-
-    FirmwareBundleVersion get_firmware_version() override { return {}; }
-
-    uint32_t get_clock_freq() override { return 0; }
-
     bool get_noc_translation_enabled() override { return false; }
 
-    tt_xy_pair get_arc_core() const override { return {0, 0}; }
+    tt_xy_pair get_firmware_noc_coord() const override { return {0, 0}; }
 
     void set_power_state(uint32_t) override {}
+};
+
+class StubDeviceController : public DeviceController {
+public:
+    ChipInfo get_chip_info() override { return {}; }
+
+    std::chrono::milliseconds wait_eth_core_training(CoreCoord, std::chrono::milliseconds t) override { return t; }
+
+    void wait_dram_channel_training(uint32_t, std::chrono::milliseconds) override {}
+
+    EthTrainingStatus get_eth_core_training_status(CoreCoord) override { return EthTrainingStatus::NOT_CONNECTED; }
 
     void set_clock_state(uint32_t) override {}
 };
@@ -96,6 +93,14 @@ std::unique_ptr<DeviceFirmware> StubDeviceModel::create_device_firmware() {
 
 std::unique_ptr<ArchitectureImplementation> StubDeviceModel::create_architecture_impl() {
     return std::make_unique<StubArchImpl>();
+}
+
+std::unique_ptr<IoWindow> StubDeviceModel::create_io_window(TargetIoWindowConfig, HostIoWindowConfig) {
+    return nullptr;
+}
+
+std::unique_ptr<DeviceController> StubDeviceModel::create_device_controller() {
+    return std::make_unique<StubDeviceController>();
 }
 
 }  // namespace tt::umd

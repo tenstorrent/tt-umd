@@ -146,30 +146,27 @@ class MockDeviceFirmware : public DeviceFirmware {
 public:
     void wait_firmware_startup(std::chrono::milliseconds) override {}
 
-    std::chrono::milliseconds wait_eth_core_training(CoreCoord, std::chrono::milliseconds t) override { return t; }
-
-    void wait_dram_channel_training(uint32_t, std::chrono::milliseconds) override {}
-
-    void wait_for_non_mmio_flush() override {}
-
     DeviceCommandResult send_device_command(
         uint32_t, const std::vector<uint32_t> &, std::chrono::milliseconds) override {
         return {0, {0x42}};
     }
 
-    EthTrainingStatus read_eth_core_training_status(CoreCoord) override { return EthTrainingStatus::TRAINED; }
-
-    ChipInfo get_chip_info() override { return {true, 0xAA5500000001ULL, BoardType::P150, 0, {0, 0, 0}}; }
-
-    FirmwareBundleVersion get_firmware_version() override { return {6, 12, 0}; }
-
-    uint32_t get_clock_freq() override { return 1000; }
-
     bool get_noc_translation_enabled() override { return true; }
 
-    tt_xy_pair get_arc_core() const override { return {8, 0}; }
+    tt_xy_pair get_firmware_noc_coord() const override { return {8, 0}; }
 
     void set_power_state(uint32_t) override {}
+};
+
+class MockDeviceController : public DeviceController {
+public:
+    ChipInfo get_chip_info() override { return {true, 0xAA5500000001ULL, BoardType::P150, 0, {0, 0, 0}}; }
+
+    std::chrono::milliseconds wait_eth_core_training(CoreCoord, std::chrono::milliseconds t) override { return t; }
+
+    void wait_dram_channel_training(uint32_t, std::chrono::milliseconds) override {}
+
+    EthTrainingStatus get_eth_core_training_status(CoreCoord) override { return EthTrainingStatus::TRAINED; }
 
     void set_clock_state(uint32_t) override {}
 };
@@ -246,6 +243,10 @@ public:
 
     std::optional<uint32_t> get_aiclk() const override { return 1000; }
 
+    uint32_t get_clock_freq() override { return 1000; }
+
+    std::optional<uint32_t> get_min_clock_freq() const override { return 200; }
+
     std::optional<uint32_t> get_max_clock_freq() const override { return 1200; }
 
     FirmwareBundleVersion get_firmware_version() const override { return {6, 12, 0}; }
@@ -267,6 +268,12 @@ std::unique_ptr<DeviceFirmware> MockPcieModel::create_device_firmware() {
 
 std::unique_ptr<ArchitectureImplementation> MockPcieModel::create_architecture_impl() {
     return std::make_unique<MockArchImpl>();
+}
+
+std::unique_ptr<IoWindow> MockPcieModel::create_io_window(TargetIoWindowConfig, HostIoWindowConfig) { return nullptr; }
+
+std::unique_ptr<DeviceController> MockPcieModel::create_device_controller() {
+    return std::make_unique<MockDeviceController>();
 }
 
 std::unique_ptr<HangDetector> MockPcieModel::create_hang_detector() { return std::make_unique<MockHangDetector>(); }
@@ -293,6 +300,12 @@ std::unique_ptr<DeviceFirmware> MockJtagModel::create_device_firmware() {
 
 std::unique_ptr<ArchitectureImplementation> MockJtagModel::create_architecture_impl() {
     return std::make_unique<MockArchImpl>();
+}
+
+std::unique_ptr<IoWindow> MockJtagModel::create_io_window(TargetIoWindowConfig, HostIoWindowConfig) { return nullptr; }
+
+std::unique_ptr<DeviceController> MockJtagModel::create_device_controller() {
+    return std::make_unique<MockDeviceController>();
 }
 
 // --- Factory ---

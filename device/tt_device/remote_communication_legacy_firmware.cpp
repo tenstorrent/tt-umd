@@ -685,27 +685,29 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                     }
 
                     // FIX XY (#42429): Detect permanently frozen relay NOC NIC.
-                    // wr_req frozen across N=3 consecutive Phase2 timeout cycles (~15s) means
-                    // the relay ERISC can't even enqueue new writes — its NOC NIC is stuck at the
-                    // hardware level (e.g. NIU-SLV VC0 credit exhaustion from a prior session).
-                    // This is distinct from delta>0 with wr_req advancing (slow but progressing,
-                    // handled non-fatally by FIX VW). Permanently frozen wr_req = no forward
-                    // progress is possible; abort immediately rather than waste 120s.
+                    // Track wr_resp (not wr_req) across N=3 consecutive Phase2 timeout cycles (~15s).
+                    // On degraded hardware the relay ERISC may keep enqueuing new CMDs (wr_req++),
+                    // but if wr_resp never advances, no ACKs are being received — the stuck NOC
+                    // write is permanent (e.g. NIU-SLV VC0 credit exhaustion from a prior session).
+                    // Tracking wr_req would reset the counter whenever wr_req changes, even as the
+                    // underlying stuck write remains unACKed. wr_resp is authoritative: zero movement
+                    // while delta>0 = no forward progress possible; abort immediately.
                     constexpr int kFrozenThreshold = 3;
                     uint32_t core_key = (static_cast<uint32_t>(core.x) << 16) | static_cast<uint32_t>(core.y);
                     uint32_t cur_wr_req = erisc_txn_counters[0];
-                    auto it = phase2_last_wr_req_.find(core_key);
-                    if (it != phase2_last_wr_req_.end() && it->second == cur_wr_req && delta > 0) {
-                        // wr_req unchanged since last timeout cycle — increment frozen counter
+                    uint32_t cur_wr_resp = erisc_txn_counters[1];
+                    auto it = phase2_last_wr_resp_.find(core_key);
+                    if (it != phase2_last_wr_resp_.end() && it->second == cur_wr_resp && delta > 0) {
+                        // wr_resp unchanged since last timeout cycle — no ACK progress, increment frozen counter
                         int& frozen = phase2_frozen_count_[core_key];
                         frozen++;
                         log_warning(
                             LogUMD,
                             "PHASE2-NOC-ACK timeout on relay ({},{}) wr_req=0x{:x} wr_resp=0x{:x} "
                             "delta={} last_cmd_target_noc=({},{}) last_cmd_sys_addr=0x{:016x}: "
-                            "wr_req FROZEN ({}/{} cycles). (#42429)",
+                            "wr_resp FROZEN ({}/{} cycles). (#42429)",
                             core.x, core.y,
-                            cur_wr_req, erisc_txn_counters[1],
+                            cur_wr_req, cur_wr_resp,
                             delta, stuck_noc_x, stuck_noc_y, stuck_sys_addr,
                             frozen, kFrozenThreshold);
                         if (frozen >= kFrozenThreshold) {
@@ -714,28 +716,28 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
                             throw std::runtime_error(fmt::format(
                                 "PHASE2-NOC-ACK PERMANENTLY FROZEN on relay core ({},{}) "
                                 "wr_req=0x{:x} wr_resp=0x{:x} delta={} — "
-                                "relay NOC NIC stuck for {}x5s cycles (hardware degradation). "
+                                "wr_resp frozen for {}x5s cycles (no ACK progress, hardware degradation). "
                                 "Declaring relay broken. (#42429)",
-                                core.x, core.y, cur_wr_req, erisc_txn_counters[1], delta, frozen));
+                                core.x, core.y, cur_wr_req, cur_wr_resp, delta, frozen));
                         }
                     } else {
-                        // wr_req changed (or first timeout) — reset frozen counter
+                        // wr_resp changed (or first timeout) — ACK progress made, reset frozen counter
                         phase2_frozen_count_[core_key] = 0;
-                        phase2_last_wr_req_[core_key] = cur_wr_req;
+                        phase2_last_wr_resp_[core_key] = cur_wr_resp;
                         log_warning(
                             LogUMD,
                             "PHASE2-NOC-ACK timeout on relay core ({},{}) wr_req=0x{:x} wr_resp=0x{:x} "
                             "delta={} last_cmd_target_noc=({},{}) last_cmd_sys_addr=0x{:016x}: "
                             "target core NOC NIC unresponsive; relay is healthy, skipping flush. (#42429)",
                             core.x, core.y,
-                            cur_wr_req, erisc_txn_counters[1],
+                            cur_wr_req, cur_wr_resp,
                             delta, stuck_noc_x, stuck_noc_y, stuck_sys_addr);
                     }
                 } else {
                     // Phase2 succeeded (no timeout) — clear any frozen-cycle state for this core
                     uint32_t core_key = (static_cast<uint32_t>(core.x) << 16) | static_cast<uint32_t>(core.y);
                     phase2_frozen_count_[core_key] = 0;
-                    phase2_last_wr_req_.erase(core_key);
+                    phase2_last_wr_resp_.erase(core_key);
                 }
             }
         }

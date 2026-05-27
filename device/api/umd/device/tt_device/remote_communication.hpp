@@ -72,11 +72,11 @@ public:
     void clear_relay_broken() {
         relay_broken_ = false;
         // AUDIT GAP-A (#42429): Also clear FIX XY frozen-detection state.
-        // Without this, stale phase2_last_wr_req_ entries from a prior broken-relay
+        // Without this, stale phase2_last_wr_resp_ entries from a prior broken-relay
         // session could cause false-positive "PERMANENTLY FROZEN" detection after
         // relay recovery (e.g. FIX XY-2 clears relay_broken after ERISC force-reset,
-        // but FIX XY maps still hold the old wr_req values).
-        phase2_last_wr_req_.clear();
+        // but FIX XY maps still hold the old wr_resp values).
+        phase2_last_wr_resp_.clear();
         phase2_frozen_count_.clear();
     }
     bool is_relay_broken() const { return relay_broken_; }
@@ -89,11 +89,14 @@ protected:
     bool flush_non_mmio_ = false;
     bool relay_broken_ = false;
 
-    // FIX XY (#42429): Per-relay-core Phase2 frozen-wr_req detection.
-    // If wr_req hasn't changed across N=3 consecutive Phase2 timeout cycles (~15s),
-    // the relay ERISC's NOC NIC is permanently stuck — declare relay broken and throw.
+    // FIX XY (#42429): Per-relay-core Phase2 frozen-wr_resp detection.
+    // If wr_resp hasn't changed across N=3 consecutive Phase2 timeout cycles (~15s)
+    // while delta>0, no NOC ACKs are being received — the stuck write is permanent.
+    // Tracking wr_resp (not wr_req): the relay ERISC may keep enqueuing new CMDs
+    // (incrementing wr_req) even as old writes remain unACKed, which would reset the
+    // wr_req-based counter. wr_resp is authoritative: zero movement = no ACK progress.
     // Key: (core.x << 16 | core.y) — unique per tt_xy_pair.
-    std::unordered_map<uint32_t, uint32_t> phase2_last_wr_req_;   // last wr_req seen on timeout
+    std::unordered_map<uint32_t, uint32_t> phase2_last_wr_resp_;  // last wr_resp seen on timeout
     std::unordered_map<uint32_t, int>      phase2_frozen_count_;  // consecutive frozen cycles
 
     TTDevice* local_tt_device_;

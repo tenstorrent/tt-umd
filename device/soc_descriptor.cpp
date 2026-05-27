@@ -426,9 +426,9 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
     return translated_cores;
 }
 
-bool SocDescriptor::is_core_of_type(const tt_xy_pair& core, CoreType core_type, CoordSystem coord_system) const {
-    const auto& cores = get_cores(core_type, coord_system);
-    return std::any_of(cores.begin(), cores.end(), [&core](const auto& c) { return c.x == core.x && c.y == core.y; });
+bool SocDescriptor::is_core_of_type(const tt_xy_pair &core, CoreType core_type, CoordSystem coord_system) const {
+    const auto &cores = get_cores(core_type, coord_system);
+    return std::any_of(cores.begin(), cores.end(), [&core](const auto &c) { return c.x == core.x && c.y == core.y; });
 }
 
 std::vector<CoreCoord> SocDescriptor::get_cores(

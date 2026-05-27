@@ -324,6 +324,10 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 Cluster::Cluster(ClusterOptions options) {
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
     log_info(LogUMD, "Cluster constructor started.");
+    // Store options early so that options_ is populated if the constructor throws.
+    // A second assignment at the end captures any mutations made during construction
+    // (sdesc_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
+    options_ = options;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
@@ -488,9 +492,8 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
-    // Move options_ after construct_cluster. The destructor does not read options_,
-    // so if the constructor throws between here and the end, the default-initialized
-    // options_ is harmless.
+    // Overwrite with the final (possibly mutated) options: sdesc_path may have been
+    // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
     options_ = std::move(options);
     log_info(LogUMD, "Cluster constructor completed.");
 }

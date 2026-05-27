@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <utility>
@@ -47,16 +48,22 @@ private:
         size_t size = 0;
     };
 
-    // Caller must hold mapped_buffers_mutex_.
+    // Shared registry of active mapped-buffer entries.  Held by shared_ptr so
+    // that SysmemBuffer unmap callbacks can capture a weak_ptr and safely
+    // become no-ops when the manager is destroyed before the buffer.
+    struct MappedBufferRegistry {
+        std::mutex mutex;
+        std::vector<MappedBuffer> buffers;
+        uint64_t next_base = 0;
+    };
+
+    // Caller must hold registry_->mutex.
     std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t base, uint32_t size);
-    void remove_mapped_buffer(uint64_t base);
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
-    uint64_t next_mapped_buffer_base_ = 0;
-    std::vector<MappedBuffer> mapped_buffers_;
     std::vector<std::pair<void*, size_t>> owned_allocations_;
-    std::mutex mapped_buffers_mutex_;
+    std::shared_ptr<MappedBufferRegistry> registry_;
 };
 
 }  // namespace tt::umd

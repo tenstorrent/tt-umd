@@ -42,6 +42,7 @@ uint64_t align_up(uint64_t value, uint64_t alignment) { return (value + alignmen
 
 SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch) {
     pcie_base_ = get_pcie_base_for_arch(arch);
+    registry_ = std::make_shared<MappedBufferRegistry>();
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
 
@@ -70,7 +71,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     UMD_ASSERT(system_memory_ != MAP_FAILED, error::RuntimeError, "system_memory mmap() failed");
     madvise(system_memory_, total_size, MADV_HUGEPAGE);
     system_memory_size_ = total_size;
-    next_mapped_buffer_base_ = total_size;
+    registry_->next_base = total_size;
 
     for (int i = 0; i < num_host_mem_channels; i++) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
@@ -88,8 +89,8 @@ SimulationSysmemManager::~SimulationSysmemManager() { SimulationSysmemManager::u
 void SimulationSysmemManager::unpin_or_unmap_sysmem() {
     ZoneScopedC(tracy::Color::Yellow);
     {
-        std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
-        mapped_buffers_.clear();
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        registry_->buffers.clear();
     }
     for (const auto& [allocation, allocation_size] : owned_allocations_) {
         munmap(allocation, allocation_size);
@@ -105,23 +106,13 @@ void SimulationSysmemManager::unpin_or_unmap_sysmem() {
 
 std::optional<SimulationSysmemManager::MappedBuffer> SimulationSysmemManager::find_mapped_buffer_locked(
     uint64_t base, uint32_t size) {
-    // Caller must hold mapped_buffers_mutex_.
-    for (const auto& mapped_buffer : mapped_buffers_) {
+    // Caller must hold registry_->mutex.
+    for (const auto& mapped_buffer : registry_->buffers) {
         if (base >= mapped_buffer.base && base + size <= mapped_buffer.base + mapped_buffer.size) {
             return mapped_buffer;
         }
     }
     return std::nullopt;
-}
-
-void SimulationSysmemManager::remove_mapped_buffer(uint64_t base) {
-    std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
-    mapped_buffers_.erase(
-        std::remove_if(
-            mapped_buffers_.begin(),
-            mapped_buffers_.end(),
-            [base](const MappedBuffer& mapped_buffer) { return mapped_buffer.base == base; }),
-        mapped_buffers_.end());
 }
 
 void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
@@ -130,7 +121,7 @@ void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src,
     // the hugepage channel layout.
     const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_dest;
     {
-        std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
+        std::lock_guard<std::mutex> lock(registry_->mutex);
         auto mapped_buffer = find_mapped_buffer_locked(base, size);
         if (mapped_buffer.has_value()) {
             std::memcpy(static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), src, size);
@@ -147,7 +138,7 @@ void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uin
     // Same two-path logic as write_to_sysmem: mapped buffers first, then base class.
     const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_src;
     {
-        std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
+        std::lock_guard<std::mutex> lock(registry_->mutex);
         auto mapped_buffer = find_mapped_buffer_locked(base, size);
         if (mapped_buffer.has_value()) {
             std::memcpy(dest, static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), size);
@@ -164,7 +155,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
     {
-        std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
+        std::lock_guard<std::mutex> lock(registry_->mutex);
         owned_allocations_.push_back({mapping, sysmem_buffer_size});
     }
     return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
@@ -177,22 +168,33 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
 
     uint64_t mapped_base = 0;
     {
-        std::lock_guard<std::mutex> lock(mapped_buffers_mutex_);
-        mapped_base = align_up(next_mapped_buffer_base_, page_size);
-        next_mapped_buffer_base_ = mapped_base + mapped_size;
-        mapped_buffers_.push_back({mapped_base, buffer, sysmem_buffer_size});
+        std::lock_guard<std::mutex> lock(registry_->mutex);
+        mapped_base = align_up(registry_->next_base, page_size);
+        registry_->next_base = mapped_base + mapped_size;
+        registry_->buffers.push_back({mapped_base, buffer, sysmem_buffer_size});
     }
 
     const uint64_t device_io_addr = pcie_base_ + mapped_base;
     std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
 
-    // The unmap callback removes the mapped buffer entry. It captures
-    // `this` which is safe as long as the manager outlives all SysmemBuffers.
-    // TODO: Use a shared registry (weak_ptr pattern) if buffer lifetime can
-    // exceed manager lifetime.
-    return std::make_unique<SysmemBuffer>(buffer, sysmem_buffer_size, device_io_addr, noc_addr, [this, mapped_base]() {
-        remove_mapped_buffer(mapped_base);
-    });
+    // Capture a weak_ptr so the callback is a safe no-op if the manager has
+    // already been destroyed (unpin_or_unmap_sysmem clears registry_->buffers,
+    // so the erase would race with a no-op even on the happy path).
+    std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
+    return std::make_unique<SysmemBuffer>(
+        buffer, sysmem_buffer_size, device_io_addr, noc_addr, [weak_reg, mapped_base]() {
+            if (auto reg = weak_reg.lock()) {
+                std::lock_guard<std::mutex> lock(reg->mutex);
+                reg->buffers.erase(
+                    std::remove_if(
+                        reg->buffers.begin(),
+                        reg->buffers.end(),
+                        [mapped_base](const SimulationSysmemManager::MappedBuffer& b) {
+                            return b.base == mapped_base;
+                        }),
+                    reg->buffers.end());
+            }
+        });
 }
 
 }  // namespace tt::umd

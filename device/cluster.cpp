@@ -435,12 +435,14 @@ std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_id
 void Cluster::assert_risc_reset() {
     // Raise reset signal for all cores. RiscType::ALL is the architecture-agnostic flag that each
     // implementation maps to its own all-cores set (ALL_TENSIX for Tensix, ALL_NEO for NEO).
-    if (cluster_desc->get_arch(0) == tt::ARCH::QUASAR) {
+
+    if (arch_name == tt::ARCH::QUASAR) {
         for (const auto& chip : all_chip_ids_) {
- get_chip(chip)->assert_risc_reset(RiscType::ALL);
+            get_chip(chip)->assert_risc_reset(RiscType::ALL);
         }
-       return;
+        return;
     }
+
     uint32_t reset_reg_value = architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL);
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
@@ -449,18 +451,16 @@ void Cluster::deassert_risc_reset() {
     // Lower the reset signal for the primary data-movement core only (BRISC on Tensix,
     // DM0 on NEO), with staggered start enabled. The primary DM then brings up the others.
 
-    if (cluster_desc->get_arch(0) == tt::ARCH::QUASAR) {
+    if (arch_name == tt::ARCH::QUASAR) {
         for (const auto& chip : all_chip_ids_) {
- get_chip(chip)->deassert_risc_reset(RiscType::ALL, false);
+            get_chip(chip)->deassert_risc_reset(RiscType::ALL, false);
         }
-       return;
+        return;
     }
 
     auto arch_impl = architecture_implementation::create(arch_name);
-    RiscType cores_under_reset = (arch_name == tt::ARCH::QUASAR) ? (RiscType::ALL_NEO & ~RiscType::DM0)
-                                                                 : (RiscType::ALL_TENSIX & ~RiscType::BRISC);
-    uint32_t reset_reg_value =
-        arch_impl->get_soft_reset_reg_value(cores_under_reset) | arch_impl->get_soft_reset_staggered_start();
+    uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
+                               arch_impl->get_soft_reset_staggered_start();
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
@@ -1055,14 +1055,6 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
         // Nowhere to broadcast to.
         return;
     }
-
-    // If ethernet broadcast is not supported, do it one by one.
-    // if (!use_ethernet_broadcast) {
-    //     for (auto& chip_id : all_chip_ids_) {
-    //         get_chip(chip_id)->assert_risc_reset(reg_value);
-    //     }
-    //     return;
-    // }
 
     std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;

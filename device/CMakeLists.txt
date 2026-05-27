@@ -104,7 +104,6 @@ target_sources(
         tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
         firmware/firmware_info_provider.cpp
         firmware/firmware_utils.cpp
-        types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
         soc_arch_descriptor.cpp
         soc_descriptor.cpp
@@ -243,7 +242,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp

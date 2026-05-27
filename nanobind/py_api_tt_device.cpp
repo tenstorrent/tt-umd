@@ -57,10 +57,14 @@ public:
             throw nb::python_error();
         }
     }
+
     ~PyBufferView() { PyBuffer_Release(&buffer_); }
+
     PyBufferView(const PyBufferView &) = delete;
     PyBufferView &operator=(const PyBufferView &) = delete;
+
     void *data() const { return buffer_.buf; }
+
     size_t size() const { return static_cast<size_t>(buffer_.len); }
 
 private:
@@ -298,7 +302,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
-            nb::sig("def noc_write(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
+            nb::sig("def noc_write(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> "
+                    "None"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
             "noc_broadcast",
@@ -313,7 +318,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("data"),
             nb::sig("def noc_broadcast(self, addr: int, data: bytes | bytearray | memoryview) -> None"),
-            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
+            "Broadcast arbitrary-length data to all tensix cores on the chip at the specified address. data may be any "
+            "buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
@@ -345,8 +351,10 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("end_y"),
             nb::arg("addr"),
             nb::arg("data"),
-            nb::sig("def noc_multicast(self, start_x: int, start_y: int, end_x: int, end_y: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
-            "Broadcast arbitrary-length data to all cores in the rectangle [start, end] at the specified address. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
+            nb::sig("def noc_multicast(self, start_x: int, start_y: int, end_x: int, end_y: int, addr: int, data: "
+                    "bytes | bytearray | memoryview) -> None"),
+            "Broadcast arbitrary-length data to all cores in the rectangle [start, end] at the specified address. data "
+            "may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_multicast32",
             [](TTDevice &self,
@@ -447,7 +455,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
-            nb::sig("def dma_write_to_device(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
+            nb::sig("def dma_write_to_device(self, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
+                    "memoryview) -> None"),
             "Write arbitrary-length data to a core at the specified address")
         .def(
             "arc_msg",
@@ -625,7 +634,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("data"),
-            nb::sig("def noc_write(self, noc_id: int, core_x: int, core_y: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
+            nb::sig("def noc_write(self, noc_id: int, core_x: int, core_y: int, addr: int, data: bytes | bytearray | "
+                    "memoryview) -> None"),
             "Write arbitrary-length data to a core at the specified address. noc_id must be 0 for now.")
         .def(
             "noc_write32",
@@ -656,7 +666,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("data"),
             nb::sig("def noc_broadcast(self, noc_id: int, addr: int, data: bytes | bytearray | memoryview) -> None"),
-            "Broadcast arbitrary-length data to all cores on the chip at the specified address. noc_id must be 0 for now. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
+            "Broadcast arbitrary-length data to all cores on the chip at the specified address. noc_id must be 0 for "
+            "now. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint32_t noc_id, uint64_t addr, uint32_t value) -> void {
@@ -698,18 +709,16 @@ void bind_tt_device(nb::module_ &m) {
                 PyBufferView buffer(data);
                 {
                     nb::gil_scoped_release release;
-                    self.write(
-                        addr,
-                        static_cast<const uint8_t *>(buffer.data()),
-                        buffer.size(),
-                        skip_write_to_spi);
+                    self.write(addr, static_cast<const uint8_t *>(buffer.data()), buffer.size(), skip_write_to_spi);
                 }
             },
             nb::arg("addr"),
             nb::arg("data"),
             nb::arg("skip_write_to_spi") = false,
-            nb::sig("def write(self, addr: int, data: bytes | bytearray | memoryview, skip_write_to_spi: bool = False) -> None"),
-            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to SPI. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
+            nb::sig("def write(self, addr: int, data: bytes | bytearray | memoryview, skip_write_to_spi: bool = False) "
+                    "-> None"),
+            "Write data to SPI flash memory. If skip_write_to_spi is True, only writes to buffer without committing to "
+            "SPI. data may be any buffer-protocol object (bytes, bytearray, memoryview, ...).")
         .def(
             "get_spi_fw_bundle_version",
             &SPITTDevice::get_spi_fw_bundle_version,

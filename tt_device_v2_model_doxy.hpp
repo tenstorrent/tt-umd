@@ -11,6 +11,7 @@
 #include "tt_firmware_telemetry_reader_doxy.hpp"
 #include "tt_hang_detector_doxy.hpp"
 #include "tt_io_window_doxy.hpp"
+#include "tt_soc_arch_descriptor_doxy.hpp"
 
 namespace tt::umd {
 
@@ -21,6 +22,7 @@ public:
     virtual DeviceProtocol* get_device_protocol() = 0;
     virtual DeviceFirmware* get_device_firmware() = 0;
     virtual ArchitectureImplementation* get_architecture_impl() = 0;
+    virtual SocArchDescriptor* get_soc_arch_descriptor() = 0;
     virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
 
     virtual HangDetector* get_hang_detector() { return nullptr; }

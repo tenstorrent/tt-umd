@@ -50,6 +50,13 @@ struct CoreDescriptor {
  */
 class SocArchDescriptor {
 public:
+    virtual ~SocArchDescriptor() = default;
+
+    /**
+     * @brief Populates the descriptor with architecture-specific topology data.
+     */
+    virtual void init() = 0;
+
     /** @name Construction */
     /** @{ */
 

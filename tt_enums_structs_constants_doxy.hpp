@@ -89,6 +89,47 @@ enum class ARCH {
 };
 
 /**
+ * @brief Functional type of a core on the SoC.
+ */
+enum class CoreType {
+    ARC,
+    DRAM,
+    ACTIVE_ETH,
+    IDLE_ETH,
+    PCIE,
+    TENSIX,
+    ROUTER_ONLY,
+    SECURITY,
+    L2CPU,
+    DISPATCH,
+    HARVESTED,
+    ETH,
+    WORKER,
+    COUNT,
+    UNSPECIFIED,
+};
+
+/**
+ * @brief Coordinate system used for core addressing.
+ */
+enum class CoordSystem : uint8_t {
+    LOGICAL,
+    NOC0,
+    TRANSLATED,
+    NOC1,
+    LITERAL,  ///< Bypasses translation — coordinates used as-is.
+};
+
+/**
+ * @brief DRAM channel training result.
+ */
+enum class DramTrainingStatus : uint8_t {
+    IN_PROGRESS = 0,
+    FAIL = 1,
+    SUCCESS = 2,
+};
+
+/**
  * @brief Hardware model or SKU of the board hosting the chip.
  */
 enum class BoardType : uint32_t {
@@ -109,8 +150,34 @@ enum class BoardType : uint32_t {
 };
 
 // ---------------------------------------------------------------------------
+// Aliases
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Device identifier within a cluster.
+ */
+using ChipId = int;
+
+// ---------------------------------------------------------------------------
 // Structs
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Semantic version (major.minor.patch).
+ */
+struct SemVer {
+    uint64_t major = 0;
+    uint64_t minor = 0;
+    uint64_t patch = 0;
+    uint64_t pre_release = 0;
+};
+
+/**
+ * @brief Firmware bundle version. Extends SemVer with firmware-specific comparison.
+ */
+struct FirmwareBundleVersion : SemVer {
+    using SemVer::SemVer;
+};
 
 /**
  * @brief Coordinate pair identifying a core on the device.

@@ -16,8 +16,7 @@ namespace tt::umd {
  *
  * @brief Management firmware interface for a single device.
  *
- * Single point of contact between the host driver and the management firmware.
- * Covers initialization, command dispatch, hardware training, power/clock
+ * Firmware lifecycle, command dispatch, hardware training, power/clock
  * control, and chip identity queries.
  *
  */

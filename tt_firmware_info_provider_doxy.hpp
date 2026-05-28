@@ -9,7 +9,6 @@
 #include <optional>
 #include <vector>
 
-#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -41,30 +40,9 @@ namespace tt::umd {
  *
  */
 
-class FirmwareInfoProvider final {
+class FirmwareInfoProvider {
 public:
-    /**
-     * @brief Creates a FirmwareInfoProvider for the given telemetry reader and architecture.
-     *
-     * Resolves the correct feature-to-telemetry mapping for the given
-     * architecture and firmware version.
-     *
-     * @param telemetry_reader Non-owning pointer to the device's telemetry reader.
-     * @param arch Device architecture.
-     * @return std::unique_ptr<FirmwareInfoProvider> A configured info provider instance.
-     */
-    static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(
-        FirmwareTelemetryReader* telemetry_reader, ARCH arch);
-
-    /**
-     * @brief Constructs a FirmwareInfoProvider.
-     *
-     * @param telemetry_reader Non-owning pointer to the device's telemetry reader.
-     * @param arch Device architecture.
-     */
-    FirmwareInfoProvider(FirmwareTelemetryReader* telemetry_reader, ARCH arch);
-
-    ~FirmwareInfoProvider() = default;
+    virtual ~FirmwareInfoProvider() = default;
 
     /** @name Firmware Versions */
     /** @{ */
@@ -73,66 +51,49 @@ public:
      * @brief Retrieves the firmware bundle version running on the device.
      * @return FirmwareBundleVersion The active firmware version.
      */
-    FirmwareBundleVersion get_firmware_version() const;
-
-    /**
-     * @brief Returns the minimum firmware version compatible with this UMD build.
-     * @param arch Target architecture.
-     * @return FirmwareBundleVersion Minimum compatible version.
-     */
-    static FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
-
-    /**
-     * @brief Returns the latest firmware version supported by this UMD build.
-     *
-     * Updated on every firmware release to track supported features.
-     *
-     * @param arch Target architecture.
-     * @return FirmwareBundleVersion Latest supported version.
-     */
-    static FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
+    virtual FirmwareBundleVersion get_firmware_version() const = 0;
 
     /**
      * @brief Retrieves the Ethernet firmware version as a raw tag value.
      * @return std::optional<uint32_t> Raw version tag, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_eth_fw_version() const;
+    virtual std::optional<uint32_t> get_eth_fw_version() const = 0;
 
     /**
      * @brief Retrieves the Ethernet firmware version as a semantic version.
      * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    std::optional<SemVer> get_eth_fw_version_semver() const;
+    virtual std::optional<SemVer> get_eth_fw_version_semver() const = 0;
 
     /**
      * @brief Retrieves the GDDR firmware version.
      * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    std::optional<SemVer> get_gddr_fw_version() const;
+    virtual std::optional<SemVer> get_gddr_fw_version() const = 0;
 
     /**
      * @brief Retrieves the CM (Clock Manager) firmware version.
      * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    std::optional<SemVer> get_cm_fw_version() const;
+    virtual std::optional<SemVer> get_cm_fw_version() const = 0;
 
     /**
      * @brief Retrieves the DM application firmware version.
      * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    std::optional<SemVer> get_dm_app_fw_version() const;
+    virtual std::optional<SemVer> get_dm_app_fw_version() const = 0;
 
     /**
      * @brief Retrieves the DM bootloader firmware version.
      * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    std::optional<SemVer> get_dm_bl_fw_version() const;
+    virtual std::optional<SemVer> get_dm_bl_fw_version() const = 0;
 
     /**
      * @brief Retrieves the TT-Flash version.
      * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    std::optional<SemVer> get_tt_flash_version() const;
+    virtual std::optional<SemVer> get_tt_flash_version() const = 0;
 
     /** @} */
 
@@ -143,13 +104,13 @@ public:
      * @brief Retrieves the unique board identifier.
      * @return std::optional<uint64_t> Board ID, or std::nullopt if unavailable.
      */
-    std::optional<uint64_t> get_board_id() const;
+    virtual std::optional<uint64_t> get_board_id() const = 0;
 
     /**
      * @brief Retrieves the physical slot index of this chip on a multi-chip board.
      * @return std::optional<uint8_t> ASIC location index, or std::nullopt if unavailable.
      */
-    std::optional<uint8_t> get_asic_location() const;
+    virtual std::optional<uint8_t> get_asic_location() const = 0;
 
     /** @} */
 
@@ -160,31 +121,31 @@ public:
      * @brief Retrieves the ASIC temperature.
      * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
      */
-    std::optional<double> get_asic_temperature() const;
+    virtual std::optional<double> get_asic_temperature() const = 0;
 
     /**
      * @brief Retrieves the board temperature.
      * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
      */
-    std::optional<double> get_board_temperature() const;
+    virtual std::optional<double> get_board_temperature() const = 0;
 
     /**
      * @brief Retrieves the thermal shutdown threshold.
      * @return std::optional<double> Threshold in degrees Celsius, or std::nullopt if unavailable.
      */
-    std::optional<double> get_thm_limit_shutdown() const;
+    virtual std::optional<double> get_thm_limit_shutdown() const = 0;
 
     /**
      * @brief Retrieves the thermal throttle threshold.
      * @return std::optional<double> Threshold in degrees Celsius, or std::nullopt if unavailable.
      */
-    std::optional<double> get_thm_limit_throttle() const;
+    virtual std::optional<double> get_thm_limit_throttle() const = 0;
 
     /**
      * @brief Retrieves the thermal trip count.
      * @return std::optional<uint32_t> Number of thermal trips, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_therm_trip_count() const;
+    virtual std::optional<uint32_t> get_therm_trip_count() const = 0;
 
     /** @} */
 
@@ -195,61 +156,73 @@ public:
      * @brief Retrieves the current AICLK frequency.
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_aiclk() const;
+    virtual std::optional<uint32_t> get_aiclk() const = 0;
+
+    /**
+     * @brief Retrieves the current AICLK frequency.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_clock_freq() const = 0;
 
     /**
      * @brief Retrieves the current AXICLK frequency.
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_axiclk() const;
+    virtual std::optional<uint32_t> get_axiclk() const = 0;
 
     /**
      * @brief Retrieves the current ARCCLK frequency.
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_arcclk() const;
+    virtual std::optional<uint32_t> get_arcclk() const = 0;
 
     /**
      * @brief Retrieves the maximum supported clock frequency.
      * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_max_clock_freq() const;
+    virtual std::optional<uint32_t> get_max_clock_freq() const = 0;
+
+    /**
+     * @brief Retrieves the minimum supported clock frequency.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_min_clock_freq() const = 0;
 
     /**
      * @brief Retrieves the Thermal Design Power.
      * @return std::optional<uint32_t> TDP in watts, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_tdp() const;
+    virtual std::optional<uint32_t> get_tdp() const = 0;
 
     /**
      * @brief Retrieves the Thermal Design Current.
      * @return std::optional<uint32_t> TDC in amps, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_tdc() const;
+    virtual std::optional<uint32_t> get_tdc() const = 0;
 
     /**
      * @brief Retrieves the core voltage.
      * @return std::optional<uint32_t> VCORE in mV, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_vcore() const;
+    virtual std::optional<uint32_t> get_vcore() const = 0;
 
     /**
      * @brief Retrieves the board power limit.
      * @return std::optional<uint32_t> Power limit in watts, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_board_power_limit() const;
+    virtual std::optional<uint32_t> get_board_power_limit() const = 0;
 
     /**
      * @brief Retrieves the fan speed as a percentage (0-100).
      * @return std::optional<uint32_t> Fan speed in percent, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_fan_speed() const;
+    virtual std::optional<uint32_t> get_fan_speed() const = 0;
 
     /**
      * @brief Retrieves the fan speed in RPM.
      * @return std::optional<uint32_t> Fan speed in RPM, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_fan_rpm() const;
+    virtual std::optional<uint32_t> get_fan_rpm() const = 0;
 
     /** @} */
 
@@ -263,7 +236,7 @@ public:
      *
      * @return std::optional<std::vector<bool>> Per-link status (true = active), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+    virtual std::optional<std::vector<bool>> get_eth_heartbeat_status() const = 0;
 
     /**
      * @brief Retrieves per-link Ethernet retrain status.
@@ -272,7 +245,7 @@ public:
      *
      * @return std::optional<std::vector<bool>> Per-link status (true = retrained), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_retrain_status() const;
+    virtual std::optional<std::vector<bool>> get_eth_retrain_status() const = 0;
 
     /** @} */
 
@@ -284,32 +257,32 @@ public:
      * @param num_dram_channels Number of DRAM channels to query.
      * @return std::vector<DramTrainingStatus> Per-channel training status. Empty if unavailable.
      */
-    std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
+    virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const = 0;
 
     /**
      * @brief Retrieves aggregated telemetry across all GDDR modules.
      * @return std::optional<GddrTelemetry> Aggregated DRAM telemetry, or std::nullopt if unavailable.
      */
-    std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
+    virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const = 0;
 
     /**
      * @brief Retrieves telemetry for a specific GDDR module.
      * @param gddr_module The target GDDR module.
      * @return std::optional<GddrModuleTelemetry> Module telemetry, or std::nullopt if unavailable.
      */
-    std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const;
+    virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const = 0;
 
     /**
      * @brief Retrieves the GDDR speed.
      * @return std::optional<uint16_t> Speed value, or std::nullopt if unavailable.
      */
-    std::optional<uint16_t> get_dram_speed() const;
+    virtual std::optional<uint16_t> get_dram_speed() const = 0;
 
     /**
      * @brief Retrieves the current maximum DRAM temperature across all modules.
      * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
      */
-    std::optional<double> get_current_max_dram_temperature() const;
+    virtual std::optional<double> get_current_max_dram_temperature() const = 0;
 
     /** @} */
 
@@ -323,52 +296,9 @@ public:
      *
      * @return std::optional<uint32_t> Heartbeat counter, or std::nullopt if unavailable.
      */
-    std::optional<uint32_t> get_heartbeat() const;
+    virtual std::optional<uint32_t> get_heartbeat() const = 0;
 
     /** @} */
-
-private:
-    /**
-     * @brief Parses a 16-bit bitmask into a per-link boolean vector.
-     *
-     * Bit indices align with ETH channels (logical coordinates).
-     *
-     * @param bitmask Raw 16-bit status bitmask from telemetry.
-     * @return std::vector<bool> Per-link boolean status.
-     */
-    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
-
-    /**
-     * @brief Reads a raw telemetry value using the feature key's read mechanism.
-     * @param key Variant key describing how to read the value (tag type or fixed value).
-     * @return uint32_t Raw telemetry value.
-     */
-    uint32_t read_raw_telemetry(const FeatureKey& key) const;
-
-    /**
-     * @brief Checks whether a firmware feature is available in the current configuration.
-     * @param feature The firmware feature to check.
-     * @return true if the feature is present and readable.
-     */
-    bool is_feature_available(FirmwareFeature feature) const;
-
-    /**
-     * @brief Reads a telemetry feature and applies its configured transform.
-     * @tparam T The desired return type after transformation.
-     * @param feature The firmware feature to read.
-     * @return std::optional<T> The transformed value, or std::nullopt if unavailable.
-     */
-    template <typename T>
-    std::optional<T> read_scalar(FirmwareFeature feature) const;
-
-    /// Non-owning pointer to the telemetry reader, injected at construction.
-    FirmwareTelemetryReader* telemetry_reader_ = nullptr;
-
-    /// Firmware bundle version, determined at construction.
-    FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
-
-    /// Feature-to-telemetry mapping table, selected by architecture and firmware version.
-    FirmwareFeatures firmware_feature_map;
 };
 
 /** @} */  // end of tt_firmware_info_provider group

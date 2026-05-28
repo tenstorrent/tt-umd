@@ -485,7 +485,19 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
 
     // When TT_VISIBLE_DEVICES filters to a subset (e.g. mock clusters), remap chip IDs to 0-based consecutive
     // indices. This matches silicon behavior where the cluster assigns logical IDs starting from 0.
-    if (visible_chips.size() < full_cluster_desc->get_all_chips().size()) {
+    //
+    // RANK_CHIP_COLLISION fix: In a multi-rank simulator/mock setup where every rank
+    // talks to the SAME ttsim daemon over RPC, the daemon only sees one global chip
+    // namespace. Remapping each rank's filtered chip subset to 0..N-1 makes every rank
+    // address the SAME physical chip IDs (0, 1, 2, ...), so dispatch CQ / L1 / DRAM
+    // writes from different ranks land on the same daemon chip and corrupt each
+    // other (the symptom is that completion-queue write pointers never advance).
+    // When TT_METAL_NO_CHIP_ID_REMAP=1 is set (tt-metal sets this for shared-daemon
+    // simulator targets), keep the original physical chip IDs so each rank addresses
+    // a disjoint slice of the daemon's chip namespace.
+    const char *no_remap_env = std::getenv("TT_METAL_NO_CHIP_ID_REMAP");
+    const bool skip_remap = no_remap_env != nullptr && std::string(no_remap_env) == "1";
+    if (!skip_remap && visible_chips.size() < full_cluster_desc->get_all_chips().size()) {
         std::vector<ChipId> ordered_chips = desc->get_chips_local_first(visible_chips);
         std::unordered_map<ChipId, ChipId> old_to_new;
         for (size_t i = 0; i < ordered_chips.size(); i++) {

@@ -281,13 +281,7 @@ public:
     void configure_active_ethernet_cores_for_mmio_device(
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
-#ifdef TT_UMD_BUILD_SIMULATION
-    // Passthroughs to libttsim_switch_register_fabric_* for wiring mock
-    // multichip fabric topologies under craq-sim v3.5.  Only available when
-    // the library is built with TT_UMD_BUILD_SIMULATION=ON.
     void register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction);
-    void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
-#endif  // TT_UMD_BUILD_SIMULATION
 
     //---------- Start and stop the device and tensix cores.
 
@@ -613,6 +607,8 @@ public:
     void read_from_sysmem(void* mem_ptr, uint64_t addr, uint16_t channel, uint32_t size, ChipId src_device_id);
 
     void advance_device_execution(ChipId device_id);
+    void sim_arm_launch_watcher(ChipId chip_id, CoreCoord virtual_core, bool is_eth);
+    void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
 
     /**
      * Query number of memory channels on Host device allocated for a specific device during initialization.

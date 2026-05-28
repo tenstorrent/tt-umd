@@ -10,6 +10,8 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <utility>
+#include <vector>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -105,6 +107,7 @@ private:
     std::filesystem::path simulator_directory_;
     ChipId chip_id_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+    std::vector<std::pair<tt_xy_pair, uint64_t>> translated_l1_cores_;
 
     uint32_t libttsim_pci_device_id;
 

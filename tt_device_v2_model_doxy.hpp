@@ -10,6 +10,7 @@
 #include "tt_firmware_info_provider_doxy.hpp"
 #include "tt_firmware_telemetry_reader_doxy.hpp"
 #include "tt_hang_detector_doxy.hpp"
+#include "tt_io_window_doxy.hpp"
 
 namespace tt::umd {
 

@@ -15,13 +15,12 @@ namespace tt::umd {
  * @brief Static, architecture-determined chip topology and constants.
  *
  * SocArchDescriptor captures everything about a chip that is fixed at tapeout:
- * the NOC grid dimensions, every core location, memory sizes, and NOC0/NOC1
+ * the NOC grid dimensions, every core location, memory sizes, and NOC
  * coordinate mappings. None of this data depends on per-chip runtime state
  * (harvesting masks, NOC translation settings).
  *
- * Shared as `std::shared_ptr<const SocArchDescriptor>` across all
- * @ref SocDescriptor instances of the same architecture. SocDescriptor adds
- * the per-chip runtime state (ChipInfo, CoordinateManager) on top.
+ * Shared across all chips of the same architecture. @ref SocDescriptor
+ * combines this with per-chip runtime state (harvesting, coordinate translation).
  *
  * ## Key Types
  *
@@ -37,7 +36,7 @@ namespace tt::umd {
  * @brief Metadata for a single core on the SoC.
  */
 struct CoreDescriptor {
-    tt_xy_pair coord = tt_xy_pair(0, 0);  ///< NOC0 coordinate.
+    tt_xy_pair coord = tt_xy_pair(0, 0);  ///< Grid coordinate.
     CoreType type;                        ///< Functional type (TENSIX, DRAM, ETH, etc.).
     std::size_t l1_size = 0;              ///< Local memory size in bytes.
 };
@@ -46,8 +45,8 @@ struct CoreDescriptor {
  * @brief Static chip topology, identical for every chip of a given architecture.
  *
  * Constructed once from either an architecture enum (hardcoded constants) or a
- * YAML SoC descriptor file (custom/test configurations). All core locations are
- * in NOC0 coordinates and represent the full unharvested floorplan.
+ * YAML SoC descriptor file (custom/test configurations). All core locations
+ * represent the full unharvested floorplan.
  */
 class SocArchDescriptor {
 public:
@@ -56,7 +55,7 @@ public:
 
     /**
      * @brief Creates a descriptor from hardcoded architecture constants.
-     * @param arch Target architecture (e.g., WORMHOLE_B0, BLACKHOLE).
+     * @param arch Target architecture.
      */
     SocArchDescriptor(tt::ARCH arch);
 
@@ -92,7 +91,7 @@ public:
     /**
      * @brief Computes the bounding grid size from a list of core coordinates.
      * @param cores Core locations to compute the bounding box from.
-     * @return tt_xy_pair Grid dimensions (max_x + 1, max_y + 1).
+     * @return tt_xy_pair The bounding grid dimensions.
      */
     static tt_xy_pair calculate_grid_size(const std::vector<tt_xy_pair>& cores);
 
@@ -113,7 +112,7 @@ public:
 
     /** @} */
 
-    /** @name Core Locations (NOC0, unharvested) */
+    /** @name Core Locations (unharvested) */
     /** @{ */
 
     /**
@@ -189,16 +188,15 @@ public:
     /** @{ */
 
     /**
-     * @brief Returns the NOC0 X → NOC1 X coordinate translation table.
+     * @brief Returns the X-axis coordinate translation table between the two NOCs.
      *
-     * Index is NOC0 X coordinate, value is the corresponding NOC1 X coordinate.
-     * This is a static property of the grid wiring, independent of NOC translation
-     * enable/disable (which is a per-chip runtime setting on @ref SocDescriptor).
+     * Static property of the grid wiring, independent of the per-chip NOC
+     * translation setting on @ref SocDescriptor.
      */
     const std::vector<uint32_t>& get_noc0_x_to_noc1_x() const { return noc0_x_to_noc1_x_; }
 
     /**
-     * @brief Returns the NOC0 Y → NOC1 Y coordinate translation table.
+     * @brief Returns the Y-axis coordinate translation table between the two NOCs.
      * @see get_noc0_x_to_noc1_x()
      */
     const std::vector<uint32_t>& get_noc0_y_to_noc1_y() const { return noc0_y_to_noc1_y_; }
@@ -244,7 +242,7 @@ public:
     /** @{ */
 
     /**
-     * @brief Returns the full core descriptor map (NOC0 coordinate → CoreDescriptor).
+     * @brief Returns the full core descriptor map (coordinate → CoreDescriptor).
      *
      * Built at construction from all core location vectors. Every core on the SoC
      * has an entry regardless of type.
@@ -260,14 +258,14 @@ public:
     const tt_xy_pair& get_worker_grid_size() const { return worker_grid_size_; }
 
     /**
-     * @brief Returns the DRAM core-to-channel mapping (NOC0 coordinate → channel, subchannel).
+     * @brief Returns the DRAM core-to-channel mapping (coordinate → channel, subchannel).
      */
     const std::unordered_map<tt_xy_pair, std::tuple<int, int>>& get_dram_core_channel_map() const {
         return dram_core_channel_map_;
     }
 
     /**
-     * @brief Returns the Ethernet core-to-channel mapping (NOC0 coordinate → channel index).
+     * @brief Returns the Ethernet core-to-channel mapping (coordinate → channel index).
      */
     const std::unordered_map<tt_xy_pair, int>& get_ethernet_core_channel_map() const {
         return ethernet_core_channel_map_;

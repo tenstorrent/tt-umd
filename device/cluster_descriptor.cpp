@@ -547,7 +547,12 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;
-        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
+        case tt::ARCH::QUASAR:
+            // TODO (#450): Add Quasar configuration. Until the hardware spec is finalized
+            // we leave all harvesting masks at 0 rather than borrowing Blackhole's silicon
+            // example, which doesn't apply to Quasar's ETH layout.
+            board_type = BoardType::UNKNOWN;
+            break;
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::UNKNOWN;
             // Example value from silicon machine.
@@ -1377,5 +1382,19 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     }
     return it->second;
 }
+
+std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
+    const BoardType board = get_board_type(chip_id);
+    if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
+        return std::nullopt;
+    }
+    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
+    if (!arch_impl) {
+        return std::nullopt;
+    }
+    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
+}
+
+const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
 
 }  // namespace tt::umd

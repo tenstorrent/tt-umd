@@ -195,6 +195,52 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
 }
 
+void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+    {
+        std::lock_guard<std::mutex> lock(device_lock_);
+        tt_xy_pair core = {x, y};
+
+        // Send SMN read request.
+        send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_SMN_READ, {0}, core, addr, size));
+    }
+
+    // Get read response from the command queue (populated by notification thread).
+    auto msg = wait_for_command_response();
+    if (msg.data == nullptr || msg.size == 0) {
+        UMD_THROW(
+            error::RuntimeError, "Failed to receive response from device - notification thread may have stopped.");
+    }
+
+    auto rd_resp_buf = GetDeviceRequestResponse(msg.data);
+
+    log_debug(tt::LogEmulationDriver, "Device SMN reading {} bytes from address {} in core ({}, {})", size, addr, x, y);
+
+    uint32_t response_bytes = rd_resp_buf->data()->size() * sizeof(uint32_t);
+    UMD_ASSERT(
+        response_bytes >= size,
+        error::RuntimeError,
+        fmt::format("smn_tile_read_bytes response size {} is smaller than requested size {}.", response_bytes, size));
+    std::memcpy(data, rd_resp_buf->data()->data(), size);
+    nng_free(msg.data, msg.size);
+}
+
+void RtlSimCommunicator::smn_tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    log_debug(tt::LogEmulationDriver, "Device SMN writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
+
+    UMD_ASSERT(
+        size % sizeof(uint32_t) == 0,
+        error::RuntimeError,
+        fmt::format("smn_tile_write_bytes size {} must be a multiple of {} bytes.", size, sizeof(uint32_t)));
+
+    tt_xy_pair core = {x, y};
+    const uint32_t num_elements = size / sizeof(uint32_t);
+    const auto *data_ptr = static_cast<const uint32_t *>(data);
+    std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
+
+    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_SMN_WRITE, data_vec, core, addr));
+}
+
 void RtlSimCommunicator::all_tensix_reset_assert(uint32_t x, uint32_t y) {
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Sending all_tensix_reset_assert signal to core ({}, {})", x, y);

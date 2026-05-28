@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -39,7 +40,7 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        std::int32_t c_zero_address = 0;
+        std::int32_t c_zero_address = SAFE_IO_L1_ADDRESS;
 
         for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
             tlb_manager->configure_tlb(translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
@@ -49,10 +50,9 @@ TEST(ApiTLBManager, ManualTLBConfiguration) {
         auto any_worker_translated_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
         // TODO: Maybe accept tlb_index only?
-        uint64_t address_l1_to_write = 0;
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
         TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
-        window->write_register(address_l1_to_write, buffer_to_write.data(), buffer_to_write.size());
+        window->write_register(SAFE_IO_L1_ADDRESS, buffer_to_write.data(), buffer_to_write.size());
 
         tt_device->set_power_state(false);
     }

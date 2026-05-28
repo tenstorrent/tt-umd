@@ -56,7 +56,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (tt_device->get_pci_device() != nullptr) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-        sysmem_manager = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), num_host_mem_channels);
+        sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
     SysmemManager* sysmem_ptr =
         (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
@@ -278,7 +278,8 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->write_block_reconfigure(src, translated_core, l1_dest, size, tlb_data::Relaxed);
+        get_cached_wc_tlb_window()->write_block_reconfigure(
+            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -303,7 +304,8 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->read_block_reconfigure(dest, translated_core, l1_src, size, tlb_data::Relaxed);
+        get_cached_wc_tlb_window()->read_block_reconfigure(
+            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -399,7 +401,9 @@ void LocalChip::ethernet_broadcast_write(
 }
 
 void LocalChip::wait_for_non_mmio_flush() {
-    // This is a local chip, so no need to flush remote communication.
+    if (remote_communication_) {
+        remote_communication_->wait_for_non_mmio_flush();
+    }
 }
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
@@ -606,6 +610,7 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr,
+        get_selected_noc_id(),
         tlb_data::Relaxed);
 }
 }  // namespace tt::umd

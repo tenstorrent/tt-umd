@@ -36,7 +36,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -56,7 +55,6 @@ class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
-enum class TensixSoftResetOptions : std::uint32_t;
 struct CoreCoord;
 
 // Represents the status of the ETH core.
@@ -190,6 +188,15 @@ public:
      */
     virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
     virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+
+    /**
+     * NOC multicast write function that will write data to all TENSIX cores in the grid.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param addr address on the device where data will be written
+     */
+    virtual void noc_multicast_write(void *src, size_t size, uint64_t addr) = 0;
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -386,24 +393,6 @@ public:
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
-     * Send tensix risc reset for a specific core.
-     *
-     * @param core Core to reset, in translated coordinates
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
-
-    /**
-     * Send tensix risc reset for all tensix cores.
-     *
-     * The base TTDevice implementation does not support this operation and throws.
-     * Subclasses may override to implement all-core reset semantics.
-     *
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
-
-    /**
      * Assert risc reset for a specific core.
      *
      * @param core Core to assert reset for, in translated coordinates
@@ -422,7 +411,20 @@ public:
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
-    virtual TLBManager *get_tlb_manager() { return nullptr; }
+    /**
+     * Allocate a TlbWindow for use by callers (typically TLBManager).
+     *
+     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
+     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
+     * subclasses override this to allocate from their in-process bitmap and
+     * build the appropriate sim-backend TlbWindow.
+     *
+     * @param config tlb_data configuration applied to the new window.
+     * @param mapping UC or WC.
+     * @param size Requested TLB size in bytes (0 means try arch-supported sizes in order).
+     */
+    virtual std::unique_ptr<TlbWindow> get_io_window(
+        tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 

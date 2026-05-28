@@ -13,9 +13,10 @@
 #include <utility>
 #include <vector>
 
+#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
@@ -24,7 +25,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -86,6 +86,14 @@ TTSimTTDevice::TTSimTTDevice(
         bar0_base |= uint64_t(communicator_->pci_config_read32(0, 0x14)) << 32;
         bar0_base &= ~15ull;  // ignore attributes, just obtain the physical address
 
+        // BAR4 is a 64-bit memory BAR; its base address is split across two PCI config
+        // registers — 0x20 holds the low 32 bits, 0x24 holds the high 32 bits. The low 4 bits
+        // of the low register encode BAR attributes (memory vs IO, prefetchable, 64-bit width)
+        // and are masked off to leave the physical address.
+        bar4_base = communicator_->pci_config_read32(0, 0x20);
+        bar4_base |= uint64_t(communicator_->pci_config_read32(0, 0x24)) << 32;
+        bar4_base &= ~15ull;
+
         if (libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) {
             tlb_region_size_ = 16 * 1024 * 1024;
         } else {
@@ -93,24 +101,52 @@ TTSimTTDevice::TTSimTTDevice(
         }
     }
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
-        this,
-        bar0_base,
-        architecture_impl_.get(),
-        [comm = communicator_.get()](
-            SimulationTlbManager* mgr, int id, size_t sz, TlbMapping map, tlb_data cfg) -> std::unique_ptr<TlbWindow> {
-            auto handle = TTSimTlbHandle::create(mgr, comm, id, sz, map);
-            return std::make_unique<TTSimTlbWindow>(std::move(handle), comm, cfg);
-        });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
+
+    // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
+    // all I/O underneath. The 4GB size for Quasar is a dummy value — it just needs to be large
+    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
+    // division by zero in TLB handle configure).
+    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
+    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            break;
+        case tt::ARCH::WORMHOLE_B0:
+            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            break;
+        case tt::ARCH::QUASAR:
+            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            break;
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
+                tt::arch_to_str(arch));
+            break;
+    }
+}
+
+std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
+    if (tlb_index == -1) {
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
+    }
+    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested
+    // size through, since get_tlb_size_from_index has no pool to look up for the bypass index.
+    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    auto handle = TTSimTlbHandle::create(tlb_allocator_, communicator_.get(), tlb_index, actual_size, mapping);
+    return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
 TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size);
+    if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -118,41 +154,14 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size);
+    if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
     // in the absence of an API reliably called from all spin loops polling the device
     communicator_->advance_clock(1);
-}
-
-void TTSimTTDevice::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
-        (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-        uint32_t reset_value = uint32_t(soft_resets);
-        write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else if (libttsim_pci_device_id == TT_GRENDEL_PCI_DEVICE_ID) {
-        uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
-        uint64_t reset_value = uint64_t(soft_resets);
-        if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-            reset_value = 0xF0000;  // This is using old API, translate to QSR values
-        } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-            reset_value = 0xFFF00;  // This is using old API, translate to QSR values
-        }
-        write_to_device(&reset_value, translated_core, soft_reset_addr, sizeof(reset_value));
-    } else {
-        UMD_THROW(error::RuntimeError, "Missing implementation of reset for this chip.");
-    }
-}
-
-void TTSimTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const tt_xy_pair core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
-    }
 }
 
 void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
@@ -302,6 +311,8 @@ void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
 }
 
-TLBManager* TTSimTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
+void TTSimTTDevice::noc_multicast_write(void* src, size_t size, uint64_t addr) {
+    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in TTSim simulation device.");
+}
 
 }  // namespace tt::umd

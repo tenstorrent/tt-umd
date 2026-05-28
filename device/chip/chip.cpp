@@ -23,12 +23,12 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-enum class TensixSoftResetOptions : std::uint32_t;
 
 Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
     set_default_params(soc_descriptor_.arch);
@@ -110,22 +110,6 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
         }
-    }
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    UMD_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        error::RuntimeError,
-        "Cannot control soft reset on a non-tensix or harvested core");
-    get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
     }
 }
 
@@ -250,15 +234,35 @@ void Chip::wait_for_aiclk_value(
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms.count()) {
+            auto* telemetry = tt_device->get_arc_telemetry_reader();
+            std::string arb_max_info;
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+                const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+                const uint32_t arb_freq = arb_max & 0xFFFF;
+                const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
+                arb_max_info = fmt::format(", AICLK clamped by max-arbiter index {} at {} MHz", arb_idx, arb_freq);
+            }
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
-                "{}",
+                "{}{}",
                 timeout_ms.count(),
                 target_aiclk,
                 aiclk,
-                tt_device->get_asic_temperature());
+                tt_device->get_asic_temperature(),
+                arb_max_info);
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+                const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+                if (timeout_ms.count() <= update_telem_speed_ms) {
+                    log_warning(
+                        LogUMD,
+                        "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
+                        "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                        timeout_ms.count(),
+                        update_telem_speed_ms);
+                }
+            }
             return;
         }
         aiclk = tt_device->get_clock();
@@ -276,6 +280,10 @@ void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, Cor
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr);
+}
+
+void Chip::noc_multicast_write(void* dst, size_t size, uint64_t addr) {
+    get_tt_device()->noc_multicast_write(dst, size, addr);
 }
 
 }  // namespace tt::umd

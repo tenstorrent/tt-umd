@@ -30,7 +30,7 @@ uint32_t BlackholeHangDetector::read_hang_check_reg_via_noc(NocId noc) {
     uint64_t addr = get_arch_impl()->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
                     get_arch_impl()->get_noc_node_id_offset();
     uint32_t value = 0;
-    get_protocol()->read_from_device(&value, core, addr, sizeof(value));
+    get_protocol()->read_from_device(&value, core, addr, sizeof(value), noc);
     return value;
 }
 

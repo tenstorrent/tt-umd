@@ -155,9 +155,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
     bool use_host_dram = size_in_bytes > 256 * DATA_WORD_SIZE && system_mem_available;
-    // Print a warning in case of missing perf for larger transfers.
-    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
-        log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
+    // Print a warning in case of missing perf for larger transfers (once per instance).
+    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available && !large_transfer_warning_printed_) {
+        log_warning(LogUMD, "Large transfer to remote chip without system memory setup. Performance will be degraded.");
+        large_transfer_warning_printed_ = true;
     }
 
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
@@ -379,9 +380,10 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     // When sysmem_manager is not available, we chunk the transfer using smaller blocks.
     bool system_mem_available = sysmem_manager_ != nullptr && sysmem_manager_->get_num_host_mem_channels() > 0;
     bool use_host_dram = (broadcast || (size_in_bytes > 256 * DATA_WORD_SIZE)) && system_mem_available;
-    // Print a warning in case of missing perf for larger transfers.
-    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available) {
-        log_warning(LogUMD, "Large transfer without system memory setup. Performance will be degraded.");
+    // Print a warning in case of missing perf for larger transfers (once per instance).
+    if (size_in_bytes > 256 * DATA_WORD_SIZE && !system_mem_available && !large_transfer_warning_printed_) {
+        log_warning(LogUMD, "Large transfer to remote chip without system memory setup. Performance will be degraded.");
+        large_transfer_warning_printed_ = true;
     }
 
     UMD_ASSERT(

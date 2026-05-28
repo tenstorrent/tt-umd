@@ -34,7 +34,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -302,36 +301,11 @@ public:
     void deassert_risc_reset();
 
     /**
-     * Send a BRISC soft deassert reset signal to a single tensix core.
-     * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
-     *
-     * @param chip Chip to target.
-     * @param core Core to target.
-     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
-     */
-    void deassert_risc_reset_at_core(
-        const ChipId chip,
-        const CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-
-    /**
      * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
      * It writes to TENSIX register SOFT_RESET, the address of
      * which is architecture dependant. Please consult the desired architecture specs to find the exact address
      */
     void assert_risc_reset();
-
-    /**
-     * Send a BRISC soft assert reset signal to a single tensix core.
-     * It writes to TENSIX register SOFT_RESET, the address of
-     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
-     *
-     * @param core Chip to target.
-     * @param core Core to target.
-     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
-     */
-    void assert_risc_reset_at_core(
-        const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
     //---------- New API for starting/stopping the device, with variants for Tensix and Neo.
 
@@ -476,8 +450,12 @@ public:
      * @param size_in_bytes Size of data to write.
      * @param address Address to write to.
      * @param chips_to_exclude Chips to exclude from the broadcast.
-     * @param rows_to_exclude  NOC0 rows to exclude from the broadcast.
-     * @param columns_to_exclude NOC0 columns to exclude from the broadcast.
+     * @param rows_to_exclude Rows to exclude from the broadcast, in NOC0 space when
+     *                        @p use_translated_coords is false, or in translated-index space when true.
+     * @param columns_to_exclude Columns to exclude from the broadcast, in NOC0 space when
+     *                           @p use_translated_coords is false, or in translated-index space when true.
+     * @param use_translated_coords Selects the coordinate space of @p rows_to_exclude and
+     *                              @p columns_to_exclude; callers must supply values in the matching space.
      */
     void broadcast_write_to_cluster(
         const void* mem_ptr,
@@ -485,7 +463,8 @@ public:
         uint64_t address,
         const std::set<ChipId>& chips_to_exclude,
         std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& columns_to_exclude);
+        std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords);
 
     /**
      * Provide fast read/write access to a statically-mapped TLB.
@@ -712,8 +691,18 @@ public:
 private:
     // Helper functions
     // Broadcast.
-    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
+    void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
     void deassert_resets_and_set_power_state();
+
+    // Validates that the caller-supplied rows/columns lie in the coordinate space selected by
+    // @p use_translated_coords (NOC0 when false, translated-index when true) and emits their
+    // virtual-space equivalents used by the ethernet broadcast path.
+    static void adjust_coordinates_for_ethernet_broadcast(
+        const std::set<uint32_t>& rows_to_exclude,
+        const std::set<uint32_t>& columns_to_exclude,
+        bool use_translated_coords,
+        std::set<uint32_t>& rows_to_exclude_virtual,
+        std::set<uint32_t>& cols_to_exclude_virtual);
 
     // Communication Functions.
     void ethernet_broadcast_write(
@@ -745,7 +734,7 @@ private:
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 
     void add_chip(const ChipId& chip_id, const ChipType& chip_type, std::unique_ptr<Chip> chip);
-    void construct_cluster(const ChipType& chip_type);
+    void construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type);
 
     // State variables.
     std::set<ChipId> all_chip_ids_;
@@ -760,8 +749,8 @@ private:
     ClusterOptions options_;
 
     std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast = true;
-    bool use_translated_coords_for_eth_broadcast = true;
+    bool use_ethernet_broadcast = false;
+    bool use_translated_coords_for_eth_broadcast = false;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;
 };

@@ -79,7 +79,10 @@ jobs:
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
             {"arch": "wormhole_b0", "card": "6u"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
+            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "bh-gh-07"},
+            {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
           ]
@@ -88,9 +91,11 @@ jobs:
           echo "entries=$(echo "$CARDS" | jq -c .)" >> $GITHUB_OUTPUT
 
   # Central blacklist for matrix entries that should not run under certain conditions.
-  # Each entry is a pipe-delimited "triggering-event|card" pair.
-  # To extend: add entries to the echo below.
-  # Note: This can also easily extend to include build-type or ubuntu-docker-version or other parameters.
+  # Each entry is a pipe-delimited "triggering-event|build-type|card" triple.
+  # Each field supports: exact match, "*" wildcard (any value), or a trailing "*" for
+  # prefix match (e.g. "tt-ubuntu-2204-wh-glx-6u-*" blocks all wh-glx-6u variants).
+  # To extend: add entries to the jq invocation below.
+  # Note: This can also easily extend to include ubuntu-docker-version or other parameters.
   blacklist:
     name: Define test blacklist
     runs-on: ubuntu-latest
@@ -99,10 +104,25 @@ jobs:
     steps:
       - name: Define blacklist entries
         id: define
+        # Note on the machines:
+        # To avoid contention on single machines, we blacklist PR runs, and merge queue runs on Asan and Tsan,
+        # as these are unlikely to be the only failures. We also don't need both hugepage and viommu runs.
+        # - bh-gh-07 is a dedicated P300 single machine.
+        # - bh-loudbox is a single machine in CIv2. It also has an additional problem where
+        #   it actually has a ~20min startup time for viommu variant, so this one can be really slow.
+        # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
+        # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
-            'pull_request|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
-            'merge_group|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
+            'pull_request|*|tt-ubuntu-2204-bh-loudbox-*' \
+            'merge_group|*|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
+            'merge_group|ASan|tt-ubuntu-2204-bh-loudbox-stable' \
+            'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
+            'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
+            'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
+            'pull_request|*|bh-gh-07' \
+            'merge_group|ASan|bh-gh-07' \
+            'merge_group|TSan|bh-gh-07' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 
@@ -121,13 +141,23 @@ jobs:
           CARDS: ${{ needs.cards.outputs.entries }}
           BLACKLIST: ${{ needs.blacklist.outputs.entries }}
           TRIGGERING_EVENT: ${{ inputs.triggering-event }}
+          BUILD_TYPE: ${{ inputs.build-type }}
         run: |
           FILTERED=$(echo "$CARDS" | jq -c \
             --argjson blacklist "$BLACKLIST" \
             --arg event "$TRIGGERING_EVENT" \
-            '[.[] | select(($event + "|" + .card) as $key | ($blacklist | index($key)) == null)]')
+            --arg buildType "$BUILD_TYPE" \
+            'def matchP(v; p):
+               if (p | endswith("*")) then v | startswith(p | rtrimstr("*"))
+               else v == p end;
+             [.[] | . as $c | select(
+                ($blacklist | any(
+                  split("|") as $p |
+                  matchP($event; $p[0]) and matchP($buildType; $p[1]) and matchP($c.card; $p[2])
+                )) | not
+             )]')
           echo "test-groups=$FILTERED" >> $GITHUB_OUTPUT
-          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT):"
+          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT) build-type ($BUILD_TYPE):"
           echo "$FILTERED" | jq -r '.[] | "  \(.arch) | \(.card)"'
 
   build-tests:
@@ -155,7 +185,10 @@ jobs:
     secrets: inherit
     needs: [build-tests, generate-test-matrix]
     strategy:
-      fail-fast: false
+      # Cancel sibling cards on first failure only in the merge queue, where time-to-verdict
+      # matters more than seeing every card's result. PR/push runs keep fail-fast off so devs
+      # see whether a failure is card-specific or general.
+      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
         ubuntu-docker-version: ['ubuntu-22.04']
@@ -182,7 +215,7 @@ jobs:
     secrets: inherit
     needs: build-tests
     strategy:
-      fail-fast: false
+      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
           {runs-on: tt-ubuntu-2204-p150b-stable},
@@ -210,7 +243,7 @@ jobs:
     secrets: inherit
     needs: build-tests
     strategy:
-      fail-fast: false
+      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
           {runs-on: tt-ubuntu-2204-p150b-stable},
@@ -242,3 +275,62 @@ jobs:
       build-type: ${{ inputs.build-type }}
       timeout: 20
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+
+  # Fail-fast watchers for the merge queue: cancel the workflow run as soon as any test job
+  # here fails. A workflow_call shares run_id with its caller, so this cancellation propagates
+  # up to the sibling top-level builds (Release/ASan/TSan), giving end-to-end fail-fast.
+  # One watcher per job by design — a single watcher with multi-job `needs` would wait for
+  # every need to settle before evaluating `if: failure()`, defeating the purpose.
+  fail-fast-build-tests:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [build-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-test-all:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [test-all]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-ttsim:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-ttsim-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-tooling:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-tooling-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-exalens:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-exalens-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-tracy:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [run-tracy]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3

@@ -30,9 +30,14 @@
 #include "hugepage.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
 #include "umd/device/chip/remote_chip.hpp"
+// SWEmuleChip is only referenced inside `#ifdef TT_UMD_BUILD_EMULE`. IWYU
+// runs without that flag set so it can't see the use; mark the include to
+// stop future IWYU sweeps from deleting it again (see #2536).
+#include "umd/device/chip/sw_emule_chip.hpp"  // IWYU pragma: keep
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
@@ -46,7 +51,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -136,7 +140,7 @@ void Cluster::log_pci_device_summary() {
     log_info(LogUMD, "KMD version: {}", kmd_version);
 }
 
-void Cluster::construct_cluster(const ChipType& chip_type) {
+void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
     ZoneScopedC(tracy::Color::DarkGreen);
     // TODO: work on removing this member altogether. Currently assumes all have the same arch.
     arch_name = chips_.empty() ? tt::ARCH::Invalid : chips_.begin()->second->get_soc_descriptor().arch;
@@ -158,21 +162,19 @@ void Cluster::construct_cluster(const ChipType& chip_type) {
             pci_ids,
             remote_chip_ids_);
         log_device_summary();
+    }
 
-        if (arch_name == tt::ARCH::WORMHOLE_B0) {
-            // Virtual coordinates can be used for broadcast headers if NOC translation is enabled.
-            use_translated_coords_for_eth_broadcast = true;
-            for (const auto& chip : all_chip_ids_) {
-                use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
-            }
-        }
+    // Translated coordinates can be used for broadcast headers if NOC translation is enabled.
+    use_translated_coords_for_eth_broadcast = true;
+    for (const auto& chip : all_chip_ids_) {
+        use_translated_coords_for_eth_broadcast &= get_soc_descriptor(chip).noc_translation_enabled;
     }
 
     // Disable dependency to ethernet firmware for all BH devices and WH devices with all chips having MMIO (e.g. UBB
     // Galaxy, or P300).
-    if (remote_chip_ids_.empty() || chip_type != ChipType::SILICON || arch_name == tt::ARCH::BLACKHOLE) {
-        use_ethernet_broadcast = false;
-    }
+    // The ethernet firmware also requires host memory for broadcasting.
+    use_ethernet_broadcast = chip_type == ChipType::SILICON && arch_name == tt::ARCH::WORMHOLE_B0 &&
+                             !remote_chip_ids_.empty() && num_host_mem_ch_per_mmio_device > 0;
 }
 
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
@@ -251,7 +253,7 @@ SocDescriptor Cluster::construct_soc_descriptor(
         chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     }
 
-    log_info(
+    log_debug(
         LogUMD,
         "Harvesting masks for Chip {}: Tensix: {:#x} DRAM: {:#x} ETH: {:#x} PCIe: {:#x} L2CPU: {:#x}",
         chip_id,
@@ -397,7 +399,7 @@ Cluster::Cluster(ClusterOptions options) {  // NOLINT(performance-unnecessary-va
                 std::move(tt_device)));
     }
 
-    construct_cluster(options.chip_type);
+    construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
     log_info(LogUMD, "Cluster constructor completed.");
 }
 
@@ -421,18 +423,35 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
-void Cluster::assert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET); }
+void Cluster::assert_risc_reset() {
+    // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
+    // loop all chips and issues the reset separately.
+    if (arch_name == tt::ARCH::QUASAR) {
+        for (const auto& chip : all_chip_ids_) {
+            get_chip(chip)->assert_risc_reset(RiscType::ALL);
+        }
+        return;
+    }
 
-void Cluster::deassert_risc_reset() { broadcast_tensix_risc_reset_to_cluster(TENSIX_DEASSERT_SOFT_RESET); }
-
-void Cluster::deassert_risc_reset_at_core(
-    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+    uint32_t reset_reg_value =
+        architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
+    broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
-void Cluster::assert_risc_reset_at_core(
-    const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    get_chip(chip)->send_tensix_risc_reset(core, soft_resets);
+void Cluster::deassert_risc_reset() {
+    // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
+    // loop all chips and issues the reset separately.
+    if (arch_name == tt::ARCH::QUASAR) {
+        for (const auto& chip : all_chip_ids_) {
+            get_chip(chip)->deassert_risc_reset(RiscType::ALL, false);
+        }
+        return;
+    }
+
+    auto arch_impl = architecture_implementation::create(arch_name);
+    uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
+                               arch_impl->get_soft_reset_staggered_start();
+    broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
 RiscType Cluster::get_risc_reset_state(const ChipId chip, const CoreCoord core) {
@@ -746,43 +765,89 @@ void Cluster::ethernet_broadcast_write(
     const std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& cols_to_exclude,
     bool use_translated_coords) {
-    if (use_ethernet_broadcast) {
-        // Broadcast through ERISC core supported.
-        std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
-            get_ethernet_broadcast_headers(chips_to_exclude);
-        // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
-        // broadcast headers on future/
-        std::uint32_t row_exclusion_mask = 0;
-        std::uint32_t col_exclusion_mask = 0;
-        for (const auto& row : rows_to_exclude) {
-            row_exclusion_mask |= 1 << row;
-        }
+    // Broadcast through ERISC core supported.
+    std::unordered_map<ChipId, std::vector<std::vector<int>>>& broadcast_headers =
+        get_ethernet_broadcast_headers(chips_to_exclude);
+    // Apply row and column exclusion mask explictly. Placing this here if we want to cache the higher level
+    // broadcast headers on future/
+    std::uint32_t row_exclusion_mask = 0;
+    std::uint32_t col_exclusion_mask = 0;
+    for (const auto& row : rows_to_exclude) {
+        row_exclusion_mask |= 1 << row;
+    }
 
-        for (const auto& col : cols_to_exclude) {
-            col_exclusion_mask |= 1 << (16 + col);
+    for (const auto& col : cols_to_exclude) {
+        col_exclusion_mask |= 1 << (16 + col);
+    }
+    // Write broadcast block to device.
+    for (auto& mmio_group : broadcast_headers) {
+        for (auto& header : mmio_group.second) {
+            header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
+            header.at(4) |= row_exclusion_mask;
+            header.at(4) |= col_exclusion_mask;
+            get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
         }
-        // Write broadcast block to device.
-        for (auto& mmio_group : broadcast_headers) {
-            for (auto& header : mmio_group.second) {
-                header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
-                header.at(4) |= row_exclusion_mask;
-                header.at(4) |= col_exclusion_mask;
-                get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
-            }
+    }
+}
+
+void Cluster::adjust_coordinates_for_ethernet_broadcast(
+    const std::set<uint32_t>& rows_to_exclude,
+    const std::set<uint32_t>& columns_to_exclude,
+    bool use_translated_coords,
+    std::set<uint32_t>& rows_to_exclude_virtual,
+    std::set<uint32_t>& cols_to_exclude_virtual) {
+    if (use_translated_coords) {
+        const uint32_t translated_row_end =
+            wormhole::translated_coordinate_start_y + wormhole::TRANSLATED_TO_VIRTUAL_Y.size();
+        const uint32_t translated_col_end =
+            wormhole::translated_coordinate_start_x + wormhole::TRANSLATED_TO_VIRTUAL_X.size();
+        for (const auto& row : rows_to_exclude) {
+            UMD_ASSERT(
+                row >= wormhole::translated_coordinate_start_y && row < translated_row_end,
+                error::RuntimeError,
+                fmt::format(
+                    "Row {} must be in translated coordinate space [{}, {}).",
+                    row,
+                    wormhole::translated_coordinate_start_y,
+                    translated_row_end));
+        }
+        for (const auto& col : columns_to_exclude) {
+            UMD_ASSERT(
+                col >= wormhole::translated_coordinate_start_x && col < translated_col_end,
+                error::RuntimeError,
+                fmt::format(
+                    "Col {} must be in translated coordinate space [{}, {}).",
+                    col,
+                    wormhole::translated_coordinate_start_x,
+                    translated_col_end));
         }
     } else {
-        // Broadcast not supported. Implement this at the software level as a for loop.
-        for (const auto& chip : all_chip_ids_) {
-            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
-                continue;
-            }
-            for (const CoreCoord core : get_soc_descriptor(chip).get_all_cores(CoordSystem::TRANSLATED)) {
-                if (cols_to_exclude.find(core.x) == cols_to_exclude.end() &&
-                    rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
-                    write_to_device(mem_ptr, size_in_bytes, chip, core, address);
-                }
-            }
+        for (const auto& row : rows_to_exclude) {
+            UMD_ASSERT(
+                row < wormhole::translated_coordinate_start_y,
+                error::RuntimeError,
+                fmt::format(
+                    "Row {} must be in NOC0 coordinate space (< {}).", row, wormhole::translated_coordinate_start_y));
         }
+        for (const auto& col : columns_to_exclude) {
+            UMD_ASSERT(
+                col < wormhole::translated_coordinate_start_x,
+                error::RuntimeError,
+                fmt::format(
+                    "Col {} must be in NOC0 coordinate space (< {}).", col, wormhole::translated_coordinate_start_x));
+        }
+    }
+
+    for (const auto& row : rows_to_exclude) {
+        rows_to_exclude_virtual.insert(
+            use_translated_coords ? wormhole::TRANSLATED_TO_VIRTUAL_Y.at(row - wormhole::translated_coordinate_start_y)
+                                  : row);
+    }
+
+    for (const auto& col : columns_to_exclude) {
+        cols_to_exclude_virtual.insert(
+            use_translated_coords ? wormhole::TRANSLATED_TO_VIRTUAL_X.at(col - wormhole::translated_coordinate_start_x)
+                                  : col);
     }
 }
 
@@ -792,110 +857,101 @@ void Cluster::broadcast_write_to_cluster(
     uint64_t address,
     const std::set<ChipId>& chips_to_exclude,
     std::set<uint32_t>& rows_to_exclude,
-    std::set<uint32_t>& columns_to_exclude) {
-    if (arch_name == tt::ARCH::BLACKHOLE) {
-        auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
-            columns_to_exclude.find(9) == columns_to_exclude.end()) {
-            UMD_ASSERT(
-                !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
-                error::RuntimeError,
-                "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Blackhole.");
-            if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
-                // When broadcast includes column zero do not exclude anything.
-                std::set<uint32_t> unsafe_rows = {};
-                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = columns_to_exclude;
-                std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
-                cols_to_exclude_for_col_0_bcast.insert(9);
-                rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
-                ethernet_broadcast_write(
-                    mem_ptr,
-                    size_in_bytes,
-                    address,
-                    chips_to_exclude,
-                    rows_to_exclude_for_col_0_bcast,
-                    cols_to_exclude_for_col_0_bcast,
-                    false);
+    std::set<uint32_t>& columns_to_exclude,
+    bool use_translated_coords) {
+    if (!use_ethernet_broadcast) {
+        // Broadcast not supported. Implement this at the software level as a for loop.
+        // Only broadcast to TENSIX and DRAM cores (matching the supported destinations of the ERISC FW
+        // broadcast). The row/col exclusion masks are bit positions in NOC0 space when
+        // use_translated_coords is false, or in translated space when true.
+        for (const auto& chip : all_chip_ids_) {
+            if (chips_to_exclude.find(chip) != chips_to_exclude.end()) {
+                continue;
             }
-            if (columns_to_exclude.find(9) == columns_to_exclude.end()) {
-                std::set<uint32_t> cols_to_exclude_for_col_9_bcast = columns_to_exclude;
-                cols_to_exclude_for_col_9_bcast.insert(0);
-                ethernet_broadcast_write(
-                    mem_ptr,
-                    size_in_bytes,
-                    address,
-                    chips_to_exclude,
-                    rows_to_exclude,
-                    cols_to_exclude_for_col_9_bcast,
-                    false);
+            if (use_translated_coords && arch_name == tt::ARCH::WORMHOLE_B0) {
+                // Note that DRAM cores on Wormhole are mistakenly still reported as NOC0 even when TRANSLATED
+                // coordinates are requested, so we need to manually adjust the exclusion list to include NOC0
+                // coordinates of DRAM cores if they're requested in translated space.
+                if (columns_to_exclude.find(16) != columns_to_exclude.end()) {
+                    columns_to_exclude.insert(0);
+                }
+                if (columns_to_exclude.find(17) != columns_to_exclude.end()) {
+                    columns_to_exclude.insert(5);
+                }
             }
-        } else {
-            UMD_ASSERT(
-                use_translated_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
-                error::RuntimeError,
-                "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+            for (const CoreType core_type : {CoreType::TENSIX, CoreType::DRAM}) {
+                for (const CoreCoord core : get_soc_descriptor(chip).get_cores(
+                         core_type, use_translated_coords ? CoordSystem::TRANSLATED : CoordSystem::NOC0)) {
+                    if (columns_to_exclude.find(core.x) == columns_to_exclude.end() &&
+                        rows_to_exclude.find(core.y) == rows_to_exclude.end()) {
+                        write_to_device(mem_ptr, size_in_bytes, chip, core, address);
+                    }
+                }
+            }
+        }
+        return;
+    }
+
+    if (arch_name != tt::ARCH::WORMHOLE_B0) {
+        UMD_THROW(error::RuntimeError, "Broadcast write is only supported on Wormhole architecture.");
+    }
+
+    std::set<uint32_t> rows_to_exclude_virtual;
+    std::set<uint32_t> cols_to_exclude_virtual;
+    adjust_coordinates_for_ethernet_broadcast(
+        rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
+
+    auto architecture_implementation = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
+    if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
+        cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
+        UMD_ASSERT(
+            !tensix_or_eth_in_broadcast(cols_to_exclude_virtual, architecture_implementation.get()),
+            error::RuntimeError,
+            "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
+        if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end()) {
+            // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
+            // since writing to these is unsafe ERISC FW does not exclude these.
+            std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
+            std::set<uint32_t> cols_to_exclude_for_col_0_bcast = cols_to_exclude_virtual;
+            std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude_virtual;
+            cols_to_exclude_for_col_0_bcast.insert(5);
+            rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
             ethernet_broadcast_write(
                 mem_ptr,
                 size_in_bytes,
                 address,
                 chips_to_exclude,
-                rows_to_exclude,
-                columns_to_exclude,
-                use_translated_coords_for_eth_broadcast);
+                rows_to_exclude_for_col_0_bcast,
+                cols_to_exclude_for_col_0_bcast,
+                false);
+        }
+        if (cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
+            std::set<uint32_t> cols_to_exclude_for_col_5_bcast = cols_to_exclude_virtual;
+            cols_to_exclude_for_col_5_bcast.insert(0);
+            ethernet_broadcast_write(
+                mem_ptr,
+                size_in_bytes,
+                address,
+                chips_to_exclude,
+                rows_to_exclude_virtual,
+                cols_to_exclude_for_col_5_bcast,
+                false);
         }
     } else {
-        auto architecture_implementation = architecture_implementation::create(arch_name);
-        if (columns_to_exclude.find(0) == columns_to_exclude.end() or
-            columns_to_exclude.find(5) == columns_to_exclude.end()) {
-            UMD_ASSERT(
-                !tensix_or_eth_in_broadcast(columns_to_exclude, architecture_implementation.get()),
-                error::RuntimeError,
-                "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
-            if (columns_to_exclude.find(0) == columns_to_exclude.end()) {
-                // When broadcast includes column zero Exclude PCIe, ARC and router cores from broadcast explictly,
-                // since writing to these is unsafe ERISC FW does not exclude these.
-                std::set<uint32_t> unsafe_rows = {2, 3, 4, 8, 9, 10};
-                std::set<uint32_t> cols_to_exclude_for_col_0_bcast = columns_to_exclude;
-                std::set<uint32_t> rows_to_exclude_for_col_0_bcast = rows_to_exclude;
-                cols_to_exclude_for_col_0_bcast.insert(5);
-                rows_to_exclude_for_col_0_bcast.insert(unsafe_rows.begin(), unsafe_rows.end());
-                ethernet_broadcast_write(
-                    mem_ptr,
-                    size_in_bytes,
-                    address,
-                    chips_to_exclude,
-                    rows_to_exclude_for_col_0_bcast,
-                    cols_to_exclude_for_col_0_bcast,
-                    false);
-            }
-            if (columns_to_exclude.find(5) == columns_to_exclude.end()) {
-                std::set<uint32_t> cols_to_exclude_for_col_5_bcast = columns_to_exclude;
-                cols_to_exclude_for_col_5_bcast.insert(0);
-                ethernet_broadcast_write(
-                    mem_ptr,
-                    size_in_bytes,
-                    address,
-                    chips_to_exclude,
-                    rows_to_exclude,
-                    cols_to_exclude_for_col_5_bcast,
-                    false);
-            }
-        } else {
-            UMD_ASSERT(
-                use_translated_coords_for_eth_broadcast or
-                    valid_tensix_broadcast_grid(rows_to_exclude, columns_to_exclude, architecture_implementation.get()),
-                error::RuntimeError,
-                "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
-            ethernet_broadcast_write(
-                mem_ptr,
-                size_in_bytes,
-                address,
-                chips_to_exclude,
-                rows_to_exclude,
-                columns_to_exclude,
-                use_translated_coords_for_eth_broadcast);
-        }
+        UMD_ASSERT(
+            use_translated_coords_for_eth_broadcast or
+                valid_tensix_broadcast_grid(
+                    rows_to_exclude_virtual, cols_to_exclude_virtual, architecture_implementation.get()),
+            error::RuntimeError,
+            "Must broadcast to all tensix rows when ERISC FW is < 6.8.0.");
+        ethernet_broadcast_write(
+            mem_ptr,
+            size_in_bytes,
+            address,
+            chips_to_exclude,
+            rows_to_exclude_virtual,
+            cols_to_exclude_virtual,
+            use_translated_coords_for_eth_broadcast);
     }
 }
 
@@ -974,33 +1030,42 @@ int Cluster::arc_msg(
     return get_chip(logical_device_id)->arc_msg(msg_code, wait_for_done, args, timeout_ms, return_3, return_4);
 }
 
-void Cluster::broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets) {
+void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     if (chips_.empty()) {
         // Nowhere to broadcast to.
         return;
     }
-    // If ethernet broadcast is not supported, do it one by one.
-    if (!use_ethernet_broadcast) {
-        for (auto& chip_id : all_chip_ids_) {
-            get_chip(chip_id)->send_tensix_risc_reset(soft_resets);
-        }
-        return;
-    }
 
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = (std::underlying_type<TensixSoftResetOptions>::type)valid;
     std::set<ChipId> chips_to_exclude = {};
     std::set<uint32_t> rows_to_exclude;
     std::set<uint32_t> columns_to_exclude;
     if (arch_name == tt::ARCH::BLACKHOLE) {
-        rows_to_exclude = {0, 1};
-        columns_to_exclude = {0, 8, 9};
-    } else {
-        rows_to_exclude = {0, 6};
-        columns_to_exclude = {0, 5};
+        if (use_translated_coords_for_eth_broadcast) {
+            // PCIE and ETH are on these rows in translated space.
+            rows_to_exclude = {24, 25};
+            // DRAM is on these columns in translated space.
+            columns_to_exclude = {17, 18};
+        } else {
+            rows_to_exclude = {0, 1};
+            columns_to_exclude = {0, 8, 9};
+        }
+    } else if (arch_name == tt::ARCH::WORMHOLE_B0) {
+        if (use_translated_coords_for_eth_broadcast) {
+            rows_to_exclude = {16, 17};
+            columns_to_exclude = {16, 17};
+        } else {
+            rows_to_exclude = {0, 6};
+            columns_to_exclude = {0, 5};
+        }
     }
     broadcast_write_to_cluster(
-        &valid_val, sizeof(uint32_t), 0xFFB121B0, chips_to_exclude, rows_to_exclude, columns_to_exclude);
+        &reg_value,
+        sizeof(uint32_t),
+        0xFFB121B0,
+        chips_to_exclude,
+        rows_to_exclude,
+        columns_to_exclude,
+        use_translated_coords_for_eth_broadcast);
     // Ensure that reset signal is globally visible.
     wait_for_non_mmio_flush();
 }
@@ -1014,7 +1079,7 @@ void Cluster::set_power_state(DevicePowerState device_state) {
 void Cluster::deassert_resets_and_set_power_state() {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
-    broadcast_tensix_risc_reset_to_cluster(TENSIX_ASSERT_SOFT_RESET);
+    assert_risc_reset();
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();

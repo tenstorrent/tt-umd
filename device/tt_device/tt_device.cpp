@@ -41,7 +41,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -273,13 +272,35 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
+std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    PCIDevice *pci = get_pci_device();
+    UMD_ASSERT(
+        pci != nullptr, error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");
+
+    if (size != 0) {
+        return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size, mapping), config);
+    }
+
+    // Caller didn't specify a size — try arch-supported sizes in preference order.
+    const std::vector<size_t> &possible_sizes = get_architecture_implementation()->get_tlb_sizes();
+    for (const auto &s : possible_sizes) {
+        try {
+            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
+        } catch (const std::exception &e) {
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
+        }
+    }
+
+    UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
+}
+
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     get_pcie_interface()->write_regs(dest, src, word_len);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device(mem_ptr, core, addr, size);
+    device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
@@ -289,7 +310,7 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device(mem_ptr, core, addr, size);
+    device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
@@ -437,16 +458,6 @@ void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     set_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core), risc_flags);
 }
 
-void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = static_cast<uint32_t>(valid);
-    set_risc_reset_state(core, valid_val);
-}
-
-void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
-    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core is not supported at the TTDevice level.");
-}
-
 void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
@@ -467,17 +478,7 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    if (is_remote_tt_device) {
-        // Remote devices don't have direct NOC multicast support.
-        // Fallback to unicast for all cores in the range.
-        for (std::size_t x = core_start.x; x <= core_end.x; ++x) {
-            for (std::size_t y = core_start.y; y <= core_end.y; ++y) {
-                write_to_device(src, xy_pair(x, y), addr, size);
-            }
-        }
-        return;
-    }
-    get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr);
+    get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }
 
 void TTDevice::noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
@@ -499,7 +500,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr);
+    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -518,7 +519,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr);
+    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -537,7 +538,8 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr);
+    bool dma_success =
+        get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }

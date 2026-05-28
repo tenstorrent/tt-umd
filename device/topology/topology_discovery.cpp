@@ -35,7 +35,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -134,13 +133,15 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type);
-        if (!options.low_power) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type, options.use_safe_api);
+        if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
                 LogUMD,
-                "Low power mode is disabled while UMD holds open file descriptors. The device will return to low power "
-                "mode once all file descriptors are closed.");
+                "Low power mode is not yet supported. The device will remain in high power mode while UMD holds open "
+                "file descriptors.");
+        } else {
+            // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
             tt_device->set_power_state(true);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
@@ -256,16 +257,19 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (tt_device->get_risc_reset_state(eth_core) & static_cast<uint32_t>(TensixSoftResetOptions::BRISC)) {
+            const RiscType risc_reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(
+                tt_device->get_risc_reset_state(eth_core));
+            if ((risc_reset_state & RiscType::ERISC0) != RiscType::NONE) {
                 log_debug(
                     LogUMD,
-                    "Skipping disabled ETH core {} on device ASIC ID: {} (BRISC reset bit is high)",
+                    "Skipping disabled ETH core {} on device ASIC ID: {} (ERISC0 reset bit is high)",
                     eth_core.str(),
                     current_device_asic_id);
                 continue;
             }
 
-            if (!eth_heartbeat_running(tt_device, eth_core)) {
+            // TODO: Temporary - heartbeat check disabled for Blackhole.
+            if (tt_device->get_arch() != ARCH::BLACKHOLE && !eth_heartbeat_running(tt_device, eth_core)) {
                 auto err = UMD_THROW_OR_RETURN(
                     options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
                     error::RuntimeError,

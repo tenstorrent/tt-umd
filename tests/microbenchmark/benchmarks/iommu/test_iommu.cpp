@@ -38,6 +38,9 @@ constexpr uint32_t NUM_EPOCHS = 100;
 // and the average time per page.
 TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
@@ -88,6 +91,9 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizes) {
 // Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
 TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
@@ -137,11 +143,72 @@ TEST(MicrobenchmarkIOMMU, MapHugepages2M) {
     test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
 }
 
+// Measure the time it takes to map 512MiB hugepages using IOMMU.
+// 512MiB hugepages are PMD/level-2 block descriptors on AArch64 with 64K base pages.
+// They are not available on x86. Each hugepage maps to one SMMU TLB entry regardless of
+// size, so they yield fewer TLB entries than 2MiB pages for the same total memory.
+TEST(MicrobenchmarkIOMMU, MapHugepages512M) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
+
+    const uint64_t HUGEPAGE_SHIFT = 29;
+    const uint64_t MAPPING_SIZE = 512ULL << 20;  // 512 MiB
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+
+    auto bench =
+        ankerl::nanobench::Bench().title("IOMMU_HugePage512M").epochIterations(1).epochs(NUM_EPOCHS).name("Map 512M");
+    ankerl::nanobench::Result map_result(bench.config());
+    bench.name("Unmap 512M");
+    ankerl::nanobench::Result unmap_result(bench.config());
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    for (int i = 0; i < NUM_EPOCHS; i++) {
+        void* mapping = mmap(
+            nullptr,
+            MAPPING_SIZE,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | (HUGEPAGE_SHIFT << MAP_HUGE_SHIFT),
+            -1,
+            0);
+
+        if (mapping == MAP_FAILED) {
+            GTEST_SKIP() << "Mapping 512MiB hugepage failed. Skipping test.";
+        }
+        auto now = std::chrono::high_resolution_clock::now();
+        pci_device->map_for_dma(mapping, MAPPING_SIZE);
+        auto end = std::chrono::high_resolution_clock::now();
+        map_result.add(end - now, 1, pc);
+
+        now = std::chrono::high_resolution_clock::now();
+        pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+        end = std::chrono::high_resolution_clock::now();
+        unmap_result.add(end - now, 1, pc);
+
+        munmap(mapping, MAPPING_SIZE);
+    }
+
+    test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
+}
+
 // Measure the time it takes to map hugepages using IOMMU.
 // These should be different from regular buffers because it's guaranteed that hugepages are contiguous in memory.
 // Since contiguous memory has less entries in the IOMMU page table, we expect the mapping to be faster.
 TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }

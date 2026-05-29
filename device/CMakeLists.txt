@@ -147,6 +147,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
+            simulation/backend/ttsim_backend.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
@@ -329,6 +330,22 @@ if(TT_UMD_BUILD_SIMULATION)
             flatbuffers::flatbuffers
             nng
             uv_a
+    )
+
+    # Mock cooperative libttsim.so for the Part B sim-backend prototype. Exports
+    # the full libttsim ABI with trivial in-memory behavior so the UMD backend
+    # can be loaded against a stand-in for the "already implemented" simulator.
+    add_library(mock_libttsim SHARED ${PROJECT_SOURCE_DIR}/tools/mock_libttsim/mock_libttsim.cpp)
+    target_include_directories(
+        mock_libttsim
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/api
+    )
+    set_target_properties(
+        mock_libttsim
+        PROPERTIES
+            OUTPUT_NAME ttsim
+            PREFIX "lib"
     )
 endif()
 

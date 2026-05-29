@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (c) 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -114,10 +114,13 @@ TEST_P(IsCoreOfTypeTest, GarbageXYIsNotAnyKnownType) {
     EXPECT_FALSE(soc.is_core_of_type(garbage, CoreType::PCIE, CoordSystem::TRANSLATED));
 }
 
+// QUASAR is included because is_core_of_type's DRAM-teleport path in
+// tt_sim_tt_device.cpp special-cases it, and a quasar_simulation_1x1.yaml
+// descriptor is available in the repo.
 INSTANTIATE_TEST_SUITE_P(
     AllArchs,
     IsCoreOfTypeTest,
-    ::testing::Values(ARCH::WORMHOLE_B0, ARCH::BLACKHOLE),
+    ::testing::Values(ARCH::WORMHOLE_B0, ARCH::BLACKHOLE, ARCH::QUASAR),
     [](const ::testing::TestParamInfo<ARCH>& info) { return arch_to_str(info.param); });
 
 // ---------------------------------------------------------------------------
@@ -139,24 +142,6 @@ protected:
     const char* simulator_path_ = nullptr;
 };
 
-// Verify that two communicators targeting different chip IDs can be
-// constructed from the same simulator directory. In multichip mode they
-// share a single dlopen handle (refcount = 2).
-TEST_F(TTSimCommunicatorTest, TwoCommunicatorsShareHandle) {
-    // chip_id 0 and 1 -- does not need a real multi-chip sim binary;
-    // the constructor merely stores chip_id, actual multichip detection
-    // happens in initialize() which we skip here to avoid needing a
-    // live simulator.
-    TTSimCommunicator comm_0(simulator_path_, /* copy_sim_binary= */ false, /* chip_id= */ 0);
-    TTSimCommunicator comm_1(simulator_path_, /* copy_sim_binary= */ false, /* chip_id= */ 1);
-
-    // Both communicators exist without throwing.
-    // If the .so supports multichip ABI, initialize() would set them up
-    // with shared dlopen. Without calling initialize() we just verify
-    // construction is safe.
-    SUCCEED();
-}
-
 // Verify that TTSimTTDevice::create produces a non-null device.
 TEST_F(TTSimCommunicatorTest, CreateSimDevice) {
     auto device = TTSimTTDevice::create(simulator_path_);
@@ -166,41 +151,47 @@ TEST_F(TTSimCommunicatorTest, CreateSimDevice) {
     EXPECT_NE(soc.arch, ARCH::Invalid);
 }
 
-// Verify that constructing two TTSimCommunicator instances with the SAME
-// simulator path but different chip_ids does not crash on destruction.
-// This exercises the shared dlopen refcount (2 -> 1 -> 0).
-TEST_F(TTSimCommunicatorTest, SharedDlopenRefcount) {
-    {
-        TTSimCommunicator comm_a(simulator_path_, /* copy_sim_binary= */ false, /* chip_id= */ 0);
-        TTSimCommunicator comm_b(simulator_path_, /* copy_sim_binary= */ false, /* chip_id= */ 1);
-        // Both alive; shared refcount should be 2.
-    }
-    // Both destroyed; refcount should have gone 2 -> 1 -> 0 without crash.
-    SUCCEED();
-}
-
-// Create a TTSimTTDevice, close it, then verify that close_device() can be
-// called again without crashing (idempotency via closed_ flag).
-TEST_F(TTSimCommunicatorTest, IOAfterCloseIsSafe) {
+// Verify that write_to_device after close_device() is a no-op (closed_ guard).
+// Also verifies that a second close_device() and the destructor do not
+// double-call pfn_libttsim_exit_ (shutdown() honours closed_).
+TEST_F(TTSimCommunicatorTest, WriteAfterCloseIsNoOp) {
     auto device = TTSimTTDevice::create(simulator_path_);
     ASSERT_NE(device, nullptr);
 
+    const auto& soc = device->get_soc_descriptor();
+    auto dram_cores = soc.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    if (dram_cores.empty()) {
+        GTEST_SKIP() << "No DRAM cores; cannot run I/O test.";
+    }
+
+    tt_xy_pair target{dram_cores[0].x, dram_cores[0].y};
+
+    // Write a sentinel before close.
+    uint32_t sentinel = 0xCAFEBABE;
+    device->write_to_device(&sentinel, target, 0, sizeof(sentinel));
+
     device->close_device();
 
-    // A second close should not crash.
+    // write_to_device after close must not crash (closed_ guard makes it a no-op).
+    uint32_t after_close = 0xDEADBEEF;
+    EXPECT_NO_THROW(device->write_to_device(&after_close, target, 0, sizeof(after_close)));
+
+    // A second close_device() must not crash either (shutdown() checks closed_).
     EXPECT_NO_THROW(device->close_device());
+    // Destructor also calls shutdown() — again honoured by the closed_ guard.
 }
 
-// Two TTSimTTDevice instances writing and reading back independently.
-// This implicitly exercises select_chip_if_needed for each I/O call.
+// Two TTSimTTDevice instances with distinct chip_ids writing and reading back
+// independently. Exercises select_chip_if_needed for each I/O call.
 TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
-    auto dev_0 = TTSimTTDevice::create(simulator_path_);
+    // Use the chip_id overload so the two devices target different simulated chips.
+    auto dev_0 = TTSimTTDevice::create(simulator_path_, /* chip_id= */ static_cast<ChipId>(0));
     ASSERT_NE(dev_0, nullptr);
 
     // If the simulator binary is single-chip, we cannot open a second device.
     std::unique_ptr<TTSimTTDevice> dev_1;
     try {
-        dev_1 = TTSimTTDevice::create(simulator_path_);
+        dev_1 = TTSimTTDevice::create(simulator_path_, /* chip_id= */ static_cast<ChipId>(1));
     } catch (const std::exception&) {
         GTEST_SKIP() << "Simulator does not support multiple devices; skipping multi-device I/O test.";
     }

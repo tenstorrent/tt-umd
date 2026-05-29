@@ -181,6 +181,12 @@ void TTSimCommunicator::start_sim() {
 
 void TTSimCommunicator::shutdown() {
     std::lock_guard<std::mutex> lock(device_lock_);
+    // Guard against double-shutdown: close_device() calls mark_closed() then
+    // shutdown(); the destructor also calls shutdown(). Without this check the
+    // destructor would call pfn_libttsim_exit_() a second time.
+    if (closed_) {
+        return;
+    }
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
     if (multichip_mode_) {
         // Defer libttsim_exit until the last communicator destructs (handled

@@ -5,7 +5,7 @@
 #include "tt_device_doxy.hpp"
 
 #include "tt_device_model_doxy.hpp"
-#include "umd/device/types/core_coordinates.hpp"
+#include "types/tt_core_coordinates_doxy.hpp"
 
 namespace tt::umd {
 
@@ -204,10 +204,10 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
-    return io_window_factory_->create_io_window(target, host);
+    return model_->create_io_window(target, host);
 }
 
-DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
+DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_; }
 
 PcieInterface *TTDevice::get_pcie_interface() { return pcie_interface_; }
 
@@ -215,27 +215,35 @@ JtagInterface *TTDevice::get_jtag_interface() { return jtag_interface_; }
 
 RemoteInterface *TTDevice::get_remote_interface() { return remote_interface_; }
 
-FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const { return firmware_telemetry_reader_.get(); }
+FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const { return firmware_telemetry_reader_; }
 
-FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider_.get(); }
+FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider_; }
 
 RemoteCommunication *TTDevice::get_remote_communication() {
     return remote_interface_ ? remote_interface_->get_remote_communication() : nullptr;
 }
 
-ArchitectureImplementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
+ArchitectureImplementation *TTDevice::get_architecture_implementation() { return architecture_impl_; }
 
-ARCH TTDevice::get_arch() const { return arch_; }
+ARCH TTDevice::get_arch() const { return architecture_impl_->get_architecture(); }
 
 bool TTDevice::is_remote() const { return is_remote_; }
 
-int TTDevice::get_communication_device_id() const { return device_id_; }
+int TTDevice::get_communication_device_id() const { return device_protocol_->get_mmio_id(); }
 
-IODeviceType TTDevice::get_communication_device_type() const { return device_type_; }
+IODeviceType TTDevice::get_communication_device_type() const {
+    if (pcie_interface_) {
+        return IODeviceType::PCIe;
+    }
+    if (jtag_interface_) {
+        return IODeviceType::JTAG;
+    }
+    return IODeviceType::UNDEFINED;
+}
 
 ChipInfo TTDevice::get_chip_info() { return device_firmware_->get_chip_info(); }
 
-FirmwareBundleVersion TTDevice::get_firmware_version() { return device_firmware_->get_firmware_version(); }
+FirmwareBundleVersion TTDevice::get_firmware_version() { return firmware_info_provider_->get_firmware_version(); }
 
 bool TTDevice::get_noc_translation_enabled() const { return device_firmware_->get_noc_translation_enabled(); }
 
@@ -253,7 +261,12 @@ double TTDevice::get_asic_temperature() const {
     return firmware_info_provider_ ? firmware_info_provider_->get_asic_temperature().value_or(0.0) : 0.0;
 }
 
-uint32_t TTDevice::get_clock_freq() const { return device_firmware_->get_clock_freq(); }
+uint32_t TTDevice::get_clock_freq() const {
+    if (firmware_info_provider_->get_clock_freq().has_value()) {
+        return firmware_info_provider_->get_clock_freq().value();
+    }
+    return 0;
+}
 
 uint32_t TTDevice::get_max_clock_freq() const {
     return firmware_info_provider_ ? firmware_info_provider_->get_max_clock_freq().value_or(0) : 0;
@@ -262,12 +275,13 @@ uint32_t TTDevice::get_max_clock_freq() const {
 uint32_t TTDevice::get_min_clock_freq() const { return architecture_impl_->get_min_clock_freq(); }
 
 uint64_t TTDevice::get_refclk_counter() const {
-    uint32_t high = 0, low = 0;
-    tt_xy_pair arc = device_firmware_->get_arc_core();
+    uint32_t high = 0;
+    uint32_t low = 0;
+    tt_xy_pair arc = device_firmware_->get_firmware_noc_coord();
     device_protocol_->read_ctrl(
-        &high, arc, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high), NocId::DEFAULT);
+        &high, arc, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high), NocId::DEFAULT);
     device_protocol_->read_ctrl(
-        &low, arc, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low), NocId::DEFAULT);
+        &low, arc, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low), NocId::DEFAULT);
     return (static_cast<uint64_t>(high) << 32) | low;
 }
 

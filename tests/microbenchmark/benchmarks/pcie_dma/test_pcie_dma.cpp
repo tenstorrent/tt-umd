@@ -208,9 +208,6 @@ TEST(MicrobenchmarkPCIeDMA, EthernetSweepSizes) {
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
-    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
@@ -245,9 +242,6 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
 // This test measures bandwidth of IO using PCIe DMA engine without overhead of copying data into DMA buffer.
 TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
-    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }
@@ -283,9 +277,6 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 // to and from the device.
 TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
-    }
     if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
     }

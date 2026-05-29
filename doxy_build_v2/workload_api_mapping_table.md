@@ -266,8 +266,8 @@
 <td>get_pcie_base_addr_from_device()</td>
 <td><b>Parameters:</b> <br> - chip_id: <code>const ChipId</code> — chip to target <br> <b>Returns:</b> <br> - <code>uint64_t</code></td>
 <td>1. Call <code>Chip::get_pcie_base_addr_from_device()</code> on target chip</td>
-<td><b><code>TTDevice::get_pcie_base_addr_from_device()</code></b></td>
-<td>Passthrough facade via Chip (see Chip table). <br><br> <b>Note:</b> To be renamed. Maps to <code>SystemMemoryBuffer::get_noc_address()</code> — the NOC base address for the system memory buffer as seen from the device's PCIe tile.</td>
+<td><b><code>SystemMemoryBuffer::get_noc_address()</code></b></td>
+<td>Returns the NOC base address for the system memory buffer as seen from the device's PCIe tile.</td>
 </tr>
 <tr>
 <td>send_device_command() <br> <i>currently: <code>arc_msg()</code></i></td>

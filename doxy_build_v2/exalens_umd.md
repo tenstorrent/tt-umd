@@ -70,7 +70,7 @@
 </tr>
 <tr>
 <td><code>UmdDevice.bar0_read32</code> / <code>bar0_write32</code> (umd_device.py)</td>
-<td><code>TTDevice::bar_read32()</code> <br> <code>TTDevice::bar_write32()</code></td>
+<td><code>PcieInterface::bar_read32()</code> <br> <code>PcieInterface::bar_write32()</code> <br> (via <code>TTDeviceModel::get_pcie_interface()</code>)</td>
 <td>Direct 32-bit reads/writes to BAR register space.</td>
 </tr>
 <tr>

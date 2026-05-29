@@ -136,7 +136,7 @@ void TTDevice::init_firmware(const std::chrono::milliseconds timeout_ms) {
 }
 
 bool TTDevice::wait_eth_core_training(const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    return device_firmware_->wait_eth_core_training(eth_core, timeout_ms);
+    return device_firmware_->wait_eth_core_training(translate(eth_core), timeout_ms);
 }
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
@@ -151,7 +151,7 @@ DeviceCommandResult TTDevice::send_device_command(
 }
 
 EthTrainingStatus TTDevice::get_eth_core_training_status(CoreCoord eth_core) {
-    return device_firmware_->get_eth_core_training_status(eth_core);
+    return device_firmware_->get_eth_core_training_status(translate(eth_core));
 }
 
 void TTDevice::set_power_state(PowerState state) { device_firmware_->set_power_state(static_cast<uint32_t>(state)); }

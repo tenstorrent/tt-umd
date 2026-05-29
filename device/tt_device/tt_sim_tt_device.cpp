@@ -324,39 +324,36 @@ void TTSimTTDevice::initialize_sysmem_functions() {
 }
 
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
-    // paddr is the raw device IO address supplied by libttsim.  Two backing
-    // stores exist:
+    // craq-sim calls translate_pci_dma_addr() before invoking this callback,
+    // which subtracts pcie_base from the NOC address.  So paddr here is an
+    // OFFSET from pcie_base (not an absolute address).  Two backing stores:
     //
     //  1. Mapped-buffer arena: allocate_sysmem_buffer / map_sysmem_buffer
-    //     assign synthetic IOVAs above the hugepage region.  Check this first
-    //     and memcpy directly to/from the host buffer VA on a hit.
+    //     assign synthetic IOVAs above the hugepage region.  The registry
+    //     keys buffers by their absolute device IO address (pcie_base + offset),
+    //     so convert paddr before the lookup.
     //
-    //  2. Hugepage arena: traditional channel-stride layout.  On a miss,
-    //     strip pcie_base_ and decompose into (channel, within-channel offset)
-    //     so write_to_sysmem / read_from_sysmem receive the semantics the
-    //     base class expects.
+    //  2. Hugepage arena: traditional channel-stride layout.  paddr is already
+    //     the within-hugepage-space offset, so decompose directly into
+    //     (channel, within-channel offset) for read_from_sysmem.
     auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-    if (sim_mgr->read_mapped_buffer(paddr, p, size)) {
+    const uint64_t pcie_base = sim_mgr->get_pcie_base();
+    if (sim_mgr->read_mapped_buffer(pcie_base + paddr, p, size)) {
         return;
     }
-    const uint64_t pcie_base = sim_mgr->get_pcie_base();
-    UMD_ASSERT(paddr >= pcie_base, error::RuntimeError, "pci_dma_read_bytes: paddr underflows pcie_base");
-    const uint64_t offset = paddr - pcie_base;
-    const uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-    sim_mgr->read_from_sysmem(channel, p, offset % (1ULL << 30), size);
+    const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
+    sim_mgr->read_from_sysmem(channel, p, paddr % (1ULL << 30), size);
 }
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
-    // See pci_dma_read_bytes for the two-path explanation.
+    // See pci_dma_read_bytes for the offset-vs-absolute explanation.
     auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
-    if (sim_mgr->write_mapped_buffer(paddr, p, size)) {
+    const uint64_t pcie_base = sim_mgr->get_pcie_base();
+    if (sim_mgr->write_mapped_buffer(pcie_base + paddr, p, size)) {
         return;
     }
-    const uint64_t pcie_base = sim_mgr->get_pcie_base();
-    UMD_ASSERT(paddr >= pcie_base, error::RuntimeError, "pci_dma_write_bytes: paddr underflows pcie_base");
-    const uint64_t offset = paddr - pcie_base;
-    const uint16_t channel = static_cast<uint16_t>(offset / (1ULL << 30));
-    sim_mgr->write_to_sysmem(channel, p, offset % (1ULL << 30), size);
+    const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
+    sim_mgr->write_to_sysmem(channel, p, paddr % (1ULL << 30), size);
 }
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {

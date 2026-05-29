@@ -21,6 +21,10 @@ using namespace tt::umd;
 
 const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
 
+// ---------------------------------------------------------------------------
+// Non-parametrized tests (WH-only / arch-agnostic)
+// ---------------------------------------------------------------------------
+
 TEST(ApiSimulationSysmemManager, BasicIOSingleChannel) {
     std::unique_ptr<SimulationSysmemManager> sysmem =
         std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
@@ -96,12 +100,34 @@ TEST(ApiSimulationSysmemManager, TestFourChannels) {
 }
 
 // ---------------------------------------------------------------------------
-// Mapped buffer tests (SimulationSysmemManager::allocate_sysmem_buffer,
-// map_sysmem_buffer, and routed read/write through mapped buffers).
+// Mapped buffer tests — parametrized over ARCH (WH and BH).
+//
+// The mapped-buffer registry keys buffers by their absolute device IO address
+// (pcie_base + arena_offset).  Tests use write_mapped_buffer /
+// read_mapped_buffer directly, which is the same path taken by
+// TTSimTTDevice::pci_dma_{write,read}_bytes after converting the craq-sim
+// offset to the absolute key.
 // ---------------------------------------------------------------------------
 
-TEST(ApiSimulationSysmemManager, AllocateSysmemBufferReturnsValidBuffer) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+class ApiSimulationSysmemManagerByArch : public ::testing::TestWithParam<tt::ARCH> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    Archs,
+    ApiSimulationSysmemManagerByArch,
+    ::testing::Values(tt::ARCH::WORMHOLE_B0, tt::ARCH::BLACKHOLE),
+    [](const ::testing::TestParamInfo<tt::ARCH>& info) {
+        switch (info.param) {
+            case tt::ARCH::WORMHOLE_B0:
+                return "WORMHOLE_B0";
+            case tt::ARCH::BLACKHOLE:
+                return "BLACKHOLE";
+            default:
+                return "UNKNOWN";
+        }
+    });
+
+TEST_P(ApiSimulationSysmemManagerByArch, AllocateSysmemBufferReturnsValidBuffer) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     const size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
@@ -112,8 +138,8 @@ TEST(ApiSimulationSysmemManager, AllocateSysmemBufferReturnsValidBuffer) {
     EXPECT_GT(buffer->get_device_io_addr(), 0u);
 }
 
-TEST(ApiSimulationSysmemManager, MapExternalBufferCreatesEntry) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+TEST_P(ApiSimulationSysmemManagerByArch, MapExternalBufferCreatesEntry) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     // Allocate a user-managed buffer and map it through the sysmem manager.
     const size_t buffer_size = 8192;
@@ -124,38 +150,39 @@ TEST(ApiSimulationSysmemManager, MapExternalBufferCreatesEntry) {
     EXPECT_GT(buffer->get_device_io_addr(), 0u);
 }
 
-TEST(ApiSimulationSysmemManager, WriteReadThroughMappedBuffer) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+// Verify that write_mapped_buffer / read_mapped_buffer correctly address the
+// backing allocation via the registry key (absolute device_io_addr).  This
+// exercises the same path as TTSimTTDevice::pci_dma_{write,read}_bytes after
+// it adds pcie_base to the craq-sim offset.
+TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     const size_t buffer_size = 4096;
     auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
     ASSERT_NE(buffer, nullptr);
 
-    // Compute the channel and offset that correspond to this buffer's device_io_addr.
-    const uint64_t pcie_base = sysmem->get_pcie_base();
     const uint64_t device_addr = buffer->get_device_io_addr();
-    ASSERT_GE(device_addr, pcie_base);
+    EXPECT_GT(device_addr, 0u);
 
-    const uint64_t offset_from_base = device_addr - pcie_base;
-    const uint64_t channel_size = 1ULL << 30;
-    const uint16_t channel = static_cast<uint16_t>(offset_from_base / channel_size);
-    const uint64_t offset_in_channel = offset_from_base % channel_size;
-
-    // Write a pattern via sysmem manager (should route through mapped buffer table).
+    // Write a pattern via write_mapped_buffer — this mirrors the
+    // pci_dma_write_bytes path (TTSimTTDevice adds pcie_base to the craq-sim
+    // offset before calling write_mapped_buffer).
     std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
-    sysmem->write_to_sysmem(channel, pattern.data(), offset_in_channel, pattern.size());
+    bool written = sysmem->write_mapped_buffer(device_addr, pattern.data(), pattern.size());
+    EXPECT_TRUE(written);
 
-    // Read it back.
+    // Read it back via read_mapped_buffer.
     std::vector<uint8_t> readback(pattern.size(), 0);
-    sysmem->read_from_sysmem(channel, readback.data(), offset_in_channel, readback.size());
+    bool read_ok = sysmem->read_mapped_buffer(device_addr, readback.data(), readback.size());
+    EXPECT_TRUE(read_ok);
     EXPECT_EQ(pattern, readback);
 
-    // Also verify the data is visible through the buffer VA directly.
+    // Confirm the data is also visible through the buffer VA.
     EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), pattern.data(), pattern.size()));
 }
 
-TEST(ApiSimulationSysmemManager, MultipleMappedBuffersAreIndependent) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+TEST_P(ApiSimulationSysmemManagerByArch, MultipleMappedBuffersAreIndependent) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     auto buf_a = sysmem->allocate_sysmem_buffer(4096);
     auto buf_b = sysmem->allocate_sysmem_buffer(4096);
@@ -168,8 +195,8 @@ TEST(ApiSimulationSysmemManager, MultipleMappedBuffersAreIndependent) {
     EXPECT_NE(buf_a->get_buffer_va(), buf_b->get_buffer_va());
 }
 
-TEST(ApiSimulationSysmemManager, DestroyedBufferUnmapsCleanly) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+TEST_P(ApiSimulationSysmemManagerByArch, DestroyedBufferUnmapsCleanly) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     {
         auto buffer = sysmem->allocate_sysmem_buffer(4096);
@@ -183,8 +210,8 @@ TEST(ApiSimulationSysmemManager, DestroyedBufferUnmapsCleanly) {
 }
 
 // Verify that concurrent allocations do not crash (tests the mutex on owned_allocations_).
-TEST(ApiSimulationSysmemManager, ConcurrentAllocateDoesNotCrash) {
-    auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+TEST_P(ApiSimulationSysmemManagerByArch, ConcurrentAllocateDoesNotCrash) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 
     constexpr int kThreads = 4;
     constexpr size_t kBufSize = 4096;
@@ -214,10 +241,10 @@ TEST(ApiSimulationSysmemManager, ConcurrentAllocateDoesNotCrash) {
 
 // Destroy the SimulationSysmemManager while a SysmemBuffer still exists.
 // The buffer's unmap callback must not crash (weak_ptr / captured-reference safety).
-TEST(ApiSimulationSysmemManager, ManagerDestroyedBeforeBuffer) {
+TEST_P(ApiSimulationSysmemManagerByArch, ManagerDestroyedBeforeBuffer) {
     std::unique_ptr<SysmemBuffer> buffer;
     {
-        auto sysmem = std::make_unique<SimulationSysmemManager>(1, tt::ARCH::WORMHOLE_B0);
+        auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
         buffer = sysmem->allocate_sysmem_buffer(4096);
         ASSERT_NE(buffer, nullptr);
         // sysmem is destroyed here.

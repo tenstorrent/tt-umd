@@ -35,6 +35,8 @@ class SocArchDescriptor;
  * with per-chip runtime data: harvesting masks, NOC translation settings, and
  * a @ref CoordinateManager for coordinate system conversions.
  *
+ * @client_cpp
+ *
  * ## Key Types
  *
  * | Type | Description |

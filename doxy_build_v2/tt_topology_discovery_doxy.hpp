@@ -26,6 +26,8 @@ struct TopologyDiscoveryOptions;
  * remote devices. Returns the full topology and initialized TTDevice instances
  * for every discovered device.
  *
+ * @client_cpp
+ *
  * ## Key Types
  *
  * | Type | Description |

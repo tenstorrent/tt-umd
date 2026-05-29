@@ -18,6 +18,8 @@ namespace tt::umd {
  * table. Tags are uint8_t identifiers (max 255 entries) defined by the
  * firmware. Higher-level interpretation is handled by @ref FirmwareInfoProvider.
  *
+ * @optional
+ *
  */
 
 class FirmwareTelemetryReader {

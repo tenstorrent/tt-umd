@@ -17,6 +17,8 @@ namespace tt::umd {
  * Exposes operations that are only meaningful for PCIe-connected devices.
  * Available from @ref TTDeviceModel when the active transport is PCIe.
  *
+ * @optional
+ *
  */
 
 /**

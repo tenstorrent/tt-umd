@@ -19,6 +19,8 @@ class RemoteCommunication;
  * Provides access to the underlying communication handler and a barrier to
  * ensure all in-flight remote writes have landed.
  *
+ * @optional
+ *
  */
 
 /**

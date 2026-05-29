@@ -25,6 +25,8 @@ namespace tt::umd {
  * Returns `std::optional<bool>`: true = hung, false = healthy,
  * nullopt = check not applicable for this transport.
  *
+ * @optional
+ *
  */
 
 /**

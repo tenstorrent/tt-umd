@@ -17,6 +17,8 @@ namespace tt::umd {
  * Exposes operations that are only meaningful for JTAG-connected devices.
  * Available from @ref TTDeviceModel when the active transport is JTAG.
  *
+ * @optional
+ *
  */
 
 /**

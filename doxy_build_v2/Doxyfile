@@ -42,7 +42,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = "UMD Base Layer Specification"
+PROJECT_NAME           = "UMD Base API Components"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -283,7 +283,8 @@ TAB_SIZE               = 4
 # with the commands \{ and \} for these it is advised to use the version @{ and
 # @} or use a double escape (\\{ and \\})
 
-ALIASES                =
+ALIASES                = "optional=@warning **Optional.** Provide a stub implementation if your platform does not require this." \
+                         "client_cpp=@note **Client-provided.** Implement the .cpp for your architecture. The reference implementation can be used as a starting point."
 
 # Set the OPTIMIZE_OUTPUT_FOR_C tag to YES if your project consists of C sources
 # only. Doxygen will then generate output that is more tailored for C. For
@@ -917,17 +918,24 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = tt_device_doxy.hpp \
-                         tt_topology_discovery_doxy.hpp \
-                         tt_io_window_doxy.hpp \
+INPUT                  = tt_device_model_doxy.hpp \
                          tt_device_protocol_doxy.hpp \
-                         tt_pcie_protocol_doxy.hpp \
-                         tt_firmware_messenger_doxy.hpp \
-                         tt_firmware_telemetry_reader_doxy.hpp \
+                         tt_device_firmware_doxy.hpp \
+                         tt_architecture_implementation_doxy.hpp \
+                         tt_io_window_doxy.hpp \
                          tt_firmware_info_provider_doxy.hpp \
+                         tt_dma_interface_doxy.hpp \
+                         tt_hang_detector_doxy.hpp \
+                         tt_firmware_telemetry_reader_doxy.hpp \
+                         tt_pcie_interface_doxy.hpp \
+                         tt_jtag_interface_doxy.hpp \
+                         tt_remote_interface_doxy.hpp \
                          tt_system_memory_doxy.hpp \
-                         tt_enums_structs_constants_doxy.hpp \
-                         tt_api_mapping_tables_doxy.hpp
+                         tt_topology_discovery_doxy.hpp \
+                         tt_topology_discovery_options.hpp \
+                         tt_soc_arch_descriptor_doxy.hpp \
+                         tt_soc_descriptor_doxy.hpp \
+                         tt_enums_structs_constants_doxy.hpp
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

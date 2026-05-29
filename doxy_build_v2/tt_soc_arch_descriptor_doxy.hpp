@@ -28,6 +28,8 @@ namespace tt::umd {
  * Shared across all chips of the same architecture. @ref SocDescriptor
  * combines this with per-chip runtime state (harvesting, coordinate translation).
  *
+ * @client_cpp
+ *
  * ## Key Types
  *
  * | Type | Description |

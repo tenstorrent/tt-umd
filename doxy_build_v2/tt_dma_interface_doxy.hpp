@@ -25,6 +25,8 @@ namespace tt::umd {
  *
  * All core coordinates are tt_xy_pair — raw (x, y) with no translation.
  *
+ * @optional
+ *
  */
 
 /**

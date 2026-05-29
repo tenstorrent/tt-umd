@@ -1,0 +1,89 @@
+\usepackage[most]{tcolorbox}
+\usepackage{etoolbox}
+
+% Tighten general paragraph spacing.
+\setlength{\parskip}{0.2ex plus 0.1ex minus 0.1ex}
+
+\renewcommand{\DoxyLabelFont}{\bfseries}
+
+% Tighter DoxyCompactItemize (used in summary listings).
+\renewenvironment{DoxyCompactItemize}{%
+  \begin{itemize}%
+    \setlength{\itemsep}{0pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\topsep}{0pt}%
+    \setlength{\partopsep}{0pt}%
+}{%
+  \end{itemize}%
+}
+
+% Tighter parameter description lists.
+\renewenvironment{DoxyDesc}[1]{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{0pt}%
+    \setlength{\parsep}{0pt}%
+    \setlength{\itemsep}{0pt}%
+    \setlength{\topsep}{2pt}%
+  }%
+  \item[\hskip\labelsep{\bfseries #1}]%
+}{%
+  \end{list}%
+}
+
+% Reduce space ABOVE each API entry (doxyparagraph).
+% Handle both starred and unstarred forms.
+\makeatletter
+\renewcommand{\doxyparagraph}{\@ifstar{\@doxyparagraphstar}{\@doxyparagraphnostar}}
+\newcommand{\@doxyparagraphstar}[1]{%
+  \vspace{4pt}%
+  \noindent\textbf{#1}%
+  \par\nopagebreak%
+  \vspace{2pt}%
+}
+\newcommand{\@doxyparagraphnostar}[1]{%
+  \vspace{4pt}%
+  \noindent\textbf{#1}%
+  \par\nopagebreak%
+  \vspace{2pt}%
+}
+\makeatother
+
+% Reduce space above doxysubsubsection headings.
+% Handle both starred (\doxysubsubsection*{}) and unstarred forms.
+\makeatletter
+\renewcommand{\doxysubsubsection}{\@ifstar{\@doxysubsubsectionstar}{\@doxysubsubsectionnostar}}
+\newcommand{\@doxysubsubsectionstar}[1]{%
+  \vspace{6pt}%
+  \noindent{\large\bfseries #1}%
+  \par\nopagebreak%
+  \vspace{3pt}%
+}
+\newcommand{\@doxysubsubsectionnostar}[1]{%
+  \vspace{6pt}%
+  \noindent{\large\bfseries #1}%
+  \par\nopagebreak%
+  \vspace{3pt}%
+}
+\makeatother
+
+% --- Colored annotation boxes ---
+
+\newtcolorbox{optionalbox}{
+  colback=red!10,
+  colframe=red!60,
+  fonttitle=\bfseries,
+  title=Optional,
+  sharp corners,
+  boxrule=0.8pt,
+  left=4pt, right=4pt, top=4pt, bottom=4pt
+}
+
+\newtcolorbox{clientbox}{
+  colback=blue!8,
+  colframe=blue!50!black,
+  fonttitle=\bfseries,
+  title=Client-Provided,
+  sharp corners,
+  boxrule=0.8pt,
+  left=4pt, right=4pt, top=4pt, bottom=4pt
+}

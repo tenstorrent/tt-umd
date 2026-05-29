@@ -1,0 +1,11 @@
+/**
+ * @page appendix Appendix
+ *
+ * \latexonly
+ * \clearpage
+ * \appendix
+ * \endlatexonly
+ *
+ * The following section contains shared type definitions, enumerations,
+ * and constants referenced throughout the base API.
+ */

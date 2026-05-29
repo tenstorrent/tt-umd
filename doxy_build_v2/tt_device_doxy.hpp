@@ -190,7 +190,8 @@ public:
      * @param size Number of bytes to transfer.
      * @param core Target core coordinate on the device.
      */
-    void dma_write_to_core_range(const void *src, uint64_t dst_addr, size_t size, CoreCoord core);
+    void dma_write_to_core_range(
+        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.
@@ -203,7 +204,7 @@ public:
      * @param size Number of bytes to transfer.
      * @param core Source core coordinate on the device.
      */
-    void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core);
+    void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a multicast Host-to-Device DMA transfer using an internal bounce buffer.
@@ -216,7 +217,13 @@ public:
      * @param core_start Top-left core coordinate of the multicast grid.
      * @param core_end Bottom-right core coordinate of the multicast grid.
      */
-    void dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end);
+    void dma_write(
+        const void *src,
+        uint64_t dst_addr,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a zero-copy Host-to-Device (H2D) DMA transfer.
@@ -229,7 +236,8 @@ public:
      * @param size Number of bytes to transfer.
      * @param core Target core coordinate on the device.
      */
-    void dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core);
+    void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a zero-copy Device-to-Host (D2H) DMA transfer.
@@ -242,7 +250,8 @@ public:
      * @param size Number of bytes to transfer.
      * @param core Source core coordinate on the device.
      */
-    void dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core);
+    void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a zero-copy multicast Host-to-Device DMA transfer.
@@ -257,7 +266,12 @@ public:
      * @param core_end Bottom-right core coordinate of the multicast grid.
      */
     void dma_write_to_core_range_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end);
+        uint64_t src_iova,
+        uint64_t dst_addr,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Waits for the device firmware to signal that it is fully initialized and operational.

@@ -185,13 +185,13 @@ TEST_F(TTSimCommunicatorTest, WriteAfterCloseIsNoOp) {
 // independently. Exercises select_chip_if_needed for each I/O call.
 TEST_F(TTSimCommunicatorTest, TwoDevicesIndependentIO) {
     // Use the chip_id overload so the two devices target different simulated chips.
-    auto dev_0 = TTSimTTDevice::create(simulator_path_, /* chip_id= */ static_cast<ChipId>(0));
+    auto dev_0 = TTSimTTDevice::create_for_chip(simulator_path_, /* chip_id= */ static_cast<ChipId>(0));
     ASSERT_NE(dev_0, nullptr);
 
     // If the simulator binary is single-chip, we cannot open a second device.
     std::unique_ptr<TTSimTTDevice> dev_1;
     try {
-        dev_1 = TTSimTTDevice::create(simulator_path_, /* chip_id= */ static_cast<ChipId>(1));
+        dev_1 = TTSimTTDevice::create_for_chip(simulator_path_, /* chip_id= */ static_cast<ChipId>(1));
     } catch (const std::exception&) {
         GTEST_SKIP() << "Simulator does not support multiple devices; skipping multi-device I/O test.";
     }

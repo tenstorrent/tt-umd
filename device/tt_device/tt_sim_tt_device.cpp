@@ -53,10 +53,10 @@ bool sim_dram_teleport_enabled() {
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
-    return TTSimTTDevice::create(simulator_directory, /* chip_id= */ static_cast<ChipId>(0), copy_sim_binary);
+    return TTSimTTDevice::create_for_chip(simulator_directory, /* chip_id= */ static_cast<ChipId>(0), copy_sim_binary);
 }
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     const std::filesystem::path& simulator_directory, ChipId chip_id, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);

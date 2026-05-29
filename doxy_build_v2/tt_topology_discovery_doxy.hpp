@@ -52,8 +52,6 @@ public:
      * Returns empty results if no devices are found.
      *
      * @param options Error handling policy and feature toggles for the discovery process.
-     * @param io_device_type Transport used to reach local devices (PCIe or JTAG).
-     * @param soc_descriptor_path Optional SoC descriptor file override.
      * @return @ref ClusterDescriptor and a map of @ref ChipId to @ref TTDevice for every discovered device.
      */
     static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>> discover(

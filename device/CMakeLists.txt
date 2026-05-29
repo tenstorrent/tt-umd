@@ -146,6 +146,8 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
+            simulation/libttsim_backend.cpp
+            simulation/sim_backend_registry.cpp
             simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
@@ -249,6 +251,9 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
+                api/umd/device/simulation/sim_backend.hpp
+                api/umd/device/simulation/libttsim_backend.hpp
+                api/umd/device/simulation/sim_backend_registry.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
                 api/umd/device/soc_arch_descriptor.hpp
                 api/umd/device/soc_descriptor.hpp

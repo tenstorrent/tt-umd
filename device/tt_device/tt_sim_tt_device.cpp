@@ -66,6 +66,18 @@ TTSimTTDevice::TTSimTTDevice(
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     communicator_->initialize();
     initialize_sysmem_functions();
+
+    // Multichip is a divergent capability: today's libttsim.so does not export the symbols it
+    // would require (libttsim_create_device_by_id / _select_device_by_id / _clock_all_devices),
+    // so supports(Multichip) is false and we fall back cleanly to single-chip bring-up. When a
+    // future simulator ABI adds those symbols, this branch lights up with no UMD call-site churn.
+    if (communicator_->supports(SimCapability::Multichip)) {
+        log_info(tt::LogEmulationDriver, "Backend supports multichip; orchestrating multi-device bring-up.");
+        communicator_->setup_multichip(/*num_chips=*/1);
+    } else {
+        log_debug(tt::LogEmulationDriver, "Backend lacks multichip capability; using single-chip bring-up.");
+    }
+
     communicator_->start_sim();
     // Read the PCI ID (first 32 bits of PCI config space).
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);

@@ -9,110 +9,57 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <mutex>
+
+#include "umd/device/simulation/sim_backend.hpp"
 
 namespace tt::umd {
 
+class ISimBackend;
+
 /**
- * TTSimCommunicator handles low-level communication with the TTSim .so library.
- * It manages dynamic library loading, function pointer resolution, and provides
- * thread-safe access to simulator functions.
+ * TTSimCommunicator is a thin, thread-safe facade over an ISimBackend.
+ *
+ * It no longer touches dlopen/dlsym or any raw simulator symbol names: at construction it asks
+ * the backend registry to select+build the ISimBackend whose required symbol set resolves in
+ * the given simulator library, then simply forwards logical operations under a lock. This keeps
+ * existing call sites (TTSimTTDevice, TTSimTlbHandle, TTSimTlbWindow) working unchanged while
+ * the simulator-specific seam lives entirely behind ISimBackend.
  *
  * This class can be used independently of TTSimTTDevice for direct simulator communication.
  */
 class TTSimCommunicator final {
 public:
     /**
-     * Constructor for TTSimCommunicator.
-     *
      * @param simulator_directory Path to the simulator binary/directory
-     * @param copy_sim_binary If true, copy the simulator binary to memory for security
+     * @param copy_sim_binary If true, copy the simulator binary to a sealed memfd before loading
      */
     TTSimCommunicator(const std::filesystem::path &simulator_directory, bool copy_sim_binary = false);
 
-    /**
-     * Destructor that properly cleans up library handles and file descriptors.
-     */
     ~TTSimCommunicator();
 
     /**
-     * Initialize the simulator and establish communication.
-     * Must be called before using any communication methods.
-     * This loads the library, resolves function pointers, and starts the simulator.
+     * Select+load the backend for the simulator library. Must be called before any other method.
      */
     void initialize();
 
-    /**
-     * Shutdown the simulator and close communication.
-     */
+    /** Shutdown the simulator. */
     void shutdown();
 
-    /**
-     * Read data from a tile core.
-     *
-     * @param x Core X coordinate
-     * @param y Core Y coordinate
-     * @param addr Address to read from
-     * @param data Buffer to store read data
-     * @param size Number of bytes to read
-     */
     void tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size);
-
-    /**
-     * Write data to a tile core.
-     *
-     * @param x Core X coordinate
-     * @param y Core Y coordinate
-     * @param addr Address to write to
-     * @param data Data to write
-     * @param size Number of bytes to write
-     */
     void tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size);
 
-    /**
-     * Read data from PCI memory.
-     *
-     * @param paddr Physical address
-     * @param data Buffer to store read data
-     * @param size Number of bytes to read
-     */
     void pci_mem_read_bytes(uint64_t paddr, void *data, uint32_t size);
-
-    /**
-     * Write data to PCI memory.
-     *
-     * @param paddr Physical address
-     * @param data Data to write
-     * @param size Number of bytes to write
-     */
     void pci_mem_write_bytes(uint64_t paddr, const void *data, uint32_t size);
 
-    /**
-     * Read from PCI configuration space.
-     *
-     * @param bus_device_function Bus/device/function identifier
-     * @param offset Offset in configuration space
-     * @return 32-bit value read from configuration space
-     */
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
 
-    /**
-     * Advance the simulator clock.
-     *
-     * @param n_clocks Number of clock cycles to advance
-     */
     void advance_clock(uint32_t n_clocks);
 
     /**
-     * Set callbacks for PCIe DMA memory operations. These callbacks are called
-     * by TTSim when device performs NOC reads/writes to PCIe core.
-     * These functions should basically implement how we handle copying data to/from system memory
-     * when transactions are initiated by device.
-     *
-     * @param pfn_pci_dma_mem_rd_bytes Callback for PCIe DMA read operations, with parameters (system bus address,
-     * buffer pointer, size).
-     * @param pfn_pci_dma_mem_wr_bytes Callback for PCIe DMA write operations, with parameters (system bus address,
-     * buffer pointer, size).
+     * Set callbacks for PCIe DMA memory operations, called by the simulator when the device
+     * performs NOC reads/writes to the PCIe core.
      */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
@@ -120,52 +67,24 @@ public:
 
     void start_sim();
 
+    /**
+     * Capability introspection passthrough. Lets call sites probe logical features (e.g.
+     * SimCapability::Multichip) and fall back cleanly when the loaded backend lacks them.
+     */
+    bool supports(SimCapability cap) const;
+
+    /**
+     * Optional logical op: bring up multiple chips. Returns false when the backend lacks
+     * SimCapability::Multichip (the case for today's libttsim.so).
+     */
+    bool setup_multichip(uint32_t num_chips);
+
 private:
-    // Library management.
-    void create_simulator_binary();
-    off_t resize_simulator_binary(int src_fd);
-    void copy_simulator_binary();
-    void secure_simulator_binary();
-    void close_simulator_binary();
-    void load_simulator_library(const std::filesystem::path &path);
-
-    // Dynamic library handle.
-    void *libttsim_handle_ = nullptr;
-
-    // File descriptor for copied simulator binary.
-    int copied_simulator_fd_ = -1;
-
-    // Simulator directory path.
+    // Backend selected/built by the registry at initialize() time.
     std::filesystem::path simulator_directory_;
-
-    // Flag to indicate if binary should be copied to memory.
     bool copy_sim_binary_;
+    std::unique_ptr<ISimBackend> backend_;
 
-    // Function pointers to simulator library functions.
-    void (*pfn_libttsim_init_)() = nullptr;
-    void (*pfn_libttsim_exit_)() = nullptr;
-    uint32_t (*pfn_libttsim_pci_config_rd32_)(uint32_t bus_device_function, uint32_t offset) = nullptr;
-    void (*pfn_libttsim_pci_mem_rd_bytes_)(uint64_t paddr, void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_pci_mem_wr_bytes_)(uint64_t paddr, const void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tile_rd_bytes_)(uint32_t x, uint32_t y, uint64_t addr, void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_tile_wr_bytes_)(uint32_t x, uint32_t y, uint64_t addr, const void *p, uint32_t size) = nullptr;
-    void (*pfn_libttsim_clock_)(uint32_t n_clocks) = nullptr;
-    void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
-        void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
-        void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
-
-    // Stored callbacks for DMA memory operations.
-    std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
-    std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
-
-    // Static instance pointer for callback wrappers.
-    static TTSimCommunicator *callback_instance_;
-
-    // Static wrapper functions for C-style callbacks.
-    static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
-    static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
-
-    // Thread safety.
     mutable std::mutex device_lock_;
 };
 

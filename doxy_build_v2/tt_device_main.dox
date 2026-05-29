@@ -1,0 +1,21 @@
+/**
+ * @mainpage TTDevice Reference Example
+ *
+ * This document presents the reference design for \b TTDevice — the base layer
+ * facade and lifetime manager for a single Tenstorrent device.
+ *
+ * TTDevice is the primary class that the workload layer (Chip/Cluster) interacts
+ * with for per-device operations. All hardware-specific behavior is delegated
+ * to the component interfaces provided by TTDeviceModel at construction time.
+ *
+ * The API surface and delegation pattern shown here represent the target design.
+ * Individual methods may still undergo minor refinements, but the overall
+ * structure is established and intended to remain stable.
+ *
+ * \b Contents:
+ * - <b>TTDevice API</b> — full doxygen-rendered API documentation.
+ * - <b>Source Listing</b> — the header and implementation as clean code.
+ *
+ * For the component interface specifications (DeviceProtocol, DeviceFirmware,
+ * IoWindow, etc.), see the <em>UMD Base API Components</em> document.
+ */

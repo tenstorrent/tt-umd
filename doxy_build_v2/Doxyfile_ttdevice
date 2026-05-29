@@ -1,0 +1,19 @@
+@INCLUDE = Doxyfile
+
+PROJECT_NAME           = "TTDevice Reference Example"
+
+INPUT                  = tt_device_main.dox \
+                         tt_device_doxy.hpp \
+                         tt_device_doxy.cpp \
+                         tt_device_source.dox
+
+EXAMPLE_PATH           = examples
+
+GENERATE_LATEX         = YES
+GENERATE_HTML          = NO
+
+# Show the source code inline with the documentation.
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = YES
+
+LATEX_OUTPUT           = latex_ttdevice

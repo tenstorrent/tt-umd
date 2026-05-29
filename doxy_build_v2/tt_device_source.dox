@@ -1,0 +1,19 @@
+/**
+ * @page tt_device_source Source Listing
+ *
+ * The following is the reference implementation of TTDevice. This represents
+ * the target design for the facade — the API surface and delegation pattern
+ * are established, though individual methods may undergo minor refinements.
+ *
+ * \latexonly \clearpage \endlatexonly
+ *
+ * @section tt_device_hpp Header — tt_device.hpp
+ *
+ * @include tt_device.hpp
+ *
+ * \latexonly \clearpage \endlatexonly
+ *
+ * @section tt_device_cpp Implementation — tt_device.cpp
+ *
+ * @include tt_device.cpp
+ */

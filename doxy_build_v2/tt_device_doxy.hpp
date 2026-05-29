@@ -344,7 +344,7 @@ public:
      * @param core Target core coordinates.
      * @return Bitmask of RISCs currently in reset.
      */
-    RiscType get_risc_reset_state(CoreCoord core);
+    RiscType get_risc_reset_state(CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Asserts the soft reset signal for specific baby RISCs on a given core.
@@ -354,7 +354,7 @@ public:
      * @param core Target core coordinates.
      * @param selected_riscs Bitmask specifying which RISCs to reset.
      */
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Deasserts the soft reset signal, allowing the specified baby RISCs to begin execution.
@@ -363,7 +363,8 @@ public:
      * @param staggered_start If true, staggers the startup of the RISCs to mitigate sudden power draw spikes. Defaults
      * to false.
      */
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start = false);
+    void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start = false, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Creates an I/O window mapping a region of host virtual address space to device address space.
@@ -578,7 +579,7 @@ public:
      * @brief Retrieves the current value of the hardware's free-running reference clock counter.
      * @return uint64_t The current reference clock tick count.
      */
-    uint64_t get_refclk_counter() const;
+    uint64_t get_refclk_counter(NocId noc = NocId::DEFAULT) const;
 
     /** @} */
 

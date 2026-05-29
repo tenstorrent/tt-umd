@@ -186,38 +186,32 @@ bool TTDevice::is_noc_hung(NocId noc, HangAction action) {
     return *result;
 }
 
-RiscType TTDevice::get_risc_reset_state(CoreCoord core) {
+RiscType TTDevice::get_risc_reset_state(CoreCoord core, NocId noc) {
     uint32_t reg_value = 0;
     device_protocol_->read_ctrl(
-        &reg_value,
-        translate(core),
-        architecture_impl_->get_tensix_soft_reset_addr(),
-        sizeof(reg_value),
-        NocId::DEFAULT);
+        &reg_value, translate(core), architecture_impl_->get_tensix_soft_reset_addr(), sizeof(reg_value), noc);
     return architecture_impl_->get_soft_reset_risc_type(reg_value);
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc) {
     uint32_t current = 0;
     auto xy = translate(core);
-    device_protocol_->read_ctrl(
-        &current, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(current), NocId::DEFAULT);
+    device_protocol_->read_ctrl(&current, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(current), noc);
     uint32_t new_value = current | architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     device_protocol_->write_ctrl(
-        &new_value, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(new_value), NocId::DEFAULT);
+        &new_value, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(new_value), noc);
 }
 
-void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc) {
     uint32_t current = 0;
     auto xy = translate(core);
-    device_protocol_->read_ctrl(
-        &current, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(current), NocId::DEFAULT);
+    device_protocol_->read_ctrl(&current, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(current), noc);
     uint32_t new_value = current & ~architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     if (staggered_start) {
         new_value |= architecture_impl_->get_soft_reset_staggered_start();
     }
     device_protocol_->write_ctrl(
-        &new_value, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(new_value), NocId::DEFAULT);
+        &new_value, xy, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(new_value), noc);
 }
 
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
@@ -291,14 +285,14 @@ uint32_t TTDevice::get_max_clock_freq() const {
 
 uint32_t TTDevice::get_min_clock_freq() const { return architecture_impl_->get_min_clock_freq(); }
 
-uint64_t TTDevice::get_refclk_counter() const {
+uint64_t TTDevice::get_refclk_counter(NocId noc) const {
     uint32_t high = 0;
     uint32_t low = 0;
-    tt_xy_pair arc = device_firmware_->get_firmware_noc_coord();
+    tt_xy_pair fw_core = device_firmware_->get_firmware_noc_coord();
     device_protocol_->read_ctrl(
-        &high, arc, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high), NocId::DEFAULT);
+        &high, fw_core, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high), noc);
     device_protocol_->read_ctrl(
-        &low, arc, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low), NocId::DEFAULT);
+        &low, fw_core, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low), noc);
     return (static_cast<uint64_t>(high) << 32) | low;
 }
 

@@ -104,17 +104,29 @@ void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCo
 }
 
 void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core) {
-    dma_interface_->dma_write_zero_copy(src_iova, dst_addr, size, translate(core), NocId::DEFAULT);
+    bool success = dma_interface_ &&
+                   dma_interface_->dma_write_zero_copy(src_iova, dst_addr, size, translate(core), NocId::DEFAULT);
+    if (success) {
+        return;
+    }
 }
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core) {
-    dma_interface_->dma_read_zero_copy(dst_iova, src_addr, size, translate(core), NocId::DEFAULT);
+    bool success =
+        dma_interface_ && dma_interface_->dma_read_zero_copy(dst_iova, src_addr, size, translate(core), NocId::DEFAULT);
+    if (success) {
+        return;
+    }
 }
 
 void TTDevice::dma_write_to_core_range_zero_copy(
     uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end) {
-    dma_interface_->dma_multicast_write_zero_copy(
-        src_iova, dst_addr, size, translate(core_start), translate(core_end), NocId::DEFAULT);
+    bool success =
+        dma_interface_ && dma_interface_->dma_multicast_write_zero_copy(
+                              src_iova, dst_addr, size, translate(core_start), translate(core_end), NocId::DEFAULT);
+    if (success) {
+        return;
+    }
 }
 
 // --- DeviceFirmware ---

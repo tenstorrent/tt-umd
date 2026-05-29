@@ -8,6 +8,7 @@ set(API_TESTS_SRCS
     test_tlb_manager.cpp
     test_sysmem_manager.cpp
     test_simulation_sysmem_manager.cpp
+    test_sim_multichip.cpp
     test_tt_device.cpp
     test_spi_tt_device.cpp
     test_noc.cpp

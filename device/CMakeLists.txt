@@ -157,7 +157,7 @@ if(TT_UMD_BUILD_SIMULATION)
             pcie/rtl_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
-    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
+    target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_EMULE)

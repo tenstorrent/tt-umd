@@ -8,13 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "umd/device/soc_descriptor.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/semver.hpp"
+#include "tt_enums_structs_constants_doxy.hpp"
+#include "tt_soc_descriptor_doxy.hpp"
 
 namespace tt::umd {
 
@@ -271,7 +266,7 @@ public:
      *
      * @param timeout_ms Maximum duration to wait for the firmware startup sequence.
      */
-    void wait_firmware_startup(const std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT);
+    void init_firmware(const std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT);
 
     /**
      * @brief Waits for the specified Ethernet core to complete its link training sequence.
@@ -280,7 +275,7 @@ public:
      * Defaults to @ref timeout::ETH_TRAINING_TIMEOUT.
      * @return std::chrono::milliseconds Elapsed time taken for the training to complete.
      */
-    std::chrono::milliseconds wait_eth_core_training(
+    bool wait_eth_core_training(
         const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
 
     /**
@@ -385,7 +380,7 @@ public:
     DeviceCommandResult send_device_command(
         uint32_t msg_code,
         const std::vector<uint32_t> &args = {},
-        std::chrono::milliseconds timeout = timeout::FIRMWARE_MESSAGE_TIMEOUT);
+        std::chrono::milliseconds timeout = timeout::FIRMWARE_STARTUP_TIMEOUT);
 
     /**
      * @brief Retrieves the base device protocol interface.
@@ -603,7 +598,7 @@ public:
      * @param eth_core The target Ethernet core coordinates.
      * @return @ref EthTrainingStatus The current training status of the specified core.
      */
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
+    EthTrainingStatus get_eth_core_training_status(CoreCoord eth_core);
 
     /** @} */
 
@@ -642,12 +637,12 @@ public:
 private:
     std::unique_ptr<TTDeviceModel> model_;
 
-    std::unique_ptr<DeviceProtocol> device_protocol_;
-    std::unique_ptr<DeviceFirmware> device_firmware_;
-    std::unique_ptr<HangDetector> hang_detector_;
-    std::unique_ptr<FirmwareTelemetryReader> firmware_telemetry_reader_;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider_;
-    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    DeviceProtocol *device_protocol_;
+    DeviceFirmware *device_firmware_;
+    HangDetector *hang_detector_;
+    FirmwareTelemetryReader *firmware_telemetry_reader_;
+    FirmwareInfoProvider *firmware_info_provider_;
+    ArchitectureImplementation *architecture_impl_;
 
     PcieInterface *pcie_interface_ = nullptr;
     DmaInterface *dma_interface_ = nullptr;
@@ -658,10 +653,6 @@ private:
     tt_xy_pair translate(CoreCoord core) const;
 
     std::optional<SocDescriptor> soc_descriptor_;
-
-    ARCH arch_ = ARCH::Invalid;
-    IODeviceType device_type_ = IODeviceType::UNDEFINED;
-    int device_id_ = -1;
     bool is_remote_ = false;
 };
 

@@ -301,4 +301,6 @@ public:
 
 /** @} */  // end of tt_firmware_info_provider group
 
+inline BoardType get_board_type_from_board_id(uint64_t board_id) { return BoardType::UNKNOWN; }
+
 }  // namespace tt::umd

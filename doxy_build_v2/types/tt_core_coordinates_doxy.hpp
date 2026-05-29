@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <sstream>
 
-#include "umd/device/types/xy_pair.hpp"
+#include "tt_xy_pair_doxy.hpp"
 
 namespace tt {
 

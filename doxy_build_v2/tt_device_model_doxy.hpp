@@ -7,10 +7,14 @@
 #include "tt_architecture_implementation_doxy.hpp"
 #include "tt_device_firmware_doxy.hpp"
 #include "tt_device_protocol_doxy.hpp"
+#include "tt_dma_interface_doxy.hpp"
 #include "tt_firmware_info_provider_doxy.hpp"
 #include "tt_firmware_telemetry_reader_doxy.hpp"
 #include "tt_hang_detector_doxy.hpp"
 #include "tt_io_window_doxy.hpp"
+#include "tt_jtag_interface_doxy.hpp"
+#include "tt_pcie_interface_doxy.hpp"
+#include "tt_remote_interface_doxy.hpp"
 #include "tt_soc_arch_descriptor_doxy.hpp"
 
 namespace tt::umd {
@@ -102,6 +106,31 @@ public:
      * @brief Returns the versioned telemetry provider, or nullptr if not supported.
      */
     virtual FirmwareInfoProvider* get_firmware_info_provider() { return nullptr; }
+
+    /** @} */
+
+    /** @name Optional Transport Interfaces */
+    /** @{ */
+
+    /**
+     * @brief Returns the PCIe-specific interface, or nullptr if not PCIe-connected.
+     */
+    virtual PcieInterface* get_pcie_interface() { return nullptr; }
+
+    /**
+     * @brief Returns the DMA transfer interface, or nullptr if DMA is not available.
+     */
+    virtual DmaInterface* get_dma_interface() { return nullptr; }
+
+    /**
+     * @brief Returns the JTAG-specific interface, or nullptr if not JTAG-connected.
+     */
+    virtual JtagInterface* get_jtag_interface() { return nullptr; }
+
+    /**
+     * @brief Returns the remote transport interface, or nullptr if not remotely connected.
+     */
+    virtual RemoteInterface* get_remote_interface() { return nullptr; }
 
     /** @} */
 };

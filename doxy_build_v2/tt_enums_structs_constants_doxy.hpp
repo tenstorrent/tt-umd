@@ -14,14 +14,13 @@
 namespace tt::umd {
 
 /**
- * @defgroup tt_base_types Base Types, Enums, and Constants
+ * @defgroup tt_base_types Appendix: Types, Enums, and Constants
  * @{
  *
- * @brief Common types shared across the tt-umd base layer API.
+ * \latexonly \clearpage \endlatexonly
  *
- * Enumerations, configuration structs, timeout constants, and sentinel values
- * used by @ref TTDevice, @ref IoWindow, @ref DeviceProtocol, and other
- * base layer components.
+ * @brief Shared type definitions, enumerations, and constants referenced
+ * throughout the base API components.
  *
  */
 

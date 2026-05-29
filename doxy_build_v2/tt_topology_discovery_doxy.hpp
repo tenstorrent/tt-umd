@@ -26,8 +26,6 @@ struct TopologyDiscoveryOptions;
  * remote devices. Returns the full topology and initialized TTDevice instances
  * for every discovered device.
  *
- * @client_cpp
- *
  * ## Key Types
  *
  * | Type | Description |
@@ -36,8 +34,15 @@ struct TopologyDiscoveryOptions;
  * | @ref ChipId | Unique identifier for a device within the cluster |
  * | @ref TopologyDiscoveryOptions | Error handling policy and feature toggles for discovery |
  *
+ * @client_cpp
+ *
  */
 
+/**
+ * @brief Discovers devices and builds the cluster topology.
+ *
+ * @client_cpp
+ */
 class TopologyDiscovery {
 public:
     /**

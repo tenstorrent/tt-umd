@@ -31,6 +31,8 @@ namespace tt::umd {
 
 /**
  * @brief DMA transfer interface.
+ *
+ * @optional
  */
 class DmaInterface {
 public:

@@ -22,6 +22,11 @@ namespace tt::umd {
  *
  */
 
+/**
+ * @brief Raw telemetry reader interface.
+ *
+ * @optional
+ */
 class FirmwareTelemetryReader {
 public:
     virtual ~FirmwareTelemetryReader() = default;

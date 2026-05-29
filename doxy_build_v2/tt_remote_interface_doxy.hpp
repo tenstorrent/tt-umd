@@ -25,6 +25,8 @@ class RemoteCommunication;
 
 /**
  * @brief Remote transport capabilities for remote-connected devices.
+ *
+ * @optional
  */
 class RemoteInterface {
 public:

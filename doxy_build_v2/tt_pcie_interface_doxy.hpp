@@ -23,6 +23,8 @@ namespace tt::umd {
 
 /**
  * @brief PCIe-specific device operations.
+ *
+ * @optional
  */
 class PcieInterface {
 public:

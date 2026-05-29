@@ -28,15 +28,14 @@ namespace tt::umd {
  * Shared across all chips of the same architecture. @ref SocDescriptor
  * combines this with per-chip runtime state (harvesting, coordinate translation).
  *
- * @client_cpp
- *
  * ## Key Types
  *
  * | Type | Description |
  * |------|-------------|
  * | @ref CoreDescriptor | Per-core metadata: coordinate, type, L1 size |
  * | @ref SocDescriptor | Per-chip descriptor: wraps SocArchDescriptor + ChipInfo + CoordinateManager |
- * | @ref CoordinateManager | Applies harvesting and coordinate translation on top of static core lists |
+ *
+ * @client_cpp
  *
  */
 
@@ -55,6 +54,8 @@ struct CoreDescriptor {
  * Constructed once from either an architecture enum (hardcoded constants) or a
  * YAML SoC descriptor file (custom/test configurations). All core locations
  * represent the full unharvested floorplan.
+ *
+ * @client_cpp
  */
 class SocArchDescriptor {
 public:

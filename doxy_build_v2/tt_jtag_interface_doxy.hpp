@@ -23,6 +23,8 @@ namespace tt::umd {
 
 /**
  * @brief JTAG-specific device operations.
+ *
+ * @optional
  */
 class JtagInterface {
 public:

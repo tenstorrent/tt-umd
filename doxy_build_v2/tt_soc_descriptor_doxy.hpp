@@ -35,8 +35,6 @@ class SocArchDescriptor;
  * with per-chip runtime data: harvesting masks, NOC translation settings, and
  * a @ref CoordinateManager for coordinate system conversions.
  *
- * @client_cpp
- *
  * ## Key Types
  *
  * | Type | Description |
@@ -47,10 +45,14 @@ class SocArchDescriptor;
  * | @ref CoreCoord | Typed coordinate with coordinate system tag |
  * | @ref CoordSystem | Coordinate system selector (PHYSICAL, LOGICAL, TRANSLATED, etc.) |
  *
+ * @client_cpp
+ *
  */
 
 /**
  * @brief Per-chip SoC descriptor with coordinate translation and harvesting awareness.
+ *
+ * @client_cpp
  */
 class SocDescriptor {
 public:

@@ -14,7 +14,7 @@
 <td>constructor()</td>
 <td><b>Parameters:</b> <br> - options: <code>ClusterOptions</code> — chip type, sdesc path, target devices, cluster descriptor, simulator directory, IO device type, topology discovery options (all defaulted) <br> <b>Returns:</b> <br> - N/A</td>
 <td>1. Create ChipIds and pair with TTDevices <br> 2. Construct Chips from TTDevices <br> 3. Construct Cluster</td>
-<td><b><code>TTDevice::create()</code></b></td>
+<td><b><code>TTDevice(TTDeviceModel)</code></b></td>
 <td>Creates ChipIds, creates TTDevices via factory, wraps each in a Chip, assembles Cluster. <br><br> <b>Note:</b> Backend selection (silicon/emu/sim/mock) belongs in TTDevice factory, not in Cluster constructor switch case.</td>
 </tr>
 <tr>
@@ -85,7 +85,7 @@
 <td><b>Parameters:</b> <br> - mmio_chip: <code>ChipId</code> — MMIO device to target <br> - active_eth_cores_per_chip: <code>const std::unordered_set&lt;CoreCoord&gt;&</code> — active ethernet cores <br> <b>Returns:</b> <br> - <code>void</code></td>
 <td>1. Designate ethernet cores for remote transfer (LocalChip ↔ RemoteChip) <br> 2. Set ethernet cores used for broadcast on LocalChip</td>
 <td><b><code>RemoteCommunication::set_remote_transfer_ethernet_cores()</code></b></td>
-<td>Configures which ethernet cores are used for remote transfer and broadcast. Sets up both sides of LocalChip ↔ RemoteChip connection.</td>
+<td>Configures which ethernet cores are used for remote transfer and broadcast. Sets up both sides of LocalChip ↔ RemoteChip connection. <br><br> <b>Note:</b> RemoteCommunication is out-of-scope for the base API specification — not relevant for IP clients without remote devices.</td>
 </tr>
 <tr>
 <td>start_device()</td>
@@ -207,10 +207,10 @@
 <td>Passthrough facade via Chip (see Chip table).</td>
 </tr>
 <tr>
-<td>dma_multicast_write()</td>
+<td>dma_write_to_core_range()</td>
 <td><b>Parameters:</b> <br> - src: <code>void*</code> — source data <br> - size: <code>size_t</code> — bytes to write <br> - chip: <code>ChipId</code> — chip to target (must be local) <br> - core_start: <code>CoreCoord</code> — start of core range <br> - core_end: <code>CoreCoord</code> — end of core range <br> - addr: <code>uint64_t</code> — destination address on each core <br> <b>Returns:</b> <br> - <code>void</code></td>
-<td>1. Call <code>Chip::dma_multicast_write()</code> on target chip</td>
-<td><b><code>TTDevice::dma_multicast_write()</code></b></td>
+<td>1. Call <code>Chip::dma_write_to_core_range()</code> on target chip</td>
+<td><b><code>TTDevice::dma_write_to_core_range()</code></b></td>
 <td>Passthrough facade via Chip (see Chip table). DMA multicast.</td>
 </tr>
 <tr>
@@ -260,14 +260,14 @@
 <td><b>Parameters:</b> <br> - offset: <code>uint64_t</code> — offset into system memory buffer <br> - src_device_id: <code>ChipId</code> — device to target <br> <b>Returns:</b> <br> - <code>void*</code></td>
 <td>1. Call <code>Chip::host_dma_address()</code> on target chip</td>
 <td>—</td>
-<td>Returns host DMA address for a given buffer offset. Currently hugepage-only. Needs redesign to account for <code>SystemMemoryBuffer</code>.</td>
+<td>Returns the IOVA for a given buffer offset. Maps to <code>SystemMemoryBuffer::get_iova()</code> plus the caller-provided offset.</td>
 </tr>
 <tr>
 <td>get_pcie_base_addr_from_device()</td>
 <td><b>Parameters:</b> <br> - chip_id: <code>const ChipId</code> — chip to target <br> <b>Returns:</b> <br> - <code>uint64_t</code></td>
 <td>1. Call <code>Chip::get_pcie_base_addr_from_device()</code> on target chip</td>
 <td><b><code>TTDevice::get_pcie_base_addr_from_device()</code></b></td>
-<td>Passthrough facade via Chip (see Chip table).</td>
+<td>Passthrough facade via Chip (see Chip table). <br><br> <b>Note:</b> To be renamed. Maps to <code>SystemMemoryBuffer::get_noc_address()</code> — the NOC base address for the system memory buffer as seen from the device's PCIe tile.</td>
 </tr>
 <tr>
 <td>send_device_command() <br> <i>currently: <code>arc_msg()</code></i></td>

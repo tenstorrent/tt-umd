@@ -9,8 +9,6 @@
 #include <optional>
 #include <vector>
 
-#include "tt_xy_pair_doxy.hpp"
-
 namespace tt::umd {
 
 /**
@@ -28,6 +26,11 @@ namespace tt::umd {
 // ---------------------------------------------------------------------------
 // Enumerations
 // ---------------------------------------------------------------------------
+
+/**
+ * @brief Raw (x, y) coordinate pair on the NOC grid.
+ */
+struct xy_pair;
 
 /**
  * @brief Bitmask enum for selecting RISC cores on a Tensix core.
@@ -158,6 +161,11 @@ enum class GddrModule;
  * @brief Device identifier within a cluster.
  */
 using ChipId = int;
+
+/**
+ * @brief Convenience alias for xy_pair.
+ */
+using tt_xy_pair = xy_pair;
 
 // ---------------------------------------------------------------------------
 // Structs

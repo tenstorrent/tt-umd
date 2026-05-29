@@ -40,8 +40,6 @@ struct TopologyDiscoveryOptions;
 
 /**
  * @brief Discovers devices and builds the cluster topology.
- *
- * @client_cpp
  */
 class TopologyDiscovery {
 public:

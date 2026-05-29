@@ -51,8 +51,6 @@ class SocArchDescriptor;
 
 /**
  * @brief Per-chip SoC descriptor with coordinate translation and harvesting awareness.
- *
- * @client_cpp
  */
 class SocDescriptor {
 public:

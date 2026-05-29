@@ -31,8 +31,6 @@ namespace tt::umd {
 
 /**
  * @brief Detects device communication failures by probing known registers.
- *
- * @optional
  */
 class HangDetector {
 public:

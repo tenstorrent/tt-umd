@@ -54,8 +54,6 @@ struct CoreDescriptor {
  * Constructed once from either an architecture enum (hardcoded constants) or a
  * YAML SoC descriptor file (custom/test configurations). All core locations
  * represent the full unharvested floorplan.
- *
- * @client_cpp
  */
 class SocArchDescriptor {
 public:

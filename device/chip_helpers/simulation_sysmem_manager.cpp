@@ -6,23 +6,18 @@
 
 #include <fmt/format.h>
 #include <sys/mman.h>  // for mmap, munmap
-#include <sys/stat.h>  // for fstat
 #include <unistd.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "hugepage.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt {
@@ -32,10 +27,6 @@ enum class ARCH;
 namespace tt::umd {
 
 namespace {
-
-// Channel stride matches the hugepage region size used by SysmemManager
-// and the pci_dma_{read,write}_bytes address layout.
-constexpr uint64_t kHostMemChannelSize = HUGEPAGE_REGION_SIZE;
 
 uint64_t align_up(uint64_t value, uint64_t alignment) { return (value + alignment - 1) & ~(alignment - 1); }
 
@@ -72,7 +63,12 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
     UMD_ASSERT(system_memory_ != MAP_FAILED, error::RuntimeError, "system_memory mmap() failed");
     madvise(system_memory_, total_size, MADV_HUGEPAGE);
     system_memory_size_ = total_size;
-    registry_->next_base = total_size;
+
+    // The mapped-buffer arena starts immediately after the hugepage region so
+    // that device IO addresses assigned to mapped buffers (pcie_base_ + arena
+    // offset) never alias a hugepage channel address (pcie_base_ + channel *
+    // 1 GB, for channel in [0, num_channels)).
+    registry_->next_arena_offset = total_size;
 
     for (int i = 0; i < num_host_mem_channels; i++) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
@@ -106,56 +102,34 @@ void SimulationSysmemManager::unpin_or_unmap_sysmem() {
 }
 
 std::optional<SimulationSysmemManager::MappedBuffer> SimulationSysmemManager::find_mapped_buffer_locked(
-    uint64_t base, uint32_t size) {
+    uint64_t device_io_addr, uint32_t size) {
     // Caller must hold registry_->mutex.
-    for (const auto& mapped_buffer : registry_->buffers) {
-        if (base >= mapped_buffer.base && base + size <= mapped_buffer.base + mapped_buffer.size) {
-            return mapped_buffer;
+    for (const auto& b : registry_->buffers) {
+        if (device_io_addr >= b.device_io_addr && device_io_addr + size <= b.device_io_addr + b.size) {
+            return b;
         }
     }
     return std::nullopt;
 }
 
-void SimulationSysmemManager::write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size) {
-    // Two distinct backing stores exist in simulation:
-    //
-    //  1. Mapped-buffer table (allocate_sysmem_buffer / map_sysmem_buffer):
-    //     Synthetic IOVAs bump-allocated above the hugepage arena.  The device
-    //     address is pcie_base_ + mapped_base.  libttsim DMA callbacks arrive
-    //     with these addresses; we memcpy directly to/from the host pointer.
-    //
-    //  2. Hugepage arena (base class SysmemManager):
-    //     Traditional channel-stride layout backed by anonymous mmap.  Used for
-    //     DMA from firmware through the normal hugepage path.
-    //
-    // Check the mapped-buffer table first; if the address doesn't match, fall
-    // through to the base class for the hugepage path.
-    const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_dest;
-    {
-        std::lock_guard<std::mutex> lock(registry_->mutex);
-        auto mapped_buffer = find_mapped_buffer_locked(base, size);
-        if (mapped_buffer.has_value()) {
-            std::memcpy(static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), src, size);
-            return;
-        }
+bool SimulationSysmemManager::write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size) {
+    std::lock_guard<std::mutex> lock(registry_->mutex);
+    auto b = find_mapped_buffer_locked(device_io_addr, size);
+    if (!b.has_value()) {
+        return false;
     }
-
-    SysmemManager::write_to_sysmem(channel, src, sysmem_dest, size);
+    std::memcpy(static_cast<uint8_t*>(b->buffer) + (device_io_addr - b->device_io_addr), src, size);
+    return true;
 }
 
-void SimulationSysmemManager::read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size) {
-    // Same two-path logic as write_to_sysmem (see comment there).
-    const uint64_t base = static_cast<uint64_t>(channel) * kHostMemChannelSize + sysmem_src;
-    {
-        std::lock_guard<std::mutex> lock(registry_->mutex);
-        auto mapped_buffer = find_mapped_buffer_locked(base, size);
-        if (mapped_buffer.has_value()) {
-            std::memcpy(dest, static_cast<uint8_t*>(mapped_buffer->buffer) + (base - mapped_buffer->base), size);
-            return;
-        }
+bool SimulationSysmemManager::read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size) {
+    std::lock_guard<std::mutex> lock(registry_->mutex);
+    auto b = find_mapped_buffer_locked(device_io_addr, size);
+    if (!b.has_value()) {
+        return false;
     }
-
-    SysmemManager::read_from_sysmem(channel, dest, sysmem_src, size);
+    std::memcpy(dst, static_cast<const uint8_t*>(b->buffer) + (device_io_addr - b->device_io_addr), size);
+    return true;
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
@@ -175,31 +149,30 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
-    uint64_t mapped_base = 0;
+    uint64_t device_io_addr = 0;
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
-        mapped_base = align_up(registry_->next_base, page_size);
-        registry_->next_base = mapped_base + mapped_size;
-        registry_->buffers.push_back({mapped_base, buffer, sysmem_buffer_size});
+        const uint64_t arena_offset = align_up(registry_->next_arena_offset, page_size);
+        registry_->next_arena_offset = arena_offset + mapped_size;
+        device_io_addr = pcie_base_ + arena_offset;
+        registry_->buffers.push_back({device_io_addr, buffer, sysmem_buffer_size});
     }
 
-    const uint64_t device_io_addr = pcie_base_ + mapped_base;
     std::optional<uint64_t> noc_addr = map_to_noc ? std::optional<uint64_t>(device_io_addr) : std::nullopt;
 
-    // Capture a weak_ptr so the callback is a safe no-op if the manager has
-    // already been destroyed (unpin_or_unmap_sysmem clears registry_->buffers,
-    // so the erase would race with a no-op even on the happy path).
+    // Capture a weak_ptr so the unmap callback is a safe no-op if the manager
+    // has already been destroyed (unpin_or_unmap_sysmem clears the registry).
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     return std::make_unique<SysmemBuffer>(
-        buffer, sysmem_buffer_size, device_io_addr, noc_addr, [weak_reg, mapped_base]() {
+        buffer, sysmem_buffer_size, device_io_addr, noc_addr, [weak_reg, device_io_addr]() {
             if (auto reg = weak_reg.lock()) {
                 std::lock_guard<std::mutex> lock(reg->mutex);
                 reg->buffers.erase(
                     std::remove_if(
                         reg->buffers.begin(),
                         reg->buffers.end(),
-                        [mapped_base](const SimulationSysmemManager::MappedBuffer& b) {
-                            return b.base == mapped_base;
+                        [device_io_addr](const SimulationSysmemManager::MappedBuffer& b) {
+                            return b.device_io_addr == device_io_addr;
                         }),
                     reg->buffers.end());
             }

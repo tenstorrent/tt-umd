@@ -26,16 +26,6 @@ public:
     virtual ~DeviceProtocol() = default;
 
     /**
-     * @brief Writes a block of host data to a device core, suited for bulk data transfers.
-     * @param src Pointer to the source host memory.
-     * @param core Target core coordinates.
-     * @param addr Device address on the target core.
-     * @param size Number of bytes to write.
-     * @param noc_id NOC to route through.
-     */
-    virtual void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
-
-    /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
      * @param dst Pointer to the destination host buffer.
      * @param core Target core coordinates.
@@ -46,14 +36,14 @@ public:
     virtual void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
 
     /**
-     * @brief Writes host data to a device core, suited for register and control transactions.
+     * @brief Writes a block of host data to a device core, suited for bulk data transfers.
      * @param src Pointer to the source host memory.
      * @param core Target core coordinates.
      * @param addr Device address on the target core.
      * @param size Number of bytes to write.
      * @param noc_id NOC to route through.
      */
-    virtual void write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+    virtual void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
 
     /**
      * @brief Reads data from a device core into a host buffer, suited for register and control transactions.
@@ -64,6 +54,16 @@ public:
      * @param noc_id NOC to route through.
      */
     virtual void read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+
+    /**
+     * @brief Writes host data to a device core, suited for register and control transactions.
+     * @param src Pointer to the source host memory.
+     * @param core Target core coordinates.
+     * @param addr Device address on the target core.
+     * @param size Number of bytes to write.
+     * @param noc_id NOC to route through.
+     */
+    virtual void write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
 
     /**
      * @brief Writes data to a range of cores via hardware multicast, if supported.
@@ -81,7 +81,7 @@ public:
      *         must fall back to software unicast.
      */
     [[nodiscard]] virtual bool write_to_core_range(
-        const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id) = 0;
+        const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id) = 0;
 
     /**
      * @brief Returns the MMIO device ID, identifying both the device and its protocol instance.

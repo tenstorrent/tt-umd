@@ -40,6 +40,17 @@ public:
     /** @{ */
 
     /**
+     * @brief Device-to-Host DMA via internal staging buffer.
+     * @param dst Pointer to the destination host buffer.
+     * @param src_addr Source address on the target core.
+     * @param size Number of bytes to transfer.
+     * @param core Source core coordinates.
+     * @param noc_id NOC to route through.
+     * @return true on success; false if DMA is unavailable.
+     */
+    [[nodiscard]] virtual bool dma_read(void *dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+
+    /**
      * @brief Host-to-Device DMA via internal staging buffer.
      * @param src Pointer to the source host memory.
      * @param dst_addr Destination address on the target core.
@@ -50,17 +61,6 @@ public:
      */
     [[nodiscard]] virtual bool dma_write(
         const void *src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
-
-    /**
-     * @brief Device-to-Host DMA via internal staging buffer.
-     * @param dst Pointer to the destination host buffer.
-     * @param src_addr Source address on the target core.
-     * @param size Number of bytes to transfer.
-     * @param core Source core coordinates.
-     * @param noc_id NOC to route through.
-     * @return true on success; false if DMA is unavailable.
-     */
-    [[nodiscard]] virtual bool dma_read(void *dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
 
     /**
      * @brief Multicast Host-to-Device DMA via internal staging buffer.
@@ -81,18 +81,6 @@ public:
     /** @{ */
 
     /**
-     * @brief Zero-copy Host-to-Device DMA from caller-managed pinned memory.
-     * @param src_iova IOVA of the source pinned host memory buffer.
-     * @param dst_addr Destination address on the target core.
-     * @param size Number of bytes to transfer.
-     * @param core Target core coordinates.
-     * @param noc_id NOC to route through.
-     * @return true on success; false if DMA is unavailable.
-     */
-    virtual bool dma_write_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
-
-    /**
      * @brief Zero-copy Device-to-Host DMA into caller-managed pinned memory.
      * @param dst_iova IOVA of the destination pinned host memory buffer.
      * @param src_addr Source address on the target core.
@@ -103,6 +91,18 @@ public:
      */
     virtual bool dma_read_zero_copy(
         uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
+
+    /**
+     * @brief Zero-copy Host-to-Device DMA from caller-managed pinned memory.
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr Destination address on the target core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinates.
+     * @param noc_id NOC to route through.
+     * @return true on success; false if DMA is unavailable.
+     */
+    virtual bool dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) = 0;
 
     /**
      * @brief Zero-copy multicast Host-to-Device DMA from caller-managed pinned memory.

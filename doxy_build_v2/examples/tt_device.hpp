@@ -64,12 +64,11 @@ public:
 
     void write_to_core_range(const void *src, size_t size, uint64_t addr, NocId noc = NocId::DEFAULT);
 
-    void dma_write_to_core_range(
-        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
-
     void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
-    void dma_write(
+    void dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
+
+    void dma_write_to_core_range(
         const void *src,
         uint64_t dst_addr,
         size_t size,
@@ -77,11 +76,11 @@ public:
         CoreCoord core_end,
         NocId noc = NocId::DEFAULT);
 
-    void dma_write_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
-
     void dma_read_zero_copy(
         uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
+
+    void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     void dma_write_to_core_range_zero_copy(
         uint64_t src_iova,

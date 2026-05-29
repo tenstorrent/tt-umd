@@ -180,20 +180,6 @@ public:
     void write_to_core_range(const void *src, size_t size, uint64_t addr, NocId noc = NocId::DEFAULT);
 
     /**
-     * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.
-     *
-     * Copies from the user-provided buffer into an internal pinned staging buffer
-     * before issuing the hardware DMA to the device.
-     *
-     * @param src Pointer to the user-provided buffer containing the data to send.
-     * @param dst_addr Destination address on the target device core.
-     * @param size Number of bytes to transfer.
-     * @param core Target core coordinate on the device.
-     */
-    void dma_write_to_core_range(
-        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
-
-    /**
      * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.
      *
      * DMAs data into an internal pinned staging buffer and then copies it into the
@@ -203,8 +189,23 @@ public:
      * @param src_addr Source address on the target device core.
      * @param size Number of bytes to transfer.
      * @param core Source core coordinate on the device.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
     void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
+
+    /**
+     * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.
+     *
+     * Copies from the user-provided buffer into an internal pinned staging buffer
+     * before issuing the hardware DMA to the device.
+     *
+     * @param src Pointer to the user-provided buffer containing the data to send.
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
+     */
+    void dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a multicast Host-to-Device DMA transfer using an internal bounce buffer.
@@ -216,28 +217,15 @@ public:
      * @param size Number of bytes to transfer.
      * @param core_start Top-left core coordinate of the multicast grid.
      * @param core_end Bottom-right core coordinate of the multicast grid.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
-    void dma_write(
+    void dma_write_to_core_range(
         const void *src,
         uint64_t dst_addr,
         size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
         NocId noc = NocId::DEFAULT);
-
-    /**
-     * @brief Executes a zero-copy Host-to-Device (H2D) DMA transfer.
-     *
-     * Operates directly on caller-managed pinned host memory identified by its IOVA,
-     * bypassing the internal staging buffer.
-     *
-     * @param src_iova IOVA of the source pinned host memory buffer.
-     * @param dst_addr Destination address on the target device core.
-     * @param size Number of bytes to transfer.
-     * @param core Target core coordinate on the device.
-     */
-    void dma_write_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a zero-copy Device-to-Host (D2H) DMA transfer.
@@ -249,9 +237,25 @@ public:
      * @param src_addr Source address on the target device core.
      * @param size Number of bytes to transfer.
      * @param core Source core coordinate on the device.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
     void dma_read_zero_copy(
         uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
+
+    /**
+     * @brief Executes a zero-copy Host-to-Device (H2D) DMA transfer.
+     *
+     * Operates directly on caller-managed pinned host memory identified by its IOVA,
+     * bypassing the internal staging buffer.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
+     */
+    void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Executes a zero-copy multicast Host-to-Device DMA transfer.
@@ -264,6 +268,7 @@ public:
      * @param size Number of bytes to transfer.
      * @param core_start Top-left core coordinate of the multicast grid.
      * @param core_end Bottom-right core coordinate of the multicast grid.
+     * @param noc Physical network to route the transaction over. Defaults to NocId::DEFAULT.
      */
     void dma_write_to_core_range_zero_copy(
         uint64_t src_iova,

@@ -146,9 +146,9 @@ public:
     const std::vector<tt_xy_pair>& get_eth_cores() const { return eth_cores_; }
 
     /**
-     * @brief Returns all ARC firmware core locations.
+     * @brief Returns all firmware core locations.
      */
-    const std::vector<tt_xy_pair>& get_arc_cores() const { return arc_cores_; }
+    const std::vector<tt_xy_pair>& get_firmware_cores() const { return firmware_cores_; }
 
     /**
      * @brief Returns all PCIe tile locations.
@@ -301,7 +301,7 @@ private:
     std::vector<tt_xy_pair> tensix_cores_;
     std::vector<std::vector<tt_xy_pair>> dram_cores_;
     std::vector<tt_xy_pair> eth_cores_;
-    std::vector<tt_xy_pair> arc_cores_;
+    std::vector<tt_xy_pair> firmware_cores_;
     std::vector<tt_xy_pair> pcie_cores_;
     std::vector<tt_xy_pair> router_cores_;
     std::vector<tt_xy_pair> security_cores_;

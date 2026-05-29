@@ -99,7 +99,7 @@ private:
      * @brief Callable type for deferred NOC address binding.
      *
      * Injected by the SystemMemoryAllocator at construction. The callable holds
-     * the device context (e.g., PCIDevice) needed to program the hardware address
+     * the device context needed to program the hardware address
      * translation. Returns the resulting NOC address.
      */
     using NocBinder = std::function<uint64_t()>;

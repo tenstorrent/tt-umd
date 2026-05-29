@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include <string>
+
+#include "tt_enums_structs_constants_doxy.hpp"
+
 namespace tt::umd {
 /**
  * @brief Configuration options for controlling the behavior of the topology discovery process.
@@ -95,5 +99,17 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    /**
+     * @brief Transport type used to reach local devices during discovery.
+     * Defaults to PCIe.
+     */
+    IODeviceType io_device_type = IODeviceType::PCIe;
+
+    /**
+     * @brief Path to a custom SoC descriptor YAML file. If empty, the descriptor
+     * is auto-detected from the hardware.
+     */
+    std::string soc_descriptor_path;
 };
 }  // namespace tt::umd

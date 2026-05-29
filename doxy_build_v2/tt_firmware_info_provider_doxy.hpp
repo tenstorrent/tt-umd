@@ -301,6 +301,11 @@ public:
 
 /** @} */  // end of tt_firmware_info_provider group
 
+/**
+ * @brief Resolves a board type from its unique board identifier.
+ * @param board_id The unique physical board identifier.
+ * @return BoardType The board model, or BoardType::UNKNOWN if unrecognized.
+ */
 inline BoardType get_board_type_from_board_id(uint64_t board_id) { return BoardType::UNKNOWN; }
 
 }  // namespace tt::umd

@@ -29,6 +29,8 @@ namespace tt::umd {
  * Each concrete model (PCIe, JTAG, mock, etc.) wires together the components
  * appropriate for its transport and architecture:
  *
+ * **Required components** — must have a real implementation:
+ *
  * | Component | Role |
  * |-----------|------|
  * | @ref DeviceProtocol | Transport-level I/O (data and control paths) |
@@ -36,12 +38,21 @@ namespace tt::umd {
  * | @ref ArchitectureImplementation | Architecture-specific constants and register encodings |
  * | @ref SocArchDescriptor | Static chip topology (grid, core locations, memory sizes) |
  * | @ref IoWindow | Memory-mapped window into device address space |
- * | @ref HangDetector | Bus and NOC probes |
- * | @ref FirmwareTelemetryReader | Raw telemetry reads from firmware memory |
- * | @ref FirmwareInfoProvider | Versioned telemetry interpretation |
+ * | @ref FirmwareInfoProvider | Telemetry and firmware information |
  *
- * Not every transport supports every component. Optional components return
- * nullptr by default; concrete models override only what they provide.
+ * **Optional components** — provide a stub implementation if not needed:
+ *
+ * | Component | Role |
+ * |-----------|------|
+ * | @ref HangDetector | Bus and NOC liveness probes |
+ * | @ref FirmwareTelemetryReader | Raw telemetry reads from firmware memory |
+ * | @ref DmaInterface | DMA transfers (bounce buffer and zero-copy) |
+ * | @ref PcieInterface | Direct BAR register access and NUMA topology |
+ * | @ref JtagInterface | Direct MMIO register access via JTAG |
+ * | @ref RemoteInterface | Remote transport access and flush synchronization |
+ *
+ * Optional components return nullptr by default; concrete models override
+ * only what they provide.
  *
  */
 
@@ -87,6 +98,11 @@ public:
      */
     virtual std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) = 0;
 
+    /**
+     * @brief Returns the firmware (version agnostic) telemetry and information.
+     */
+    virtual FirmwareInfoProvider* get_firmware_info_provider() = 0;
+
     /** @} */
 
     /** @name Optional Components */
@@ -101,11 +117,6 @@ public:
      * @brief Returns the raw telemetry reader, or nullptr if not supported.
      */
     virtual FirmwareTelemetryReader* get_firmware_telemetry_reader() { return nullptr; }
-
-    /**
-     * @brief Returns the versioned telemetry provider, or nullptr if not supported.
-     */
-    virtual FirmwareInfoProvider* get_firmware_info_provider() { return nullptr; }
 
     /** @} */
 

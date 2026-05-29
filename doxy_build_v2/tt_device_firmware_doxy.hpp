@@ -31,7 +31,7 @@ public:
     virtual ~DeviceFirmware() = default;
 
     /**
-     * @brief Performs the firmware initialization handshake.
+     * @brief Performs the firmware initialization.
      * @param timeout_ms Maximum time to wait for the firmware to become ready.
      */
     virtual void init_firmware(std::chrono::milliseconds timeout_ms) = 0;

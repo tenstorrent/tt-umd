@@ -139,7 +139,6 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("discover_remote_devices", &TopologyDiscoveryOptions::discover_remote_devices)
         .def_rw("wait_on_ethernet_link_training", &TopologyDiscoveryOptions::wait_on_ethernet_link_training)
         .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)
-        // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
         .def_rw("low_power", &TopologyDiscoveryOptions::low_power)
         .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api);
 

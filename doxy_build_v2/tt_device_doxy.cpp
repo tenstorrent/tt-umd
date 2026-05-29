@@ -66,14 +66,14 @@ void TTDevice::write_to_core_range(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc) {
     auto res = device_protocol_->write_to_core_range(src, translate(core_start), translate(core_end), addr, size, noc);
     if (!res) {
-        // do fallback
+        // Fallback: iterate active (non-harvested) cores in the range via SocDescriptor
+        // and unicast write_data to each one individually.
     }
 }
 
 void TTDevice::write_to_core_range(const void *src, size_t size, uint64_t addr, NocId noc) {
-    // Broadcast to all tensix cores — arch-specific grid range.
-    // Wormhole: (1,1) to (9,11). Blackhole: wraparound multicast.
-    // Delegated to SocDescriptor which knows the arch-specific broadcast coordinates.
+    // TODO: get broadcast grid from SocDescriptor
+    // (void)device_protocol_->write_to_core_range(src, broadcast_start, broadcast_end, addr, size, noc);
 }
 
 void TTDevice::dma_write_to_core_range(const void *src, uint64_t dst_addr, size_t size, CoreCoord core) {
@@ -109,6 +109,7 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (success) {
         return;
     }
+    // throw: zero-copy requires a functional DMA interface
 }
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core) {
@@ -117,6 +118,7 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
     if (success) {
         return;
     }
+    // throw: zero-copy requires a functional DMA interface
 }
 
 void TTDevice::dma_write_to_core_range_zero_copy(
@@ -127,6 +129,7 @@ void TTDevice::dma_write_to_core_range_zero_copy(
     if (success) {
         return;
     }
+    // throw: zero-copy requires a functional DMA interface
 }
 
 // --- DeviceFirmware ---

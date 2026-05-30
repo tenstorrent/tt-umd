@@ -9,7 +9,7 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 15
+        default: 20
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
@@ -114,7 +114,9 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    # 20 (not 15): the arm builds on the public runner are slower; the fedora-39-arm
+    # release-flags build (clang-tidy enabled) was hitting the 15-minute limit.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '20') }}
     needs:
       - ensure-ubuntu-2204-image
       - ensure-ubuntu-2404-image

@@ -10,8 +10,26 @@ on:
         required: true
         type: string
         description: >-
-          Image variant name that matches the Dockerfile prefix,
-          e.g. "ubuntu-22.04", "ubuntu-24.04", "fedora-39", "manylinux".
+          Image variant name. Used as the ghcr image suffix
+          (tt-umd-ci-<docker-version>) and, unless `dockerfile` is set, also as
+          the Dockerfile prefix. e.g. "ubuntu-22.04", "ubuntu-24.04",
+          "fedora-39", "manylinux", "ubuntu-24.04-arm", "manylinux-aarch64".
+      dockerfile:
+        required: false
+        type: string
+        default: ""
+        description: >-
+          Dockerfile prefix to build from when it differs from `docker-version`.
+          Lets an arm image (e.g. docker-version "ubuntu-24.04-arm") reuse the
+          arch-neutral x86 Dockerfile (".github/ubuntu-24.04.Dockerfile") while
+          being pushed under a distinct image name. Defaults to `docker-version`.
+      runner:
+        required: false
+        type: string
+        default: ubuntu-22.04
+        description: >-
+          Runner to build the image on. Must match the target image arch:
+          use an arm runner (e.g. "ubuntu-24.04-arm") to produce arm64 images.
       timeout:
         required: false
         type: number
@@ -26,7 +44,7 @@ on:
 jobs:
   ensure:
     name: Ensure image (${{ inputs.docker-version }})
-    runs-on: ubuntu-22.04
+    runs-on: ${{ inputs.runner }}
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     permissions:
       packages: write
@@ -39,7 +57,7 @@ jobs:
       - name: Compute content hash
         id: hash
         run: |
-          DOCKERFILE=".github/${{ inputs.docker-version }}.Dockerfile"
+          DOCKERFILE=".github/${{ inputs.dockerfile != '' && inputs.dockerfile || inputs.docker-version }}.Dockerfile"
 
           # Collect the Dockerfile itself plus any scripts it COPYs
           FILES="$DOCKERFILE"
@@ -84,7 +102,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .github
-          file: .github/${{ inputs.docker-version }}.Dockerfile
+          file: .github/${{ inputs.dockerfile != '' && inputs.dockerfile || inputs.docker-version }}.Dockerfile
           push: true
           build-args: |
             GIT_SHA=${{ github.sha }}

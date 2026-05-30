@@ -80,8 +80,6 @@ jobs:
       - name: Checkout UMD
         uses: actions/checkout@v6
         with:
-          # x86_64 nests UMD inside tt-metal so build_metal.sh picks up this branch;
-          # aarch64 checks it out standalone. matrix.umd-dir is used everywhere below.
           path: ${{ matrix.umd-dir }}
           submodules: recursive
 
@@ -104,8 +102,6 @@ jobs:
           echo "Extracted ttsim version: $TTSIM_VERSION"
           echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
 
-      # The aarch64 simulator binaries carry an "_aarch64" suffix; matrix.ttsim-suffix
-      # selects the right asset per arch. All three land in /tmp/ttsim.
       - name: Download ttsim binary (wh)
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:

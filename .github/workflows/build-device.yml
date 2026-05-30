@@ -203,6 +203,7 @@ jobs:
       # Build with all components to verify the build passes.
       # Release-flags builds mirror the flags used in release.yml to catch clang-tidy issues early.
       - name: Build All
+        shell: bash
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."

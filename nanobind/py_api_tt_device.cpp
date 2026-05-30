@@ -40,15 +40,25 @@ namespace nb = nanobind;
 using release_gil = nb::call_guard<nb::gil_scoped_release>;
 
 // RAII wrapper around Py_buffer so noc_write et al. can accept anything that
-// supports the buffer protocol — bytes, bytearray, memoryview, numpy arrays —
-// instead of forcing callers to materialize an extra bytes copy first.
+// supports the buffer protocol — bytes, bytearray, memoryview — instead of
+// forcing callers to materialize an extra bytes copy first.
+//
+// We request PyBUF_SIMPLE, which asks only for a C-contiguous buffer and does
+// not request write access. Two consequences worth noting:
+//   - Non-contiguous exporters (e.g. a strided memoryview such as
+//     memoryview(b"...")[::2], or a non-contiguous NumPy view) are rejected
+//     with a BufferError instead of silently producing wrong data, so callers
+//     must pass a contiguous buffer.
+//   - PyBUF_SIMPLE does NOT make the view read-only; a writable exporter
+//     (bytearray, writable memoryview) still reports buffer_.readonly == 0.
+//     We only ever read from the buffer, so data() is exposed as const void*
+//     to make that intent explicit and prevent accidental writes through it.
+//
 // Acquire/release must happen with the GIL held; callers are expected to keep
 // this object alive across any nb::gil_scoped_release block that uses .data().
-//
-// The pointer is exposed as void* to match the underlying Py_buffer::buf field
-// and to pass cleanly into legacy UMD APIs that take void* (and don't actually
-// mutate the data). PyBUF_SIMPLE alone is read-only at the protocol level —
-// callers must not actually write through this pointer.
+// Since the device transfer runs with the GIL released, the caller owns the
+// buffer for the duration of the call and must not mutate it concurrently from
+// another thread.
 class PyBufferView {
 public:
     explicit PyBufferView(nb::handle obj) {
@@ -624,7 +634,10 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 PyBufferView buffer(data);
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(buffer.data(), core, addr, buffer.size());
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device(buffer.data(), core, addr, buffer.size());
+                }
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -657,7 +670,10 @@ void bind_tt_device(nb::module_ &m) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 PyBufferView buffer(data);
-                self.noc_multicast_write(buffer.data(), buffer.size(), addr);
+                {
+                    nb::gil_scoped_release release;
+                    self.noc_multicast_write(buffer.data(), buffer.size(), addr);
+                }
             },
             nb::arg("noc_id"),
             nb::arg("addr"),

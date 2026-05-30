@@ -85,12 +85,19 @@ jobs:
 
       - name: Get ttsim version
         id: get-ttsim-version
+        shell: bash
         run: |
-          # Pin the same ttsim version tt-metal uses (single source of truth) by
-          # reading the default from tt-metal's ttsim.yaml on main. This keeps the
-          # x86_64 and aarch64 legs on the same simulator.
-          TTSIM_VERSION=$(curl -fsSL \
-            https://raw.githubusercontent.com/tenstorrent/tt-metal/main/.github/workflows/ttsim.yaml \
+          # Pin the same ttsim version tt-metal uses (single source of truth).
+          # x86_64 reads it from the local tt-metal checkout; aarch64 has no
+          # tt-metal checkout so it fetches tt-metal's ttsim.yaml from main with
+          # wget (the UMD CI image ships wget, not curl).
+          if [ "${{ matrix.build-metal }}" = "true" ]; then
+            TTSIM_YAML=$(cat tt-metal/.github/workflows/ttsim.yaml 2>/dev/null || true)
+          else
+            TTSIM_YAML=$(wget -qO- \
+              https://raw.githubusercontent.com/tenstorrent/tt-metal/main/.github/workflows/ttsim.yaml || true)
+          fi
+          TTSIM_VERSION=$(printf '%s\n' "$TTSIM_YAML" \
             | grep -A 5 "ttsim-version:" \
             | grep "default:" \
             | sed 's/.*default: *"\?\([^"]*\)"\?.*/\1/' \

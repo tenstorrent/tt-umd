@@ -252,6 +252,8 @@ jobs:
   run-ttsim-tests:
     secrets: inherit
     uses: ./.github/workflows/run-ttsim-tests.yml
+    with:
+      arm-image-tag: ${{ inputs.arm-docker-image-tag || 'latest' }}
 
   run-tooling-tests:
     secrets: inherit

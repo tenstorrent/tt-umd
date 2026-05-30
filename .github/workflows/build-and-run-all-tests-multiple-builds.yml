@@ -51,6 +51,19 @@ jobs:
     with:
       docker-version: ubuntu-22.04
 
+  # Same as above, for the arm64 CI image. Built on the public ubuntu-24.04-arm
+  # runner; reuses the arch-neutral ubuntu-24.04 Dockerfile under an arm image name.
+  ensure-arm-image:
+    name: Ensure arm64 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-arm
+      dockerfile: ubuntu-24.04
+      runner: ubuntu-24.04-arm
+
   # On pull_request, only Release should run. But GitHub applies the same required-status-check
   # rules to PRs and merge queues — if a check is required for merge_group it must also be
   # present on the PR. Skipped jobs count as passing, so all jobs are defined for all events
@@ -67,7 +80,7 @@ jobs:
 
   build-release:
     name: "Build and Test (Release)"
-    needs: ensure-image
+    needs: [ensure-image, ensure-arm-image]
     # Skipped: (none)
     if: >-
       github.event_name == 'pull_request' ||
@@ -81,13 +94,14 @@ jobs:
       build-type: Release
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: ensure-image
+    needs: [ensure-image, ensure-arm-image]
     # Skipped: pull_request, push
     if: >-
       github.event_name == 'merge_group' ||
@@ -99,13 +113,14 @@ jobs:
       build-type: ASan
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: ensure-image
+    needs: [ensure-image, ensure-arm-image]
     # Skipped: pull_request, push
     if: >-
       github.event_name == 'merge_group' ||
@@ -117,13 +132,14 @@ jobs:
       build-type: TSan
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: ensure-image
+    needs: [ensure-image, ensure-arm-image]
     # Skipped: pull_request, merge_group, push
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -134,13 +150,14 @@ jobs:
       build-type: RelWithDebInfo
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: ensure-image
+    needs: [ensure-image, ensure-arm-image]
     # Skipped: pull_request, merge_group, push
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -151,6 +168,7 @@ jobs:
       build-type: Debug
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

@@ -17,6 +17,13 @@ on:
         description: >-
           Content-hash tag produced by docker-image.yml.
           When empty or unset, downstream jobs use ":latest".
+      arm-docker-image-tag:
+        required: false
+        type: string
+        default: latest
+        description: >-
+          Content-hash tag for the arm64 (ubuntu-24.04-arm) CI image produced by
+          docker-image.yml. Used by the aarch64 build/test leg. Defaults to ":latest".
       log-params:
         required: false
         type: string
@@ -164,17 +171,30 @@ jobs:
     secrets: inherit
     strategy:
       fail-fast: false
+      # x86_64 builds on the internal large runner; arm64 builds on the public
+      # ubuntu-24.04-arm runner using the arm CI image. Tracy is x86-only (the
+      # Tracy smoke test runs on silicon, which arm doesn't have).
       matrix:
-        ubuntu-docker-version: [
-          'ubuntu-22.04',
-        ]
+        include:
+          - ubuntu-docker-version: ubuntu-22.04
+            runner: tt-ubuntu-2204-large-stable
+            exalens-runner: ubuntu-22.04
+            build-tracy: true
+            image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+          - ubuntu-docker-version: ubuntu-24.04-arm
+            runner: ubuntu-24.04-arm
+            exalens-runner: ubuntu-24.04-arm
+            build-tracy: false
+            image-tag: ${{ inputs.arm-docker-image-tag || 'latest' }}
     uses: ./.github/workflows/build-tests.yml
     with:
-      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
+      runner: ${{ matrix.runner }}
+      exalens-runner: ${{ matrix.exalens-runner }}
       timeout: 15
       build-type: ${{ inputs.build-type }}
-      build-tracy: true
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+      build-tracy: ${{ matrix.build-tracy }}
+      image-tag: ${{ matrix.image-tag }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -201,6 +221,28 @@ jobs:
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+      log-params: |
+        ${{ inputs.log-params }}
+        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+
+  # aarch64 has no Tenstorrent silicon runner, so we run the hardware-free suite
+  # (the same one the x86 'baremetal' card runs: baremetal/test_utils/misc/pcie +
+  # wheel pytest) on the public ubuntu-24.04-arm runner with the arm CI image.
+  # Simulator coverage for arm lives in run-ttsim-tests.yml (ttsim job).
+  test-aarch64:
+    secrets: inherit
+    needs: build-tests
+    uses: ./.github/workflows/run-tests.yml
+    with:
+      arch: baremetal
+      ubuntu-docker-version: ubuntu-24.04-arm
+      card: ubuntu-24.04-arm
+      timeout: ${{ fromJSON(inputs.timeout) }}
+      log-level: ${{ inputs.log-level || 'info' }}
+      build-type: ${{ inputs.build-type }}
+      image-tag: ${{ inputs.arm-docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -293,6 +335,15 @@ jobs:
   fail-fast-test-all:
     if: failure() && inputs.triggering-event == 'merge_group'
     needs: [test-all]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - uses: action-pack/cancel@bb57491c99942855e9da36ffbe86a686b2bd35a3
+
+  fail-fast-test-aarch64:
+    if: failure() && inputs.triggering-event == 'merge_group'
+    needs: [test-aarch64]
     runs-on: ubuntu-latest
     permissions:
       actions: write

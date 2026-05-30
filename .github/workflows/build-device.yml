@@ -66,14 +66,72 @@ jobs:
     with:
       docker-version: manylinux
 
+  # arm64 CI images. Built on the public ubuntu-24.04-arm runner; the ubuntu/fedora
+  # ones reuse the arch-neutral x86 Dockerfiles under a distinct -arm image name.
+  ensure-ubuntu-2204-arm-image:
+    name: Ensure ubuntu-22.04-arm Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-22.04-arm
+      dockerfile: ubuntu-22.04
+      runner: ubuntu-24.04-arm
+
+  ensure-ubuntu-2404-arm-image:
+    name: Ensure ubuntu-24.04-arm Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-arm
+      dockerfile: ubuntu-24.04
+      runner: ubuntu-24.04-arm
+
+  ensure-fedora-39-arm-image:
+    name: Ensure fedora-39-arm Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: fedora-39-arm
+      dockerfile: fedora-39
+      runner: ubuntu-24.04-arm
+
+  ensure-manylinux-aarch64-image:
+    name: Ensure manylinux-aarch64 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: manylinux-aarch64
+      runner: ubuntu-24.04-arm
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    needs:
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-fedora-39-image
+      - ensure-ubuntu-2204-arm-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-arm-image
     strategy:
       fail-fast: false
+      # The image list (distro x compiler) is crossed with the arch dimension, so
+      # every x86 build configuration is mirrored on arm64. x86 builds on the
+      # internal runner via the harbor mirror; arm builds on the public
+      # ubuntu-24.04-arm runner pulling the -arm images directly from ghcr.
       matrix:
+        arch:
+          - {suffix: "", runner: tt-ubuntu-2204-large-stable, registry: "harbor.ci.tenstorrent.net/ghcr.io"}
+          - {suffix: "-arm", runner: ubuntu-24.04-arm, registry: "ghcr.io"}
         image: [
           {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13, package: deb},
           {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
@@ -95,19 +153,27 @@ jobs:
 
     name: >-
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
-      on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+      on ${{ matrix.image.distro }}${{ matrix.arch.suffix }} with ${{ matrix.image.compiler-c }}
+    runs-on: ${{ matrix.arch.runner }}
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
     container:
       image: >-
-        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
-        matrix.image.distro }}:${{
-        matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
-        matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
-        needs.ensure-fedora-39-image.outputs.image-tag }}
+        ${{ matrix.arch.registry }}/${{ github.repository }}/tt-umd-ci-${{
+        matrix.image.distro }}${{ matrix.arch.suffix }}:${{
+        matrix.arch.suffix == '' && matrix.image.distro == 'ubuntu-22.04'
+        && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
+        matrix.arch.suffix == '' && matrix.image.distro == 'ubuntu-24.04'
+        && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
+        matrix.arch.suffix == '' && matrix.image.distro == 'fedora-39'
+        && needs.ensure-fedora-39-image.outputs.image-tag ||
+        matrix.arch.suffix == '-arm' && matrix.image.distro == 'ubuntu-22.04'
+        && needs.ensure-ubuntu-2204-arm-image.outputs.image-tag ||
+        matrix.arch.suffix == '-arm' && matrix.image.distro == 'ubuntu-24.04'
+        && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
+        needs.ensure-fedora-39-arm-image.outputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v6
@@ -124,11 +190,12 @@ jobs:
           # exactly the same flags the release process would use.
           RELEASE_SUFFIX="${{ matrix.image.use_release_flags && '-release' || '' }}"
           # Build ID is common suffix, differentiating packages built per distro,
-          # compiler, and whether they used release cmake flags or not.
+          # arch, compiler, and whether they used release cmake flags or not.
           # This suffix should be used for all package artifacts so their names
           # don't overlap for different configurations.
-          # Example: PLATFORM_SUFFIX=ubuntu-24.04-clang-20-release
-          PLATFORM_SUFFIX="${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}"
+          # Example: PLATFORM_SUFFIX=ubuntu-24.04-arm-clang-20-release
+          DISTRO_ARCH="${{ matrix.image.distro }}${{ matrix.arch.suffix }}"
+          PLATFORM_SUFFIX="${DISTRO_ARCH}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}"
           echo "PLATFORM_SUFFIX=${PLATFORM_SUFFIX}" >> $GITHUB_ENV
 
       # Build with all components to verify the build passes.
@@ -286,10 +353,27 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: ensure-manylinux-image
+    needs: [ensure-manylinux-image, ensure-manylinux-aarch64-image]
 
-    name: Build umd manylinux wheel
-    runs-on: tt-ubuntu-2204-large-stable
+    # x86_64 wheels build on the internal runner; aarch64 wheels build natively on
+    # the public ubuntu-24.04-arm runner (no QEMU) using the manylinux-aarch64 image.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: tt-ubuntu-2204-large-stable
+            cibw-image: >-
+              ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux:${{
+              needs.ensure-manylinux-image.outputs.image-tag }}
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            cibw-image: >-
+              ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux-aarch64:${{
+              needs.ensure-manylinux-aarch64-image.outputs.image-tag }}
+
+    name: Build umd manylinux wheel (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v6
@@ -307,10 +391,11 @@ jobs:
       - name: Build manylinux wheels
         shell: bash
         env:
-          # Use custom manylinux Docker image with all dependencies pre-installed
-          CIBW_MANYLINUX_X86_64_IMAGE: >-
-            ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux:${{
-            needs.ensure-manylinux-image.outputs.image-tag }}
+          # Select the arch to build and point cibuildwheel at the matching custom
+          # manylinux image (only the env var for the built arch is consulted).
+          CIBW_ARCHS: ${{ matrix.arch }}
+          CIBW_MANYLINUX_X86_64_IMAGE: ${{ matrix.arch == 'x86_64' && matrix.cibw-image || '' }}
+          CIBW_MANYLINUX_AARCH64_IMAGE: ${{ matrix.arch == 'aarch64' && matrix.cibw-image || '' }}
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -324,30 +409,52 @@ jobs:
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: manylinux-wheel-artifact
+          name: manylinux-wheel-artifact-${{ matrix.arch }}
           path: |
             ${{ env.WHEEL_OUTPUT_DIR }}
 
   test-packages:
-    needs: [build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    needs:
+      - build
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-fedora-39-image
+      - ensure-ubuntu-2204-arm-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-arm-image
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
     strategy:
       fail-fast: false
+      # Each package config is tested on both arches. arm package tests install the
+      # arm .deb/.rpm in the arm CI image on the public ubuntu-24.04-arm runner.
       matrix:
+        arch:
+          - {suffix: "", runner: ubuntu-22.04}
+          - {suffix: "-arm", runner: ubuntu-24.04-arm}
         build: [
           {package: deb, distro: ubuntu-22.04, compiler-c: gcc-11},
           {package: deb, distro: ubuntu-24.04, compiler-c: gcc-11},
           {package: rpm, distro: fedora-39, compiler-c: gcc-13}
         ]
 
-    name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.compiler-c }}
-    runs-on: ubuntu-22.04
+    name: >-
+      Test ${{ matrix.build.package }} package on
+      ${{ matrix.build.distro }}${{ matrix.arch.suffix }} with ${{ matrix.build.compiler-c }}
+    runs-on: ${{ matrix.arch.runner }}
     container:
       image: >-
-        ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.build.distro }}:${{
-        matrix.build.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
-        matrix.build.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
-        needs.ensure-fedora-39-image.outputs.image-tag }}
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{ matrix.build.distro }}${{ matrix.arch.suffix }}:${{
+        matrix.arch.suffix == '' && matrix.build.distro == 'ubuntu-22.04'
+        && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
+        matrix.arch.suffix == '' && matrix.build.distro == 'ubuntu-24.04'
+        && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
+        matrix.arch.suffix == '' && matrix.build.distro == 'fedora-39'
+        && needs.ensure-fedora-39-image.outputs.image-tag ||
+        matrix.arch.suffix == '-arm' && matrix.build.distro == 'ubuntu-22.04'
+        && needs.ensure-ubuntu-2204-arm-image.outputs.image-tag ||
+        matrix.arch.suffix == '-arm' && matrix.build.distro == 'ubuntu-24.04'
+        && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
+        needs.ensure-fedora-39-arm-image.outputs.image-tag }}
 
     steps:
       - uses: actions/checkout@v6
@@ -359,7 +466,8 @@ jobs:
         run: |
           # Note that BUILD ID doesn't include the option with the -release suffix
           # as the above matrix which builds packages. We test only one variant.
-          echo "PLATFORM_SUFFIX=${{ matrix.build.distro }}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
+          DISTRO_ARCH="${{ matrix.build.distro }}${{ matrix.arch.suffix }}"
+          echo "PLATFORM_SUFFIX=${DISTRO_ARCH}-${{ matrix.build.compiler-c }}" >> $GITHUB_ENV
 
       - name: Download Packages Artifact
         uses: actions/download-artifact@v8

@@ -28,7 +28,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -411,8 +410,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_x"),
             nb::arg("core_y"),
             release_gil(),
-            "Get the raw soft reset register value for a core in translated coordinates. "
-            "The bit layout of this value corresponds to TensixSoftResetOptions.")
+            "Get the raw soft reset register value for a core in translated coordinates. ")
         .def(
             "set_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint32_t soft_reset_raw_value) -> void {
@@ -423,8 +421,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("core_y"),
             nb::arg("soft_reset_raw_value"),
             release_gil(),
-            "Set the raw soft reset register value for a core in translated coordinates. "
-            "The bit layout of this value corresponds to TensixSoftResetOptions; do not pass RiscType bits here.")
+            "Set the raw soft reset register value for a core in translated coordinates. ")
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
@@ -750,21 +747,6 @@ void bind_tt_device(nb::module_ &m) {
             release_gil(),
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(
-            "send_tensix_risc_reset",
-            static_cast<void (TTSimTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
-                &TTSimTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("soft_resets"),
-            release_gil(),
-            "Send a Tensix RISC reset with specific soft reset options for a single core.")
-        .def(
-            "send_tensix_risc_reset_all",
-            static_cast<void (TTSimTTDevice::*)(const TensixSoftResetOptions &)>(
-                &TTSimTTDevice::send_tensix_risc_reset),
-            nb::arg("soft_resets"),
-            release_gil(),
-            "Send a Tensix RISC reset with specific soft reset options for all cores.")
-        .def(
             "assert_risc_reset",
             &TTSimTTDevice::assert_risc_reset,
             nb::arg("core"),
@@ -799,15 +781,6 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("num_host_mem_channels") = 0,
             release_gil(),
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
-        .def(
-            "send_tensix_risc_reset",
-            static_cast<void (RtlSimulationTTDevice::*)(tt_xy_pair, const TensixSoftResetOptions &)>(
-                &RtlSimulationTTDevice::send_tensix_risc_reset),
-            nb::arg("translated_core"),
-            nb::arg("soft_resets"),
-            release_gil(),
-            "Send a Tensix RISC reset with specific soft reset options for a single core. "
-            "Only TENSIX_ASSERT_SOFT_RESET and TENSIX_DEASSERT_SOFT_RESET are valid options.")
         .def(
             "assert_risc_reset",
             &RtlSimulationTTDevice::assert_risc_reset,

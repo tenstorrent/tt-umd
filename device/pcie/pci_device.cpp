@@ -880,18 +880,22 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.
-    volatile uint64_t *tlb_reg_ptr =
-        reinterpret_cast<volatile uint64_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
+    // Use 32-bit stores throughout: on aarch64, Device/UC memory (which is how PCIe config
+    // registers are mapped) requires natural alignment for all accesses. Blackhole registers
+    // are 12 bytes apart (index * 12), making odd indices 4-byte aligned but NOT 8-byte aligned.
+    // A 64-bit store to a non-8-byte-aligned Device/UC address causes SIGBUS on aarch64.
+    // 32-bit stores only require 4-byte alignment, which index * 12 always satisfies.
+    volatile uint32_t *tlb_reg_ptr =
+        reinterpret_cast<volatile uint32_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = lower_64;
+    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
+    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
 
     if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total)
-        // Cast to uint32_t* to write only 4 bytes and avoid overwriting the next register.
-        volatile uint32_t *tlb_reg_upper_ptr = reinterpret_cast<volatile uint32_t *>(tlb_reg_ptr);
-        tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
+        // Blackhole needs the upper 32 bits as well (96-bit total).
+        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
     }
 
     log_trace(

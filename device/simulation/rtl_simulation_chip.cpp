@@ -44,15 +44,6 @@ void RtlSimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1
     tt_device_->read_from_device(dest, translate_core, l1_src, size);
 }
 
-void RtlSimulationChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->send_tensix_risc_reset(translated_core, soft_resets);
-}
-
-void RtlSimulationChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    send_tensix_risc_reset(tt_xy_pair(0, 0), soft_resets);
-}
-
 void RtlSimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);

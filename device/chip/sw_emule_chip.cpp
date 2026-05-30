@@ -161,10 +161,6 @@ void SWEmuleChip::dram_membar(const std::unordered_set<CoreCoord>&) {}
 
 void SWEmuleChip::dram_membar(const std::unordered_set<uint32_t>&, uint32_t) {}
 
-void SWEmuleChip::send_tensix_risc_reset(CoreCoord, const TensixSoftResetOptions&) {}
-
-void SWEmuleChip::send_tensix_risc_reset(const TensixSoftResetOptions&) {}
-
 void SWEmuleChip::deassert_risc_resets() {}
 
 void SWEmuleChip::set_power_state(DevicePowerState) {}

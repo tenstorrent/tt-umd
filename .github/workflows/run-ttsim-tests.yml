@@ -106,7 +106,7 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          ./build_metal.sh --build-all --enable-ccache
+          ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
       - name: Prepare sim paths

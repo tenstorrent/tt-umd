@@ -20,12 +20,19 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     strategy:
       fail-fast: false
+      # `name` is the ghcr image suffix; `dockerfile` is the Dockerfile prefix.
+      # arm images reuse the arch-neutral x86 Dockerfiles (only manylinux-aarch64
+      # has its own) and build on the public ubuntu-24.04-arm runner.
       matrix:
         build: [
-          {name: ubuntu-22.04, runner: ubuntu-22.04},
-          {name: ubuntu-24.04, runner: ubuntu-24.04},
-          {name: fedora-39, runner: ubuntu-22.04},
-          {name: manylinux, runner: ubuntu-22.04},
+          {name: ubuntu-22.04, dockerfile: ubuntu-22.04, runner: ubuntu-22.04},
+          {name: ubuntu-24.04, dockerfile: ubuntu-24.04, runner: ubuntu-24.04},
+          {name: fedora-39, dockerfile: fedora-39, runner: ubuntu-22.04},
+          {name: manylinux, dockerfile: manylinux, runner: ubuntu-22.04},
+          {name: ubuntu-22.04-arm, dockerfile: ubuntu-22.04, runner: ubuntu-24.04-arm},
+          {name: ubuntu-24.04-arm, dockerfile: ubuntu-24.04, runner: ubuntu-24.04-arm},
+          {name: fedora-39-arm, dockerfile: fedora-39, runner: ubuntu-24.04-arm},
+          {name: manylinux-aarch64, dockerfile: manylinux-aarch64, runner: ubuntu-24.04-arm},
         ]
 
     name: Building docker image ${{ matrix.build.name }}
@@ -57,7 +64,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .github
-          file: .github/${{ matrix.build.name }}.Dockerfile
+          file: .github/${{ matrix.build.dockerfile }}.Dockerfile
           push: true
           build-args: |
             GIT_SHA=${{ github.sha }}

@@ -90,13 +90,13 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
-    std::memcpy(target_core->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
+    std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
-    std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
+    std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 
 // Register I/O forwards to the same memory path — emulated cores have no distinct

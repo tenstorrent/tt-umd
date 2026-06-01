@@ -125,3 +125,73 @@ Keep the client path **as close to the silicon `LocalChip` path as possible.**
 
 > **Decisions:** new `SimulationClientTTDevice` vs refactor `RtlSimulationTTDevice`;
 > `ClusterOptions` attach fields (socket folder / explicit socket / `attach_to_server` flag).
+
+---
+
+## 6. Proposed solution & architecture
+
+The simulator runs as a **persistent server process that *is* the device** ("the card"): it
+owns all device state and outlives any individual UMD client. UMD instances are clients that
+**attach** to it, do work, and **detach** — exactly the relationship a process has with a
+silicon card sitting in a PCIe slot. Below we work through the four questions that decide the
+shape of this: how the server is created, how UMD connects, who tears it down, and which KMD
+responsibilities the server must take on to look like silicon.
+
+### 6.1 Lifetime: how is the server created?
+
+The card's existence must be **independent of any client's lifetime** — that is the whole
+point (shareability + state handoff). The open question is *who brings it up and when*:
+
+- **Offline (created out-of-band, recommended default).** The server is started explicitly —
+  by a person, a CI step, or a service — *before* any UMD process runs, and stays up across
+  many attach/detach cycles. This is the faithful silicon model (the card is already powered
+  and enumerated before software touches it) and the only one that cleanly supports
+  state handoff between separate UMD processes.
+- **During UMD startup (lazy, opt-in).** For single-process/dev convenience, the first UMD
+  client that finds no server may bring one up. This preserves today's "just run the binary"
+  workflow, but the spawned server must still be **owned independently** of that client (it
+  does not die when that client exits) — otherwise we are back to lifetime coupling.
+
+The invariant under both: **creating the device (one-time power-on init/reset of state) is
+distinct from a client attaching.** The card is initialized once, by whoever creates it;
+every client — including the first — only attaches and never re-initializes state.
+
+> **Decision:** offline-by-default, with lazy startup-spawn as an opt-in convenience? And in
+> the lazy case, what owns the spawned server so it isn't tied to the spawning client?
+
+### 6.2 How UMD connects to the server
+
+Connecting should mirror how UMD opens a silicon device:
+
+- **Discovery.** Devices are surfaced as endpoints in a well-known location (a folder of
+  per-device sockets) — the analog of KMD exposing cards under `/dev/tenstorrent`. UMD
+  **scans** that location to enumerate available simulated devices, honoring the same
+  device-selection semantics it already uses for silicon.
+- **Open = attach.** UMD picks a device and connects to its endpoint. The attach is a
+  **non-mutating** handshake: UMD learns the device's identity and topology *from the server*
+  and bumps a reference count — it does not reset or re-initialize anything.
+- **Liveness.** A listed endpoint may be stale (server gone); UMD treats a successful
+  connection as the proof of liveness, the same way opening a chardev confirms a real device.
+
+The net effect: from UMD's perspective "find a simulated device and open it" looks the same as
+"enumerate PCIe devices and open one" — which is what keeps the client path close to silicon.
+
+> **Decision:** where does the discovery folder live, and how is a device named/selected
+> within it?
+
+### 6.3 Who kills the server?
+
+Because the card's lifetime is decoupled from clients, **a client detaching or exiting must
+never tear the server down** (this is the key change from today, where a client's destructor
+kills the simulator). Teardown becomes a deliberate act of whoever *owns* the card:
+
+- **Explicit stop** — the owner (person/CI/service that created it) shuts it down when done.
+  Natural fit for the offline model.
+- **Policy-based** — e.g. linger for a grace period after the last client detaches, then exit;
+  or stay up indefinitely for a long-lived shared card. A bounded linger keeps CI from leaking
+  server processes while still surviving the brief gap during a process-to-process handoff.
+- **Crashed clients** are detected (their connection drops) and detached automatically — they
+  decrement the reference count but never bring the card down.
+
+> **Decision:** explicit-owner teardown, a linger policy, or both (different defaults for
+> interactive vs CI)? What is the default linger?

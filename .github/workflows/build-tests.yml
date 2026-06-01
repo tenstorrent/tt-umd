@@ -217,6 +217,12 @@ jobs:
       # Use tt-exalens own CI image as it has everything pre-installed.
       image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-${{ inputs.ubuntu-docker-version }}:latest
 
+    env:
+      # Clear the workflow-level CC/CXX (clang-20): that toolchain only exists in the
+      # tt-umd image.
+      CC: ""
+      CXX: ""
+
     steps:
       - uses: actions/checkout@v6
         with:

@@ -56,6 +56,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300.yaml",
              "wormhole_N300_jtag.yaml",
              "wormhole_N300_pci_bdf.yaml",
+             "quasar_Q1.yaml",
          }) {
         cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));
     }

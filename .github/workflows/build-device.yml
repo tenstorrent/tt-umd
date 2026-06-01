@@ -48,6 +48,15 @@ jobs:
     with:
       docker-version: ubuntu-24.04
 
+  ensure-ubuntu-2404-arm-image:
+    name: Ensure ubuntu-24.04-arm Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-arm
+
   ensure-fedora-39-image:
     name: Ensure fedora-39 Docker image
     permissions:
@@ -70,7 +79,7 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +90,8 @@ jobs:
           # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
           {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
           {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
+          # Arm64 build, built natively on an arm runner.
+          {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
@@ -96,7 +107,8 @@ jobs:
     name: >-
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
       on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+    # Arm variants must build natively on an arm runner; everything else uses the standard x86 runner.
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
@@ -107,7 +119,9 @@ jobs:
         matrix.image.distro }}:${{
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
-        needs.ensure-fedora-39-image.outputs.image-tag }}
+        matrix.image.distro == 'ubuntu-24.04-arm' && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
+        matrix.image.distro == 'fedora-39' && needs.ensure-fedora-39-image.outputs.image-tag ||
+        'latest' }}
 
     steps:
       - uses: actions/checkout@v6

@@ -10,10 +10,10 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
-#include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/error.hpp"
@@ -26,15 +26,8 @@ std::unique_ptr<SimulationChip> SimulationChip::create(
     ChipId chip_id,
     size_t num_chips,
     int num_host_mem_channels) {
-    std::unique_ptr<TTDevice> tt_device;
-    if (simulator_directory.extension() == ".so") {
-        tt_device = std::make_unique<TTSimTTDevice>(
-            simulator_directory, soc_descriptor, chip_id, num_chips > 1, num_host_mem_channels);
-    } else {
-        log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
-        tt_device = std::make_unique<RtlSimulationTTDevice>(
-            simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);
-    }
+    auto tt_device =
+        create_simulation_tt_device(simulator_directory, soc_descriptor, chip_id, num_chips, num_host_mem_channels);
     return std::make_unique<SimulationChip>(simulator_directory, soc_descriptor, chip_id, std::move(tt_device));
 }
 

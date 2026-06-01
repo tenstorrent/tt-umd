@@ -98,6 +98,14 @@ if(NOT TT_UMD_ENABLE_CLANG_TIDY)
             <utility>
             <vector>
     )
+    # The PCH is C++-only; tt_kmd_lib.c is the lone C source in this target and must not
+    # pull in the C++ precompiled header (it would try to compile <fmt>/<vector> as C).
+    set_source_files_properties(
+        tt_kmd_lib/tt_kmd_lib.c
+        PROPERTIES
+            SKIP_PRECOMPILE_HEADERS
+                ON
+    )
 endif()
 
 target_sources(

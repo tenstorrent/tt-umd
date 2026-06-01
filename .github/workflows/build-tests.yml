@@ -214,7 +214,8 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
+      # Use tt-exalens own CI image as it has everything pre-installed.
+      image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-${{ inputs.ubuntu-docker-version }}:latest
 
     steps:
       - uses: actions/checkout@v6

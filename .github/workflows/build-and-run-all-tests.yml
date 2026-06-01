@@ -171,7 +171,8 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-      timeout: 15
+      # EXPERIMENT: bumped 15 -> 30 so the build-tests jobs have headroom on 4-core public runners.
+      timeout: 30
       build-type: ${{ inputs.build-type }}
       build-tracy: true
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}

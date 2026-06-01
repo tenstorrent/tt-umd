@@ -239,7 +239,9 @@ jobs:
 
   build-cpp-artifacts:
     name: Build C++ Artifacts on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+    # EXPERIMENT: was tt-ubuntu-2204-large-stable. NB: release.yml only triggers on a VERSION
+    # change pushed to main, so this is NOT exercised by a PR/push test of this branch.
+    runs-on: ubuntu-22.04
     needs: prepare-release
     timeout-minutes: 30
     strategy:
@@ -292,7 +294,8 @@ jobs:
 
   build-python-wheels:
     name: Build Python Wheel (manylinux)
-    runs-on: tt-ubuntu-2204-large-stable
+    # EXPERIMENT: was tt-ubuntu-2204-large-stable (only runs on a release / VERSION-change push).
+    runs-on: ubuntu-22.04
     needs: prepare-release
     timeout-minutes: 60
 

@@ -69,7 +69,8 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    # EXPERIMENT: bumped 15 -> 60 so the full device build can finish on a 4-core public runner.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
     strategy:
       fail-fast: false
@@ -96,14 +97,17 @@ jobs:
     name: >-
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
       on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+    # EXPERIMENT: was tt-ubuntu-2204-large-stable. ~6 min work vs ~24 min p90 queue on the
+    # large runner. NOTE: image repointed from harbor.ci.tenstorrent.net (internal registry,
+    # unreachable from public runners) to public ghcr.io so the pull works on ubuntu-22.04.
+    runs-on: ubuntu-22.04
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
     container:
       image: >-
-        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{
         matrix.image.distro }}:${{
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
@@ -285,11 +289,13 @@ jobs:
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    # EXPERIMENT: bumped 15 -> 60 for the 4-core public runner.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '60') }}
     needs: ensure-manylinux-image
 
     name: Build umd manylinux wheel
-    runs-on: tt-ubuntu-2204-large-stable
+    # EXPERIMENT: was tt-ubuntu-2204-large-stable.
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v6

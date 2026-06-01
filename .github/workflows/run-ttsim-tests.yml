@@ -24,10 +24,14 @@ jobs:
   build-and-run-ttsim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    # EXPERIMENT: bumped 30 -> 180. This builds ALL of tt-metal; on a 4-core/16GB public
+    # runner it may still time out, OOM, or run out of disk (~14GB) — that result is itself
+    # the signal that this job must stay on the big machine.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '180') }}
 
     name: Build and test ttsim with newest UMD
-    runs-on: tt-ubuntu-2204-large-stable
+    # EXPERIMENT: was tt-ubuntu-2204-large-stable.
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:

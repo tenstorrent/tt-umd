@@ -62,7 +62,7 @@ std::unique_ptr<LocalChip> LocalChip::create(
         (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
     // Note that the eth_coord is not important here since this is only used for eth broadcasting.
     // TODO: Instead of having this in LocalChip, every TTDevice w/ ETH cores should have its own RemoteCommunication,
-    // initialized with a correcy EthCoord.
+    // initialized with a correctly EthCoord.
     remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
     tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor.device_descriptor_file_path);
@@ -86,7 +86,6 @@ LocalChip::LocalChip(
     remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
-    tt_device_->init_tt_device();
     wait_chip_to_be_ready();
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();

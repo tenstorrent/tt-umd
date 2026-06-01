@@ -60,11 +60,19 @@ So "make it a server" is really **three coupled changes**, none optional:
 
 ## 3. Scope
 
-- **RTL/emu is the primary target** — already out-of-process and socket-based, so the server
-  is an extension of the existing `SimulationHost`/nng/FlatBuffers stack (1:1 → N:1).
-- **TTSim** can be offered later as an opt-in server mode reusing the same client device
-  class, but pays an IPC penalty (in-process calls → cross-process) and carries a TLB hazard
-  (§6.3). **Proposal: ship RTL-only first; keep TTSim single-client/in-process initially.**
+**Both simulation backends — RTL/emu and TTSim — are targets.** The end state is that either
+backend can run as a shared, persistent server. They differ only in how much work it takes to
+get there:
+
+- **RTL/emu** is already out-of-process and socket-based, so the server is a direct extension
+  of the existing `SimulationHost`/nng/FlatBuffers stack (1:1 → N:1) — the smaller lift.
+- **TTSim** is in-process today (`libttsim.so` via `dlopen`), so making it a server means
+  introducing an IPC boundary underneath `TTSimCommunicator`. This carries a perf penalty
+  (in-process calls → cross-process) and requires solving the TLB-register hazard (§6.3) — a
+  larger lift, but in scope, not optional.
+
+Both backends should sit behind the **same** client device class and protocol so the server
+model is uniform; the backend difference stays below the socket, invisible to clients.
 
 ---
 
@@ -117,155 +125,3 @@ Keep the client path **as close to the silicon `LocalChip` path as possible.**
 
 > **Decisions:** new `SimulationClientTTDevice` vs refactor `RtlSimulationTTDevice`;
 > `ClusterOptions` attach fields (socket folder / explicit socket / `attach_to_server` flag).
-
----
-
-## 6. The hard problems (need explicit decisions)
-
-### 6.1 Sysmem / host-memory DMA with N clients — *the crux*
-
-Host sysmem is a **UMD-process-local anonymous `mmap`** today (`SimulationSysmemManager`), and
-simulator-initiated DMA (`AXI_RAM_*` notifications) is serviced against *that one client's*
-address space. With N clients, the shared device cannot answer **"whose sysmem?"**
-
-- **Recommended — sysmem becomes server-resident shared state.** The PCIe/sysmem address
-  space is a resource of the card (like L1/DRAM). Device DMA resolves *entirely inside the
-  server* — no client round-trip, no "which client," no reentrancy deadlock — and it enables
-  handoff. Silicon-faithful (sysmem = pinned, IOMMU-mapped host DRAM).
-  - Cost: client `read/write_to_sysmem` becomes an IPC round-trip (loses today's zero-copy).
-  - Refinement to prototype: `shm_open`/`memfd` backing mapped by *both* server and client to
-    recover zero-copy while keeping the server authoritative.
-  - Needs server-arbitrated channel/PCIe-base allocation (the KMD-allocates-IOVA analog).
-- **Rejected — keep sysmem client-local + route DMA to the owning client.** Requires the sim
-  core to resolve client identity from a bus address (deep sim change), reintroduces a
-  callback-reentrancy deadlock, and breaks handoff (in-flight DMA to a dead client).
-
-> **Decision:** server-resident sysmem — proxy-everything (simple/correct/slower) vs `shm`
-> zero-copy fast path?
-
-### 6.2 Clock ownership
-
-Device time is global; a client calling `advance_clock` / `libttsim_clock` affects all
-clients.
-
-- **Recommended — the server owns a free-running clock by default.** The card runs
-  continuously; clients observe asynchronously (the only model where tt-triage peeking at a
-  *running* workload makes sense). Expose `CLOCK_ADVANCE`/`PAUSE` only as a privileged/global
-  op.
-- **Risk:** existing single-client flows likely depend on lock-step `write → advance N →
-  read` determinism. Provide a **single-client stepped/deterministic mode** (when exactly one
-  client is attached, or it holds an advertised "clock-owner" lease); the contract degrades to
-  free-running the moment a second client attaches.
-
-> **Decision:** default to free-running? **Action:** audit existing sim tests for hidden
-> dependence on synchronous `advance_clock`.
-
-### 6.3 TTSim TLB registers (TTSim-only)
-
-On **TTSim WH/BH**, `TTSimTlbHandle::configure` programs *authoritative device TLB registers*
-via BAR0 with a reprogram-per-access pattern that is only safe under the in-process
-`device_lock_`. Two concurrent clients would stomp each other. **Fix:** server owns TLB
-allocation, or per-access reprogram+access becomes one atomic server-side command. (RTL is
-unaffected — its TLB config is pure client-side address arithmetic, never latched in the
-device.)
-
-### 6.4 Concurrency semantics
-
-**Recommended — match silicon: per-command atomicity, no multi-command/cross-client
-transactions.** A single server-side command loop (one device-owner thread draining a queue,
-fed by per-client readers) gives this for free and avoids the DMA-callback reentrancy
-deadlock a lock-based design would hit. The per-process `device_lock_` is **not** sufficient
-cross-client — serialization moves server-side. Don't offer client-held device-wide locks
-(diverges from silicon; lets one client wedge a shared card).
-
----
-
-## 7. Lifetime & ownership
-
-- **Who starts it:** a standalone `tt-sim-server` daemon (= the card), fronted by a thin
-  `tt-sim-launcher` that does race-free create-or-attach under a per-name `flock`, waits for
-  socket readiness, and cleans up stale tombstones. Keep **lazy auto-spawn opt-in**
-  (`TT_SIM_AUTOSPAWN=1`) so today's one-binary dev/CI workflow survives migration. systemd
-  socket-activation is the most KMD-like option and worth documenting for a shared lab sim,
-  but can't be the baseline (environment constraints).
-- **Who reaps it:** **connection-death-driven refcount + configurable linger.** Default
-  `linger=infinite` for the daemon/handoff path; bounded linger (~30–60s) for autospawn/CI so
-  RTL processes don't leak while still surviving test-to-test handoff. **Reject** instant
-  refcount-to-zero kill (breaks handoff, races). Crashed clients: connection-close = implicit
-  detach (primary signal); heartbeat/lease as backstop for half-open connections.
-- **Orphans:** the server unlinks its own socket+PID on clean exit; tombstones (hard kill) are
-  reclaimed only by the launcher under the folder lock.
-
-> **Decisions:** daemon + launcher vs lazy-spawn default; teardown policy & default linger;
-> who is responsible for the device's initial reset/power state on creation.
-
----
-
-## 8. Protocol changes (`simulation_device.fbs`)
-
-- **Add:** `ATTACH`/`ATTACH_REPLY` (versioned handshake + device facts + serialized
-  `ClusterDescriptor` + server-assigned client id), `DETACH`, `GET_DEVICE_INFO`,
-  `SYSMEM_READ`/`SYSMEM_WRITE` (§6.1), `BARRIER`/flush-ack (membar = "wait for my outstanding
-  write acks"), privileged `CLOCK_ADVANCE`/`PAUSE`, a generic `ERROR`/status field, a
-  per-client monotonic `request_id`.
-- **Remove:** the per-client `START` and the `EXIT`-as-ready-ack hack; `EXIT`/destroy becomes
-  launcher/SIGTERM-only.
-- **Versioning is mandatory.** There is already an in-tree op-code **tag collision**
-  (`simulation_device.fbs:14-17`, AXI notifications vs NEO_DM resets) to resolve, plus
-  **cross-repo coordination** with the simulator release — `run.sh` must implement the
-  listener/server side.
-
----
-
-## 9. State ownership audit (what breaks handoff if left client-side)
-
-**Must move to the server (authoritative, mutable):** simulator core (already, RTL); host
-sysmem backing + RAM callbacks (§6.1); TTSim TLB programming/allocation (§6.3); cross-process
-serialization (replaces in-process `device_lock_`); reset/power state ownership.
-
-**Re-fetch on attach (read-only — query, never set):** arch, SocDescriptor (validate, don't
-impose), BAR0/BAR4 bases, `tlb_region_size_`, `libttsim_pci_device_id`, num host channels,
-current reset/power state.
-
-**Keep client-local (connection bookkeeping):** notification thread + command queue, the
-(now-dialing) socket, RTL TLB allocator/window/config, per-client lock, selected NOC id
-(carried per-command — verify the wire protocol carries it per op).
-
----
-
-## 10. Proposed phasing
-
-1. **Protocol + role inversion + transport.** Unix socket in a folder; `pair1` → per-client
-   connections; split `RtlSimCommunicator::initialize()` into spawn-side vs dial-side; add
-   `ATTACH`/`DETACH`; stop sending `EXIT` on client teardown.
-   *Interim de-risking option:* a **UMD-side broker** (UMD owns a server process; sim stays a
-   1:1 dialer behind it) delivers N:1 with **zero simulator changes**, then later collapses
-   into the sim.
-2. **Server-resident sysmem (§6.1)** — the correctness gate for real handoff.
-3. **Discovery + Cluster integration** — `SimulationTopologyDiscovery`, `ClusterOptions`
-   attach fields, `SimulationClientTTDevice`, server-served `ClusterDescriptor`.
-4. **Lifetime tooling** — `tt-sim-server` + `tt-sim-launcher`, refcount/linger, stale cleanup.
-5. **Clock policy (§6.2)** — free-running default + single-client stepped lease; audit tests.
-6. **TTSim-as-server (optional, later)** — TLB ownership fix (§6.3) + IPC under TTSimCommunicator.
-
----
-
-## 11. Decisions to make in this meeting
-
-0. Do we accept the **role inversion** (simulator = server/owner, UMD = client)? (§2)
-1. **Sysmem:** server-resident — proxy-everything vs `shm` zero-copy fast path? (§6.1)
-2. **Clock:** default free-running? Who audits existing tests for `advance_clock` dependence? (§6.2)
-3. **Lifetime:** explicit daemon+launcher vs lazy-spawn default; teardown policy & default
-   linger; who owns the device's initial reset/power state. (§7)
-4. **Transport:** unix-socket-only, or keep TCP for remote sim? Drop nng for raw sockets? (§4, §2)
-5. **Scope/order:** RTL-only first with TTSim deferred? Build the **broker** interim first? (§3, §10)
-6. **Cross-repo:** who owns the simulator-side (`run.sh`) server implementation and the
-   protocol version contract? (§8)
-
-## Open questions (lower priority / follow-up)
-
-- Multi-user folder permissions — is cross-user attach ever wanted? (per-UID folder forbids
-  it by default).
-- Sim crash mid-handoff = state lost (no silicon equivalent). Snapshot/checkpoint desirable,
-  or accept "restart fresh" for v1?
-- Heartbeat/lease TTL vs RTL command latency (avoid false-positive reaping of a busy client).

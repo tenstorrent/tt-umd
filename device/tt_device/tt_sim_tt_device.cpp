@@ -76,7 +76,6 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
-    TTDevice(architecture_implementation::create(soc_descriptor.arch)),
     // Pass chip_id to the communicator. If the loaded .so supports the multichip
     // multichip ABI (libttsim_create_device_by_id + libttsim_select_device_by_id),
     // the communicator will auto-detect at initialize() time and switch to

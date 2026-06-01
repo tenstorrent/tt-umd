@@ -61,6 +61,45 @@ if(COMMAND TT_ENABLE_UNITY_BUILD)
     )
 endif()
 
+# EXPERIMENT: precompiled header for the heavy, stable, widely-included external/system
+# headers that forward declarations cannot remove (<fmt/format.h>, tt-logger/spdlog, STL).
+# Parses them once instead of once per (unity) TU. ccache coexists with PCH via
+# CCACHE_SLOPPINESS=pch_defines,time_macros (set in the CI workflow env).
+#
+# Gated on clang-tidy being OFF: with clang-tidy ON, clang-tidy (always clang) runs on
+# every TU and cannot read a GCC-generated .gch PCH -- that would break the gcc entries
+# of the build-device matrix. build-tests builds with clang-tidy OFF, so it gets the PCH.
+if(NOT TT_UMD_ENABLE_CLANG_TIDY)
+    target_precompile_headers(
+        tt-umd
+        PRIVATE
+            <fmt/format.h>
+            <tt-logger/tt-logger.hpp>
+            <algorithm>
+            <array>
+            <chrono>
+            <cstddef>
+            <cstdint>
+            <cstring>
+            <filesystem>
+            <functional>
+            <map>
+            <memory>
+            <mutex>
+            <optional>
+            <set>
+            <stdexcept>
+            <string>
+            <string_view>
+            <tuple>
+            <type_traits>
+            <unordered_map>
+            <unordered_set>
+            <utility>
+            <vector>
+    )
+endif()
+
 target_sources(
     tt-umd
     PRIVATE

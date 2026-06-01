@@ -110,6 +110,8 @@ jobs:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CMAKE_C_COMPILER_LAUNCHER: ccache
       CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      # Required so ccache keeps caching when a precompiled header is in use.
+      CCACHE_SLOPPINESS: pch_defines,time_macros
 
     steps:
       - name: Print all params

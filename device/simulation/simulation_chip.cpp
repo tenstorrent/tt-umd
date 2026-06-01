@@ -162,9 +162,7 @@ void SimulationChip::read_from_sysmem(uint16_t channel, void* dest, uint64_t sys
     mgr->read_from_sysmem(channel, dest, sysmem_src, size);
 }
 
-int SimulationChip::get_numa_node() {
-    UMD_THROW(error::RuntimeError, "SimulationChip::get_numa_node() is not available for this chip.");
-}
+int SimulationChip::get_numa_node() { return 0; }
 
 TTDevice* SimulationChip::get_tt_device() {
     UMD_THROW(error::RuntimeError, "SimulationChip::get_tt_device() is not available for this chip.");

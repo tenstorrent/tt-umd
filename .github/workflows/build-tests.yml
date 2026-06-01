@@ -105,6 +105,11 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check; harmless when Tracy is disabled.
       TRACY_NO_INVARIANT_CHECK: 1
+      # EXPERIMENT: simplest ccache. CMake reads CMAKE_<LANG>_COMPILER_LAUNCHER from the
+      # environment, so the cmake command lines below need no change.
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Print all params
@@ -118,6 +123,21 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      # EXPERIMENT: rolling ccache (run_id makes each run save a fresh entry; restore-keys
+      # restores the most recent prior one) so a second run reuses the first run's cache.
+      - name: ccache
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-build-tests-${{ inputs.build-type }}-${{ matrix.use_tracy }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-build-tests-${{ inputs.build-type }}-${{ matrix.use_tracy }}-
+
+      - name: Install ccache
+        run: |
+          apt-get update && apt-get install -y ccache
+          ccache --zero-stats
 
       # Only perform build with necessary components to run tests.
       - name: Build ${{ env.BUILD_TARGETS }}
@@ -135,6 +155,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
+          ccache --show-stats  # EXPERIMENT: cache hit rate for measurement
 
       # This is needed to preserve file permissions
       # https://github.com/actions/upload-artifact?tab=readme-ov-file#permission-loss

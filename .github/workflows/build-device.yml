@@ -105,6 +105,11 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
+      # EXPERIMENT: simplest ccache (CMake reads CMAKE_<LANG>_COMPILER_LAUNCHER from env).
+      # NB: these builds run clang-tidy ON, which ccache does NOT cache -> expect partial speedup.
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     container:
       image: >-
         ghcr.io/${{ github.repository }}/tt-umd-ci-${{
@@ -135,6 +140,22 @@ jobs:
           PLATFORM_SUFFIX="${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}${RELEASE_SUFFIX}"
           echo "PLATFORM_SUFFIX=${PLATFORM_SUFFIX}" >> $GITHUB_ENV
 
+      # EXPERIMENT: rolling ccache per matrix variant, persisted across runs.
+      - name: ccache
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/.ccache
+          # PLATFORM_SUFFIX (set in "Select Compiler" above) = distro-compiler[-release].
+          key: ccache-build-device-${{ env.PLATFORM_SUFFIX }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-build-device-${{ env.PLATFORM_SUFFIX }}-
+
+      - name: Install ccache
+        run: |
+          (command -v apt-get >/dev/null && apt-get update && apt-get install -y ccache) || \
+          (command -v dnf >/dev/null && dnf install -y ccache) || true
+          ccache --zero-stats
+
       # Build with all components to verify the build passes.
       # Release-flags builds mirror the flags used in release.yml to catch clang-tidy issues early.
       - name: Build All
@@ -159,6 +180,10 @@ jobs:
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
+
+      - name: ccache stats
+        if: always()
+        run: ccache --show-stats  # EXPERIMENT: cache hit rate for measurement
 
       # Upload compile_commands.json for debugging and IDE integration.
       # This file contains exact compilation flags used during the build,

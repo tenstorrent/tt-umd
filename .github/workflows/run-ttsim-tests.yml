@@ -11,20 +11,20 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 120
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 120
 
 jobs:
   build-and-run-ttsim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '120') }}
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
@@ -134,89 +134,86 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests
 
-      # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
-      # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
-      - name: Run tt-sim wormhole tests
-        timeout-minutes: 1
+      # Run the full ttsim test suite repeatedly (against the single tt-metal build above) to
+      # flush out flaky / intermittent simulator failures. Every test is exercised on each
+      # iteration; failures are logged and counted but do not stop the loop, so the final
+      # summary reports how often each test failed across all iterations.
+      - name: Run all ttsim tests 100 times
         run: |
-          export TT_METAL_SIMULATOR=$(pwd)/sim_wh/libttsim.so
-          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+          WS=$(pwd)
+          API_TESTS="$WS/tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests"
+          UNIT_TESTS_API="$WS/tt-metal/build/test/tt_metal/unit_tests_api"
+          PROG_EXAMPLE="$WS/tt-metal/build/programming_examples/metal_example_add_2_integers_in_riscv"
+          MOCK_DESC_DIR="$WS/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors"
 
-      - name: Run tt-sim blackhole tests
-        timeout-minutes: 1
-        run: |
-          export TT_METAL_SIMULATOR=$(pwd)/sim_bh/libttsim.so
-          TT_METAL_SLOW_DISPATCH_MODE=1 $TT_METAL_HOME/build/programming_examples/metal_example_add_2_integers_in_riscv
+          ITERATIONS=100
+          declare -A fail_counts
+          total_failures=0
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
-        timeout-minutes: 1
-        env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
-        run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          # run_test <description> <command...> ; logs + counts failures without aborting the loop.
+          run_test() {
+            local desc="$1"; shift
+            if ! "$@"; then
+              echo "::error::FAILED: $desc"
+              fail_counts["$desc"]=$(( ${fail_counts["$desc"]:-0} + 1 ))
+              total_failures=$(( total_failures + 1 ))
+            fi
+          }
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole
-        timeout-minutes: 1
-        env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
-        run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+          for i in $(seq 1 "$ITERATIONS"); do
+            echo "::group::Iteration $i / $ITERATIONS"
 
-      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
-        timeout-minutes: 1
-        env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
-        run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+            # --- single card tests (should be a couple of seconds each) ---
+            run_test "tt-sim wormhole programming example" \
+              env TT_METAL_SIMULATOR="$WS/sim_wh/libttsim.so" TT_METAL_SLOW_DISPATCH_MODE=1 "$PROG_EXAMPLE"
+            run_test "tt-sim blackhole programming example" \
+              env TT_METAL_SIMULATOR="$WS/sim_bh/libttsim.so" TT_METAL_SLOW_DISPATCH_MODE=1 "$PROG_EXAMPLE"
 
-      - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
-        timeout-minutes: 1
-        env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
-        run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+            run_test "UMD TestDeviceIOFixture wormhole" \
+              env TT_UMD_SIMULATOR="$WS/sim_wh/libttsim.so" "$API_TESTS" --gtest_filter="TestDeviceIOFixture.*"
+            run_test "UMD TestDeviceIOFixture blackhole" \
+              env TT_UMD_SIMULATOR="$WS/sim_bh/libttsim.so" "$API_TESTS" --gtest_filter="TestDeviceIOFixture.*"
+            run_test "UMD TTSimDeviceIOFixture wormhole" \
+              env TT_UMD_SIMULATOR="$WS/sim_wh/libttsim.so" "$API_TESTS" --gtest_filter="TTSimDeviceIOFixture.*"
+            run_test "UMD TTSimDeviceIOFixture blackhole" \
+              env TT_UMD_SIMULATOR="$WS/sim_bh/libttsim.so" "$API_TESTS" --gtest_filter="TTSimDeviceIOFixture.*"
+            run_test "UMD TestDeviceIOFixture quasar" \
+              env TT_UMD_SIMULATOR="$WS/sim_qsr/libttsim.so" "$API_TESTS" --gtest_filter="TestDeviceIOFixture.*"
+            run_test "UMD TTSimDeviceIOFixture quasar" \
+              env TT_UMD_SIMULATOR="$WS/sim_qsr/libttsim.so" "$API_TESTS" --gtest_filter="TTSimDeviceIOFixture.*"
 
-      - name: Run UMD TestDeviceIOFixture on tt-sim quasar
-        timeout-minutes: 1
-        env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
-        run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+            # --- galaxy tests (can be a bit longer, on the order of minutes) ---
+            run_test "galaxy wormhole_b0 StreamRegWrite" \
+              env TT_METAL_SIMULATOR_HOME="$WS/sim_wh" TT_METAL_SIMULATOR="$WS/sim_wh/libttsim.so" \
+                  TT_METAL_SLOW_DISPATCH_MODE=1 \
+                  TT_METAL_MOCK_CLUSTER_DESC_PATH="$MOCK_DESC_DIR/6u_cluster_desc.yaml" \
+                  "$UNIT_TESTS_API" --gtest_filter="*StreamRegWrite*"
+            run_test "galaxy wormhole_b0 InlineWrite" \
+              env TT_METAL_SIMULATOR_HOME="$WS/sim_wh" TT_METAL_SIMULATOR="$WS/sim_wh/libttsim.so" \
+                  TT_METAL_SLOW_DISPATCH_MODE=1 \
+                  TT_METAL_MOCK_CLUSTER_DESC_PATH="$MOCK_DESC_DIR/6u_cluster_desc.yaml" \
+                  "$UNIT_TESTS_API" --gtest_filter="*InlineWrite*"
+            run_test "galaxy blackhole StreamRegWrite" \
+              env TT_METAL_SIMULATOR_HOME="$WS/sim_bh" TT_METAL_SIMULATOR="$WS/sim_bh/libttsim.so" \
+                  TT_METAL_SLOW_DISPATCH_MODE=1 \
+                  TT_METAL_MOCK_CLUSTER_DESC_PATH="$MOCK_DESC_DIR/bh_6u_cluster_desc.yaml" \
+                  "$UNIT_TESTS_API" --gtest_filter="*StreamRegWrite*"
+            run_test "galaxy blackhole InlineWrite" \
+              env TT_METAL_SIMULATOR_HOME="$WS/sim_bh" TT_METAL_SIMULATOR="$WS/sim_bh/libttsim.so" \
+                  TT_METAL_SLOW_DISPATCH_MODE=1 \
+                  TT_METAL_MOCK_CLUSTER_DESC_PATH="$MOCK_DESC_DIR/bh_6u_cluster_desc.yaml" \
+                  "$UNIT_TESTS_API" --gtest_filter="*InlineWrite*"
 
-      - name: Run UMD TTSimDeviceIOFixture on tt-sim quasar
-        timeout-minutes: 1
-        env:
-          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
-        run: |
-          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+            echo "::endgroup::"
+          done
 
-      # Galaxy tests can be a bit longer, should run on the order of minutes.
-      - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
-        timeout-minutes: 5
-        env:
-          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
-          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
-          TT_METAL_SLOW_DISPATCH_MODE: 1
-          TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
-        run: |
-          cd tt-metal
-          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
-          echo "Running C++ unit tests for wormhole_b0..."
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
-
-      - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
-        timeout-minutes: 5
-        env:
-          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
-          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
-          TT_METAL_SLOW_DISPATCH_MODE: 1
-          TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
-        run: |
-          cd tt-metal
-          export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"
-          echo "Running C++ unit tests for blackhole..."
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
-          ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+          echo "================ ttsim flakiness summary ($ITERATIONS iterations) ================"
+          if [ "$total_failures" -eq 0 ]; then
+            echo "All tests passed in every iteration."
+          else
+            echo "Total failures across all iterations: $total_failures"
+            for desc in "${!fail_counts[@]}"; do
+              echo "  ${fail_counts[$desc]} / $ITERATIONS failed: $desc"
+            done
+            exit 1
+          fi

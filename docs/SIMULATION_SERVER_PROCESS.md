@@ -195,3 +195,27 @@ kills the simulator). Teardown becomes a deliberate act of whoever *owns* the ca
 
 > **Decision:** explicit-owner teardown, a linger policy, or both (different defaults for
 > interactive vs CI)? What is the default linger?
+
+### 6.4 Resetting to a clean slate
+
+Persisting state across attach/detach is the default (it's what enables handoff), but a client
+will sometimes want a **fresh device** — power-on defaults, nothing left over from a previous
+run. Because state lives in the server, "clean slate" is a deliberate, separate action, never
+a side effect of attaching (this preserves the **attach ≠ initialize** rule from §6.1).
+
+Two granularities, which can coexist:
+
+- **Restart the server** — tear the card down and create a new one. The simplest, most
+  total clean slate; it's just teardown (§6.3) followed by create (§6.1).
+- **Reset in place** — an explicit operation on a *running* server that re-runs the one-time
+  power-on init/reset and returns device state to defaults, without dropping the process or
+  forcing every client to reconnect.
+
+The important property either way: a reset is **destructive and shared** — it wipes the state
+that *all* currently attached clients are using. So it must be an explicit, privileged action
+(requested by the owner, or by a client that knowingly opts in), and it cannot be the quiet
+default behavior of opening the device.
+
+> **Decision:** do we need in-place reset, or is "restart the server for a clean slate" enough?
+> Who is allowed to trigger a reset, and what is the contract for other clients that are
+> attached when it happens (forcibly detached, notified, or silently see reset state)?

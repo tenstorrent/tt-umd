@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -423,6 +424,11 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }
     return translated_cores;
+}
+
+bool SocDescriptor::is_core_of_type(const tt_xy_pair &core, CoreType core_type, CoordSystem coord_system) const {
+    const auto &cores = get_cores(core_type, coord_system);
+    return std::any_of(cores.begin(), cores.end(), [&core](const auto &c) { return c.x == core.x && c.y == core.y; });
 }
 
 std::vector<CoreCoord> SocDescriptor::get_cores(

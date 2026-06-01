@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 
@@ -53,6 +54,12 @@ public:
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
     SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(
+        void* buffer_va,
+        size_t buffer_size,
+        uint64_t device_io_addr,
+        std::optional<uint64_t> noc_addr = std::nullopt,
+        std::function<void()> unmap_callback = {});
     ~SysmemBuffer();
 
     /**
@@ -143,6 +150,8 @@ private:
     std::optional<uint64_t> noc_addr_;
 
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
+
+    std::function<void()> unmap_callback_;
 };
 
 }  // namespace tt::umd

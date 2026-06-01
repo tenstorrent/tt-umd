@@ -355,15 +355,36 @@ void TTSimTTDevice::initialize_sysmem_functions() {
 }
 
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {
-    uint64_t channel = paddr / (1ULL << 30);
-    uint64_t offset = paddr % (1ULL << 30);
-    sysmem_manager_->read_from_sysmem(channel, p, offset, size);
+    // craq-sim calls translate_pci_dma_addr() before invoking this callback,
+    // which subtracts pcie_base from the NOC address.  So paddr here is an
+    // OFFSET from pcie_base (not an absolute address).  Two backing stores:
+    //
+    //  1. Mapped-buffer arena: allocate_sysmem_buffer / map_sysmem_buffer
+    //     assign synthetic IOVAs above the hugepage region.  The registry
+    //     keys buffers by their absolute device IO address (pcie_base + offset),
+    //     so convert paddr before the lookup.
+    //
+    //  2. Hugepage arena: traditional channel-stride layout.  paddr is already
+    //     the within-hugepage-space offset, so decompose directly into
+    //     (channel, within-channel offset) for read_from_sysmem.
+    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    const uint64_t pcie_base = sim_mgr->get_pcie_base();
+    if (sim_mgr->read_mapped_buffer(pcie_base + paddr, p, size)) {
+        return;
+    }
+    const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
+    sim_mgr->read_from_sysmem(channel, p, paddr % (1ULL << 30), size);
 }
 
 void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t size) {
-    uint64_t channel = paddr / (1ULL << 30);
-    uint64_t offset = paddr % (1ULL << 30);
-    sysmem_manager_->write_to_sysmem(channel, p, offset, size);
+    // See pci_dma_read_bytes for the offset-vs-absolute explanation.
+    auto* sim_mgr = static_cast<SimulationSysmemManager*>(sysmem_manager_.get());
+    const uint64_t pcie_base = sim_mgr->get_pcie_base();
+    if (sim_mgr->write_mapped_buffer(pcie_base + paddr, p, size)) {
+        return;
+    }
+    const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
+    sim_mgr->write_to_sysmem(channel, p, paddr % (1ULL << 30), size);
 }
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {

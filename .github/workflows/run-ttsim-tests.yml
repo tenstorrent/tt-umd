@@ -24,8 +24,8 @@ on:
         type: string
         default: latest
         description: >-
-          Content-hash tag for the arm64 (ubuntu-24.04-arm) CI image, used by the
-          aarch64 matrix leg. Defaults to ":latest".
+          Tag name for the arm64 (ubuntu-24.04-arm) CI image, used as `:<tag>` in
+          the image reference by the aarch64 matrix leg. Defaults to `latest`.
 
 jobs:
   build-and-run-ttsim:
@@ -40,7 +40,8 @@ jobs:
     # UMD's own sim tests; aarch64 sets build-metal: false because tt-metal does
     # not publish an arm64 dev image yet, so it only downloads the ttsim binaries,
     # builds UMD api_tests and runs UMD's device-IO fixtures against the simulator.
-    # Once an arm64 tt-metal dev image exists, flip build-metal to true for aarch64.
+    # Once an arm64 tt-metal dev image exists, flip build-metal to true for aarch64
+    # (tracked in https://github.com/tenstorrent/tt-umd/issues/2744).
     strategy:
       fail-fast: false
       matrix:

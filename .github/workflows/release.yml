@@ -299,9 +299,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # nullglob so the loop is skipped (rather than running on a literal
+          # '*.ext') when cpack produced nothing; fail loudly in that case.
+          shopt -s nullglob
           ext="${{ matrix.image.package_ext }}"
           tag="${{ matrix.image.distro }}${{ matrix.arch.suffix }}"
-          for f in *."$ext"; do
+          pkgs=(*."$ext")
+          if [ "${#pkgs[@]}" -eq 0 ]; then
+            echo "ERROR: cpack produced no .$ext packages to namespace" >&2
+            exit 1
+          fi
+          for f in "${pkgs[@]}"; do
             mv "$f" "${f%.$ext}-${tag}.$ext"
           done
 

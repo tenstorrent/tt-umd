@@ -42,8 +42,8 @@ jobs:
   # Ensure the Docker image for CI exists. If the Dockerfile (or its
   # install scripts) changed on this branch the image is rebuilt and pushed
   # with a content-hash tag.  Otherwise the existing image is reused.
-  ensure-image:
-    name: Ensure Docker image
+  ensure-x86-image:
+    name: Ensure x86_64 Docker image
     permissions:
       packages: write
     secrets: inherit
@@ -80,7 +80,7 @@ jobs:
 
   build-release:
     name: "Build and Test (Release)"
-    needs: [ensure-image, ensure-arm-image]
+    needs: [ensure-x86-image, ensure-arm-image]
     # Skipped: (none)
     if: >-
       github.event_name == 'pull_request' ||
@@ -93,7 +93,7 @@ jobs:
     with:
       build-type: Release
       timeout: 25
-      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      x86-docker-image-tag: ${{ needs.ensure-x86-image.outputs.image-tag }}
       arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
@@ -101,7 +101,7 @@ jobs:
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: [ensure-image, ensure-arm-image]
+    needs: [ensure-x86-image, ensure-arm-image]
     # Skipped: pull_request, push
     if: >-
       github.event_name == 'merge_group' ||
@@ -112,7 +112,7 @@ jobs:
     with:
       build-type: ASan
       timeout: 25
-      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      x86-docker-image-tag: ${{ needs.ensure-x86-image.outputs.image-tag }}
       arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
@@ -120,7 +120,7 @@ jobs:
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: [ensure-image, ensure-arm-image]
+    needs: [ensure-x86-image, ensure-arm-image]
     # Skipped: pull_request, push
     if: >-
       github.event_name == 'merge_group' ||
@@ -131,7 +131,7 @@ jobs:
     with:
       build-type: TSan
       timeout: 50
-      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      x86-docker-image-tag: ${{ needs.ensure-x86-image.outputs.image-tag }}
       arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
@@ -139,7 +139,7 @@ jobs:
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: [ensure-image, ensure-arm-image]
+    needs: [ensure-x86-image, ensure-arm-image]
     # Skipped: pull_request, merge_group, push
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -149,7 +149,7 @@ jobs:
     with:
       build-type: RelWithDebInfo
       timeout: 25
-      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      x86-docker-image-tag: ${{ needs.ensure-x86-image.outputs.image-tag }}
       arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |
@@ -157,7 +157,7 @@ jobs:
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: [ensure-image, ensure-arm-image]
+    needs: [ensure-x86-image, ensure-arm-image]
     # Skipped: pull_request, merge_group, push
     if: >-
       github.event_name == 'workflow_dispatch' &&
@@ -167,7 +167,7 @@ jobs:
     with:
       build-type: Debug
       timeout: 50
-      docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
+      x86-docker-image-tag: ${{ needs.ensure-x86-image.outputs.image-tag }}
       arm-docker-image-tag: ${{ needs.ensure-arm-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
       log-params: |

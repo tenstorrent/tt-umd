@@ -10,20 +10,21 @@ on:
       timeout:
         required: true
         type: number
-      docker-image-tag:
+      x86-docker-image-tag:
         required: false
         type: string
         default: latest
         description: >-
-          Content-hash tag produced by docker-image.yml.
-          When empty or unset, downstream jobs use ":latest".
+          Tag name for the x86_64 CI image produced by docker-image.yml, used as
+          `:<tag>` in the image reference. Defaults to `latest`.
       arm-docker-image-tag:
         required: false
         type: string
         default: latest
         description: >-
-          Content-hash tag for the arm64 (ubuntu-24.04-arm) CI image produced by
-          docker-image.yml. Used by the aarch64 build/test leg. Defaults to ":latest".
+          Tag name for the arm64 (ubuntu-24.04-arm) CI image produced by
+          docker-image.yml, used as `:<tag>` in the image reference by the
+          aarch64 build/test leg. Defaults to `latest`.
       log-params:
         required: false
         type: string
@@ -180,7 +181,7 @@ jobs:
             runner: tt-ubuntu-2204-large-stable
             exalens-runner: ubuntu-22.04
             build-tracy: true
-            image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+            image-tag: ${{ inputs.x86-docker-image-tag || 'latest' }}
           - ubuntu-docker-version: ubuntu-24.04-arm
             runner: ubuntu-24.04-arm
             exalens-runner: ubuntu-24.04-arm
@@ -220,7 +221,7 @@ jobs:
       timeout: ${{ fromJSON(inputs.timeout) }}
       log-level: ${{ inputs.log-level || 'info' }}
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+      image-tag: ${{ inputs.x86-docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -277,7 +278,7 @@ jobs:
       card: ${{ matrix.test-group.runs-on }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+      image-tag: ${{ inputs.x86-docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
         echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
@@ -318,7 +319,7 @@ jobs:
       ubuntu-docker-version: 'ubuntu-22.04'
       build-type: ${{ inputs.build-type }}
       timeout: 20
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+      image-tag: ${{ inputs.x86-docker-image-tag || 'latest' }}
 
   # Fail-fast watchers for the merge queue: cancel the workflow run as soon as any test job
   # here fails. A workflow_call shares run_id with its caller, so this cancellation propagates

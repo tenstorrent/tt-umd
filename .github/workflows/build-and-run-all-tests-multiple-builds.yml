@@ -39,8 +39,8 @@ permissions:
   packages: read
 
 jobs:
-  # Gatekeeper job allows us to define an environent which only affects pushes to main, but not other types of jobs.
-  # With this environment, we can control how the jobs run on main, for exammple delayed or waiting for approval.
+  # Gatekeeper job allows us to define an environment which only affects pushes to main, but not other types of jobs.
+  # With this environment, we can control how the jobs run on main, for example delayed or waiting for approval.
   gatekeeper:
     # Only use the environment (the pause) if it's a push to main
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -8,14 +8,13 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
 class SimulationTlbAllocator;
 enum TlbMapping : uint8_t;
+struct tlb_data;
 
 /**
  * Simulation-specific TlbHandle that inherits from TlbHandle but bypasses hardware operations.

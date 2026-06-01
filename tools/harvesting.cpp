@@ -13,7 +13,9 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 
 using namespace tt;
 using namespace tt::umd;

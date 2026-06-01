@@ -9,6 +9,7 @@
 #include <functional>
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/warm_reset.hpp"
 

@@ -13,6 +13,8 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;

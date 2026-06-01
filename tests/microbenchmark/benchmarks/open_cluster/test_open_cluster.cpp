@@ -14,6 +14,7 @@
 #include "common/microbenchmark_utils.hpp"
 #include "test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/communication_protocol.hpp"

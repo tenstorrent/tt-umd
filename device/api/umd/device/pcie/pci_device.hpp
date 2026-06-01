@@ -18,17 +18,14 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/pcie/silicon_tlb_handle.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 class architecture_implementation;
+class TlbHandle;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;

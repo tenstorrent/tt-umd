@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/types/xy_pair.hpp"
 

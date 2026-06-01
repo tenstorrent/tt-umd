@@ -9,6 +9,7 @@
 #include <chrono>
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
@@ -20,6 +21,8 @@ BlackholeArcMessenger::BlackholeArcMessenger(TTDevice* tt_device) : ArcMessenger
     blackhole_arc_msg_queue = BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
         tt_device, BlackholeArcMessageQueueIndex::APPLICATION);
 }
+
+BlackholeArcMessenger::~BlackholeArcMessenger() = default;
 
 uint32_t BlackholeArcMessenger::send_message(
     const uint32_t msg_code,

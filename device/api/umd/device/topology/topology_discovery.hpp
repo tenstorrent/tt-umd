@@ -16,16 +16,20 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
+namespace tt {
+enum class ARCH;
+}  // namespace tt
+
 namespace tt::umd {
+
+class ClusterDescriptor;
 
 // TopologyDiscovery creates cluster descriptor after discovering all devices connected to the system.
 class TopologyDiscovery {

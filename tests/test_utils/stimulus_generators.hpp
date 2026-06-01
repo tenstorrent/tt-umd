@@ -16,6 +16,7 @@
 
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 /* Sizes:

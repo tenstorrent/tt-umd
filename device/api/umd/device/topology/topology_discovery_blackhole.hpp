@@ -8,10 +8,10 @@
 #include <string>
 
 #include "umd/device/topology/topology_discovery.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+class TTDevice;
 enum class IODeviceType;
 struct TopologyDiscoveryOptions;
 

@@ -10,11 +10,11 @@
 #include <memory>
 #include <optional>
 
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class PCIDevice;
+class TlbWindow;
 class TTDevice;
 
 /**

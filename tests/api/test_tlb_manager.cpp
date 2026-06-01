@@ -14,6 +14,7 @@
 
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"

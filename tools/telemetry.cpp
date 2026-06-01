@@ -25,6 +25,7 @@
 
 #include "common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"

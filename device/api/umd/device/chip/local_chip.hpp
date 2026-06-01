@@ -14,11 +14,6 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
-#include "umd/device/chip_helpers/sysmem_manager.hpp"
-#include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/lock_manager.hpp"
@@ -29,6 +24,8 @@ class RemoteCommunication;
 class SocDescriptor;
 class SysmemManager;
 class TLBManager;
+class TlbWindow;
+class TTDevice;
 
 class LocalChip : public Chip {
 public:

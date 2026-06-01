@@ -11,10 +11,6 @@
 #include <memory>
 #include <mutex>
 
-#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
-#include "umd/device/simulation/rtl_sim_communicator.hpp"
-#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -24,6 +20,7 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
+class SimulationTlbAllocator;
 class SocDescriptor;
 class TlbWindow;
 

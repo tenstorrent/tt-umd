@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <memory>
 
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"

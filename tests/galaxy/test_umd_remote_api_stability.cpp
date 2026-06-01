@@ -16,6 +16,7 @@
 
 #include "tests/test_utils/stimulus_generators.hpp"
 #include "tests/wormhole/test_wh_common.hpp"
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 

@@ -9,10 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 
 namespace tt {

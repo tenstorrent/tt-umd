@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include "tracy.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 

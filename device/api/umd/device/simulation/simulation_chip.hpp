@@ -15,12 +15,9 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
-#include "umd/device/cluster.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt {

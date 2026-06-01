@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 #include "umd/device/arc/blackhole_arc_messenger.hpp"
 #include "umd/device/arc/wormhole_arc_messenger.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

@@ -12,11 +12,9 @@
 #include <vector>
 
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt {

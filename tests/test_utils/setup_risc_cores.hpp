@@ -5,7 +5,10 @@
 #pragma once
 
 #include "assembly_programs_for_tests.hpp"
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 
 using namespace tt;

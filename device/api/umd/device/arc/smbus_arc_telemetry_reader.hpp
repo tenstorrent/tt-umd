@@ -9,9 +9,6 @@
 #include <unordered_set>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/telemetry.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class TTDevice;

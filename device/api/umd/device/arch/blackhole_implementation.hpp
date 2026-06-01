@@ -17,7 +17,6 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"

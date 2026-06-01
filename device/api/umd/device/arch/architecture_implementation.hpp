@@ -15,8 +15,6 @@
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
-#include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -25,6 +23,8 @@ enum class CoreType;
 }  // namespace tt
 
 namespace tt::umd {
+
+enum class RiscType : std::uint64_t;
 
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 

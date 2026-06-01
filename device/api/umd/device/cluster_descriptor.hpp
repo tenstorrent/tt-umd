@@ -17,11 +17,9 @@
 #include <unordered_set>
 #include <vector>
 
-#include "umd/device/chip/chip.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace YAML {

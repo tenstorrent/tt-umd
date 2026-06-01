@@ -9,12 +9,12 @@
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
 
 class SimulationTlbAllocator;
 enum TlbMapping : uint8_t;
+struct tlb_data;
 
 /**
  * RTL simulation TlbHandle that stores TLB configuration in software only.

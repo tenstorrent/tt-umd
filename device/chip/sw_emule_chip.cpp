@@ -31,10 +31,17 @@ SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_desc
     dram_bank_size_ = soc.dram_bank_size;
 
     // Build DRAM core lookup table from SOC descriptor.
+    // soc.get_dram_cores() returns NOC0 coordinates, but the runtime
+    // (Cluster::write_core / read_core) translates to CoordSystem::TRANSLATED
+    // before invoking the chip driver.  Without converting here, is_dram_core()
+    // misses for translated coords on Blackhole (where TRANSLATED != NOC0 for
+    // DRAM cores) and routes large DRAM writes into a 1.5 MB worker slot —
+    // OOB-aborts as soon as the offset exceeds the worker L1 size.
     auto dram_cores = soc.get_dram_cores();
     for (uint32_t channel = 0; channel < dram_cores.size(); ++channel) {
         for (const auto& core : dram_cores[channel]) {
-            dram_core_to_channel_[tt_xy_pair(core.x, core.y)] = channel;
+            CoreCoord translated = soc.translate_coord_to(core, CoordSystem::TRANSLATED);
+            dram_core_to_channel_[tt_xy_pair(translated.x, translated.y)] = channel;
         }
     }
 

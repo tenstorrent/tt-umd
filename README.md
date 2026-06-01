@@ -194,8 +194,6 @@ apt install ./umd-dev-x.y.z-Linux.deb
 ## Simulator Integration
 You can run UMD tests without silicon by following setup instructions [here](https://yyz-gitlab.local.tenstorrent.com/tenstorrent/tt-metal).
 
-For UMD, sample tests can be found in `tests/simulation/test_simulation_device.cpp`
-
 # Development workflow
 
 For developing tt-umd, you can see the full set of dependencies in [docker_install_common.sh](.github/docker_install_common.sh)

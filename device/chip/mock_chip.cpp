@@ -75,6 +75,16 @@ void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_
 
 void MockChip::deassert_risc_resets() {}
 
+RiscType MockChip::get_risc_reset_state(CoreCoord core) { return RiscType::NONE; }
+
+void MockChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {}
+
+void MockChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {}
+
+void MockChip::assert_risc_reset(const RiscType selected_riscs) {}
+
+void MockChip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {}
+
 void MockChip::set_power_state(DevicePowerState state) {}
 
 int MockChip::get_clock() { return 0; }

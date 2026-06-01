@@ -29,7 +29,6 @@
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-enum class TensixSoftResetOptions : std::uint32_t;
 
 Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
     set_default_params(soc_descriptor_.arch);
@@ -111,22 +110,6 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
         }
-    }
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    UMD_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        error::RuntimeError,
-        "Cannot control soft reset on a non-tensix or harvested core");
-    get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
     }
 }
 
@@ -297,6 +280,10 @@ void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, Cor
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr);
+}
+
+void Chip::noc_multicast_write(void* dst, size_t size, uint64_t addr) {
+    get_tt_device()->noc_multicast_write(dst, size, addr);
 }
 
 }  // namespace tt::umd

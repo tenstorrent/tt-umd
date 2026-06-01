@@ -34,7 +34,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -264,6 +263,14 @@ public:
     void configure_active_ethernet_cores_for_mmio_device(
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
 
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Passthroughs to libttsim_switch_register_fabric_* for wiring mock
+    // multichip fabric topologies under craq-sim.  Only available when
+    // the library is built with TT_UMD_BUILD_SIMULATION=ON.
+    void register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction);
+    void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
+#endif  // TT_UMD_BUILD_SIMULATION
+
     //---------- Start and stop the device and tensix cores.
 
     /**
@@ -302,36 +309,11 @@ public:
     void deassert_risc_reset();
 
     /**
-     * Send a BRISC soft deassert reset signal to a single tensix core.
-     * Similar to the broadcast deassert_risc_reset API function, but done only on a single core.
-     *
-     * @param chip Chip to target.
-     * @param core Core to target.
-     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
-     */
-    void deassert_risc_reset_at_core(
-        const ChipId chip,
-        const CoreCoord core,
-        const TensixSoftResetOptions& soft_resets = TENSIX_DEASSERT_SOFT_RESET);
-
-    /**
      * Broadcast BRISC assert BRISC soft Tensix Reset to the entire device.
      * It writes to TENSIX register SOFT_RESET, the address of
      * which is architecture dependant. Please consult the desired architecture specs to find the exact address
      */
     void assert_risc_reset();
-
-    /**
-     * Send a BRISC soft assert reset signal to a single tensix core.
-     * It writes to TENSIX register SOFT_RESET, the address of
-     * which is architecture dependant. Please consult the desired architecture specs to find the exact address
-     *
-     * @param core Chip to target.
-     * @param core Core to target.
-     * @param soft_resets Specifies which RISCV cores on Tensix to deassert.
-     */
-    void assert_risc_reset_at_core(
-        const ChipId chip, const CoreCoord core, const TensixSoftResetOptions& soft_resets = TENSIX_ASSERT_SOFT_RESET);
 
     //---------- New API for starting/stopping the device, with variants for Tensix and Neo.
 
@@ -717,7 +699,7 @@ public:
 private:
     // Helper functions
     // Broadcast.
-    void broadcast_tensix_risc_reset_to_cluster(const TensixSoftResetOptions& soft_resets);
+    void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
     void deassert_resets_and_set_power_state();
 
     // Validates that the caller-supplied rows/columns lie in the coordinate space selected by

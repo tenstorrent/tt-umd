@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -37,8 +38,6 @@ public:
     void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
     void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
@@ -57,6 +56,7 @@ private:
     void load_simulator_library(const std::filesystem::path& path);
 
     std::unique_ptr<TTSimTTDevice> tt_device_;
+    std::unique_ptr<TLBManager> tlb_manager_;
 };
 
 }  // namespace tt::umd

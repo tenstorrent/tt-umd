@@ -40,7 +40,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -266,6 +265,7 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
+// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
     PCIDevice *pci = get_pci_device();
     UMD_ASSERT(
@@ -281,14 +281,13 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
         try {
             return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
         } catch (const std::exception &e) {
-            log_error(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
         }
     }
 
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-// This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     get_pcie_interface()->write_regs(dest, src, word_len);
 }
@@ -451,16 +450,6 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     const SocDescriptor &soc_desc = get_soc_descriptor();
     set_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core), risc_flags);
-}
-
-void TTDevice::send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets) {
-    auto valid = soft_resets & ALL_TENSIX_SOFT_RESET;
-    uint32_t valid_val = static_cast<uint32_t>(valid);
-    set_risc_reset_state(core, valid_val);
-}
-
-void TTDevice::send_tensix_risc_reset(const TensixSoftResetOptions &) {
-    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core is not supported at the TTDevice level.");
 }
 
 void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

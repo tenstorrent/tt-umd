@@ -16,7 +16,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -29,7 +28,6 @@ namespace tt::umd {
 class TTDevice;
 class SysmemManager;
 class TLBManager;
-enum class TensixSoftResetOptions : std::uint32_t;
 struct CoreCoord;
 
 // An abstract class that represents a chip.
@@ -70,6 +68,7 @@ public:
     virtual void dma_multicast_write(
         void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
     virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void noc_multicast_write(void* dst, size_t size, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;
 
@@ -77,9 +76,6 @@ public:
     virtual void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) = 0;
     virtual void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) = 0;
 
-    // TODO: Remove this API once we switch to the new one.
-    virtual void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets);
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets);
     virtual void deassert_risc_resets() = 0;
 
     /**

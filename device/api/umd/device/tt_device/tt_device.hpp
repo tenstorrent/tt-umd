@@ -36,7 +36,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -56,7 +55,6 @@ class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
-enum class TensixSoftResetOptions : std::uint32_t;
 struct CoreCoord;
 
 // Represents the status of the ETH core.
@@ -407,24 +405,6 @@ public:
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
-     * Send tensix risc reset for a specific core.
-     *
-     * @param core Core to reset, in translated coordinates
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
-
-    /**
-     * Send tensix risc reset for all tensix cores.
-     *
-     * The base TTDevice implementation does not support this operation and throws.
-     * Subclasses may override to implement all-core reset semantics.
-     *
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
-
-    /**
      * Assert risc reset for a specific core.
      *
      * @param core Core to assert reset for, in translated coordinates
@@ -443,14 +423,13 @@ public:
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
-    virtual TLBManager *get_tlb_manager() { return nullptr; }
-
     /**
      * Allocate a TlbWindow for use by callers (typically TLBManager).
      *
      * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
      * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
-     * subclasses override this to allocate from their backend-specific path.
+     * subclasses override this to allocate from their in-process bitmap and
+     * build the appropriate sim-backend TlbWindow.
      *
      * @param config tlb_data configuration applied to the new window.
      * @param mapping UC or WC.

@@ -104,7 +104,6 @@ target_sources(
         tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
         firmware/firmware_info_provider.cpp
         firmware/firmware_utils.cpp
-        types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
         soc_arch_descriptor.cpp
         soc_descriptor.cpp
@@ -151,7 +150,6 @@ if(TT_UMD_BUILD_SIMULATION)
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
-            chip_helpers/simulation_tlb_manager.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
@@ -159,7 +157,7 @@ if(TT_UMD_BUILD_SIMULATION)
             pcie/rtl_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
-    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
+    target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_EMULE)
@@ -197,7 +195,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
-                api/umd/device/chip_helpers/simulation_tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
@@ -245,7 +242,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp

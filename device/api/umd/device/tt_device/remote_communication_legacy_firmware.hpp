@@ -4,14 +4,21 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstdint>
 #include <set>
 #include <unordered_set>
+#include <vector>
 
 #include "umd/device/tt_device/remote_communication.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
 class SysmemManager;
+class TTDevice;
 
 class RemoteCommunicationLegacyFirmware : public RemoteCommunication {
 public:
@@ -38,6 +45,7 @@ public:
 
 private:
     EthCoord target_chip;
+    bool large_transfer_warning_printed_ = false;
 };
 
 }  // namespace tt::umd

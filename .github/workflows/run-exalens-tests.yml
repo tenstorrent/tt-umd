@@ -31,7 +31,7 @@ env:
 
 jobs:
   test:
-    name: Run Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    name: Test Exalens (${{ inputs.card }}, ${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - ${{ inputs.card }}
@@ -59,7 +59,7 @@ jobs:
           echo "Cleaning up working directory from previous runs: $(pwd)"
           rm -rf *
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-exalens
           ref: main
@@ -67,13 +67,13 @@ jobs:
           path: ./
 
       - name: Get tt-exalens kernels artifact
-        uses: pyTooling/download-artifact@v4
+        uses: pyTooling/download-artifact@v1.9.0
         with:
           name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
           path: ./
 
       - name: Use wheel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.WHEEL_ARTIFACT_NAME }}
           path: ./
@@ -96,12 +96,6 @@ jobs:
           TTEXALENS_TESTS_USE_NOC1: 1
         shell: bash
         run: |
-          # HACK: By running tt-exalens application in the background,
-          # we prevent KMD from setting the devices to low power mode.
-          # Exalens tests recreate context very often, which causes KMD to
-          # oscillate between high power and low power mode, causing some
-          # transient hangs on NOC1.
-          python3 tt-exalens.py > /dev/null 2>&1 &
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
       - name: Run Python tests for tt-exalens app (NOC1)

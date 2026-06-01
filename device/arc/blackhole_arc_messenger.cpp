@@ -7,11 +7,12 @@
 #include <fmt/ranges.h>
 
 #include <chrono>
-#include <cstdint>
 #include <tt-logger/tt-logger.hpp>
-#include <vector>
 
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 

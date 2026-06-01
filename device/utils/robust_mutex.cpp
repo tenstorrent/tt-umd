@@ -4,7 +4,8 @@
 
 #include "umd/device/utils/robust_mutex.hpp"
 
-#include <fcntl.h>        // O_RDWR, O_CREATE
+#include <fcntl.h>  // O_RDWR, O_CREATE
+#include <fmt/format.h>
 #include <pthread.h>      // pthread_mutexattr_init, pthread_mutexattr_setpshared, pthread_mutex_t
 #include <sys/file.h>     // flock
 #include <sys/mman.h>     // shm_open, shm_unlink, mmap, munmap,
@@ -16,17 +17,11 @@
 #include <chrono>
 #include <cstdint>
 #include <ctime>  // clock_gettime, timespec
-#include <functional>
-#include <mutex>
 #include <optional>
-#include <stdexcept>
 #include <string>
-#include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <unordered_map>
 #include <utility>
 
-#include "assert.hpp"
 #include "umd/device/utils/error.hpp"
 
 // TSAN (ThreadSanitizer) annotations for cross-process mutex synchronization.
@@ -64,12 +59,17 @@ class CriticalSectionScopeGuard {
 public:
     CriticalSectionScopeGuard(int fd, pthread_mutex_t* pthread_mutex, std::string_view mutex_name) :
         fd_(fd), pthread_mutex_(pthread_mutex), mutex_name_(mutex_name) {
-        TT_ASSERT(flock(fd_, LOCK_EX) == 0, "flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+        UMD_ASSERT(
+            flock(fd_, LOCK_EX) == 0,
+            error::RuntimeError,
+            fmt::format("flock failed for mutex {} errno: {}", mutex_name_, std::to_string(errno)));
         int err = pthread_mutex_lock(pthread_mutex_);
         if (err != 0) {
             // Try to unlock the flock without handling further exceptions.
             flock(fd_, LOCK_UN);
-            TT_ASSERT(false, "pthread_mutex_lock() failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("pthread_mutex_lock() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
         }
     }
 
@@ -116,10 +116,11 @@ void* get_tsan_mutex_id(const std::string& mutex_name) {
     // inserts (including potential rehash) race with concurrent finds.
     std::lock_guard<std::mutex> lock(tsan_storage_mutex);
     auto it = tsan_mutex_id_storage.find(mutex_name);
-    TT_ASSERT(
+    UMD_ASSERT(
         it != tsan_mutex_id_storage.end(),
-        "TSAN mutex ID not found for mutex '{}'. initialize() must be called before lock/unlock.",
-        mutex_name);
+        error::RuntimeError,
+        fmt::format(
+            "TSAN mutex ID not found for mutex '{}'. initialize() must be called before lock/unlock.", mutex_name));
     return static_cast<void*>(&it->second);
 }
 #endif
@@ -287,22 +288,23 @@ bool RobustMutex::resize_shm_file() {
     // If file size is different from the needed size, we should resize it to proper size.
     // This includes the case when file_size was just created and its size iz 0.
     if (file_size != target_file_size) {
-        TT_ASSERT(
+        UMD_ASSERT(
             ftruncate(shm_fd_, target_file_size) == 0,
-            "ftruncate() failed for mutex {} errno: {}",
-            mutex_name_,
-            std::to_string(errno));
+            error::RuntimeError,
+            fmt::format("ftruncate() failed for mutex {} errno: {}", mutex_name_, std::to_string(errno)));
         file_was_truncated = true;
 
         // Verify file size again. This time throw an exception.
         file_size = get_file_size(shm_fd_);
-        TT_ASSERT(
+        UMD_ASSERT(
             file_size == target_file_size,
-            "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
-            "some other external factor.",
-            std::to_string(file_size),
-            std::to_string(target_file_size),
-            mutex_name_);
+            error::RuntimeError,
+            fmt::format(
+                "File size {} is not as expected {} for mutex {}. This could be due to new pthread library version, or "
+                "some other external factor.",
+                std::to_string(file_size),
+                std::to_string(target_file_size),
+                mutex_name_));
     }
 
     return file_was_truncated;
@@ -311,7 +313,10 @@ bool RobustMutex::resize_shm_file() {
 void RobustMutex::open_pthread_mutex() {
     // Create a pthread_mutex based on the shared memory file descriptor.
     void* addr = mmap(nullptr, sizeof(pthread_mutex_wrapper), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd_, 0);
-    TT_ASSERT(addr != MAP_FAILED, "mmap() failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+    UMD_ASSERT(
+        addr != MAP_FAILED,
+        error::RuntimeError,
+        fmt::format("mmap() failed for mutex {} errno: {}", mutex_name_, std::to_string(errno)));
     mutex_wrapper_ptr_ = static_cast<pthread_mutex_wrapper*>(addr);
 }
 
@@ -319,31 +324,44 @@ void RobustMutex::initialize_pthread_mutex_first_use() {
     int err;
     pthread_mutexattr_t attr;
     err = pthread_mutexattr_init(&attr);
-    TT_ASSERT(err == 0, "pthread_mutexattr_init() failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+    UMD_ASSERT(
+        err == 0,
+        error::RuntimeError,
+        fmt::format("pthread_mutexattr_init() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     // This marks the mutex as being shared across processes. Not sure if this is necessary given that it resides in
     // shared memory.
     err = pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
-    TT_ASSERT(
-        err == 0, "pthread_mutexattr_setpshared() failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+    UMD_ASSERT(
+        err == 0,
+        error::RuntimeError,
+        fmt::format("pthread_mutexattr_setpshared() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     // This marks the mutex as robust. This will have the effect in the case of process crashing, another process
     // waiting on the mutex will get the signal and will get the flag that the previous owner of mutex died, so it can
     // recover the mutex state.
     err = pthread_mutexattr_setrobust(&attr, PTHREAD_MUTEX_ROBUST);
-    TT_ASSERT(
-        err == 0, "pthread_mutexattr_setrobust() failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+    UMD_ASSERT(
+        err == 0,
+        error::RuntimeError,
+        fmt::format("pthread_mutexattr_setrobust() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     err = pthread_mutex_init(&(mutex_wrapper_ptr_->mutex), &attr);
-    TT_ASSERT(err == 0, "pthread_mutex_init() failed for mutex {} errno: {}", mutex_name_, std::to_string(err));
+    UMD_ASSERT(
+        err == 0,
+        error::RuntimeError,
+        fmt::format("pthread_mutex_init() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     // When we open an existing pthread in the future, there is no other way to check if it was initialized or not, so
     // we need to set this flag.
     mutex_wrapper_ptr_->initialized = INITIALIZED_FLAG;
     // Initialize owner TID and PID to 0 (no owner).
-    mutex_wrapper_ptr_->owner_tid = 0;
-    mutex_wrapper_ptr_->owner_pid = 0;
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, 0, __ATOMIC_RELAXED);
 }
 
 size_t RobustMutex::get_file_size(int fd) {
     struct stat sb;
-    TT_ASSERT(fstat(fd, &sb) == 0, "fstat() failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
+    UMD_ASSERT(
+        fstat(fd, &sb) == 0,
+        error::RuntimeError,
+        fmt::format("fstat() failed for mutex {} errno: {}", mutex_name_, std::to_string(errno)));
     return sb.st_size;
 }
 
@@ -369,8 +387,8 @@ void RobustMutex::close_mutex() noexcept {
 }
 
 void RobustMutex::record_acquisition() {
-    mutex_wrapper_ptr_->owner_tid = static_cast<pid_t>(::syscall(SYS_gettid));
-    mutex_wrapper_ptr_->owner_pid = getpid();
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, static_cast<pid_t>(::syscall(SYS_gettid)), __ATOMIC_RELAXED);
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, getpid(), __ATOMIC_RELAXED);
     tsan_annotate_mutex_acquire(mutex_name_);
 }
 
@@ -378,8 +396,8 @@ void RobustMutex::unlock() {
     tsan_annotate_mutex_release(mutex_name_);
 
     // Clear the owner TID and PID before unlocking.
-    mutex_wrapper_ptr_->owner_tid = 0;
-    mutex_wrapper_ptr_->owner_pid = 0;
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, 0, __ATOMIC_RELAXED);
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         UMD_THROW(
@@ -415,7 +433,11 @@ std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seco
         record_acquisition();
         return std::nullopt;
     } else if (lock_res == EBUSY || lock_res == ETIMEDOUT) {
-        return std::make_pair(mutex_wrapper_ptr_->owner_pid, mutex_wrapper_ptr_->owner_tid);
+        // Best-effort snapshot of the current owner; we do not hold the mutex here, so use relaxed
+        // atomic loads to avoid a data race with record_acquisition()/unlock() on the owner.
+        return std::make_pair(
+            __atomic_load_n(&mutex_wrapper_ptr_->owner_pid, __ATOMIC_RELAXED),
+            __atomic_load_n(&mutex_wrapper_ptr_->owner_tid, __ATOMIC_RELAXED));
     } else {
         UMD_THROW(
             error::RuntimeError,

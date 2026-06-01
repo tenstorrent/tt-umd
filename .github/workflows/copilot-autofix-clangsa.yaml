@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - name: Check out source repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Checkout results repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-umd-code-analysis-results
           ref: gh-pages
@@ -32,7 +32,7 @@ jobs:
           token: ${{ secrets.CLANGSA_RESULTS_PAT }}
 
       - name: Restore attempted hashes cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: attempted_hashes.txt
           key: copilot-autofix-clangsa-attempted-${{ github.run_id }}
@@ -105,7 +105,7 @@ jobs:
           echo "message=$MESSAGE" >> "$GITHUB_OUTPUT"
 
       - name: Save attempted hashes cache
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         if: always()
         with:
           path: attempted_hashes.txt

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 
 // Aux variable used to align addresses to platform specific width. BH requires 64B alignment.
 #define NOC_ADDRESS_ALIGNMENT (64)

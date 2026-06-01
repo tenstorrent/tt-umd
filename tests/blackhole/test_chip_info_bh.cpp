@@ -5,9 +5,13 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
+#include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
 
 using namespace tt;
 using namespace tt::umd;

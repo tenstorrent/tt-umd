@@ -3,12 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -16,23 +19,36 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <system_error>
 #include <thread>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 using namespace tt::umd::error;
 
@@ -87,19 +103,19 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
-    SocDescriptor soc_desc(tt_device->get_arch(), tt_device->get_chip_info());
+    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
     tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // send to core 15, 15 which will hang the NOC
-    tt_device->write_to_device(data.data(), {15, 15}, address, data.size());
+    tt_device->write_to_device(data.data(), xy_pair{15, 15}, address, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
         EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
@@ -117,11 +133,11 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
     tt_device->set_power_state(true);
     tt_device->init_tt_device();
 
-    tt_device->write_to_device(zero_data.data(), tensix_core, address, zero_data.size());
+    tt_device->write_to_device(zero_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, zero_data.size());
 
-    tt_device->write_to_device(data.data(), tensix_core, address, data.size());
+    tt_device->write_to_device(data.data(), tensix_core, SAFE_IO_L1_ADDRESS, data.size());
 
-    tt_device->read_from_device(readback_data.data(), tensix_core, address, readback_data.size());
+    tt_device->read_from_device(readback_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, readback_data.size());
 
     ASSERT_EQ(data, readback_data);
 
@@ -156,7 +172,6 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
     int delay_us = GetParam();
     std::atomic<bool> sigbus_caught{false};
 
-    uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
     std::map<int, std::unique_ptr<TTDevice>> tt_devices;
@@ -169,16 +184,14 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
         tt_devices[pci_device_id]->init_tt_device();
 
-        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
-
-        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
         tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     }
 
     std::thread background_reset_thread([&]() {
         std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
     });
 
     auto start_time = std::chrono::steady_clock::now();
@@ -193,10 +206,10 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
             for (int i = 0; i < 100; ++i) {
                 for (int pci_device_id : pci_device_ids) {
                     tt_devices[pci_device_id]->write_to_device(
-                        data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
+                        data_write.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_write.size() * sizeof(uint32_t));
 
                     tt_devices[pci_device_id]->read_from_device(
-                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                        data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
 
                     verify_data(data_write, data_read, pci_device_id);
 
@@ -233,7 +246,6 @@ INSTANTIATE_TEST_SUITE_P(ResetTimingVariations, WarmResetParamTest, ::testing::V
 TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
-    uint64_t address = 0x0;
     std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     std::vector<uint32_t> data_read(data_write.size(), 0);
     std::map<int, std::unique_ptr<TTDevice>> tt_devices;
@@ -246,9 +258,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
         tt_devices[pci_device_id]->init_tt_device();
 
-        ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
-
-        SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+        const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
         tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     }
@@ -260,7 +270,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
             // This thread hammers the device and waits for the reset to kill it.
             while (true) {
                 tt_devices[pci_device_ids[0]]->read_from_device(
-                    data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                    data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
                 std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
         } catch (const SigbusError& e) {
@@ -274,7 +284,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     // Trigger the reset after a small delay.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     t1.join();
     t2.join();
@@ -296,7 +306,6 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
         pid_t pid = fork();
         if (pid == 0) {  // Child Process
 
-            uint64_t address = 0x0;
             std::vector<uint32_t> data_write = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
             std::vector<uint32_t> data_read(data_write.size(), 0);
             std::map<int, std::unique_ptr<TTDevice>> tt_devices;
@@ -309,9 +318,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
                 tt_devices[pci_device_id]->init_tt_device();
 
-                ChipInfo chip_info = tt_devices[pci_device_id]->get_chip_info();
-
-                SocDescriptor soc_desc(tt_devices[pci_device_id]->get_arch(), chip_info);
+                const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
                 tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
             }
@@ -322,7 +329,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
                 // The "Hammer" loop.
                 while (true) {
                     tt_devices[pci_device_ids[0]]->read_from_device(
-                        data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+                        data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
                     std::this_thread::sleep_for(std::chrono::microseconds(100));
                 }
             } catch (const SigbusError& e) {
@@ -339,7 +346,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
     // Parent triggers the reset that affects ALL windows on that PCIe link.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     for (pid_t p : pids) {
         int status;
@@ -375,7 +382,7 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
             write_test_data);
     }
 
-    WarmReset::ubb_warm_reset();
+    WarmResetWithRecovery::ubb_warm_reset();
 
     cluster.reset();
 
@@ -417,14 +424,14 @@ TEST(WarmResetTest, ClusterWarmReset) {
     // send data to core 15, 15 which will hang the NOC
     auto hanged_chip_id = *cluster->get_target_device_ids().begin();
     auto hanged_tt_device = cluster->get_chip(hanged_chip_id)->get_tt_device();
-    hanged_tt_device->write_to_device(data.data(), {15, 15}, 0, data.size());
+    hanged_tt_device->write_to_device(data.data(), xy_pair{15, 15}, 0, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
     if (arch == tt::ARCH::WORMHOLE_B0) {
         EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     cluster.reset();
 
@@ -448,11 +455,12 @@ TEST(WarmResetTest, ClusterWarmReset) {
             cluster->l1_membar(chip_id, {tensix_core});
 
             // Zero out first 8 bytes on L1.
-            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
 
-            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, 0);
+            cluster->write_to_device(data.data(), data.size(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS);
 
-            cluster->read_from_device(readback_data.data(), chip_id, tensix_core, 0, readback_data.size());
+            cluster->read_from_device(
+                readback_data.data(), chip_id, tensix_core, SAFE_IO_L1_ADDRESS, readback_data.size());
 
             ASSERT_EQ(data, readback_data);
         }
@@ -486,7 +494,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
 
     switch (GetParam()) {
         case WarmResetMethod::PCI_DEVICE_IDS:
-            WarmReset::warm_reset();
+            WarmResetWithRecovery::warm_reset();
             break;
         case WarmResetMethod::CHIP_IDS: {
             std::vector<int> chip_ids;
@@ -494,7 +502,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (auto& id : cluster->get_target_mmio_device_ids()) {
                 chip_ids.push_back(id);
             }
-            WarmReset::warm_reset_chip_id(chip_ids);
+            WarmResetWithRecovery::warm_reset_chip_id(chip_ids);
             break;
         }
         case WarmResetMethod::PCI_BDFS: {
@@ -504,7 +512,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (const auto& [id, info] : pci_device_info) {
                 pci_bdfs.push_back(info.pci_bdf);
             }
-            WarmReset::warm_reset_pci_bdfs(pci_bdfs);
+            WarmResetWithRecovery::warm_reset_pci_bdfs(pci_bdfs);
             break;
         }
     }

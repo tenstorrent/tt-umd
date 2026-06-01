@@ -8,12 +8,7 @@
 (Itemized list of all the changes.)
 
 ### Testing
-(Comment on CI testing or Manual testing touching this change.)
+(Comment on CI testing or Manual testing steps that were performed to prove this change does what you intend it to do.)
 
 ### API Changes
-(When making API changes, don't merge this PR until tt_metal and tt_debuda PRs are approved.)
-(Then merge this PR, change the client PRs to point to UMD main, and then merge them.)
-(Remove this line if untrue) There are no API changes in this PR.
-(Remove following lines if untrue) This PR has API changes:
-- [ ] (If breaking change) tt_metal approved PR pointing to this branch: link
-- [ ] (If breaking change) tt_debuda approved PR pointing to this branch: link
+This PR has (no) API changes.

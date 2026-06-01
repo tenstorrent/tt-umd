@@ -4,23 +4,13 @@
 
 #include "umd/device/simulation/tt_sim_chip.hpp"
 
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <fmt/format.h>
-#include <sys/mman.h>
-#include <sys/sendfile.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
-#include <cerrno>
-#include <cstring>
 #include <filesystem>
-#include <iostream>
 #include <mutex>
-#include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 
-#include "assert.hpp"
 #include "tracy.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 
@@ -35,11 +25,12 @@ TTSimChip::TTSimChip(
     SimulationChip(simulator_directory, soc_descriptor, chip_id) {
     tt_device_ = std::make_unique<TTSimTTDevice>(
         simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
+    tlb_manager_ = std::make_unique<TLBManager>(tt_device_.get());
 }
 
 TTSimChip::~TTSimChip() = default;
 
-void TTSimChip::start_device() {}
+void TTSimChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void TTSimChip::close_device() {}
 
@@ -51,15 +42,6 @@ void TTSimChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 void TTSimChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->read_from_device(dest, soc_descriptor_.translate_chip_coord_to_translated(core), l1_src, size);
-}
-
-void TTSimChip::send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->send_tensix_risc_reset(translated_core, soft_resets);
-}
-
-void TTSimChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    tt_device_->send_tensix_risc_reset(soft_resets);
 }
 
 void TTSimChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
@@ -75,6 +57,6 @@ void TTSimChip::deassert_risc_reset(CoreCoord core, const RiscType selected_risc
         soc_descriptor_.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
 }
 
-TLBManager* TTSimChip::get_tlb_manager() { return tt_device_->get_tlb_manager(); }
+TLBManager* TTSimChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 }  // namespace tt::umd

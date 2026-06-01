@@ -8,12 +8,26 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <set>
 #include <stdexcept>
+#include <string>
+#include <unordered_set>
 #include <vector>
 
-#include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/cluster.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
+using namespace tt;
 using namespace tt::umd;
 
 const uint32_t HUGEPAGE_REGION_SIZE = 1ULL << 30;  // 1GB
@@ -25,10 +39,8 @@ TEST(ApiSysmemManager, BasicIO) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(true);
 
-        std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
-
         // Initializes system memory with one channel.
-        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tlb_manager.get(), 1);
+        std::unique_ptr<SysmemManager> sysmem = std::make_unique<SiliconSysmemManager>(tt_device.get(), 1);
 
         sysmem->pin_or_map_sysmem_to_device();
 
@@ -264,4 +276,18 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
     EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
     EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+}
+
+TEST(ApiSysmemManager, AutoNumChannels) {
+    // Automatically set number of host memory channels.
+    std::unique_ptr<Cluster> cluster =
+        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = std::nullopt});
+    bool has_n300 = false;  // Only supported HW with two chips per PCIe channel.
+    for (auto device_id : cluster->get_target_mmio_device_ids()) {
+        has_n300 |= (cluster->get_tt_device(device_id)->get_board_type() == tt::N300);
+    }
+    const uint32_t expected_channels = has_n300 ? 2 : 1;
+    for (auto device_id : cluster->get_target_mmio_device_ids()) {
+        EXPECT_EQ(cluster->get_num_host_channels(device_id), expected_channels);
+    }
 }

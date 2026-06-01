@@ -2,13 +2,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include <fmt/format.h>
-#include <gtest/gtest-spi.h>
+#include <fmt/base.h>
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <iostream>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
-#include "umd/device/utils/error_detail.hpp"
+#include "umd/device/utils/error.hpp"
 
 using namespace tt::umd::error;
 

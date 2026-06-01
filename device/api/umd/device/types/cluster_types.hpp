@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <cassert>
 #include <optional>
@@ -24,6 +24,7 @@ struct DeviceParams {
     bool init_device = true;
     bool early_open_device = false;
     int aiclk = 0;
+    uint32_t dram_membar_subchannel = 0;
 
     // The command-line input for vcd_dump_cores can have the following format:
     // {"*-2", "1-*", "*-*", "1-2"}

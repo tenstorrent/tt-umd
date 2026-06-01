@@ -26,7 +26,7 @@ jobs:
       pr_summary: ${{ steps.get_pr_summary.outputs.pr_summary }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -258,7 +258,7 @@ jobs:
       CXX: ${{ matrix.image.compiler-cpp }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -283,7 +283,7 @@ jobs:
           cpack -G ${{ matrix.image.package }}
 
       - name: Upload ${{ matrix.image.package }} packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tt-umd-packages-v${{ needs.prepare-release.outputs.version }}-${{ matrix.image.distro }}
           path: |
@@ -297,12 +297,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -325,7 +325,7 @@ jobs:
           echo "Build complete."
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: ${{ env.WHEEL_OUTPUT_DIR }}
@@ -344,7 +344,7 @@ jobs:
 
     steps:
       - name: Download all the wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: dist/
@@ -369,7 +369,7 @@ jobs:
 
     steps:
       - name: Download all the wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
           path: dist/
@@ -386,16 +386,16 @@ jobs:
       contents: write
       packages: write
       id-token: write
-    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi]
+    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi, publish-to-pypi]
     outputs:
       upload_url: ${{ steps.release.outputs.upload_url }}
       release_url: ${{ steps.release.outputs.url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: ./release-artifacts/
 
@@ -448,14 +448,20 @@ jobs:
             *This release was automatically generated when the VERSION file was updated.
             Release notes were extracted from CHANGELOG file.*
           files: ./final-assets/*
-          draft: true
+          draft: false
           prerelease: true
           make_latest: false
 
   notify-completion:
     name: Notify Release Completion
     runs-on: ubuntu-22.04
-    needs: [prepare-release, create-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi]
+    needs:
+      - prepare-release
+      - create-release
+      - build-cpp-artifacts
+      - build-python-wheels
+      - publish-to-testpypi
+      - publish-to-pypi
     if: needs.create-release.result == 'success'
     steps:
       - name: Prepare Slack message
@@ -465,27 +471,21 @@ jobs:
           VERSION="${{ needs.prepare-release.outputs.version }}"
           REPO="${{ github.repository }}"
           RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
-          DRAFT_RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
-          echo "🔗 Draft Release URL: $DRAFT_RELEASE_URL"
+          PUBLISHED_RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
+          echo "🔗 Published Release URL: $PUBLISHED_RELEASE_URL"
           echo "🔗 Release URL: $RELEASE_URL"
 
           # Create the message content using a here-document to avoid quote issues
           cat << EOF > /tmp/slack_message.txt
-          🚧 TT-UMD Draft Release Created!
+          🚀 TT-UMD Release Published!
 
-          Draft Release v${VERSION} has been successfully created!
-          When published, the release will be available at this link: ${RELEASE_URL}
+          Release v${VERSION} has been successfully published!
+          The release is available at: ${RELEASE_URL}
 
           📋 Release highlights from CHANGELOG:
           ${{ needs.prepare-release.outputs.version_changelog }}
 
-          ⚠️ Action Required:
-          The release is currently in DRAFT mode. Please:
-          1. Review the release notes and changelog
-          2. Verify all information is accurate
-          3. Publish the release when ready
-
-          🔗 Edit Release: ${DRAFT_RELEASE_URL}
+          🔗 View Release: ${PUBLISHED_RELEASE_URL}
 
           📋 Pull Requests in this release:
           ${{ needs.prepare-release.outputs.pr_summary }}

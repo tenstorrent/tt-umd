@@ -67,10 +67,8 @@ int main(int argc, char* argv[]) {
         std::cout << "ArcTelemetryReader available: " << (device->get_arc_telemetry_reader() ? "Yes" : "No")
                   << std::endl;
 
-        ChipInfo chip_info = device->get_chip_info();
-        SocDescriptor soc_desc(device->get_arch(), chip_info);
-
-        const std::vector<CoreCoord>& tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+        const std::vector<CoreCoord>& tensix_cores =
+            device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
         if (tensix_cores.empty()) {
             std::cout << "No Tensix cores available" << std::endl;
             continue;

@@ -10,14 +10,23 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <memory>
+#include <string>
 #include <vector>
 
-#include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -35,6 +44,12 @@ protected:
         }
         tt_device.reset(sim_device);
         device.release();  // NOLINT(bugprone-unused-return-value)
+
+        const tt::ARCH arch = tt_device->get_soc_descriptor().arch;
+        if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "tile_wr_bytes/tile_rd_bytes are no longer supported on TTSim for arch "
+                         << tt::arch_to_str(arch);
+        }
     }
 
     void TearDown() override {
@@ -376,6 +391,76 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
         tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read_zeros.data(), data_size);
         EXPECT_EQ(zeros, direct_read_zeros) << "Direct read of zeros mismatch at loop " << loop;
     }
+}
+
+// ---------------------------------------------------------------------------
+// 4GB TLB (BAR4) path — Blackhole only
+// ---------------------------------------------------------------------------
+
+// Allocate a 4GB TLB window explicitly. On Blackhole this is mapped through BAR4
+// rather than BAR0, exercising SimulationTlbAllocator::get_tlb_address_from_index's
+// BAR4 branch and the simulator's BAR4 TLB-translation path.
+TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    if (soc.arch != tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "4GB TLBs only exist on Blackhole; skipping for arch " << tt::arch_to_str(soc.arch);
+    }
+
+    auto tensix_cores = soc.get_cores(CoreType::TENSIX);
+    const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
+
+    constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
+    auto tlb_window = tt_device->get_io_window({}, TlbMapping::WC, SIZE_4GB);
+    ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
+    EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
+
+    constexpr size_t data_size = 1024;
+    constexpr uint64_t addr = 0x1000;
+    auto write_data = make_pattern(data_size, [](size_t i) { return (i * 7 + 11) % 256; });
+
+    // Write through the 4GB window (hits BAR4), read back through both the direct API and the
+    // same 4GB window — all three views must agree.
+    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size, NocId::NOC0);
+
+    std::vector<uint8_t> direct_read(data_size, 0);
+    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+    EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write";
+
+    std::vector<uint8_t> tlb_read(data_size, 0);
+    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size, NocId::NOC0);
+    EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write";
+}
+
+// Same BAR4 path, but targeting a DRAM tile. The 4GB TLB resolves to a NOC (x,y) address
+// independent of tile type, so this confirms the BAR4 route reaches DRAM as well as Tensix.
+TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathDramRoundTrip) {
+    const SocDescriptor& soc = tt_device->get_soc_descriptor();
+    if (soc.arch != tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP() << "4GB TLBs only exist on Blackhole; skipping for arch " << tt::arch_to_str(soc.arch);
+    }
+
+    auto dram_cores = soc.get_cores(CoreType::DRAM);
+    ASSERT_FALSE(dram_cores.empty()) << "No DRAM cores in SOC descriptor";
+    const tt_xy_pair core = soc.translate_coord_to(dram_cores.at(0), CoordSystem::TRANSLATED);
+
+    constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
+    auto tlb_window = tt_device->get_io_window({}, TlbMapping::WC, SIZE_4GB);
+    ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
+    EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
+
+    constexpr size_t data_size = 1024;
+    constexpr uint64_t addr = 0x1000;
+    auto write_data = make_pattern(data_size, [](size_t i) { return (i * 13 + 5) % 256; });
+
+    tlb_window->write_block_reconfigure(write_data.data(), core, addr, data_size, NocId::NOC0);
+
+    std::vector<uint8_t> direct_read(data_size, 0);
+    tt_device->get_communicator()->tile_read_bytes(core.x, core.y, addr, direct_read.data(), data_size);
+    EXPECT_EQ(write_data, direct_read) << "tile_rd_bytes disagrees with 4GB-TLB write to DRAM";
+
+    std::vector<uint8_t> tlb_read(data_size, 0);
+    tlb_window->read_block_reconfigure(tlb_read.data(), core, addr, data_size, NocId::NOC0);
+    EXPECT_EQ(write_data, tlb_read) << "4GB-TLB read disagrees with 4GB-TLB write to DRAM";
 }
 
 }  // namespace tt::umd

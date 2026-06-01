@@ -2,10 +2,24 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <random>
+#include <string>
+#include <vector>
 
 #include "device_fixture.hpp"
-#include "tests/test_utils/device_test_utils.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/risc_type.hpp"
+#include "umd/device/types/xy_pair.hpp"
+
+using namespace tt;
+using namespace tt::umd;
 
 std::vector<uint32_t> generate_data(uint32_t size_in_bytes) {
     size_t size = size_in_bytes / sizeof(uint32_t);
@@ -28,6 +42,11 @@ INSTANTIATE_TEST_SUITE_P(
 TEST_P(LoopbackAllCoresParam, LoopbackSingleTensix) {
     std::vector<uint32_t> wdata = {1, 2, 3, 4, 5};
     std::vector<uint32_t> rdata(wdata.size(), 0);
+    if ((GetParam() == tt_xy_pair{1, 0} || GetParam() == tt_xy_pair{1, 1}) &&
+        device->get_soc_descriptor().arch == ARCH::QUASAR) {
+        GTEST_SKIP()
+            << "Skipping Quasar test for pairs (1, 0) and (1, 1) since they don't exist in simulation soc desc.";
+    }
     auto &soc_desc = device->get_soc_descriptor();
     CoreCoord core = soc_desc.get_coord_at(GetParam(), CoordSystem::TRANSLATED);
 

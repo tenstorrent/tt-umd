@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.9.5] - 2026-05-12
+
+### Changed
+
+Hardware hang detection for NOC and PCIe.
+Tracy profiler integration with instrumentation across TLB, PCIe and sysmem paths.
+DeviceProtocol ported to TTDevice, including DMA migration.
+SocDescriptor split into static (SocArchDescriptor) and runtime parts.
+LITERAL coordinate system in CoreCoord.
+Multicast to all TENSIX cores.
+SMN support.
+SWEmuleChip software emulation chip and Quasar simulation support (incl. 4GB TLB).
+Unified UmdException/UMD_ASSERT/UMD_THROW error handling across the codebase.
+
 ## [0.9.4] - 2026-03-18
 
 ### Changed

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -188,6 +189,14 @@ public:
     virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+
+    // Register read using Strict NOC ordering via a dedicated, cached UC TLB window. This mirrors
+    // LocalChip::read_from_device_reg for callers that hold only a TTDevice (e.g. tt-telemetry, which
+    // discovers bare TTDevices rather than constructing the Chip/Cluster layer). addr and size must be
+    // 4-byte aligned. On non-PCIe transports there is no MMIO register aperture, so this falls back to
+    // a (relaxed) block read, matching the behaviour of the Chip-layer register path.
+    virtual void read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -517,12 +526,21 @@ protected:
 private:
     void probe_arc();
 
+    // Lazily allocates (on first use) and returns the cached UC TLB window used by
+    // read_from_device_reg. Must only be called while holding uc_tlb_lock_.
+    TlbWindow *get_cached_uc_tlb_window();
+
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
+
+    // Dedicated UC TLB window + lock for register reads (read_from_device_reg). Kept separate from the
+    // block-read path so reconfiguring this window never races with block IO. Serialised by uc_tlb_lock_.
+    std::unique_ptr<TlbWindow> cached_uc_tlb_window_;
+    std::mutex uc_tlb_lock_;
 };
 
 }  // namespace tt::umd

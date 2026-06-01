@@ -303,6 +303,49 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
     read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
 
+TlbWindow *TTDevice::get_cached_uc_tlb_window() {
+    if (cached_uc_tlb_window_ == nullptr) {
+        cached_uc_tlb_window_ =
+            get_io_window(tlb_data{}, TlbMapping::UC, get_architecture_implementation()->get_cached_tlb_size());
+    }
+    return cached_uc_tlb_window_.get();
+}
+
+void TTDevice::read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    if (size % sizeof(uint32_t) != 0) {
+        UMD_THROW(error::RuntimeError, "Size must be a multiple of 4 bytes.");
+    }
+    if (addr % sizeof(uint32_t) != 0) {
+        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
+    }
+
+    // No MMIO register aperture on non-PCIe transports; fall back to a block read, matching the
+    // Chip-layer register path (RemoteChip::read_from_device_reg also delegates to a block read).
+    if (get_communication_device_type() != IODeviceType::PCIe) {
+        read_from_device(mem_ptr, core, addr, size);
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(uc_tlb_lock_);
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = tlb_data::Strict;
+    config.static_vc = get_architecture_implementation()->get_static_vc();
+
+    TlbWindow *tlb_window = get_cached_uc_tlb_window();
+    tlb_window->configure(config);
+    tlb_window->read_register(addr - tlb_window->get_base_address(), mem_ptr, size);
+}
+
+void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    read_from_device_reg(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+}
+
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
     device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());

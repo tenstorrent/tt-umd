@@ -75,11 +75,36 @@ jobs:
     with:
       docker-version: manylinux
 
+  # Two experimental riscv64 build images, compared side by side (see build-riscv).
+  ensure-riscv-temp1-image:
+    name: Ensure ubuntu-24.04-riscv-temp1 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-riscv-temp1
+
+  ensure-riscv-temp2-image:
+    name: Ensure ubuntu-24.04-riscv-temp2 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-riscv-temp2
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
+    needs:
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
+      - ensure-riscv-temp1-image
+      - ensure-riscv-temp2-image
     strategy:
       fail-fast: false
       matrix:
@@ -92,6 +117,11 @@ jobs:
           {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Arm64 build, built natively on an arm runner.
           {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
+          # riscv64 host builds (build-only, no tests). Two approaches compared side by side:
+          #  - temp1: cross-compile on x86 via a toolchain file (native speed)
+          #  - temp2: emulated native build inside a riscv64 image (QEMU/binfmt, slow)
+          {distro: ubuntu-24.04-riscv-temp1, compiler-c: gcc, compiler-cpp: g++, package: deb, riscv_cross: true},
+          {distro: ubuntu-24.04-riscv-temp2, compiler-c: gcc, compiler-cpp: g++, package: deb},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
@@ -127,6 +157,8 @@ jobs:
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04-arm' && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
+        matrix.image.distro == 'ubuntu-24.04-riscv-temp1' && needs.ensure-riscv-temp1-image.outputs.image-tag ||
+        matrix.image.distro == 'ubuntu-24.04-riscv-temp2' && needs.ensure-riscv-temp2-image.outputs.image-tag ||
         matrix.image.distro == 'fedora-39' && needs.ensure-fedora-39-image.outputs.image-tag ||
         'latest' }}
 
@@ -158,6 +190,16 @@ jobs:
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
+          # The riscv CI images run as root on a runner-owned checkout, so mark it a safe git directory.
+          if [[ "${{ contains(matrix.image.distro, 'riscv') }}" == "true" ]]; then
+            git config --global --add safe.directory '*'
+          fi
+          # riscv builds use the same flags as everyone else; cross builds (temp1) additionally point
+          # CMake at the GNU riscv64 toolchain file. The emulated native build (temp2) needs nothing extra.
+          EXTRA_ARGS=""
+          if [[ "${{ matrix.image.riscv_cross }}" == "true" ]]; then
+            EXTRA_ARGS="-DCMAKE_TOOLCHAIN_FILE=$(pwd)/cmake/riscv64-linux-gnu.cmake"
+          fi
           if [[ "${{ matrix.image.use_release_flags }}" == "true" ]]; then
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_TESTS=OFF \
@@ -166,13 +208,15 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DCMAKE_BUILD_TYPE=Release
+              -DCMAKE_BUILD_TYPE=Release \
+              ${EXTRA_ARGS}
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_TRACY=ON
+              -DTT_UMD_ENABLE_TRACY=ON \
+              ${EXTRA_ARGS}
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."

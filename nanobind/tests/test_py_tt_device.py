@@ -68,7 +68,9 @@ class TestTTDevice(unittest.TestCase):
                 bytearray_data = bytearray((b ^ 0x5A) for b in original_data)
                 dev.noc_write(tensix_core.x, tensix_core.y, 0x200, bytearray_data)
                 self.assertEqual(
-                    dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16),
+                    dev.noc_read(
+                        tensix_core.x, tensix_core.y, 0x200, len(bytearray_data)
+                    ),
                     bytes(bytearray_data),
                     "noc_write with bytearray should round-trip",
                 )
@@ -76,7 +78,9 @@ class TestTTDevice(unittest.TestCase):
                 memoryview_data = memoryview(bytes((b ^ 0x33) for b in original_data))
                 dev.noc_write(tensix_core.x, tensix_core.y, 0x200, memoryview_data)
                 self.assertEqual(
-                    dev.noc_read(tensix_core.x, tensix_core.y, 0x200, 16),
+                    dev.noc_read(
+                        tensix_core.x, tensix_core.y, 0x200, len(memoryview_data)
+                    ),
                     bytes(memoryview_data),
                     "noc_write with memoryview should round-trip",
                 )

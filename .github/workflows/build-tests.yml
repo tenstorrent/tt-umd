@@ -36,14 +36,15 @@ on:
         description: >-
           Runner to build on. Use an arm runner (e.g. "ubuntu-24.04-arm")
           together with an arm ubuntu-docker-version to produce arm64 builds.
-      exalens-runner:
+      build-exalens-kernels:
         required: false
-        type: string
-        default: ubuntu-22.04
+        type: boolean
+        default: true
         description: >-
-          Runner for the tt-exalens kernel build. The build (SFPI ships arm64
-          host binaries) works on arm, so the arm caller passes an arm runner
-          to verify tt-exalens builds against the arm-capable UMD.
+          Build the tt-exalens test kernels. Disabled for arm builds: tt-exalens
+          does not publish an arm64 CI image yet, there is no arm64 Tenstorrent
+          hardware to run the exalens tests on, and the kernel artifact is only
+          consumed by the (x86-only) exalens tests.
       image-tag:
         required: false
         type: string
@@ -77,6 +78,11 @@ on:
         description: 'Also build a Tracy-enabled variant'
         type: boolean
         default: false
+      build-exalens-kernels:
+        required: false
+        description: 'Build the tt-exalens test kernels'
+        type: boolean
+        default: true
 
 
 env:
@@ -225,9 +231,10 @@ jobs:
           path: ${{ env.WHEEL_OUTPUT_DIR }}
 
   build-exalens-kernels:
+    if: ${{ inputs.build-exalens-kernels }}
     name: Build tt-exalens kernels for tests
     timeout-minutes: 5
-    runs-on: ${{ inputs.exalens-runner || 'ubuntu-22.04' }}
+    runs-on: ubuntu-22.04
     container:
       # Use tt-exalens own CI image as it has everything pre-installed.
       image: ghcr.io/tenstorrent/tt-exalens/tt-exalens-ci-${{ inputs.ubuntu-docker-version }}:latest

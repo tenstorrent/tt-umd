@@ -179,19 +179,19 @@ jobs:
         include:
           - ubuntu-docker-version: ubuntu-22.04
             runner: tt-ubuntu-2204-large-stable
-            exalens-runner: ubuntu-22.04
+            build-exalens-kernels: true
             build-tracy: true
             image-tag: ${{ inputs.x86-docker-image-tag || 'latest' }}
           - ubuntu-docker-version: ubuntu-24.04-arm
             runner: ubuntu-24.04-arm
-            exalens-runner: ubuntu-24.04-arm
+            build-exalens-kernels: false
             build-tracy: false
             image-tag: ${{ inputs.arm-docker-image-tag || 'latest' }}
     uses: ./.github/workflows/build-tests.yml
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
       runner: ${{ matrix.runner }}
-      exalens-runner: ${{ matrix.exalens-runner }}
+      build-exalens-kernels: ${{ matrix.build-exalens-kernels }}
       timeout: 15
       build-type: ${{ inputs.build-type }}
       build-tracy: ${{ matrix.build-tracy }}

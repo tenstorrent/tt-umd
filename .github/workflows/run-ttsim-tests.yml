@@ -21,7 +21,22 @@ on:
         default: 30
 
 jobs:
+  # The arm leg runs on a GitHub-hosted arm runner and pulls the UMD arm CI image
+  # from ghcr.io. We can't rely on the ":latest" tag here: it's only published on
+  # push to main, so on branches/PRs it doesn't exist yet (manifest unknown).
+  # Ensure the content-hash-tagged image exists (build-on-demand) and consume that tag.
+  # (The x86 leg uses tt-metal's externally-maintained image, which is not ours to ensure.)
+  ensure-ubuntu-2404-arm-image:
+    name: Ensure ubuntu-24.04-arm Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-arm
+
   build-and-run-ttsim:
+    needs: ensure-ubuntu-2404-arm-image
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
@@ -38,7 +53,10 @@ jobs:
       # Arm only builds/runs the UMD simulator tests, so it uses the UMD arm CI image.
       image: >-
         ${{ matrix.arch == 'arm'
-        && format('ghcr.io/{0}/tt-umd-ci-ubuntu-24.04-arm:latest', github.repository)
+        && format(
+        'ghcr.io/{0}/tt-umd-ci-ubuntu-24.04-arm:{1}',
+        github.repository,
+        needs.ensure-ubuntu-2404-arm-image.outputs.image-tag)
         || 'ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest' }}
       env:
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161

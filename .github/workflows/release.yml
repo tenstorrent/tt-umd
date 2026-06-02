@@ -239,7 +239,8 @@ jobs:
 
   build-cpp-artifacts:
     name: Build C++ Artifacts on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+    # Arm variants build natively on an arm runner; everything else uses the standard x86 runner.
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
     needs: prepare-release
     timeout-minutes: 30
     strategy:
@@ -248,6 +249,8 @@ jobs:
         image: [
           {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
           {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          # Arm64 build, built natively on an arm runner.
+          {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
           {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: RPM, package_ext: rpm},
         ]
     container:
@@ -431,6 +434,7 @@ jobs:
             ### System Packages (.deb / .rpm)
             - **Ubuntu 22.04**: DEB packages are attached under Assets
             - **Ubuntu 24.04**: DEB packages are attached under Assets
+            - **Ubuntu 24.04 (arm64)**: DEB packages are attached under Assets
             - **Fedora 39**: RPM packages are attached under Assets
             - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
 

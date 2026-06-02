@@ -104,7 +104,6 @@ jobs:
       - ensure-ubuntu-2404-arm-image
       - ensure-fedora-39-image
       - ensure-riscv-temp1-image
-      - ensure-riscv-temp2-image
     strategy:
       fail-fast: false
       matrix:
@@ -117,11 +116,11 @@ jobs:
           {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Arm64 build, built natively on an arm runner.
           {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          # riscv64 host builds (build-only, no tests). Two approaches compared side by side:
-          #  - temp1: cross-compile on x86 via a toolchain file (native speed)
-          #  - temp2: emulated native build inside a riscv64 image (QEMU/binfmt, slow)
+          # riscv64 cross-compile build (temp1): an x86 image that builds via a
+          # toolchain file, so it works as a normal container-job matrix entry.
+          # The emulated variant (temp2) can't be a container job and lives in the
+          # separate build-riscv-emulated job below.
           {distro: ubuntu-24.04-riscv-temp1, compiler-c: gcc, compiler-cpp: g++, package: deb, riscv_cross: true},
-          {distro: ubuntu-24.04-riscv-temp2, compiler-c: gcc, compiler-cpp: g++, package: deb},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
@@ -158,7 +157,6 @@ jobs:
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04-arm' && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04-riscv-temp1' && needs.ensure-riscv-temp1-image.outputs.image-tag ||
-        matrix.image.distro == 'ubuntu-24.04-riscv-temp2' && needs.ensure-riscv-temp2-image.outputs.image-tag ||
         matrix.image.distro == 'fedora-39' && needs.ensure-fedora-39-image.outputs.image-tag ||
         'latest' }}
 
@@ -187,6 +185,9 @@ jobs:
       # Build with all components to verify the build passes.
       # Release-flags builds mirror the flags used in release.yml to catch clang-tidy issues early.
       - name: Build All
+        # Force bash: the riscv images are plain ubuntu where /bin/sh is dash,
+        # which lacks the [[ ]] tests used below.
+        shell: bash
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
@@ -346,6 +347,58 @@ jobs:
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
+
+  build-riscv-emulated:
+    # Emulated riscv64 build (temp2), the counterpart to the temp1 cross build in
+    # the matrix above. A riscv64 image can't be used as a job `container:` on an
+    # x86 runner (GitHub pulls it as linux/amd64 and fails), so this runs on a
+    # plain x86 runner, registers QEMU/binfmt, and builds inside the image via
+    # `docker run --platform linux/riscv64`. Build-only, like temp1.
+    timeout-minutes: 60
+    needs: ensure-riscv-temp2-image
+    permissions:
+      packages: read
+    name: Build device for riscv64 (emulated)
+    runs-on: tt-ubuntu-2204-large-stable
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ${{ env.TT_UMD_DIR }}
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build All
+        shell: bash
+        run: |
+          IMAGE_TAG="${{ needs.ensure-riscv-temp2-image.outputs.image-tag }}"
+          IMAGE="ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv-temp2:${IMAGE_TAG}"
+          echo "Building inside $IMAGE under QEMU (linux/riscv64)..."
+          # Same flags as the standard (non-release) build, just executed inside the
+          # emulated riscv64 image instead of via a toolchain file.
+          docker run --rm --platform linux/riscv64 \
+            -v "$GITHUB_WORKSPACE/${{ env.TT_UMD_DIR }}:/work" -w /work \
+            "$IMAGE" \
+            bash -c '
+              set -euo pipefail
+              git config --global --add safe.directory "*"
+              cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+                -DTT_UMD_BUILD_ALL=ON \
+                -DTT_UMD_BUILD_PIP=ON \
+                -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+                -DTT_UMD_ENABLE_TRACY=ON
+              cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+              echo "Compile complete."
+            '
 
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.

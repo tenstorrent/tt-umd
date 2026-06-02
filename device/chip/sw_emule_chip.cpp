@@ -147,7 +147,7 @@ void SWEmuleChip::dma_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint6
     throw std::runtime_error("SWEmuleChip::dma_multicast_write is not implemented");
 }
 
-void SWEmuleChip::noc_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint64_t) {
+void SWEmuleChip::noc_multicast_write(const void*, size_t, CoreCoord, CoreCoord, uint64_t) {
     throw std::runtime_error("SWEmuleChip::noc_multicast_write is not implemented");
 }
 

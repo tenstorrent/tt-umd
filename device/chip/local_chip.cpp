@@ -612,7 +612,8 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     return cached_uc_tlb_window.get();
 }
 
-void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void LocalChip::noc_multicast_write(
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
@@ -626,7 +627,7 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
     std::lock_guard<std::mutex> lock(wc_tlb_lock);
 
     get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
-        dst,
+        src,
         size,
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),

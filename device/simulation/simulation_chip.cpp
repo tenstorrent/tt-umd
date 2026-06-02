@@ -68,7 +68,7 @@ void SimulationChip::dma_multicast_write(
 }
 
 void SimulationChip::noc_multicast_write(
-    void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
@@ -85,7 +85,7 @@ void SimulationChip::noc_multicast_write(
             if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
                 continue;
             }
-            write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), dst, addr, size);
+            write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), src, addr, size);
         }
     }
 }

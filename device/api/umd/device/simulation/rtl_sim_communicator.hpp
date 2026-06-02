@@ -23,7 +23,7 @@ namespace tt::umd {
  * It manages the simulation host, subprocess spawning, and provides
  * thread-safe access to simulation functions via flatbuffer protocol.
  *
- * This class can be used independently of RtlSimulationChip for direct RTL simulator communication.
+ * This class can be used independently of SimulationChip for direct RTL simulator communication.
  */
 class RtlSimCommunicator final {
 public:

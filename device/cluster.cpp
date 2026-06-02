@@ -37,7 +37,6 @@
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
-#include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
@@ -430,7 +429,7 @@ Cluster::Cluster(ClusterOptions options) {
             if (it == chips_.end()) {
                 return nullptr;
             }
-            auto* sim_chip = dynamic_cast<tt::umd::TTSimChip*>(it->second.get());
+            auto* sim_chip = dynamic_cast<tt::umd::SimulationChip*>(it->second.get());
             if (!sim_chip) {
                 return nullptr;
             }
@@ -506,7 +505,7 @@ void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t et
     if (it == chips_.end()) {
         return;
     }
-    auto* sim_chip = dynamic_cast<TTSimChip*>(it->second.get());
+    auto* sim_chip = dynamic_cast<SimulationChip*>(it->second.get());
     if (!sim_chip) {
         return;
     }
@@ -524,7 +523,7 @@ void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint
     if (chip_it == chips_.end()) {
         return;
     }
-    auto* sim_chip = dynamic_cast<TTSimChip*>(chip_it->second.get());
+    auto* sim_chip = dynamic_cast<SimulationChip*>(chip_it->second.get());
     if (!sim_chip) {
         return;
     }

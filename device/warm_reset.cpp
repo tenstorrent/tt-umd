@@ -20,6 +20,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <map>
 #include <memory>
@@ -180,6 +181,62 @@ int wait_for_pci_bdf_to_reappear(
     }
 
     return interface_id;
+}
+
+bool WarmReset::cold_reset(std::vector<int> pci_device_ids) {
+    if (pci_device_ids.empty()) {
+        pci_device_ids = PCIDevice::enumerate_devices();
+    }
+    if (pci_device_ids.empty()) {
+        log_info(LogUMD, "No PCI devices found.");
+        return false;
+    }
+
+    auto pci_devices_info = PCIDevice::enumerate_devices_info();
+    std::vector<std::string> bdfs;
+    for (auto id : pci_device_ids) {
+        if (pci_devices_info.count(id)) {
+            bdfs.push_back(pci_devices_info.at(id).pci_bdf);
+        }
+    }
+    if (bdfs.empty()) {
+        log_warning(LogUMD, "No matching devices found for cold reset.");
+        return false;
+    }
+
+    const auto remove_path = fmt::format("/sys/bus/pci/devices/{}/remove", bdfs.front());
+    if (access(remove_path.c_str(), W_OK) != 0) {
+        log_warning(LogUMD, "Cold reset not supported: cannot write to {} (requires root).", remove_path);
+        return false;
+    }
+
+    log_info(LogUMD, "Starting cold reset (PCIe remove/rescan) on devices: {}", fmt::join(bdfs, ", "));
+
+    for (const auto& bdf : bdfs) {
+        std::ofstream f(fmt::format("/sys/bus/pci/devices/{}/remove", bdf));
+        if (!f) {
+            log_warning(LogUMD, "Cold reset: failed to open remove for {}.", bdf);
+            return false;
+        }
+        f << "1\n";
+    }
+
+    if (std::ofstream rescan("/sys/bus/pci/rescan"); rescan) {
+        rescan << "1\n";
+    } else {
+        log_warning(LogUMD, "Cold reset: failed to open /sys/bus/pci/rescan.");
+        return false;
+    }
+
+    for (const auto& bdf : bdfs) {
+        if (wait_for_pci_bdf_to_reappear(bdf) == -1) {
+            log_error(LogUMD, "Cold reset: device {} did not reappear.", bdf);
+            return false;
+        }
+    }
+
+    log_info(LogUMD, "Cold reset completed.");
+    return true;
 }
 
 bool WarmReset::warm_reset_arch_agnostic(

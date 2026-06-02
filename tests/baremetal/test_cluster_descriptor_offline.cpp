@@ -423,6 +423,30 @@ TEST(ApiMockClusterTest, CreateMockClustersFromAllDescriptors) {
     }
 }
 
+// Recreates tt-metal's device-init codepath on a mock cluster for every descriptor: construct the
+// mock Cluster and run start_device(init_device=true), as MeshDevice::create does.
+TEST(ApiMockClusterTest, StartDeviceFromAllDescriptors) {
+    for (const auto& descriptor_file : test_utils::GetAllClusterDescs()) {
+        log_info(LogUMD, "Starting mock cluster from: {}", descriptor_file);
+
+        std::unique_ptr<ClusterDescriptor> cluster_desc;
+        ASSERT_NO_THROW(cluster_desc = ClusterDescriptor::create_from_yaml(descriptor_file))
+            << "Failed to load cluster descriptor from: " << descriptor_file;
+        ASSERT_NE(cluster_desc, nullptr) << "Cluster descriptor is null for: " << descriptor_file;
+
+        std::unique_ptr<Cluster> mock_cluster;
+        ASSERT_NO_THROW(
+            mock_cluster = std::make_unique<Cluster>(
+                ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()}))
+            << "Failed to create mock cluster for: " << descriptor_file;
+        ASSERT_NE(mock_cluster, nullptr) << "Mock cluster is null for: " << descriptor_file;
+
+        // Same init the tt-metal runtime runs (start_driver forces init_device = true).
+        EXPECT_NO_THROW(mock_cluster->start_device({.init_device = true}))
+            << "start_device failed for mock cluster: " << descriptor_file;
+    }
+}
+
 TEST(RefreshClusterDescriptionTest, ThrowsForNonSiliconChipType) {
     auto cluster_desc = ClusterDescriptor::create_from_yaml(test_utils::GetClusterDescAbsPath("wormhole_N150.yaml"));
     Cluster cluster(ClusterOptions{.chip_type = ChipType::MOCK, .cluster_descriptor = cluster_desc.get()});

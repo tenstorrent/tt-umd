@@ -25,12 +25,16 @@ RUN apt-get update && apt-get install -y \
         g++-riscv64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
 
-# Add riscv64 as a foreign architecture and pull hwloc into the cross sysroot.
+# Add riscv64 as a foreign architecture and pull the external system dependencies
+# into the cross sysroot: hwloc (linked by UMD) and the riscv64 Python dev headers
+# (nanobind needs the riscv64 pyconfig.h, which lives in the arch-specific multiarch
+# include dir /usr/include/riscv64-linux-gnu/python3.*; the host x86 headers don't
+# satisfy a riscv64 find_package(Python ... Development.Module)).
 # riscv64 packages live on the Ubuntu ports mirror; amd64 stays on the default
 # archive mirror, so each architecture is pinned to a mirror that actually serves it.
 RUN dpkg --add-architecture riscv64 \
     && printf 'Types: deb\nURIs: http://archive.ubuntu.com/ubuntu/\nSuites: noble noble-updates noble-backports\nComponents: main restricted universe multiverse\nArchitectures: amd64\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n' > /etc/apt/sources.list.d/ubuntu.sources \
     && printf 'Types: deb\nURIs: http://ports.ubuntu.com/ubuntu-ports/\nSuites: noble noble-updates noble-backports\nComponents: main restricted universe multiverse\nArchitectures: riscv64\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n' > /etc/apt/sources.list.d/ubuntu-ports.sources \
     && apt-get update \
-    && apt-get install -y libhwloc-dev:riscv64 \
+    && apt-get install -y libhwloc-dev:riscv64 libpython3-dev:riscv64 \
     && rm -rf /var/lib/apt/lists/*

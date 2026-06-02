@@ -120,7 +120,10 @@ jobs:
           # toolchain file, so it works as a normal container-job matrix entry.
           # The emulated variant (temp2) can't be a container job and lives in the
           # separate build-riscv-emulated job below.
-          {distro: ubuntu-24.04-riscv-temp1, compiler-c: gcc, compiler-cpp: g++, package: deb, riscv_cross: true},
+          {
+            distro: ubuntu-24.04-riscv-temp1, compiler-c: gcc, compiler-cpp: g++,
+            package: deb, riscv_cross: true, use_release_flags: true
+          },
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
@@ -195,8 +198,9 @@ jobs:
           if [[ "${{ contains(matrix.image.distro, 'riscv') }}" == "true" ]]; then
             git config --global --add safe.directory '*'
           fi
-          # riscv builds use the same flags as everyone else; cross builds (temp1) additionally point
-          # CMake at the GNU riscv64 toolchain file. The emulated native build (temp2) needs nothing extra.
+          # The riscv cross build (temp1) reuses the release-flags configuration
+          # (tests off -> no gtest to cross-build) and additionally points CMake at
+          # the GNU riscv64 toolchain file.
           EXTRA_ARGS=""
           if [[ "${{ matrix.image.riscv_cross }}" == "true" ]]; then
             EXTRA_ARGS="-DCMAKE_TOOLCHAIN_FILE=$(pwd)/cmake/riscv64-linux-gnu.cmake"
@@ -383,8 +387,8 @@ jobs:
           IMAGE_TAG="${{ needs.ensure-riscv-temp2-image.outputs.image-tag }}"
           IMAGE="ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv-temp2:${IMAGE_TAG}"
           echo "Building inside $IMAGE under QEMU (linux/riscv64)..."
-          # Same flags as the standard (non-release) build, just executed inside the
-          # emulated riscv64 image instead of via a toolchain file.
+          # Same release flags as the temp1 cross build (tests off -> no gtest),
+          # executed natively inside the emulated riscv64 image.
           docker run --rm --platform linux/riscv64 \
             -v "$GITHUB_WORKSPACE/${{ env.TT_UMD_DIR }}:/work" -w /work \
             "$IMAGE" \
@@ -392,10 +396,13 @@ jobs:
               set -euo pipefail
               git config --global --add safe.directory "*"
               cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-                -DTT_UMD_BUILD_ALL=ON \
-                -DTT_UMD_BUILD_PIP=ON \
+                -DTT_UMD_BUILD_TESTS=OFF \
+                -DTT_UMD_BUILD_SIMULATION=OFF \
+                -DTT_UMD_BUILD_PIP=OFF \
+                -DTT_UMD_BUILD_PYTHON=ON \
+                -DTT_UMD_BUILD_EXAMPLES=OFF \
                 -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-                -DTT_UMD_ENABLE_TRACY=ON
+                -DCMAKE_BUILD_TYPE=Release
               cmake --build ${{ env.BUILD_OUTPUT_DIR }}
               echo "Compile complete."
             '

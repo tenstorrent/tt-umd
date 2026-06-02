@@ -20,11 +20,14 @@ namespace tt::umd {
  * Typical use is a NOC hang check: probe the device cheaply and return
  * "is this op stalled because the device is actually hung?".
  *
- * The implementation must not recurse into the same memcpy / I/O path that
- * triggered it. A thread-local re-entrancy guard inside memcpy short-circuits
- * one level of recursion (the inner timeout will simply throw without
- * re-invoking the callback), but composability and lock-ordering across
- * the I/O stack are the caller's responsibility.
+ * Contract: the callback must issue any device I/O it performs through a path
+ * that does NOT re-enter a timed memcpy and does NOT re-take a lock already held
+ * by the stalled op. There is no re-entrancy guard inside memcpy — a callback
+ * that reads back through a timed path (with an on_timeout of its own) would
+ * recurse, and one that re-takes the caller's I/O lock would deadlock. A cheap
+ * BAR-based probe (e.g. HangDetector::is_pcie_hung) satisfies this; routing the
+ * probe through the locked, TLB-mapped block path (e.g. is_noc_hung via
+ * PcieProtocol::read_from_device) does not.
  */
 using MemcpyTimeoutFn = std::function<bool()>;
 

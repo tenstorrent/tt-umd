@@ -183,6 +183,7 @@ jobs:
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
   test-all:
+    if: false  # EXPERIMENT: test execution disabled for build-only timing runs.
     secrets: inherit
     needs: [build-tests, generate-test-matrix]
     strategy:
@@ -209,10 +210,12 @@ jobs:
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
   run-ttsim-tests:
+    if: false  # EXPERIMENT: test execution disabled for build-only timing runs.
     secrets: inherit
     uses: ./.github/workflows/run-ttsim-tests.yml
 
   run-tooling-tests:
+    if: false  # EXPERIMENT: test execution disabled for build-only timing runs.
     secrets: inherit
     needs: build-tests
     strategy:
@@ -241,6 +244,7 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
 
   run-exalens-tests:
+    if: false  # EXPERIMENT: test execution disabled for build-only timing runs.
     secrets: inherit
     needs: build-tests
     strategy:
@@ -268,6 +272,7 @@ jobs:
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
   run-tracy:
+    if: false  # EXPERIMENT: test execution disabled for build-only timing runs.
     secrets: inherit
     needs: build-tests
     uses: ./.github/workflows/run-tracy-test.yml

@@ -192,10 +192,33 @@ jobs:
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
+    # EXPERIMENT: optional ccache for the wheel build. The root CMakeLists enables ccache only
+    # when TT_UMD_CCACHE is set AND ccache is installed (otherwise it no-ops). CCACHE_BASEDIR +
+    # CCACHE_NOHASHDIR make the cache hit despite pip's per-build temp directories.
+    env:
+      TT_UMD_CCACHE: 1
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_BASEDIR: ${{ github.workspace }}
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      - name: ccache
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-build-wheel-${{ inputs.build-type }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-build-wheel-${{ inputs.build-type }}-
+
+      - name: Install ccache
+        run: |
+          apt-get update && apt-get install -y ccache
+          ccache --zero-stats
 
       - name: Build wheel
         shell: bash
@@ -219,6 +242,7 @@ jobs:
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
           CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+          ccache --show-stats  # EXPERIMENT: wheel build cache hit rate
 
           # This is done so that all the necessary libraries are included in the wheel.
           # Specifically, this will make the wheel runnable on exalens ci image.

@@ -32,6 +32,22 @@ project(
 
 message(STATUS "CMake version: ${CMAKE_VERSION}")
 
+# Optional ccache: enabled only when the TT_UMD_CCACHE environment variable is set AND ccache
+# is installed. This lets the wheel build (pip -> cmake), which does not receive a compiler
+# launcher via the CI workflow env, opt into ccache. It no-ops when the launcher is already
+# set (e.g. the library build passes CMAKE_CXX_COMPILER_LAUNCHER through the CI env) or when
+# ccache is not present, so it is a safe, optional dependency.
+if(DEFINED ENV{TT_UMD_CCACHE} AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
+    find_program(CCACHE_PROGRAM ccache)
+    if(CCACHE_PROGRAM)
+        message(STATUS "UMD: ccache enabled via TT_UMD_CCACHE (${CCACHE_PROGRAM})")
+        set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    else()
+        message(STATUS "UMD: TT_UMD_CCACHE is set but ccache was not found; building without it")
+    endif()
+endif()
+
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(GNUInstallDirs)

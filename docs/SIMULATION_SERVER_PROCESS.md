@@ -5,7 +5,7 @@
 This document frames the problem and lays out the design decisions we need to make to run
 the simulator **persistently, as a server process** — decoupled from the lifetime of any
 single UMD client. It is meant to drive a design discussion, not to prescribe a final
-implementation. Each major section ends with the **decision(s)** the room needs to settle.
+implementation.
 
 ---
 
@@ -27,36 +27,29 @@ and any process can open/share it. The card's lifetime is independent of any use
 
 ## 2. Where we are today
 
-UMD has two simulator backends, both behind the same stack
-(`Cluster → SimulationChip → TTDevice → communicator`):
+UMD has two simulator backends:
 
 | | **TTSim** | **RTL / emu** |
 |---|---|---|
-| Locality | in-process (`libttsim.so` via `dlopen`) | out-of-process (UMD spawns `{sim_dir}/run.sh`) |
-| Transport | direct function-pointer calls | **nng** socket (TCP) + **FlatBuffers** protocol |
-| Multi-client | n/a | none — see below |
+| Locality | runs **inside** the UMD process | runs as a **separate process** that UMD launches |
+| Transport | direct in-process calls | a socket connection with a message protocol |
+| Multi-client | not applicable | not supported — see below |
 
-**The key reality check (verified in code):** the current RTL model is *inverted* from a
-"card."
+**The key reality check:** the current out-of-process (RTL) model is *inverted* from a "card."
 
-- **UMD is the nng listener (server); the simulator dials *into* UMD.**
-  (`SimulationHost::init()` listens; the spawned `run.sh` connects back via a random TCP port
-  advertised in `NNG_SOCKET_ADDR`.)
-- **The transport is `nng_pair1` — strictly 1:1.** It cannot serve N clients.
-- **Lifetime is hard-coupled:** `~RtlSimulationTTDevice` → `communicator_->shutdown()` sends
-  `DEVICE_COMMAND_EXIT`, which kills the simulator.
+- **UMD acts as the server and the simulator connects back into UMD** — the opposite of a card
+  that exists on its own and is opened by software.
+- **The connection is strictly point-to-point** — it can serve exactly one client.
+- **Lifetime is hard-coupled:** the simulator is shut down when the owning UMD client goes
+  away.
 
 So "make it a server" is really **three coupled changes**, none optional:
 
-1. **Invert the roles** — the simulator (or a broker in front of it) becomes the
-   listener/"card"; UMD becomes a dialing client.
-2. **Replace `pair1`** with per-client accepted connections (this single change underwrites
-   fan-out, per-connection response ordering, *and* crash detection).
-3. **Move process ownership out of UMD** — client teardown must send `DETACH`, not `EXIT`.
-
-> **Discussion anchor:** everything below assumes we accept this inversion. If we don't, the
-> rest doesn't hold together. **Decision 0: do we agree the simulator process becomes the
-> server/owner, and UMD becomes a client?**
+1. **Invert the roles** — the simulator (or a broker in front of it) becomes the "card"; UMD
+   becomes a client that connects to it.
+2. **Allow many clients** — move from a single point-to-point connection to one that accepts
+   multiple clients (this is also what lets us notice when a client disconnects or crashes).
+3. **Move ownership out of UMD** — a client going away must no longer tear the device down.
 
 ## 3. Scope
 
@@ -64,67 +57,53 @@ So "make it a server" is really **three coupled changes**, none optional:
 backend can run as a shared, persistent server. They differ only in how much work it takes to
 get there:
 
-- **RTL/emu** is already out-of-process and socket-based, so the server is a direct extension
-  of the existing `SimulationHost`/nng/FlatBuffers stack (1:1 → N:1) — the smaller lift.
-- **TTSim** is in-process today (`libttsim.so` via `dlopen`), so making it a server means
-  introducing an IPC boundary underneath `TTSimCommunicator`. This carries a perf penalty
-  (in-process calls → cross-process) and requires solving the TLB-register hazard (§6.3) — a
-  larger lift, but in scope, not optional.
+- **RTL/emu** already runs out-of-process over a socket, so the server is a direct extension
+  of what exists today — the smaller lift.
+- **TTSim** runs inside the UMD process today, so making it a server means introducing a
+  process boundary where there is none. This carries a performance cost (in-process calls
+  become cross-process) — a larger lift, but in scope, not optional.
 
-Both backends should sit behind the **same** client device class and protocol so the server
-model is uniform; the backend difference stays below the socket, invisible to clients.
+Both backends should sit behind the **same** client-facing path so the server model is
+uniform; the backend difference stays below the connection, invisible to clients.
 
 ---
 
 ## 4. Surfacing & discovery (the "KMD analog")
 
-Surface each simulated chip as a **unix domain socket file in a folder** — discovered by
-scanning the folder, mirroring `PCIDevice::enumerate_devices()` scanning `/dev/tenstorrent/`.
+Surface each simulated device as a **file in a well-known folder** — one file per device,
+discovered by scanning the folder. This mirrors how KMD exposes silicon devices for
+enumeration.
 
-- **Folder:** default `$XDG_RUNTIME_DIR/tt-sim/` (fallback `/tmp/tt-sim-$UID/`, mode `0700`),
-  env/option overridable. Per-UID namespacing gives permissions for free.
-- **Filename** encodes identity for cheap pre-attach filtering (advisory cache; the socket
-  handshake is authoritative): a `server_instance` id grouping one cluster's chips, plus
-  arch / board / chip-NN. e.g. `tt-sim-<instance>-wormhole_b0-n300-chip00.sock`.
-- **Liveness:** never trust file existence/mtime. Authoritative check = non-blocking
-  `connect()` (`ECONNREFUSED` ⇒ stale tombstone) + a `flock` sentinel for race-free reclaim;
-  a PID/boot-id file is a secondary diagnostic hint (guards against recycled PIDs).
-- **Integration:** add a `SimulationTopologyDiscovery` that scans the folder and queries each
-  socket, returning `(ClusterDescriptor, tt_devices)` — exactly parallel to silicon's
-  `TopologyDiscovery::discover()`. The existing `tt_devices` reuse path in `Cluster::Cluster`
-  then works unchanged.
-
-> **Decisions:** folder location & whether it's configurable; filename grammar; whether we
-> also keep TCP (remote/distributed sim) alongside unix sockets.
+- **Folder.** A well-known, per-user location (so devices of different users don't collide).
+- **Identity.** Each file's name carries enough identity — which device/cluster it belongs to,
+  its architecture — for a client to choose a device before connecting.
+- **Liveness.** A file may be left behind after a server dies, so a file's *existence* does not
+  prove a server is alive behind it. A client confirms liveness before relying on a device,
+  and a stale leftover can be safely reclaimed. (This is the equivalent of "is the card really
+  there?" — a filename alone can't guarantee it, the way an enumerated silicon device does.)
+- **Discovery component.** We need a **`SimulationTopologyDiscovery`** that scans the folder,
+  determines which devices are live, and produces the discovered devices and the cluster
+  topology — mirroring how silicon discovery works — so the rest of cluster setup is unchanged.
 
 ---
 
 ## 5. The client/UMD side
 
-Keep the client path **as close to the silicon `LocalChip` path as possible.**
+In the server model the client path is **uniform: UMD always attaches to a server.** There is
+no per-call "spawn vs connect" mode — opening a simulated device always means connecting to a
+server and attaching, the same single path for both backends. This keeps the client close to
+the silicon device-open path, which likewise just *opens* an already-present device.
 
-- **One device class over two communicator backings** (the silicon pattern: `LocalChip` over
-  different PciDevice/JTAG backings). Inject a *connecting* communicator
-  (`RtlSimClientCommunicator`) vs the spawning one. **Avoid** a `bool connect_mode` flag
-  littering the constructor.
-- **Keep `ChipType::SIMULATION`.** Attach-vs-spawn is a transport *mode*, not a new device
-  family — a new ChipType would fork every `== SIMULATION` check in `cluster.cpp`.
-- **Attach ≠ initialize.** Today *all* init is pulled into TTDevice **construction** +
-  spawn/`start_sim`; `SimulationChip::start_device()` is already a no-op (conveniently correct
-  for attach). Split it explicitly:
-  - `INIT`/`START` + power-on resets run **once, at card creation** — never per client.
-  - New read-only `ATTACH`/`HELLO` (returns arch, SocDescriptor, BAR bases, channel count,
-    reset/power state, serialized `ClusterDescriptor`; bumps a refcount) and `DETACH`
-    (decrements; never tears down). Replaces the current `EXIT`-as-ready-ack hack.
-  - **Hard rule:** a default `Cluster(SIMULATION attach)` + `start_device()` must issue
-    **zero state-mutating commands.** "Opening an already-up card doesn't reset it."
-- **Server is the single source of truth for topology/identity.** Clients *read* the
-  `ClusterDescriptor` from the server (reuse `ClusterDescriptor::serialize()` /
-  `create_from_yaml_content()`) instead of synthesizing it via `create_mock_cluster`. This is
-  mandatory for handoff — every client must see identical device shape.
-
-> **Decisions:** new `SimulationClientTTDevice` vs refactor `RtlSimulationTTDevice`;
-> `ClusterOptions` attach fields (socket folder / explicit socket / `attach_to_server` flag).
+- **Attach ≠ initialize.** Today initialization happens as part of launching the simulator. In
+  the server model, one-time init and power-on reset happen **once, at card creation** — never
+  per client. A client only ever performs a **non-mutating** attach: opening the device issues
+  no state-changing operations ("opening an already-up card doesn't reset it").
+- **Server is the single source of truth for topology/identity.** On attach the client *reads*
+  the device's identity and cluster topology from the server rather than synthesizing its own —
+  mandatory for handoff, so every client sees an identical device shape.
+- **Legacy spawn-and-own stays separate.** Today's coupled behavior (UMD launches and owns the
+  simulator directly, one-to-one) remains available unchanged for back-compat; it is not
+  folded into the attaching client (see §6.1).
 
 ---
 
@@ -133,68 +112,71 @@ Keep the client path **as close to the silicon `LocalChip` path as possible.**
 The simulator runs as a **persistent server process that *is* the device** ("the card"): it
 owns all device state and outlives any individual UMD client. UMD instances are clients that
 **attach** to it, do work, and **detach** — exactly the relationship a process has with a
-silicon card sitting in a PCIe slot. Below we work through the four questions that decide the
-shape of this: how the server is created, how UMD connects, who tears it down, and which KMD
-responsibilities the server must take on to look like silicon.
+silicon card sitting in a PCIe slot. Below we work through the questions that decide the
+shape of this: how the server is created, how UMD connects, who tears it down, and how a
+client gets a clean slate.
 
 ### 6.1 Lifetime: how is the server created?
 
-The card's existence must be **independent of any client's lifetime** — that is the whole
-point (shareability + state handoff). The open question is *who brings it up and when*:
+UMD always attaches to a server (§5); the card's existence is **independent of any client's
+lifetime** — that is the whole point (shareability + state handoff). What varies is only *how
+the server comes to exist* when a client wants to attach:
 
-- **Offline (created out-of-band, recommended default).** The server is started explicitly —
-  by a person, a CI step, or a service — *before* any UMD process runs, and stays up across
-  many attach/detach cycles. This is the faithful silicon model (the card is already powered
-  and enumerated before software touches it) and the only one that cleanly supports
-  state handoff between separate UMD processes.
-- **During UMD startup (lazy, opt-in).** For single-process/dev convenience, the first UMD
-  client that finds no server may bring one up. This preserves today's "just run the binary"
-  workflow, but the spawned server must still be **owned independently** of that client (it
-  does not die when that client exits) — otherwise we are back to lifetime coupling.
+- **Created offline (recommended default).** The server is started out-of-band — by a person,
+  a CI step, or a service — *before* any UMD process runs, and stays up across many
+  attach/detach cycles. This is the faithful silicon model (the card is already powered and
+  enumerated before software touches it) and the one that cleanly supports state handoff
+  between separate UMD processes.
+- **Spawned on demand if not active.** If a client goes to attach and finds no live server, it
+  brings one up and then attaches. The spawned server must be **owned independently** of the
+  client that triggered it — it does not die when that client exits, otherwise we are back to
+  lifetime coupling.
+- **Legacy mode (back-compat).** Today's behavior — UMD launches and owns the simulator
+  directly (one-to-one, coupled lifetime, no server) — remains available as a transition path
+  for anyone not yet on the server model.
 
-The invariant under both: **creating the device (one-time power-on init/reset of state) is
-distinct from a client attaching.** The card is initialized once, by whoever creates it;
-every client — including the first — only attaches and never re-initializes state.
-
-> **Decision:** offline-by-default, with lazy startup-spawn as an opt-in convenience? And in
-> the lazy case, what owns the spawned server so it isn't tied to the spawning client?
+The invariant across all of these: **creating the device (one-time power-on init/reset) is
+distinct from a client attaching.** The card is initialized once, by whoever creates it; every
+client — including the first — only attaches and never re-initializes state.
 
 ### 6.2 How UMD connects to the server
 
 Connecting should mirror how UMD opens a silicon device:
 
-- **Discovery.** Devices are surfaced as endpoints in a well-known location (a folder of
-  per-device sockets) — the analog of KMD exposing cards under `/dev/tenstorrent`. UMD
-  **scans** that location to enumerate available simulated devices, honoring the same
-  device-selection semantics it already uses for silicon.
-- **Open = attach.** UMD picks a device and connects to its endpoint. The attach is a
-  **non-mutating** handshake: UMD learns the device's identity and topology *from the server*
-  and bumps a reference count — it does not reset or re-initialize anything.
-- **Liveness.** A listed endpoint may be stale (server gone); UMD treats a successful
-  connection as the proof of liveness, the same way opening a chardev confirms a real device.
+- **Discovery.** Devices are surfaced in a well-known folder (§4) — the analog of how KMD
+  exposes silicon cards for discovery. UMD scans that folder to enumerate available simulated
+  devices, honoring the same device-selection semantics it already uses for silicon.
+- **Open = attach.** UMD picks a device and attaches to it. The attach is a **non-mutating**
+  handshake: UMD learns the device's identity and topology *from the server* and registers
+  itself — it does not reset or re-initialize anything.
+- **Liveness.** A listed device may be stale (server gone); UMD treats a successful attach as
+  the proof of liveness, the same way opening a silicon device confirms it is really there.
 
 The net effect: from UMD's perspective "find a simulated device and open it" looks the same as
-"enumerate PCIe devices and open one" — which is what keeps the client path close to silicon.
-
-> **Decision:** where does the discovery folder live, and how is a device named/selected
-> within it?
+finding and opening a silicon device — which is what keeps the client path close to silicon.
 
 ### 6.3 Who kills the server?
 
 Because the card's lifetime is decoupled from clients, **a client detaching or exiting must
-never tear the server down** (this is the key change from today, where a client's destructor
-kills the simulator). Teardown becomes a deliberate act of whoever *owns* the card:
+never tear the server down** (this is the key change from today, where a client going away
+kills the simulator). Two separate concerns decide what happens.
+
+**Teardown triggers — when the card decides to shut down:**
 
 - **Explicit stop** — the owner (person/CI/service that created it) shuts it down when done.
   Natural fit for the offline model.
 - **Policy-based** — e.g. linger for a grace period after the last client detaches, then exit;
   or stay up indefinitely for a long-lived shared card. A bounded linger keeps CI from leaking
   server processes while still surviving the brief gap during a process-to-process handoff.
-- **Crashed clients** are detected (their connection drops) and detached automatically — they
-  decrement the reference count but never bring the card down.
 
-> **Decision:** explicit-owner teardown, a linger policy, or both (different defaults for
-> interactive vs CI)? What is the default linger?
+**Client accounting — keeping an honest count of who is attached:**
+
+The card tracks how many clients are attached, because the policies above depend on knowing
+when the last one leaves. A clean exit detaches and releases its reference; a **crashed**
+client never sends that detach, so the server detects the dropped connection and releases the
+reference on its behalf. Crash detection is *only* bookkeeping — a crash is treated exactly
+like a clean detach (release one reference, nothing more), so it neither leaks a reference
+(keeping the card alive forever) nor wrongly brings the card down.
 
 ### 6.4 Resetting to a clean slate
 
@@ -215,7 +197,3 @@ The important property either way: a reset is **destructive and shared** — it 
 that *all* currently attached clients are using. So it must be an explicit, privileged action
 (requested by the owner, or by a client that knowingly opts in), and it cannot be the quiet
 default behavior of opening the device.
-
-> **Decision:** do we need in-place reset, or is "restart the server for a clean slate" enough?
-> Who is allowed to trigger a reset, and what is the contract for other clients that are
-> attached when it happens (forcibly detached, notified, or silently see reset state)?

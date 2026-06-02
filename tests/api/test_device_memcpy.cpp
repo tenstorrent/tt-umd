@@ -13,7 +13,7 @@
 //   Phase 2 — remaining 32-byte chunks
 //   Phase 3 — remaining 16-byte chunk
 //   Phase 4 — remaining 4-byte chunks
-//   Phase 5 — trailing 1–3 bytes
+//   Phase 5 — trailing 1–3 bytes.
 
 #include <gtest/gtest.h>
 
@@ -42,19 +42,23 @@ void check_memcpy(const char* label, Fn fn, size_t size, size_t dst_offset, size
     std::vector<uint8_t> dst_buf(dst_offset + size + kGuardBytes, kGuardFill);
 
     // Recognisable pattern that wraps to catch byte-swaps.
-    for (size_t i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i) {
         src_buf[src_offset + i] = static_cast<uint8_t>(kSrcFill + i);
+    }
 
     fn(dst_buf.data() + dst_offset, src_buf.data() + src_offset, size);
 
-    for (size_t i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i) {
         ASSERT_EQ(dst_buf[dst_offset + i], src_buf[src_offset + i])
-            << label << " mismatch at byte " << i
-            << " (size=" << size << " dst_off=" << dst_offset << " src_off=" << src_offset << ")";
-    for (size_t i = 0; i < dst_offset; ++i)
+            << label << " mismatch at byte " << i << " (size=" << size << " dst_off=" << dst_offset
+            << " src_off=" << src_offset << ")";
+    }
+    for (size_t i = 0; i < dst_offset; ++i) {
         ASSERT_EQ(dst_buf[i], kGuardFill) << label << " underrun at " << i;
-    for (size_t i = dst_offset + size; i < dst_buf.size(); ++i)
+    }
+    for (size_t i = dst_offset + size; i < dst_buf.size(); ++i) {
         ASSERT_EQ(dst_buf[i], kGuardFill) << label << " overrun at " << i;
+    }
 }
 
 }  // namespace
@@ -70,6 +74,7 @@ struct MemcpyParam {
 };
 
 class DeviceMemcpyToDevice : public ::testing::TestWithParam<MemcpyParam> {};
+
 class DeviceMemcpyFromDevice : public ::testing::TestWithParam<MemcpyParam> {};
 
 TEST_P(DeviceMemcpyToDevice, Correctness) {
@@ -77,7 +82,9 @@ TEST_P(DeviceMemcpyToDevice, Correctness) {
     check_memcpy(
         "to_device",
         [](void* d, const void* s, size_t n) { memcpy_to_device(static_cast<volatile void*>(d), s, n); },
-        p.size, p.dst_off, p.src_off);
+        p.size,
+        p.dst_off,
+        p.src_off);
 }
 
 TEST_P(DeviceMemcpyFromDevice, Correctness) {
@@ -85,7 +92,9 @@ TEST_P(DeviceMemcpyFromDevice, Correctness) {
     check_memcpy(
         "from_device",
         [](void* d, const void* s, size_t n) { memcpy_from_device(d, static_cast<const volatile void*>(s), n); },
-        p.size, p.dst_off, p.src_off);
+        p.size,
+        p.dst_off,
+        p.src_off);
 }
 
 // clang-format off

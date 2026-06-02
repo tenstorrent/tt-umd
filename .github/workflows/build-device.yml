@@ -362,7 +362,7 @@ jobs:
     needs: ensure-riscv-temp2-image
     permissions:
       packages: read
-    name: Build device on ubuntu-24.04-riscv-temp2 with gcc
+    name: Build device (release flags) on ubuntu-24.04-riscv-temp2 with gcc
     runs-on: tt-ubuntu-2204-large-stable
 
     steps:

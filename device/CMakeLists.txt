@@ -69,43 +69,13 @@ endif()
 # Gated on clang-tidy being OFF: with clang-tidy ON, clang-tidy (always clang) runs on
 # every TU and cannot read a GCC-generated .gch PCH -- that would break the gcc entries
 # of the build-device matrix. build-tests builds with clang-tidy OFF, so it gets the PCH.
+#
+# Every header is wrapped in $<COMPILE_LANGUAGE:CXX> so the C source in this target
+# (tt_kmd_lib.c) gets an EMPTY pch list -> CMake generates no C precompiled header at all.
+# Without this, the C PCH tries to compile <fmt>/<vector> as C and fails (e.g. the tt-metal
+# subdir build of umd in run-ttsim-tests: "fmt/base.h: 'type_traits' file not found").
 if(NOT TT_UMD_ENABLE_CLANG_TIDY)
-    target_precompile_headers(
-        tt-umd
-        PRIVATE
-            <fmt/format.h>
-            <tt-logger/tt-logger.hpp>
-            <algorithm>
-            <array>
-            <chrono>
-            <cstddef>
-            <cstdint>
-            <cstring>
-            <filesystem>
-            <functional>
-            <map>
-            <memory>
-            <mutex>
-            <optional>
-            <set>
-            <stdexcept>
-            <string>
-            <string_view>
-            <tuple>
-            <type_traits>
-            <unordered_map>
-            <unordered_set>
-            <utility>
-            <vector>
-    )
-    # The PCH is C++-only; tt_kmd_lib.c is the lone C source in this target and must not
-    # pull in the C++ precompiled header (it would try to compile <fmt>/<vector> as C).
-    set_source_files_properties(
-        tt_kmd_lib/tt_kmd_lib.c
-        PROPERTIES
-            SKIP_PRECOMPILE_HEADERS
-                ON
-    )
+    target_precompile_headers(tt-umd PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch.hpp>")
 endif()
 
 target_sources(

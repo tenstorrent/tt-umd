@@ -21,6 +21,15 @@ target_include_directories(
 )
 target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
+# EXPERIMENT: precompiled header for the test executables, propagated to every test target
+# via this test_common INTERFACE library (gtest + the heavy externals/STL that essentially
+# every test TU includes). Gated on clang-tidy OFF for the same reason as the tt-umd library
+# PCH: clang-tidy (always clang) can't read a gcc-generated .gch, and build-device compiles
+# the microbenchmark tests with gcc + clang-tidy ON. Language-scoped to C++ via a file path.
+if(NOT TT_UMD_ENABLE_CLANG_TIDY)
+    target_precompile_headers(test_common INTERFACE "$<$<COMPILE_LANGUAGE:CXX>:${CMAKE_CURRENT_SOURCE_DIR}/pch.hpp>")
+endif()
+
 if(MASTER_PROJECT)
     add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/microbenchmark)
 endif()

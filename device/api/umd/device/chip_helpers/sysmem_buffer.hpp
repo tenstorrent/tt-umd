@@ -10,11 +10,14 @@
 #include <memory>
 #include <optional>
 
+// TlbWindow is held by std::unique_ptr member and is instantiated inline by consumers
+// that construct SysmemBuffer (gcc instantiates the unique_ptr dtor eagerly), so the
+// complete type is required here -- a forward declaration is not enough.
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class PCIDevice;
-class TlbWindow;
 class TTDevice;
 
 /**

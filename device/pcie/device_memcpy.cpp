@@ -78,18 +78,6 @@ struct OpTiming {
     std::uint32_t size_bytes;
 };
 
-// Re-entrancy guard: if a MemcpyTimeoutFn callback itself ends up issuing MMIO
-// that triggers a per-op timeout, the inner timeout must short-circuit (don't
-// invoke the callback recursively — that would loop). The inner record_and_check
-// sees the flag and treats the inner timeout as a confirmed abort.
-thread_local bool in_timeout_callback = false;
-
-struct ScopedTimeoutCallbackGuard {
-    ScopedTimeoutCallbackGuard() { in_timeout_callback = true; }
-
-    ~ScopedTimeoutCallbackGuard() { in_timeout_callback = false; }
-};
-
 void dump_timings(const char* fn, std::size_t bytes, const std::vector<OpTiming>& ops) {
     if (ops.empty()) {
         std::fprintf(stderr, "[%s] size=%zu ops=0\n", fn, bytes);
@@ -160,11 +148,14 @@ public:
         if (delta < op_timeout_) {
             return;
         }
-        if (on_timeout_ && !in_timeout_callback) {
-            ScopedTimeoutCallbackGuard guard;
-            if (!on_timeout_()) {
-                return;
-            }
+        // Over budget. A wired callback gets to confirm the stall: returning false (false
+        // positive, device healthy) resumes the memcpy with a fresh budget for the next op;
+        // returning true aborts. With no callback the overrun aborts outright, so the budget
+        // protects every caller by default. There is no re-entrancy guard: the callback must
+        // issue any device I/O it performs through a path that does NOT re-enter a timed memcpy
+        // (see MemcpyTimeoutFn docs), otherwise it would recurse.
+        if (on_timeout_ && !on_timeout_()) {
+            return;
         }
         throw error::DeviceTimeoutError(
             fn_name_,

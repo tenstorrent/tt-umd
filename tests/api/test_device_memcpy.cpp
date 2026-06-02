@@ -32,59 +32,29 @@ constexpr size_t kGuardBytes = 64;
 constexpr uint8_t kGuardFill = 0xAB;
 constexpr uint8_t kSrcFill = 0x42;
 
-// Verify that memcpy_to_device writes exactly the right bytes and leaves
-// everything outside [dst_offset, dst_offset+size) untouched.
-void check_to_device(size_t size, size_t dst_offset, size_t src_offset) {
+// Verify that fn(dst, src, size) writes exactly the right bytes to dst and
+// leaves everything outside [dst_offset, dst_offset+size) untouched.
+// fn receives raw (void*, const void*, size_t) and is responsible for any
+// volatile casts needed by the underlying memcpy_to/from_device call.
+template <typename Fn>
+void check_memcpy(const char* label, Fn fn, size_t size, size_t dst_offset, size_t src_offset) {
     std::vector<uint8_t> src_buf(src_offset + size + kGuardBytes, 0);
     std::vector<uint8_t> dst_buf(dst_offset + size + kGuardBytes, kGuardFill);
 
     // Recognisable pattern that wraps to catch byte-swaps.
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i)
         src_buf[src_offset + i] = static_cast<uint8_t>(kSrcFill + i);
-    }
 
-    volatile void* dst = reinterpret_cast<volatile void*>(dst_buf.data() + dst_offset);
-    const void* src = src_buf.data() + src_offset;
-    memcpy_to_device(dst, src, size);
+    fn(dst_buf.data() + dst_offset, src_buf.data() + src_offset, size);
 
-    for (size_t i = 0; i < size; ++i) {
+    for (size_t i = 0; i < size; ++i)
         ASSERT_EQ(dst_buf[dst_offset + i], src_buf[src_offset + i])
-            << "to_device mismatch at byte " << i
+            << label << " mismatch at byte " << i
             << " (size=" << size << " dst_off=" << dst_offset << " src_off=" << src_offset << ")";
-    }
-    for (size_t i = 0; i < dst_offset; ++i) {
-        ASSERT_EQ(dst_buf[i], kGuardFill) << "to_device underrun at " << i;
-    }
-    for (size_t i = dst_offset + size; i < dst_buf.size(); ++i) {
-        ASSERT_EQ(dst_buf[i], kGuardFill) << "to_device overrun at " << i;
-    }
-}
-
-// Verify that memcpy_from_device reads exactly the right bytes and leaves
-// everything outside [dst, dst+size) untouched.
-void check_from_device(size_t size, size_t src_offset, size_t dst_offset) {
-    std::vector<uint8_t> src_buf(src_offset + size + kGuardBytes, 0);
-    std::vector<uint8_t> dst_buf(dst_offset + size + kGuardBytes, kGuardFill);
-
-    for (size_t i = 0; i < size; ++i) {
-        src_buf[src_offset + i] = static_cast<uint8_t>(kSrcFill + i);
-    }
-
-    const volatile void* src = reinterpret_cast<const volatile void*>(src_buf.data() + src_offset);
-    void* dst = dst_buf.data() + dst_offset;
-    memcpy_from_device(dst, src, size);
-
-    for (size_t i = 0; i < size; ++i) {
-        ASSERT_EQ(dst_buf[dst_offset + i], src_buf[src_offset + i])
-            << "from_device mismatch at byte " << i
-            << " (size=" << size << " src_off=" << src_offset << " dst_off=" << dst_offset << ")";
-    }
-    for (size_t i = 0; i < dst_offset; ++i) {
-        ASSERT_EQ(dst_buf[i], kGuardFill) << "from_device underrun at " << i;
-    }
-    for (size_t i = dst_offset + size; i < dst_buf.size(); ++i) {
-        ASSERT_EQ(dst_buf[i], kGuardFill) << "from_device overrun at " << i;
-    }
+    for (size_t i = 0; i < dst_offset; ++i)
+        ASSERT_EQ(dst_buf[i], kGuardFill) << label << " underrun at " << i;
+    for (size_t i = dst_offset + size; i < dst_buf.size(); ++i)
+        ASSERT_EQ(dst_buf[i], kGuardFill) << label << " overrun at " << i;
 }
 
 }  // namespace
@@ -104,12 +74,18 @@ class DeviceMemcpyFromDevice : public ::testing::TestWithParam<MemcpyParam> {};
 
 TEST_P(DeviceMemcpyToDevice, Correctness) {
     const auto& p = GetParam();
-    check_to_device(p.size, p.dst_off, p.src_off);
+    check_memcpy(
+        "to_device",
+        [](void* d, const void* s, size_t n) { memcpy_to_device(static_cast<volatile void*>(d), s, n); },
+        p.size, p.dst_off, p.src_off);
 }
 
 TEST_P(DeviceMemcpyFromDevice, Correctness) {
     const auto& p = GetParam();
-    check_from_device(p.size, p.src_off, p.dst_off);
+    check_memcpy(
+        "from_device",
+        [](void* d, const void* s, size_t n) { memcpy_from_device(d, static_cast<const volatile void*>(s), n); },
+        p.size, p.dst_off, p.src_off);
 }
 
 // clang-format off

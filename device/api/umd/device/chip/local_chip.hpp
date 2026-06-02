@@ -17,7 +17,6 @@
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -25,7 +24,6 @@
 #include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {
-class RemoteCommunication;
 class SocDescriptor;
 class SysmemManager;
 class TLBManager;
@@ -78,9 +76,6 @@ public:
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
-    void ethernet_broadcast_write(
-        const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header);
-
     void wait_for_non_mmio_flush() override;
 
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
@@ -99,14 +94,11 @@ private:
         SocDescriptor soc_descriptor,
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
-        std::unique_ptr<SysmemManager> sysmem_manager,
-        std::unique_ptr<RemoteCommunication> remote_communication);
+        std::unique_ptr<SysmemManager> sysmem_manager);
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
-    // Used only for ethernet broadcast to all remote chips.
-    std::unique_ptr<RemoteCommunication> remote_communication_;
 
     // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
     // RobustMutex is unlocked.

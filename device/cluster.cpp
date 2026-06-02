@@ -662,6 +662,8 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
                 // Get shelf local physical chip id included in broadcast.
                 EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
+                // Legacy way of calculating the chip's place in the grid, dating back from older Galaxy
+                // configurations.
                 ChipId physical_chip_id = 8 * eth_coords.x + eth_coords.y;
                 // Rack word to be set in header.
                 uint32_t rack_word = eth_coords.rack >> 2;

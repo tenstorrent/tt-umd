@@ -192,11 +192,10 @@ client** — it is a shared capability, not restricted to the creator.
   or stay up indefinitely for a long-lived shared card. A bounded linger keeps CI from leaking
   server processes while still surviving the brief gap during a process-to-process handoff.
 
-**Behavior with clients still attached.** The proposed default is a **graceful drain** — stop
-accepting new attaches, tell attached clients the card is going away, allow a short grace
-window to detach, then exit — with a **hard stop** always available as a fallback. Either way,
-a client whose card disappears must **surface an error, not hang** (the same contract as a
-silicon card that vanishes).
+**Behavior with clients still attached — to be decided.** What a stop should do when clients
+are still attached (graceful drain, forceful, or refuse-if-busy) is left open for a later
+discussion. Regardless of the choice, a client whose card disappears must **surface an error,
+not hang** (the same contract as a silicon card that vanishes).
 
 **Cleanup.** A graceful stop removes the device's discovery entry and tears down the backend,
 leaving the folder clean. An unclean exit (crash / hard kill) leaves a stale entry, reclaimed

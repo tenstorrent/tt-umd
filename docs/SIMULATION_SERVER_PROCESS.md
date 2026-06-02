@@ -251,6 +251,10 @@ multi-client sharing requires. The capability surface:
 - **Device memory access.** Read and write device memory addressed by (endpoint, address,
   size) — core-local memory, DRAM, registers, and multicast writes. This is the bulk of the
   traffic.
+- **TLB windows (NOC translation).** Allocate, configure (aim a window at an endpoint), and
+  free NOC translation windows through which device access is routed. The window state lives in
+  the server, but the API **exposes TLB handling** so the client manages windows the same way it
+  does on silicon; windows are a per-session resource.
 - **Host memory (sysmem).** A client **allocates** a host-visible memory region through the API
   (and frees it), then reads/writes it; the server provides the backing and a device-visible
   address so the device can transfer to and from it. Allocation is a **runtime** operation, not
@@ -281,3 +285,51 @@ Cross-cutting properties of the API:
 - **Request/response** — synchronous from the client's point of view.
 - **Backend-agnostic** — identical for RTL and TTSim; the backend difference stays below the
   API.
+
+---
+
+## 9. Implementation: client/server code split
+
+*(Unlike the sections above, this one is about code, so it names concrete components.)*
+
+The existing simulation stack is `Cluster → SimulationChip → TTDevice (sim) → communicator →
+backend`. Splitting it across the connection follows one rule: **device state and one-time
+device bring-up move to the server; the consumer-facing device API, stateless translation, and
+per-client connection bookkeeping stay on the client.** Litmus test — if it must survive a
+client exiting (handoff), it's server-side; if it's per-client or pure computation, it's
+client-side.
+
+### Moves to the server ("the card")
+
+- **The backend and the code that drives it** — the backend-facing half of the communicator
+  (loading/calling the TTSim `.so`, or managing the RTL sim process and its socket). This
+  becomes the server's internals.
+- **Device state** — L1/DRAM/registers/reset state; inherent to the backend.
+- **Sysmem backing** — `SimulationSysmemManager`'s memory and the device's host-memory access
+  path. Allocated **per session** at the server, since sysmem is a runtime API operation (§8).
+- **TLB window state** — `SimulationTlbAllocator` / TLB programming. The window state (and, for
+  TTSim, the real TLB registers) lives in the server; the client drives allocation/configuration
+  through the exposed TLB API (§8) rather than managing windows locally.
+- **One-time init/start, reset, and power-state ownership** — runs once at creation.
+- **Cross-client serialization** — today's in-process device lock becomes a server concern (one
+  stateful backend, many clients).
+- **Device-description authority** — arch, SoC descriptor, cluster topology: fixed at server
+  creation and reported to clients on attach (the client only reads them).
+
+### Stays on the client ("UMD")
+
+- **`Cluster` and the `Chip`/`TTDevice` API surface** UMD consumers call. Same interface — only
+  the implementation changes to forward operations over the connection.
+- **Coordinate translation** (`CoreCoord` → NOC) and address computation — stateless; stays
+  client-side using the server-provided descriptor (keeps the client close to silicon).
+- **A connecting communicator** — the client half that turns device operations into API
+  requests, owns the session, correlates responses, and notices disconnects.
+- **The client's local copy of identity/topology** — read from the server on attach (not
+  authored), used for translation.
+- **Per-session sysmem handles** — the allocation lives server-side; the client holds the
+  reference / device-visible address.
+- **Per-session TLB window handles** — the window state is server-side; the client allocates and
+  configures windows via the TLB API (§8) and holds the references.
+
+The target shape: the client collapses into a **thin adapter** mapping the existing device
+operations onto API calls, so UMD consumers see no change.

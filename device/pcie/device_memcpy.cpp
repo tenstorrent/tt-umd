@@ -4,14 +4,11 @@
 
 #include "device_memcpy.hpp"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <vector>
 
 #include "umd/device/utils/error.hpp"
 
@@ -61,62 +58,8 @@ std::chrono::milliseconds mmio_op_timeout() {
     return value;
 }
 
-// Set TT_UMD_MEMCPY_TIMING=1 to instrument each TLB-touching store/load with
-// a steady_clock delta and dump the deltas to stderr at function exit. Off by
-// default — production builds pay only a single thread-local check per op
-// when enabled, and nothing when disabled (the static-init lambda returns false).
-bool mmio_timing_enabled() {
-    static const bool value = [] {
-        const char* env = std::getenv("TT_UMD_MEMCPY_TIMING");
-        return env != nullptr && *env != '\0' && env[0] != '0';
-    }();
-    return value;
-}
-
-struct OpTiming {
-    std::chrono::nanoseconds delta;
-    std::uint32_t size_bytes;
-};
-
-void dump_timings(const char* fn, std::size_t bytes, const std::vector<OpTiming>& ops) {
-    if (ops.empty()) {
-        std::fprintf(stderr, "[%s] size=%zu ops=0\n", fn, bytes);
-        return;
-    }
-    std::chrono::nanoseconds total{0};
-    std::chrono::nanoseconds min = ops[0].delta;
-    std::chrono::nanoseconds max = ops[0].delta;
-    for (const auto& op : ops) {
-        total += op.delta;
-        min = std::min(min, op.delta);
-        max = std::max(max, op.delta);
-    }
-    std::chrono::nanoseconds mean = total / ops.size();
-
-    std::string line;
-    line.reserve(ops.size() * 10 + 128);
-    line.append("[").append(fn).append("] size=").append(std::to_string(bytes));
-    line.append(" ops=").append(std::to_string(ops.size()));
-    line.append(" min=").append(std::to_string(min.count())).append("ns");
-    line.append(" max=").append(std::to_string(max.count())).append("ns");
-    line.append(" mean=").append(std::to_string(mean.count())).append("ns");
-    line.append(" total=").append(std::to_string(total.count())).append("ns");
-    line.append(" ops_ns:bytes=");
-    for (std::size_t i = 0; i < ops.size(); ++i) {
-        if (i != 0) {
-            line.append(",");
-        }
-        line.append(std::to_string(ops[i].delta.count()));
-        line.append(":");
-        line.append(std::to_string(ops[i].size_bytes));
-    }
-    line.append("\n");
-    std::fwrite(line.data(), 1, line.size(), stderr);
-}
-
-// Per-call helper shared by memcpy_to_device / memcpy_from_device. Reads env-driven
-// config once in the ctor, records each op's delta against a per-op budget, and
-// (optionally) dumps the recorded deltas to stderr on dump(). `remaining` is held
+// Per-call helper shared by memcpy_to_device / memcpy_from_device. Reads the env-driven
+// budget once in the ctor and checks each op's delta against it. `remaining` is held
 // by reference so the thrown error message reflects how many bytes were left when
 // the stall fired.
 class MmioOpTimer {
@@ -132,19 +75,11 @@ public:
         total_size_(total_size),
         remaining_(remaining),
         on_timeout_(on_timeout),
-        op_timeout_(mmio_op_timeout()),
-        timing_enabled_(mmio_timing_enabled()) {
-        if (timing_enabled_) {
-            thread_timings().clear();
-        }
-    }
+        op_timeout_(mmio_op_timeout()) {}
 
     void record_and_check(std::chrono::steady_clock::time_point t_before, std::uint32_t op_bytes) {
         auto t_now = std::chrono::steady_clock::now();
         auto delta = t_now - t_before;
-        if (timing_enabled_) {
-            thread_timings().push_back({std::chrono::duration_cast<std::chrono::nanoseconds>(delta), op_bytes});
-        }
         if (delta < op_timeout_) {
             return;
         }
@@ -167,25 +102,13 @@ public:
             total_size_);
     }
 
-    void dump() const {
-        if (timing_enabled_) {
-            dump_timings(fn_name_, total_size_, thread_timings());
-        }
-    }
-
 private:
-    static std::vector<OpTiming>& thread_timings() {
-        thread_local std::vector<OpTiming> v;
-        return v;
-    }
-
     const char* fn_name_;
     const char* op_verb_;
     std::size_t total_size_;
     const std::size_t& remaining_;
     const MemcpyTimeoutFn& on_timeout_;
     std::chrono::milliseconds op_timeout_;
-    bool timing_enabled_;
 };
 
 }  // namespace
@@ -377,8 +300,6 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         size--;
         timer.record_and_check(t, 1);
     }
-
-    timer.dump();
 }
 
 void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout) {
@@ -537,8 +458,6 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, 
         size--;
         timer.record_and_check(t, 1);
     }
-
-    timer.dump();
 }
 
 }  // namespace tt::umd

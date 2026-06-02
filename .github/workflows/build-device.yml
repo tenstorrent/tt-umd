@@ -287,6 +287,10 @@ jobs:
           echo "Install complete."
 
       - name: Prepare and isolate install artifacts
+        # The standalone-client and python-rebuild steps below link host-compiled
+        # code against the (cross-built) riscv64 UMD library, which can't work, so
+        # they're skipped for riscv. The core library + its deb package above still run.
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           echo "Preparing and isolating install artifacts..."
           mkdir ${{ env.CLIENTS_BUILD_DIR_SHELL }}
@@ -308,24 +312,28 @@ jobs:
           ls -laR ${{ env.CLIENTS_BUILD_DIR_SHELL }}
 
       - name: Build examples as standalone
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build nanobind as standalone
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build tools as standalone
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Rebuild package for python without wheel
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Recompiling the code..."
@@ -337,6 +345,7 @@ jobs:
           echo "Compile complete."
 
       - name: Generate ${{ matrix.image.package }} package for umd-python
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         working-directory: ${{ env.TT_UMD_DIR }}/build
         shell: bash
         run: |
@@ -344,6 +353,7 @@ jobs:
           cpack -G "${PKG^^}"
 
       - name: Upload ${{ matrix.image.package }} packages for umd-python
+        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         uses: actions/upload-artifact@v7
         with:
           # example: tt-umd-python-ubuntu-24.04-clang-20-release

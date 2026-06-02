@@ -10,9 +10,25 @@
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/io_options.hpp"
 #include "umd/device/types/tlb.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Bit positions in the AXI awuser/aruser word, per the NPU-in AXI master layout.
+constexpr int kAxiUserBitSnoop = 8;  // cce_cmd_snoop
+
+uint64_t user_bits_from_io_options(const IoOptions& opts) {
+    uint64_t bits = 0;
+    if (opts.snoop) {
+        bits |= (1ULL << kAxiUserBitSnoop);
+    }
+    return bits;
+}
+
+}  // namespace
 
 RtlSimTlbWindow::RtlSimTlbWindow(
     std::unique_ptr<TlbHandle> handle, RtlSimCommunicator* communicator, const tlb_data config) :
@@ -22,14 +38,26 @@ void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, siz
     validate(offset, size);
     const auto& config = tlb_handle->get_config();
     uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
-    communicator_->tile_write_bytes(config.x_end, config.y_end, device_addr, data, static_cast<uint32_t>(size));
+    communicator_->tile_write_bytes(
+        config.x_end,
+        config.y_end,
+        device_addr,
+        data,
+        static_cast<uint32_t>(size),
+        user_bits_from_io_options(io_options_));
 }
 
 void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t size) {
     validate(offset, size);
     const auto& config = tlb_handle->get_config();
     uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
-    communicator_->tile_read_bytes(config.x_end, config.y_end, device_addr, data, static_cast<uint32_t>(size));
+    communicator_->tile_read_bytes(
+        config.x_end,
+        config.y_end,
+        device_addr,
+        data,
+        static_cast<uint32_t>(size),
+        user_bits_from_io_options(io_options_));
 }
 
 void RtlSimTlbWindow::write16(uint64_t offset, uint16_t value) { translate_and_write(offset, &value, sizeof(value)); }

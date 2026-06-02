@@ -30,12 +30,18 @@ namespace {
  * Create a flatbuffer for device communication.
  */
 inline flatbuffers::FlatBufferBuilder create_flatbuffer(
-    DEVICE_COMMAND rw, const std::vector<uint32_t> &vec, tt_xy_pair core_, uint64_t addr, uint64_t size_ = 0) {
+    DEVICE_COMMAND rw,
+    const std::vector<uint32_t> &vec,
+    tt_xy_pair core_,
+    uint64_t addr,
+    uint64_t size_ = 0,
+    uint64_t user_bits = 0,
+    uint64_t user_bits_hi = 0) {
     flatbuffers::FlatBufferBuilder builder;
     auto data = builder.CreateVector(vec);
     auto core = tt_vcs_core(core_.x, core_.y);
     uint64_t size = (size_ == 0 ? vec.size() * sizeof(uint32_t) : size_);
-    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size);
+    auto device_cmd = CreateDeviceRequestResponse(builder, rw, data, &core, addr, size, user_bits, user_bits_hi);
     builder.Finish(device_cmd);
     return builder;
 }
@@ -154,13 +160,15 @@ void RtlSimCommunicator::shutdown() {
     send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_EXIT, {0, 0}));
 }
 
-void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {
+void RtlSimCommunicator::tile_read_bytes(
+    uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size, uint64_t user_bits, uint64_t user_bits_hi) {
     {
         std::lock_guard<std::mutex> lock(device_lock_);
         tt_xy_pair core = {x, y};
 
         // Send read request.
-        send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size));
+        send_command_to_simulation_host(
+            host_, create_flatbuffer(DEVICE_COMMAND_READ, {0}, core, addr, size, user_bits, user_bits_hi));
     }
 
     // Get read response from the command queue (populated by notification thread).
@@ -183,7 +191,8 @@ void RtlSimCommunicator::tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, 
     nng_free(msg.data, msg.size);
 }
 
-void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size) {
+void RtlSimCommunicator::tile_write_bytes(
+    uint32_t x, uint32_t y, uint64_t addr, const void *data, uint32_t size, uint64_t user_bits, uint64_t user_bits_hi) {
     std::lock_guard<std::mutex> lock(device_lock_);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to address {} in core ({}, {})", size, addr, x, y);
 
@@ -192,7 +201,8 @@ void RtlSimCommunicator::tile_write_bytes(uint32_t x, uint32_t y, uint64_t addr,
     const auto *data_ptr = static_cast<const uint32_t *>(data);
     std::vector<uint32_t> data_vec(data_ptr, data_ptr + num_elements);
 
-    send_command_to_simulation_host(host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr));
+    send_command_to_simulation_host(
+        host_, create_flatbuffer(DEVICE_COMMAND_WRITE, data_vec, core, addr, 0, user_bits, user_bits_hi));
 }
 
 void RtlSimCommunicator::smn_tile_read_bytes(uint32_t x, uint32_t y, uint64_t addr, void *data, uint32_t size) {

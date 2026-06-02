@@ -19,7 +19,10 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/io_options.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt;
@@ -490,4 +493,69 @@ TEST(TestTlb, TLBStaticTensix) {
     for (int i = 0; i < num_writes; i++) {
         EXPECT_EQ(readback[i], i);
     }
+}
+
+// Demonstrates the IoOptions API on TlbWindow. Silicon ignores the option
+// (kernel driver manages AXI user bits), but the API is the same one a caller
+// would use against RtlSimTlbWindow, where IoOptions{.snoop = true} maps to
+// AXI awuser/aruser bit 8 (cce_cmd_snoop). Two flows are exercised:
+//
+//   1. set_io_options() updates window-level state used by basic read/write.
+//   2. _reconfigure() takes IoOptions as a per-call argument and also updates
+//      the stored state as a side-effect.
+TEST(TestTlb, TestTlbWindowIoOptions) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+
+    const CoreCoord tensix_core =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+    tlb_data config;
+    config.local_offset = 0;
+    config.x_end = tensix_core.x;
+    config.y_end = tensix_core.y;
+    config.ordering = tlb_data::Relaxed;
+    config.static_vc = 1;
+
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+
+    EXPECT_FALSE(tlb_window->get_io_options().snoop);
+
+    // Flow 1: set_io_options() for subsequent basic IO.
+    IoOptions opts;
+    opts.snoop = true;
+    tlb_window->set_io_options(opts);
+    EXPECT_TRUE(tlb_window->get_io_options().snoop);
+
+    const uint32_t value = 0xDEADBEEF;
+    tlb_window->write32(0, value);
+    EXPECT_EQ(tlb_window->read32(0), value);
+
+    // Flow 2: per-call IoOptions on the _reconfigure family. The call also
+    // updates the stored options.
+    tlb_window->set_io_options(IoOptions{});
+    EXPECT_FALSE(tlb_window->get_io_options().snoop);
+
+    uint32_t buf = value;
+    tlb_window->write_block_reconfigure(
+        &buf, tt_xy_pair{tensix_core.x, tensix_core.y}, /*addr=*/0, sizeof(buf), NocId::NOC0, tlb_data::Strict, opts);
+    EXPECT_TRUE(tlb_window->get_io_options().snoop);
+
+    uint32_t readback = 0;
+    tlb_window->read_block_reconfigure(
+        &readback,
+        tt_xy_pair{tensix_core.x, tensix_core.y},
+        /*addr=*/0,
+        sizeof(readback),
+        NocId::NOC0,
+        tlb_data::Strict,
+        opts);
+    EXPECT_EQ(readback, value);
 }

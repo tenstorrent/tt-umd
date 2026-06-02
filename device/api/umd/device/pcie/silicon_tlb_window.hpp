@@ -10,6 +10,7 @@
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/io_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -19,6 +20,9 @@ class TlbHandle;
 /**
  * Silicon TlbWindow implementation that performs direct memory access
  * using pointer dereferencing for accessing BAR0 mapped memory.
+ *
+ * IoOptions are accepted by _reconfigure overrides but ignored: silicon AXI
+ * user bits are managed by the kernel driver, not from user space.
  */
 class SiliconTlbWindow : public TlbWindow {
 public:
@@ -56,11 +60,17 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {}) override;
 
     void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict)
-        override;
+        void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {}) override;
 
     void safe_noc_multicast_write_reconfigure(
         void* dst,
@@ -69,7 +79,8 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
+        uint64_t ordering = tlb_data::Strict,
+        const IoOptions& options = {}) override;
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 

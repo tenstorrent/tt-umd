@@ -29,6 +29,14 @@ env:
   INSTALL_OUTPUT_DIR: ./install
   WHEEL_OUTPUT_DIR: ./build/wheel
 
+# In the CI containers the default `run` shell is `sh` (dash), which lacks bash builtins like
+# `[[`. The "Build All" step uses `[[` to pick the release-flags branch; under sh that line
+# errors ("[[: not found") and the build silently falls through to the heavier else branch
+# (TT_UMD_BUILD_ALL=ON), doing far more work than intended. Default every run step to bash.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   ensure-ubuntu-2204-image:
     name: Ensure ubuntu-22.04 Docker image

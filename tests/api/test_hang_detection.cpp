@@ -68,8 +68,13 @@ protected:
                 tt_device_->get_architecture_implementation()->get_soft_reset_reg_value(RiscType::ALL_TENSIX));
         }
         NocIdSwitcher switcher(noc);
-        tt_device_->read_from_device(
-            &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+        try {
+            tt_device_->read_from_device(
+                &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+        } catch (const error::DeviceTimeoutError&) {
+            // Once the per-op MMIO timeout is active, the hang-inducing read stalls past the
+            // default 100 ms budget and aborts before returning. The NOC is hung regardless.
+        }
         return hang_read_value;
     }
 
@@ -86,7 +91,7 @@ protected:
         init_device(pci_device_id);
     }
 
-private:
+protected:
     uint64_t noc_hang_addr(tt::ARCH arch) {
         switch (arch) {
             case tt::ARCH::WORMHOLE_B0:
@@ -162,6 +167,30 @@ TEST_P(NocHangDetectionTest, DISABLED_TestIsNocHungAPI) {
 
     EXPECT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
         << "is_noc_hung() still true after warm reset.";
+}
+
+// Verifies the per-op MMIO timeout (PR #2629): once a NOC is hung, reads complete only after
+// ~700 ms, which exceeds the default 100 ms per-op budget, so the memcpy path aborts with
+// DeviceTimeoutError instead of letting the stores/loads pile up and grind the host.
+TEST_P(NocHangDetectionTest, DISABLED_PerOpTimeoutThrowsOnHungNoc) {
+    NocId noc_to_hang = GetParam();
+
+    if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE && noc_to_hang == NocId::NOC0) {
+        GTEST_SKIP()
+            << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
+    }
+
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    hang_noc(tensix_core, noc_to_hang);
+
+    uint32_t value = 0;
+    NocIdSwitcher switcher(noc_to_hang);
+    EXPECT_THROW(
+        tt_device_->read_from_device(&value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(value)),
+        error::DeviceTimeoutError)
+        << "A read on the hung NOC should trip the per-op MMIO timeout.";
+
+    warm_reset_and_reinit();
 }
 
 INSTANTIATE_TEST_SUITE_P(

@@ -50,7 +50,7 @@ public:
         uint64_t ordering = tlb_data::Strict);
 
     virtual void noc_multicast_write_reconfigure(
-        void* dst,
+        const void* src,
         size_t size,
         tt_xy_pair core_start,
         tt_xy_pair core_end,
@@ -86,7 +86,7 @@ public:
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_noc_multicast_write_reconfigure(
-        void* dst,
+        const void* src,
         size_t size,
         tt_xy_pair core_start,
         tt_xy_pair core_end,

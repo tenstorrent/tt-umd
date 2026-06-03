@@ -34,11 +34,6 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/test_utils)
 
-if(TT_UMD_BUILD_SIMULATION)
-    message(STATUS "Building ${PROJECT_NAME} with Simulation Tests")
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/simulation)
-endif()
-
 add_custom_target(
     umd_tests
     DEPENDS
@@ -52,7 +47,3 @@ add_custom_target(
         unified_tests
         test_utils_tests
 )
-
-if(TT_UMD_BUILD_SIMULATION)
-    add_dependencies(umd_tests simulation_tests)
-endif()

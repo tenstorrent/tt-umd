@@ -33,10 +33,17 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     dram_bank_size_ = soc.dram_bank_size;
 
     // Build DRAM core lookup table from SOC descriptor.
+    // soc.get_dram_cores() returns NOC0 coordinates, but the runtime
+    // (Cluster::write_core / read_core) translates to CoordSystem::TRANSLATED
+    // before invoking the chip driver.  Without converting here, is_dram_core()
+    // misses for translated coords on Blackhole (where TRANSLATED != NOC0 for
+    // DRAM cores) and routes large DRAM writes into a 1.5 MB worker slot —
+    // OOB-aborts as soon as the offset exceeds the worker L1 size.
     auto dram_cores = soc.get_dram_cores();
     for (uint32_t channel = 0; channel < dram_cores.size(); ++channel) {
         for (const auto& core : dram_cores[channel]) {
-            dram_core_to_channel_[tt_xy_pair(core.x, core.y)] = channel;
+            CoreCoord translated = soc.translate_coord_to(core, CoordSystem::TRANSLATED);
+            dram_core_to_channel_[tt_xy_pair(translated.x, translated.y)] = channel;
         }
     }
 
@@ -92,13 +99,13 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
-    std::memcpy(target_core->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
+    std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_xy_pair key(core.x, core.y);
     tt_emule::Core* target_core = get_core(key);
-    std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
+    std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 
 // Register I/O forwards to the same memory path — emulated cores have no distinct
@@ -149,7 +156,7 @@ void SWEmuleChip::dma_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint6
     throw std::runtime_error("SWEmuleChip::dma_multicast_write is not implemented");
 }
 
-void SWEmuleChip::noc_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint64_t) {
+void SWEmuleChip::noc_multicast_write(const void*, size_t, CoreCoord, CoreCoord, uint64_t) {
     throw std::runtime_error("SWEmuleChip::noc_multicast_write is not implemented");
 }
 

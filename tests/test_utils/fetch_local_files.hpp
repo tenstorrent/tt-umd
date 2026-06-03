@@ -56,6 +56,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "wormhole_N300.yaml",
              "wormhole_N300_jtag.yaml",
              "wormhole_N300_pci_bdf.yaml",
+             "quasar_Q1.yaml",
          }) {
         cluster_desc_names.push_back(GetClusterDescAbsPath(cluster_desc_name));
     }
@@ -76,6 +77,7 @@ inline std::vector<std::string> GetAllSocDescs() {
              "quasar_32_arch.yaml",
              "quasar_simulation_1x3.yaml",
              "quasar_simulation_2x3.yaml",
+             "quasar_simulation_9x4.yaml",
          }) {
         soc_desc_names.push_back(GetSocDescAbsPath(soc_desc_name));
     }

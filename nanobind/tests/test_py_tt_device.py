@@ -62,6 +62,40 @@ class TestTTDevice(unittest.TestCase):
             )
             dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
 
+            # Test noc_write with buffer-protocol inputs other than bytes
+            # (bytearray and memoryview) and verify the read-back matches.
+            try:
+                bytearray_data = bytearray((b ^ 0x5A) for b in original_data)
+                dev.noc_write(tensix_core.x, tensix_core.y, 0x200, bytearray_data)
+                self.assertEqual(
+                    dev.noc_read(
+                        tensix_core.x, tensix_core.y, 0x200, len(bytearray_data)
+                    ),
+                    bytes(bytearray_data),
+                    "noc_write with bytearray should round-trip",
+                )
+
+                memoryview_data = memoryview(bytes((b ^ 0x33) for b in original_data))
+                dev.noc_write(tensix_core.x, tensix_core.y, 0x200, memoryview_data)
+                self.assertEqual(
+                    dev.noc_read(
+                        tensix_core.x, tensix_core.y, 0x200, len(memoryview_data)
+                    ),
+                    bytes(memoryview_data),
+                    "noc_write with memoryview should round-trip",
+                )
+
+                # A non-contiguous memoryview must be rejected (PyBUF_SIMPLE
+                # requires C-contiguity) rather than silently writing wrong data.
+                non_contiguous = memoryview(bytes(32))[::2]
+                self.assertFalse(non_contiguous.contiguous)
+                with self.assertRaises(BufferError):
+                    dev.noc_write(tensix_core.x, tensix_core.y, 0x200, non_contiguous)
+            finally:
+                dev.noc_write(
+                    tensix_core.x, tensix_core.y, 0x200, original_data
+                )  # Restore
+
             # Test noc_read with buffer parameter
             buffer_size = 32
             buffer = bytearray(buffer_size)

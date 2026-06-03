@@ -506,6 +506,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
     cluster_desc->io_device_type = io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
+    cluster_desc->fw_bundle_version = first_fw_bundle_version;
     cluster_desc->merge_cluster_ids();
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();

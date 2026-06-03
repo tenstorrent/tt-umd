@@ -37,6 +37,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -96,11 +97,6 @@ TTDevice::TTDevice(
     device_protocol_ = std::move(remote_protocol);
 }
 
-TTDevice::TTDevice() = default;
-
-TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
-
 void TTDevice::probe_arc() {
     uint32_t dummy;
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
@@ -127,43 +123,53 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number, IODeviceType device_type, bool use_safe_api) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    // TODO make abstract IO handler inside TTDevice.
+    UMD_ASSERT(
+        (!use_safe_api) || (device_type == IODeviceType::PCIe),
+        error::RuntimeError,
+        "Safe I/O API is not supported for non-PCIe device types.");
+    tt::ARCH arch = tt::ARCH::Invalid;
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
-
-        switch (jtag_device->get_jtag_arch(device_number)) {
+        arch = jtag_device->get_jtag_arch(device_number);
+        switch (arch) {
             case ARCH::WORMHOLE_B0:
                 return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
             case ARCH::BLACKHOLE:
                 return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
             default:
-                return nullptr;
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Creating TTDevice is not supported for {} architecture.", arch_to_str(arch)));
         }
     }
 
     auto pci_device = std::make_unique<PCIDevice>(device_number);
+    arch = pci_device->get_arch();
 
-    switch (pci_device->get_arch()) {
+    switch (arch) {
         case ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
         case ARCH::BLACKHOLE:
             return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
         default:
-            return nullptr;
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Creating TTDevice is not supported for {} architecture.", arch_to_str(arch)));
     }
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    switch (remote_communication->get_local_device()->get_arch()) {
+    UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
+    tt::ARCH arch = remote_communication->get_local_device()->get_arch();
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
-        case tt::ARCH::BLACKHOLE: {
-            return nullptr;
-        }
         default:
-            UMD_THROW(error::RuntimeError, "Remote TTDevice creation is not supported for this architecture.");
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Remote TTDevice creation is not supported for {} architecture.", arch_to_str(arch)));
     }
 }
 

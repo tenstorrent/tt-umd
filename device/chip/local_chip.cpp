@@ -35,45 +35,20 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
 std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
-
-    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
-    if (sdesc_path.empty()) {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
-    } else {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(sdesc_path);
-    }
-    ChipInfo chip_info = tt_device->get_chip_info();
-    return LocalChip::create(
-        std::move(tt_device), SocDescriptor(soc_arch_descriptor, chip_info), num_host_mem_channels);
-}
-
-std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, const SocDescriptor& soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    // physical_device_id is not actually physical for JTAG devices here.
-    // It represents the index within a vector of jlink devices discovered by JtagDevice.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
-
-    return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
-}
-
-std::unique_ptr<LocalChip> LocalChip::create(
     std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels) {
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
+
+    if (tt_device == nullptr) {
+        UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
+    }
 
     // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.

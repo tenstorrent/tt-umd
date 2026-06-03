@@ -218,15 +218,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
     if (cluster_desc->is_chip_mmio_capable(chip_id)) {
         std::unique_ptr<LocalChip> chip;
-        if (tt_device != nullptr) {
-            chip = LocalChip::create(std::move(tt_device), soc_desc, num_host_mem_channels);
-        } else {
-            chip = LocalChip::create(
-                (cluster_desc->get_chips_with_mmio().at(chip_id)),
-                soc_desc,
-                num_host_mem_channels,
-                cluster_desc->get_cluster_io_device_type());
-        }
+        chip = LocalChip::create(std::move(tt_device), soc_desc, num_host_mem_channels);
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.

@@ -18,22 +18,6 @@
 
 namespace tt::umd {
 
-void write16_to_device(volatile void* dest, std::uint16_t value) {
-    *reinterpret_cast<volatile std::uint16_t*>(dest) = value;
-}
-
-void write32_to_device(volatile void* dest, std::uint32_t value) {
-    *reinterpret_cast<volatile std::uint32_t*>(dest) = value;
-}
-
-std::uint16_t read16_from_device(const volatile void* src) {
-    return *reinterpret_cast<const volatile std::uint16_t*>(src);
-}
-
-std::uint32_t read32_from_device(const volatile void* src) {
-    return *reinterpret_cast<const volatile std::uint32_t*>(src);
-}
-
 namespace {
 
 // Hard-coded default per-op budget; overridable at process start via the env var
@@ -112,6 +96,48 @@ private:
 };
 
 }  // namespace
+
+// The single-word scalar transfers below get the same per-op budget as the bulk memcpy paths:
+// the volatile store/load is bracketed by a steady_clock sample and checked via MmioOpTimer, so a
+// slow-but-completing op (e.g. a ~700 ms read of a hung NOC register) trips the timeout instead of
+// silently returning. A hard stall inside the instruction is still caught by SIGBUS, not here.
+void write16_to_device(volatile void* dest, std::uint16_t value, const MemcpyTimeoutFn& on_timeout) {
+    std::size_t remaining = sizeof(value);
+    MmioOpTimer timer("write16_to_device", "store", sizeof(value), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    *reinterpret_cast<volatile std::uint16_t*>(dest) = value;
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
+}
+
+void write32_to_device(volatile void* dest, std::uint32_t value, const MemcpyTimeoutFn& on_timeout) {
+    std::size_t remaining = sizeof(value);
+    MmioOpTimer timer("write32_to_device", "store", sizeof(value), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    *reinterpret_cast<volatile std::uint32_t*>(dest) = value;
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
+}
+
+std::uint16_t read16_from_device(const volatile void* src, const MemcpyTimeoutFn& on_timeout) {
+    std::size_t remaining = sizeof(std::uint16_t);
+    MmioOpTimer timer("read16_from_device", "load", sizeof(std::uint16_t), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    std::uint16_t value = *reinterpret_cast<const volatile std::uint16_t*>(src);
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
+    return value;
+}
+
+std::uint32_t read32_from_device(const volatile void* src, const MemcpyTimeoutFn& on_timeout) {
+    std::size_t remaining = sizeof(std::uint32_t);
+    MmioOpTimer timer("read32_from_device", "load", sizeof(std::uint32_t), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    std::uint32_t value = *reinterpret_cast<const volatile std::uint32_t*>(src);
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
+    return value;
+}
 
 void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout) {
     const std::size_t original_size = size;

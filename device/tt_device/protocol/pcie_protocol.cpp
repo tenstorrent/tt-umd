@@ -82,6 +82,7 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 }
 
 void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         read_from_device_reg_impl<true>(mem_ptr, core, addr, size, noc_id);

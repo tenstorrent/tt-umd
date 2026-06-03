@@ -13,6 +13,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -51,6 +52,7 @@ void TlbWindow::read_block_reconfigure(
 
 void TlbWindow::read_register_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    validate_register_access(addr, size);
     uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
     tlb_data config{};
     config.local_offset = addr;

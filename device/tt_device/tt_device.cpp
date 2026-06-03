@@ -305,12 +305,7 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
 
 void TTDevice::read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    if (size % sizeof(uint32_t) != 0) {
-        UMD_THROW(error::RuntimeError, "Size must be a multiple of 4 bytes.");
-    }
-    if (addr % sizeof(uint32_t) != 0) {
-        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
-    }
+    validate_register_access(addr, size);
     device_protocol_->read_from_device_reg(mem_ptr, core, addr, size, get_selected_noc_id());
 }
 

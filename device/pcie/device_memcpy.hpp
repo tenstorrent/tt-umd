@@ -81,14 +81,14 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
 void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout = {});
 
 /**
- * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Centralizing these
- * here (alongside the bulk memcpy routines) keeps every TLB-touching store/load behind a
- * single set of primitives that future improvements (per-op timeouts, instrumentation,
- * etc.) can wrap uniformly.
+ * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Each carries the same
+ * optional per-op budget as the bulk memcpy routines: on overrun the behavior follows on_timeout
+ * (no callback throws DeviceTimeoutError; see MemcpyTimeoutFn). Centralizing them here keeps every
+ * TLB-touching store/load behind a single set of timed primitives.
  */
-void write16_to_device(volatile void* dest, std::uint16_t value);
-void write32_to_device(volatile void* dest, std::uint32_t value);
-std::uint16_t read16_from_device(const volatile void* src);
-std::uint32_t read32_from_device(const volatile void* src);
+void write16_to_device(volatile void* dest, std::uint16_t value, const MemcpyTimeoutFn& on_timeout = {});
+void write32_to_device(volatile void* dest, std::uint32_t value, const MemcpyTimeoutFn& on_timeout = {});
+std::uint16_t read16_from_device(const volatile void* src, const MemcpyTimeoutFn& on_timeout = {});
+std::uint32_t read32_from_device(const volatile void* src, const MemcpyTimeoutFn& on_timeout = {});
 
 }  // namespace tt::umd

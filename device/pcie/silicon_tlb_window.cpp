@@ -73,22 +73,22 @@ SiliconTlbWindow::SiliconTlbWindow(
 
 void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
-    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value);
+    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, on_timeout_);
 }
 
 uint16_t SiliconTlbWindow::read16(uint64_t offset) {
     validate(offset, sizeof(uint16_t));
-    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset));
+    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), on_timeout_);
 }
 
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
-    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value);
+    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, on_timeout_);
 }
 
 uint32_t SiliconTlbWindow::read32(uint64_t offset) {
     validate(offset, sizeof(uint32_t));
-    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset));
+    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), on_timeout_);
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
@@ -231,7 +231,7 @@ void SiliconTlbWindow::memcpy_to_device(
 
 void SiliconTlbWindow::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
     while (word_len-- != 0) {
-        write32_to_device(dest++, *src++);
+        write32_to_device(dest++, *src++, on_timeout_);
     }
 }
 
@@ -240,7 +240,7 @@ void SiliconTlbWindow::read_regs(void *src_reg, uint32_t word_len, void *data) {
     auto *dest = reinterpret_cast<uint32_t *>(data);
 
     while (word_len-- != 0) {
-        uint32_t temp = read32_from_device(src++);
+        uint32_t temp = read32_from_device(src++, on_timeout_);
         memcpy(dest++, &temp, sizeof(temp));
     }
 }

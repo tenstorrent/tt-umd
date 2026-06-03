@@ -74,10 +74,9 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
     if (soc_descriptor_path.empty()) {
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
     } else {
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor =
-            std::make_shared<SocArchDescriptor>(soc_descriptor_path);
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
         if (soc_arch_descriptor->get_arch() != current_arch) {
             UMD_THROW(
                 error::RuntimeError,

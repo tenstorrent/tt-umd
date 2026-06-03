@@ -49,10 +49,6 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
         UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
     }
 
-    if (tt_device == nullptr) {
-        UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
-    }
-
     // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
     if (tt_device->get_pci_device() != nullptr) {
@@ -60,7 +56,6 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
 
-    tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT);  // TODO
     return std::unique_ptr<LocalChip>(
         new LocalChip(std::move(tt_device), std::move(tlb_manager), std::move(sysmem_manager)));
 }

@@ -33,13 +33,11 @@ class RemoteChip : public Chip {
 public:
     /** Create a RemoteChip instance.
      *
+     * @param remote_tt_device An existing, initalized remote TTDevice.
      * @param local_chip The local chip to be used for communication to this remote chip.
-     * @param target_eth_coord The target Ethernet coordinates for the remote chip.
-     * @param remote_transfer_eth_channels The set of Ethernet channels on local chip to use for remote communication.
      * @return A unique pointer to the created RemoteChip instance.
      */
-    static std::unique_ptr<RemoteChip> create(
-        LocalChip* local_chip, EthCoord target_eth_coord, const std::set<uint32_t>& remote_transfer_eth_channels);
+    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip);
 
     bool is_mmio_capable() const override;
 

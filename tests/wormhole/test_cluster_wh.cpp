@@ -84,10 +84,15 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     });
     for (const auto& chip : cluster.get_target_device_ids()) {
         ASSERT_EQ(
+            cluster.get_tt_device(chip)->get_soc_descriptor().get_cores(CoreType::TENSIX).size() +
+                cluster.get_tt_device(chip)->get_soc_descriptor().get_harvested_cores(CoreType::TENSIX).size(),
+            1)
+            << "Expected 1x1 SOC descriptor to be used in TTDevice.";
+        ASSERT_EQ(
             cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX).size() +
                 cluster.get_soc_descriptor(chip).get_harvested_cores(CoreType::TENSIX).size(),
             1)
-            << "Expected 1x1 SOC descriptor to be unmodified by driver";
+            << "Expected 1x1 SOC descriptor to be unmodified by driver.";
     }
 }
 

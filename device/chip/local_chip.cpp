@@ -28,7 +28,6 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -46,7 +45,6 @@ std::unique_ptr<LocalChip> LocalChip::create(
     std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels) {
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
-    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
 
     if (tt_device == nullptr) {
         UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
@@ -58,32 +56,19 @@ std::unique_ptr<LocalChip> LocalChip::create(
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
-    SysmemManager* sysmem_ptr =
-        (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
-    // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    // TODO: Instead of having this in LocalChip, every TTDevice w/ ETH cores should have its own RemoteCommunication,
-    // initialized with a correctly EthCoord.
-    remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
-    tt_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor.device_descriptor_file_path);
-    return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
-        std::move(tt_device),
-        std::move(tlb_manager),
-        std::move(sysmem_manager),
-        std::move(remote_communication)));
+    return std::unique_ptr<LocalChip>(
+        new LocalChip(soc_descriptor, std::move(tt_device), std::move(tlb_manager), std::move(sysmem_manager)));
 }
 
 LocalChip::LocalChip(
     SocDescriptor soc_descriptor,
     std::unique_ptr<TTDevice> tt_device,
     std::unique_ptr<TLBManager> tlb_manager,
-    std::unique_ptr<SysmemManager> sysmem_manager,
-    std::unique_ptr<RemoteCommunication> remote_communication) :
+    std::unique_ptr<SysmemManager> sysmem_manager) :
     Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
-    remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
     wait_chip_to_be_ready();
@@ -98,7 +83,6 @@ LocalChip::~LocalChip() {
     tt_device_->set_power_state(false);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
-    remote_communication_.reset();
     sysmem_manager_.reset();
     tlb_manager_.reset();
     tt_device_.reset();
@@ -383,39 +367,11 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
 
-void LocalChip::ethernet_broadcast_write(
-    const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header) {
-    // Depending on the device type, the implementation may vary.
-    // Currently JTAG doesn't support remote communication.
-    if (!remote_communication_) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Ethernet remote transfer is currently not supported for {} devices.",
-                DeviceTypeToString.at(tt_device_->get_communication_device_type())));
-    }
+void LocalChip::wait_for_non_mmio_flush() {}
 
-    // target_chip and target_core are ignored when broadcast is enabled.
-    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, std::move(broadcast_header));
-}
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>&) {}
 
-void LocalChip::wait_for_non_mmio_flush() {
-    if (remote_communication_) {
-        remote_communication_->wait_for_non_mmio_flush();
-    }
-}
-
-void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
-    // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
-}
-
-void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
-}
+void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>&) {}
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(const std::string& mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
@@ -590,7 +546,8 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     return cached_uc_tlb_window.get();
 }
 
-void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void LocalChip::noc_multicast_write(
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
@@ -604,7 +561,7 @@ void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start
     std::lock_guard<std::mutex> lock(wc_tlb_lock);
 
     get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
-        dst,
+        src,
         size,
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),

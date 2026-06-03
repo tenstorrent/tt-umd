@@ -77,14 +77,14 @@ void TlbWindow::write_block_reconfigure(
 }
 
 void TlbWindow::noc_multicast_write_reconfigure(
-    void* dst,
+    const void* src,
     size_t size,
     tt_xy_pair core_start,
     tt_xy_pair core_end,
     uint64_t addr,
     NocId noc_id,
     uint64_t ordering) {
-    uint8_t* buffer_addr = static_cast<uint8_t*>(dst);
+    const uint8_t* buffer_addr = static_cast<const uint8_t*>(src);
     tlb_data config{};
     config.local_offset = addr;
     config.x_start = core_start.x;
@@ -160,14 +160,14 @@ void TlbWindow::safe_read_block_reconfigure(
 }
 
 void TlbWindow::safe_noc_multicast_write_reconfigure(
-    void* dst,
+    const void* src,
     size_t size,
     tt_xy_pair core_start,
     tt_xy_pair core_end,
     uint64_t addr,
     NocId noc_id,
     uint64_t ordering) {
-    noc_multicast_write_reconfigure(dst, size, core_start, core_end, addr, noc_id, ordering);
+    noc_multicast_write_reconfigure(src, size, core_start, core_end, addr, noc_id, ordering);
 }
 
 }  // namespace tt::umd

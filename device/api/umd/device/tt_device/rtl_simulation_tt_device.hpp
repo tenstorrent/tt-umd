@@ -63,7 +63,7 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
-    void noc_multicast_write(void* src, size_t size, uint64_t addr) override;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 

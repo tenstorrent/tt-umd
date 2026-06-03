@@ -476,12 +476,14 @@ void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_risc
 
 tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 
-void TTDevice::noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+void TTDevice::noc_multicast_write(
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
     get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }
 
-void TTDevice::noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void TTDevice::noc_multicast_write(
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     const SocDescriptor &soc_desc = get_soc_descriptor();
     noc_multicast_write(
         src,

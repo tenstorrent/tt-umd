@@ -37,7 +37,6 @@
 // Simulation-specific headers -- only needed when TT_UMD_BUILD_SIMULATION is set.
 // The code that uses these types is guarded by #ifdef TT_UMD_BUILD_SIMULATION below.
 #ifdef TT_UMD_BUILD_SIMULATION
-#include "umd/device/simulation/tt_sim_chip.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #endif  // TT_UMD_BUILD_SIMULATION
@@ -223,7 +222,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             // Remote transfer currently supported only for wormhole.
-            chip->set_remote_transfer_ethernet_cores(cluster_desc->get_active_eth_channels(chip_id));
+            SysmemManager* sysmem_ptr = chip->get_sysmem_manager();
+            if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
+                sysmem_ptr = nullptr;
+            }
+            remote_communications_[chip_id] =
+                RemoteCommunication::create_remote_communication(chip->get_tt_device(), {0, 0, 0, 0}, sysmem_ptr);
+            remote_communications_[chip_id]->set_remote_transfer_ethernet_cores(
+                chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    cluster_desc->get_active_eth_channels(chip_id), CoordSystem::TRANSLATED));
         }
         return chip;
     } else {
@@ -422,7 +429,7 @@ Cluster::Cluster(ClusterOptions options) {
             if (it == chips_.end()) {
                 return nullptr;
             }
-            auto* sim_chip = dynamic_cast<tt::umd::TTSimChip*>(it->second.get());
+            auto* sim_chip = dynamic_cast<tt::umd::SimulationChip*>(it->second.get());
             if (!sim_chip) {
                 return nullptr;
             }
@@ -498,7 +505,7 @@ void Cluster::register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t et
     if (it == chips_.end()) {
         return;
     }
-    auto* sim_chip = dynamic_cast<TTSimChip*>(it->second.get());
+    auto* sim_chip = dynamic_cast<SimulationChip*>(it->second.get());
     if (!sim_chip) {
         return;
     }
@@ -516,7 +523,7 @@ void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint
     if (chip_it == chips_.end()) {
         return;
     }
-    auto* sim_chip = dynamic_cast<TTSimChip*>(chip_it->second.get());
+    auto* sim_chip = dynamic_cast<SimulationChip*>(chip_it->second.get());
     if (!sim_chip) {
         return;
     }
@@ -532,6 +539,11 @@ void Cluster::register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint
 
 void Cluster::configure_active_ethernet_cores_for_mmio_device(
     ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip) {
+    // Remote communication is only set up on architectures that support it (currently Wormhole). On other
+    // architectures there is nothing to configure for remote ethernet transfers.
+    if (remote_communications_.find(mmio_chip) == remote_communications_.end()) {
+        return;
+    }
     // The ethernet cores that should be used for remote transfer are set in the RemoteCommunication structure.
     // This structure is used by remote chips. So we need to find all remote chips that use the passed in mmio_chip,
     // and set the active ethernet cores for them.
@@ -541,7 +553,9 @@ void Cluster::configure_active_ethernet_cores_for_mmio_device(
         }
     }
     // Local chips hold communication primitives for broadcasting, so we have to set this up for them as well.
-    get_local_chip(mmio_chip)->set_remote_transfer_ethernet_cores(active_eth_cores_per_chip);
+    remote_communications_.at(mmio_chip)->set_remote_transfer_ethernet_cores(
+        get_local_chip(mmio_chip)->get_soc_descriptor().translate_coords_to_xy_pair(
+            active_eth_cores_per_chip, CoordSystem::TRANSLATED));
 }
 
 std::set<ChipId> Cluster::get_target_device_ids() { return all_chip_ids_; }
@@ -661,7 +675,9 @@ void Cluster::refresh_cluster_description() {
     for (const ChipId chip_id : local_chip_ids_) {
         if (cluster_desc->get_arch(chip_id) == tt::ARCH::WORMHOLE_B0) {
             const std::set<uint32_t> active_channels = cluster_desc->get_active_eth_channels(chip_id);
-            get_local_chip(chip_id)->set_remote_transfer_ethernet_cores(active_channels);
+            remote_communications_.at(chip_id)->set_remote_transfer_ethernet_cores(
+                get_local_chip(chip_id)->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    active_channels, CoordSystem::TRANSLATED));
             for (const ChipId remote_chip_id : remote_chip_ids_) {
                 if (cluster_desc->get_closest_mmio_capable_chip(remote_chip_id) == chip_id) {
                     get_remote_chip(remote_chip_id)->set_remote_transfer_ethernet_cores(active_channels);
@@ -762,6 +778,9 @@ void Cluster::wait_for_non_mmio_flush() {
     for (auto& [chip_id, chip] : chips_) {
         chip->wait_for_non_mmio_flush();
     }
+    for (auto& [chip_id, remote_comm] : remote_communications_) {
+        remote_comm->wait_for_non_mmio_flush();
+    }
 }
 
 std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet_broadcast_headers(
@@ -776,8 +795,10 @@ std::unordered_map<ChipId, std::vector<std::vector<int>>>& Cluster::get_ethernet
         for (const auto& chip : all_chip_ids_) {
             if (chips_to_exclude.find(chip) == chips_to_exclude.end()) {
                 // Get shelf local physical chip id included in broadcast.
-                ChipId physical_chip_id = cluster_desc->get_shelf_local_physical_chip_coords(chip);
                 EthCoord eth_coords = cluster_desc->get_chip_locations().at(chip);
+                // Legacy way of calculating the chip's place in the grid, dating back from older Galaxy
+                // configurations.
+                ChipId physical_chip_id = 8 * eth_coords.x + eth_coords.y;
                 // Rack word to be set in header.
                 uint32_t rack_word = eth_coords.rack >> 2;
                 // Rack byte to be set in header.
@@ -912,7 +933,8 @@ void Cluster::ethernet_broadcast_write(
             header.at(4) = use_translated_coords * 0x8000;  // Reset row/col exclusion masks
             header.at(4) |= row_exclusion_mask;
             header.at(4) |= col_exclusion_mask;
-            get_local_chip(mmio_group.first)->ethernet_broadcast_write(mem_ptr, address, size_in_bytes, header);
+            remote_communications_.at(mmio_group.first)
+                ->write_to_non_mmio({0, 0}, mem_ptr, address, size_in_bytes, true, header);
         }
     }
 }
@@ -1141,9 +1163,9 @@ void Cluster::read_from_device_reg(void* mem_ptr, ChipId chip, CoreCoord core, u
 }
 
 void Cluster::noc_multicast_write(
-    void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    const void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    get_chip(chip)->noc_multicast_write(dst, size, core_start, core_end, addr);
+    get_chip(chip)->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
 int Cluster::arc_msg(

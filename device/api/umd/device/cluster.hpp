@@ -27,6 +27,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -445,7 +446,7 @@ public:
         void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     void noc_multicast_write(
-        void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        const void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -749,6 +750,7 @@ private:
     std::set<ChipId> remote_chip_ids_;
     std::set<ChipId> local_chip_ids_;
     std::unordered_map<ChipId, std::unique_ptr<Chip>> chips_;
+    std::unordered_map<ChipId, std::unique_ptr<RemoteCommunication>> remote_communications_;
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;

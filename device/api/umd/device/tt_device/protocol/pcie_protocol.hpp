@@ -48,7 +48,7 @@ public:
         override;
     int get_mmio_id() override;
 
-    void set_io_timeout_callback(std::function<bool(NocId)> hang_check) override;
+    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
 
     // PcieInterface.
     PCIDevice* get_pci_device() override;

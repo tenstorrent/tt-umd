@@ -103,7 +103,7 @@ void TTDevice::probe_arc() {
 }
 
 void TTDevice::init_tt_device(
-    const std::chrono::milliseconds timeout_ms, std::shared_ptr<SocArchDescriptor> soc_arch_descriptor) {
+    const std::chrono::milliseconds timeout_ms, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
@@ -232,7 +232,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
     return remote_capabilities_;
 }
 
-tt::ARCH TTDevice::get_arch() { return arch; }
+tt::ARCH TTDevice::get_arch() const { return arch; }
 
 bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     if (!hang_detector_) {
@@ -424,7 +424,7 @@ uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get
 
 ChipInfo TTDevice::get_chip_info() {
     if (firmware_info_provider == nullptr) {
-        UMD_THROW(error::RuntimeError, "Cannot obtain ChipInfo from uninitialized TTDevice.");
+        UMD_THROW(error::UninitializedDeviceError, *this);
     }
     ChipInfo chip_info;
 
@@ -567,9 +567,14 @@ void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
 }
 
-const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
+const SocDescriptor &TTDevice::get_soc_descriptor() const {
+    if (!soc_descriptor_.has_value()) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return soc_descriptor_.value();
+}
 
-void TTDevice::construct_soc_descriptor(std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     if (soc_arch_descriptor == nullptr) {
         soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
     } else {

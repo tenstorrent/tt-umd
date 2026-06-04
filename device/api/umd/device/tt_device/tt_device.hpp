@@ -88,7 +88,7 @@ public:
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
 
-    tt::ARCH get_arch();
+    tt::ARCH get_arch() const;
 
     /**
      * @brief Controls what happens when a hang is confirmed.
@@ -370,7 +370,7 @@ public:
 
     void init_tt_device(
         std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr);
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     uint64_t get_refclk_counter();
 
@@ -491,7 +491,7 @@ protected:
 
     tt_xy_pair arc_core;
 
-    void construct_soc_descriptor(std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:

@@ -10,6 +10,7 @@
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 enum class IODeviceType;

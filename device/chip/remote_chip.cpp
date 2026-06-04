@@ -30,6 +30,9 @@ static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.
 
 std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    UMD_ASSERT(
+        remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
+    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "LocalChip passed to RemoteChip must not be null.");
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device)));
 }
 

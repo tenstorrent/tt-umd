@@ -33,7 +33,7 @@ class RemoteChip : public Chip {
 public:
     /** Create a RemoteChip instance.
      *
-     * @param remote_tt_device An existing, initalized remote TTDevice.
+     * @param remote_tt_device An existing, initialized remote TTDevice.
      * @param local_chip The local chip to be used for communication to this remote chip.
      * @return A unique pointer to the created RemoteChip instance.
      */

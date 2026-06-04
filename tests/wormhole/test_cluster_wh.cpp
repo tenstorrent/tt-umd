@@ -833,6 +833,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
 TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
     // For each remote chip, broadcast a vector to its tensix grid using EthernetBroadcastSingleRemote
     // and verify the data is read back correctly.
+    // Note: this test intentionally only covers the tensix branch. The DRAM branch (the virtual-column 0/5
+    // split logic in broadcast_write_to_cluster) is already exercised by VirtualCoordinateBroadcastPerChip.
     Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();

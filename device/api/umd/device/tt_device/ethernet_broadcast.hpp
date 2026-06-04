@@ -76,6 +76,8 @@ private:
     std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
         const std::set<ChipId>& chips_to_exclude);
 
+    bool single_remote_chip_ = false;
+
     std::unordered_map<ChipId, EthCoord> chip_locations_;
     std::unordered_map<ChipId, ChipId> chip_to_mmio_chip_;
     std::unordered_map<ChipId, RemoteCommunication*> mmio_remote_comms_;

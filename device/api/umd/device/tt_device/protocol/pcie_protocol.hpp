@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -46,6 +47,8 @@ public:
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id)
         override;
     int get_mmio_id() override;
+
+    void set_io_timeout_callback(std::function<bool(NocId)> hang_check) override;
 
     // PcieInterface.
     PCIDevice* get_pci_device() override;
@@ -95,6 +98,12 @@ private:
     std::mutex dma_mutex_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
+
+    // Hang check forwarded to the cached window's timed memcpy path, plus the NOC of the in-flight
+    // op (set under io_lock_ before each transfer) so the check probes the right NOC. Empty until a
+    // HangDetector is wired in (see TTDevice::set_hang_detector); while empty, an overrun throws.
+    std::function<bool(NocId)> hang_check_;
+    NocId in_flight_noc_ = NocId::NOC0;
 };
 
 }  // namespace tt::umd

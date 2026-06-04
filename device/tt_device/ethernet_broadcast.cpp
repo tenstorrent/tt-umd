@@ -21,6 +21,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -53,11 +54,13 @@ EthernetBroadcast::EthernetBroadcast(
     const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms) :
     chip_locations_(chip_locations), chip_to_mmio_chip_(chip_to_mmio_chip), mmio_remote_comms_(mmio_remote_comms) {}
 
-void EthernetBroadcast::clear_header_cache(
+void EthernetBroadcast::refresh(
     const std::unordered_map<ChipId, EthCoord>& chip_locations,
-    const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip) {
+    const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,
+    const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms) {
     chip_locations_ = chip_locations;
     chip_to_mmio_chip_ = chip_to_mmio_chip;
+    mmio_remote_comms_ = mmio_remote_comms;
     bcast_header_cache_.clear();
 }
 
@@ -268,7 +271,6 @@ void EthernetBroadcast::broadcast_write_to_cluster(
     std::set<uint32_t> cols_to_exclude_virtual;
     adjust_coordinates_for_ethernet_broadcast(
         rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
-
 
     auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
     if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or

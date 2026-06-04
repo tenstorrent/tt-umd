@@ -17,6 +17,10 @@ namespace tt::umd {
 
 class RemoteCommunication;
 
+// Wormhole-only broadcast over ethernet (ERISC FW). The header generation and coordinate adjustment are
+// hardwired to Wormhole's grid layout and translated<->virtual tables, so this class must only be constructed
+// for WORMHOLE_B0 clusters (the owning Cluster gates this on arch). Other architectures would silently
+// misroute writes and are not supported here.
 class EthernetBroadcast {
 public:
     EthernetBroadcast(
@@ -33,9 +37,15 @@ public:
         std::set<uint32_t>& columns_to_exclude,
         bool use_translated_coords);
 
-    void clear_header_cache(
+    // Re-seeds all topology state captured at construction (chip locations, chip->MMIO mapping and the
+    // per-MMIO RemoteCommunication pointers) and drops the cached broadcast headers. Takes the same three
+    // pieces as the constructor so they cannot drift out of sync. Must be called whenever the owning Cluster
+    // refreshes its cluster description, including when remote_communications_ is rebuilt, to avoid retaining
+    // dangling RemoteCommunication* pointers.
+    void refresh(
         const std::unordered_map<ChipId, EthCoord>& chip_locations,
-        const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip);
+        const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,
+        const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms);
 
 private:
     // Validates that the caller-supplied rows/columns lie in the coordinate space selected by

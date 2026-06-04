@@ -694,7 +694,11 @@ void Cluster::refresh_cluster_description() {
                                           ? cluster_desc->get_closest_mmio_capable_chip(chip)
                                           : first_mmio_chip;
         }
-        ethernet_broadcast_->clear_header_cache(cluster_desc->get_chip_locations(), chip_to_mmio_chip);
+        std::unordered_map<ChipId, RemoteCommunication*> mmio_remote_comms;
+        for (auto& [chip_id, rc] : remote_communications_) {
+            mmio_remote_comms[chip_id] = rc.get();
+        }
+        ethernet_broadcast_->refresh(cluster_desc->get_chip_locations(), chip_to_mmio_chip, mmio_remote_comms);
     }
 
     for (const ChipId chip_id : local_chip_ids_) {

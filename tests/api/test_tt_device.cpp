@@ -310,8 +310,8 @@ TEST(ApiTTDeviceTest, UninitializedError) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(true);
-        EXPECT_THROW(tt_device->get_chip_info(), error::UninitializedDeviceError);
-        EXPECT_THROW(tt_device->get_soc_descriptor(), error::UninitializedDeviceError);
+        EXPECT_THROW(tt_device->get_chip_info(), error::UmdException<error::UninitializedDeviceError>);
+        EXPECT_THROW(tt_device->get_soc_descriptor(), error::UmdException<error::UninitializedDeviceError>);
         // Initialize device.
         ASSERT_NO_THROW(tt_device->init_tt_device());
         EXPECT_NO_THROW(tt_device->get_chip_info());

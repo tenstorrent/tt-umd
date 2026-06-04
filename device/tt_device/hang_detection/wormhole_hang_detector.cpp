@@ -28,9 +28,7 @@ uint32_t WormholeHangDetector::read_hang_check_reg_via_noc(NocId noc) {
     tt_xy_pair core = get_hang_check_core(noc);
     uint64_t addr = get_arch_impl()->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(noc)) +
                     get_arch_impl()->get_noc_node_id_offset();
-    uint32_t value = 0;
-    get_protocol()->read_from_device(&value, core, addr, sizeof(value), noc);
-    return value;
+    return read_noc_reg_via_probe_window(core, addr, noc);
 }
 
 tt_xy_pair WormholeHangDetector::get_hang_check_core(NocId noc) {

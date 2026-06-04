@@ -6,15 +6,19 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
+#include <mutex>
 #include <optional>
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
 class DeviceProtocol;
 class PcieInterface;
+class TlbWindow;
 enum class NocId : uint8_t;
 
 /**
@@ -31,7 +35,7 @@ enum class NocId : uint8_t;
  */
 class HangDetector {
 public:
-    virtual ~HangDetector() = default;
+    virtual ~HangDetector();
 
     // Public API. Returns std::nullopt when the underlying protocol
     // does not support the check.
@@ -47,6 +51,13 @@ protected:
 
     architecture_implementation* get_arch_impl() const { return arch_impl_; }
 
+    // Reads a single 32-bit NOC register for the hang check. On PCIe this goes through a dedicated,
+    // un-timed TLB window guarded by its own lock — NOT the protocol's main cached window / io_lock_.
+    // That keeps the probe safe to call from inside a timed-out memcpy (the intended on_timeout use):
+    // it neither re-takes io_lock_ (no deadlock) nor re-enters the timed memcpy path (no recursion).
+    // On non-PCIe protocols (e.g. JTAG) there is no timed path, so it falls back to a normal read.
+    uint32_t read_noc_reg_via_probe_window(tt_xy_pair core, uint64_t addr, NocId noc);
+
 private:
     // Arch-specific implementations.
     virtual uint32_t read_hang_check_reg_via_bar() = 0;
@@ -56,6 +67,11 @@ private:
     PcieInterface* pcie_interface_;
     bool is_mmio_protocol_;
     architecture_implementation* arch_impl_;
+
+    // Dedicated NOC-probe window (PCIe only), created lazily on first probe and serialized by
+    // probe_lock_. Separate from the protocol's cached window so probes never contend io_lock_.
+    std::unique_ptr<TlbWindow> noc_probe_window_;
+    std::mutex probe_lock_;
 };
 
 }  // namespace tt::umd

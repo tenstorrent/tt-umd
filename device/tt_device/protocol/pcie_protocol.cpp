@@ -55,16 +55,28 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
 
 PcieProtocol::~PcieProtocol() = default;
 
+void PcieProtocol::set_io_timeout_callback(std::function<bool(NocId)> hang_check) {
+    hang_check_ = std::move(hang_check);
+}
+
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
-        cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
-            pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        // on_timeout consults the wired hang check for the NOC of the in-flight op. true (NOC hung)
+        // aborts with DeviceTimeoutError; false (healthy) continues. With no hang check wired yet, an
+        // overrun aborts outright, preserving the no-callback throw-by-default behavior.
+        auto on_timeout = [this]() -> bool { return hang_check_ ? hang_check_(in_flight_noc_) : true; };
+        cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(
+            pci_device_->allocate_tlb(
+                pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC),
+            tlb_data{},
+            on_timeout);
     }
     return cached_tlb_window_.get();
 }
 
 void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
+    in_flight_noc_ = noc_id;
     if (use_safe_api_) {
         write_to_device_impl<true>(mem_ptr, core, addr, size, noc_id);
     } else {
@@ -74,6 +86,7 @@ void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_
 
 void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
+    in_flight_noc_ = noc_id;
     if (use_safe_api_) {
         read_from_device_impl<true>(mem_ptr, core, addr, size, noc_id);
     } else {
@@ -107,6 +120,7 @@ int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
 void PcieProtocol::noc_multicast_write(
     const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
+    in_flight_noc_ = noc_id;
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
             src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);

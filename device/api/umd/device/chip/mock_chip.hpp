@@ -20,7 +20,7 @@ class SocDescriptor;
 
 class MockChip : public Chip {
 public:
-    MockChip(SocDescriptor soc_descriptor);
+    MockChip(const SocDescriptor& soc_descriptor);
     bool is_mmio_capable() const override;
 
     void start_device(uint32_t dram_membar_subchannel = 0) override;
@@ -29,6 +29,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
@@ -72,5 +74,8 @@ public:
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
+
+private:
+    SocDescriptor soc_descriptor_;
 };
 }  // namespace tt::umd

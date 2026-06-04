@@ -14,13 +14,15 @@
 
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
 
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
-SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor)) {
+SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
+    Chip(soc_descriptor.arch), soc_descriptor_(soc_descriptor) {
     auto& soc = get_soc_descriptor();
 
     l1_size_ = soc.worker_l1_size;

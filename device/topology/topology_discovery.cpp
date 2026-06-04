@@ -27,6 +27,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -71,20 +72,38 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
     }
 
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
+    if (soc_descriptor_path.empty()) {
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
+    } else {
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
+        if (soc_arch_descriptor->get_arch() != current_arch) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Architecture {} in SocArchDescriptor file on path {} does not match architecture {} on silicon.",
+                    arch_to_str(soc_arch_descriptor->get_arch()),
+                    soc_descriptor_path,
+                    arch_to_str(current_arch)));
+        }
+    }
+
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<TopologyDiscoveryWormhole>(options, io_device_type, soc_descriptor_path);
+            return std::make_unique<TopologyDiscoveryWormhole>(soc_arch_descriptor, options, io_device_type);
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<TopologyDiscoveryBlackhole>(options, io_device_type, soc_descriptor_path);
+            return std::make_unique<TopologyDiscoveryBlackhole>(soc_arch_descriptor, options, io_device_type);
         default:
             UMD_THROW(error::RuntimeError, fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    options(options), io_device_type(io_device_type), soc_descriptor_path(soc_descriptor_path) {}
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
+    const TopologyDiscoveryOptions& options,
+    IODeviceType io_device_type) :
+    options(options), io_device_type(io_device_type), soc_arch_descriptor_(std::move(soc_arch_descriptor)) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -157,7 +176,7 @@ void TopologyDiscovery::get_connected_devices() {
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
         try {
-            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_descriptor_path);
+            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_arch_descriptor_);
         } catch (error::UmdBaseException& err) {
             if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                 throw;
@@ -347,7 +366,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
                 bool device_init_failed = false;
                 try {
-                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor_path);
+                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_arch_descriptor_);
                 } catch (error::UmdBaseException& err) {
                     if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                         throw;

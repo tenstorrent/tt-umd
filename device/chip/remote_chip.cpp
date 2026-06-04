@@ -28,30 +28,16 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-std::unique_ptr<RemoteChip> RemoteChip::create(
-    LocalChip* local_chip,
-    EthCoord target_eth_coord,
-    const std::set<uint32_t>& remote_transfer_eth_channels,
-    SocDescriptor soc_descriptor) {
+std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    auto sysmem_manager = local_chip->get_sysmem_manager();
-    auto remote_communication = RemoteCommunication::create_remote_communication(
-        local_chip->get_tt_device(),
-        target_eth_coord,
-        sysmem_manager->get_num_host_mem_channels() > 0 ? local_chip->get_sysmem_manager() : nullptr);
-    remote_communication->set_remote_transfer_ethernet_cores(
-        local_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-            remote_transfer_eth_channels, CoordSystem::TRANSLATED));
-    auto remote_tt_device = TTDevice::create(std::move(remote_communication));
-    remote_tt_device->init_tt_device();
-
-    return std::unique_ptr<RemoteChip>(
-        new RemoteChip(std::move(soc_descriptor), local_chip, std::move(remote_tt_device)));
+    UMD_ASSERT(
+        remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
+    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "LocalChip passed to RemoteChip must not be null.");
+    return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device)));
 }
 
-RemoteChip::RemoteChip(
-    SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), std::move(soc_descriptor)), local_chip_(local_chip) {
+RemoteChip::RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
+    Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();

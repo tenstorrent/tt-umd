@@ -30,8 +30,7 @@ class TLBManager;
 
 class LocalChip : public Chip {
 public:
-    static std::unique_ptr<LocalChip> create(
-        std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels = 0);
+    static std::unique_ptr<LocalChip> create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels = 0);
 
     ~LocalChip() override;
 
@@ -43,6 +42,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -78,7 +79,6 @@ public:
 
 private:
     LocalChip(
-        SocDescriptor soc_descriptor,
         std::unique_ptr<TTDevice> tt_device,
         std::unique_ptr<TLBManager> tlb_manager,
         std::unique_ptr<SysmemManager> sysmem_manager);

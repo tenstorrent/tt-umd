@@ -229,7 +229,7 @@ void bind_tt_device(nb::module_ &m) {
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("soc_descriptor_path") = "",
+            nb::arg("soc_arch_descriptor") = nullptr,
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())

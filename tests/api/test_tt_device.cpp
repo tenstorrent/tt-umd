@@ -23,6 +23,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -301,5 +302,19 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         }
 
         tt_device->set_power_state(false);
+    }
+}
+
+TEST(ApiTTDeviceTest, UninitializedError) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        EXPECT_THROW(tt_device->get_chip_info(), error::UmdException<error::UninitializedDeviceError>);
+        EXPECT_THROW(tt_device->get_soc_descriptor(), error::UmdException<error::UninitializedDeviceError>);
+        // Initialize device.
+        ASSERT_NO_THROW(tt_device->init_tt_device());
+        EXPECT_NO_THROW(tt_device->get_chip_info());
+        EXPECT_NO_THROW(tt_device->get_soc_descriptor());
     }
 }

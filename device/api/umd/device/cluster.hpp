@@ -84,7 +84,7 @@ struct ClusterOptions {
      * If not provided, the value is determined automatically by determining the max
      * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -142,7 +142,11 @@ public:
      * - Perform this for each of the chips connected to the system.
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
-    Cluster(ClusterOptions options = {});
+    Cluster() : Cluster(ClusterOptions{}) {}
+
+    // Explicit to prevent implicit conversion from ClusterOptions at call sites.
+    explicit Cluster(ClusterOptions options);
+
     /**
      * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
      * leave the device in a state where it can be re-initialized.

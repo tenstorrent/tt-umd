@@ -315,6 +315,6 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         // Initialize device.
         ASSERT_NO_THROW(tt_device->init_tt_device());
         EXPECT_NO_THROW(tt_device->get_chip_info());
-        EXPECT_ANY_THROW(tt_device->get_soc_descriptor());
+        EXPECT_NO_THROW(tt_device->get_soc_descriptor());
     }
 }

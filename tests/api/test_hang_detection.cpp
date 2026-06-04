@@ -59,8 +59,10 @@ protected:
     // Deliberately hangs the specified NOC by reading an address that causes the NOC transaction to
     // never complete. On WH, this targets a TDMA register on the tensix core. On BH, the tensix core
     // is first put into reset, then a read to a private tensix address is issued. Both approaches were
-    // empirically found by the tt-exalens team to reliably hang the NOC.
-    uint32_t hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
+    // empirically found by the tt-exalens team to reliably hang the NOC. Returns nothing: the read's
+    // value is meaningless here (and with the per-op MMIO timeout active the read aborts before it can
+    // return one) — the NOC is hung regardless. Callers verify the hang via is_noc_hung() / the timeout.
+    void hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
             tt_device_->set_risc_reset_state(
@@ -75,7 +77,6 @@ protected:
             // Once the per-op MMIO timeout is active, the hang-inducing read stalls past the
             // default 100 ms budget and aborts before returning. The NOC is hung regardless.
         }
-        return hang_read_value;
     }
 
     void warm_reset_and_reinit() {

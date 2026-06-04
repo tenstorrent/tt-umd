@@ -54,9 +54,11 @@ public:
  * piling up against a slow or dead NOC before SIGBUS could fire.
  *
  * Fields are stored as-is and the formatted what() string is built lazily
- * on first call. function_name() and operation() are expected to point at
- * string literals (callers in the memcpy path pass "memcpy_to_device" /
- * "store" etc.) — the exception does not copy them.
+ * on first call. The exception does NOT copy function_name and operation:
+ * callers MUST pass pointers with static storage duration (string literals).
+ * Passing a temporary's c_str() (e.g. std::string::c_str()) leaves dangling
+ * pointers inside the exception. The memcpy path passes literals
+ * ("memcpy_to_device" / "store" etc.).
  */
 class DeviceTimeoutError : public std::exception {
 public:

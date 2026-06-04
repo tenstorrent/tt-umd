@@ -74,9 +74,9 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
  *
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.
  *
- * Per-op budget semantics match memcpy_to_device. Inserting a check between loads
- * serializes the non-posted PCIe reads that would otherwise pipeline — a deliberate
- * throughput-for-responsiveness trade-off.
+ * Per-op budget semantics match memcpy_to_device. The check is placed once per 256-byte
+ * AVX2 block (and once per op in the tails), so the 8 non-posted PCIe reads within a block
+ * still pipeline; the timeout boundary falls between blocks rather than between loads.
  */
 void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout = {});
 

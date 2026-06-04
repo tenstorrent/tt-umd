@@ -30,6 +30,22 @@ namespace tt::umd {
 static thread_local sigjmp_buf point __attribute__((tls_model("initial-exec")));
 static thread_local volatile sig_atomic_t jump_set __attribute__((tls_model("initial-exec"))) = 0;
 
+namespace {
+
+// Adapts SiliconTlbWindow's runtime-set std::function (which may be empty) to the
+// templated device_memcpy timeout policy. The window stores the callback in a
+// polymorphic class, so it must stay type-erased at the storage boundary; this thin
+// functor is the concrete callable the templated primitives instantiate against. An
+// empty callback means "no handler" and every overrun aborts, matching the
+// AbortOnTimeout default used when a caller supplies no callback at all.
+struct TimeoutPolicy {
+    const std::function<bool()> &fn;
+
+    bool operator()() const { return fn ? fn() : true; }
+};
+
+}  // namespace
+
 void sigbus_handler(int sig) {
     if (jump_set) {
         siglongjmp(point, 1);
@@ -73,22 +89,22 @@ SiliconTlbWindow::SiliconTlbWindow(
 
 void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
-    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, on_timeout_);
+    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, TimeoutPolicy{on_timeout_});
 }
 
 uint16_t SiliconTlbWindow::read16(uint64_t offset) {
     validate(offset, sizeof(uint16_t));
-    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), on_timeout_);
+    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), TimeoutPolicy{on_timeout_});
 }
 
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
-    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, on_timeout_);
+    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, TimeoutPolicy{on_timeout_});
 }
 
 uint32_t SiliconTlbWindow::read32(uint64_t offset) {
     validate(offset, sizeof(uint32_t));
-    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), on_timeout_);
+    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), TimeoutPolicy{on_timeout_});
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
@@ -119,7 +135,7 @@ void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t siz
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_to_device((void *)dst, data, size, on_timeout_);
     } else {
-        umd::memcpy_to_device(dst, data, size, on_timeout_);
+        umd::memcpy_to_device(dst, data, size, TimeoutPolicy{on_timeout_});
     }
 }
 
@@ -131,13 +147,14 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
         memcpy_from_device(data, src, size, on_timeout_);
     } else {
-        umd::memcpy_from_device(data, src, size, on_timeout_);
+        umd::memcpy_from_device(data, src, size, TimeoutPolicy{on_timeout_});
     }
 }
 
 void SiliconTlbWindow::memcpy_from_device(
     void *dest, const volatile void *src, std::size_t num_bytes, const std::function<bool()> &on_timeout) {
     using copy_t = std::uint32_t;
+    TimeoutPolicy policy{on_timeout};
 
     // Start by aligning the source (device) pointer.
     const volatile copy_t *sp;
@@ -149,7 +166,7 @@ void SiliconTlbWindow::memcpy_from_device(
         sp = reinterpret_cast<copy_t *>(src_addr - src_misalignment);
 
         copy_t tmp;
-        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), on_timeout);
+        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), policy);
         sp++;
 
         auto leading_len = std::min(sizeof(tmp) - src_misalignment, num_bytes);
@@ -164,7 +181,7 @@ void SiliconTlbWindow::memcpy_from_device(
     // Copy the source-aligned middle using non-overlapping wide loads.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    umd::memcpy_from_device(dest, sp, middle_bytes, on_timeout);
+    umd::memcpy_from_device(dest, sp, middle_bytes, policy);
 
     auto *dp = static_cast<char *>(dest) + middle_bytes;
     sp += num_words;
@@ -173,7 +190,7 @@ void SiliconTlbWindow::memcpy_from_device(
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
         copy_t tmp;
-        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), on_timeout);
+        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), policy);
         memcpy(dp, &tmp, trailing_len);
     }
 }
@@ -181,6 +198,7 @@ void SiliconTlbWindow::memcpy_from_device(
 void SiliconTlbWindow::memcpy_to_device(
     void *dest, const void *src, std::size_t num_bytes, const std::function<bool()> &on_timeout) {
     using copy_t = std::uint32_t;
+    TimeoutPolicy policy{on_timeout};
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
     // first partial word.
@@ -194,7 +212,7 @@ void SiliconTlbWindow::memcpy_to_device(
         dp = reinterpret_cast<copy_t *>(dest_addr - dest_misalignment);
 
         copy_t tmp;
-        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), on_timeout);
+        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), policy);
 
         auto leading_len = std::min(sizeof(tmp) - dest_misalignment, num_bytes);
 
@@ -202,7 +220,7 @@ void SiliconTlbWindow::memcpy_to_device(
         num_bytes -= leading_len;
         src = static_cast<const char *>(src) + leading_len;
 
-        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), on_timeout);
+        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), policy);
         dp++;
 
     } else {
@@ -212,7 +230,7 @@ void SiliconTlbWindow::memcpy_to_device(
     // Copy the destination-aligned middle using non-overlapping wide stores.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    umd::memcpy_to_device(dp, src, middle_bytes, on_timeout);
+    umd::memcpy_to_device(dp, src, middle_bytes, policy);
 
     dp += num_words;
     auto *sp = static_cast<const char *>(src) + middle_bytes;
@@ -221,17 +239,18 @@ void SiliconTlbWindow::memcpy_to_device(
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
         copy_t tmp;
-        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), on_timeout);
+        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), policy);
 
         memcpy(&tmp, sp, trailing_len);
 
-        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), on_timeout);
+        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), policy);
     }
 }
 
 void SiliconTlbWindow::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
+    TimeoutPolicy policy{on_timeout_};
     while (word_len-- != 0) {
-        write32_to_device(dest++, *src++, on_timeout_);
+        write32_to_device(dest++, *src++, policy);
     }
 }
 
@@ -239,8 +258,9 @@ void SiliconTlbWindow::read_regs(void *src_reg, uint32_t word_len, void *data) {
     auto *src = static_cast<const volatile uint32_t *>(src_reg);
     auto *dest = reinterpret_cast<uint32_t *>(data);
 
+    TimeoutPolicy policy{on_timeout_};
     while (word_len-- != 0) {
-        uint32_t temp = read32_from_device(src++, on_timeout_);
+        uint32_t temp = read32_from_device(src++, policy);
         memcpy(dest++, &temp, sizeof(temp));
     }
 }

@@ -55,9 +55,7 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
 
 PcieProtocol::~PcieProtocol() = default;
 
-void PcieProtocol::set_io_timeout_callback(std::function<bool(NocId)> hang_check) {
-    hang_check_ = std::move(hang_check);
-}
+void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) { hang_check_ = hang_check; }
 
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {

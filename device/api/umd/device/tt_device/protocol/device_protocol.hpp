@@ -47,7 +47,7 @@ public:
     // exceeds its per-op budget. Returns true if that NOC is confirmed hung (abort the transfer with
     // DeviceTimeoutError), false to treat the slow op as a false positive and continue. Default is a
     // no-op for protocols without a timed MMIO path.
-    virtual void set_io_timeout_callback(std::function<bool(NocId)> /*hang_check*/) {}
+    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& /*hang_check*/) {}
 };
 
 }  // namespace tt::umd

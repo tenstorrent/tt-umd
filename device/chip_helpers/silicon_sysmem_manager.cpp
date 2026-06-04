@@ -303,8 +303,10 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
             if (noc_address != expected_noc_address) {
                 log_warning(
                     LogUMD,
-                    "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
-                    "behavior");
+                    "NOC address of a hugepage does not match the expected address. This usually means another "
+                    "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
+                    "process from a previous run). To fix this, find and kill the other processes using the "
+                    "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
             }
         } else {
             physical_address = pci_device_->map_for_hugepage(mapping, actual_size);
@@ -407,8 +409,23 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         // If this happens, it means that something else is using the address
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
-        log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        UMD_THROW(error::RuntimeError, "Proceeding could lead to undefined behavior");
+        //
+        // The usual cause is a stale process (a leftover/crashed run) that still
+        // holds a sysmem mapping at the NOC base address, so this process gets
+        // bumped to a different address. The fix is to find and kill those
+        // processes, then retry.
+        log_error(
+            LogUMD,
+            "Expected sysmem to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This usually means "
+            "another process is already holding the sysmem NOC address space UMD requires (often a stale or "
+            "crashed process from a previous run). To fix this, find and kill the other processes using the "
+            "Tenstorrent device(s), then retry.",
+            pcie_base_,
+            *noc_address);
+        UMD_THROW(
+            error::RuntimeError,
+            "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "
+            "lead to undefined behavior");
     }
 
     if (map_buffer_to_noc) {

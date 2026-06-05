@@ -67,6 +67,10 @@ public:
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
 
+    // Sets the sysmem manager used for host-DRAM-backed transfers (required for broadcasts and used to speed up
+    // large transfers).
+    void set_sysmem_manager(SysmemManager* sysmem_manager);
+
 protected:
     void update_active_eth_core_idx();
 

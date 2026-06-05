@@ -94,7 +94,7 @@ public:
      * @brief Controls what happens when a hang is confirmed.
      */
     enum class HangAction {
-        THROW,   ///< Throw std::runtime_error (default).
+        THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
     };
 

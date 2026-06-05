@@ -310,11 +310,46 @@ TEST(ApiTTDeviceTest, UninitializedError) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(true);
-        EXPECT_THROW(tt_device->get_chip_info(), error::UmdException<error::UninitializedDeviceError>);
-        EXPECT_THROW(tt_device->get_soc_descriptor(), error::UmdException<error::UninitializedDeviceError>);
+
+        // These methods should work without initialization.
+        EXPECT_NO_THROW(tt_device->get_arc_core());
+        EXPECT_NO_THROW(tt_device->get_arch());
+        EXPECT_NO_THROW(tt_device->get_architecture_implementation());
+        EXPECT_NO_THROW(tt_device->get_min_clock_freq());
+        EXPECT_NO_THROW(tt_device->is_remote());
+        EXPECT_NO_THROW(tt_device->get_refclk_counter());
+        EXPECT_NO_THROW(tt_device->get_communication_device_id());
+        EXPECT_NO_THROW(tt_device->get_communication_device_type());
+
+        using err = error::UmdException<error::UninitializedDeviceError>;
+        EXPECT_THROW(tt_device->get_chip_info(), err);
+        EXPECT_THROW(tt_device->get_soc_descriptor(), err);
+        EXPECT_THROW(tt_device->get_arc_messenger(), err);
+        EXPECT_THROW(tt_device->get_arc_telemetry_reader(), err);
+        EXPECT_THROW(tt_device->get_firmware_info_provider(), err);
+        EXPECT_THROW(tt_device->get_board_id(), err);
+        EXPECT_THROW(tt_device->get_board_type(), err);
+        EXPECT_THROW(tt_device->get_asic_location(), err);
+        EXPECT_THROW(tt_device->get_asic_temperature(), err);
+        EXPECT_THROW(tt_device->get_clock(), err);
+        EXPECT_THROW(tt_device->get_max_clock_freq(), err);
+        EXPECT_THROW(tt_device->get_firmware_version(), err);
+
         // Initialize device.
         ASSERT_NO_THROW(tt_device->init_tt_device());
+
+        // These methods should work only after successful initialization.
         EXPECT_NO_THROW(tt_device->get_chip_info());
         EXPECT_NO_THROW(tt_device->get_soc_descriptor());
+        EXPECT_NO_THROW(tt_device->get_arc_messenger());
+        EXPECT_NO_THROW(tt_device->get_arc_telemetry_reader());
+        EXPECT_NO_THROW(tt_device->get_firmware_info_provider());
+        EXPECT_NO_THROW(tt_device->get_board_id());
+        EXPECT_NO_THROW(tt_device->get_board_type());
+        EXPECT_NO_THROW(tt_device->get_asic_location());
+        EXPECT_NO_THROW(tt_device->get_asic_temperature());
+        EXPECT_NO_THROW(tt_device->get_clock());
+        EXPECT_NO_THROW(tt_device->get_max_clock_freq());
+        EXPECT_NO_THROW(tt_device->get_firmware_version());
     }
 }

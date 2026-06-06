@@ -15,7 +15,7 @@ CPMAddPackage(
         "SPDLOG_INSTALL ON"
         "BUILD_SHARED_LIBS OFF"
 )
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8)
+CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.9)
 CPMAddPackage(
     NAME cxxopts
     GITHUB_REPOSITORY jarro2783/cxxopts

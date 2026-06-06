@@ -43,6 +43,7 @@ CPMAddPackage(
         "YAML_CPP_BUILD_TESTS OFF"
         "YAML_CPP_BUILD_TOOLS OFF"
         "YAML_BUILD_SHARED_LIBS OFF"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 if(yaml-cpp_ADDED)
@@ -146,7 +147,13 @@ CPMAddPackage(
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8 SYSTEM YES)
+CPMAddPackage(
+    NAME tt-logger
+    GITHUB_REPOSITORY tenstorrent/tt-logger
+    VERSION 1.1.8
+    SYSTEM YES
+    FIND_PACKAGE_ARGUMENTS GLOBAL
+)
 
 ####################################################################################################################
 # cxxopts
@@ -159,6 +166,7 @@ CPMAddPackage(
     SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 ####################################################################################################################

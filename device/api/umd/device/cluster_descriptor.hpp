@@ -269,12 +269,12 @@ private:
     void fill_mock_hardcoded_data(ChipId logical_id);
 
     // Verify for some common mistakes.
-    bool verify_cluster_descriptor_info();
+    bool verify_cluster_descriptor_info(bool check_board_chip_count = true);
 
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;
 
-    bool verify_board_info_for_chips();
+    bool verify_board_info_for_chips(bool check_chip_count = true);
 
     bool verify_same_architecture();
 

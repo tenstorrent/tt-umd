@@ -510,7 +510,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
-    cluster_desc->verify_cluster_descriptor_info();
+    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices);
     return cluster_desc;
 }
 

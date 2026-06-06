@@ -1215,7 +1215,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t boa
     UMD_THROW(error::RuntimeError, fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }
 
-bool ClusterDescriptor::verify_board_info_for_chips() {
+bool ClusterDescriptor::verify_board_info_for_chips(bool check_chip_count) {
     bool board_info_good = true;
     for (const ChipId chip : all_chips) {
         if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
@@ -1224,18 +1224,20 @@ bool ClusterDescriptor::verify_board_info_for_chips() {
         }
     }
 
-    for (const auto &[board_id, chips] : board_to_chips) {
-        const BoardType board_type = get_board_type_from_board_id(board_id);
-        const uint32_t number_chips_from_board = get_number_of_chips_from_board_type(board_type);
-        if (chips.size() != number_chips_from_board) {
-            log_warning(
-                LogUMD,
-                "Board {:#x} has {} chips, but expected {} chips for board type {}.",
-                board_id,
-                chips.size(),
-                number_chips_from_board,
-                board_type_to_string(board_type));
-            board_info_good = false;
+    if (check_chip_count) {
+        for (const auto &[board_id, chips] : board_to_chips) {
+            const BoardType board_type = get_board_type_from_board_id(board_id);
+            const uint32_t number_chips_from_board = get_number_of_chips_from_board_type(board_type);
+            if (chips.size() != number_chips_from_board) {
+                log_warning(
+                    LogUMD,
+                    "Board {:#x} has {} chips, but expected {} chips for board type {}.",
+                    board_id,
+                    chips.size(),
+                    number_chips_from_board,
+                    board_type_to_string(board_type));
+                board_info_good = false;
+            }
         }
     }
 
@@ -1338,10 +1340,10 @@ bool ClusterDescriptor::verify_harvesting_information() {
     return harvesting_info_good;
 }
 
-bool ClusterDescriptor::verify_cluster_descriptor_info() {
+bool ClusterDescriptor::verify_cluster_descriptor_info(bool check_board_chip_count) {
     bool cluster_desc_info_good = true;
 
-    cluster_desc_info_good &= verify_board_info_for_chips();
+    cluster_desc_info_good &= verify_board_info_for_chips(check_board_chip_count);
 
     cluster_desc_info_good &= verify_same_architecture();
 

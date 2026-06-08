@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -20,6 +21,7 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -252,6 +254,191 @@ TEST(MicrobenchmarkIOMMU, MapHugepages1G) {
         end = std::chrono::high_resolution_clock::now();
         unmap_result.add(end - now, 1, pc);
 
+        munmap(mapping, MAPPING_SIZE);
+    }
+
+    test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
+}
+
+// Measure the time it takes to map buffers of different sizes through IOMMU, as well as configure iATU to make these
+// buffers visible to the device over NOC. This is the equivalent of MapDifferentSizes, except it goes through
+// map_buffer_to_noc (IOMMU mapping + iATU configuration) instead of map_for_dma (IOMMU mapping only).
+TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
+
+    auto bench = ankerl::nanobench::Bench()
+                     .title("IOMMU_MapDifferentSizesBufferToNOC")
+                     .unit("byte")
+                     .epochs(NUM_EPOCHS)
+                     .epochIterations(1);
+    std::vector<Result> results;
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+
+    static const long page_size = sysconf(_SC_PAGESIZE);
+    const uint64_t MAPPING_SIZE_LIMIT = ONE_GIB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+    for (uint64_t size = page_size; size <= MAPPING_SIZE_LIMIT; size *= 2) {
+        bench.name(fmt::format("Map {} bytes", size)).batch(size);
+        ankerl::nanobench::Result map_result(bench.config());
+        bench.name(fmt::format("Unmap {} bytes", size));
+        ankerl::nanobench::Result unmap_result(bench.config());
+        for (int i = 0; i < NUM_EPOCHS; i++) {
+            void* mapping =
+                mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+            auto now = std::chrono::high_resolution_clock::now();
+            pci_device->map_buffer_to_noc(mapping, size);
+            auto end = std::chrono::high_resolution_clock::now();
+            map_result.add(end - now, 1, pc);
+
+            now = std::chrono::high_resolution_clock::now();
+            pci_device->unmap_for_dma(mapping, size);
+            end = std::chrono::high_resolution_clock::now();
+            unmap_result.add(end - now, 1, pc);
+            munmap(mapping, size);
+        }
+        results.push_back(std::move(map_result));
+        results.push_back(std::move(unmap_result));
+    }
+
+    test::utils::export_results(bench.title(), results);
+}
+
+// Measure the time it takes to map three coexisting 1GiB buffers through IOMMU and configure iATU to make them
+// visible to the device over NOC. This simulates the metal use case of several large buffers being mapped at the
+// same time (only three because the iATU/NOC window is limited by the 32-bit address space and some small buffers
+// are already mapped). The three buffers stay mapped simultaneously, so each successive mapping grows the IOMMU
+// page table further.
+TEST(MicrobenchmarkIOMMU, Map1GBPages) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
+
+    constexpr size_t NUM_PAGES = 3;
+    const uint64_t MAPPING_SIZE = ONE_GIB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+    PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
+
+    std::array<void*, NUM_PAGES> mappings{};
+    for (auto& mapping : mappings) {
+        mapping =
+            mmap(nullptr, MAPPING_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        if (mapping == MAP_FAILED) {
+            GTEST_SKIP() << "Mapping 1GiB buffer failed. Skipping test.";
+        }
+    }
+
+    auto bench =
+        ankerl::nanobench::Bench().title("IOMMU_Map1GBPages").unit("byte").epochs(NUM_EPOCHS).epochIterations(1);
+    bench.name("Map 1G").batch(MAPPING_SIZE);
+    ankerl::nanobench::Result map_result(bench.config());
+    bench.name("Unmap 1G");
+    ankerl::nanobench::Result unmap_result(bench.config());
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+    for (int i = 0; i < NUM_EPOCHS; i++) {
+        // Map all pages first (keeping them mapped simultaneously), timing each individually.
+        for (auto* mapping : mappings) {
+            auto now = std::chrono::high_resolution_clock::now();
+            pci_device->map_buffer_to_noc(mapping, MAPPING_SIZE);
+            auto end = std::chrono::high_resolution_clock::now();
+            map_result.add(end - now, 1, pc);
+        }
+        for (auto* mapping : mappings) {
+            auto now = std::chrono::high_resolution_clock::now();
+            pci_device->unmap_for_dma(mapping, MAPPING_SIZE);
+            auto end = std::chrono::high_resolution_clock::now();
+            unmap_result.add(end - now, 1, pc);
+        }
+    }
+
+    for (auto* mapping : mappings) {
+        munmap(mapping, MAPPING_SIZE);
+    }
+
+    test::utils::export_results(bench.title(), std::vector<ankerl::nanobench::Result>{map_result, unmap_result});
+}
+
+// Same scenario as Map1GBPages (three coexisting 1GiB buffers mapped to NOC), but routed through the SysmemBuffer
+// class to confirm there is no overhead compared to calling map_buffer_to_noc/unmap_for_dma directly.
+TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids.at(0)).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled on the system.";
+    }
+    if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
+        GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
+                     << OUTPUT_ENV_VAR;
+    }
+
+    constexpr size_t NUM_PAGES = 3;
+    const uint64_t MAPPING_SIZE = ONE_GIB;
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
+        .num_host_mem_ch_per_mmio_device = 0,
+    });
+    TTDevice* tt_device = cluster->get_chip(CHIP_ID)->get_tt_device();
+
+    std::array<void*, NUM_PAGES> mappings{};
+    for (auto& mapping : mappings) {
+        mapping =
+            mmap(nullptr, MAPPING_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+        if (mapping == MAP_FAILED) {
+            GTEST_SKIP() << "Mapping 1GiB buffer failed. Skipping test.";
+        }
+    }
+
+    auto bench = ankerl::nanobench::Bench()
+                     .title("IOMMU_Map1GBPagesSysmemBuffers")
+                     .unit("byte")
+                     .epochs(NUM_EPOCHS)
+                     .epochIterations(1);
+    bench.name("Map 1G").batch(MAPPING_SIZE);
+    ankerl::nanobench::Result map_result(bench.config());
+    bench.name("Unmap 1G");
+    ankerl::nanobench::Result unmap_result(bench.config());
+    ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
+
+    std::array<std::unique_ptr<SysmemBuffer>, NUM_PAGES> sysmem_buffers{};
+    for (int i = 0; i < NUM_EPOCHS; i++) {
+        for (size_t page = 0; page < NUM_PAGES; page++) {
+            auto now = std::chrono::high_resolution_clock::now();
+            sysmem_buffers[page] = std::make_unique<SysmemBuffer>(tt_device, mappings[page], MAPPING_SIZE, true);
+            auto end = std::chrono::high_resolution_clock::now();
+            map_result.add(end - now, 1, pc);
+        }
+        for (auto& sysmem_buffer : sysmem_buffers) {
+            auto now = std::chrono::high_resolution_clock::now();
+            sysmem_buffer.reset();
+            auto end = std::chrono::high_resolution_clock::now();
+            unmap_result.add(end - now, 1, pc);
+        }
+    }
+
+    for (auto* mapping : mappings) {
         munmap(mapping, MAPPING_SIZE);
     }
 

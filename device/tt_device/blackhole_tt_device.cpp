@@ -114,7 +114,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
     iatu_regions_.insert(region);
 
-    log_info(
+    log_debug(
         LogUMD,
         "Device: {} Mapped iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}",
         this->get_pci_device()->get_device_num(),

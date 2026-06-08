@@ -523,10 +523,10 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
     bool is_legacy_wormhole =
         tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version <= FirmwareBundleVersion(18, 3, 0);
 
-    // BIST status is reported in the upper 16 bits of GDDR_STATUS starting with FW 19.7.0. Older
-    // firmware leaves those bits zero, so only inspect them when the firmware is new enough; this also
-    // excludes all Wormhole firmware, which never reaches the 19.x line.
-    bool check_bist = firmware_version >= FirmwareBundleVersion(19, 7, 0);
+    // BIST status is reported in the upper 16 bits of GDDR_STATUS starting with FW 19.7.0. Only
+    // Blackhole has GDDR and reports BIST status here, so gate on the architecture as well as the
+    // firmware version. Older firmware leaves those bits zero.
+    bool check_bist = tt_device->get_arch() == ARCH::BLACKHOLE && firmware_version >= FirmwareBundleVersion(19, 7, 0);
 
     return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data.value(), num_dram_channels)
                               : get_modern_dram_statuses(telemetry_data.value(), num_dram_channels, check_bist);

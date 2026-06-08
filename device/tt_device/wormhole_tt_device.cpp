@@ -131,7 +131,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 1 * 4, dest_bar_lo);
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 2 * 4, dest_bar_hi);
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 3 * 4, region_size);
-    arc_messenger_->send_message(
+    get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), {0, 0});
 
     // Print what just happened.

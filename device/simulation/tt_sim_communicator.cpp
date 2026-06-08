@@ -119,6 +119,9 @@ void TTSimCommunicator::initialize() {
             dlsym(libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id"));
         DLSYM_FUNCTION(libttsim_clock)
         DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+        pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_ =
+            reinterpret_cast<decltype(pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_)>(
+                dlsym(libttsim_handle_, "libttsim_set_pci_dma_mem_callbacks_by_chip"));
         DLSYM_FUNCTION(libttsim_create_device_by_id)
         DLSYM_FUNCTION(libttsim_select_device_by_id)
         DLSYM_FUNCTION(libttsim_clock_all_devices)
@@ -251,7 +254,19 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
     pfn_libttsim_clock_(n_clocks);
 }
 
+std::array<std::atomic<TTSimCommunicator *>, TTSimCommunicator::kMaxCallbackChipIds>
+    TTSimCommunicator::callback_instances_by_chip_ = {};
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+
+TTSimCommunicator *TTSimCommunicator::get_callback_instance(uint32_t chip_id) {
+    if (chip_id < callback_instances_by_chip_.size()) {
+        auto *instance = callback_instances_by_chip_[chip_id].load(std::memory_order_acquire);
+        if (instance) {
+            return instance;
+        }
+    }
+    return callback_instance_;
+}
 
 void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
     if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
@@ -265,14 +280,38 @@ void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void 
     }
 }
 
+void TTSimCommunicator::pci_dma_mem_rd_bytes_by_chip_wrapper(
+    uint32_t chip_id, uint64_t paddr, void *p, uint32_t size) {
+    auto *instance = get_callback_instance(chip_id);
+    if (instance && instance->pci_dma_mem_rd_bytes_callback_) {
+        instance->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+    }
+}
+
+void TTSimCommunicator::pci_dma_mem_wr_bytes_by_chip_wrapper(
+    uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size) {
+    auto *instance = get_callback_instance(chip_id);
+    if (instance && instance->pci_dma_mem_wr_bytes_callback_) {
+        instance->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+    }
+}
+
 void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
     std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
     std::lock_guard<std::mutex> lock(device_lock_);
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
+    if (chip_id_ < callback_instances_by_chip_.size()) {
+        callback_instances_by_chip_[chip_id_].store(this, std::memory_order_release);
+    }
     callback_instance_ = this;
-    pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+    if (pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_) {
+        pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_(
+            pci_dma_mem_rd_bytes_by_chip_wrapper, pci_dma_mem_wr_bytes_by_chip_wrapper);
+    } else {
+        pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
+    }
 }
 
 void TTSimCommunicator::create_simulator_binary() {
@@ -349,6 +388,9 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
     DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+    pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_ =
+        reinterpret_cast<decltype(pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_)>(
+            dlsym(libttsim_handle_, "libttsim_set_pci_dma_mem_callbacks_by_chip"));
 }
 
 // v3.5 commit #6 — eth-MAC wiring methods. All no-ops in legacy single-chip mode.

@@ -6,6 +6,8 @@
 
 #include <sys/types.h>
 
+#include <array>
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -198,6 +200,9 @@ private:
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
+    void (*pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_)(
+        void (*pfn_pci_dma_mem_rd_bytes)(uint32_t chip_id, uint64_t paddr, void *p, uint32_t size),
+        void (*pfn_pci_dma_mem_wr_bytes)(uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size)) = nullptr;
 
     // v3.5 multi-chip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
     void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
@@ -220,12 +225,18 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Static instance pointer for callback wrappers.
+    // Static instance pointers for callback wrappers.
+    static constexpr uint32_t kMaxCallbackChipIds = 1024;
+    static std::array<std::atomic<TTSimCommunicator *>, kMaxCallbackChipIds> callback_instances_by_chip_;
     static TTSimCommunicator *callback_instance_;
 
     // Static wrapper functions for C-style callbacks.
+    static TTSimCommunicator *get_callback_instance(uint32_t chip_id);
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    static void pci_dma_mem_rd_bytes_by_chip_wrapper(uint32_t chip_id, uint64_t paddr, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_by_chip_wrapper(
+        uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size);
 
     // Thread safety. In v3.5 shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all

@@ -275,6 +275,9 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
         GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
                      << OUTPUT_ENV_VAR;
     }
+    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
+        GTEST_SKIP() << "Skipping test since mapping buffers to NOC is not supported (requires KMD >= 2.0).";
+    }
 
     auto bench = ankerl::nanobench::Bench()
                      .title("IOMMU_MapDifferentSizesBufferToNOC")
@@ -298,6 +301,9 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
         for (int i = 0; i < NUM_EPOCHS; i++) {
             void* mapping =
                 mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+            if (mapping == MAP_FAILED) {
+                GTEST_SKIP() << "Mapping " << size << " byte buffer failed. Skipping test.";
+            }
             auto now = std::chrono::high_resolution_clock::now();
             pci_device->map_buffer_to_noc(mapping, size);
             auto end = std::chrono::high_resolution_clock::now();
@@ -334,6 +340,10 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
                      << OUTPUT_ENV_VAR;
     }
 
+    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
+        GTEST_SKIP() << "Skipping test since mapping buffers to NOC is not supported (requires KMD >= 2.0).";
+    }
+
     constexpr size_t NUM_PAGES = 3;
     const uint64_t MAPPING_SIZE = ONE_GIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -342,10 +352,14 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
     PCIDevice* pci_device = cluster->get_chip(CHIP_ID)->get_tt_device()->get_pci_device();
 
     std::array<void*, NUM_PAGES> mappings{};
-    for (auto& mapping : mappings) {
-        mapping =
+    for (size_t page = 0; page < NUM_PAGES; page++) {
+        mappings[page] =
             mmap(nullptr, MAPPING_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-        if (mapping == MAP_FAILED) {
+        if (mappings[page] == MAP_FAILED) {
+            // Clean up already-mapped buffers before skipping, since the gtest process keeps running other tests.
+            for (size_t prev = 0; prev < page; prev++) {
+                munmap(mappings[prev], MAPPING_SIZE);
+            }
             GTEST_SKIP() << "Mapping 1GiB buffer failed. Skipping test.";
         }
     }
@@ -395,6 +409,10 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
                      << OUTPUT_ENV_VAR;
     }
 
+    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
+        GTEST_SKIP() << "Skipping test since mapping buffers to NOC is not supported (requires KMD >= 2.0).";
+    }
+
     constexpr size_t NUM_PAGES = 3;
     const uint64_t MAPPING_SIZE = ONE_GIB;
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{
@@ -403,10 +421,14 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     TTDevice* tt_device = cluster->get_chip(CHIP_ID)->get_tt_device();
 
     std::array<void*, NUM_PAGES> mappings{};
-    for (auto& mapping : mappings) {
-        mapping =
+    for (size_t page = 0; page < NUM_PAGES; page++) {
+        mappings[page] =
             mmap(nullptr, MAPPING_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
-        if (mapping == MAP_FAILED) {
+        if (mappings[page] == MAP_FAILED) {
+            // Clean up already-mapped buffers before skipping, since the gtest process keeps running other tests.
+            for (size_t prev = 0; prev < page; prev++) {
+                munmap(mappings[prev], MAPPING_SIZE);
+            }
             GTEST_SKIP() << "Mapping 1GiB buffer failed. Skipping test.";
         }
     }

@@ -218,6 +218,7 @@ private:
     static FirmwareFeatures create_wormhole_18_4_base();
     static FirmwareFeatures create_blackhole_18_5_base();
     static FirmwareFeatures create_wormhole_18_8_base();
+    static FirmwareFeatures create_wormhole_19_9_base();
     static FirmwareFeatures create_blackhole_18_8_base();
     static FirmwareFeatures create_blackhole_19_9_base();
 

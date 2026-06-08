@@ -58,8 +58,10 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
                 return create_wormhole_18_3_base();
             } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_wormhole_18_4_base();
+            } else if (fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+                return create_wormhole_18_8_base();
             }
-            return create_wormhole_18_8_base();
+            return create_wormhole_19_9_base();
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
@@ -191,10 +193,18 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Wormhole > 18.7: StandardTag base with StandardTag MAX_CLOCK_FREQ.
+// Wormhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
     FirmwareFeatures map = create_18_4_new_telemetry_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
+    FirmwareFeatures map = create_wormhole_18_8_base();
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}};
     return map;
 }
 
@@ -212,10 +222,9 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 
 // Blackhole >= 19.9: ETH_LIVE_STATUS becomes available (upper 16 = link, lower 16 = heartbeat).
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_9_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
-    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    FirmwareFeatures map = create_blackhole_18_8_base();
+    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}};
     return map;
 }
 

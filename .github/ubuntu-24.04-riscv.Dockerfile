@@ -1,4 +1,4 @@
-# ubuntu-24.04-riscv-temp2: EMULATED-NATIVE approach for building tt-umd for a riscv64 host.
+# ubuntu-24.04-riscv: EMULATED-NATIVE approach for building tt-umd for a riscv64 host.
 #
 # This is a real riscv64 image. On an x86 builder it runs under QEMU/binfmt, so
 # from the toolchain's point of view the build is "native" (normal apt + cmake,

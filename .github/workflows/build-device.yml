@@ -75,24 +75,14 @@ jobs:
     with:
       docker-version: manylinux
 
-  # Two experimental riscv64 build images, compared side by side (see build-riscv).
-  ensure-riscv-temp1-image:
-    name: Ensure ubuntu-24.04-riscv-temp1 Docker image
+  ensure-riscv-image:
+    name: Ensure ubuntu-24.04-riscv Docker image
     permissions:
       packages: write
     secrets: inherit
     uses: ./.github/workflows/docker-image.yml
     with:
-      docker-version: ubuntu-24.04-riscv-temp1
-
-  ensure-riscv-temp2-image:
-    name: Ensure ubuntu-24.04-riscv-temp2 Docker image
-    permissions:
-      packages: write
-    secrets: inherit
-    uses: ./.github/workflows/docker-image.yml
-    with:
-      docker-version: ubuntu-24.04-riscv-temp2
+      docker-version: ubuntu-24.04-riscv
 
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
@@ -103,7 +93,6 @@ jobs:
       - ensure-ubuntu-2404-image
       - ensure-ubuntu-2404-arm-image
       - ensure-fedora-39-image
-      - ensure-riscv-temp1-image
     strategy:
       fail-fast: false
       matrix:
@@ -116,14 +105,6 @@ jobs:
           {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
           # Arm64 build, built natively on an arm runner.
           {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          # riscv64 cross-compile build (temp1): an x86 image that builds via a
-          # toolchain file, so it works as a normal container-job matrix entry.
-          # The emulated variant (temp2) can't be a container job and lives in the
-          # separate build-riscv-emulated job below.
-          {
-            distro: ubuntu-24.04-riscv-temp1, compiler-c: gcc, compiler-cpp: g++,
-            package: deb, riscv_cross: true, use_release_flags: true
-          },
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
@@ -159,7 +140,6 @@ jobs:
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04-arm' && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
-        matrix.image.distro == 'ubuntu-24.04-riscv-temp1' && needs.ensure-riscv-temp1-image.outputs.image-tag ||
         matrix.image.distro == 'fedora-39' && needs.ensure-fedora-39-image.outputs.image-tag ||
         'latest' }}
 
@@ -188,23 +168,9 @@ jobs:
       # Build with all components to verify the build passes.
       # Release-flags builds mirror the flags used in release.yml to catch clang-tidy issues early.
       - name: Build All
-        # Force bash: the riscv images are plain ubuntu where /bin/sh is dash,
-        # which lacks the [[ ]] tests used below.
-        shell: bash
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Compiling the code..."
-          # The riscv CI images run as root on a runner-owned checkout, so mark it a safe git directory.
-          if [[ "${{ contains(matrix.image.distro, 'riscv') }}" == "true" ]]; then
-            git config --global --add safe.directory '*'
-          fi
-          # The riscv cross build (temp1) reuses the release-flags configuration
-          # (tests off -> no gtest to cross-build) and additionally points CMake at
-          # the GNU riscv64 toolchain file.
-          EXTRA_ARGS=""
-          if [[ "${{ matrix.image.riscv_cross }}" == "true" ]]; then
-            EXTRA_ARGS="-DCMAKE_TOOLCHAIN_FILE=$(pwd)/cmake/riscv64-linux-gnu.cmake"
-          fi
           if [[ "${{ matrix.image.use_release_flags }}" == "true" ]]; then
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_TESTS=OFF \
@@ -213,15 +179,13 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DCMAKE_BUILD_TYPE=Release \
-              ${EXTRA_ARGS}
+              -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_TRACY=ON \
-              ${EXTRA_ARGS}
+              -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
@@ -287,10 +251,6 @@ jobs:
           echo "Install complete."
 
       - name: Prepare and isolate install artifacts
-        # The standalone-client and python-rebuild steps below link host-compiled
-        # code against the (cross-built) riscv64 UMD library, which can't work, so
-        # they're skipped for riscv. The core library + its deb package above still run.
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           echo "Preparing and isolating install artifacts..."
           mkdir ${{ env.CLIENTS_BUILD_DIR_SHELL }}
@@ -312,28 +272,24 @@ jobs:
           ls -laR ${{ env.CLIENTS_BUILD_DIR_SHELL }}
 
       - name: Build examples as standalone
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/examples
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build nanobind as standalone
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/nanobind
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Build tools as standalone
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.CLIENTS_BUILD_DIR_SHELL }}/tools
           cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=../umd_install
           cmake --build build
 
       - name: Rebuild package for python without wheel
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         run: |
           cd ${{ env.TT_UMD_DIR_SHELL }}
           echo "Recompiling the code..."
@@ -345,7 +301,6 @@ jobs:
           echo "Compile complete."
 
       - name: Generate ${{ matrix.image.package }} package for umd-python
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         working-directory: ${{ env.TT_UMD_DIR }}/build
         shell: bash
         run: |
@@ -353,7 +308,6 @@ jobs:
           cpack -G "${PKG^^}"
 
       - name: Upload ${{ matrix.image.package }} packages for umd-python
-        if: ${{ success() && !contains(matrix.image.distro, 'riscv') }}
         uses: actions/upload-artifact@v7
         with:
           # example: tt-umd-python-ubuntu-24.04-clang-20-release
@@ -363,16 +317,15 @@ jobs:
           if-no-files-found: error
 
   build-riscv-emulated:
-    # Emulated riscv64 build (temp2), the counterpart to the temp1 cross build in
-    # the matrix above. A riscv64 image can't be used as a job `container:` on an
-    # x86 runner (GitHub pulls it as linux/amd64 and fails), so this runs on a
-    # plain x86 runner, registers QEMU/binfmt, and builds inside the image via
-    # `docker run --platform linux/riscv64`. Build-only, like temp1.
+    # Emulated riscv64 build. A riscv64 image can't be used as a job `container:`
+    # on an x86 runner (GitHub pulls it as linux/amd64 and fails), so this runs on
+    # a plain x86 runner, registers QEMU/binfmt, and builds inside the image via
+    # `docker run --platform linux/riscv64`. Build-only.
     timeout-minutes: 60
-    needs: ensure-riscv-temp2-image
+    needs: ensure-riscv-image
     permissions:
       packages: read
-    name: Build device (release flags) on ubuntu-24.04-riscv-temp2 with gcc
+    name: Build device (release flags) on ubuntu-24.04-riscv with gcc
     runs-on: tt-ubuntu-2204-large-stable
 
     steps:
@@ -394,11 +347,11 @@ jobs:
       - name: Build All
         shell: bash
         run: |
-          IMAGE_TAG="${{ needs.ensure-riscv-temp2-image.outputs.image-tag }}"
-          IMAGE="ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv-temp2:${IMAGE_TAG}"
+          IMAGE_TAG="${{ needs.ensure-riscv-image.outputs.image-tag }}"
+          IMAGE="ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv:${IMAGE_TAG}"
           echo "Building inside $IMAGE under QEMU (linux/riscv64)..."
-          # Same release flags as the temp1 cross build (tests off -> no gtest),
-          # executed natively inside the emulated riscv64 image.
+          # Release flags (tests off -> no gtest), executed natively inside the
+          # emulated riscv64 image.
           docker run --rm --platform linux/riscv64 \
             -v "$GITHUB_WORKSPACE/${{ env.TT_UMD_DIR }}:/work" -w /work \
             "$IMAGE" \

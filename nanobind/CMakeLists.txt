@@ -30,44 +30,38 @@ if(TT_UMD_BUILD_SIMULATION)
     target_compile_definitions(nanobind_tt_umd PRIVATE TT_UMD_BUILD_SIMULATION)
 endif()
 
-# Stub generation imports the freshly built module with the host interpreter,
-# which is impossible when cross-compiling (the module targets another arch, so
-# the host can't load the .so). Skip it for cross builds; native builds -- which
-# includes emulated ones where the module does run -- still generate stubs.
-if(NOT CMAKE_CROSSCOMPILING)
-    # Generate stub file for type checking
-    nanobind_add_stub(
+# Generate stub file for type checking
+nanobind_add_stub(
+    nanobind_tt_umd_stub
+    MODULE tt_umd
+    OUTPUT tt_umd.pyi
+    RECURSIVE
+    PYTHON_PATH ${CMAKE_CURRENT_BINARY_DIR}
+    DEPENDS nanobind_tt_umd
+)
+
+# Generate __init__.py after stubs are created
+add_custom_command(
+    OUTPUT
+        ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
+    COMMAND
+        ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py ${CMAKE_CURRENT_BINARY_DIR}/tt_umd
+        ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
+    DEPENDS
         nanobind_tt_umd_stub
-        MODULE tt_umd
-        OUTPUT tt_umd.pyi
-        RECURSIVE
-        PYTHON_PATH ${CMAKE_CURRENT_BINARY_DIR}
-        DEPENDS nanobind_tt_umd
-    )
+        ${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py
+    COMMENT "Generating __init__.py based on detected submodules"
+)
 
-    # Generate __init__.py after stubs are created
-    add_custom_command(
-        OUTPUT
-            ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
-        COMMAND
-            ${Python_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py ${CMAKE_CURRENT_BINARY_DIR}/tt_umd
-            ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
-        DEPENDS
-            nanobind_tt_umd_stub
-            ${CMAKE_CURRENT_SOURCE_DIR}/generate_init.py
-        COMMENT "Generating __init__.py based on detected submodules"
-    )
-
-    # Add a custom target to ensure __init__.py is generated
-    # Make it part of the default build with ALL
-    add_custom_target(
-        nanobind_tt_umd_init
-        ALL
-        DEPENDS
-            ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
-            nanobind_tt_umd_stub
-    )
-endif()
+# Add a custom target to ensure __init__.py is generated
+# Make it part of the default build with ALL
+add_custom_target(
+    nanobind_tt_umd_init
+    ALL
+    DEPENDS
+        ${CMAKE_CURRENT_BINARY_DIR}/__init__.py
+        nanobind_tt_umd_stub
+)
 
 # Set properties for the Python module
 set_target_properties(

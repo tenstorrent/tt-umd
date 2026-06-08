@@ -39,11 +39,21 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     // misses for translated coords on Blackhole (where TRANSLATED != NOC0 for
     // DRAM cores) and routes large DRAM writes into a 1.5 MB worker slot —
     // OOB-aborts as soon as the offset exceeds the worker L1 size.
+    // Register each DRAM subchannel core in BOTH coord systems it can reach emule
+    // in: NOC0 (get_dram_cores default; the runner's NOC0 core_map registration and
+    // WH kernel emission) and TRANSLATED (host write_core / read_core; BH kernel
+    // emission and preferred-worker tables). On Wormhole the two coincide; on
+    // Blackhole TRANSLATED != NOC0 for DRAM, so both keys are required — otherwise a
+    // NOC0-form DRAM coord misses is_dram_core() and get_core() backs it as a worker
+    // L1 slot instead of the channel's DRAM backing (a noc=1 endpoint then reads a
+    // different mmap than the host/noc=0 write). With both forms classified, get_core
+    // aliases every endpoint of a channel to the one dram_channel_core_ backing.
     auto dram_cores = soc.get_dram_cores();
     for (uint32_t channel = 0; channel < dram_cores.size(); ++channel) {
         for (const auto& core : dram_cores[channel]) {
+            dram_core_to_channel_[tt_xy_pair(core.x, core.y)] = channel;  // NOC0 form
             CoreCoord translated = soc.translate_coord_to(core, CoordSystem::TRANSLATED);
-            dram_core_to_channel_[tt_xy_pair(translated.x, translated.y)] = channel;
+            dram_core_to_channel_[tt_xy_pair(translated.x, translated.y)] = channel;  // TRANSLATED form
         }
     }
 
@@ -68,13 +78,31 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         return it->second.get();
     }
 
-    // Lazy-create with appropriate role and size.
+    // DRAM: one physical backing per CHANNEL. A channel is fronted by multiple NOC
+    // endpoint coords (per-NOC preferred workers / subchannels) — e.g. WH ch0 =
+    // {(0,0),(0,1),(0,11)}, where NOC0 and NOC1 resolve to different coords. On
+    // silicon they all address the same DRAM, so a write via one endpoint is visible
+    // via any other. Alias every coord of a channel to a single Core (individual
+    // mmap, not from the pool, not MAP_32BIT) so a noc=1 read sees a noc=0/host write.
+    if (is_dram_core(core_xy)) {
+        uint32_t channel = dram_core_to_channel_.at(core_xy);
+        auto chit = dram_channel_core_.find(channel);
+        if (chit != dram_channel_core_.end()) {
+            return chit->second;  // share the channel's existing backing
+        }
+        tt_emule::CoreCoord dram_coord{core_xy.x, core_xy.y};
+        auto dram_core =
+            std::make_unique<tt_emule::Core>(dram_coord, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
+        tt_emule::Core* raw_ptr = dram_core.get();
+        dram_channel_core_[channel] = raw_ptr;
+        cores_[core_xy] = std::move(dram_core);  // first coord of the channel owns it
+        return raw_ptr;
+    }
+
+    // Lazy-create worker core.
     tt_emule::CoreCoord coord{core_xy.x, core_xy.y};
     std::unique_ptr<tt_emule::Core> core;
-    if (is_dram_core(core_xy)) {
-        // DRAM cores: individual mmap (not from pool, not MAP_32BIT).
-        core = std::make_unique<tt_emule::Core>(coord, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
-    } else if (next_slot_ < worker_pool_->num_slots()) {
+    if (next_slot_ < worker_pool_->num_slots()) {
         // Worker cores: allocate from L1Pool (aligned slots, bitmask offset extraction).
         size_t slot = next_slot_++;
         uint8_t* slot_mem = worker_pool_->slot_ptr(slot);

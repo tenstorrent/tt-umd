@@ -63,8 +63,10 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
+            } else if (fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+                return create_blackhole_18_8_base();
             }
-            return create_blackhole_18_8_base();
+            return create_blackhole_19_9_base();
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for telemetry feature map.");
     }
@@ -106,7 +108,9 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::THM_LIMIT_SHUTDOWN,{TelemetryTag::THM_LIMIT_SHUTDOWN, LinearTransform{}}},
         {FirmwareFeature::DDR_STATUS,        {TelemetryTag::GDDR_STATUS, LinearTransform{}}},
         {FirmwareFeature::HEARTBEAT,         {TelemetryTag::TIMER_HEARTBEAT, LinearTransform{}}},
-        {FirmwareFeature::ETH_LIVE_STATUS,   {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_HEARTBEAT_STATUS, {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_RETRAIN_STATUS,   {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_LINK_STATUS,      {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::THERM_TRIP_COUNT,  {TelemetryTag::THERM_TRIP_COUNT, LinearTransform{}}},
         {FirmwareFeature::GDDR_UNCORR_ERRS,   {TelemetryTag::GDDR_UNCORR_ERRS, LinearTransform{}}},
         {FirmwareFeature::GDDR_0_1_CORR_ERRS, {TelemetryTag::GDDR_0_1_CORR_ERRS, LinearTransform{}}},
@@ -154,7 +158,9 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::THM_LIMIT_SHUTDOWN, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::DDR_STATUS, {WormholeTag::DDR_STATUS, LinearTransform{}}},
         {FirmwareFeature::HEARTBEAT, {WormholeTag::ARC0_HEALTH, LinearTransform{}}},
-        {FirmwareFeature::ETH_LIVE_STATUS,    {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_HEARTBEAT_STATUS, {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_RETRAIN_STATUS,   {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_LINK_STATUS,      {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::THERM_TRIP_COUNT, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::GDDR_UNCORR_ERRS, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::GDDR_0_1_CORR_ERRS, {FixedValue{0}, NotAvailable{}}},
@@ -179,8 +185,9 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {FixedValue{blackhole::AICLK_BUSY_VAL}, LinearTransform{}};
     // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
     map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
-    map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
+    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
+    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
     return map;
 }
 
@@ -191,14 +198,24 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Blackhole > 18.7: StandardTag base with StandardTag MAX_CLOCK_FREQ, no ETH support.
+// Blackhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ, no ETH support.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_8_base() {
     FirmwareFeatures map = create_18_4_new_telemetry_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
     // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
     map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole.
-    map[FirmwareFeature::ETH_LIVE_STATUS] = {FixedValue{0}, NotAvailable{}};
+    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
+    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    return map;
+}
+
+// Blackhole >= 19.9: ETH_LIVE_STATUS becomes available (upper 16 = link, lower 16 = heartbeat).
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_9_base() {
+    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
+    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
     return map;
 }
 
@@ -625,26 +642,26 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
-    if (!is_feature_available(FirmwareFeature::ETH_LIVE_STATUS)) {
+    if (!is_feature_available(FirmwareFeature::ETH_HEARTBEAT_STATUS)) {
         return std::nullopt;
     }
-    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
+    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_HEARTBEAT_STATUS).key);
     return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() const {
-    if (!is_feature_available(FirmwareFeature::ETH_LIVE_STATUS)) {
+    if (!is_feature_available(FirmwareFeature::ETH_LINK_STATUS)) {
         return std::nullopt;
     }
-    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
+    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LINK_STATUS).key);
     return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
-    if (!is_feature_available(FirmwareFeature::ETH_LIVE_STATUS)) {
+    if (!is_feature_available(FirmwareFeature::ETH_RETRAIN_STATUS)) {
         return std::nullopt;
     }
-    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
+    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_RETRAIN_STATUS).key);
     return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 

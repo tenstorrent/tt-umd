@@ -219,6 +219,7 @@ private:
     static FirmwareFeatures create_blackhole_18_5_base();
     static FirmwareFeatures create_wormhole_18_8_base();
     static FirmwareFeatures create_blackhole_18_8_base();
+    static FirmwareFeatures create_blackhole_19_9_base();
 
     // Engine methods for reading and transforming telemetry data.
     uint32_t read_raw_telemetry(const FeatureKey& key) const;

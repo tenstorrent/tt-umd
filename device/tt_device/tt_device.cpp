@@ -37,6 +37,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -96,17 +97,13 @@ TTDevice::TTDevice(
     device_protocol_ = std::move(remote_protocol);
 }
 
-TTDevice::TTDevice() = default;
-
-TTDevice::TTDevice(std::unique_ptr<architecture_implementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), arch(architecture_impl_->get_architecture()) {}
-
 void TTDevice::probe_arc() {
     uint32_t dummy;
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const std::string &soc_descriptor_path) {
+void TTDevice::init_tt_device(
+    const std::chrono::milliseconds timeout_ms, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
@@ -121,49 +118,59 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, const 
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    construct_soc_descriptor(soc_descriptor_path);
+    construct_soc_descriptor(soc_arch_descriptor);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number, IODeviceType device_type, bool use_safe_api) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    // TODO make abstract IO handler inside TTDevice.
+    UMD_ASSERT(
+        (!use_safe_api) || (device_type == IODeviceType::PCIe),
+        error::RuntimeError,
+        "Safe I/O API is not supported for non-PCIe device types.");
+    tt::ARCH arch = tt::ARCH::Invalid;
     if (device_type == IODeviceType::JTAG) {
         auto jtag_device = JtagDevice::create();
-
-        switch (jtag_device->get_jtag_arch(device_number)) {
+        arch = jtag_device->get_jtag_arch(device_number);
+        switch (arch) {
             case ARCH::WORMHOLE_B0:
                 return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
             case ARCH::BLACKHOLE:
                 return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
             default:
-                return nullptr;
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Creating TTDevice is not supported for {} architecture.", arch_to_str(arch)));
         }
     }
 
     auto pci_device = std::make_unique<PCIDevice>(device_number);
+    arch = pci_device->get_arch();
 
-    switch (pci_device->get_arch()) {
+    switch (arch) {
         case ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
         case ARCH::BLACKHOLE:
             return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
         default:
-            return nullptr;
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Creating TTDevice is not supported for {} architecture.", arch_to_str(arch)));
     }
 }
 
 std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    switch (remote_communication->get_local_device()->get_arch()) {
+    UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
+    tt::ARCH arch = remote_communication->get_local_device()->get_arch();
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
         }
-        case tt::ARCH::BLACKHOLE: {
-            return nullptr;
-        }
         default:
-            UMD_THROW(error::RuntimeError, "Remote TTDevice creation is not supported for this architecture.");
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Remote TTDevice creation is not supported for {} architecture.", arch_to_str(arch)));
     }
 }
 
@@ -225,7 +232,7 @@ RemoteInterface *TTDevice::get_remote_interface() {
     return remote_capabilities_;
 }
 
-tt::ARCH TTDevice::get_arch() { return arch; }
+tt::ARCH TTDevice::get_arch() const { return arch; }
 
 bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
     if (!hang_detector_) {
@@ -416,6 +423,9 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
 
 ChipInfo TTDevice::get_chip_info() {
+    if (firmware_info_provider == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled();
@@ -557,13 +567,18 @@ void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
     get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
 }
 
-const SocDescriptor &TTDevice::get_soc_descriptor() const { return soc_descriptor_.value(); }
+const SocDescriptor &TTDevice::get_soc_descriptor() const {
+    if (!soc_descriptor_.has_value()) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return soc_descriptor_.value();
+}
 
-void TTDevice::construct_soc_descriptor(const std::string &soc_descriptor_path) {
-    if (soc_descriptor_path.empty()) {
+void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+    if (soc_arch_descriptor == nullptr) {
         soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
     } else {
-        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_descriptor_path), get_chip_info());
+        soc_descriptor_ = SocDescriptor(soc_arch_descriptor, get_chip_info());
     }
 }
 

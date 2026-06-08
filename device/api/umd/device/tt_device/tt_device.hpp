@@ -24,6 +24,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
@@ -75,18 +76,6 @@ public:
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    TTDevice(
-        std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<architecture_implementation> architecture_impl,
-        bool use_safe_api);
-    TTDevice(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
-    TTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
-
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
@@ -99,7 +88,7 @@ public:
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
 
-    tt::ARCH get_arch();
+    tt::ARCH get_arch() const;
 
     /**
      * @brief Controls what happens when a hang is confirmed.
@@ -381,7 +370,7 @@ public:
 
     void init_tt_device(
         std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        const std::string &soc_descriptor_path = "");
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     uint64_t get_refclk_counter();
 
@@ -479,8 +468,18 @@ protected:
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    TTDevice();
-    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice() = default;
+    TTDevice(
+        std::unique_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
+    TTDevice(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -492,8 +491,7 @@ protected:
 
     tt_xy_pair arc_core;
 
-    // Assigns default SocDescriptor.
-    void construct_soc_descriptor(const std::string &soc_descriptor_path = "");
+    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:

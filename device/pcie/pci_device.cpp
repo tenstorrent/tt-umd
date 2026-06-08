@@ -1070,7 +1070,7 @@ void PCIDevice::set_power_state(bool busy) {
     }
 
     if (kmd_version < KMD_POWER_STATE) {
-        log_warning(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
+        log_debug(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
         return;
     }
 

@@ -486,7 +486,8 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
     }
 }
 
-TEST_F(TestFirmwareInfoProvider, FanSpeed) {
+// Disabled until fan speed updates from CMFW 19.10 are implemented. (#2778).
+TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
     for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();

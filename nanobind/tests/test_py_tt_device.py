@@ -112,6 +112,49 @@ class TestTTDevice(unittest.TestCase):
                 "Buffer-based noc_read should match original noc_read",
             )
             print(f"noc_read buffer version verified against original version")
+
+            # The buffer-based noc_read accepts any writable buffer-protocol
+            # object, e.g. a memoryview over a bytearray.
+            mv_buffer = bytearray(buffer_size)
+            dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, memoryview(mv_buffer))
+            self.assertEqual(
+                bytes(mv_buffer),
+                data_via_original,
+                "memoryview-based noc_read should match original noc_read",
+            )
+
+            # A memoryview can target a sub-region of a larger bytearray that
+            # does not start at offset 0. Only that region must be filled; the
+            # surrounding bytes must stay untouched. The backing buffer is
+            # prefilled with a sentinel so the untouched-region checks hold
+            # regardless of the actual device contents.
+            region_offset = 8
+            region_size = 16
+            sentinel = 0xAB
+            backing = bytearray([sentinel]) * buffer_size
+            region = memoryview(backing)[region_offset : region_offset + region_size]
+            dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, region)
+            self.assertEqual(
+                bytes(backing[region_offset : region_offset + region_size]),
+                data_via_original[:region_size],
+                "memoryview sub-region should be filled from the device",
+            )
+            self.assertEqual(
+                bytes(backing[:region_offset]),
+                bytes([sentinel]) * region_offset,
+                "bytes before the memoryview region must be untouched",
+            )
+            self.assertEqual(
+                bytes(backing[region_offset + region_size :]),
+                bytes([sentinel]) * (buffer_size - region_offset - region_size),
+                "bytes after the memoryview region must be untouched",
+            )
+
+            # A read-only buffer (e.g. bytes) cannot be filled and must be
+            # rejected with a BufferError rather than silently discarding the
+            # device data.
+            with self.assertRaises(BufferError):
+                dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
             dev.set_power_state(False)
 
     def test_dma_tt_device(self):
@@ -212,6 +255,21 @@ class TestTTDevice(unittest.TestCase):
                 "Buffer-based noc_read should match original noc_read",
             )
             print(f"noc_read buffer version verified against original version")
+
+            # The buffer-based read accepts any writable buffer-protocol object,
+            # e.g. a memoryview over a bytearray.
+            mv_buffer = bytearray(buffer_size)
+            read_fn(0, tensix_core.x, tensix_core.y, 0x300, memoryview(mv_buffer))
+            self.assertEqual(
+                bytes(mv_buffer),
+                data_via_original,
+                "memoryview-based read should match original read",
+            )
+
+            # A read-only buffer (e.g. bytes) cannot be filled and must be
+            # rejected with a BufferError.
+            with self.assertRaises(BufferError):
+                read_fn(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
             dev.set_power_state(False)
 
     def test_remote_tt_device(self):

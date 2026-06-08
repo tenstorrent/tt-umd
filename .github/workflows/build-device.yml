@@ -75,6 +75,15 @@ jobs:
     with:
       docker-version: manylinux
 
+  ensure-manylinux-aarch64-image:
+    name: Ensure manylinux-aarch64 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: manylinux-aarch64
+
   ensure-riscv-image:
     name: Ensure ubuntu-24.04-riscv Docker image
     permissions:
@@ -374,10 +383,15 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: ensure-manylinux-image
+    needs: [ensure-manylinux-image, ensure-manylinux-aarch64-image]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
 
-    name: Build umd manylinux wheel
-    runs-on: tt-ubuntu-2204-large-stable
+    name: Build umd manylinux wheel (${{ matrix.arch }})
+    # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -395,10 +409,16 @@ jobs:
       - name: Build manylinux wheels
         shell: bash
         env:
-          # Use custom manylinux Docker image with all dependencies pre-installed
+          # Only build wheels for the runner's native architecture.
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # Use custom manylinux Docker images with all dependencies pre-installed.
+          # cibuildwheel picks the image matching the architecture being built.
           CIBW_MANYLINUX_X86_64_IMAGE: >-
             ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux:${{
             needs.ensure-manylinux-image.outputs.image-tag }}
+          CIBW_MANYLINUX_AARCH64_IMAGE: >-
+            ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux-aarch64:${{
+            needs.ensure-manylinux-aarch64-image.outputs.image-tag }}
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -412,7 +432,7 @@ jobs:
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: manylinux-wheel-artifact
+          name: manylinux-wheel-artifact-${{ matrix.arch }}
           path: |
             ${{ env.WHEEL_OUTPUT_DIR }}
 

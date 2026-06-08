@@ -294,10 +294,15 @@ jobs:
           if-no-files-found: error
 
   build-python-wheels:
-    name: Build Python Wheel (manylinux)
-    runs-on: tt-ubuntu-2204-large-stable
+    name: Build Python Wheel (manylinux ${{ matrix.arch }})
     needs: prepare-release
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -315,8 +320,12 @@ jobs:
       - name: Build manylinux wheels
         shell: bash
         env:
-          # Use custom manylinux Docker image with all dependencies pre-installed
+          # Only build wheels for the runner's native architecture.
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # Use custom manylinux Docker images with all dependencies pre-installed.
+          # cibuildwheel picks the image matching the architecture being built.
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          CIBW_MANYLINUX_AARCH64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux-aarch64:latest
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -330,7 +339,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-${{ matrix.arch }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}
 
   publish-to-testpypi:
@@ -349,7 +358,8 @@ jobs:
       - name: Download all the wheels
         uses: actions/download-artifact@v8
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          pattern: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-*
+          merge-multiple: true
           path: dist/
 
       - name: Publish distribution 📦 to TestPyPI
@@ -374,7 +384,8 @@ jobs:
       - name: Download all the wheels
         uses: actions/download-artifact@v8
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          pattern: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-*
+          merge-multiple: true
           path: dist/
 
       - name: Publish distribution 📦 to PyPI
@@ -439,7 +450,7 @@ jobs:
             - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
 
             ### Python Wheels
-            - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64)
+            - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64 and aarch64)
             - Compatible with Ubuntu 20.04+, RHEL 8+, and other modern Linux distributions
             - Includes Python bindings for tt-umd
             - PyPI: https://pypi.org/project/tt-umd/

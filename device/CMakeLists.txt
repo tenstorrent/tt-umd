@@ -80,6 +80,7 @@ target_sources(
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
+        tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp
@@ -237,6 +238,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
+                api/umd/device/tt_device/ethernet_broadcast.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp

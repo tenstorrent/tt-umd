@@ -54,6 +54,8 @@ public:
 
     ~SimulationChip() override = default;
 
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
+
     // Common interface methods - most have simple implementations.
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;

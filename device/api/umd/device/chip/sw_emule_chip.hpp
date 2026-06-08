@@ -109,6 +109,12 @@ private:
     // Cached set of DRAM cores for fast lookup.
     std::unordered_map<tt_xy_pair, uint32_t> dram_core_to_channel_;
 
+    // One DRAM backing per channel. A channel is fronted by multiple NOC endpoint
+    // coords (per-NOC preferred workers / subchannels); on silicon they all address
+    // the same physical DRAM, so every coord of a channel must alias one Core —
+    // otherwise a noc=1 access reads a different mmap than a noc=0 / host write.
+    std::unordered_map<uint32_t, tt_emule::Core*> dram_channel_core_;
+
     uint32_t l1_size_;
     uint64_t dram_bank_size_;
 

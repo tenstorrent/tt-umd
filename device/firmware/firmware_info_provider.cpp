@@ -131,7 +131,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::BOARD_ID_HIGH, {WormholeTag::BOARD_ID_HIGH, LinearTransform{}}},
         {FirmwareFeature::BOARD_ID_LOW, {WormholeTag::BOARD_ID_LOW, LinearTransform{}}},
         {FirmwareFeature::ASIC_LOCATION, {FixedValue{0}, LinearTransform{}}},
-        {FirmwareFeature::ASIC_TEMPERATURE,  {WormholeTag::ASIC_TEMPERATURE,  LinearTransform{0, 0xFFFF,     1.0 / 16.0,    0.0}}},
+        {FirmwareFeature::ASIC_TEMPERATURE,  {WormholeTag::ASIC_TEMPERATURE,  LinearTransform{0, 0xFFFF, 1.0 / 16.0, 0.0}}},
         {FirmwareFeature::BOARD_TEMPERATURE, {WormholeTag::BOARD_TEMPERATURE, LinearTransform{0, 0xFFFFFFFF, 1.0 / 65536.0, 0.0}}},
         {FirmwareFeature::GDDR_0_1_TEMP, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::GDDR_2_3_TEMP, {FixedValue{0}, NotAvailable{}}},
@@ -630,6 +630,14 @@ std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status(
     }
     uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
     return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+}
+
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() const {
+    if (!is_feature_available(FirmwareFeature::ETH_LIVE_STATUS)) {
+        return std::nullopt;
+    }
+    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LIVE_STATUS).key);
+    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {

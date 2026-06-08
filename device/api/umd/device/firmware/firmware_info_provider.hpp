@@ -167,6 +167,14 @@ public:
      */
     std::optional<std::vector<bool>> get_eth_retrain_status() const;
 
+    /*
+     * Get per-link ethernet link status.
+     * Available on firmware 19.9+ for both Wormhole and Blackhole; returns std::nullopt otherwise.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = link is up), or std::nullopt if unavailable.
+     */
+    std::optional<std::vector<bool>> get_eth_link_status() const;
+
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
     uint32_t get_max_clock_freq() const;

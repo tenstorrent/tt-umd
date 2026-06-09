@@ -32,22 +32,10 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     // writes to segfault.  Overcommit means only touched pages use physical RAM.
     dram_bank_size_ = soc.dram_bank_size;
 
-    // Build DRAM core lookup table from SOC descriptor.
-    // soc.get_dram_cores() returns NOC0 coordinates, but the runtime
-    // (Cluster::write_core / read_core) translates to CoordSystem::TRANSLATED
-    // before invoking the chip driver.  Without converting here, is_dram_core()
-    // misses for translated coords on Blackhole (where TRANSLATED != NOC0 for
-    // DRAM cores) and routes large DRAM writes into a 1.5 MB worker slot —
-    // OOB-aborts as soon as the offset exceeds the worker L1 size.
-    // Register each DRAM subchannel core in BOTH coord systems it can reach emule
-    // in: NOC0 (get_dram_cores default; the runner's NOC0 core_map registration and
-    // WH kernel emission) and TRANSLATED (host write_core / read_core; BH kernel
-    // emission and preferred-worker tables). On Wormhole the two coincide; on
-    // Blackhole TRANSLATED != NOC0 for DRAM, so both keys are required — otherwise a
-    // NOC0-form DRAM coord misses is_dram_core() and get_core() backs it as a worker
-    // L1 slot instead of the channel's DRAM backing (a noc=1 endpoint then reads a
-    // different mmap than the host/noc=0 write). With both forms classified, get_core
-    // aliases every endpoint of a channel to the one dram_channel_core_ backing.
+    // Classify DRAM cores by channel, keyed in BOTH coord systems they reach emule in:
+    // NOC0 (get_dram_cores default) and TRANSLATED (host write_core/read_core). On
+    // Blackhole TRANSLATED != NOC0 for DRAM, so both keys are needed — else a NOC0-form
+    // coord misses is_dram_core() and gets backed as a (too-small) worker L1 slot.
     auto dram_cores = soc.get_dram_cores();
     for (uint32_t channel = 0; channel < dram_cores.size(); ++channel) {
         for (const auto& core : dram_cores[channel]) {
@@ -78,12 +66,9 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         return it->second.get();
     }
 
-    // DRAM: one physical backing per CHANNEL. A channel is fronted by multiple NOC
-    // endpoint coords (per-NOC preferred workers / subchannels) — e.g. WH ch0 =
-    // {(0,0),(0,1),(0,11)}, where NOC0 and NOC1 resolve to different coords. On
-    // silicon they all address the same DRAM, so a write via one endpoint is visible
-    // via any other. Alias every coord of a channel to a single Core (individual
-    // mmap, not from the pool, not MAP_32BIT) so a noc=1 read sees a noc=0/host write.
+    // One backing per DRAM channel: a channel's several NOC endpoint coords all address
+    // the same physical bank, so alias them to one Core (individual mmap, not pooled) —
+    // else a noc=1 read sees a different mmap than the noc=0/host write.
     if (is_dram_core(core_xy)) {
         uint32_t channel = dram_core_to_channel_.at(core_xy);
         auto chit = dram_channel_core_.find(channel);

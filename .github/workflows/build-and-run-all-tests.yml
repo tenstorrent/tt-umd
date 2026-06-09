@@ -111,6 +111,7 @@ jobs:
         # - bh-loudbox is a single machine in CIv2. It also has an additional problem where
         #   it actually has a ~20min startup time for viommu variant, so this one can be really slow.
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
+        # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep PR/merge queue runtime down.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
@@ -123,6 +124,8 @@ jobs:
             'pull_request|*|bh-gh-07' \
             'merge_group|ASan|bh-gh-07' \
             'merge_group|TSan|bh-gh-07' \
+            'pull_request|*|tt-ubuntu-2204-p100a-*' \
+            'merge_group|*|tt-ubuntu-2204-p100a-*' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 

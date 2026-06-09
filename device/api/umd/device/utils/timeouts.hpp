@@ -9,6 +9,11 @@
 namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
+// Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at process start
+// via the TT_UMD_MMIO_OP_TIMEOUT_MS env var. 100 ms so post-reset reads (which can legitimately take tens
+// of ms before the device settles) don't trip the timeout on the happy path.
+inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(100);
+
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
 inline constexpr auto ARC_POST_RESET_TIMEOUT = std::chrono::milliseconds(1'000);

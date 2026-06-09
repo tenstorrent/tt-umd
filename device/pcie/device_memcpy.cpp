@@ -11,6 +11,7 @@
 #include <string>
 
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -20,23 +21,24 @@ namespace tt::umd {
 
 namespace {
 
-// Hard-coded default per-op budget; overridable at process start via the env var
-// TT_UMD_MMIO_OP_TIMEOUT_MS. Applied once per 256-byte block in the bulk AVX2
-// phase and once per op in the 32 / 16 / 4-byte and byte-wide tail phases. Set to
-// 100 ms so post-reset reads (which can legitimately take tens of ms before the
-// device settles) don't trip the timeout on the happy path.
-constexpr std::chrono::milliseconds kDefaultMmioOpTimeout{100};
-
+// Resolves the per-op budget once: the TT_UMD_MMIO_OP_TIMEOUT_MS override if set, otherwise the default
+// from timeout::MMIO_OP_TIMEOUT. The budget is applied once per 256-byte block in the bulk AVX2 phase and
+// once per op in the 32 / 16 / 4-byte and byte-wide tail phases. A malformed override fails fast rather
+// than being silently ignored (consistent with TT_VISIBLE_DEVICES), so a typo can't quietly disable the
+// intended budget.
 std::chrono::milliseconds mmio_op_timeout() {
     static const std::chrono::milliseconds value = [] {
         const char* env = std::getenv("TT_UMD_MMIO_OP_TIMEOUT_MS");
         if (env == nullptr || *env == '\0') {
-            return kDefaultMmioOpTimeout;
+            return timeout::MMIO_OP_TIMEOUT;
         }
         try {
             return std::chrono::milliseconds(std::stoul(env));
         } catch (...) {
-            return kDefaultMmioOpTimeout;
+            UMD_THROW(
+                error::RuntimeError,
+                std::string("Invalid TT_UMD_MMIO_OP_TIMEOUT_MS: '") + env +
+                    "'. Expected a non-negative integer number of milliseconds.");
         }
     }();
     return value;
@@ -76,7 +78,8 @@ public:
         if (on_timeout_ && !on_timeout_()) {
             return;
         }
-        throw error::DeviceTimeoutError(
+        UMD_THROW(
+            error::DeviceTimeoutError,
             fn_name_,
             op_verb_,
             op_bytes,

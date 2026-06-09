@@ -73,7 +73,7 @@ protected:
         try {
             tt_device_->read_from_device(
                 &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
-        } catch (const error::DeviceTimeoutError&) {
+        } catch (const error::UmdException<error::DeviceTimeoutError>&) {
             // Once the per-op MMIO timeout is active, the hang-inducing read stalls past the
             // default 100 ms budget and aborts before returning. The NOC is hung regardless.
         }
@@ -188,7 +188,7 @@ TEST_P(NocHangDetectionTest, DISABLED_PerOpTimeoutThrowsOnHungNoc) {
     NocIdSwitcher switcher(noc_to_hang);
     EXPECT_THROW(
         tt_device_->read_from_device(&value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(value)),
-        error::DeviceTimeoutError)
+        error::UmdException<error::DeviceTimeoutError>)
         << "A read on the hung NOC should trip the per-op MMIO timeout.";
 
     warm_reset_and_reinit();

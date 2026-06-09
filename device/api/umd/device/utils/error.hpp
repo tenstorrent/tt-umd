@@ -5,6 +5,7 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -45,77 +46,56 @@ public:
 };
 
 /**
- * @brief Exception thrown when a host-side MMIO operation exceeds its
- * configured wall-clock budget.
+ * @brief Structured metadata for a host-side MMIO operation that overran its budget.
  *
- * Distinct from SigbusError: SigbusError indicates the platform's PCIe
- * completion timeout fired (hardware-detected fault). DeviceTimeoutError
- * indicates a software budget elapsed — typically because writes were
- * piling up against a slow or dead NOC before SIGBUS could fire.
- *
- * Fields are stored as-is and the formatted what() string is built lazily
- * on first call. The exception does NOT copy function_name and operation:
- * callers MUST pass pointers with static storage duration (string literals).
- * Passing a temporary's c_str() (e.g. std::string::c_str()) leaves dangling
- * pointers inside the exception. The memcpy path passes literals
- * ("memcpy_to_device" / "store" etc.).
+ * Carries the timing and progress context of the timed-out transfer. function_name and
+ * operation are owned std::strings, so callers may pass temporaries safely.
  */
-class DeviceTimeoutError : public std::exception {
-public:
+struct DeviceTimeoutData {
+    std::string function_name;            ///< Name of the IO routine that timed out (e.g. "memcpy_to_device").
+    std::string operation;                ///< The individual op that overran (e.g. "store").
+    std::uint32_t op_bytes = 0;           ///< Size in bytes of the single op that overran.
+    std::chrono::nanoseconds delta{0};    ///< Wall-clock time the op actually took.
+    std::chrono::milliseconds budget{0};  ///< Configured per-op budget that was exceeded.
+    std::size_t bytes_remaining = 0;      ///< Bytes still to transfer when the budget elapsed.
+    std::size_t total_bytes = 0;          ///< Total bytes of the overall transfer.
+};
+
+/**
+ * @brief Error raised when a host-side MMIO operation exceeds its configured wall-clock budget.
+ *
+ * Distinct from SigbusError: SigbusError indicates the platform's PCIe completion timeout fired
+ * (a hardware-detected fault), whereas DeviceTimeoutError indicates a software budget elapsed —
+ * typically because writes were piling up against a slow or dead NOC before SIGBUS could fire.
+ * Keeping them separate lets callers branch on retry policy.
+ */
+struct DeviceTimeoutError : public UmdError<DeviceTimeoutData> {
     DeviceTimeoutError(
-        const char* function_name,
-        const char* operation,
+        const std::string& function_name,
+        const std::string& operation,
         std::uint32_t op_bytes,
         std::chrono::nanoseconds delta,
         std::chrono::milliseconds budget,
         std::size_t bytes_remaining,
-        std::size_t total_bytes) noexcept :
-        function_name_(function_name),
-        operation_(operation),
-        op_bytes_(op_bytes),
-        delta_(delta),
-        budget_(budget),
-        bytes_remaining_(bytes_remaining),
-        total_bytes_(total_bytes) {}
-
-    const char* what() const noexcept override {
-        if (message_.empty()) {
-            try {
-                auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta_).count();
-                message_ =
-                    std::string(function_name_) + " per-op timeout: " + std::to_string(op_bytes_) + "B " + operation_ +
-                    " took " + std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget_.count()) + " ms), " +
-                    std::to_string(bytes_remaining_) + " of " + std::to_string(total_bytes_) + " bytes remaining.";
-            } catch (...) {
-                return "tt::umd::error::DeviceTimeoutError (message formatting failed).";
-            }
-        }
-        return message_.c_str();
-    }
-
-    const char* function_name() const noexcept { return function_name_; }
-
-    const char* operation() const noexcept { return operation_; }
-
-    std::uint32_t op_bytes() const noexcept { return op_bytes_; }
-
-    std::chrono::nanoseconds delta() const noexcept { return delta_; }
-
-    std::chrono::milliseconds budget() const noexcept { return budget_; }
-
-    std::size_t bytes_remaining() const noexcept { return bytes_remaining_; }
-
-    std::size_t total_bytes() const noexcept { return total_bytes_; }
+        std::size_t total_bytes) :
+        UmdError<DeviceTimeoutData>(
+            format_message(function_name, operation, op_bytes, delta, budget, bytes_remaining, total_bytes),
+            DeviceTimeoutData{function_name, operation, op_bytes, delta, budget, bytes_remaining, total_bytes}) {}
 
 private:
-    const char* function_name_;
-    const char* operation_;
-    std::uint32_t op_bytes_;
-    std::chrono::nanoseconds delta_;
-    std::chrono::milliseconds budget_;
-    std::size_t bytes_remaining_;
-    std::size_t total_bytes_;
-    mutable std::string message_;
+    static std::string format_message(
+        const std::string& function_name,
+        const std::string& operation,
+        std::uint32_t op_bytes,
+        std::chrono::nanoseconds delta,
+        std::chrono::milliseconds budget,
+        std::size_t bytes_remaining,
+        std::size_t total_bytes) {
+        const auto delta_ms = std::chrono::duration_cast<std::chrono::milliseconds>(delta).count();
+        return function_name + " per-op timeout: " + std::to_string(op_bytes) + "B " + operation + " took " +
+               std::to_string(delta_ms) + " ms (budget=" + std::to_string(budget.count()) + " ms), " +
+               std::to_string(bytes_remaining) + " of " + std::to_string(total_bytes) + " bytes remaining.";
+    }
 };
 
 }  // namespace tt::umd::error

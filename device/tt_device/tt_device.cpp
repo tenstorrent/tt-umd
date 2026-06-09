@@ -75,7 +75,7 @@ public:
         uint32_t value = 0;
         try {
             window_->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
-        } catch (const error::DeviceTimeoutError &) {
+        } catch (const error::UmdException<error::DeviceTimeoutError> &) {
             return HANG_READ_VALUE;
         }
         return value;

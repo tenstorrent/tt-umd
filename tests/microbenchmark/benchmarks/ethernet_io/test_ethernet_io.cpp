@@ -47,8 +47,7 @@ TEST(MicrobenchmarkEthernetIO, DRAM) {
         2 * ONE_MIB,
         4 * ONE_MIB,
         8 * ONE_MIB};
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     if (cluster->get_target_remote_device_ids().empty()) {
         GTEST_SKIP() << "No ETH connected devices found in the cluster, skipping benchmark.";
@@ -78,8 +77,7 @@ TEST(MicrobenchmarkEthernetIO, Tensix) {
     const uint64_t ADDRESS = 0x0;
     const std::vector<size_t> BATCH_SIZES = {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 1 * ONE_MIB};
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     if (cluster->get_target_remote_device_ids().empty()) {
         GTEST_SKIP() << "No ETH connected devices found in the cluster, skipping benchmark.";
@@ -109,8 +107,7 @@ TEST(MicrobenchmarkEthernetIO, Ethernet) {
     const uint64_t ADDRESS = 0x20000;  // 128 KiB
     const std::vector<size_t> BATCH_SIZES = {
         1, 2, 4, 8, 1 * ONE_KIB, 2 * ONE_KIB, 4 * ONE_KIB, 8 * ONE_KIB, 128 * ONE_KIB};
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     if (cluster->get_target_remote_device_ids().empty()) {
         GTEST_SKIP() << "No ETH connected devices found in the cluster, skipping benchmark.";

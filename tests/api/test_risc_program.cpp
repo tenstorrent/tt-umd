@@ -36,8 +36,7 @@ using namespace tt::umd;
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestRiscProgram, DeassertResetBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
@@ -89,8 +88,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
 TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -160,8 +158,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
 
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {

@@ -17,7 +17,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-namespace test_utils {
+namespace tt::umd::test_utils {
 
 template <typename T>
 static inline void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes) {
@@ -64,4 +64,4 @@ inline bool is_virtual_machine() {
     return false;
 }
 
-}  // namespace test_utils
+}  // namespace tt::umd::test_utils

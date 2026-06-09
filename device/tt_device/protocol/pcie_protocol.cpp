@@ -100,6 +100,22 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
     }
 }
 
+void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    const uint8_t* src = static_cast<const uint8_t*>(mem_ptr);
+    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+        write_to_device(src + offset, core, addr + offset, sizeof(uint32_t), noc_id);
+    }
+}
+
+void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    uint8_t* dst = static_cast<uint8_t*>(mem_ptr);
+    for (size_t offset = 0; offset < size; offset += sizeof(uint32_t)) {
+        read_from_device(dst + offset, core, addr + offset, sizeof(uint32_t), noc_id);
+    }
+}
+
 bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t, NocId) { return false; }
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }

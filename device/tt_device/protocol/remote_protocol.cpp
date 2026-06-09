@@ -14,6 +14,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -26,6 +27,17 @@ void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint6
 
 void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
+}
+
+void RemoteProtocol::write_to_device_reg(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    write_to_device(mem_ptr, core, addr, size, noc_id);
+}
+
+void RemoteProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    read_from_device(mem_ptr, core, addr, size, noc_id);
 }
 
 bool RemoteProtocol::write_to_core_range(

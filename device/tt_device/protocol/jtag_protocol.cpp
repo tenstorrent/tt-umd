@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "umd/device/jtag/jtag_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -23,6 +24,16 @@ void JtagProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_
 
 void JtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     jtag_device_->read(mmio_id_, mem_ptr, core.x, core.y, addr, size, static_cast<uint8_t>(noc_id));
+}
+
+void JtagProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    write_to_device(mem_ptr, core, addr, size, noc_id);
+}
+
+void JtagProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    read_from_device(mem_ptr, core, addr, size, noc_id);
 }
 
 bool JtagProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t, NocId) { return false; }

@@ -91,8 +91,8 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
             return chit->second;  // share the channel's existing backing
         }
         tt_emule::CoreCoord dram_coord{core_xy.x, core_xy.y};
-        auto dram_core =
-            std::make_unique<tt_emule::Core>(dram_coord, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
+        auto dram_core = std::make_unique<tt_emule::Core>(
+            dram_coord, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
         tt_emule::Core* raw_ptr = dram_core.get();
         dram_channel_core_[channel] = raw_ptr;
         cores_[core_xy] = std::move(dram_core);  // first coord of the channel owns it

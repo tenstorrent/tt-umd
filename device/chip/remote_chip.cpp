@@ -12,8 +12,10 @@
 #include <utility>
 
 #include "tracy.hpp"
-#include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/simulation/simulation_chip.hpp"
+#endif
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -28,19 +30,44 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip) {
+std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
-    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "LocalChip passed to RemoteChip must not be null.");
+    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "Local chip passed to RemoteChip must not be null.");
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device)));
 }
 
-RemoteChip::RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {
+std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
+    std::unique_ptr<TTDevice> remote_tt_device,
+    Chip* local_chip,
+    SocDescriptor soc_descriptor,
+    ChipInfo chip_info) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    UMD_ASSERT(
+        remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
+    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "Local chip passed to RemoteChip must not be null.");
+    return std::unique_ptr<RemoteChip>(
+        new RemoteChip(local_chip, std::move(remote_tt_device), std::move(soc_descriptor), chip_info));
+}
+
+RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
+    Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()),
+    local_chip_(local_chip),
+    soc_descriptor_(remote_tt_device->get_soc_descriptor()) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();
+}
+
+RemoteChip::RemoteChip(
+    Chip* local_chip,
+    std::unique_ptr<TTDevice> remote_tt_device,
+    SocDescriptor soc_descriptor,
+    ChipInfo chip_info) :
+    Chip(chip_info, soc_descriptor.arch), local_chip_(local_chip), soc_descriptor_(std::move(soc_descriptor)) {
+    remote_communication_ = remote_tt_device->get_remote_communication();
+    tt_device_ = std::move(remote_tt_device);
 }
 
 bool RemoteChip::is_mmio_capable() const { return false; }
@@ -49,6 +76,11 @@ void RemoteChip::start_device(uint32_t dram_membar_subchannel) {}
 
 void RemoteChip::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (dynamic_cast<SimulationChip*>(local_chip_) != nullptr) {
+        return;
+    }
+#endif
     // Investigating https://github.com/tenstorrent/tt-metal/issues/25377 found that closing device that was already put
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
@@ -87,6 +119,22 @@ void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_star
     UMD_THROW(error::RuntimeError, "RemoteChip::dma_multicast_write is not available for this chip.");
 }
 
+void RemoteChip::noc_multicast_write(
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
+        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
+    }
+    const tt_xy_pair translated_start = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
+    const tt_xy_pair translated_end = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
+    for (const auto& core : get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        if (core.x < translated_start.x || core.x > translated_end.x || core.y < translated_start.y ||
+            core.y > translated_end.y) {
+            continue;
+        }
+        write_to_device(CoreCoord(core.x, core.y, CoreType::TENSIX, CoordSystem::TRANSLATED), src, addr, size);
+    }
+}
+
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }
@@ -97,7 +145,14 @@ void RemoteChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint3
     wait_for_non_mmio_flush();
 }
 
-void RemoteChip::deassert_risc_resets() { local_chip_->deassert_risc_resets(); }
+void RemoteChip::deassert_risc_resets() {
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (dynamic_cast<SimulationChip*>(local_chip_) != nullptr) {
+        return;
+    }
+#endif
+    local_chip_->deassert_risc_resets();
+}
 
 int RemoteChip::get_clock() { return tt_device_->get_clock(); }
 

@@ -58,14 +58,14 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
                 return create_wormhole_18_3_base();
             } else if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_wormhole_18_4_base();
-            } else if (fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+            } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
                 return create_wormhole_18_8_base();
             }
             return create_wormhole_19_9_base();
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
-            } else if (fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+            } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
                 return create_blackhole_18_8_base();
             }
             return create_blackhole_19_9_base();

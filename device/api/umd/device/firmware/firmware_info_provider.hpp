@@ -153,7 +153,7 @@ public:
 
     /*
      * Get per-link ethernet heartbeat status.
-     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
      * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
      * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
      */
@@ -161,7 +161,7 @@ public:
 
     /*
      * Get per-link ethernet retrain status.
-     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
      * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
      * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
      */

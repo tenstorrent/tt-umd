@@ -604,12 +604,12 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
         auto heartbeats = fw_info->get_eth_heartbeat_status();
 
         // Available on Wormhole (all versions) and Blackhole >= 19.9.
-        if (arch == tt::ARCH::BLACKHOLE && fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+        if (arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(heartbeats.has_value());
         }
 
         if (arch == tt::ARCH::WORMHOLE_B0 ||
-            (arch == tt::ARCH::BLACKHOLE && fw_version > FirmwareBundleVersion(19, 8, 0))) {
+            (arch == tt::ARCH::BLACKHOLE && fw_version >= FirmwareBundleVersion(19, 9, 0))) {
             EXPECT_TRUE(heartbeats.has_value());
             if (heartbeats.has_value()) {
                 EXPECT_EQ(heartbeats.value().size(), 16u);
@@ -627,11 +627,11 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
         auto retrains = fw_info->get_eth_retrain_status();
 
         // Only available on Wormhole prior to 19.9.
-        if (arch == tt::ARCH::BLACKHOLE || fw_version > FirmwareBundleVersion(19, 8, 0)) {
+        if (arch == tt::ARCH::BLACKHOLE || fw_version >= FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(retrains.has_value());
         }
 
-        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_TRUE(retrains.has_value());
             if (retrains.has_value()) {
                 EXPECT_EQ(retrains.value().size(), 16u);
@@ -648,11 +648,11 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
         auto links = fw_info->get_eth_link_status();
 
         // Available on firmware >= 19.9 for both Wormhole and Blackhole.
-        if (fw_version <= FirmwareBundleVersion(19, 8, 0)) {
+        if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(links.has_value());
         }
 
-        if (fw_version > FirmwareBundleVersion(19, 8, 0)) {
+        if (fw_version >= FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_TRUE(links.has_value());
             if (links.has_value()) {
                 EXPECT_EQ(links.value().size(), 16u);

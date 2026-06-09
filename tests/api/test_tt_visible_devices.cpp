@@ -271,7 +271,7 @@ TEST_F(TestTTVisibleDevices, DifferentConstructors) {
         tt::ARCH device_arch = Cluster::create_cluster_descriptor()->get_arch(0);
         // You can add a custom soc descriptor here.
         std::string sdesc_path = test_utils::get_soc_descriptor_path(device_arch);
-        umd_cluster = std::make_unique<Cluster>(ClusterOptions{
+        umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
             .sdesc_path = sdesc_path,
         });
         umd_cluster.reset();

@@ -304,7 +304,8 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     // TODO: sysmem_enabled parameter to be added in the following PR.
     auto [use_noc0, full_grid] = GetParam();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
@@ -458,7 +459,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
     ClusterOptions options = GetParam();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
 
     if (options.chip_type == ChipType::SIMULATION) {
         cluster->start_device({.init_device = true});

@@ -278,7 +278,8 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
 TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     constexpr uint64_t write_address = 0x1000;
 
     test_utils::safe_test_cluster_start(cluster.get());

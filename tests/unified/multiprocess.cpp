@@ -184,7 +184,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::unique_ptr<Cluster> cluster =
-                std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+                test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
             std::cout << "Setting up risc cores and starting cluster " << i << std::endl;
             test_utils::safe_test_cluster_start(cluster.get());
             std::cout << "Running IO for cluster " << i << std::endl;

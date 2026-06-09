@@ -801,7 +801,8 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  */
 TEST(TestDeviceIO, DMA1) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -849,7 +850,8 @@ TEST(TestDeviceIO, DMA1) {
  */
 TEST(TestDeviceIO, DMA2) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = 1;

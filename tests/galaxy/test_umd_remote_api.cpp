@@ -27,7 +27,8 @@
 using namespace tt::umd;
 
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
-    Cluster device;
+    auto device_ptr = test_utils::make_default_test_cluster();
+    Cluster& device = *device_ptr;
 
     test::utils::set_barrier_params(device);
 
@@ -115,7 +116,8 @@ TEST(GalaxyBasicReadWrite, LargeRemoteDramBlockReadWrite) { run_remote_read_writ
 
 void run_data_mover_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core) {
-    Cluster device;
+    auto device_ptr = test_utils::make_default_test_cluster();
+    Cluster& device = *device_ptr;
     auto target_devices = device.get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
@@ -226,7 +228,8 @@ void run_data_broadcast_test(
     uint32_t vector_size,
     tt_multichip_core_addr sender_core,
     const std::vector<tt_multichip_core_addr>& receiver_cores) {
-    Cluster device;
+    auto device_ptr = test_utils::make_default_test_cluster();
+    Cluster& device = *device_ptr;
     auto target_devices = device.get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.

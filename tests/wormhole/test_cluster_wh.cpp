@@ -72,7 +72,7 @@ TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
 TEST(SiliconDriverWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
-        Cluster cluster(ClusterOptions{
+        auto cluster = test_utils::make_default_test_cluster(ClusterOptions{
             .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
         });
     }
@@ -80,9 +80,10 @@ TEST(SiliconDriverWH, CreateDestroy) {
 
 TEST(SiliconDriverWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
-    Cluster cluster(ClusterOptions{
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{
         .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
     });
+    Cluster& cluster = *cluster_ptr;
     for (const auto& chip : cluster.get_target_device_ids()) {
         ASSERT_EQ(
             cluster.get_tt_device(chip)->get_soc_descriptor().get_cores(CoreType::TENSIX).size() +
@@ -98,7 +99,8 @@ TEST(SiliconDriverWH, CustomSocDesc) {
 }
 
 TEST(SiliconDriverWH, HarvestingRuntime) {
-    Cluster cluster(ClusterOptions{});
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -166,7 +168,8 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
 }
 
 TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     // Do this only for a single chip to speed up the test.
@@ -206,7 +209,8 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
 }
 
 TEST(SiliconDriverWH, StaticTLB_RW) {
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     // Do this only for a single chip to speed up the test.
@@ -251,7 +255,8 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
 TEST(SiliconDriverWH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     auto chip_id = *cluster.get_target_mmio_device_ids().begin();
@@ -287,7 +292,8 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 TEST(SiliconDriverWH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     std::thread th1 = std::thread([&] {
@@ -339,7 +345,8 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     // Memory barrier flags get sent to address 0 for all channels in this test.
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
 
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -445,7 +452,8 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
 TEST(SiliconDriverWH, BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     test_utils::safe_test_cluster_start(&cluster);
@@ -563,7 +571,8 @@ TEST(SiliconDriverWH, BroadcastWrite) {
 TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -694,7 +703,8 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
 TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 
@@ -915,7 +925,8 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
 }
 
 TEST(SiliconDriverWH, LargeAddressTlb) {
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     const CoreCoord ARC_CORE = cluster.get_soc_descriptor(0).get_cores(CoreType::ARC).at(0);
 
@@ -963,7 +974,8 @@ TEST(SiliconDriverWH, LargeAddressTlb) {
  */
 TEST(TestDeviceIO, DMA3) {
     const ChipId chip = 0;
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     CoreCoord eth_core = cluster.get_soc_descriptor(chip).get_cores(CoreType::ETH)[0];
 

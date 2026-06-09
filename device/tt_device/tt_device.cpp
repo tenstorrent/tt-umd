@@ -28,6 +28,7 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -49,6 +50,44 @@
 
 namespace tt::umd {
 enum class RiscType : std::uint64_t;
+
+namespace {
+
+// Reads NOC registers for the hang check through a dedicated TLB window guarded by its own lock.
+//
+// This is the override HangDetector uses on PCIe (injected via set_noc_reg_reader). It is deliberately
+// kept out of HangDetector so the detector stays unaware of windows and locks. Because it owns a window
+// and lock that are independent of the protocol's cached window / io_lock_, it is safe to invoke from
+// inside a timed-out memcpy: it neither re-takes io_lock_ (no deadlock) nor re-enters the timed memcpy
+// path (no recursion). The window is created lazily on first probe. The probe read is itself un-timed,
+// so if it overruns its own budget it throws DeviceTimeoutError, which we map to HANG_READ_VALUE so the
+// hang check reports the NOC as hung.
+class NocProbeReader {
+public:
+    explicit NocProbeReader(PCIDevice *pci_device) : pci_device_(pci_device) {}
+
+    uint32_t read(tt_xy_pair core, uint64_t addr, NocId noc) {
+        std::lock_guard<std::mutex> lock(probe_lock_);
+        if (window_ == nullptr) {
+            window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
+                pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        }
+        uint32_t value = 0;
+        try {
+            window_->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+        } catch (const error::DeviceTimeoutError &) {
+            return HANG_READ_VALUE;
+        }
+        return value;
+    }
+
+private:
+    PCIDevice *pci_device_;
+    std::mutex probe_lock_;
+    std::unique_ptr<TlbWindow> window_;
+};
+
+}  // namespace
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
@@ -270,6 +309,28 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
         return true;
     }
     return false;
+}
+
+void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
+    hang_detector_ = std::move(hang_detector);
+    if (device_protocol_ == nullptr) {
+        return;
+    }
+
+    // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
+    // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
+    device_protocol_->set_io_timeout_callback(
+        [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
+
+    // On PCIe the liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must not
+    // read through the protocol's cached window. Override the detector's NOC read with a dedicated,
+    // separately-locked probe window (owned by the injected reader, not by HangDetector).
+    PCIDevice *pci = get_pci_device();
+    if (pci != nullptr) {
+        auto probe = std::make_shared<NocProbeReader>(pci);
+        hang_detector_->set_noc_reg_reader(
+            [probe](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t { return probe->read(core, addr, noc); });
+    }
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

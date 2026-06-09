@@ -485,17 +485,12 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
-    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
-        hang_detector_ = std::move(hang_detector);
-        // Wire the NOC liveness probe into the timed MMIO path. When a single MMIO op overruns its
-        // per-op budget, is_noc_hung() probes the in-flight op's NOC through HangDetector's dedicated
-        // un-timed window (its own lock, not io_lock_, so no deadlock/recursion) and decides: a hung
-        // NOC aborts the transfer with DeviceTimeoutError; a healthy NOC continues.
-        if (device_protocol_) {
-            device_protocol_->set_io_timeout_callback(
-                [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
-        }
-    }
+    // Installs the hang detector and, on a timed MMIO path, wires it in two ways:
+    //  - routes a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC;
+    //  - on PCIe, overrides how that check reads NOC registers so it goes through a dedicated,
+    //    separately-locked window — safe to call from inside a timed-out memcpy (no io_lock_ re-take,
+    //    no timed-path recursion). See the definition in tt_device.cpp.
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
     bool is_remote_tt_device = false;
 

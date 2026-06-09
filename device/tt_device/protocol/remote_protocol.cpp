@@ -13,12 +13,14 @@
 #include "umd/device/tt_device/ethernet_broadcast.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {
-    if (remote_communication_->has_sysmem_manager()) {
+    if (remote_communication_->has_sysmem_manager() &&
+        remote_communication_->get_local_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
         ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(remote_communication_.get());
     }
 }
@@ -44,6 +46,7 @@ bool RemoteProtocol::write_to_core_range(
 
     if (!use_translated_coords) {
         // NOC0 coordinates: only the full tensix grid is supported.
+        // Tensix grid is in range 1,1 to 9,11 as defined in wormhole_implementation.hpp.
         if (core_start.x > 1 || core_start.y > 1 || core_end.x < 9 || core_end.y < 11) {
             log_debug(
                 LogUMD,
@@ -55,6 +58,15 @@ bool RemoteProtocol::write_to_core_range(
         rows_to_exclude = {0, 6};
         columns_to_exclude = {0, 5};
     } else {
+        // Translated coordinates only land correctly when NOC translation is enabled; otherwise the translated grid
+        // is meaningless. Fall back to unicast rather than broadcasting to the wrong cores.
+        if (!remote_communication_->get_local_device()->get_noc_translation_enabled()) {
+            log_debug(
+                LogUMD,
+                "write_to_core_range: NOC translation is not enabled, translated ethernet broadcast not supported, "
+                "falling back to unicast");
+            return false;
+        }
         // Always filter out the non-TENSIX cores.
         rows_to_exclude = {16, 17};
         columns_to_exclude = {16, 17};

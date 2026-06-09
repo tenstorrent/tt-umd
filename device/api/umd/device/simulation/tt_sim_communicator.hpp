@@ -30,7 +30,10 @@ public:
      *   for legacy single-chip consumers.
      */
     TTSimCommunicator(
-        const std::filesystem::path &simulator_directory, bool copy_sim_binary = false, uint32_t chip_id = 0);
+        const std::filesystem::path &simulator_directory,
+        bool copy_sim_binary = false,
+        uint32_t chip_id = 0,
+        uint32_t num_chips = 1);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -190,7 +193,16 @@ private:
     // True when the loaded .so supports the multichip ABI and this
     // communicator is using the shared dlopen path.
     bool multichip_mode_ = false;
+    // True when the .so has NO multichip ABI but the cluster has >1 chip: all
+    // communicators share a single dlopen (so the simulator's per-chip state array is
+    // shared) and each chip is addressed by its PCI device (BDF) -- the host-enumeration
+    // model in docs/multichip/ARCHITECTURE.md. No libttsim_select_device_by_id; the
+    // device is carried in the PCI config BDF and in the per-device BAR physical address.
+    bool shared_bdf_mode_ = false;
+    // Both modes use the single shared dlopen (s_shared_handle_) + refcount.
+    bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
     uint32_t chip_id_ = 0;
+    uint32_t num_chips_ = 1;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
     static bool s_sim_initialized_;

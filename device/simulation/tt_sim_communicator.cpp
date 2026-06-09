@@ -42,11 +42,14 @@ std::mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
 
 TTSimCommunicator::TTSimCommunicator(
-    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id) :
-    simulator_directory_(simulator_directory), copy_sim_binary_(copy_sim_binary), chip_id_(chip_id) {}
+    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
+    simulator_directory_(simulator_directory),
+    copy_sim_binary_(copy_sim_binary),
+    chip_id_(chip_id),
+    num_chips_(num_chips) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
-    if (multichip_mode_) {
+    if (uses_shared_handle()) {
         // Shared dlopen -- decrement refcount. When last communicator
         // destructs, call libttsim_exit (which the deferred shutdown()
         // path didn't call), then dlclose. The simulator is process-global,
@@ -150,6 +153,38 @@ void TTSimCommunicator::initialize() {
         return;
     }
 
+    // No multichip ABI, but a multi-chip cluster: share a single dlopen so all chips
+    // live in one libttsim process image (one shared per-chip state array), and address
+    // each chip by its PCI device (BDF) + per-device BAR window. This is the BDF
+    // host-enumeration path (docs/multichip/ARCHITECTURE.md) -- no select_device_by_id,
+    // no virtual eth switch (the simulator routes inter-chip eth internally).
+    if (num_chips_ > 1) {
+        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        if (!s_shared_handle_) {
+            s_shared_handle_ = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
+            if (!s_shared_handle_) {
+                UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
+            }
+        }
+        libttsim_handle_ = s_shared_handle_;
+        DLSYM_FUNCTION(libttsim_init)
+        DLSYM_FUNCTION(libttsim_exit)
+        DLSYM_FUNCTION(libttsim_pci_config_rd32)
+        DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
+        DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
+        DLSYM_FUNCTION(libttsim_tile_rd_bytes)
+        DLSYM_FUNCTION(libttsim_tile_wr_bytes)
+        DLSYM_FUNCTION(libttsim_clock)
+        DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+        shared_bdf_mode_ = true;
+        s_shared_refcount_++;
+        log_info(
+            tt::LogEmulationDriver,
+            "TTSim BDF multichip mode (chip_id={}, shared dlopen, per-device BARs)",
+            chip_id_);
+        return;
+    }
+
     // Legacy path: per-chip memfd + dlopen.
     if (copy_sim_binary_) {
         create_simulator_binary();
@@ -176,6 +211,16 @@ void TTSimCommunicator::start_sim() {
         dev_handle_ = pfn_libttsim_create_device_by_id_(chip_id_, /*chip_x=*/int(chip_id_), /*chip_y=*/0);
         return;
     }
+    if (shared_bdf_mode_) {
+        // Shared dlopen: initialize the simulator exactly once. Chips are addressed by
+        // BDF, so there is no per-chip registration call.
+        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        if (!s_sim_initialized_) {
+            pfn_libttsim_init_();
+            s_sim_initialized_ = true;
+        }
+        return;
+    }
     pfn_libttsim_init_();
 }
 
@@ -188,7 +233,7 @@ void TTSimCommunicator::shutdown() {
         return;
     }
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    if (multichip_mode_) {
+    if (uses_shared_handle()) {
         // Defer libttsim_exit until the last communicator destructs (handled
         // by refcount in the destructor's shared-handle close path). The
         // simulator is process-global; calling exit per chip would be wrong.
@@ -251,10 +296,15 @@ void TTSimCommunicator::pci_mem_write_bytes(uint64_t paddr, const void *data, ui
 
 uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint32_t offset) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    // pci_config_read32 reads compile-time constants; no chip selection needed.
-    // But we still select for consistency and future-proofing.
-    select_chip_if_needed();
-    return pfn_libttsim_pci_config_rd32_(bus_device_function, offset);
+    // In BDF mode there is no select_device_by_id: this chip's PCI device is named by
+    // its BDF (device field = chip_id), so each chip reads its own per-device BAR bases.
+    // Callers pass bus_device_function 0 ("this device"); we fill in the device field.
+    uint32_t bdf = bus_device_function;
+    if (shared_bdf_mode_) {
+        bdf |= (chip_id_ << 3); // BDF: function[2:0], device[7:3], bus[15:8]
+    }
+    select_chip_if_needed();  // no-op outside the multichip-ABI mode
+    return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {

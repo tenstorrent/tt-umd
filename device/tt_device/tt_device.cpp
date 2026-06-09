@@ -482,7 +482,11 @@ ChipInfo TTDevice::get_chip_info() {
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
-void TTDevice::advance_device_execution() {}
+void TTDevice::advance_device_execution() {
+    if (remote_capabilities_ != nullptr) {
+        remote_capabilities_->get_remote_communication()->get_local_device()->advance_device_execution();
+    }
+}
 
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;

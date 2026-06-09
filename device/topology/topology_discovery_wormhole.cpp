@@ -24,15 +24,12 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 enum class IODeviceType;
-
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {

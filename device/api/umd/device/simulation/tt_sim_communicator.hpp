@@ -15,13 +15,8 @@
 
 namespace tt::umd {
 
-/**
- * TTSimCommunicator handles low-level communication with the TTSim .so library.
- * It manages dynamic library loading, function pointer resolution, and provides
- * thread-safe access to simulator functions.
- *
- * This class can be used independently of TTSimTTDevice for direct simulator communication.
- */
+// Thin C++ wrapper around the libttsim.so dynamic library.
+// Handles dlopen/dlsym, per-chip device selection, and thread-safe I/O.
 class TTSimCommunicator final {
 public:
     /**
@@ -29,11 +24,11 @@ public:
      *
      * @param simulator_directory Path to the simulator binary/directory
      * @param copy_sim_binary If true, copy the simulator binary to memory for
-     *   security AND the loaded .so doesn't support the v3.5 chip-id ABI. If
-     *   the .so exports libttsim_create_device_by_id, v3.5 shared-library
+     *   security AND the loaded .so doesn't support the multichip ABI. If
+     *   the .so exports libttsim_create_device_by_id, multichip shared-library
      *   mode is auto-enabled at initialize() time, ignoring this flag.
      * @param chip_id Logical chip ID (0..N-1) within the cluster. Only used
-     *   in v3.5 multichip mode (per docs/v3_5_umd_patch_sketch.md). Default 0
+     *   in multichip mode. Default 0
      *   for legacy single-chip consumers.
      */
     TTSimCommunicator(
@@ -137,7 +132,7 @@ public:
 
     void start_sim();
 
-    // v3.5 commit #6 — eth-MAC wiring.
+    // Multichip eth-MAC wiring: returns the libttsim Device* handle for peer registration.
     void *get_dev_handle() const { return dev_handle_; }
 
     void switch_reset();
@@ -147,6 +142,11 @@ public:
     void register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id);
     void register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction);
 
+    // Mark device as closed; further I/O calls become no-ops.
+    void mark_closed() { closed_ = true; }
+
+    bool is_closed() const { return closed_; }
+
 private:
     // Library management.
     void create_simulator_binary();
@@ -155,6 +155,9 @@ private:
     void secure_simulator_binary();
     void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path &path);
+
+    // In multichip mode, selects this communicator's chip before an I/O call.
+    void select_chip_if_needed();
 
     // Dynamic library handle.
     void *libttsim_handle_ = nullptr;
@@ -168,12 +171,27 @@ private:
     // Flag to indicate if binary should be copied to memory.
     bool copy_sim_binary_;
 
-    // v3.5 multi-chip mode: when v3.5 symbols are present in the .so, all
-    // TTSimCommunicators sharing the same simulator_directory_ share one
-    // dlopen (held via s_shared_handle_ + refcounted via s_shared_refcount_).
-    // Each communicator records its chip_id_ and calls
-    // libttsim_select_device_by_id(chip_id_) before every I/O.
-    bool v3_5_multichip_mode_ = false;
+    // --------------------------------------------------------------------------
+    // Multichip model
+    //
+    // When the loaded libttsim.so exports the multichip ABI (libttsim_create_device_by_id,
+    // libttsim_select_device_by_id, etc.), all TTSimCommunicators in the process
+    // share a single dlopen of the .so via s_shared_handle_ (refcounted by
+    // s_shared_refcount_).  This gives them a common process-global state: the
+    // Device* registry, the virtual eth_switch routing table, and the clock.
+    //
+    // Per-chip I/O works by calling libttsim_select_device_by_id(chip_id_) under
+    // device_lock_ before each read/write/clock call.  The lock serializes all
+    // communicators so the select+I/O pair is atomic.
+    //
+    // The eth-switch pre-pass in Cluster::Cluster (cluster.cpp) wires up MAC
+    // addresses and peer handles so that firmware sees correctly routed neighbours
+    // at boot time.  See the #ifdef TT_UMD_BUILD_SIMULATION block there.
+    // --------------------------------------------------------------------------
+
+    // True when the loaded .so supports the multichip ABI and this
+    // communicator is using the shared dlopen path.
+    bool multichip_mode_ = false;
     uint32_t chip_id_ = 0;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
@@ -204,12 +222,12 @@ private:
         void (*pfn_pci_dma_mem_rd_bytes)(uint32_t chip_id, uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size)) = nullptr;
 
-    // v3.5 multi-chip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
+    // Multichip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
     void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
     void (*pfn_libttsim_select_device_by_id_)(uint32_t chip_id) = nullptr;
     void (*pfn_libttsim_clock_all_devices_)(uint32_t n_cycles) = nullptr;
 
-    // v3.5 commit #6 — eth-MAC wiring.
+    // Multichip eth-MAC wiring function pointers.
     void *dev_handle_ = nullptr;
     void (*pfn_libttsim_switch_reset_)() = nullptr;
     void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
@@ -225,7 +243,6 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Static instance pointers for callback wrappers.
     static constexpr uint32_t kMaxCallbackChipIds = 1024;
     static std::array<std::atomic<TTSimCommunicator *>, kMaxCallbackChipIds> callback_instances_by_chip_;
     static TTSimCommunicator *callback_instance_;
@@ -238,10 +255,15 @@ private:
     static void pci_dma_mem_wr_bytes_by_chip_wrapper(
         uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size);
 
-    // Thread safety. In v3.5 shared-dlopen mode, libttsim_select_device_by_id()
+    // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all
     // communicators because the active device selector is process-global.
+    // NOTE: Also serializes legacy single-chip mode -- multiple independent legacy
+    // TTSim instances in one process will contend for this lock.
     static std::mutex device_lock_;
+
+    // Set in close_device() to prevent further I/O after shutdown.
+    bool closed_ = false;
 };
 
 }  // namespace tt::umd

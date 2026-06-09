@@ -34,6 +34,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
@@ -744,6 +745,40 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(CoreType::TENSIX, CoreType::DRAM),
     [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });
 
+// SMN (System Management Network) read/write round-trip through the NocId::SYSTEM_NOC path.
+// SMN is only implemented on the RTL simulator (Quasar), so the test skips when not running
+// against a simulator.
+TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
+    if (!is_simulation_test()) {
+        GTEST_SKIP() << "SMN is only available on the RTL simulator.";
+    }
+
+    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    cluster->start_device({.init_device = true});
+
+    TTDevice* tt_device = cluster->get_tt_device(0);
+    const SocDescriptor& soc_desc = cluster->get_soc_descriptor(0);
+    const tt_xy_pair core =
+        soc_desc.translate_coord_to(soc_desc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED);
+
+    // SMN writes require the size to be a multiple of 4 bytes.
+    constexpr size_t data_size = 256;
+    constexpr uint64_t addr = SAFE_IO_L1_ADDRESS;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (size_t i = 0; i < data_size; i++) {
+        write_data[i] = i % 256;
+    }
+
+    // Selecting SYSTEM_NOC routes write_to_device/read_from_device through the SMN path.
+    NocIdSwitcher noc_switcher(NocId::SYSTEM_NOC);
+    tt_device->write_to_device(write_data.data(), core, addr, data_size);
+
+    std::vector<uint8_t> read_data(data_size, 0);
+    tt_device->read_from_device(read_data.data(), core, addr, data_size);
+
+    EXPECT_EQ(write_data, read_data);
+}
+
 /**
  * Helper that reads data from a device core using the appropriate mechanism for the
  * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
@@ -954,8 +989,7 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 }
 
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
-// (up to 1 MB) and a DRAM core (up to 256 MB). The equivalent SimulationChip-level test
-// still lives in tests/simulation/ for the tt-umd-simulators consumer.
+// (up to 1 MB) and a DRAM core (up to 256 MB).
 TEST_F(TestDeviceIOFixture, DISABLED_LoopbackStressSize) {
     std::unique_ptr<Cluster> cluster = make_cluster_for_test();
 

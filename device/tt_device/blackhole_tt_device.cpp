@@ -114,7 +114,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
 
     iatu_regions_.insert(region);
 
-    log_info(
+    log_debug(
         LogUMD,
         "Device: {} Mapped iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}",
         this->get_pci_device()->get_device_num(),
@@ -312,7 +312,7 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     }
 }
 
-void BlackholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
     // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
     //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
     //   Translation enabled:  hardware broadcast is avoided; use a software multicast with

@@ -314,8 +314,7 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     cluster->close_device();
 }
 
-// Mirrors SimpleApiTest from tests/simulation/test_simulation_device.cpp:
-// a basic write/read loopback on the first TENSIX core followed by assert/deassert
+// Basic write/read loopback on the first TENSIX core followed by assert/deassert
 // of a variety of RiscType masks (ALL_TENSIX, ALL_NEO_DMS, BRISC, custom DM bitmask).
 // Sim-only: silicon liveness validation would require an arch-specific RISC program;
 // this only confirms the API accepts the masks without throwing.

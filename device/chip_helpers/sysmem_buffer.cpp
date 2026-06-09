@@ -61,6 +61,8 @@ SysmemBuffer::SysmemBuffer(
     noc_addr_(noc_addr),
     unmap_callback_(std::move(unmap_callback)) {
     align_address_and_size();
+    // Pair with TracyFreeN in the destructor so Tracy sees balanced alloc/free.
+    TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
 }
 
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {

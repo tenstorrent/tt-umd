@@ -57,14 +57,28 @@ public:
     ~WormholeTTDevice() override = default;
 
 protected:
-    WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
-    WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-    WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication);
+    WormholeTTDevice(
+        std::unique_ptr<PCIDevice> pci_device,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+        bool use_safe_api);
+    WormholeTTDevice(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    WormholeTTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
-    friend std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number,
+        IODeviceType device_type,
+        bool use_safe_api,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 };
 }  // namespace tt::umd

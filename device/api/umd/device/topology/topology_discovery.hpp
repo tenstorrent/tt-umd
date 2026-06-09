@@ -108,10 +108,6 @@ protected:
 
     virtual bool is_using_eth_coords() = 0;
 
-    // eth_core should be in NoC 0 coordinates.
-    virtual std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) = 0;
-
     TTDevice* get_tt_device(const uint64_t asic_id);
 
     // Configure some TopologyDiscovery paramaters from first discovered device.

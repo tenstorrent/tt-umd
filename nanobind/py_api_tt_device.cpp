@@ -19,6 +19,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
@@ -218,10 +219,12 @@ void bind_tt_device(nb::module_ &m) {
     tt_device_class
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
+            static_cast<std::unique_ptr<TTDevice> (*)(
+                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
+            nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
             release_gil())
         .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())
@@ -229,7 +232,6 @@ void bind_tt_device(nb::module_ &m) {
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("soc_arch_descriptor") = nullptr,
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())

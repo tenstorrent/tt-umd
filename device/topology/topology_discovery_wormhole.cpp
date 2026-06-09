@@ -127,21 +127,6 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
     return eth_coord;
 }
 
-std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
-    std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
-    if (is_running_on_6u) {
-        return nullptr;
-    }
-    EthCoord remote_device_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
-
-    std::unique_ptr<RemoteCommunication> remote_communication =
-        RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
-    remote_communication->set_remote_transfer_ethernet_cores(
-        gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-            gateway_eth_channels, CoordSystem::TRANSLATED));
-    return TTDevice::create(std::move(remote_communication));
-}
-
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {
     uint32_t remote_eth_id;
     tt_device->read_from_device(

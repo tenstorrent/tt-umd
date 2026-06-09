@@ -73,8 +73,13 @@ public:
      * Jtag support can be enabled.
      */
     static std::unique_ptr<TTDevice> create(
-        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+        int device_number,
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_safe_api = false,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     virtual ~TTDevice() = default;
 
@@ -368,9 +373,7 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(
-        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 
@@ -472,14 +475,17 @@ protected:
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
         bool use_safe_api);
     TTDevice(
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     TTDevice(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -497,6 +503,7 @@ protected:
 private:
     void probe_arc();
 
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;

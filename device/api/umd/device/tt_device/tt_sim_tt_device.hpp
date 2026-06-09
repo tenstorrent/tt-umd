@@ -35,7 +35,8 @@ public:
         const SocDescriptor &soc_descriptor,
         ChipId chip_id,
         bool copy_sim_binary = false,
-        int num_host_mem_channels = 0);
+        int num_host_mem_channels = 0,
+        size_t num_chips = 1);
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(

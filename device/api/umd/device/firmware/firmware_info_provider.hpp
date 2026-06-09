@@ -153,7 +153,7 @@ public:
 
     /*
      * Get per-link ethernet heartbeat status.
-     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
      * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
      * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
      */
@@ -161,11 +161,19 @@ public:
 
     /*
      * Get per-link ethernet retrain status.
-     * Only available on Wormhole for now; returns std::nullopt on Blackhole.
+     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
      * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
      * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
      */
     std::optional<std::vector<bool>> get_eth_retrain_status() const;
+
+    /*
+     * Get per-link ethernet link status.
+     * Available on firmware 19.9+ for both Wormhole and Blackhole; returns std::nullopt otherwise.
+     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
+     * @returns Vector of bools (true = link is up), or std::nullopt if unavailable.
+     */
+    std::optional<std::vector<bool>> get_eth_link_status() const;
 
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
@@ -210,7 +218,9 @@ private:
     static FirmwareFeatures create_wormhole_18_4_base();
     static FirmwareFeatures create_blackhole_18_5_base();
     static FirmwareFeatures create_wormhole_18_8_base();
+    static FirmwareFeatures create_wormhole_19_9_base();
     static FirmwareFeatures create_blackhole_18_8_base();
+    static FirmwareFeatures create_blackhole_19_9_base();
 
     // Engine methods for reading and transforming telemetry data.
     uint32_t read_raw_telemetry(const FeatureKey& key) const;

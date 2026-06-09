@@ -122,8 +122,12 @@ enum class FirmwareFeature {
     DDR_STATUS,
     HEARTBEAT,
 
+    // Ethernet status (all read from the ETH_LIVE_STATUS telemetry tag).
+    ETH_HEARTBEAT_STATUS,
+    ETH_RETRAIN_STATUS,
+    ETH_LINK_STATUS,
+
     // RAS (Reliability) & error counters.
-    ETH_LIVE_STATUS,
     THERM_TRIP_COUNT,
     GDDR_UNCORR_ERRS,
     GDDR_0_1_CORR_ERRS,

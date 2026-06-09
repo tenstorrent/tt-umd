@@ -343,6 +343,14 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
     callback_instance_ = this;
+    // The DMA callbacks are process-global, and libttsim forbids (re)registering them
+    // once the simulator is running. With one shared simulator across chips, only the
+    // first chip -- which runs libttsim_init in start_sim() -- registers them, before
+    // init. Later chips just record their callback (last-writer-wins, the pre-existing
+    // single-instance limitation) and skip the now-illegal re-registration.
+    if (uses_shared_handle() && s_sim_initialized_) {
+        return;
+    }
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
 

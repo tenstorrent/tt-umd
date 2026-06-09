@@ -1,0 +1,11 @@
+// Wire schema for the UMD <-> simulation host API (§8 of SIMULATION_SERVER_PROCESS.md).
+//
+// Placeholder for now: a single dummy message that proves the FlatBuffers serialization path
+// works end-to-end. The real API messages (session, memory ops, ...) are added here when the
+// protocol is wired into the serving layer (#2794) and the socket-backed client (#2795).
+
+table Message {
+    payload : [ubyte];
+}
+
+root_type Message;

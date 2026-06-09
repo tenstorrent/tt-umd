@@ -458,7 +458,7 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
-    ClusterOptions options = GetParam();
+    const ClusterOptions& options = GetParam();
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
 
     if (options.chip_type == ChipType::SIMULATION) {

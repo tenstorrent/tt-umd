@@ -110,8 +110,8 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::THM_LIMIT_SHUTDOWN,{TelemetryTag::THM_LIMIT_SHUTDOWN, LinearTransform{}}},
         {FirmwareFeature::DDR_STATUS,        {TelemetryTag::GDDR_STATUS, LinearTransform{}}},
         {FirmwareFeature::HEARTBEAT,         {TelemetryTag::TIMER_HEARTBEAT, LinearTransform{}}},
-        {FirmwareFeature::ETH_HEARTBEAT_STATUS, {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}}},
-        {FirmwareFeature::ETH_RETRAIN_STATUS,   {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_HEARTBEAT_STATUS, {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}}},
+        {FirmwareFeature::ETH_RETRAIN_STATUS,   {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}}},
         {FirmwareFeature::ETH_LINK_STATUS,      {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::THERM_TRIP_COUNT,  {TelemetryTag::THERM_TRIP_COUNT, LinearTransform{}}},
         {FirmwareFeature::GDDR_UNCORR_ERRS,   {TelemetryTag::GDDR_UNCORR_ERRS, LinearTransform{}}},
@@ -160,8 +160,8 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::THM_LIMIT_SHUTDOWN, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::DDR_STATUS, {WormholeTag::DDR_STATUS, LinearTransform{}}},
         {FirmwareFeature::HEARTBEAT, {WormholeTag::ARC0_HEALTH, LinearTransform{}}},
-        {FirmwareFeature::ETH_HEARTBEAT_STATUS, {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},
-        {FirmwareFeature::ETH_RETRAIN_STATUS,   {WormholeTag::ETH_LIVE_STATUS, LinearTransform{}}},
+        {FirmwareFeature::ETH_HEARTBEAT_STATUS, {WormholeTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}}},
+        {FirmwareFeature::ETH_RETRAIN_STATUS,   {WormholeTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}}},
         {FirmwareFeature::ETH_LINK_STATUS,      {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::THERM_TRIP_COUNT, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::GDDR_UNCORR_ERRS, {FixedValue{0}, NotAvailable{}}},
@@ -204,7 +204,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
     FirmwareFeatures map = create_wormhole_18_8_base();
     map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
     return map;
 }
 
@@ -223,8 +223,8 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 // Blackhole >= 19.9: ETH_LIVE_STATUS becomes available (upper 16 = link, lower 16 = heartbeat).
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_9_base() {
     FirmwareFeatures map = create_blackhole_18_8_base();
-    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}};
-    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{}};
+    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
     return map;
 }
 
@@ -651,27 +651,27 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
-    if (!is_feature_available(FirmwareFeature::ETH_HEARTBEAT_STATUS)) {
+    auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_HEARTBEAT_STATUS);
+    if (!data.has_value()) {
         return std::nullopt;
     }
-    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_HEARTBEAT_STATUS).key);
-    return parse_eth_status_bitmask(static_cast<uint16_t>(data & 0xFFFF));
+    return parse_eth_status_bitmask(data.value());
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() const {
-    if (!is_feature_available(FirmwareFeature::ETH_LINK_STATUS)) {
+    auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_LINK_STATUS);
+    if (!data.has_value()) {
         return std::nullopt;
     }
-    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_LINK_STATUS).key);
-    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
+    return parse_eth_status_bitmask(data.value());
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
-    if (!is_feature_available(FirmwareFeature::ETH_RETRAIN_STATUS)) {
+    auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_RETRAIN_STATUS);
+    if (!data.has_value()) {
         return std::nullopt;
     }
-    uint32_t data = read_raw_telemetry(firmware_feature_map.at(FirmwareFeature::ETH_RETRAIN_STATUS).key);
-    return parse_eth_status_bitmask(static_cast<uint16_t>((data >> 16) & 0xFFFF));
+    return parse_eth_status_bitmask(data.value());
 }
 
 }  // namespace tt::umd

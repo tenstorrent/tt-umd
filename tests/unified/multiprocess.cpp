@@ -77,7 +77,7 @@ static void test_read_write_all_tensix_cores_impl(
         for (const CoreCoord& core : cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
             cluster->write_to_device(vector_to_write.data(), data_size, 0, core, address);
             cluster->l1_membar(0, {core});
-            test_utils::read_data_from_device(*cluster, readback_vec, 0, core, address, data_size);
+            test_utils::read_data_from_device(cluster, readback_vec, 0, core, address, data_size);
             ASSERT_EQ(vector_to_write, readback_vec)
                 << "Vector read back from core " << core.str() << " does not match what was written";
             readback_vec.clear();

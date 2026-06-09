@@ -34,7 +34,12 @@ void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t a
 }
 
 bool RemoteProtocol::write_to_core_range(
-    const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t address, uint32_t size_in_bytes, NocId noc_id) {
+    const void* mem_ptr,
+    tt_xy_pair core_start,
+    tt_xy_pair core_end,
+    uint64_t address,
+    uint32_t size_in_bytes,
+    NocId noc_id) {
     if (ethernet_broadcast_ == nullptr) {
         return false;
     }

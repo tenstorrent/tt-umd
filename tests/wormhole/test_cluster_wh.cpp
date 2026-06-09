@@ -968,7 +968,12 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
             cluster.wait_for_non_mmio_flush(chip_id);
 
             bool hw_broadcast = protocol->write_to_core_range(
-                vector_to_write.data(), core_start, core_end, address, vector_to_write.size() * sizeof(uint32_t), NocId::NOC0);
+                vector_to_write.data(),
+                core_start,
+                core_end,
+                address,
+                vector_to_write.size() * sizeof(uint32_t),
+                NocId::NOC0);
             ASSERT_TRUE(hw_broadcast) << "Expected hardware broadcast to succeed for chip " << chip_id << " size "
                                       << size;
             cluster.wait_for_non_mmio_flush(chip_id);

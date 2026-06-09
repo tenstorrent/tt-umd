@@ -26,6 +26,7 @@ if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_socket.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_topology_discovery.cpp)
+    list(APPEND API_TESTS_SRCS test_simulation_server_api.cpp)
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})

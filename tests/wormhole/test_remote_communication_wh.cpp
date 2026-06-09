@@ -38,7 +38,7 @@ TEST(RemoteCommunicationWormhole, BasicRemoteCommunicationIO) {
     const uint64_t address0 = 0x1000;
     const uint64_t address1 = 0x2000;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     ChipId mmio_chip_id = *cluster->get_target_mmio_device_ids().begin();
     LocalChip* local_chip = cluster->get_local_chip(mmio_chip_id);

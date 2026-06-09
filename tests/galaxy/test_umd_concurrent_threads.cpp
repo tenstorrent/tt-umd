@@ -31,7 +31,7 @@ using namespace tt::umd;
 
 // Have 2 threads read and write to all cores on the Galaxy.
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = test_utils::make_default_test_cluster();
 
     // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
@@ -126,7 +126,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 }
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = test_utils::make_default_test_cluster();
 
     // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();

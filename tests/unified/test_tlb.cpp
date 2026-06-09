@@ -40,7 +40,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     uint32_t val = 0;
     std::vector<CoreCoord> tensix_cores =
@@ -86,7 +86,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     uint32_t val = 0;
     std::vector<CoreCoord> tensix_cores =
@@ -143,7 +143,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     const uint64_t tlb_base = 0xFFA00000;
     const uint64_t noc_node_id_tlb_offset = 0x12002C;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     PCIDevice* pci_device = cluster->get_tt_device(0)->get_pci_device();
 
@@ -184,7 +184,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -228,7 +228,7 @@ TEST(TestTlb, TestTlbWindowReadWrite16) {
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -297,7 +297,7 @@ TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     const ChipId chip = 0;
     const uint64_t two_mb_size = 1 << 21;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -351,7 +351,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -414,7 +414,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
     const uint64_t two_mb = 1 << 21;
     const uint64_t one_mb = 1 << 20;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const std::vector<CoreCoord> tensix_cores =
         cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
@@ -461,7 +461,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
 }
 
 TEST(TestTlb, TLBStaticTensix) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const size_t tlb_size = cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
 

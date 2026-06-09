@@ -39,7 +39,7 @@ using namespace tt::umd;
 
 class TestNoc : public ::testing::Test {
 public:
-    void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
+    void SetUp() override { cluster_ = test_utils::make_default_test_cluster(); }
 
     void verify_noc_id_cores_via_other_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {

@@ -400,7 +400,7 @@ TEST(SiliconDriverBH, WriteCountMatchesPostedWrites) {
 
 // Verifies that all ETH channels are classified as either active/idle.
 TEST(ClusterBH, TotalNumberOfEthCores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
 
@@ -412,7 +412,7 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 }
 
 TEST(ClusterBH, PCIECores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (ChipId chip : cluster->get_target_device_ids()) {
         const auto& pcie_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE);
@@ -428,7 +428,7 @@ TEST(ClusterBH, PCIECores) {
 }
 
 TEST(ClusterBH, L2CPUCores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (ChipId chip : cluster->get_target_device_ids()) {
         const auto& l2cpu_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::L2CPU);

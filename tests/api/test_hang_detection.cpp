@@ -80,7 +80,7 @@ protected:
         soc_desc_.reset();
         WarmResetWithRecovery::warm_reset();
 
-        auto cluster = std::make_unique<Cluster>();
+        auto cluster = test_utils::make_default_test_cluster();
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";
         cluster.reset();
 

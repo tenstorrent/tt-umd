@@ -27,7 +27,7 @@
 using namespace tt::umd;
 
 TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (uint32_t chip_id : cluster->get_target_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
@@ -52,7 +52,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
     const uint32_t ms_sleep = 2000;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     std::set<tt::ChipId> target_chips = cluster->get_target_device_ids();
     std::unordered_map<uint32_t, TTDevice*> tt_devices;
@@ -95,7 +95,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 }
 
 TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const uint32_t num_loops = 1000;
 

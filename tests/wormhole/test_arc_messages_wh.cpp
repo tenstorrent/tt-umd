@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"

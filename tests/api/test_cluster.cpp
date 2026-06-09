@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"

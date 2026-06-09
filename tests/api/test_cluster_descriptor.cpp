@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"

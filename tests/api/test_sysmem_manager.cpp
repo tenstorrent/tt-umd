@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"

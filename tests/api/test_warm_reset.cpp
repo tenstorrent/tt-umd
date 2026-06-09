@@ -30,6 +30,7 @@
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"

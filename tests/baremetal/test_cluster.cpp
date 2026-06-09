@@ -10,6 +10,7 @@
 #include <set>
 #include <string>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 
 using namespace tt::umd;

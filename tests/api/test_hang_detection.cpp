@@ -14,6 +14,7 @@
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"

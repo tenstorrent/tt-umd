@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip/chip.hpp"

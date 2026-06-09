@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"

@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"

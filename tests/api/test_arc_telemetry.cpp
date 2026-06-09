@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"

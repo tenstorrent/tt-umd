@@ -5,6 +5,7 @@
 #pragma once
 #include <gtest/gtest.h>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "tests/test_utils/stimulus_generators.hpp"

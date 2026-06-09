@@ -19,6 +19,7 @@
 
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "test_utils/setup_risc_cores.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"

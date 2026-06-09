@@ -43,7 +43,9 @@ using namespace tt::umd;
 // Galaxy.
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) {
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
+}
 
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();

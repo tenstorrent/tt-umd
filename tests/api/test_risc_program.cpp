@@ -324,7 +324,7 @@ TEST(TestRiscProgram, SimpleApiTest) {
         GTEST_SKIP() << "SimpleApiTest is currently sim-only.";
     }
 
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);

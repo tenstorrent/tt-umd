@@ -17,18 +17,18 @@ using namespace tt::umd;
 
 namespace tt::umd::error {
 
-TTDeviceData::TTDeviceData(TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id) :
+TTDeviceData::TTDeviceData(const TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id) :
     io_device_type(tt_device.get_communication_device_type()),
     chip_id(tt_device.get_communication_device_id()),
     arch(tt_device.get_arch()),
     discovery_unique_id(discovery_unique_id) {}
 
-NocHangError::NocHangError(TTDevice& tt_device, NocId noc_id) :
+NocHangError::NocHangError(const TTDevice& tt_device, NocId noc_id) :
     UmdError<NocHangData>(fmt::format("{} is hung", noc_to_str(noc_id)), {{tt_device}, noc_id}) {
     message().append(fmt::format(" on {} device ID {}.", DeviceTypeToString.at(data().io_device_type), data().chip_id));
 }
 
-PcieHangError::PcieHangError(TTDevice& tt_device, uint32_t data_read) :
+PcieHangError::PcieHangError(const TTDevice& tt_device, uint32_t data_read) :
     UmdError<TTDeviceData>(
         fmt::format(
             "Read {:#x} over PCIe ID {}: the board should be reset.",
@@ -37,7 +37,7 @@ PcieHangError::PcieHangError(TTDevice& tt_device, uint32_t data_read) :
         {{tt_device}, data_read}) {}
 
 ArcStartupError::ArcStartupError(
-    TTDevice& tt_device,
+    const TTDevice& tt_device,
     NocId noc_id,
     xy_pair arc_core,
     uint32_t scratch_status,
@@ -54,7 +54,7 @@ ArcStartupError::ArcStartupError(
         {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id}) {}
 
 ArcStartupError::ArcStartupError(
-    TTDevice& tt_device,
+    const TTDevice& tt_device,
     NocId noc_id,
     xy_pair arc_core,
     uint32_t scratch_status,
@@ -64,5 +64,12 @@ ArcStartupError::ArcStartupError(
     ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id) {
     message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
 }
+
+UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
+    UmdError<TTDeviceData>(
+        fmt::format(
+            "This method cannot be called before initializing TTDevice. Device ID: {}",
+            tt_device.get_communication_device_id()),
+        tt_device) {}
 
 }  // namespace tt::umd::error

@@ -486,7 +486,8 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
     }
 }
 
-TEST_F(TestFirmwareInfoProvider, FanSpeed) {
+// Disabled until fan speed updates from CMFW 19.10 are implemented. (#2778).
+TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
     for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
@@ -599,14 +600,16 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
         tt::ARCH arch = tt_device->get_arch();
+        auto fw_version = fw_info->get_firmware_version();
         auto heartbeats = fw_info->get_eth_heartbeat_status();
 
-        // Only available on Wormhole; Blackhole returns nullopt.
-        if (arch == tt::ARCH::BLACKHOLE) {
+        // Available on Wormhole (all versions) and Blackhole >= 19.9.
+        if (arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(heartbeats.has_value());
         }
 
-        if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (arch == tt::ARCH::WORMHOLE_B0 ||
+            (arch == tt::ARCH::BLACKHOLE && fw_version >= FirmwareBundleVersion(19, 9, 0))) {
             EXPECT_TRUE(heartbeats.has_value());
             if (heartbeats.has_value()) {
                 EXPECT_EQ(heartbeats.value().size(), 16u);
@@ -620,17 +623,39 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
         tt::ARCH arch = tt_device->get_arch();
+        auto fw_version = fw_info->get_firmware_version();
         auto retrains = fw_info->get_eth_retrain_status();
 
-        // Only available on Wormhole; Blackhole returns nullopt.
-        if (arch == tt::ARCH::BLACKHOLE) {
+        // Only available on Wormhole prior to 19.9.
+        if (arch == tt::ARCH::BLACKHOLE || fw_version >= FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(retrains.has_value());
         }
 
-        if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_TRUE(retrains.has_value());
             if (retrains.has_value()) {
                 EXPECT_EQ(retrains.value().size(), 16u);
+            }
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        auto fw_version = fw_info->get_firmware_version();
+        auto links = fw_info->get_eth_link_status();
+
+        // Available on firmware >= 19.9 for both Wormhole and Blackhole.
+        if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
+            EXPECT_FALSE(links.has_value());
+        }
+
+        if (fw_version >= FirmwareBundleVersion(19, 9, 0)) {
+            EXPECT_TRUE(links.has_value());
+            if (links.has_value()) {
+                EXPECT_EQ(links.value().size(), 16u);
             }
         }
     }

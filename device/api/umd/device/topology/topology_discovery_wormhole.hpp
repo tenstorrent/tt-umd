@@ -5,12 +5,12 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+#include <utility>
 
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 
 namespace tt::umd {
 enum class IODeviceType;
@@ -19,7 +19,10 @@ struct TopologyDiscoveryOptions;
 class TopologyDiscoveryWormhole : public TopologyDiscovery {
 public:
     TopologyDiscoveryWormhole(
-        const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
+        const TopologyDiscoveryOptions& options,
+        IODeviceType io_device_type) :
+        TopologyDiscovery(std::move(soc_arch_descriptor), options, io_device_type) {}
 
 protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::WORMHOLE_B0; }

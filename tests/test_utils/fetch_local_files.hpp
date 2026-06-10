@@ -12,7 +12,7 @@
 
 #include "umd/device/types/arch.hpp"
 
-namespace test_utils {
+namespace tt::umd::test_utils {
 
 inline std::string GetAbsPath(const std::string& relative_path) {
 #ifdef UMD_TESTS_ROOT_PATH
@@ -97,4 +97,4 @@ inline std::string get_soc_descriptor_path(tt::ARCH arch) {
     }
 }
 
-}  // namespace test_utils
+}  // namespace tt::umd::test_utils

@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip/chip.hpp"
@@ -166,8 +167,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 

@@ -18,12 +18,7 @@
 namespace tt::umd {
 
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
-    remote_communication_(std::move(remote_communication)) {
-    if (remote_communication_->has_sysmem_manager() &&
-        remote_communication_->get_local_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(remote_communication_.get());
-    }
-}
+    remote_communication_(std::move(remote_communication)) {}
 
 void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
@@ -40,6 +35,13 @@ bool RemoteProtocol::write_to_core_range(
     uint64_t address,
     uint32_t size_in_bytes,
     NocId noc_id) {
+    // Construct EthernetBroadcast lazily on the first use. During the constructor the sysmem might not be set yet.
+    if (ethernet_broadcast_ == nullptr && remote_communication_->has_sysmem_manager() &&
+        remote_communication_->get_local_device()->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        ethernet_broadcast_ = std::make_unique<EthernetBroadcast>(remote_communication_.get());
+    }
+
+    // If it is still not constructor, report failure by returning false.
     if (ethernet_broadcast_ == nullptr) {
         return false;
     }
@@ -55,7 +57,7 @@ bool RemoteProtocol::write_to_core_range(
         if (core_start.x > 1 || core_start.y > 1 || core_end.x < 9 || core_end.y < 11) {
             log_debug(
                 LogUMD,
-                "broadcast_write_to_tensix: partial NOC0 ranges not supported for ethernet broadcast, falling back to "
+                "write_to_core_range: partial NOC0 range not supported for ethernet broadcast, falling back to "
                 "unicast");
             return false;
         }

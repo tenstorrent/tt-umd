@@ -503,7 +503,8 @@ void TTDevice::noc_multicast_write(
         return;
     }
 
-    bool broadcast_success = device_protocol_->write_to_core_range(src, core_start, core_end, addr, size);
+    bool broadcast_success =
+        device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
 
     log_info(
         LogUMD,

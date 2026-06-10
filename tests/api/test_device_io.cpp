@@ -304,12 +304,12 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     // TODO: sysmem_enabled parameter to be added in the following PR.
     auto [use_noc0, full_grid, sysmem_enabled] = GetParam();
 
-    std::unique_ptr<Cluster> cluster =
-        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(
+        ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
 
     test_utils::safe_test_cluster_start(cluster.get());
 
-    constexpr uint64_t address = SAFE_IO_L1_ADDRESS0;
+    constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
     constexpr size_t data_size = num_words * sizeof(uint32_t);
 

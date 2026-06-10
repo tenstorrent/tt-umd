@@ -94,7 +94,7 @@ public:
      * @brief Controls what happens when a hang is confirmed.
      */
     enum class HangAction {
-        THROW,   ///< Throw std::runtime_error (default).
+        THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
     };
 
@@ -463,10 +463,7 @@ protected:
     int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
-    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
-    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
     TTDevice() = default;
     TTDevice(
@@ -498,6 +495,9 @@ private:
     void probe_arc();
 
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;

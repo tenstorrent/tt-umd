@@ -6,6 +6,7 @@
 
 #include <sys/types.h>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -250,14 +251,25 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Known limitation: callback_instance_ is process-global; in multichip mode,
-    // only the last chip to call set_pcie_dma_mem_callbacks receives correct DMA
-    // callbacks.  Fix requires libttsim ABI change to support per-chip context pointer.
+    // Per-MMIO-device DMA routing. Each MMIO device has its own host sysmem, so a sysmem
+    // DMA must reach the originating device's callback -- e.g. an eth tunnel staging a
+    // remote chip's FW reads it from its MMIO peer's sysmem, not whichever device happened
+    // to register last. The sim tags each DMA paddr with the current chip
+    // (paddr / kPerDevicePaddrStride, matching the BAR path in libttsim_pci_mem_rd_bytes),
+    // so the wrapper decodes the device and routes to dma_instances_[device]. The within-
+    // device offset is always << the stride. callback_instance_ stays as the device-0 /
+    // single-device fallback (untagged paddr decodes to device 0).
+    static constexpr uint64_t kPerDevicePaddrStride = 0x1000000000ull;  // 64GiB; matches libttsim PER_DEVICE_PADDR_STRIDE
+    static constexpr std::size_t kMaxDmaDevices = 32;
     static TTSimCommunicator *callback_instance_;
+    static std::array<TTSimCommunicator *, kMaxDmaDevices> dma_instances_;
 
     // Static wrapper functions for C-style callbacks.
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    // Decode the originating device from a tagged DMA paddr (strips the device stride in
+    // place) and return its communicator, falling back to callback_instance_.
+    static TTSimCommunicator *dma_route(uint64_t &paddr);
 
     // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all

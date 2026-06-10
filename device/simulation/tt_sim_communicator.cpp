@@ -323,16 +323,30 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
 }
 
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+std::array<TTSimCommunicator *, TTSimCommunicator::kMaxDmaDevices> TTSimCommunicator::dma_instances_{};
+
+// Decode the originating MMIO device from a sim-tagged sysmem DMA paddr and return its
+// communicator plus the within-device offset. The sim adds device * kPerDevicePaddrStride
+// (see libttsim_pci_dma_mem_{rd,wr}_bytes); strip it and look the device up. Falls back to
+// callback_instance_ for the single-device / legacy path (device 0, no registered entry).
+TTSimCommunicator *TTSimCommunicator::dma_route(uint64_t &paddr) {
+    uint32_t device = static_cast<uint32_t>(paddr / kPerDevicePaddrStride);
+    paddr -= static_cast<uint64_t>(device) * kPerDevicePaddrStride;
+    TTSimCommunicator *inst = (device < kMaxDmaDevices) ? dma_instances_[device] : nullptr;
+    return inst ? inst : callback_instance_;
+}
 
 void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
-        callback_instance_->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+    TTSimCommunicator *inst = dma_route(paddr);
+    if (inst && inst->pci_dma_mem_rd_bytes_callback_) {
+        inst->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
     }
 }
 
 void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_wr_bytes_callback_) {
-        callback_instance_->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+    TTSimCommunicator *inst = dma_route(paddr);
+    if (inst && inst->pci_dma_mem_wr_bytes_callback_) {
+        inst->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
     }
 }
 
@@ -343,6 +357,11 @@ void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
     callback_instance_ = this;
+    // Register this device for per-device DMA routing (dma_route()). chip_id_ is the BDF
+    // device index in multi-MMIO mode, so the sim's paddr tag (g_current_chip_id) lands here.
+    if (chip_id_ < kMaxDmaDevices) {
+        dma_instances_[chip_id_] = this;
+    }
     // The DMA callbacks are process-global, and libttsim forbids (re)registering them
     // once the simulator is running. With one shared simulator across chips, only the
     // first chip -- which runs libttsim_init in start_sim() -- registers them, before

@@ -116,12 +116,6 @@ void PcieProtocol::noc_multicast_write(
     }
 }
 
-void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {
-    while (word_len-- != 0) {
-        *dest++ = *src++;
-    }
-}
-
 void PcieProtocol::bar_write32(uint32_t addr, uint32_t data) {
     if (addr < BAR0_OFFSET) {
         UMD_THROW(error::RuntimeError, "Write Invalid BAR address for this device.");

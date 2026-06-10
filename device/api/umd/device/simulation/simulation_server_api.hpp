@@ -6,6 +6,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <vector>
 
 #include "umd/device/utils/error.hpp"
@@ -39,16 +41,53 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// Wire layer: the FlatBuffers serialization path every API operation will go through.
-//
-// Placeholder for now: a single dummy message that proves the serialization + framing path works
-// end-to-end. The real per-operation messages are added when the protocol is wired into the
-// serving layer (#2794) and the socket-backed client (#2795). FlatBuffers stays an implementation
-// detail (it lives in the .cpp).
+// Wire layer: the FlatBuffers serialization path every API operation goes through. Each API
+// operation is one message, tagged by MessageType; memory/reset/run ops reuse the existing
+// simulation_device.fbs DeviceRequestResponse. FlatBuffers stays an implementation detail (it
+// lives in the .cpp).
 // ---------------------------------------------------------------------------
 
+enum class MessageType : uint8_t {
+    AttachRequest,
+    AttachResponse,
+    DetachRequest,
+    DetachResponse,
+    AdvanceExecutionRequest,
+    AdvanceExecutionResponse,
+    DeviceOp,  // memory / reset / run op (reuses simulation_device.fbs DeviceRequestResponse)
+    Error,
+};
+
+struct Endpoint {
+    uint32_t x = 0;
+    uint32_t y = 0;
+};
+
+// Mirrors the reused DeviceRequestResponse: a memory/reset/run operation and its response.
+struct DeviceOp {
+    uint8_t command = 0;  // DEVICE_COMMAND value from simulation_device.fbs
+    Endpoint endpoint;
+    uint64_t address = 0;
+    uint32_t size = 0;
+    std::vector<uint32_t> data;
+};
+
+// Identity and topology a client reads from the host on attach, carried as the AttachResponse.
+// Placeholder — extended as the server work lands (full SoC descriptor / cluster topology /
+// memory layout).
+struct SimulationDeviceDescription {
+    uint32_t arch = 0;
+    uint32_t board = 0;
+    uint32_t num_chips = 0;
+};
+
+// A single API message. The active fields are determined by `type`.
 struct Message {
-    std::vector<uint8_t> payload;
+    MessageType type = MessageType::Error;
+    SimulationDeviceDescription description;  // AttachResponse
+    DeviceOp op;                              // DeviceOp
+    uint32_t error_code = 0;                  // Error
+    std::string error_message;                // Error
 };
 
 // Serialize a message to a FlatBuffers payload, and parse one back.
@@ -66,5 +105,10 @@ inline Message decode(const std::vector<uint8_t>& bytes) {
 
 // Length-prefix framing for the stream socket: a 4-byte little-endian length, then the payload.
 std::vector<uint8_t> frame(const std::vector<uint8_t>& payload);
+
+// Blocking length-prefixed transport over a connected stream socket fd. send_framed writes a
+// framed payload; recv_framed reads one, returning nullopt on EOF or error.
+bool send_framed(int fd, const std::vector<uint8_t>& payload);
+std::optional<std::vector<uint8_t>> recv_framed(int fd);
 
 }  // namespace tt::umd

@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 
+#include "umd/device/simulation/simulation_server_api.hpp"
 #include "umd/device/simulation/simulation_socket.hpp"
 
 using namespace tt::umd;
@@ -36,6 +37,22 @@ bool can_connect(const std::filesystem::path& path) {
     bool ok = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
     ::close(fd);
     return ok;
+}
+
+// Connects to a UNIX socket at path, returning the connected fd or -1.
+int connect_fd(const std::filesystem::path& path) {
+    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+    if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        ::close(fd);
+        return -1;
+    }
+    return fd;
 }
 
 // Binds a UNIX socket to path then closes it without listening, leaving a stale
@@ -124,6 +141,30 @@ TEST(SimulationSocket, TryCreateReclaimsStaleSocket) {
     EXPECT_NE(host, nullptr);  // stale leftover reclaimed
     EXPECT_TRUE(can_connect(path));
 
+    std::filesystem::remove(path);
+}
+
+TEST(SimulationSocket, StartServingHandlesRequests) {
+    const std::filesystem::path path = unique_socket_path(7);
+    std::filesystem::remove(path);
+
+    auto server = SimulationSocket::try_create(path);
+    ASSERT_NE(server, nullptr);
+    // Handler reverses the request bytes, so the response is distinguishable from a plain echo.
+    server->start_serving(
+        [](const std::vector<uint8_t>& request) { return std::vector<uint8_t>(request.rbegin(), request.rend()); });
+
+    const int fd = connect_fd(path);
+    ASSERT_GE(fd, 0);
+
+    const std::vector<uint8_t> request = {1, 2, 3, 4};
+    ASSERT_TRUE(send_framed(fd, request));
+    const auto response = recv_framed(fd);
+
+    ASSERT_TRUE(response.has_value());
+    EXPECT_EQ(*response, std::vector<uint8_t>({4, 3, 2, 1}));
+
+    ::close(fd);
     std::filesystem::remove(path);
 }
 

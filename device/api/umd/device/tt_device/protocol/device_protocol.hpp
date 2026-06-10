@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -41,6 +42,12 @@ public:
 
     // Returns the MMIO device ID, used to uniquely identify both the device and its associated protocol instance.
     virtual int get_mmio_id() = 0;
+
+    // Optional hook for the timed MMIO path: invoked (with the in-flight op's NOC) when a single op
+    // exceeds its per-op budget. Returns true if that NOC is confirmed hung (abort the transfer with
+    // DeviceTimeoutError), false to treat the slow op as a false positive and continue. Default is a
+    // no-op for protocols without a timed MMIO path.
+    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& /*hang_check*/) {}
 };
 
 }  // namespace tt::umd

@@ -6,8 +6,30 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 
 namespace tt::umd {
+
+/**
+ * Optional callback invoked when an MMIO op exceeds the per-op budget.
+ *
+ * Return `true` to abort the memcpy (throws tt::umd::error::DeviceTimeoutError).
+ * Return `false` to treat the slow op as a false positive — the memcpy
+ * continues with the next op getting a fresh budget.
+ *
+ * Typical use is a NOC hang check: probe the device cheaply and return
+ * "is this op stalled because the device is actually hung?".
+ *
+ * Contract: the callback must issue any device I/O it performs through a path
+ * that does NOT re-enter a timed memcpy and does NOT re-take a lock already held
+ * by the stalled op. There is no re-entrancy guard inside memcpy — a callback
+ * that reads back through a timed path (with an on_timeout of its own) would
+ * recurse, and one that re-takes the caller's I/O lock would deadlock. A cheap
+ * BAR-based probe (e.g. HangDetector::is_pcie_hung) satisfies this; routing the
+ * probe through the locked, TLB-mapped block path (e.g. is_noc_hung via
+ * PcieProtocol::read_from_device) does not.
+ */
+using MemcpyTimeoutFn = std::function<bool()>;
 
 /**
  * memcpy for writes targeting device memory mapped through a TLB window.
@@ -28,8 +50,18 @@ namespace tt::umd {
  * Handles arbitrary alignment and size — leading/trailing bytes smaller than a DWORD are
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
  * sub-DWORD writes natively, so no read-modify-write is required).
+ *
+ * Per-op budget: TLB-touching stores must complete within a hard-coded budget
+ * (default 100 ms, overridable at process start via TT_UMD_MMIO_OP_TIMEOUT_MS).
+ * The check is applied once per 256-byte block in the bulk AVX2 phase, and once
+ * per op in the 32 / 16 / 4-byte and byte-wide tail phases.
+ * On overrun:
+ *   - if no on_timeout is provided, throws tt::umd::error::DeviceTimeoutError;
+ *   - if on_timeout is provided and returns true, throws DeviceTimeoutError;
+ *   - if on_timeout is provided and returns false, the memcpy continues with the
+ *     next op getting a fresh budget.
  */
-void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
+void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout = {});
 
 /**
  * memcpy for reads from device memory mapped through a TLB window.
@@ -42,19 +74,21 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size);
  *
  * On other architectures: falls back to explicit 4-byte and byte-wide volatile loads.
  *
- * Handles arbitrary alignment and size.
+ * Per-op budget semantics match memcpy_to_device. The check is placed once per 256-byte
+ * AVX2 block (and once per op in the tails), so the 8 non-posted PCIe reads within a block
+ * still pipeline; the timeout boundary falls between blocks rather than between loads.
  */
-void memcpy_from_device(void* dest, const volatile void* src, std::size_t size);
+void memcpy_from_device(void* dest, const volatile void* src, std::size_t size, const MemcpyTimeoutFn& on_timeout = {});
 
 /**
- * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Centralizing these
- * here (alongside the bulk memcpy routines) keeps every TLB-touching store/load behind a
- * single set of primitives that future improvements (per-op timeouts, instrumentation,
- * etc.) can wrap uniformly.
+ * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Each carries the same
+ * optional per-op budget as the bulk memcpy routines: on overrun the behavior follows on_timeout
+ * (no callback throws DeviceTimeoutError; see MemcpyTimeoutFn). Centralizing them here keeps every
+ * TLB-touching store/load behind a single set of timed primitives.
  */
-void write16_to_device(volatile void* dest, std::uint16_t value);
-void write32_to_device(volatile void* dest, std::uint32_t value);
-std::uint16_t read16_from_device(const volatile void* src);
-std::uint32_t read32_from_device(const volatile void* src);
+void write16_to_device(volatile void* dest, std::uint16_t value, const MemcpyTimeoutFn& on_timeout = {});
+void write32_to_device(volatile void* dest, std::uint32_t value, const MemcpyTimeoutFn& on_timeout = {});
+std::uint16_t read16_from_device(const volatile void* src, const MemcpyTimeoutFn& on_timeout = {});
+std::uint32_t read32_from_device(const volatile void* src, const MemcpyTimeoutFn& on_timeout = {});
 
 }  // namespace tt::umd

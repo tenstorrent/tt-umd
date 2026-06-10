@@ -54,6 +54,16 @@ EthernetBroadcast::EthernetBroadcast(
     const std::unordered_map<ChipId, RemoteCommunication*>& mmio_remote_comms) :
     chip_locations_(chip_locations), chip_to_mmio_chip_(chip_to_mmio_chip), mmio_remote_comms_(mmio_remote_comms) {}
 
+// Note that the structures don't rely in any way on ChipIds being correct, the important thing is to pass the
+// correct EthCoord for the remote chip.
+EthernetBroadcast::EthernetBroadcast(RemoteCommunication* mmio_remote_comms) :
+    EthernetBroadcast(
+        std::unordered_map<ChipId, EthCoord>{{0, mmio_remote_comms->get_target_eth_coord().value()}},
+        std::unordered_map<ChipId, ChipId>{{0, 0}},
+        std::unordered_map<ChipId, RemoteCommunication*>{{0, mmio_remote_comms}}) {
+    single_remote_chip_ = true;
+}
+
 void EthernetBroadcast::refresh(
     const std::unordered_map<ChipId, EthCoord>& chip_locations,
     const std::unordered_map<ChipId, ChipId>& chip_to_mmio_chip,
@@ -267,6 +277,14 @@ void EthernetBroadcast::broadcast_write_to_cluster(
     std::set<uint32_t>& rows_to_exclude,
     std::set<uint32_t>& columns_to_exclude,
     bool use_translated_coords) {
+    // The single-remote variant synthesizes a target with ChipId 0, so excluding any chip here (including 0)
+    // would silently turn the broadcast into a no-op. Enforce the documented "chips_to_exclude must be empty"
+    // contract rather than letting it misbehave silently.
+    UMD_ASSERT(
+        !single_remote_chip_ || chips_to_exclude.empty(),
+        error::RuntimeError,
+        "chips_to_exclude must be empty when EthernetBroadcast is constructed for a single remote chip.");
+
     std::set<uint32_t> rows_to_exclude_virtual;
     std::set<uint32_t> cols_to_exclude_virtual;
     adjust_coordinates_for_ethernet_broadcast(

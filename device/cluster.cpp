@@ -250,7 +250,20 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return chip;
     } else {
         ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-        return RemoteChip::create(std::move(tt_device), get_local_chip(gateway_id));
+        LocalChip* gateway_chip = get_local_chip(gateway_id);
+        if (tt_device != nullptr) {
+            if (RemoteCommunication* remote_communication = tt_device->get_remote_communication()) {
+                SysmemManager* sysmem_ptr = gateway_chip->get_sysmem_manager();
+                if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
+                    sysmem_ptr = nullptr;
+                }
+                // Remote communications created during topology discovery start without one, since sysmem
+                // managers don't exist yet at that point; the owning Cluster wires in the gateway's sysmem manager
+                // afterwards.
+                remote_communication->set_sysmem_manager(sysmem_ptr);
+            }
+        }
+        return RemoteChip::create(std::move(tt_device), gateway_chip);
     }
 }
 

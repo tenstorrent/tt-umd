@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -96,6 +97,11 @@ public:
 
     // Takes ownership of the serving socket that exposes this device (created by discovery).
     void adopt_socket(std::unique_ptr<SimulationSocket> socket);
+
+    // Serves one API request from a connected client (used by SimulationTopologyDiscovery's
+    // serving handler): decodes it, dispatches into this device's backend ops, and returns
+    // the encoded response. Runs on a per-connection worker thread.
+    std::vector<uint8_t> handle_request(const std::vector<uint8_t> &request);
 
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;

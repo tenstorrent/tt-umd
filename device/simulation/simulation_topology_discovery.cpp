@@ -33,10 +33,13 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationTopologyDiscovery::discove
                 socket_path.string()));
     }
 
-    // We are the host: bring up the backend (the direct in-process hot path) and hand it the
-    // socket to own and expose.
+    // We are the host: bring up the backend (the direct in-process hot path), then serve clients
+    // by dispatching their requests into that backend, and hand the device the socket to own.
     std::unique_ptr<TTSimTTDevice> device =
         TTSimTTDevice::create(options.simulator_directory, options.num_host_mem_channels);
+    TTSimTTDevice* device_ptr = device.get();
+    socket->start_serving(
+        [device_ptr](const std::vector<uint8_t>& request) { return device_ptr->handle_request(request); });
     device->adopt_socket(std::move(socket));
 
     devices.emplace(chip_id, std::move(device));

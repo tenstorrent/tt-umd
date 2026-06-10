@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -59,9 +60,38 @@ public:
 // detail (it lives in the .cpp).
 // ---------------------------------------------------------------------------
 
+enum class MessageType : uint8_t {
+    AttachRequest,
+    AttachResponse,
+    DetachRequest,
+    DetachResponse,
+    AdvanceExecutionRequest,
+    AdvanceExecutionResponse,
+    DeviceOp,  // memory / reset / run op (reuses simulation_device.fbs DeviceRequestResponse)
+    Error,
+};
+
+struct Endpoint {
+    uint32_t x = 0;
+    uint32_t y = 0;
+};
+
+// Mirrors the reused DeviceRequestResponse: a memory/reset/run operation and its response.
+struct DeviceOp {
+    uint8_t command = 0;  // DEVICE_COMMAND value from simulation_device.fbs
+    Endpoint endpoint;
+    uint64_t address = 0;
+    uint32_t size = 0;
+    std::vector<uint32_t> data;
+};
+
+// A single API message. The active fields are determined by `type`.
 struct Message {
-    uint32_t value = 0;
-    std::string text;
+    MessageType type = MessageType::Error;
+    SimulationDeviceDescription description;  // AttachResponse
+    DeviceOp op;                              // DeviceOp
+    uint32_t error_code = 0;                  // Error
+    std::string error_message;                // Error
 };
 
 // Serialize a message to a FlatBuffers payload, and parse one back.
@@ -72,5 +102,10 @@ inline Message decode(const std::vector<uint8_t>& bytes) { return decode(bytes.d
 
 // Length-prefix framing for the stream socket: a 4-byte little-endian length, then the payload.
 std::vector<uint8_t> frame(const std::vector<uint8_t>& payload);
+
+// Blocking length-prefixed transport over a connected stream socket fd. send_framed writes a
+// framed payload; recv_framed reads one, returning nullopt on EOF or error.
+bool send_framed(int fd, const std::vector<uint8_t>& payload);
+std::optional<std::vector<uint8_t>> recv_framed(int fd);
 
 }  // namespace tt::umd

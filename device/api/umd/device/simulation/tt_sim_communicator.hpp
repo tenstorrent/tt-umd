@@ -251,14 +251,15 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Per-MMIO-device DMA routing. Each MMIO device has its own host sysmem, so a sysmem
-    // DMA must reach the originating device's callback -- e.g. an eth tunnel staging a
-    // remote chip's FW reads it from its MMIO peer's sysmem, not whichever device happened
-    // to register last. The sim tags each DMA paddr with the current chip
-    // (paddr / kPerDevicePaddrStride, matching the BAR path in libttsim_pci_mem_rd_bytes),
-    // so the wrapper decodes the device and routes to dma_instances_[device]. The within-
-    // device offset is always << the stride. callback_instance_ stays as the device-0 /
-    // single-device fallback (untagged paddr decodes to device 0).
+    // Per-MMIO-device DMA routing. Each MMIO device has its own host sysmem, and each chip's
+    // outbound iATU maps its (identical) NOC sysmem window onto that chip's own hugepage. The
+    // sim models that iATU on the chip side: it translates each sysmem DMA to the originating
+    // chip's host region (paddr + chip * stride). So here on the host side of the bus we route
+    // purely by the resulting *address* -- device = paddr / kPerDevicePaddrStride -> the owning
+    // device's callback (dma_instances_[device]) -- exactly like the BAR path in
+    // libttsim_pci_mem_rd_bytes. No chip id crosses the callback; the address already carries the
+    // iATU's per-device targeting. The within-window offset is always << the stride.
+    // callback_instance_ stays as the device-0 / single-device fallback.
     static constexpr uint64_t kPerDevicePaddrStride = 0x1000000000ull;  // 64GiB; matches libttsim PER_DEVICE_PADDR_STRIDE
     static constexpr std::size_t kMaxDmaDevices = 32;
     static TTSimCommunicator *callback_instance_;

@@ -798,3 +798,89 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     ASSERT_TRUE(WIFEXITED(status));
     EXPECT_EQ(WEXITSTATUS(status), params.expected_rc);
 }
+
+TEST(WarmResetTest, StaleFDClusterRecovery) {
+    if constexpr (utils::is_arm_platform()) {
+        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+    }
+
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No chips present on the system.";
+    }
+
+    test_utils::MultiProcessPipe ready_pipe(2);
+
+    int reset_done_pipe[2];
+    int result_pipe[2];
+    ASSERT_EQ(pipe(reset_done_pipe), 0);
+    ASSERT_EQ(pipe(result_pipe), 0);
+
+    // P1: holds Cluster (stale FDs) and never releases.
+    pid_t p1 = fork();
+    ASSERT_NE(p1, -1);
+    if (p1 == 0) {
+        close(reset_done_pipe[0]);
+        close(reset_done_pipe[1]);
+        close(result_pipe[0]);
+        close(result_pipe[1]);
+
+        auto cluster = std::make_unique<Cluster>();
+        ready_pipe.signal_ready_from_child(0);
+        pause();
+        _exit(0);
+    }
+
+    // P2: holds Cluster, waits for reset, then destroys and recreates.
+    pid_t p2 = fork();
+    ASSERT_NE(p2, -1);
+    if (p2 == 0) {
+        close(reset_done_pipe[1]);
+        close(result_pipe[0]);
+
+        auto cluster = std::make_unique<Cluster>();
+        ready_pipe.signal_ready_from_child(1);
+
+        char c;
+        ssize_t n = read(reset_done_pipe[0], &c, 1);
+        if (n <= 0) {
+            _exit(1);
+        }
+        close(reset_done_pipe[0]);
+
+        cluster.reset();
+        try {
+            cluster = std::make_unique<Cluster>();
+            c = 1;
+        } catch (...) {
+            c = 0;
+        }
+        if (write(result_pipe[1], &c, 1) <= 0) {
+            _exit(1);
+        }
+        close(result_pipe[1]);
+        _exit(0);
+    }
+
+    // Parent: close unused pipe ends.
+    close(reset_done_pipe[0]);
+    close(result_pipe[1]);
+
+    ASSERT_TRUE(ready_pipe.wait_for_all_children(60)) << "Timed out waiting for child processes to create Cluster.";
+
+    WarmResetWithRecovery::warm_reset();
+
+    char signal_byte = 1;
+    ASSERT_EQ(write(reset_done_pipe[1], &signal_byte, 1), 1);
+    close(reset_done_pipe[1]);
+
+    char result = 0;
+    ASSERT_EQ(read(result_pipe[0], &result, 1), 1) << "P2 died before reporting result.";
+    close(result_pipe[0]);
+
+    kill(p1, SIGKILL);
+    kill(p2, SIGKILL);
+    waitpid(p1, nullptr, 0);
+    waitpid(p2, nullptr, 0);
+
+    EXPECT_EQ(result, 1) << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
+}

@@ -355,7 +355,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (discovered_devices.find(remote_asic_id) == discovered_devices.end()) {
+            if (discovered_devices.find(remote_asic_id) == discovered_devices.end() && !is_running_on_6u) {
                 log_debug(
                     LogUMD, "Discovered remote device ASIC ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
                 std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, eth_core);
@@ -363,7 +363,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
                 uint64_t gateway_device_id = remote_asic_id_to_mmio_device_id.at(current_device_asic_id);
                 TTDevice* gateway_device = devices.at(gateway_device_id).get();
-                auto gateway_eth_channels = active_eth_channels_per_device.at(gateway_device_id);
+                const auto& gateway_eth_channels = active_eth_channels_per_device.at(gateway_device_id);
                 std::unique_ptr<RemoteCommunication> remote_communication =
                     RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
                 remote_communication->set_remote_transfer_ethernet_cores(

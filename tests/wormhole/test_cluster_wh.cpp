@@ -839,23 +839,24 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
     // and verify the data is read back correctly.
     // Note: this test intentionally only covers the tensix branch. The DRAM branch (the virtual-column 0/5
     // split logic in broadcast_write_to_cluster) is already exercised by VirtualCoordinateBroadcastPerChip.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
-    set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    set_barrier_params(cluster.get());
+    auto mmio_devices = cluster->get_target_mmio_device_ids();
 
-    test_utils::safe_test_cluster_start(&cluster);
+    test_utils::safe_test_cluster_start(cluster.get());
 
-    auto remote_devices = cluster.get_target_remote_device_ids();
+    auto remote_devices = cluster->get_target_remote_device_ids();
     if (remote_devices.empty()) {
-        cluster.close_device();
+        cluster->close_device();
         GTEST_SKIP() << "SiliconDriverWH.EthernetBroadcastSingleRemotePerChip skipped: no remote devices found";
     }
 
-    auto eth_version = cluster.get_ethernet_firmware_version();
+    auto eth_version = cluster->get_ethernet_firmware_version();
     bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+                                   cluster->get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
-        cluster.close_device();
+        cluster->close_device();
         GTEST_SKIP() << "SiliconDriverWH.EthernetBroadcastSingleRemotePerChip skipped: ethernet version does not "
                         "support Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
@@ -868,7 +869,7 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
     std::set<uint32_t> cols_to_exclude = {16, 17, 20};
 
     for (auto chip_id : remote_devices) {
-        RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
+        RemoteChip* remote_chip = cluster->get_remote_chip(chip_id);
         EthernetBroadcast eth_broadcast(remote_chip->get_remote_communication());
 
         for (const auto& size : broadcast_sizes) {
@@ -888,11 +889,11 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
                 rows_to_exclude,
                 cols_to_exclude,
                 true);
-            cluster.wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+            for (const CoreCoord& core : cluster->get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
                 const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
+                    cluster->get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
                 if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
                     continue;
                 }
@@ -900,11 +901,11 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
                     continue;
                 }
                 test_utils::read_data_from_device(
-                    cluster, readback_vec, chip_id, core, address, vector_to_write.size() * sizeof(uint32_t));
+                    cluster.get(), readback_vec, chip_id, core, address, vector_to_write.size() * sizeof(uint32_t));
                 ASSERT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from chip " << chip_id << " core " << core.str()
                     << " does not match what was broadcasted for size " << size;
-                cluster.write_to_device(
+                cluster->write_to_device(
                     zeros.data(),
                     zeros.size() * sizeof(std::uint32_t),
                     chip_id,
@@ -913,31 +914,32 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
                 readback_vec = {};
             }
         }
-        cluster.wait_for_non_mmio_flush(chip_id);
+        cluster->wait_for_non_mmio_flush(chip_id);
     }
-    cluster.close_device();
+    cluster->close_device();
 }
 
 TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
     // Broadcast to a partial tensix grid via DeviceProtocol::write_to_core_range and verify that
     // cores inside the range received the data while cores outside still hold zeros.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
-    set_barrier_params(cluster);
-    auto mmio_devices = cluster.get_target_mmio_device_ids();
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    set_barrier_params(cluster.get());
+    auto mmio_devices = cluster->get_target_mmio_device_ids();
 
-    test_utils::safe_test_cluster_start(&cluster);
+    test_utils::safe_test_cluster_start(cluster.get());
 
-    auto remote_devices = cluster.get_target_remote_device_ids();
+    auto remote_devices = cluster->get_target_remote_device_ids();
     if (remote_devices.empty()) {
-        cluster.close_device();
+        cluster->close_device();
         GTEST_SKIP() << "SiliconDriverWH.DeviceProtocolWriteCoreRange skipped: no remote devices found";
     }
 
-    auto eth_version = cluster.get_ethernet_firmware_version();
+    auto eth_version = cluster->get_ethernet_firmware_version();
     bool virtual_bcast_supported = (eth_version >= SemVer(6, 8, 0) || eth_version == SemVer(6, 7, 241)) &&
-                                   cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
+                                   cluster->get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
-        cluster.close_device();
+        cluster->close_device();
         GTEST_SKIP() << "SiliconDriverWH.DeviceProtocolWriteCoreRange skipped: ethernet version does not support "
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
@@ -953,9 +955,9 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
         wormhole::tensix_translated_coordinate_start_y + wormhole::TENSIX_GRID_SIZE.y / 2 - 1};
 
     for (auto chip_id : remote_devices) {
-        RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
+        RemoteChip* remote_chip = cluster->get_remote_chip(chip_id);
         DeviceProtocol* protocol = remote_chip->get_tt_device()->get_device_protocol();
-        const auto& sdesc = cluster.get_soc_descriptor(chip_id);
+        const auto& sdesc = cluster->get_soc_descriptor(chip_id);
         const auto& tensix_cores = sdesc.get_cores(CoreType::TENSIX);
 
         for (const auto& size : broadcast_sizes) {
@@ -967,9 +969,9 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
 
             // Clear all tensix cores before the broadcast.
             for (const CoreCoord& core : tensix_cores) {
-                cluster.write_to_device(zeros.data(), zeros.size() * sizeof(uint32_t), chip_id, core, address);
+                cluster->write_to_device(zeros.data(), zeros.size() * sizeof(uint32_t), chip_id, core, address);
             }
-            cluster.wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
             bool hw_broadcast = protocol->write_to_core_range(
                 vector_to_write.data(),
@@ -980,7 +982,7 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
                 NocId::NOC0);
             ASSERT_TRUE(hw_broadcast) << "Expected hardware broadcast to succeed for chip " << chip_id << " size "
                                       << size;
-            cluster.wait_for_non_mmio_flush(chip_id);
+            cluster->wait_for_non_mmio_flush(chip_id);
 
             for (const CoreCoord& core : tensix_cores) {
                 const CoreCoord translated = sdesc.translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -989,7 +991,7 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
 
                 std::vector<uint32_t> readback_vec;
                 test_utils::read_data_from_device(
-                    cluster, readback_vec, chip_id, core, address, size * sizeof(uint32_t));
+                    cluster.get(), readback_vec, chip_id, core, address, size * sizeof(uint32_t));
 
                 if (in_range) {
                     ASSERT_EQ(vector_to_write, readback_vec)
@@ -1005,12 +1007,12 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
         // Final cleanup.
         std::vector<uint32_t> zeros_cleanup(broadcast_sizes.back(), 0);
         for (const CoreCoord& core : tensix_cores) {
-            cluster.write_to_device(
+            cluster->write_to_device(
                 zeros_cleanup.data(), zeros_cleanup.size() * sizeof(uint32_t), chip_id, core, address);
         }
-        cluster.wait_for_non_mmio_flush(chip_id);
+        cluster->wait_for_non_mmio_flush(chip_id);
     }
-    cluster.close_device();
+    cluster->close_device();
 }
 
 TEST(SiliconDriverWH, LargeAddressTlb) {

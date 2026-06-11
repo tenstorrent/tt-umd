@@ -39,10 +39,7 @@ public:
      */
     static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
     static std::unique_ptr<RemoteChip> create_for_simulation(
-        std::unique_ptr<TTDevice> remote_tt_device,
-        Chip* local_chip,
-        SocDescriptor soc_descriptor,
-        ChipInfo chip_info);
+        std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, SocDescriptor soc_descriptor, ChipInfo chip_info);
 
     bool is_mmio_capable() const override;
 
@@ -87,10 +84,7 @@ public:
 private:
     RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
     RemoteChip(
-        Chip* local_chip,
-        std::unique_ptr<TTDevice> remote_tt_device,
-        SocDescriptor soc_descriptor,
-        ChipInfo chip_info);
+        Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, SocDescriptor soc_descriptor, ChipInfo chip_info);
 
     Chip* local_chip_;
     RemoteCommunication* remote_communication_;

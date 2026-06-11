@@ -63,18 +63,7 @@ TTDevice::TTDevice(
     communication_device_id_(pci_device->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    if (soc_arch_descriptor != nullptr) {
-        UMD_ASSERT(
-            soc_arch_descriptor->get_arch() == arch,
-            error::RuntimeError,
-            fmt::format(
-                "SocArchDescriptor architecture {} does not match device architecture {}.",
-                arch_to_str(soc_arch_descriptor->get_arch()),
-                arch_to_str(arch)));
-        soc_arch_descriptor_ = soc_arch_descriptor;
-    } else {
-        soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
-    }
+    assign_soc_arch_descriptor(soc_arch_descriptor);
 
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
@@ -95,18 +84,8 @@ TTDevice::TTDevice(
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
-    if (soc_arch_descriptor != nullptr) {
-        UMD_ASSERT(
-            soc_arch_descriptor->get_arch() == arch,
-            error::RuntimeError,
-            fmt::format(
-                "SocArchDescriptor architecture {} does not match device architecture {}.",
-                arch_to_str(soc_arch_descriptor->get_arch()),
-                arch_to_str(arch)));
-        soc_arch_descriptor_ = soc_arch_descriptor;
-    } else {
-        soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
-    }
+    assign_soc_arch_descriptor(soc_arch_descriptor);
+
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
@@ -120,6 +99,19 @@ TTDevice::TTDevice(
     communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
+    assign_soc_arch_descriptor(soc_arch_descriptor);
+
+    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
+    remote_capabilities_ = remote_protocol.get();
+    device_protocol_ = std::move(remote_protocol);
+}
+
+void TTDevice::probe_arc() {
+    uint32_t dummy;
+    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
+}
+
+void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     if (soc_arch_descriptor != nullptr) {
         UMD_ASSERT(
             soc_arch_descriptor->get_arch() == arch,
@@ -132,14 +124,6 @@ TTDevice::TTDevice(
     } else {
         soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
     }
-    auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
-    remote_capabilities_ = remote_protocol.get();
-    device_protocol_ = std::move(remote_protocol);
-}
-
-void TTDevice::probe_arc() {
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {

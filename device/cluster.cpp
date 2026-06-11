@@ -11,6 +11,12 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <filesystem>
 #include <initializer_list>
 #include <map>
@@ -456,6 +462,31 @@ Cluster::Cluster(ClusterOptions options) {
         // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
         // register MACs and peer handles.  Process each undirected edge once
         // (chip_a < chip_b) to avoid double-registration.
+        // Cross-rank (inter-process) eth links: a connection whose two chips live in different
+        // rank processes can't share an in-process eth_switch. Wire each such local endpoint to a
+        // named-FIFO pair so the sim's FD transport carries traffic across processes. Both ranks
+        // independently process the (chip_a<chip_b) edge and set up their own local endpoint; the
+        // FIFO paths are deterministic from (chip,chan) so both sides agree. Open all read ends
+        // first (non-blocking, never blocks) and the write ends after, so a peer's read end always
+        // exists by the time we open the matching write end (avoids FIFO open-ordering deadlock).
+        struct PendingFdLink {
+            tt::umd::TTSimCommunicator* comm;
+            uint32_t chan;
+            std::string wpath;
+            int read_fd;
+        };
+        std::vector<PendingFdLink> pending_fd_links;
+        const char* eth_ipc_env = std::getenv("TT_SIM_ETH_IPC_DIR");
+        std::string eth_ipc_dir = eth_ipc_env ? std::string(eth_ipc_env) : std::string("/tmp/ttsim_eth_ipc");
+        ::mkdir(eth_ipc_dir.c_str(), 0777);
+        // FIFO paths are keyed by GLOBAL unique chip ids (not per-rank-local logical ids) so both
+        // rank processes name the same pair for a physical cross-rank link.
+        auto eth_fifo_path = [&](uint64_t s, int sc, uint64_t d, int dc) {
+            return eth_ipc_dir + "/eth_" + std::to_string(s) + "_" + std::to_string(sc) + "__" +
+                   std::to_string(d) + "_" + std::to_string(dc) + ".fifo";
+        };
+
+        // (1) Intra-rank links: both endpoints in this process -> in-process virtual eth_switch.
         const auto& eth_conns = cluster_desc->get_ethernet_connections();
         for (const auto& [chip_a, chan_map] : eth_conns) {
             for (const auto& [chan_a, remote] : chan_map) {
@@ -486,6 +517,77 @@ Cluster::Cluster(ClusterOptions options) {
                     chan_b,
                     mac_b);
             }
+        }
+
+        // (2) Cross-rank (inter-process) links: a local chip's eth channel connects to a chip owned
+        // by another rank process. These live in ethernet_connections_to_remote_devices, keyed by
+        // the remote chip's GLOBAL unique id (so it matches the peer rank's descriptor). Wire each
+        // local endpoint to a named-FIFO pair carrying the sim's FD transport across processes.
+        const auto& chip_uids = cluster_desc->get_chip_unique_ids();
+        const auto& remote_conns = cluster_desc->get_ethernet_connections_to_remote_devices();
+        for (const auto& [lchip, chan_map] : remote_conns) {
+            auto uid_it = chip_uids.find(lchip);
+            if (uid_it == chip_uids.end()) {
+                continue;
+            }
+            uint64_t luid = uid_it->second;
+            auto* lcomm = get_comm(lchip);
+            if (!lcomm) {
+                continue;
+            }
+            for (const auto& [lchan, rinfo] : chan_map) {
+                uint64_t ruid = std::get<0>(rinfo);
+                int rchan = std::get<1>(rinfo);
+                uint64_t lmac = eth_sim_mac(lchip, lchan);
+                lcomm->register_eth_endpoint(uint32_t(lchan), lmac);
+                std::string wpath = eth_fifo_path(luid, int(lchan), ruid, rchan);  // local writes
+                std::string rpath = eth_fifo_path(ruid, rchan, luid, int(lchan));  // local reads
+                ::mkfifo(wpath.c_str(), 0666);  // EEXIST ok (peer rank may have created it)
+                ::mkfifo(rpath.c_str(), 0666);
+                int read_fd = ::open(rpath.c_str(), O_RDONLY | O_NONBLOCK);  // succeeds immediately
+                if (read_fd < 0) {
+                    log_warning(
+                        tt::LogEmulationDriver,
+                        "TTSim eth xrank: open read {} failed: {}",
+                        rpath,
+                        std::strerror(errno));
+                    continue;
+                }
+                pending_fd_links.push_back({lcomm, uint32_t(lchan), wpath, read_fd});
+                log_info(
+                    tt::LogEmulationDriver,
+                    "TTSim eth xrank stage: chip{} ch{} (uid {}) -> uid {} ch{} (rfd {})",
+                    lchip,
+                    int(lchan),
+                    luid,
+                    ruid,
+                    rchan,
+                    read_fd);
+            }
+        }
+        // Open the write ends now that every rank has opened its read ends. Retry while ENXIO
+        // (no reader yet) until the peer rank opens the matching read end.
+        for (auto& pl : pending_fd_links) {
+            int write_fd = -1;
+            for (int attempt = 0; attempt < 120000 && write_fd < 0; ++attempt) {
+                write_fd = ::open(pl.wpath.c_str(), O_WRONLY | O_NONBLOCK);
+                if (write_fd < 0) {
+                    if (errno != ENXIO) {
+                        break;  // a real error, not "waiting for reader"
+                    }
+                    ::usleep(1000);
+                }
+            }
+            if (write_fd < 0) {
+                log_warning(
+                    tt::LogEmulationDriver,
+                    "TTSim eth xrank: open write {} failed: {}",
+                    pl.wpath,
+                    std::strerror(errno));
+                continue;
+            }
+            pl.comm->configure_eth_link_fd(pl.chan, write_fd, pl.read_fd);
+            log_info(tt::LogEmulationDriver, "TTSim eth xrank wired: chan {} wfd {} rfd {}", pl.chan, write_fd, pl.read_fd);
         }
     }
 #endif  // TT_UMD_BUILD_SIMULATION

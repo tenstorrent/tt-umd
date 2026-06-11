@@ -5,6 +5,7 @@
 #include "umd/device/simulation/simulation_server_api.hpp"
 
 #include <flatbuffers/flatbuffers.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include <cerrno>
@@ -19,7 +20,7 @@ namespace {
 bool write_all(int fd, const uint8_t* buf, size_t n) {
     size_t offset = 0;
     while (offset < n) {
-        ssize_t written = ::write(fd, buf + offset, n - offset);
+        ssize_t written = ::send(fd, buf + offset, n - offset, MSG_NOSIGNAL);
         if (written < 0) {
             if (errno == EINTR) {
                 continue;

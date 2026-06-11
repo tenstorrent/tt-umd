@@ -800,7 +800,7 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     EXPECT_EQ(WEXITSTATUS(status), params.expected_rc);
 }
 
-TEST(WarmResetTest, StaleFDClusterRecovery) {
+TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }

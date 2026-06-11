@@ -850,7 +850,7 @@ TEST(WarmResetTest, StaleFDClusterRecovery) {
         cluster.reset();
         try {
             cluster = std::make_unique<Cluster>();
-            c = 1;
+            c = cluster->get_target_device_ids().empty() ? 0 : 1;
         } catch (...) {
             c = 0;
         }

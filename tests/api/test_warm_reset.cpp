@@ -301,7 +301,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     constexpr int NUM_CHILDREN = 3;
-    utils::MultiProcessPipe pipes(NUM_CHILDREN);
+    test_utils::MultiProcessPipe pipes(NUM_CHILDREN);
     std::vector<pid_t> pids;
 
     for (int i = 0; i < NUM_CHILDREN; ++i) {

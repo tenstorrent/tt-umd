@@ -20,6 +20,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_socket.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/risc_type.hpp"
@@ -130,6 +131,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
                 tt::arch_to_str(arch));
             break;
     }
+
+    // Bring-up complete: expose the device on disk so clients can find it (§7.1 readiness).
+    socket_ = std::make_unique<SimulationSocket>(SimulationSocket::default_socket_path(chip_id));
 }
 
 std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {

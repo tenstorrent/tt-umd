@@ -24,6 +24,7 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
+class SimulationSocket;
 class SocDescriptor;
 class TlbWindow;
 
@@ -84,5 +85,9 @@ private:
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
+
+    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
+    // it. The host keeps its own direct fast path; the socket is for remote clients.
+    std::unique_ptr<SimulationSocket> socket_;
 };
 }  // namespace tt::umd

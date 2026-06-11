@@ -30,6 +30,7 @@
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/multi_process_event.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -808,24 +809,17 @@ TEST(WarmResetTest, StaleFDClusterRecovery) {
         GTEST_SKIP() << "No chips present on the system.";
     }
 
-    test_utils::MultiProcessPipe ready_pipe(2);
-
-    int reset_done_pipe[2];
-    int result_pipe[2];
-    ASSERT_EQ(pipe(reset_done_pipe), 0);
-    ASSERT_EQ(pipe(result_pipe), 0);
+    // Slot 0: P1 ready, Slot 1: P2 ready.
+    test_utils::MultiProcessEvent children_ready(2);
+    // Slot 0: parent tells P2 that reset is done.
+    test_utils::MultiProcessEvent reset_done(1);
 
     // P1: holds Cluster (stale FDs) and never releases.
     pid_t p1 = fork();
     ASSERT_NE(p1, -1);
     if (p1 == 0) {
-        close(reset_done_pipe[0]);
-        close(reset_done_pipe[1]);
-        close(result_pipe[0]);
-        close(result_pipe[1]);
-
         auto cluster = std::make_unique<Cluster>();
-        ready_pipe.signal_ready_from_child(0);
+        children_ready.notify(0);
         pause();
         _exit(0);
     }
@@ -834,53 +828,33 @@ TEST(WarmResetTest, StaleFDClusterRecovery) {
     pid_t p2 = fork();
     ASSERT_NE(p2, -1);
     if (p2 == 0) {
-        close(reset_done_pipe[1]);
-        close(result_pipe[0]);
-
         auto cluster = std::make_unique<Cluster>();
-        ready_pipe.signal_ready_from_child(1);
+        children_ready.notify(1);
 
-        char c;
-        ssize_t n = read(reset_done_pipe[0], &c, 1);
-        if (n <= 0) {
+        if (!reset_done.wait_for(0, 60)) {
             _exit(1);
         }
-        close(reset_done_pipe[0]);
 
         cluster.reset();
         try {
             cluster = std::make_unique<Cluster>();
-            c = cluster->get_target_device_ids().empty() ? 0 : 1;
         } catch (...) {
-            c = 0;
-        }
-        if (write(result_pipe[1], &c, 1) <= 0) {
             _exit(1);
         }
-        close(result_pipe[1]);
-        _exit(0);
+        _exit(cluster->get_target_device_ids().empty() ? 1 : 0);
     }
 
-    // Parent: close unused pipe ends.
-    close(reset_done_pipe[0]);
-    close(result_pipe[1]);
-
-    ASSERT_TRUE(ready_pipe.wait_for_all_children(60)) << "Timed out waiting for child processes to create Cluster.";
+    ASSERT_TRUE(children_ready.wait_for_all(60)) << "Timed out waiting for child processes to create Cluster.";
 
     WarmResetWithRecovery::warm_reset();
 
-    char signal_byte = 1;
-    ASSERT_EQ(write(reset_done_pipe[1], &signal_byte, 1), 1);
-    close(reset_done_pipe[1]);
+    reset_done.notify(0);
 
-    char result = 0;
-    ASSERT_EQ(read(result_pipe[0], &result, 1), 1) << "P2 died before reporting result.";
-    close(result_pipe[0]);
+    int status;
+    waitpid(p2, &status, 0);
+    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally.";
+    EXPECT_EQ(WEXITSTATUS(status), 0) << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
 
     kill(p1, SIGKILL);
-    kill(p2, SIGKILL);
     waitpid(p1, nullptr, 0);
-    waitpid(p2, nullptr, 0);
-
-    EXPECT_EQ(result, 1) << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
 }

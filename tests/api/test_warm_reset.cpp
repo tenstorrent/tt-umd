@@ -809,9 +809,15 @@ TEST(WarmResetTest, StaleFDClusterRecovery) {
         GTEST_SKIP() << "No chips present on the system.";
     }
 
-    // Slot 0: P1 ready, Slot 1: P2 ready.
-    test_utils::MultiProcessEvent children_ready(2);
-    // Slot 0: parent tells P2 that reset is done.
+    static constexpr int NUM_CHILDREN = 2;
+    static constexpr int P1_SLOT = 0;
+    static constexpr int P2_SLOT = 1;
+    static constexpr int RESET_DONE_SLOT = 0;
+    static constexpr int SYNC_TIMEOUT_S = 60;
+    static constexpr int EXIT_SUCCESS_CODE = 0;
+    static constexpr int EXIT_FAILURE_CODE = 1;
+
+    test_utils::MultiProcessEvent children_ready(NUM_CHILDREN);
     test_utils::MultiProcessEvent reset_done(1);
 
     // P1: holds Cluster (stale FDs) and never releases.
@@ -819,9 +825,9 @@ TEST(WarmResetTest, StaleFDClusterRecovery) {
     ASSERT_NE(p1, -1);
     if (p1 == 0) {
         auto cluster = std::make_unique<Cluster>();
-        children_ready.notify(0);
+        children_ready.notify(P1_SLOT);
         pause();
-        _exit(0);
+        _exit(EXIT_SUCCESS_CODE);
     }
 
     // P2: holds Cluster, waits for reset, then destroys and recreates.
@@ -829,31 +835,33 @@ TEST(WarmResetTest, StaleFDClusterRecovery) {
     ASSERT_NE(p2, -1);
     if (p2 == 0) {
         auto cluster = std::make_unique<Cluster>();
-        children_ready.notify(1);
+        children_ready.notify(P2_SLOT);
 
-        if (!reset_done.wait_for(0, 60)) {
-            _exit(1);
+        if (!reset_done.wait_for(RESET_DONE_SLOT, SYNC_TIMEOUT_S)) {
+            _exit(EXIT_FAILURE_CODE);
         }
 
         cluster.reset();
         try {
             cluster = std::make_unique<Cluster>();
         } catch (...) {
-            _exit(1);
+            _exit(EXIT_FAILURE_CODE);
         }
-        _exit(cluster->get_target_device_ids().empty() ? 1 : 0);
+        _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);
     }
 
-    ASSERT_TRUE(children_ready.wait_for_all(60)) << "Timed out waiting for child processes to create Cluster.";
+    ASSERT_TRUE(children_ready.wait_for_all(SYNC_TIMEOUT_S))
+        << "Timed out waiting for child processes to create Cluster.";
 
     WarmResetWithRecovery::warm_reset();
 
-    reset_done.notify(0);
+    reset_done.notify(RESET_DONE_SLOT);
 
     int status;
     waitpid(p2, &status, 0);
     EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally.";
-    EXPECT_EQ(WEXITSTATUS(status), 0) << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
+    EXPECT_EQ(WEXITSTATUS(status), EXIT_SUCCESS_CODE)
+        << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
 
     kill(p1, SIGKILL);
     waitpid(p1, nullptr, 0);

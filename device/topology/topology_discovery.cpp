@@ -31,7 +31,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -355,22 +354,16 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (discovered_devices.find(remote_asic_id) == discovered_devices.end() && !is_running_on_6u) {
+            if (discovered_devices.find(remote_asic_id) == discovered_devices.end()) {
                 log_debug(
                     LogUMD, "Discovered remote device ASIC ID: {} over ETH core: {}", remote_asic_id, eth_core.str());
-                std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, eth_core);
-                EthCoord remote_device_eth_coord = eth_coord.has_value() ? eth_coord.value() : EthCoord{0, 0, 0, 0};
-
                 uint64_t gateway_device_id = remote_asic_id_to_mmio_device_id.at(current_device_asic_id);
-                TTDevice* gateway_device = devices.at(gateway_device_id).get();
-                const auto& gateway_eth_channels = active_eth_channels_per_device.at(gateway_device_id);
-                std::unique_ptr<RemoteCommunication> remote_communication =
-                    RemoteCommunication::create_remote_communication(gateway_device, remote_device_eth_coord);
-                remote_communication->set_remote_transfer_ethernet_cores(
-                    gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                        gateway_eth_channels, CoordSystem::TRANSLATED));
-                std::unique_ptr<TTDevice> remote_device =
-                    TTDevice::create(std::move(remote_communication), soc_arch_descriptor_);
+                std::optional<EthCoord> eth_coord = get_remote_eth_coord(tt_device, eth_core);
+                std::unique_ptr<TTDevice> remote_device = create_remote_device(
+                    eth_coord,
+                    devices.at(gateway_device_id).get(),
+                    active_eth_channels_per_device.at(gateway_device_id),
+                    soc_arch_descriptor_);
                 ChipId chip_id = get_next_chip_id();
 
                 bool device_init_failed = false;

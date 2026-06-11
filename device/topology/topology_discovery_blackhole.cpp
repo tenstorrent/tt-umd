@@ -32,6 +32,14 @@
 namespace tt::umd {
 enum class IODeviceType;
 
+std::unique_ptr<TTDevice> TopologyDiscoveryBlackhole::create_remote_device(
+    std::optional<EthCoord> eth_coord,
+    TTDevice* gateway_device,
+    std::set<uint32_t> gateway_eth_channels,
+    const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) {
+    return nullptr;
+}
+
 std::optional<EthCoord> TopologyDiscoveryBlackhole::get_local_eth_coord(TTDevice* tt_device, CoreCoord eth_core) {
     return std::nullopt;
 }

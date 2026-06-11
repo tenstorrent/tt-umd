@@ -991,9 +991,12 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
 
 void Cluster::set_power_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
-        if (chip->is_mmio_capable()) {
-            chip->set_power_state(device_state);
+        // ttsim remote chips cannot service ARC messages; skip power state transitions for them. Silicon remote chips
+        // are still handled over ethernet as before.
+        if (options_.chip_type == ChipType::SIMULATION && !chip->is_mmio_capable()) {
+            continue;
         }
+        chip->set_power_state(device_state);
     }
 }
 
@@ -1009,9 +1012,12 @@ void Cluster::deassert_resets_and_set_power_state() {
     // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
-            if (get_chip(chip)->is_mmio_capable()) {
-                get_chip(chip)->enable_ethernet_queue();
+            // ttsim remote chips cannot service ARC messages; skip enabling their ethernet queue. Silicon remote chips
+            // are still initialized over ethernet as before.
+            if (options_.chip_type == ChipType::SIMULATION && !get_chip(chip)->is_mmio_capable()) {
+                continue;
             }
+            get_chip(chip)->enable_ethernet_queue();
         }
     }
 

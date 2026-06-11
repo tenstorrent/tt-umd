@@ -39,10 +39,7 @@ std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
-    std::unique_ptr<TTDevice> remote_tt_device,
-    Chip* local_chip,
-    SocDescriptor soc_descriptor,
-    ChipInfo chip_info) {
+    std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, SocDescriptor soc_descriptor, ChipInfo chip_info) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
@@ -61,10 +58,7 @@ RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_dev
 }
 
 RemoteChip::RemoteChip(
-    Chip* local_chip,
-    std::unique_ptr<TTDevice> remote_tt_device,
-    SocDescriptor soc_descriptor,
-    ChipInfo chip_info) :
+    Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, SocDescriptor soc_descriptor, ChipInfo chip_info) :
     Chip(chip_info, soc_descriptor.arch), local_chip_(local_chip), soc_descriptor_(std::move(soc_descriptor)) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);

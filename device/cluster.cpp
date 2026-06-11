@@ -220,6 +220,29 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
+        if (simulator_directory.extension() == ".so" && !cluster_desc->is_chip_mmio_capable(chip_id)) {
+            ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+            Chip* gateway_chip = get_chip(gateway_id);
+            SysmemManager* sysmem_manager = gateway_chip->get_sysmem_manager();
+            if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
+                sysmem_manager = nullptr;
+            }
+            auto remote_communication = RemoteCommunication::create_remote_communication(
+                gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
+            remote_communication->set_remote_transfer_ethernet_cores(
+                gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+                    cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+            auto remote_tt_device = TTDevice::create(std::move(remote_communication));
+
+            ChipInfo chip_info;
+            chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
+            chip_info.harvesting_masks = soc_desc.harvesting_masks;
+            chip_info.board_type = cluster_desc->get_board_type(chip_id);
+            chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
+            chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
+            return RemoteChip::create_for_simulation(
+                std::move(remote_tt_device), gateway_chip, std::move(soc_desc), chip_info);
+        }
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
@@ -332,9 +355,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         error::RuntimeError,
         fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
-    // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::SWEMULE ||
-        cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SWEMULE || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -983,6 +1004,11 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
 
 void Cluster::set_power_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
+        // ttsim remote chips cannot service ARC messages; skip power state transitions for them. Silicon remote chips
+        // are still handled over ethernet as before.
+        if (options_.chip_type == ChipType::SIMULATION && !chip->is_mmio_capable()) {
+            continue;
+        }
         chip->set_power_state(device_state);
     }
 }
@@ -999,6 +1025,11 @@ void Cluster::deassert_resets_and_set_power_state() {
     // MT Initial BH - ARC messages not supported in Blackhole.
     if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
         for (const ChipId& chip : all_chip_ids_) {
+            // ttsim remote chips cannot service ARC messages; skip enabling their ethernet queue. Silicon remote chips
+            // are still initialized over ethernet as before.
+            if (options_.chip_type == ChipType::SIMULATION && !get_chip(chip)->is_mmio_capable()) {
+                continue;
+            }
             get_chip(chip)->enable_ethernet_queue();
         }
     }

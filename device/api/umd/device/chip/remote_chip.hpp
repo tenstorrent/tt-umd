@@ -25,7 +25,7 @@ struct EthCoord;
 }  // namespace tt
 
 namespace tt::umd {
-class LocalChip;
+class Chip;
 class RemoteCommunication;
 class SocDescriptor;
 
@@ -37,7 +37,9 @@ public:
      * @param local_chip The local chip to be used for communication to this remote chip.
      * @return A unique pointer to the created RemoteChip instance.
      */
-    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip);
+    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
+    static std::unique_ptr<RemoteChip> create_for_simulation(
+        std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, SocDescriptor soc_descriptor, ChipInfo chip_info);
 
     bool is_mmio_capable() const override;
 
@@ -48,7 +50,7 @@ public:
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
-    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
+    const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -64,6 +66,8 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 
@@ -78,11 +82,14 @@ public:
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(
+        Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, SocDescriptor soc_descriptor, ChipInfo chip_info);
 
-    LocalChip* local_chip_;
+    Chip* local_chip_;
     RemoteCommunication* remote_communication_;
 
+    SocDescriptor soc_descriptor_;
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 };
 }  // namespace tt::umd

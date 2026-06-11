@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -21,7 +22,7 @@
 using namespace tt::umd;
 
 TEST(TestSocDescriptor, SocDescriptorSerialize) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);
@@ -35,7 +36,7 @@ TEST(TestSocDescriptor, SocDescriptorSerialize) {
 }
 
 TEST(TestSocDescriptor, LiteralCoordSystem) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     for (auto chip_id : umd_cluster->get_target_device_ids()) {
         const SocDescriptor& soc_descriptor = umd_cluster->get_soc_descriptor(chip_id);

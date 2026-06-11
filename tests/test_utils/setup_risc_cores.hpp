@@ -11,7 +11,7 @@
 using namespace tt;
 using namespace tt::umd;
 
-namespace test_utils {
+namespace tt::umd::test_utils {
 
 inline void safe_test_cluster_start(Cluster* cluster) {
     static RobustMutex mtx("safe_test_cluster_start");
@@ -78,4 +78,4 @@ inline void safe_test_cluster_start(Cluster* cluster) {
     cluster->start_device({});
 }
 
-}  // namespace test_utils
+}  // namespace tt::umd::test_utils

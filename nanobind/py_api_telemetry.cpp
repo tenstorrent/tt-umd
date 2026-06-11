@@ -238,6 +238,7 @@ void bind_telemetry(nb::module_& m) {
         .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())
         .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status, release_gil())
         .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status, release_gil())
+        .def("get_eth_link_status", &FirmwareInfoProvider::get_eth_link_status, release_gil())
         .def_static(
             "get_minimum_compatible_firmware_version",
             &FirmwareInfoProvider::get_minimum_compatible_firmware_version,

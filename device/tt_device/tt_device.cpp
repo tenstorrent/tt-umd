@@ -295,10 +295,6 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-void TTDevice::write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len) {
-    get_pcie_interface()->write_regs(dest, src, word_len);
-}
-
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
     device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
@@ -380,11 +376,26 @@ void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_inter
 
 uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
 
-ArcMessenger *TTDevice::get_arc_messenger() const { return arc_messenger_.get(); }
+ArcMessenger *TTDevice::get_arc_messenger() const {
+    if (arc_messenger_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return arc_messenger_.get();
+}
 
-ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const { return telemetry.get(); }
+ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const {
+    if (telemetry == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return telemetry.get();
+}
 
-FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const { return firmware_info_provider.get(); }
+FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
+    if (firmware_info_provider == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return firmware_info_provider.get();
+}
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 

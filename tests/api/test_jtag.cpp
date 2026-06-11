@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/jtag/jtag.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -217,7 +218,7 @@ TEST(ApiJtagClusterTest, JtagClusterIOTest) {
     }
 
     std::unique_ptr<Cluster> umd_cluster =
-        std::make_unique<Cluster>(ClusterOptions{.io_device_type = IODeviceType::JTAG});
+        test_utils::make_default_test_cluster(ClusterOptions{.io_device_type = IODeviceType::JTAG});
 
     // Initialize random data.
     size_t data_size = 10;

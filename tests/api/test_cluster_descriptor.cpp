@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -313,7 +314,7 @@ TEST(TestClusterDescriptor, VerifyStandardTopology) {
 // chip. This is needed because of eth id readouts for Blackhole that don't take harvesting
 // into acount. This test verifies that both for Wormhole and Blackhole.
 TEST(TestClusterDescriptor, TestClusterLogicalETHChannelsConnectivity) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 

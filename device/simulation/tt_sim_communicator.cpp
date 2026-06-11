@@ -144,6 +144,8 @@ void TTSimCommunicator::initialize() {
         pfn_libttsim_switch_register_fabric_endpoint_direction_ =
             reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_)>(
                 dlsym(libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction"));
+        pfn_libttsim_configure_eth_link_fd_ = reinterpret_cast<decltype(pfn_libttsim_configure_eth_link_fd_)>(
+            dlsym(libttsim_handle_, "libttsim_configure_eth_link_fd"));
 
         // Only commit to multichip mode and bump refcount after ALL symbol resolution
         // has succeeded.  If a DLSYM_FUNCTION above throws, the destructor will
@@ -440,6 +442,14 @@ void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void *peer_dev, uint
         return;
     }
     pfn_libttsim_switch_register_peer_(dev_handle_, eth_tile_id, peer_dev, peer_tile_id);
+}
+
+void TTSimCommunicator::configure_eth_link_fd(uint32_t eth_tile_id, int write_fd, int read_fd) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!multichip_mode_ || !dev_handle_ || !pfn_libttsim_configure_eth_link_fd_) {
+        return;
+    }
+    pfn_libttsim_configure_eth_link_fd_(dev_handle_, eth_tile_id, write_fd, read_fd);
 }
 
 void TTSimCommunicator::register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id) {

@@ -20,14 +20,9 @@ class PcieInterface;
 enum class NocId : uint8_t;
 
 /**
- * Reads a single 32-bit NOC register at (core, addr) over the given NOC and returns its value.
- *
- * This is the injection seam for the NOC liveness probe. By default HangDetector reads through its
- * DeviceProtocol, which is all the stock hang check needs. A higher layer (e.g. TTDevice) can swap in
- * its own reader via set_noc_reg_reader() — for instance one that probes through a dedicated, separately
- * locked window so the check stays safe to call from inside a timed-out memcpy. Crucially, the window and
- * any lock live in the injected reader, NOT in HangDetector: HangDetector stays unaware of anything below
- * the protocol level (no TlbWindow, no locks).
+ * Reads a 32-bit NOC register at (core, addr) over the given NOC and returns its value.
+ * Injection point for the HangDetector NOC liveness read; defaults to a DeviceProtocol-based
+ * reader and can be overridden via set_noc_reg_reader().
  */
 using NocRegReader = std::function<uint32_t(tt_xy_pair core, uint64_t addr, NocId noc)>;
 
@@ -52,9 +47,8 @@ public:
     std::optional<bool> is_pcie_hung(uint32_t data_read = HANG_READ_VALUE);
     std::optional<bool> is_noc_hung(NocId noc);
 
-    // Overrides how the NOC liveness register is read (see NocRegReader). Passing an empty function is
-    // ignored, so the default protocol-based reader always stays in place. Intended for a higher layer
-    // that owns a dedicated probe window and its lock.
+    // Overrides the NOC liveness register reader (see NocRegReader). An empty function is ignored,
+    // so the default protocol-based reader stays in place.
     void set_noc_reg_reader(NocRegReader reader);
 
 protected:

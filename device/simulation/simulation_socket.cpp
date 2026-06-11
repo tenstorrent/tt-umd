@@ -137,6 +137,7 @@ bool SimulationSocket::bind_and_listen() {
             fmt::format("Failed to create simulation server shutdown pipe: {}", std::strerror(err)));
     }
 
+    owns_socket_file_ = true;
     running_ = true;
     accept_thread_ = std::thread(&SimulationSocket::accept_loop, this);
     return true;
@@ -187,7 +188,9 @@ SimulationSocket::~SimulationSocket() {
         ::close(shutdown_pipe_[1]);
         shutdown_pipe_[1] = -1;
     }
-    std::filesystem::remove(socket_path_);
+    if (owns_socket_file_) {
+        std::filesystem::remove(socket_path_);
+    }
 }
 
 void SimulationSocket::accept_loop() {

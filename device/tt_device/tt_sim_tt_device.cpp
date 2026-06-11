@@ -4,7 +4,13 @@
 
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#include <cerrno>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -72,6 +78,22 @@ std::vector<uint8_t> unpack_words_to_bytes(const std::vector<uint32_t>& words, u
     return bytes;
 }
 
+// Connects to a UNIX socket at path, returning the connected fd or -1.
+int connect_unix(const std::filesystem::path& path) {
+    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+    if (::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        ::close(fd);
+        return -1;
+    }
+    return fd;
+}
+
 }  // namespace
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
@@ -92,6 +114,75 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
     }
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
     return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary, 0);
+}
+
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
+    const std::filesystem::path& simulator_directory, ChipId chip_id) {
+    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    ChipInfo chip_info{};
+    if (arch == tt::ARCH::BLACKHOLE) {
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    }
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
+
+    const std::filesystem::path socket_path = SimulationSocket::default_socket_path(chip_id);
+    int fd = connect_unix(socket_path);
+    if (fd < 0) {
+        UMD_THROW(error::RuntimeError, "Failed to connect to simulation host socket at " + socket_path.string());
+    }
+    // Non-mutating attach handshake: register with the host and confirm it is serving.
+    Message attach;
+    attach.type = MessageType::AttachRequest;
+    if (!send_framed(fd, encode(attach)) || !recv_framed(fd)) {
+        ::close(fd);
+        UMD_THROW(error::RuntimeError, "Simulation host attach handshake failed at " + socket_path.string());
+    }
+    return std::unique_ptr<TTSimTTDevice>(new TTSimTTDevice(soc_descriptor, chip_id, fd, ClientTag{}));
+}
+
+TTSimTTDevice::TTSimTTDevice(const SocDescriptor& soc_descriptor, ChipId chip_id, int client_fd, ClientTag) :
+    chip_id_(chip_id),
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(0, soc_descriptor.arch)),
+    client_fd_(client_fd) {
+    set_soc_descriptor(soc_descriptor);
+    arch = soc_descriptor.arch;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+}
+
+void TTSimTTDevice::forward_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    Message req;
+    req.type = MessageType::DeviceOp;
+    req.op.command = SIM_CMD_READ;
+    req.op.endpoint = {static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y)};
+    req.op.address = addr;
+    req.op.size = static_cast<uint32_t>(size);
+    if (!send_framed(client_fd_, encode(req))) {
+        UMD_THROW(error::RuntimeError, "Simulation client read: send failed.");
+    }
+    auto resp = recv_framed(client_fd_);
+    if (!resp) {
+        UMD_THROW(error::RuntimeError, "Simulation client read: host disconnected.");
+    }
+    const Message out = decode(*resp);
+    const std::vector<uint8_t> bytes = unpack_words_to_bytes(out.op.data, static_cast<uint32_t>(size));
+    std::memcpy(mem_ptr, bytes.data(), size);
+}
+
+void TTSimTTDevice::forward_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    Message req;
+    req.type = MessageType::DeviceOp;
+    req.op.command = SIM_CMD_WRITE;
+    req.op.endpoint = {static_cast<uint32_t>(core.x), static_cast<uint32_t>(core.y)};
+    req.op.address = addr;
+    req.op.size = static_cast<uint32_t>(size);
+    const std::vector<uint8_t> bytes(static_cast<const uint8_t*>(mem_ptr), static_cast<const uint8_t*>(mem_ptr) + size);
+    req.op.data = pack_bytes_to_words(bytes);
+    if (!send_framed(client_fd_, encode(req)) || !recv_framed(client_fd_)) {
+        UMD_THROW(error::RuntimeError, "Simulation client write failed.");
+    }
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -193,6 +284,12 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapp
 }
 
 TTSimTTDevice::~TTSimTTDevice() {
+    if (client_fd_ >= 0) {
+        // Client mode: closing the socket is the detach signal (the host sees EOF); no backend to
+        // tear down here.
+        ::close(client_fd_);
+        return;
+    }
     // Stop serving (and remove the socket) before tearing the backend down.
     socket_.reset();
     communicator_->shutdown();
@@ -252,11 +349,18 @@ std::vector<uint8_t> TTSimTTDevice::handle_request(const std::vector<uint8_t>& r
 void TTSimTTDevice::start_device() {}
 
 void TTSimTTDevice::close_device() {
+    if (client_fd_ >= 0) {
+        return;  // The connection is torn down in the destructor; no backend to close.
+    }
     communicator_->mark_closed();
     communicator_->shutdown();
 }
 
 void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    if (client_fd_ >= 0) {
+        forward_write(mem_ptr, core, addr, size);
+        return;
+    }
     if (communicator_->is_closed()) {
         return;
     }
@@ -278,6 +382,10 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
 }
 
 void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    if (client_fd_ >= 0) {
+        forward_read(mem_ptr, core, addr, size);
+        return;
+    }
     if (communicator_->is_closed()) {
         return;
     }
@@ -341,6 +449,15 @@ void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected
 }
 
 void TTSimTTDevice::advance_device_execution() {
+    if (client_fd_ >= 0) {
+        std::lock_guard<std::recursive_mutex> lock(device_lock);
+        Message req;
+        req.type = MessageType::AdvanceExecutionRequest;
+        if (send_framed(client_fd_, encode(req))) {
+            recv_framed(client_fd_);
+        }
+        return;
+    }
     // Simulator clocking is driven synchronously from the calling thread to keep the simulation
     // deterministic. A background clock thread would race with reads/writes and produce
     // non-reproducible runs, so we advance the clock here instead.

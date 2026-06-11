@@ -52,6 +52,12 @@ public:
     static std::unique_ptr<TTSimTTDevice> create_for_chip(
         const std::filesystem::path &simulator_directory, ChipId chip_id, bool copy_sim_binary = false);
 
+    // Creates a *client* device that attaches to a live host's socket and forwards device I/O
+    // over it (rather than driving the .so directly). The SoC descriptor is loaded locally from
+    // simulator_directory; the socket carries only device operations.
+    static std::unique_ptr<TTSimTTDevice> create_client(
+        const std::filesystem::path &simulator_directory, ChipId chip_id = 0);
+
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
 
@@ -110,6 +116,15 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
+    // Tag for the client-mode constructor (attaches to a host socket; no .so backend).
+    struct ClientTag {};
+
+    TTSimTTDevice(const SocDescriptor &soc_descriptor, ChipId chip_id, int client_fd, ClientTag);
+
+    // Client mode: forward a device read/write over the socket to the host.
+    void forward_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    void forward_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
@@ -126,7 +141,10 @@ private:
     // it. The host keeps its own direct in-process fast path; the socket is for remote clients.
     std::unique_ptr<SimulationSocket> socket_;
 
-    uint32_t libttsim_pci_device_id;
+    // >= 0 in client mode: the connected socket this device forwards device I/O over.
+    int client_fd_ = -1;
+
+    uint32_t libttsim_pci_device_id = 0;
 
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;

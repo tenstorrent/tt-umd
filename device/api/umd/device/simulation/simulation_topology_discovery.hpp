@@ -22,6 +22,11 @@ struct SimulationTopologyDiscoveryOptions {
     // attaching to a live host the topology comes from the host instead.
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
     int num_host_mem_channels = 0;
+
+    // Default (false): open-or-attach — attach to a live host if one exists, otherwise host.
+    // When true: explicitly stand up a *separate* host at a process-unique path, never attaching
+    // to (or colliding with) an existing one — for callers that want their own independent sim.
+    bool create_new_server = false;
 };
 
 // Entry point for opening simulated devices, mirroring silicon TopologyDiscovery. It scans the

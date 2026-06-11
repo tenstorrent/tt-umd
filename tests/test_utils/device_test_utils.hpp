@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "test_utils/fetch_local_files.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 
@@ -60,8 +61,27 @@ inline std::unique_ptr<Cluster> make_default_test_cluster(ClusterOptions options
     }
     if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
         options.chip_type = ChipType::SIMULATION;
-        options.target_devices = {0};
         options.simulator_directory = std::filesystem::path(sim_path);
+
+        // A multichip simulator (e.g. wh_x2) needs a real cluster descriptor to expose
+        // its topology -- the auto-generated mock descriptor marks every chip MMIO and
+        // has no eth links, so a remote chip would never be enumerated. When
+        // TT_UMD_CLUSTER_DESCRIPTOR names a descriptor (a filename under
+        // tests/cluster_descriptor_examples/), load it and target all of its chips.
+        // Without it, behaviour is unchanged: a single MMIO chip 0.
+        if (const char* desc_name = std::getenv("TT_UMD_CLUSTER_DESCRIPTOR")) {
+            // Static lifetime: Cluster stores the options (including this pointer), and
+            // the descriptor selection is constant for the whole test process.
+            static std::unique_ptr<ClusterDescriptor> sim_cluster_desc =
+                ClusterDescriptor::create_from_yaml(GetClusterDescAbsPath(desc_name));
+            options.cluster_descriptor = sim_cluster_desc.get();
+            options.target_devices.clear();
+            for (tt::ChipId chip : sim_cluster_desc->get_all_chips()) {
+                options.target_devices.insert(chip);
+            }
+        } else {
+            options.target_devices = {0};
+        }
     }
     return std::make_unique<Cluster>(options);
 }

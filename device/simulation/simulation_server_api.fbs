@@ -1,12 +1,51 @@
 // Wire schema for the UMD <-> simulation host API (§8 of SIMULATION_SERVER_PROCESS.md).
 //
-// Placeholder for now: a single message that proves the FlatBuffers serialization path works
-// end-to-end. The real API messages (session, memory ops, ...) replace this when the protocol
-// is wired into the serving layer (#2794) and the socket-backed client (#2795).
+// Reuses the existing simulation_device.fbs building blocks: DeviceRequestResponse (and its
+// tt_vcs_core / DEVICE_COMMAND) already model a memory/reset/run op, so memory access reuses it
+// directly. Only the genuinely new messages (session + structured device description) are added.
 
-table Message {
-    value : uint32;
-    text : string;
+include "simulation_device.fbs";
+
+table DeviceDescription {
+    arch : uint32;
+    board : uint32;
+    num_chips : uint32;
+    // TODO: full SoC descriptor / cluster topology / memory layout, as the server work lands.
 }
 
-root_type Message;
+table AttachRequest {}
+
+table AttachResponse {
+    description : DeviceDescription;
+}
+
+table DetachRequest {}
+
+table DetachResponse {}
+
+table AdvanceExecutionRequest {}
+
+table AdvanceExecutionResponse {}
+
+table ErrorResponse {
+    code : uint32;
+    message : string;
+}
+
+// One message per API operation. DeviceRequestResponse (reused) covers memory/reset/run ops.
+union Body {
+    AttachRequest,
+    AttachResponse,
+    DetachRequest,
+    DetachResponse,
+    AdvanceExecutionRequest,
+    AdvanceExecutionResponse,
+    DeviceRequestResponse,
+    ErrorResponse,
+}
+
+table Envelope {
+    body : Body;
+}
+
+root_type Envelope;

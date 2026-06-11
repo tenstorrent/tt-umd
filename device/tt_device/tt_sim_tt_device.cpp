@@ -22,6 +22,7 @@
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_server_api.hpp"
 #include "umd/device/simulation/simulation_socket.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -47,6 +48,28 @@ bool sim_dram_teleport_enabled() {
         return value == "1" || value == "true" || value == "TRUE" || value == "on" || value == "ON";
     }();
     return enabled;
+}
+
+// DEVICE_COMMAND values from simulation_device.fbs, reused by the host API for memory ops.
+constexpr uint8_t SIM_CMD_WRITE = 0;
+constexpr uint8_t SIM_CMD_READ = 1;
+
+// The host API reuses DeviceRequestResponse, whose payload is a uint32 vector. These pack a byte
+// buffer into that representation and back (little-endian within each word).
+std::vector<uint32_t> pack_bytes_to_words(const std::vector<uint8_t>& bytes) {
+    std::vector<uint32_t> words((bytes.size() + 3) / 4, 0);
+    for (size_t i = 0; i < bytes.size(); ++i) {
+        words[i / 4] |= static_cast<uint32_t>(bytes[i]) << (8 * (i % 4));
+    }
+    return words;
+}
+
+std::vector<uint8_t> unpack_words_to_bytes(const std::vector<uint32_t>& words, uint32_t size) {
+    std::vector<uint8_t> bytes(size, 0);
+    for (uint32_t i = 0; i < size && (i / 4) < words.size(); ++i) {
+        bytes[i] = (words[i / 4] >> (8 * (i % 4))) & 0xFF;
+    }
+    return bytes;
 }
 
 }  // namespace
@@ -176,6 +199,55 @@ TTSimTTDevice::~TTSimTTDevice() {
 }
 
 void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationSocket> socket) { socket_ = std::move(socket); }
+
+std::vector<uint8_t> TTSimTTDevice::handle_request(const std::vector<uint8_t>& request) {
+    const Message req = decode(request);
+    Message resp;
+    switch (req.type) {
+        case MessageType::AttachRequest:
+            resp.type = MessageType::AttachResponse;
+            resp.description.arch = static_cast<uint32_t>(arch);
+            resp.description.board = 0;
+            resp.description.num_chips = 1;
+            break;
+        case MessageType::DetachRequest:
+            resp.type = MessageType::DetachResponse;
+            break;
+        case MessageType::AdvanceExecutionRequest:
+            advance_device_execution();
+            resp.type = MessageType::AdvanceExecutionResponse;
+            break;
+        case MessageType::DeviceOp: {
+            const tt_xy_pair core(req.op.endpoint.x, req.op.endpoint.y);
+            if (req.op.command == SIM_CMD_READ) {
+                std::vector<uint8_t> buffer(req.op.size, 0);
+                read_from_device(buffer.data(), core, req.op.address, req.op.size);
+                resp.type = MessageType::DeviceOp;
+                resp.op.command = SIM_CMD_READ;
+                resp.op.endpoint = req.op.endpoint;
+                resp.op.address = req.op.address;
+                resp.op.size = req.op.size;
+                resp.op.data = pack_bytes_to_words(buffer);
+            } else if (req.op.command == SIM_CMD_WRITE) {
+                const std::vector<uint8_t> buffer = unpack_words_to_bytes(req.op.data, req.op.size);
+                write_to_device(buffer.data(), core, req.op.address, req.op.size);
+                resp.type = MessageType::DeviceOp;
+                resp.op.command = SIM_CMD_WRITE;
+            } else {
+                resp.type = MessageType::Error;
+                resp.error_code = 2;
+                resp.error_message = "unsupported device command";
+            }
+            break;
+        }
+        default:
+            resp.type = MessageType::Error;
+            resp.error_code = 1;
+            resp.error_message = "unsupported request";
+            break;
+    }
+    return encode(resp);
+}
 
 void TTSimTTDevice::start_device() {}
 

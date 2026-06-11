@@ -13,7 +13,10 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
+#include <utility>
 
+#include "umd/device/simulation/simulation_server_api.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -139,6 +142,11 @@ bool SimulationSocket::bind_and_listen() {
     return true;
 }
 
+void SimulationSocket::start_serving(RequestHandler handler) {
+    std::lock_guard<std::mutex> lock(connections_mutex_);
+    handler_ = std::move(handler);
+}
+
 SimulationSocket::~SimulationSocket() {
     running_ = false;
     if (shutdown_pipe_[1] >= 0) {
@@ -149,6 +157,24 @@ SimulationSocket::~SimulationSocket() {
     if (accept_thread_.joinable()) {
         accept_thread_.join();
     }
+
+    // Unblock any worker stuck in a read, then join them. Workers close their own fd on exit
+    // (under the mutex), so we only shut down fds still marked open. The lock is released before
+    // joining so workers can take it to close.
+    {
+        std::lock_guard<std::mutex> lock(connections_mutex_);
+        for (int fd : connection_fds_) {
+            if (fd >= 0) {
+                ::shutdown(fd, SHUT_RDWR);
+            }
+        }
+    }
+    for (std::thread& worker : connection_threads_) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
+
     if (listen_fd_ >= 0) {
         ::close(listen_fd_);
         listen_fd_ = -1;
@@ -182,12 +208,36 @@ void SimulationSocket::accept_loop() {
         }
         if (fds[0].revents & POLLIN) {
             int client_fd = ::accept(listen_fd_, nullptr, nullptr);
-            if (client_fd >= 0) {
-                // No request handling yet (owner-only): accept and drop the connection.
-                ::close(client_fd);
+            if (client_fd < 0) {
+                continue;
             }
+            std::lock_guard<std::mutex> lock(connections_mutex_);
+            if (!handler_) {
+                // Not serving yet (owner-only / pre-start_serving): accept and drop.
+                ::close(client_fd);
+                continue;
+            }
+            const size_t index = connection_fds_.size();
+            connection_fds_.push_back(client_fd);
+            connection_threads_.emplace_back([this, client_fd, index] { serve_connection(client_fd, index); });
         }
     }
+}
+
+void SimulationSocket::serve_connection(int client_fd, size_t index) {
+    while (running_) {
+        std::optional<std::vector<uint8_t>> request = recv_framed(client_fd);
+        if (!request) {
+            break;  // Client disconnected or error.
+        }
+        const std::vector<uint8_t> response = handler_(*request);
+        if (!send_framed(client_fd, response)) {
+            break;
+        }
+    }
+    std::lock_guard<std::mutex> lock(connections_mutex_);
+    ::close(client_fd);
+    connection_fds_[index] = -1;
 }
 
 std::filesystem::path SimulationSocket::default_socket_path(ChipId chip_id) {

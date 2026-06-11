@@ -809,6 +809,17 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
         GTEST_SKIP() << "No chips present on the system.";
     }
 
+    // KMD versions after 2.8.0 disable PCIe hot-plug on galaxy machines. Without this,
+    // a warm reset triggers PCI remove/re-probe, creating new cdevs on the host while
+    // Docker's device inodes remain stale. If a process holds pre-reset FDs, the old cdev
+    // stays alive via refcount, and chrdev_open() dispatches new opens to it instead of
+    // falling through cdev_map to the new cdev — blocking all device access in the container.
+    static constexpr SemVer MIN_KMD_VERSION{2, 8, 0};
+    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << MIN_KMD_VERSION.str();
+    }
+
     static constexpr int NUM_CHILDREN = 2;
     static constexpr int P1_SLOT = 0;
     static constexpr int P2_SLOT = 1;

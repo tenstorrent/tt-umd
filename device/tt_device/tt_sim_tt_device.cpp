@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "simulation/simulation_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -168,7 +169,13 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapp
     return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
-TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() {
+    // Stop serving (and remove the socket) before tearing the backend down.
+    socket_.reset();
+    communicator_->shutdown();
+}
+
+void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationSocket> socket) { socket_ = std::move(socket); }
 
 void TTSimTTDevice::start_device() {}
 

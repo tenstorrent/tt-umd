@@ -301,7 +301,6 @@ class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<boo
 // For full_grid+NOC0 the range is {0,0}–{grid_size-1}; for full_grid+translated the tensix corners are used.
 // Bystander verification is only performed for isolated-core multicasts.
 TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
-    // TODO: sysmem_enabled parameter to be added in the following PR.
     auto [use_noc0, full_grid, sysmem_enabled] = GetParam();
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(

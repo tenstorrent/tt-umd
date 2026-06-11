@@ -77,6 +77,9 @@ private:
     int shutdown_pipe_[2] = {-1, -1};
     std::thread accept_thread_;
     std::atomic<bool> running_{false};
+    // True only once this instance has bound the path, so the destructor never removes a
+    // socket file owned by a *different* (live) host (e.g. when try_create returns nullptr).
+    bool owns_socket_file_ = false;
 
     // Set once via start_serving(); read under connections_mutex_. Null = accept-and-drop.
     std::mutex connections_mutex_;

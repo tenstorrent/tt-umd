@@ -66,6 +66,39 @@ TEST(SimulationTopologyDiscovery, CreatesHostDeviceAndExposesSocket) {
     EXPECT_FALSE(std::filesystem::exists(socket));  // torn down with the device
 }
 
+// Integration: a second discover() (live socket present) attaches as a client and shares the
+// host's sim — a value written through the host device is read back through the client device.
+// Requires TT_UMD_SIMULATOR.
+TEST(SimulationTopologyDiscovery, SecondDiscoverAttachesAndSharesSim) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    std::filesystem::remove(SimulationSocket::default_socket_path(0));
+
+    SimulationTopologyDiscoveryOptions options;
+    options.simulator_directory = simulator_path;
+
+    auto host_devices = SimulationTopologyDiscovery::discover(options);
+    ASSERT_EQ(host_devices.size(), 1u);
+    auto client_devices = SimulationTopologyDiscovery::discover(options);  // live socket -> client
+    ASSERT_EQ(client_devices.size(), 1u);
+
+    TTDevice* host = host_devices.at(0).get();
+    TTDevice* client = client_devices.at(0).get();
+
+    const SocDescriptor& soc = host->get_soc_descriptor();
+    const tt_xy_pair core =
+        soc.translate_coord_to(soc.get_cores(tt::CoreType::TENSIX).at(0), tt::CoordSystem::TRANSLATED);
+
+    const uint32_t value = 0x12345678;
+    host->write_to_device(&value, core, 0x140, sizeof(value));
+    uint32_t read_back = 0;
+    client->read_from_device(&read_back, core, 0x140, sizeof(read_back));
+    EXPECT_EQ(read_back, value);
+}
+
 // Integration: the discovered host serves the API over its socket — a raw protocol client
 // attaches, advances execution, writes a word, and reads it back. Requires TT_UMD_SIMULATOR.
 TEST(SimulationTopologyDiscovery, HostServesApiOverSocket) {

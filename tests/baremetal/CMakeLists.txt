@@ -8,6 +8,9 @@ set(BAREMETAL_TESTS_SRCS
     test_long_jump.cpp
     test_notification_mechanism.cpp
     test_cluster.cpp
+    # SimulationSocket is pure POSIX (always compiled), so its tests need no card and no
+    # simulation build -- they run in the no-card baremetal CI lane.
+    test_simulation_socket.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

@@ -388,7 +388,7 @@ int bytes_to_words(int num_bytes) {
 }
 
 static inline void dispatch_remote_transfer_command(
-    Cluster& driver, remote_transfer_sample_t const& command, std::vector<uint32_t>& payload) {
+    Cluster* cluster, remote_transfer_sample_t const& command, std::vector<uint32_t>& payload) {
     auto resize_payload = [](std::vector<uint32_t>& payload, int size_in_bytes) {
         payload.resize(bytes_to_words<uint32_t>(size_in_bytes));
     };
@@ -398,7 +398,7 @@ static inline void dispatch_remote_transfer_command(
             write_transfer_sample_t const& command_args = std::get<write_transfer_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
             resize_payload(payload, command_args.size_in_bytes);
-            driver.write_to_device(
+            cluster->write_to_device(
                 payload.data(),
                 bytes_to_words<uint32_t>(command_args.size_in_bytes),
                 command_args.destination.first,
@@ -409,7 +409,7 @@ static inline void dispatch_remote_transfer_command(
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
             assert(command_args.size_in_bytes >= sizeof(uint32_t));
             resize_payload(payload, command_args.size_in_bytes);
-            driver.read_from_device(
+            cluster->read_from_device(
                 payload.data(),
                 command_args.destination.first,
                 command_args.destination.second,
@@ -442,8 +442,8 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
             std::cout << "cluster->write_to_device(payload.data(), len, destination, " << command_args.address << "\");"
                       << std::endl;
-            // driver.write_to_device(payload.data(), command_args.size, command_args.destination, command_args.address,
-            // false, false);
+            // cluster->write_to_device(payload.data(), command_args.size, command_args.destination,
+            // command_args.address, false, false);
         } break;
         case RemoteTransferType::READ: {
             read_transfer_sample_t const& command_args = std::get<read_transfer_sample_t>(std::get<1>(command));
@@ -452,7 +452,7 @@ static void print_command_executable_code(remote_transfer_sample_t const& comman
             emit_payload_resize_string(command_args.size_in_bytes, sizeof(uint32_t));
             std::cout << "cluster->read_from_device(payload.data(), destination, " << command_args.address << ", "
                       << command_args.size_in_bytes << "\");" << std::endl;
-            // driver.read_from_device(payload.data(), command_args.destination, command_args.address,
+            // cluster->read_from_device(payload.data(), command_args.destination, command_args.address,
             // command_args.size);
         } break;
         default:
@@ -487,7 +487,7 @@ template <
     template <typename>
     class READ_SIZE_DISTR_T>
 void RunMixedTransfers(
-    Cluster& cluster,
+    Cluster* cluster,
     int num_samples,
     int seed,
 
@@ -561,9 +561,9 @@ static inline WriteCommandGenerator<
     std::uniform_int_distribution,
     transfer_size_t,
     std::uniform_int_distribution>
-build_dummy_write_command_generator(Cluster& cluster) {
-    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
-    SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
+build_dummy_write_command_generator(Cluster* cluster) {
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         0,
@@ -586,9 +586,9 @@ static inline ReadCommandGenerator<
     std::uniform_int_distribution,
     transfer_size_t,
     std::uniform_int_distribution>
-build_dummy_read_command_generator(Cluster& cluster) {
-    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
-    SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
+build_dummy_read_command_generator(Cluster* cluster) {
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(
         0,
@@ -614,7 +614,7 @@ template <
     template <typename>
     class UNROLL_COUNT_GENERATOR_T>
 void RunMixedTransfersUniformDistributions(
-    Cluster& cluster,
+    Cluster* cluster,
     int num_samples,
     int seed,
 
@@ -628,8 +628,8 @@ void RunMixedTransfersUniformDistributions(
 
     bool record_command_history = false,
     std::vector<remote_transfer_sample_t>* command_history = nullptr) {
-    ClusterDescriptor* cluster_desc = cluster.get_cluster_description();
-    SocDescriptor const& soc_desc = cluster.get_soc_descriptor(0);
+    ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
+    SocDescriptor const& soc_desc = cluster->get_soc_descriptor(0);
     std::vector<destination_t> core_index_to_location = generate_core_index_locations(*cluster_desc, soc_desc);
 
     auto dest_generator = ConstrainedTemplateTemplateGenerator<destination_t, int, std::uniform_int_distribution>(

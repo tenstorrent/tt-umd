@@ -57,7 +57,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersMediumSmall) {
     try {
         assert(cluster != nullptr);
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0.25, .read = 0.25},
@@ -89,7 +89,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
     std::vector<remote_transfer_sample_t> command_history3;
     std::thread t1([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0.50, .read = 0.50},
@@ -109,7 +109,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
     });
     std::thread t2([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             100,
             transfer_type_weights_t{.write = 0.25, .read = 0.50},
@@ -129,7 +129,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
     });
     std::thread t3([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             23,
             transfer_type_weights_t{.write = 0.5, .read = 0.25},
@@ -149,7 +149,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersMediumSmall
     });
     std::thread t4([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             99,
             transfer_type_weights_t{.write = 1.0, .read = 0.0},
@@ -181,7 +181,7 @@ TEST_F(WormholeNebulaX2TestFixture, MixedRemoteTransfersLarge) {
     std::vector<remote_transfer_sample_t> command_history;
     try {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             10000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0.15, .read = 0.15},
@@ -221,12 +221,12 @@ TEST_F(WormholeNebulaX2TestFixture, WritesOnlyNormalDistributionMean10kStd3kMinS
 
     try {
         RunMixedTransfers(
-            *cluster,
+            cluster.get(),
             10000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 1., .read = 0.},
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
-            build_dummy_read_command_generator(*cluster),
+            build_dummy_read_command_generator(cluster.get()),
             // Set to true if you want to emit the command history code to command line.
             false,
             &command_history);
@@ -245,7 +245,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     std::vector<remote_transfer_sample_t> command_history3;
     std::thread t1([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0.50, .read = 0.50},
@@ -265,7 +265,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     });
     std::thread t2([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             100,
             transfer_type_weights_t{.write = 0.25, .read = 0.50},
@@ -285,7 +285,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     });
     std::thread t3([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             23,
             transfer_type_weights_t{.write = 0.5, .read = 0.25},
@@ -305,7 +305,7 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLMS) {
     });
     std::thread t4([&]() {
         RunMixedTransfersUniformDistributions(
-            *cluster,
+            cluster.get(),
             100000 * scale_number_of_tests,
             99,
             transfer_type_weights_t{.write = 1.0, .read = 0.0},
@@ -357,35 +357,35 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
 
     std::thread write_cmds_thread1([&]() {
         RunMixedTransfers(
-            *cluster,
+            cluster.get(),
             10000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 1., .read = 0.},
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
-            build_dummy_read_command_generator(*cluster),
+            build_dummy_read_command_generator(cluster.get()),
             // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
     std::thread write_cmds_thread2([&]() {
         RunMixedTransfers(
-            *cluster,
+            cluster.get(),
             10000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 1., .read = 0.},
             WriteCommandGenerator(dest_generator, address_generator, write_size_generator),
-            build_dummy_read_command_generator(*cluster),
+            build_dummy_read_command_generator(cluster.get()),
             // Set to true if you want to emit the command history code to command line.
             false,
             &command_history0);
     });
     std::thread read_cmd_threads1([&]() {
         RunMixedTransfers(
-            *cluster,
+            cluster.get(),
             10000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0, .read = 1.},
-            build_dummy_write_command_generator(*cluster),
+            build_dummy_write_command_generator(cluster.get()),
             ReadCommandGenerator(dest_generator, address_generator, read_size_generator),
             // Set to true if you want to emit the command history code to command line.
             false,
@@ -393,11 +393,11 @@ TEST_F(WormholeNebulaX2TestFixture, MultithreadedMixedRemoteTransfersLargeWrites
     });
     std::thread read_cmd_threads2([&]() {
         RunMixedTransfers(
-            *cluster,
+            cluster.get(),
             10000 * scale_number_of_tests,
             0,
             transfer_type_weights_t{.write = 0, .read = 1.},
-            build_dummy_write_command_generator(*cluster),
+            build_dummy_write_command_generator(cluster.get()),
             ReadCommandGenerator(dest_generator, address_generator, read_size_generator),
             // Set to true if you want to emit the command history code to command line.
             false,

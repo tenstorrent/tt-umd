@@ -19,9 +19,9 @@ constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 
 namespace tt::umd::test::utils {
 
-static void set_barrier_params(Cluster& cluster) {
+static void set_barrier_params(Cluster* cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
-    cluster.set_barrier_address_params(
+    cluster->set_barrier_address_params(
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
@@ -54,7 +54,7 @@ protected:
         assert(cluster != nullptr);
         assert(cluster->get_cluster_description()->get_number_of_chips() == get_detected_num_chips());
 
-        set_barrier_params(*cluster);
+        set_barrier_params(cluster.get());
 
         test_utils::safe_test_cluster_start(cluster.get());
 

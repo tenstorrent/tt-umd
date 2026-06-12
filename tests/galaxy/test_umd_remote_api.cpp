@@ -27,12 +27,11 @@
 using namespace tt::umd;
 
 void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
-    auto device_ptr = test_utils::make_default_test_cluster();
-    Cluster& device = *device_ptr;
+    std::unique_ptr<Cluster> device = test_utils::make_default_test_cluster();
 
-    test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device.get());
 
-    test_utils::safe_test_cluster_start(&device);
+    test_utils::safe_test_cluster_start(device.get());
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -42,28 +41,28 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
 
     std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
 
-    for (const auto& chip : device.get_target_device_ids()) {
+    for (const auto& chip : device->get_target_device_ids()) {
         std::vector<float> write_bw;
         std::vector<float> read_bw;
         for (int loop = 0; loop < 10; loop++) {
             std::vector<CoreCoord> target_cores;
             if (dram_write) {
-                target_cores = device.get_soc_descriptor(chip).get_cores(CoreType::DRAM);
+                target_cores = device->get_soc_descriptor(chip).get_cores(CoreType::DRAM);
             } else {
-                target_cores = device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
+                target_cores = device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX);
             }
             for (const CoreCoord& core : target_cores) {
                 auto start = std::chrono::high_resolution_clock::now();
-                device.write_to_device(
+                device->write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
-                device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
+                device->wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
                 auto end = std::chrono::high_resolution_clock::now();
                 auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
                 write_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
                 // std::cout << "  chip " << chip << " core " << target_core.str() << " " << duration << std::endl;
 
                 start = std::chrono::high_resolution_clock::now();
-                test_utils::read_data_from_device(device, readback_vec, chip, core, address, write_size);
+                test_utils::read_data_from_device(device.get(), readback_vec, chip, core, address, write_size);
                 end = std::chrono::high_resolution_clock::now();
                 duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
                 // std::cout << " read chip " << chip << " core " << target_core.str()<< " " << duration << std::endl;
@@ -85,7 +84,7 @@ void run_remote_read_write_test(uint32_t vector_size, bool dram_write) {
         //  std::reduce(read_bw.begin(), read_bw.end()) / read_bw.size() << " GB/s" << std::endl;
     }
 
-    device.close_device();
+    device->close_device();
 }
 
 // write and read back 10 uint32_t to L1 of every worker core on every chip in the cluster
@@ -116,9 +115,8 @@ TEST(GalaxyBasicReadWrite, LargeRemoteDramBlockReadWrite) { run_remote_read_writ
 
 void run_data_mover_test(
     uint32_t vector_size, tt_multichip_core_addr sender_core, tt_multichip_core_addr receiver_core) {
-    auto device_ptr = test_utils::make_default_test_cluster();
-    Cluster& device = *device_ptr;
-    auto target_devices = device.get_target_device_ids();
+    std::unique_ptr<Cluster> device = test_utils::make_default_test_cluster();
+    auto target_devices = device->get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
     auto it = target_devices.find(sender_core.chip);
@@ -129,9 +127,9 @@ void run_data_mover_test(
     ASSERT_TRUE(it != target_devices.end())
         << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
 
-    test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device.get());
 
-    test_utils::safe_test_cluster_start(&device);
+    test_utils::safe_test_cluster_start(device.get());
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -141,17 +139,17 @@ void run_data_mover_test(
 
     std::vector<float> send_bw;
     // Set up data in sender core.
-    device.write_to_device(
+    device->write_to_device(
         vector_to_write.data(),
         vector_to_write.size() * sizeof(std::uint32_t),
         sender_core.chip,
         sender_core.core,
         sender_core.addr);
-    device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
+    device->wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core.
     auto start = std::chrono::high_resolution_clock::now();
-    move_data(device, sender_core, receiver_core, write_size);
+    move_data(device.get(), sender_core, receiver_core, write_size);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
     send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
@@ -159,7 +157,7 @@ void run_data_mover_test(
 
     // Verify data is correct in receiver core.
     test_utils::read_data_from_device(
-        device, readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
+        device.get(), readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
     EXPECT_EQ(vector_to_write, readback_vec)
         << "Vector read back from core " << receiver_core.str() << " does not match what was written";
 
@@ -169,7 +167,7 @@ void run_data_mover_test(
     // std::reduce(send_bw.begin(), send_bw.end()) / send_bw.size() << " GB/s" <<
     // std::endl;
 
-    device.close_device();
+    device->close_device();
 }
 
 // L1 to L1.
@@ -228,9 +226,8 @@ void run_data_broadcast_test(
     uint32_t vector_size,
     tt_multichip_core_addr sender_core,
     const std::vector<tt_multichip_core_addr>& receiver_cores) {
-    auto device_ptr = test_utils::make_default_test_cluster();
-    Cluster& device = *device_ptr;
-    auto target_devices = device.get_target_device_ids();
+    std::unique_ptr<Cluster> device = test_utils::make_default_test_cluster();
+    auto target_devices = device->get_target_device_ids();
 
     // Verify that sender chip and receiver chip are in the cluster.
     auto it = target_devices.find(sender_core.chip);
@@ -243,9 +240,9 @@ void run_data_broadcast_test(
             << "Receiver core is on chip " << sender_core.chip << " which is not in the Galaxy cluster";
     }
 
-    test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device.get());
 
-    test_utils::safe_test_cluster_start(&device);
+    test_utils::safe_test_cluster_start(device.get());
 
     // Test.
     std::vector<uint32_t> vector_to_write(vector_size);
@@ -255,17 +252,17 @@ void run_data_broadcast_test(
 
     std::vector<float> send_bw;
     //  Set up data in sender core.
-    device.write_to_device(
+    device->write_to_device(
         vector_to_write.data(),
         vector_to_write.size() * sizeof(std::uint32_t),
         sender_core.chip,
         sender_core.core,
         sender_core.addr);
-    device.wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
+    device->wait_for_non_mmio_flush();  // Barrier to ensure that all writes over ethernet were commited
 
     // Send data from sender core to receiver core.
     auto start = std::chrono::high_resolution_clock::now();
-    broadcast_data(device, sender_core, receiver_cores, write_size);
+    broadcast_data(device.get(), sender_core, receiver_cores, write_size);
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = double(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count());
     send_bw.push_back(float((write_size / (1024 * 1024 * 1024)) / (duration / 1e6)));
@@ -274,7 +271,7 @@ void run_data_broadcast_test(
     // Verify data is correct in receiver core.
     for (const auto& receiver_core : receiver_cores) {
         test_utils::read_data_from_device(
-            device, readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
+            device.get(), readback_vec, receiver_core.chip, receiver_core.core, receiver_core.addr, write_size);
         EXPECT_EQ(vector_to_write, readback_vec)
             << "Vector read back from core " << receiver_core.str() << " does not match what was written";
         readback_vec = {};
@@ -286,7 +283,7 @@ void run_data_broadcast_test(
     // std::reduce(send_bw.begin(), send_bw.end()) / send_bw.size() << " GB/s" <<
     // std::endl;
 
-    device.close_device();
+    device->close_device();
 }
 
 // L1 to L1 single chip.

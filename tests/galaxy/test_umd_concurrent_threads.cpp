@@ -58,14 +58,13 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
     }
 
-    auto device_ptr = test_utils::make_default_test_cluster(ClusterOptions{
+    std::unique_ptr<Cluster> device = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = all_devices,
     });
-    Cluster& device = *device_ptr;
 
-    test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device.get());
 
-    test_utils::safe_test_cluster_start(&device);
+    test_utils::safe_test_cluster_start(device.get());
 
     // Test.
     std::vector<uint32_t> vector_to_write_th1 = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -76,8 +75,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         std::uint32_t write_size = vector_to_write_th1.size() * 4;
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th1) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                device.write_to_device(
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                device->write_to_device(
                     vector_to_write_th1.data(),
                     vector_to_write_th1.size() * sizeof(std::uint32_t),
                     chip,
@@ -85,10 +84,10 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
                     address);
             }
         }
-        device.wait_for_non_mmio_flush();
+        device->wait_for_non_mmio_flush();
         for (auto& chip : target_devices_th1) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                test_utils::read_data_from_device(device, readback_vec, chip, core, address, write_size);
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                test_utils::read_data_from_device(device.get(), readback_vec, chip, core, address, write_size);
                 EXPECT_EQ(vector_to_write_th1, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};
@@ -101,8 +100,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
         std::uint32_t write_size = vector_to_write_th2.size() * 4;
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices_th2) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                device.write_to_device(
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                device->write_to_device(
                     vector_to_write_th2.data(),
                     vector_to_write_th2.size() * sizeof(std::uint32_t),
                     chip,
@@ -110,10 +109,10 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
                     address);
             }
         }
-        device.wait_for_non_mmio_flush();
+        device->wait_for_non_mmio_flush();
         for (const auto& chip : target_devices_th2) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                test_utils::read_data_from_device(device, readback_vec, chip, core, address, write_size);
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                test_utils::read_data_from_device(device.get(), readback_vec, chip, core, address, write_size);
                 EXPECT_EQ(vector_to_write_th2, readback_vec)
                     << "Vector read back from core " << core.x << "-" << core.y << "does not match what was written";
                 readback_vec = {};
@@ -123,7 +122,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 
     th1.join();
     th2.join();
-    device.close_device();
+    device->close_device();
 }
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
@@ -154,14 +153,13 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
     }
 
-    auto device_ptr = test_utils::make_default_test_cluster(ClusterOptions{
+    std::unique_ptr<Cluster> device = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = all_devices,
     });
-    Cluster& device = *device_ptr;
 
-    test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device.get());
 
-    test_utils::safe_test_cluster_start(&device);
+    test_utils::safe_test_cluster_start(device.get());
 
     // Test.
     std::vector<uint32_t> vector_to_write = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
@@ -171,15 +169,15 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x4000000;
         for (const auto& chip : target_devices_th1) {
-            for (const CoreCoord& core : device.get_soc_descriptor(0).get_cores(CoreType::DRAM)) {
-                device.write_to_device(
+            for (const CoreCoord& core : device->get_soc_descriptor(0).get_cores(CoreType::DRAM)) {
+                device->write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
             }
         }
-        device.wait_for_non_mmio_flush();
+        device->wait_for_non_mmio_flush();
         for (const auto& chip : target_devices_th1) {
-            for (const CoreCoord& core : device.get_soc_descriptor(0).get_cores(CoreType::DRAM)) {
-                test_utils::read_data_from_device(device, readback_vec, chip, core, address, write_size);
+            for (const CoreCoord& core : device->get_soc_descriptor(0).get_cores(CoreType::DRAM)) {
+                test_utils::read_data_from_device(device.get(), readback_vec, chip, core, address, write_size);
                 EXPECT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from dram core " << core.str() << " does not match what was written";
                 readback_vec = {};
@@ -191,15 +189,15 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x5000000;
         for (const auto& chip : target_devices_th2) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                device.write_to_device(
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                device->write_to_device(
                     vector_to_write.data(), vector_to_write.size() * sizeof(std::uint32_t), chip, core, address);
             }
         }
-        device.wait_for_non_mmio_flush();
+        device->wait_for_non_mmio_flush();
         for (const auto& chip : target_devices_th2) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                test_utils::read_data_from_device(device, readback_vec, chip, core, address, write_size);
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                test_utils::read_data_from_device(device.get(), readback_vec, chip, core, address, write_size);
                 EXPECT_EQ(vector_to_write, readback_vec)
                     << "Vector read back from dram core " << core.str() << " does not match what was written";
                 readback_vec = {};
@@ -209,18 +207,17 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 
     th1.join();
     th2.join();
-    device.close_device();
+    device->close_device();
 }
 
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-    auto device_ptr = test_utils::make_default_test_cluster();
-    Cluster& device = *device_ptr;
+    std::unique_ptr<Cluster> device = test_utils::make_default_test_cluster();
     std::unordered_set<ChipId> target_devices = cluster_desc->get_all_chips();
-    test::utils::set_barrier_params(device);
+    test::utils::set_barrier_params(device.get());
 
-    test_utils::safe_test_cluster_start(&device);
+    test_utils::safe_test_cluster_start(device.get());
 
     // Test.
     std::vector<uint32_t> small_vector = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -230,14 +227,14 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         ChipId mmio_chip = cluster_desc->get_chips_with_mmio().begin()->first;
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = 0x0;
-        device.write_to_device(
+        device->write_to_device(
             large_vector.data(),
             large_vector.size() * sizeof(std::uint32_t),
             mmio_chip,
             CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0),
             address);
         test_utils::read_data_from_device(
-            device,
+            device.get(),
             readback_vec,
             mmio_chip,
             CoreCoord(0, 0, CoreType::DRAM, CoordSystem::NOC0),
@@ -252,15 +249,16 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
         std::vector<uint32_t> readback_vec = {};
         std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
         for (const auto& chip : target_devices) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                device.write_to_device(
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                device->write_to_device(
                     small_vector.data(), small_vector.size() * sizeof(std::uint32_t), chip, core, address);
             }
         }
-        device.wait_for_non_mmio_flush();
+        device->wait_for_non_mmio_flush();
         for (const auto& chip : target_devices) {
-            for (const CoreCoord& core : device.get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
-                test_utils::read_data_from_device(device, readback_vec, chip, core, address, small_vector.size() * 4);
+            for (const CoreCoord& core : device->get_soc_descriptor(chip).get_cores(CoreType::TENSIX)) {
+                test_utils::read_data_from_device(
+                    device.get(), readback_vec, chip, core, address, small_vector.size() * 4);
                 EXPECT_EQ(small_vector, readback_vec)
                     << "Vector read back from core " << core.str() << " does not match what was written";
                 readback_vec = {};
@@ -270,5 +268,5 @@ TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
 
     th1.join();
     th2.join();
-    device.close_device();
+    device->close_device();
 }

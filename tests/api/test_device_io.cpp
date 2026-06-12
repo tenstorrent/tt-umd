@@ -787,11 +787,11 @@ TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
  * dma_read_from_device is used. On other architectures, the standard read_from_device
  * path is used instead.
  */
-void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
-    if (cluster.get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        cluster.dma_read_from_device(mem_ptr, size, 0, core, address);
+void read_data_based_on_architecture(Cluster* cluster, CoreCoord core, void* mem_ptr, uint64_t address, size_t size) {
+    if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0) {
+        cluster->dma_read_from_device(mem_ptr, size, 0, core, address);
     } else {
-        cluster.read_from_device(mem_ptr, 0, core, address, size);
+        cluster->read_from_device(mem_ptr, 0, core, address, size);
     }
 }
 
@@ -801,10 +801,9 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  */
 TEST(TestDeviceIO, DMA1) {
     const ChipId chip = 0;
-    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
-    Cluster& cluster = *cluster_ptr;
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    auto& soc_descriptor = cluster->get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
@@ -824,7 +823,7 @@ TEST(TestDeviceIO, DMA1) {
         std::vector<uint8_t> pattern(buf_size);
         test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
-        cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
+        cluster->dma_write_to_device(pattern.data(), pattern.size(), chip, core, 0x0);
 
         patterns.push_back(pattern);
     }
@@ -834,7 +833,7 @@ TEST(TestDeviceIO, DMA1) {
         auto core = dram_cores[i];
         std::vector<uint8_t> readback(buf_size, 0x0);
 
-        read_data_based_on_architecture(cluster, core, readback.data(), 0x0, readback.size());
+        read_data_based_on_architecture(cluster.get(), core, readback.data(), 0x0, readback.size());
 
         EXPECT_EQ(patterns[i], readback) << "Mismatch for core " << core.str() << " addr=0x0"
                                          << " size=" << std::dec << readback.size();
@@ -850,10 +849,9 @@ TEST(TestDeviceIO, DMA1) {
  */
 TEST(TestDeviceIO, DMA2) {
     const ChipId chip = 0;
-    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
-    Cluster& cluster = *cluster_ptr;
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
-    auto& soc_descriptor = cluster.get_soc_descriptor(chip);
+    auto& soc_descriptor = cluster->get_soc_descriptor(chip);
     size_t dram_count = 1;
     std::vector<CoreCoord> dram_cores;
     dram_cores.reserve(dram_count);
@@ -893,7 +891,7 @@ TEST(TestDeviceIO, DMA2) {
             test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
             // Perform the DMA write.
-            cluster.dma_write_to_device(pattern.data(), pattern.size(), chip, core, addr);
+            cluster->dma_write_to_device(pattern.data(), pattern.size(), chip, core, addr);
 
             // Store the operation details for verification.
             write_ops.push_back({core, addr, pattern});
@@ -903,7 +901,7 @@ TEST(TestDeviceIO, DMA2) {
         for (const auto& op : write_ops) {
             std::vector<uint8_t> readback(op.data.size());
 
-            read_data_based_on_architecture(cluster, op.core, readback.data(), op.address, readback.size());
+            read_data_based_on_architecture(cluster.get(), op.core, readback.data(), op.address, readback.size());
 
             // Verify the data.
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex
@@ -929,7 +927,7 @@ TEST(TestDeviceIO, DMA2) {
             test_utils::fill_with_random_bytes(pattern.data(), pattern.size());
 
             // Perform the DMA write.
-            cluster.write_to_device(pattern.data(), pattern.size(), chip, dram_core, addr);
+            cluster->write_to_device(pattern.data(), pattern.size(), chip, dram_core, addr);
 
             // Store the operation details for verification.
             write_ops.push_back({dram_core, addr, pattern});
@@ -939,18 +937,18 @@ TEST(TestDeviceIO, DMA2) {
         // But before that we must set a dram membar which is not conflicting with the write and read we're doing.
         // The DRAM buffer written will always start at 0x0, and we can set barrier after the maximum buffer size.
         auto default_l1_address_params =
-            cluster.get_tt_device(chip)->get_architecture_implementation()->get_l1_address_params();
-        cluster.set_barrier_address_params(
+            cluster->get_tt_device(chip)->get_architecture_implementation()->get_l1_address_params();
+        cluster->set_barrier_address_params(
             {default_l1_address_params.tensix_l1_barrier_base,
              default_l1_address_params.eth_l1_barrier_base,
              MAX_BUF_SIZE});
-        cluster.dram_membar(chip);
+        cluster->dram_membar(chip);
 
         // Now, read back the patterns we wrote to DRAM and verify them.
         for (const auto& op : write_ops) {
             std::vector<uint8_t> readback(op.data.size());
 
-            read_data_based_on_architecture(cluster, op.core, readback.data(), op.address, readback.size());
+            read_data_based_on_architecture(cluster.get(), op.core, readback.data(), op.address, readback.size());
 
             // Verify the data.
             EXPECT_EQ(op.data, readback) << "Mismatch for core " << op.core.str() << " addr=0x" << std::hex

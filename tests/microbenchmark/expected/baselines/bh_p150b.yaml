@@ -1,0 +1,10 @@
+# metadata:
+#   schema_version: 1
+#   arch: "BH p150b"
+#   runner_hostname: "bh-40"
+#   calibrated_at: "2026-05-11"
+#   calibrated_from_runs: 30
+
+# ClusterConstructor:
+#   default: { median_value: 119.5, tolerance_pct: 45 }
+#   from sdesc: { median_value: 104.1, tolerance_pct: 49 }

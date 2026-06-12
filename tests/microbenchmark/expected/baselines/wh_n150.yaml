@@ -1,0 +1,20 @@
+# tests/microbenchmark/expected/baselines/wh_n150.yaml
+# Calibrated for WH n150 from a single bench invocation on dedicated runner 'bgd-lab-06'.
+# To recalibrate: download a benchmark-json-* artifact from a CI run
+# of build-and-run-all-benchmarks.yml and pass its directory to
+# tests/microbenchmark/tools/update_baseline.py via --from-results-dir.
+#
+# Schema (no in-file arch label — the file is dedicated to one arch):
+#   <bench_title>:
+#     <case_name>: { median_value: <float>, tolerance_pct: <float>[, gate: true] }
+
+metadata:
+  schema_version: 1
+  arch: "WH n150"
+  runner_hostname: "bgd-lab-06"
+  calibrated_at: "2026-05-22"
+  notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."
+
+ClusterConstructor:
+  default: { median_value: 248.7, tolerance_pct: 5 }
+  from sdesc: { median_value: 194.5, tolerance_pct: 5 }

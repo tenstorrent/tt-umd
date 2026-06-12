@@ -1,0 +1,10 @@
+# metadata:
+#   schema_version: 1
+#   arch: "WH n300"
+#   runner_hostname: "bgd-lab-05"
+#   calibrated_at: "2026-05-11"
+#   calibrated_from_runs: 30
+
+# ClusterConstructor:
+#   default: { median_value: 41.16, tolerance_pct: 16 }
+#   from sdesc: { median_value: 36.76, tolerance_pct: 20 }

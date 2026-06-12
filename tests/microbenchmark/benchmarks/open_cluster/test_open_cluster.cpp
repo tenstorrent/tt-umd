@@ -33,8 +33,12 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
     ClusterOptions options;
     options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
 
-    auto bench =
-        ankerl::nanobench::Bench().maxEpochTime(std::chrono::seconds(30)).title("ClusterConstructor").unit("cluster");
+    auto bench = ankerl::nanobench::Bench()
+                     .maxEpochTime(std::chrono::seconds(30))
+                     .epochs(100)
+                     .title("ClusterConstructor")
+                     .unit("cluster")
+                     .minEpochIterations(10);
     bench.name("default").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
         ankerl::nanobench::doNotOptimizeAway(cluster);

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -43,3 +45,16 @@ public:
 };
 
 }  // namespace tt::umd::error
+
+namespace tt::umd {
+
+inline void validate_register_access(uint64_t addr, size_t size) {
+    if (addr % sizeof(uint32_t) != 0) {
+        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
+    }
+    if (size % sizeof(uint32_t) != 0) {
+        UMD_THROW(error::RuntimeError, "Register access size must be a multiple of 4 bytes.");
+    }
+}
+
+}  // namespace tt::umd

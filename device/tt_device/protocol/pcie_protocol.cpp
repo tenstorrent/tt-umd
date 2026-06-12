@@ -100,6 +100,26 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
     }
 }
 
+void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
 bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t, NocId) { return false; }
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }

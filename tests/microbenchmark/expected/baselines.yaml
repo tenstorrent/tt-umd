@@ -1,0 +1,223 @@
+# tests/microbenchmark/expected/baselines.yaml
+# Calibrated from 30 successful main runs of build-and-run-all-benchmarks.yml.
+# To refresh: tests/microbenchmark/tools/refresh_baselines.py --runs 30
+#
+# Pilot scope: ClusterConstructor + TLB_Tensix_Unicast_v_Multicast. Other suites
+# (TLB_DRAM, PCIe DMA, IOMMU, Ethernet I/O) will be onboarded once the pipeline
+# is validated end-to-end.
+#
+# Note on per-arch case sets: TLB_Tensix_Unicast_v_Multicast varies its core
+# count by arch (72 cores on n150, 64 on n300, 120 on p150b), so each case
+# entry contains a single arch — the cell totals in the summary table will
+# differ per arch, which is expected.
+#
+# Schema:
+#   <bench_title>:
+#     <case_name>:
+#       <arch_label>:
+#         median_throughput: float       # ops/s (batch / median_elapsed)
+#         tolerance_pct: float           # symmetric +-%; alert if |delta%| > this
+#         gate: bool (optional)          # Phase 2 hard gates; preserved on refresh
+#
+# Tolerance policy: small-payload cases run on shared CI hardware show high
+# run-to-run variance, so some rows have tolerance_pct >= 50. Treat these as
+# informational only — never set `gate: true` on a row with tolerance_pct > 30.
+# Once dedicated benchmark hardware lands, and hopefully we have more stable measurements, tolerances should tighten.
+
+metadata:
+  schema_version: 1
+  calibrated_at: "2026-05-11"
+  calibrated_from_runs: 30
+  notes: "Pilot — soft alerts only. ClusterConstructor + TLB_Tensix_Unicast_v_Multicast."
+
+ClusterConstructor:
+  default:
+    BH p150b: { median_throughput: 119.5, tolerance_pct: 45 }
+    WH n150: { median_throughput: 138.3, tolerance_pct: 30 }
+    WH n300: { median_throughput: 41.16, tolerance_pct: 16 }
+  from sdesc:
+    BH p150b: { median_throughput: 104.1, tolerance_pct: 49 }
+    WH n150: { median_throughput: 161.9, tolerance_pct: 15 }
+    WH n300: { median_throughput: 36.76, tolerance_pct: 20 }
+
+TLB_Tensix_Unicast_v_Multicast:
+  "Multicast, 120 cores, 1 bytes":
+    BH p150b: { median_throughput: 1.827e+06, tolerance_pct: 32 }
+  "Multicast, 120 cores, 1024 bytes":
+    BH p150b: { median_throughput: 3.665e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 1048576 bytes":
+    BH p150b: { median_throughput: 4.206e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 131072 bytes":
+    BH p150b: { median_throughput: 4.204e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 16384 bytes":
+    BH p150b: { median_throughput: 4.182e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 2 bytes":
+    BH p150b: { median_throughput: 3.653e+06, tolerance_pct: 20 }
+  "Multicast, 120 cores, 2048 bytes":
+    BH p150b: { median_throughput: 3.928e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 262144 bytes":
+    BH p150b: { median_throughput: 4.208e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 32768 bytes":
+    BH p150b: { median_throughput: 4.196e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 4 bytes":
+    BH p150b: { median_throughput: 7.307e+06, tolerance_pct: 12 }
+  "Multicast, 120 cores, 4096 bytes":
+    BH p150b: { median_throughput: 4.065e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 524288 bytes":
+    BH p150b: { median_throughput: 4.206e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 65536 bytes":
+    BH p150b: { median_throughput: 4.209e+08, tolerance_pct: 5 }
+  "Multicast, 120 cores, 8 bytes":
+    BH p150b: { median_throughput: 1.461e+07, tolerance_pct: 13 }
+  "Multicast, 120 cores, 8192 bytes":
+    BH p150b: { median_throughput: 4.136e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 1 bytes":
+    WH n300: { median_throughput: 4.738e+05, tolerance_pct: 30 }
+  "Multicast, 64 cores, 1024 bytes":
+    WH n300: { median_throughput: 4.206e+08, tolerance_pct: 9 }
+  "Multicast, 64 cores, 1048576 bytes":
+    WH n300: { median_throughput: 4.86e+08, tolerance_pct: 7 }
+  "Multicast, 64 cores, 131072 bytes":
+    WH n300: { median_throughput: 4.856e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 16384 bytes":
+    WH n300: { median_throughput: 4.817e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 2 bytes":
+    WH n300: { median_throughput: 9.427e+05, tolerance_pct: 29 }
+  "Multicast, 64 cores, 2048 bytes":
+    WH n300: { median_throughput: 4.509e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 262144 bytes":
+    WH n300: { median_throughput: 4.859e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 32768 bytes":
+    WH n300: { median_throughput: 4.839e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 4 bytes":
+    WH n300: { median_throughput: 4.702e+06, tolerance_pct: 58 }
+  "Multicast, 64 cores, 4096 bytes":
+    WH n300: { median_throughput: 4.678e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 524288 bytes":
+    WH n300: { median_throughput: 4.86e+08, tolerance_pct: 6 }
+  "Multicast, 64 cores, 65536 bytes":
+    WH n300: { median_throughput: 4.85e+08, tolerance_pct: 5 }
+  "Multicast, 64 cores, 8 bytes":
+    WH n300: { median_throughput: 9.674e+06, tolerance_pct: 57 }
+  "Multicast, 64 cores, 8192 bytes":
+    WH n300: { median_throughput: 4.768e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 1 bytes":
+    WH n150: { median_throughput: 4.389e+05, tolerance_pct: 20 }
+  "Multicast, 72 cores, 1024 bytes":
+    WH n150: { median_throughput: 3.796e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 1048576 bytes":
+    WH n150: { median_throughput: 4.32e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 131072 bytes":
+    WH n150: { median_throughput: 4.317e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 16384 bytes":
+    WH n150: { median_throughput: 4.288e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 2 bytes":
+    WH n150: { median_throughput: 8.413e+05, tolerance_pct: 21 }
+  "Multicast, 72 cores, 2048 bytes":
+    WH n150: { median_throughput: 4.041e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 262144 bytes":
+    WH n150: { median_throughput: 4.319e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 32768 bytes":
+    WH n150: { median_throughput: 4.305e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 4 bytes":
+    WH n150: { median_throughput: 4.308e+06, tolerance_pct: 37 }
+  "Multicast, 72 cores, 4096 bytes":
+    WH n150: { median_throughput: 4.176e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 524288 bytes":
+    WH n150: { median_throughput: 4.32e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 65536 bytes":
+    WH n150: { median_throughput: 4.314e+08, tolerance_pct: 5 }
+  "Multicast, 72 cores, 8 bytes":
+    WH n150: { median_throughput: 8.626e+06, tolerance_pct: 36 }
+  "Multicast, 72 cores, 8192 bytes":
+    WH n150: { median_throughput: 4.254e+08, tolerance_pct: 5 }
+  "Unicast, 120 cores, 1 bytes":
+    BH p150b: { median_throughput: 1.884e+04, tolerance_pct: 57 }
+  "Unicast, 120 cores, 1024 bytes":
+    BH p150b: { median_throughput: 1.745e+07, tolerance_pct: 57 }
+  "Unicast, 120 cores, 1048576 bytes":
+    BH p150b: { median_throughput: 4.746e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 131072 bytes":
+    BH p150b: { median_throughput: 4.689e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 16384 bytes":
+    BH p150b: { median_throughput: 4.207e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 2 bytes":
+    BH p150b: { median_throughput: 4.16e+04, tolerance_pct: 52 }
+  "Unicast, 120 cores, 2048 bytes":
+    BH p150b: { median_throughput: 2.284e+07, tolerance_pct: 7 }
+  "Unicast, 120 cores, 262144 bytes":
+    BH p150b: { median_throughput: 4.73e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 32768 bytes":
+    BH p150b: { median_throughput: 4.475e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 4 bytes":
+    BH p150b: { median_throughput: 8.42e+04, tolerance_pct: 47 }
+  "Unicast, 120 cores, 4096 bytes":
+    BH p150b: { median_throughput: 3.092e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 524288 bytes":
+    BH p150b: { median_throughput: 4.729e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 65536 bytes":
+    BH p150b: { median_throughput: 4.62e+07, tolerance_pct: 5 }
+  "Unicast, 120 cores, 8 bytes":
+    BH p150b: { median_throughput: 1.687e+05, tolerance_pct: 45 }
+  "Unicast, 120 cores, 8192 bytes":
+    BH p150b: { median_throughput: 3.755e+07, tolerance_pct: 5 }
+  "Unicast, 64 cores, 1 bytes":
+    WH n300: { median_throughput: 7599, tolerance_pct: 43 }
+  "Unicast, 64 cores, 1024 bytes":
+    WH n300: { median_throughput: 2.181e+07, tolerance_pct: 46 }
+  "Unicast, 64 cores, 1048576 bytes":
+    WH n300: { median_throughput: 3.518e+07, tolerance_pct: 8 }
+  "Unicast, 64 cores, 131072 bytes":
+    WH n300: { median_throughput: 3.517e+07, tolerance_pct: 8 }
+  "Unicast, 64 cores, 16384 bytes":
+    WH n300: { median_throughput: 3.46e+07, tolerance_pct: 8 }
+  "Unicast, 64 cores, 2 bytes":
+    WH n300: { median_throughput: 1.51e+04, tolerance_pct: 42 }
+  "Unicast, 64 cores, 2048 bytes":
+    WH n300: { median_throughput: 3.008e+07, tolerance_pct: 7 }
+  "Unicast, 64 cores, 262144 bytes":
+    WH n300: { median_throughput: 3.519e+07, tolerance_pct: 7 }
+  "Unicast, 64 cores, 32768 bytes":
+    WH n300: { median_throughput: 3.501e+07, tolerance_pct: 8 }
+  "Unicast, 64 cores, 4 bytes":
+    WH n300: { median_throughput: 7.456e+04, tolerance_pct: 93 }
+  "Unicast, 64 cores, 4096 bytes":
+    WH n300: { median_throughput: 3.245e+07, tolerance_pct: 7 }
+  "Unicast, 64 cores, 524288 bytes":
+    WH n300: { median_throughput: 3.521e+07, tolerance_pct: 8 }
+  "Unicast, 64 cores, 65536 bytes":
+    WH n300: { median_throughput: 3.51e+07, tolerance_pct: 7 }
+  "Unicast, 64 cores, 8 bytes":
+    WH n300: { median_throughput: 1.513e+05, tolerance_pct: 91 }
+  "Unicast, 64 cores, 8192 bytes":
+    WH n300: { median_throughput: 3.378e+07, tolerance_pct: 10 }
+  "Unicast, 72 cores, 1 bytes":
+    WH n150: { median_throughput: 6278, tolerance_pct: 25 }
+  "Unicast, 72 cores, 1024 bytes":
+    WH n150: { median_throughput: 1.709e+07, tolerance_pct: 40 }
+  "Unicast, 72 cores, 1048576 bytes":
+    WH n150: { median_throughput: 3.108e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 131072 bytes":
+    WH n150: { median_throughput: 3.107e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 16384 bytes":
+    WH n150: { median_throughput: 3.055e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 2 bytes":
+    WH n150: { median_throughput: 1.243e+04, tolerance_pct: 27 }
+  "Unicast, 72 cores, 2048 bytes":
+    WH n150: { median_throughput: 2.657e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 262144 bytes":
+    WH n150: { median_throughput: 3.11e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 32768 bytes":
+    WH n150: { median_throughput: 3.089e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 4 bytes":
+    WH n150: { median_throughput: 6.042e+04, tolerance_pct: 37 }
+  "Unicast, 72 cores, 4096 bytes":
+    WH n150: { median_throughput: 2.865e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 524288 bytes":
+    WH n150: { median_throughput: 3.112e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 65536 bytes":
+    WH n150: { median_throughput: 3.102e+07, tolerance_pct: 5 }
+  "Unicast, 72 cores, 8 bytes":
+    WH n150: { median_throughput: 1.194e+05, tolerance_pct: 38 }
+  "Unicast, 72 cores, 8192 bytes":
+    WH n150: { median_throughput: 2.99e+07, tolerance_pct: 5 }

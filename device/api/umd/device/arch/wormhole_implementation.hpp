@@ -340,6 +340,18 @@ inline constexpr size_t tensix_translated_coordinate_start_y = 18;
 inline constexpr size_t eth_translated_coordinate_start_x = 18;
 inline constexpr size_t eth_translated_coordinate_start_y = 16;
 
+inline constexpr size_t translated_coordinate_start_x = 16;
+inline constexpr size_t translated_coordinate_start_y = 16;
+
+// This vector maps translated space to virtual space. Note that virtual space is not used at many places, and it is not
+// supported in our coordinate manager because it was bringing confusion. It only makes sense on Wormhole, and it
+// overlaps with NOC0 space, but takes harvesting into account. Since the translated space also takes harvesting into
+// account, there is a direct mapping between these two spaces. When indexing into this vector using translated
+// coordinates, you should subtract translated_coordinate_start_ constants. For example the first entry in both vectors
+// would correspond to the VIRTUAL x,y coordinates of the TRANSLATED 16,16 coordinate.
+static const std::vector<uint32_t> TRANSLATED_TO_VIRTUAL_X = {0, 5, 1, 2, 3, 4, 6, 7, 8, 9};
+static const std::vector<uint32_t> TRANSLATED_TO_VIRTUAL_Y = {0, 6, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
+
 // Constants related to bits in the soft reset register.
 inline constexpr uint32_t SOFT_RESET_BRISC = 1 << 11;
 inline constexpr uint32_t SOFT_RESET_TRISC0 = 1 << 12;

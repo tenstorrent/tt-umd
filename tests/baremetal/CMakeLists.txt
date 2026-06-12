@@ -2,6 +2,7 @@ set(BAREMETAL_TESTS_SRCS
     test_cluster_descriptor_offline.cpp
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
+    test_core_coord_translation_quasar.cpp
     test_soc_arch_descriptor.cpp
     test_soc_descriptor.cpp
     test_long_jump.cpp

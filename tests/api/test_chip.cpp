@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -26,7 +27,7 @@ using namespace tt::umd;
 
 // TODO: Once default auto TLB setup is in, check it is setup properly.
 TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     // Expect to throw for remote chip for any worker core.
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
@@ -69,7 +70,7 @@ TEST(ApiChipTest, DISABLED_ManualTLBConfiguration) {
 
 // TODO: Move to test_chip.
 TEST(ApiChipTest, SimpleAPIShowcase) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     ChipId chip_id = umd_cluster->get_cluster_description()->get_chips_with_mmio().begin()->first;
 
@@ -82,7 +83,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // This tests puts a specific core into reset and then deasserts it using default deassert value
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, DeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
@@ -101,7 +102,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // This tests puts a specific core into reset and then specifies a legal deassert value
 // // It reads back the risc reset reg to validate
 // TEST(ApiChipTest, SpecifyLegalDeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 
@@ -119,7 +120,7 @@ TEST(ApiChipTest, SimpleAPIShowcase) {
 // // // This tests puts a specific core into reset and then specifies an illegal deassert value
 // // // It reads back the risc reset reg to validate that reset reg is in a legal state
 // TEST(ApiChipTest, SpecifyIllegalDeassertRiscResetOnCore) {
-//     std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+//     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
 //     tt_cxy_pair chip_core_coord = get_tensix_chip_core_coord(umd_cluster);
 

@@ -131,7 +131,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 1 * 4, dest_bar_lo);
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 2 * 4, dest_bar_hi);
     bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 3 * 4, region_size);
-    arc_messenger_->send_message(
+    get_arc_messenger()->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), {0, 0});
 
     // Print what just happened.
@@ -418,7 +418,7 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
 }
 
 void WormholeTTDevice::noc_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
     if (!is_remote_tt_device) {
         TTDevice::noc_multicast_write(src, size, core_start, core_end, addr);
@@ -442,7 +442,7 @@ void WormholeTTDevice::noc_multicast_write(
     }
 }
 
-void WormholeTTDevice::noc_multicast_write(void *src, size_t size, uint64_t addr) {
+void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
     // Same range is used for NOC0 and NOC1.
     // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.

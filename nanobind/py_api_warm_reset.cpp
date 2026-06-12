@@ -8,6 +8,7 @@
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/warm_reset.hpp"
+#include "umd/device/warm_reset_with_recovery.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -61,4 +62,26 @@ void bind_warm_reset(nb::module_ &m) {
             nb::arg("timeout_s") = 100.0,
             release_gil(),
             "Perform a UBB warm reset with specified timeout in seconds.");
+
+    // WarmResetWithRecovery class binding. Each method runs WarmReset followed by a
+    // TopologyDiscovery::discover(); if discovery fails, another warm reset is performed
+    // and the sequence is retried up to max_attempts times.
+    nb::class_<WarmResetWithRecovery>(m, "WarmResetWithRecovery")
+        .def_static(
+            "warm_reset",
+            &WarmResetWithRecovery::warm_reset,
+            nb::arg("max_attempts") = 3,
+            nb::arg("reset_m3") = false,
+            nb::arg("secondary_bus_reset") = true,
+            nb::arg("m3_delay_s") = 20.0,
+            release_gil(),
+            "Perform a warm reset on all enumerated devices and verify with topology discovery. "
+            "Retries the (reset, discovery) sequence up to max_attempts times if discovery fails.")
+        .def_static(
+            "ubb_warm_reset",
+            &WarmResetWithRecovery::ubb_warm_reset,
+            nb::arg("max_attempts") = 3,
+            nb::arg("timeout_s") = 100.0,
+            release_gil(),
+            "Perform a UBB warm reset and verify with topology discovery. Retries on discovery failure.");
 }

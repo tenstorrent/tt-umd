@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -30,9 +32,9 @@ enum class ARCH;
 namespace tt::umd {
 class ClusterDescriptor;
 class SocDescriptor;
-enum class TensixSoftResetOptions : std::uint32_t;
 
-// Base class for all simulation devices.
+// Concrete simulation chip. Backend variance (TTSim .so vs RTL subprocess) lives
+// in the held TTDevice subtype, not in this class.
 class SimulationChip : public Chip {
 public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
@@ -44,7 +46,15 @@ public:
         size_t num_chips,
         int num_host_mem_channels = 0);
 
+    SimulationChip(
+        const std::filesystem::path& simulator_directory,
+        const SocDescriptor& soc_descriptor,
+        ChipId chip_id,
+        std::unique_ptr<TTDevice> tt_device);
+
     ~SimulationChip() override = default;
+
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     // Common interface methods - most have simple implementations.
     int get_num_host_channels() override;
@@ -66,7 +76,8 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
-    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 
@@ -74,7 +85,6 @@ public:
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
-    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
 
     void set_power_state(DevicePowerState state) override;
@@ -89,35 +99,29 @@ public:
         uint32_t* return_3 = nullptr,
         uint32_t* return_4 = nullptr) override;
 
-    // Pure virtual methods that derived classes must implement.
-    void start_device(uint32_t dram_membar_subchannel = 0) override = 0;
-    void close_device() override = 0;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
+    void close_device() override;
 
-    // All tt_xy_pair cores in this class are defined in VIRTUAL coords.
-    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override = 0;
-    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override = 0;
+    void write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) override;
+    void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
 
-    virtual void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) = 0;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override = 0;
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override = 0;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override = 0;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
 protected:
-    SimulationChip(
-        const std::filesystem::path& simulator_directory, const SocDescriptor& soc_descriptor, ChipId chip_id);
-
-    // Simulator directory.
     // Common state variables.
     DriverNocParams noc_params;
     tt::ARCH arch_name;
     ChipId chip_id_;
     std::shared_ptr<ClusterDescriptor> cluster_descriptor;
 
-    // To enable DPRINT usage in the Simulator,
-    // the simulation device code should acquire a lock
+    // DPRINT support: the simulation device code should acquire a lock
     // to ensure it can be called safely from multiple threads.
     std::mutex device_lock;
 
     std::filesystem::path simulator_directory_;
+
+    std::unique_ptr<TTDevice> tt_device_;
+    std::unique_ptr<TLBManager> tlb_manager_;
 };
 }  // namespace tt::umd

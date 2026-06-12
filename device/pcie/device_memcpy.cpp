@@ -1,0 +1,335 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+#include "device_memcpy.hpp"
+
+#include <cstdint>
+#include <cstring>
+
+#if defined(__x86_64__) || defined(_M_X64)
+#include <immintrin.h>
+#endif
+
+namespace tt::umd {
+
+void write16_to_device(volatile void* dest, std::uint16_t value) {
+    *reinterpret_cast<volatile std::uint16_t*>(dest) = value;
+}
+
+void write32_to_device(volatile void* dest, std::uint32_t value) {
+    *reinterpret_cast<volatile std::uint32_t*>(dest) = value;
+}
+
+std::uint16_t read16_from_device(const volatile void* src) {
+    return *reinterpret_cast<const volatile std::uint16_t*>(src);
+}
+
+std::uint32_t read32_from_device(const volatile void* src) {
+    return *reinterpret_cast<const volatile std::uint32_t*>(src);
+}
+
+void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
+    auto* d = static_cast<volatile std::uint8_t*>(dest);
+    auto* s = static_cast<const std::uint8_t*>(src);
+
+    // Phase 0: Align device destination to 4 bytes using byte-wide volatile stores.
+    while (size > 0 && (reinterpret_cast<std::uintptr_t>(d) % 4) != 0) {
+        *d++ = *s++;
+        size--;
+    }
+
+#if defined(__x86_64__) || defined(_M_X64)
+    // The AVX2 intrinsics below are not themselves volatile, so the compiler is free to
+    // reorder them relative to other non-volatile accesses. The volatile byte/4-byte loops
+    // in Phases 0/4/5 bound the reordering window for this function.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
+    auto* d_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
+
+    // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned stores).
+    // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
+    while (size >= 256) {
+        __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
+        __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 32));
+        __m256i v2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 64));
+        __m256i v3 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 96));
+        __m256i v4 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 128));
+        __m256i v5 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 160));
+        __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 192));
+        __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 224));
+
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v0);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 32), v1);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 64), v2);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 96), v3);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 128), v4);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 160), v5);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 192), v6);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 224), v7);
+
+        d_simd += 256;
+        s += 256;
+        size -= 256;
+    }
+
+    // Phase 2: Remaining 32-byte chunks.
+    while (size >= 32) {
+        __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v);
+        d_simd += 32;
+        s += 32;
+        size -= 32;
+    }
+
+    // Phase 3: Remaining 16-byte chunk.
+    if (size >= 16) {
+        __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(d_simd), v);
+        d_simd += 16;
+        s += 16;
+        size -= 16;
+    }
+
+    d = reinterpret_cast<volatile std::uint8_t*>(d_simd);
+
+#elif defined(__GNUC__)
+    // Like the x86 path, these wide stores are not volatile — compiler reordering is
+    // bounded by the Phase 0/4/5 volatile loops. On Clang, __builtin_nontemporal_store
+    // lowers to STNP (weakly ordered on AArch64), so a release fence is inserted after
+    // Phases 1-3 to ensure all NT stores retire before Phase 4/5 volatile writes or any
+    // subsequent caller doorbell write. GCC uses regular STP stores (strongly ordered).
+
+    // Further align destination to 16 bytes: STP Q / STNP Q to Device/UC memory (PCIe BAR)
+    // require 16-byte-aligned addresses; Phase 0 only guaranteed 4-byte alignment.
+    while (size >= 4 && (reinterpret_cast<std::uintptr_t>(d) % 16) != 0) {
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
+    auto* d_wide = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
+
+    // aligned(1) does not suppress STNP: Clang emits ldp q1,q0 / stnp q1,q0 regardless
+    // of the alignment attribute (verified via objdump on AArch64 with Clang 22).
+    typedef std::uint8_t __attribute__((vector_size(32), aligned(1))) v32;
+    typedef std::uint8_t __attribute__((vector_size(16), aligned(1))) v16;
+    // 2 KB ahead: hides ~100 ns AArch64 DRAM latency at typical PCIe DMA write rates.
+    constexpr std::size_t prefetch_distance = 2048;
+
+    // Phase 1: 256-byte blocks (8 x 32-byte stores).
+    // The prefetch is issued once per 32-byte chunk (not hoisted to the outer loop) so
+    // that after unrolling the compiler issues 8 prfm instructions covering 8 distinct
+    // cache lines (+2048..+2272 bytes ahead). Hoisting to one prefetch per 256-byte block
+    // would fetch only a single cache line ahead, leaving the other 7 uncovered.
+    while (size >= 256) {
+        for (int j = 0; j < 8; ++j) {
+            __builtin_prefetch(s + prefetch_distance, 0, 0);
+            v32 chunk;
+            __builtin_memcpy(&chunk, s, 32);
+#if defined(__clang__)
+            __builtin_nontemporal_store(chunk, reinterpret_cast<v32*>(d_wide));
+#else
+            __builtin_memcpy(d_wide, &chunk, 32);
+#endif
+            s += 32;
+            d_wide += 32;
+        }
+        size -= 256;
+    }
+
+    // Phase 2: Remaining 32-byte chunks.
+    while (size >= 32) {
+        __builtin_prefetch(s + prefetch_distance, 0, 0);
+        v32 chunk;
+        __builtin_memcpy(&chunk, s, 32);
+#if defined(__clang__)
+        __builtin_nontemporal_store(chunk, reinterpret_cast<v32*>(d_wide));
+#else
+        __builtin_memcpy(d_wide, &chunk, 32);
+#endif
+        s += 32;
+        d_wide += 32;
+        size -= 32;
+    }
+
+    // Phase 3: Remaining 16-byte chunk.
+    if (size >= 16) {
+        v16 chunk;
+        __builtin_memcpy(&chunk, s, 16);
+#if defined(__clang__)
+        __builtin_nontemporal_store(chunk, reinterpret_cast<v16*>(d_wide));
+#else
+        __builtin_memcpy(d_wide, &chunk, 16);
+#endif
+        s += 16;
+        d_wide += 16;
+        size -= 16;
+    }
+
+    // DMB ISH: ensure all STNP stores above are globally visible before Phase 4/5
+    // volatile writes and before the function returns to the caller.
+#if defined(__clang__)
+    __atomic_thread_fence(__ATOMIC_RELEASE);
+#endif
+    d = reinterpret_cast<volatile std::uint8_t*>(d_wide);
+#endif
+
+    // Phase 4: Remaining 4-byte chunks.
+    while (size >= 4) {
+        std::uint32_t tmp;
+        std::memcpy(&tmp, s, sizeof(tmp));
+        *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+
+    // Phase 5: Trailing bytes (0-3) using byte-wide volatile stores.
+    while (size > 0) {
+        *d++ = *s++;
+        size--;
+    }
+}
+
+void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
+    auto* d = static_cast<std::uint8_t*>(dest);
+    auto* s = static_cast<const volatile std::uint8_t*>(src);
+
+    // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.
+    while (size > 0 && (reinterpret_cast<std::uintptr_t>(s) % 4) != 0) {
+        *d++ = *s++;
+        size--;
+    }
+
+#if defined(__x86_64__) || defined(_M_X64)
+    // The AVX2 intrinsics below are not themselves volatile, so the compiler is free to
+    // reorder them relative to other non-volatile accesses. The volatile byte/4-byte loops
+    // in Phases 0/4/5 bound the reordering window for this function.
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
+    auto* s_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
+
+    // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned loads).
+    // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
+    while (size >= 256) {
+        __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
+        __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 32));
+        __m256i v2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 64));
+        __m256i v3 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 96));
+        __m256i v4 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 128));
+        __m256i v5 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 160));
+        __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 192));
+        __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 224));
+
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v0);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 32), v1);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 64), v2);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 96), v3);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 128), v4);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 160), v5);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 192), v6);
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 224), v7);
+
+        d += 256;
+        s_simd += 256;
+        size -= 256;
+    }
+
+    // Phase 2: Remaining 32-byte chunks.
+    while (size >= 32) {
+        __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
+        _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v);
+        d += 32;
+        s_simd += 32;
+        size -= 32;
+    }
+
+    // Phase 3: Remaining 16-byte chunk.
+    if (size >= 16) {
+        __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s_simd));
+        _mm_storeu_si128(reinterpret_cast<__m128i*>(d), v);
+        d += 16;
+        s_simd += 16;
+        size -= 16;
+    }
+
+    s = reinterpret_cast<const volatile std::uint8_t*>(s_simd);
+
+#elif defined(__GNUC__)
+    // GCC/Clang non-x86: vector extensions + __builtin_memcpy (LDP/STP on AArch64).
+
+    // Further align source to 16 bytes: LDR Q / LDP Q from Device/UC memory (PCIe BAR)
+    // require 16-byte-aligned addresses; Phase 0 only guaranteed 4-byte alignment.
+    while (size >= 4 && (reinterpret_cast<std::uintptr_t>(s) % 16) != 0) {
+        std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        std::memcpy(d, &tmp, sizeof(tmp));
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
+    auto* s_wide = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
+
+    typedef std::uint8_t __attribute__((vector_size(32), aligned(1))) v32;
+    typedef std::uint8_t __attribute__((vector_size(16), aligned(1))) v16;
+    // 2 KB ahead: hides ~100 ns AArch64 DRAM latency at typical PCIe DMA read rates.
+    constexpr std::size_t prefetch_distance = 2048;
+
+    // Phase 1: 256-byte blocks (8 x 32-byte loads).
+    while (size >= 256) {
+        for (int j = 0; j < 8; ++j) {
+            __builtin_prefetch(s_wide + prefetch_distance, 0, 0);
+            v32 chunk;
+            __builtin_memcpy(&chunk, s_wide, 32);
+            __builtin_memcpy(d, &chunk, 32);
+            s_wide += 32;
+            d += 32;
+        }
+        size -= 256;
+    }
+
+    // Phase 2: Remaining 32-byte chunks.
+    while (size >= 32) {
+        __builtin_prefetch(s_wide + prefetch_distance, 0, 0);
+        v32 chunk;
+        __builtin_memcpy(&chunk, s_wide, 32);
+        __builtin_memcpy(d, &chunk, 32);
+        s_wide += 32;
+        d += 32;
+        size -= 32;
+    }
+
+    // Phase 3: Remaining 16-byte chunk.
+    if (size >= 16) {
+        v16 chunk;
+        __builtin_memcpy(&chunk, s_wide, 16);
+        __builtin_memcpy(d, &chunk, 16);
+        s_wide += 16;
+        d += 16;
+        size -= 16;
+    }
+
+    s = reinterpret_cast<const volatile std::uint8_t*>(s_wide);
+#endif
+
+    // Phase 4: Remaining 4-byte chunks.
+    while (size >= 4) {
+        std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        std::memcpy(d, &tmp, sizeof(tmp));
+        d += 4;
+        s += 4;
+        size -= 4;
+    }
+
+    // Phase 5: Trailing bytes (0-3) using byte-wide volatile loads.
+    while (size > 0) {
+        *d++ = *s++;
+        size--;
+    }
+}
+
+}  // namespace tt::umd

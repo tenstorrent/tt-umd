@@ -34,4 +34,11 @@ void bind_logging(nb::module_ &m) {
         nb::arg("lvl"),
         release_gil(),
         "Sets the global logging level. Messages with severity levels lower than this level will not be logged.");
+
+    logging_module.def(
+        "get_level",
+        &get_level,
+        release_gil(),
+        "Returns the current global logging level. Pair with set_level() to save/restore the level "
+        "around code that needs to temporarily change verbosity.");
 }

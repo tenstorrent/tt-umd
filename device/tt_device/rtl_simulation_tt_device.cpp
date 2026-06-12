@@ -14,7 +14,7 @@
 #include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
@@ -23,7 +23,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -105,16 +104,44 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
     communicator_->initialize();
 
-    tlb_manager_ = std::make_unique<SimulationTlbManager>(
-        this,
-        /*bar0_base=*/0,
-        architecture_impl_.get(),
-        [comm = communicator_.get()](SimulationTlbAllocator* alloc, int id, size_t sz, TlbMapping map, tlb_data cfg)
-            -> std::unique_ptr<TlbWindow> {
-            auto handle = RtlSimTlbHandle::create(alloc, id, sz, map);
-            return std::make_unique<RtlSimTlbWindow>(std::move(handle), comm, cfg);
-        });
-    cached_tlb_window_ = tlb_manager_->allocate_default_tlb_window();
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(/*bar0_base=*/0, architecture_impl_.get());
+
+    // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
+    // all I/O underneath. The 4GB size for Quasar is a dummy value — it just needs to be large
+    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
+    // division by zero in RtlSimTlbHandle::configure).
+    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
+    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            break;
+        case tt::ARCH::WORMHOLE_B0:
+            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            break;
+        case tt::ARCH::QUASAR:
+            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            break;
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
+                tt::arch_to_str(arch));
+            break;
+    }
+}
+
+std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
+    if (tlb_index == -1) {
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
+    }
+    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested
+    // size through, since get_tlb_size_from_index has no pool to look up for the bypass index.
+    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, actual_size, mapping);
+    return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
@@ -154,29 +181,6 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }
-}
-
-// Three overloads exist for send_tensix_risc_reset:
-// 1. (tt_xy_pair, TensixSoftResetOptions) - main implementation used by C++ callers.
-// 2. (tt_xy_pair, bool) - convenience wrapper used by the Python (nanobind) bindings.
-// 3. (TensixSoftResetOptions) - required by the chip-level interface contract; throws because RTL
-//    simulation always requires an explicit core coordinate.
-void RtlSimulationTTDevice::send_tensix_risc_reset(
-    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
-    } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
-    } else {
-        UMD_THROW(error::RuntimeError, "Invalid soft reset option.");
-    }
-}
-
-void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core not supported for RTL simulation.");
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
@@ -330,10 +334,8 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::noc_multicast_write(void* src, size_t size, uint64_t addr) {
+void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in RTL simulation device.");
 }
-
-TLBManager* RtlSimulationTTDevice::get_tlb_manager() { return static_cast<TLBManager*>(tlb_manager_.get()); }
 
 }  // namespace tt::umd

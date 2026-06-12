@@ -16,14 +16,15 @@
 
 namespace tt::umd {
 
-RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping) :
-    allocator_(allocator) {
+RtlSimTlbHandle::RtlSimTlbHandle(
+    std::shared_ptr<SimulationTlbAllocator> allocator, int tlb_id, size_t size, TlbMapping mapping) :
+    allocator_(std::move(allocator)) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = mapping;
 
-    // QUASAR bypasses the simulation TLB allocator (see SimulationTlbManager::
-    // allocate_default_tlb_window); skip the allocator query for it so
+    // QUASAR bypasses the simulation TLB allocator (see the Quasar branch in
+    // RtlSimulationTTDevice's constructor); skip the allocator query for it so
     // get_tlb_address_from_index doesn't throw on the empty pool.
     if (allocator_ && allocator_->get_architecture_impl()->get_architecture() != tt::ARCH::QUASAR) {
         // This is a fake, non-dereferenceable pointer used only for address arithmetic.
@@ -40,8 +41,8 @@ RtlSimTlbHandle::RtlSimTlbHandle(SimulationTlbAllocator* allocator, int tlb_id, 
 }
 
 std::unique_ptr<RtlSimTlbHandle> RtlSimTlbHandle::create(
-    SimulationTlbAllocator* allocator, int tlb_id, size_t size, TlbMapping mapping) {
-    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(allocator, tlb_id, size, mapping));
+    std::shared_ptr<SimulationTlbAllocator> allocator, int tlb_id, size_t size, TlbMapping mapping) {
+    return std::unique_ptr<RtlSimTlbHandle>(new RtlSimTlbHandle(std::move(allocator), tlb_id, size, mapping));
 }
 
 RtlSimTlbHandle::~RtlSimTlbHandle() noexcept { RtlSimTlbHandle::free_tlb(); }

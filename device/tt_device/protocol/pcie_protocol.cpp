@@ -105,7 +105,7 @@ bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint
 int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
 
 void PcieProtocol::noc_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
@@ -113,12 +113,6 @@ void PcieProtocol::noc_multicast_write(
     } else {
         get_cached_tlb_window()->noc_multicast_write_reconfigure(
             src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
-    }
-}
-
-void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {
-    while (word_len-- != 0) {
-        *dest++ = *src++;
     }
 }
 

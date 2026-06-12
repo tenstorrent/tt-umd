@@ -76,9 +76,11 @@ target_sources(
         chip_helpers/sysmem_buffer.cpp
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
+        pcie/device_memcpy.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
+        tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
         arch/wormhole_implementation.cpp
@@ -103,12 +105,12 @@ target_sources(
         tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
         firmware/firmware_info_provider.cpp
         firmware/firmware_utils.cpp
-        types/tensix_soft_reset_options.cpp
         types/risc_type.cpp
         soc_arch_descriptor.cpp
         soc_descriptor.cpp
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
+        coordinates/quasar_coordinate_manager.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp
@@ -120,6 +122,7 @@ target_sources(
         arc/spi_tt_device.cpp
         noc_access.cpp
         warm_reset.cpp
+        warm_reset_with_recovery.cpp
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
@@ -140,15 +143,12 @@ if(TT_UMD_BUILD_SIMULATION)
         tt-umd
         PRIVATE
             simulation/simulation_chip.cpp
-            simulation/tt_sim_chip.cpp
-            simulation/rtl_simulation_chip.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
-            chip_helpers/simulation_tlb_manager.cpp
             tt_device/simulation_device_factory.cpp
             pcie/tt_sim_tlb_window.cpp
             pcie/tt_sim_tlb_handle.cpp
@@ -156,7 +156,7 @@ if(TT_UMD_BUILD_SIMULATION)
             pcie/rtl_sim_tlb_handle.cpp
             ${FBS_GENERATED_HEADER}
     )
-    target_compile_definitions(tt-umd PRIVATE TT_UMD_BUILD_SIMULATION)
+    target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
 
 if(TT_UMD_BUILD_EMULE)
@@ -181,6 +181,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arc/wormhole_arc_messenger.hpp
                 api/umd/device/arc/wormhole_arc_telemetry_reader.hpp
                 api/umd/device/coordinates/blackhole_coordinate_manager.hpp
+                api/umd/device/coordinates/quasar_coordinate_manager.hpp
                 api/umd/device/arch/blackhole_implementation.hpp
                 api/umd/device/chip/chip.hpp
                 api/umd/device/chip/local_chip.hpp
@@ -193,7 +194,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/chip_helpers/sysmem_buffer.hpp
                 api/umd/device/chip_helpers/tlb_manager.hpp
                 api/umd/device/chip_helpers/simulation_tlb_allocator.hpp
-                api/umd/device/chip_helpers/simulation_tlb_manager.hpp
                 api/umd/device/cluster.hpp
                 api/umd/device/coordinates/coordinate_manager.hpp
                 api/umd/device/driver_atomics.hpp
@@ -211,6 +211,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
                 api/umd/device/warm_reset.hpp
+                api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
@@ -237,15 +238,13 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
+                api/umd/device/tt_device/ethernet_broadcast.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
-                api/umd/device/types/tensix_soft_reset_options.hpp
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
-                api/umd/device/simulation/tt_sim_chip.hpp
-                api/umd/device/simulation/rtl_simulation_chip.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
@@ -296,12 +295,13 @@ target_include_directories(
 
 target_link_libraries(
     tt-umd
+    PUBLIC
+        fmt::fmt-header-only
     PRIVATE
         umd::Firmware
         hwloc
         rt
         spdlog::spdlog_header_only
-        fmt::fmt-header-only
         tt-logger::tt-logger
         yaml-cpp::yaml-cpp
 )

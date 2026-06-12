@@ -622,7 +622,7 @@ PCIDevice::~PCIDevice() {
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
         TracyFreeN(dma_buffer.buffer, "DMA");
-        munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
+        munmap(dma_buffer.buffer, dma_buffer.size + static_cast<size_t>(sysconf(_SC_PAGESIZE)));
     }
 }
 
@@ -880,18 +880,22 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.
-    volatile uint64_t *tlb_reg_ptr =
-        reinterpret_cast<volatile uint64_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
+    // Use 32-bit stores throughout: on aarch64, Device/UC memory (which is how PCIe config
+    // registers are mapped) requires natural alignment for all accesses. Blackhole registers
+    // are 12 bytes apart (index * 12), making odd indices 4-byte aligned but NOT 8-byte aligned.
+    // A 64-bit store to a non-8-byte-aligned Device/UC address causes SIGBUS on aarch64.
+    // 32-bit stores only require 4-byte alignment, which index * 12 always satisfies.
+    volatile uint32_t *tlb_reg_ptr =
+        reinterpret_cast<volatile uint32_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = lower_64;
+    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
+    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
 
     if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total)
-        // Cast to uint32_t* to write only 4 bytes and avoid overwriting the next register.
-        volatile uint32_t *tlb_reg_upper_ptr = reinterpret_cast<volatile uint32_t *>(tlb_reg_ptr);
-        tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
+        // Blackhole needs the upper 32 bits as well (96-bit total).
+        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
     }
 
     log_trace(
@@ -942,7 +946,8 @@ uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
 }
 
 bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
-    const size_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    const size_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
     void *dma_buf_mapping =
         mmap(nullptr, dma_buf_alloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
@@ -968,7 +973,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
 bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
     tenstorrent_allocate_dma_buf dma_buf{};
 
-    const uint64_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+    const uint64_t page_size = static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
+    const uint64_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
     dma_buf.in.requested_size = dma_buf_alloc_size;
     dma_buf.in.buf_index = 0;
@@ -1064,7 +1070,7 @@ void PCIDevice::set_power_state(bool busy) {
     }
 
     if (kmd_version < KMD_POWER_STATE) {
-        log_warning(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
+        log_debug(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
         return;
     }
 

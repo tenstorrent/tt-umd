@@ -24,6 +24,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
@@ -36,7 +37,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -56,7 +56,6 @@ class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
-enum class TensixSoftResetOptions : std::uint32_t;
 struct CoreCoord;
 
 // Represents the status of the ETH core.
@@ -77,18 +76,6 @@ public:
         int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
     static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
 
-    TTDevice(
-        std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<architecture_implementation> architecture_impl,
-        bool use_safe_api);
-    TTDevice(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
-    TTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
-
     virtual ~TTDevice() = default;
 
     architecture_implementation *get_architecture_implementation();
@@ -101,13 +88,13 @@ public:
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
 
-    tt::ARCH get_arch();
+    tt::ARCH get_arch() const;
 
     /**
      * @brief Controls what happens when a hang is confirmed.
      */
     enum class HangAction {
-        THROW,   ///< Throw std::runtime_error (default).
+        THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
     };
 
@@ -200,8 +187,10 @@ public:
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    virtual void noc_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void noc_multicast_write(
+        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    virtual void noc_multicast_write(
+        const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * NOC multicast write function that will write data to all TENSIX cores in the grid.
@@ -210,7 +199,7 @@ public:
      * @param size number of bytes
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(void *src, size_t size, uint64_t addr) = 0;
+    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr) = 0;
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -279,8 +268,6 @@ public:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
@@ -381,7 +368,7 @@ public:
 
     void init_tt_device(
         std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        const std::string &soc_descriptor_path = "");
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     uint64_t get_refclk_counter();
 
@@ -407,24 +394,6 @@ public:
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
-     * Send tensix risc reset for a specific core.
-     *
-     * @param core Core to reset, in translated coordinates
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(tt_xy_pair core, const TensixSoftResetOptions &soft_resets);
-
-    /**
-     * Send tensix risc reset for all tensix cores.
-     *
-     * The base TTDevice implementation does not support this operation and throws.
-     * Subclasses may override to implement all-core reset semantics.
-     *
-     * @param soft_resets Soft reset options
-     */
-    virtual void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets);
-
-    /**
      * Assert risc reset for a specific core.
      *
      * @param core Core to assert reset for, in translated coordinates
@@ -443,7 +412,20 @@ public:
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
-    virtual TLBManager *get_tlb_manager() { return nullptr; }
+    /**
+     * Allocate a TlbWindow for use by callers (typically TLBManager).
+     *
+     * Default implementation uses PCIDevice::allocate_tlb (silicon path) and
+     * wraps the resulting handle in a SiliconTlbWindow. Simulation TTDevice
+     * subclasses override this to allocate from their in-process bitmap and
+     * build the appropriate sim-backend TlbWindow.
+     *
+     * @param config tlb_data configuration applied to the new window.
+     * @param mapping UC or WC.
+     * @param size Requested TLB size in bytes (0 means try arch-supported sizes in order).
+     */
+    virtual std::unique_ptr<TlbWindow> get_io_window(
+        tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
 
@@ -479,13 +461,20 @@ protected:
     int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
-    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
-    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
-    TTDevice();
-    TTDevice(std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice() = default;
+    TTDevice(
+        std::unique_ptr<PCIDevice> pci_device,
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        bool use_safe_api);
+    TTDevice(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        std::unique_ptr<architecture_implementation> architecture_impl);
+    TTDevice(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        std::unique_ptr<architecture_implementation> architecture_impl);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -497,14 +486,16 @@ protected:
 
     tt_xy_pair arc_core;
 
-    // Assigns default SocDescriptor.
-    void construct_soc_descriptor(const std::string &soc_descriptor_path = "");
+    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
 private:
     void probe_arc();
 
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;

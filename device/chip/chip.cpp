@@ -23,23 +23,16 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-enum class TensixSoftResetOptions : std::uint32_t;
 
-Chip::Chip(SocDescriptor soc_descriptor) : soc_descriptor_(std::move(soc_descriptor)) {
-    set_default_params(soc_descriptor_.arch);
-}
+Chip::Chip(tt::ARCH arch) { set_default_params(arch); }
 
-Chip::Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor) :
-    chip_info_(chip_info), soc_descriptor_(std::move(soc_descriptor)) {
-    set_default_params(soc_descriptor_.arch);
-}
-
-SocDescriptor& Chip::get_soc_descriptor() { return soc_descriptor_; }
+Chip::Chip(const ChipInfo chip_info, tt::ARCH arch) : chip_info_(chip_info) { set_default_params(arch); }
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
@@ -95,7 +88,7 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
 
 void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
     UMD_ASSERT(
-        soc_descriptor_.arch != tt::ARCH::BLACKHOLE,
+        get_soc_descriptor().arch != tt::ARCH::BLACKHOLE,
         error::RuntimeError,
         "enable_ethernet_queue is not supported on Blackhole architecture");
     uint32_t msg_success = 0x0;
@@ -110,22 +103,6 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
         if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
             break;
         }
-    }
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {
-    UMD_ASSERT(
-        core.core_type == CoreType::TENSIX || core.core_type == CoreType::ETH,
-        error::RuntimeError,
-        "Cannot control soft reset on a non-tensix or harvested core");
-    get_tt_device()->send_tensix_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), soft_resets);
-}
-
-// TODO: Remove this API once we switch to the new one.
-void Chip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
-        send_tensix_risc_reset(core, soft_resets);
     }
 }
 
@@ -145,14 +122,14 @@ void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bo
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
     ZoneScopedC(tracy::Color::DarkRed);
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+    for (const CoreCoord core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         assert_risc_reset(core, selected_riscs);
     }
 }
 
 void Chip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    for (const CoreCoord core : soc_descriptor_.get_cores(CoreType::TENSIX)) {
+    for (const CoreCoord core : get_soc_descriptor().get_cores(CoreType::TENSIX)) {
         deassert_risc_reset(core, selected_riscs, staggered_start);
     }
 }
@@ -161,15 +138,15 @@ uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case BUSY: {
-            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_busy();
+            msg |= architecture_implementation::create(get_soc_descriptor().arch)->get_arc_message_arc_go_busy();
             break;
         }
         case LONG_IDLE: {
-            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_long_idle();
+            msg |= architecture_implementation::create(get_soc_descriptor().arch)->get_arc_message_arc_go_long_idle();
             break;
         }
         case SHORT_IDLE: {
-            msg |= architecture_implementation::create(soc_descriptor_.arch)->get_arc_message_arc_go_short_idle();
+            msg |= architecture_implementation::create(get_soc_descriptor().arch)->get_arc_message_arc_go_short_idle();
             break;
         }
         default:
@@ -217,10 +194,10 @@ void Chip::advance_device_execution() {
 void Chip::set_power_state(DevicePowerState state) {
     ZoneScoped;
     int exit_code = 0;
-    if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+    if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
         uint32_t msg = get_power_state_arc_msg(state);
         exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {0, 0});
-    } else if (soc_descriptor_.arch == tt::ARCH::BLACKHOLE) {
+    } else if (get_soc_descriptor().arch == tt::ARCH::BLACKHOLE) {
         if (state == DevicePowerState::BUSY) {
             exit_code =
                 get_tt_device()->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
@@ -250,32 +227,56 @@ void Chip::wait_for_aiclk_value(
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms.count()) {
+            auto* telemetry = tt_device->get_arc_telemetry_reader();
+            std::string arb_max_info;
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+                const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+                const uint32_t arb_freq = arb_max & 0xFFFF;
+                const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
+                arb_max_info = fmt::format(", AICLK clamped by max-arbiter index {} at {} MHz", arb_idx, arb_freq);
+            }
             log_warning(
                 LogUMD,
                 "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
                 "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
-                "{}",
+                "{}{}",
                 timeout_ms.count(),
                 target_aiclk,
                 aiclk,
-                tt_device->get_asic_temperature());
+                tt_device->get_asic_temperature(),
+                arb_max_info);
+            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+                const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+                if (timeout_ms.count() <= update_telem_speed_ms) {
+                    log_warning(
+                        LogUMD,
+                        "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
+                        "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                        timeout_ms.count(),
+                        update_telem_speed_ms);
+                }
+            }
             return;
         }
         aiclk = tt_device->get_clock();
     }
 }
 
-void Chip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void Chip::noc_multicast_write(const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
     get_tt_device()->noc_multicast_write(
-        dst,
+        src,
         size,
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
         addr);
+}
+
+void Chip::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
+    get_tt_device()->noc_multicast_write(src, size, addr);
 }
 
 }  // namespace tt::umd

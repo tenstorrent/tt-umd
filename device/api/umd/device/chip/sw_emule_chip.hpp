@@ -12,6 +12,7 @@
 #include <unordered_set>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt_emule {
 class Core;
@@ -28,18 +29,20 @@ namespace tt::umd {
 /// All non-memory operations (barriers, resets, power management) are no-ops.
 class SWEmuleChip : public Chip {
 public:
-    explicit SWEmuleChip(SocDescriptor soc_descriptor);
+    explicit SWEmuleChip(const SocDescriptor& soc_descriptor);
     ~SWEmuleChip() override;
 
     // Chip lifecycle — no-ops.
     bool is_mmio_capable() const override;
-    void start_device() override;
+    void start_device(uint32_t dram_membar_subchannel = 0) override;
     void close_device() override;
 
     // Hardware accessors — not applicable.
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
     // Host memory — no-ops.
     int get_num_host_channels() override;
@@ -55,15 +58,14 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
-    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     // Barriers, resets, power — no-ops.
     void wait_for_non_mmio_flush() override;
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
-    void dram_membar(const std::unordered_set<uint32_t>& channels) override;
-    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
+    void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
     void deassert_risc_resets() override;
     void set_power_state(DevicePowerState state) override;
     int arc_msg(
@@ -109,6 +111,8 @@ private:
 
     uint32_t l1_size_;
     uint64_t dram_bank_size_;
+
+    SocDescriptor soc_descriptor_;
 };
 
 }  // namespace tt::umd

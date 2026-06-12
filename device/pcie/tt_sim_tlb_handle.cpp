@@ -22,12 +22,12 @@
 namespace tt::umd {
 
 TTSimTlbHandle::TTSimTlbHandle(
-    SimulationTlbAllocator* allocator,
+    std::shared_ptr<SimulationTlbAllocator> allocator,
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
     const TlbMapping tlb_mapping) :
-    allocator_(allocator), sim_communicator_(communicator) {
+    allocator_(std::move(allocator)), sim_communicator_(communicator) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = tlb_mapping;
@@ -51,13 +51,16 @@ TTSimTlbHandle::TTSimTlbHandle(
 }
 
 std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
-    SimulationTlbAllocator* allocator,
+    std::shared_ptr<SimulationTlbAllocator> allocator,
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
     const TlbMapping tlb_mapping) {
-    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(allocator, communicator, tlb_id, size, tlb_mapping));
+    return std::unique_ptr<TTSimTlbHandle>(
+        new TTSimTlbHandle(std::move(allocator), communicator, tlb_id, size, tlb_mapping));
 }
+
+TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
 
 void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;

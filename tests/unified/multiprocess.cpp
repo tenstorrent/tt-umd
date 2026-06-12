@@ -116,7 +116,7 @@ TEST(Multiprocess, MultipleClusters) {
     std::vector<std::unique_ptr<Cluster>> clusters;
     for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Creating cluster " << i << std::endl;
-        clusters.push_back(std::make_unique<Cluster>());
+        clusters.push_back(test_utils::make_default_test_cluster());
     }
     for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Running IO for cluster " << i << std::endl;
@@ -127,7 +127,7 @@ TEST(Multiprocess, MultipleClusters) {
 
 // Multiple threads use single cluster for IO.
 TEST(Multiprocess, MultipleThreadsSingleCluster) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     std::vector<std::thread> threads;
     threads.reserve(NUM_PARALLEL);
     for (int i = 0; i < NUM_PARALLEL; i++) {
@@ -149,7 +149,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersCreation) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Create cluster " << i << std::endl;
-            std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+            std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
             cluster = nullptr;
         }));
     }
@@ -165,7 +165,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersRunning) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::cout << "Creating cluster " << i << std::endl;
-            std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+            std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
             std::cout << "Running IO for cluster " << i << std::endl;
             test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
             std::cout << "Finished IO for cluster " << i << std::endl;
@@ -184,7 +184,7 @@ TEST(Multiprocess, MultipleThreadsMultipleClustersOpenClose) {
     for (int i = 0; i < NUM_PARALLEL; i++) {
         threads.push_back(std::thread([&, i] {
             std::unique_ptr<Cluster> cluster =
-                std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+                test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
             std::cout << "Setting up risc cores and starting cluster " << i << std::endl;
             test_utils::safe_test_cluster_start(cluster.get());
             std::cout << "Running IO for cluster " << i << std::endl;
@@ -203,7 +203,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 
     auto workload_thread = std::thread([&] {
         std::cout << "Creating workload cluster" << std::endl;
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
         std::cout << "Running IO for workload cluster" << std::endl;
         test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), 0);
         std::cout << "Finished IO for workload cluster" << std::endl;
@@ -211,7 +211,7 @@ TEST(Multiprocess, WorkloadVSMonitor) {
 
     auto monitor_thread = std::thread([&] {
         std::cout << "Creating monitor cluster" << std::endl;
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
         std::cout << "Running only reads for monitor cluster" << std::endl;
         for (int loop = 0; loop < NUM_LOOPS; loop++) {
             uint32_t example_read;
@@ -271,7 +271,7 @@ TEST(Multiprocess, LongLivedMonitor) {
 
     for (int i = 0; i < NUM_PARALLEL; i++) {
         std::cout << "Creating cluster " << i << std::endl;
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
         std::cout << "Running IO for cluster " << i << std::endl;
         test_read_write_all_tensix_cores_with_reserved_bytes_at_start(cluster.get(), i);
         std::cout << "Finished IO for cluster " << i << std::endl;
@@ -285,7 +285,7 @@ TEST(Multiprocess, ClusterAndTTDeviceTest) {
     const uint64_t address_thread1 = address_thread0 + 0x100;
     const uint32_t num_loops = 1000;
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (ChipId chip : cluster->get_target_mmio_device_ids()) {
         TTDevice* tt_device = cluster->get_tt_device(chip);

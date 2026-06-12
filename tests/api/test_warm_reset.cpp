@@ -29,6 +29,8 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -88,7 +90,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
     }
 
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = test_utils::make_default_test_cluster();
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
@@ -114,12 +116,12 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
     // even though this is a TTDevice test.
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -190,7 +192,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
     std::thread background_reset_thread([&]() {
         std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
     });
 
     auto start_time = std::chrono::steady_clock::now();
@@ -283,7 +285,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     // Trigger the reset after a small delay.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     t1.join();
     t2.join();
@@ -345,7 +347,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
     // Parent triggers the reset that affects ALL windows on that PCIe link.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     for (pid_t p : pids) {
         int status;
@@ -355,7 +357,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 }
 
 TEST(WarmResetTest, GalaxyWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
 
     if (!is_galaxy_configuration(cluster.get())) {
@@ -381,11 +383,11 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
             write_test_data);
     }
 
-    WarmReset::ubb_warm_reset();
+    WarmResetWithRecovery::ubb_warm_reset();
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
@@ -403,7 +405,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
@@ -430,11 +432,11 @@ TEST(WarmResetTest, ClusterWarmReset) {
         EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -471,7 +473,7 @@ enum class WarmResetMethod { PCI_DEVICE_IDS, CHIP_IDS, PCI_BDFS };
 class ClusterWarmResetScratchMethodTest : public testing::TestWithParam<WarmResetMethod> {};
 
 TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -493,7 +495,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
 
     switch (GetParam()) {
         case WarmResetMethod::PCI_DEVICE_IDS:
-            WarmReset::warm_reset();
+            WarmResetWithRecovery::warm_reset();
             break;
         case WarmResetMethod::CHIP_IDS: {
             std::vector<int> chip_ids;
@@ -501,7 +503,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (auto& id : cluster->get_target_mmio_device_ids()) {
                 chip_ids.push_back(id);
             }
-            WarmReset::warm_reset_chip_id(chip_ids);
+            WarmResetWithRecovery::warm_reset_chip_id(chip_ids);
             break;
         }
         case WarmResetMethod::PCI_BDFS: {
@@ -511,14 +513,14 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (const auto& [id, info] : pci_device_info) {
                 pci_bdfs.push_back(info.pci_bdf);
             }
-            WarmReset::warm_reset_pci_bdfs(pci_bdfs);
+            WarmResetWithRecovery::warm_reset_pci_bdfs(pci_bdfs);
             break;
         }
     }
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
     chip_id = *cluster->get_target_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 

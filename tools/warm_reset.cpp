@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/warm_reset.hpp"
-
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
@@ -11,10 +9,8 @@
 #include <exception>
 #include <iostream>
 #include <tt-logger/tt-logger.hpp>
-#include <vector>
 
-#include "common.hpp"
-#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/warm_reset_with_recovery.hpp"
 
 using namespace tt::umd;
 
@@ -23,7 +19,10 @@ int main(int argc, char* argv[]) {
         "warm_reset", "Perform warm reset on Tenstorrent devices. For reseting 6U, apply the --6u flag.");
 
     options.add_options()("6u", "Perform 6U warm reset.", cxxopts::value<bool>()->default_value("false"))(
-        "h,help", "Print usage");
+        "max-attempts",
+        "Maximum number of warm-reset + topology-discovery attempts. If discovery fails after "
+        "a reset, another reset is performed. Default is 1 (no retry).",
+        cxxopts::value<int>()->default_value("1"))("h,help", "Print usage");
 
     auto result = options.parse(argc, argv);
 
@@ -32,26 +31,25 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    bool reset_result = false;
-
     try {
         const bool is_6u_reset = result["6u"].as<bool>();
-        if (is_6u_reset) {
-            log_info(tt::LogUMD, "Performing 6U warm reset...");
-            reset_result = WarmReset::ubb_warm_reset();
-        } else {
-            log_info(tt::LogUMD, "Performing warm reset on all available devices...");
-            reset_result = WarmReset::warm_reset();
-        }
+        const int max_attempts = result["max-attempts"].as<int>();
 
-        if (reset_result) {
-            log_info(tt::LogUMD, "Warm reset completed successfully. Running Topology discovery...");
-        } else {
-            log_error(tt::LogUMD, "Warm reset failed. Exiting.");
+        log_info(
+            tt::LogUMD,
+            "Performing {} warm reset with up to {} attempt(s)...",
+            is_6u_reset ? "6U" : "standard",
+            max_attempts);
+
+        const bool ok = is_6u_reset ? WarmResetWithRecovery::ubb_warm_reset(max_attempts)
+                                    : WarmResetWithRecovery::warm_reset(max_attempts);
+
+        if (!ok) {
+            log_error(tt::LogUMD, "Warm reset failed after {} attempt(s). Exiting.", max_attempts);
             return 1;
         }
-        TopologyDiscovery::discover({});
-        log_info(tt::LogUMD, "Topology discovery completed successfully.");
+
+        log_info(tt::LogUMD, "Warm reset and topology discovery completed successfully.");
     } catch (const std::exception& e) {
         log_error(tt::LogUMD, "Error during warm reset: {}", e.what());
         return 1;

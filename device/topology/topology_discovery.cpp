@@ -27,6 +27,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -35,7 +36,6 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -72,20 +72,38 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
     }
 
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
+    if (soc_descriptor_path.empty()) {
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
+    } else {
+        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_path);
+        if (soc_arch_descriptor->get_arch() != current_arch) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Architecture {} in SocArchDescriptor file on path {} does not match architecture {} on silicon.",
+                    arch_to_str(soc_arch_descriptor->get_arch()),
+                    soc_descriptor_path,
+                    arch_to_str(current_arch)));
+        }
+    }
+
     log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
-            return std::make_unique<TopologyDiscoveryWormhole>(options, io_device_type, soc_descriptor_path);
+            return std::make_unique<TopologyDiscoveryWormhole>(soc_arch_descriptor, options, io_device_type);
         case tt::ARCH::BLACKHOLE:
-            return std::make_unique<TopologyDiscoveryBlackhole>(options, io_device_type, soc_descriptor_path);
+            return std::make_unique<TopologyDiscoveryBlackhole>(soc_arch_descriptor, options, io_device_type);
         default:
             UMD_THROW(error::RuntimeError, fmt::format("Unsupported architecture for topology discovery."));
     }
 }
 
 TopologyDiscovery::TopologyDiscovery(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    options(options), io_device_type(io_device_type), soc_descriptor_path(soc_descriptor_path) {}
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
+    const TopologyDiscoveryOptions& options,
+    IODeviceType io_device_type) :
+    options(options), io_device_type(io_device_type), soc_arch_descriptor_(std::move(soc_arch_descriptor)) {}
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
@@ -135,12 +153,14 @@ void TopologyDiscovery::get_connected_devices() {
 
     for (auto& device_id : local_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type, options.use_safe_api);
-        if (!options.low_power) {
+        if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
                 LogUMD,
-                "Low power mode is disabled while UMD holds open file descriptors. The device will return to low power "
-                "mode once all file descriptors are closed.");
+                "Low power mode is not yet supported. The device will remain in high power mode while UMD holds open "
+                "file descriptors.");
+        } else {
+            // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
             tt_device->set_power_state(true);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
@@ -156,7 +176,7 @@ void TopologyDiscovery::get_connected_devices() {
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
         try {
-            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_descriptor_path);
+            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_arch_descriptor_);
         } catch (error::UmdBaseException& err) {
             if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                 throw;
@@ -256,10 +276,12 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (tt_device->get_risc_reset_state(eth_core) & static_cast<uint32_t>(TensixSoftResetOptions::BRISC)) {
+            const RiscType risc_reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(
+                tt_device->get_risc_reset_state(eth_core));
+            if ((risc_reset_state & RiscType::ERISC0) != RiscType::NONE) {
                 log_debug(
                     LogUMD,
-                    "Skipping disabled ETH core {} on device ASIC ID: {} (BRISC reset bit is high)",
+                    "Skipping disabled ETH core {} on device ASIC ID: {} (ERISC0 reset bit is high)",
                     eth_core.str(),
                     current_device_asic_id);
                 continue;
@@ -344,7 +366,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
                 bool device_init_failed = false;
                 try {
-                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_descriptor_path);
+                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_arch_descriptor_);
                 } catch (error::UmdBaseException& err) {
                     if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                         throw;
@@ -483,11 +505,12 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     }
     cluster_desc->io_device_type = io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
+    cluster_desc->fw_bundle_version = first_fw_bundle_version;
     cluster_desc->merge_cluster_ids();
 
     cluster_desc->fill_chips_grouped_by_closest_mmio();
 
-    cluster_desc->verify_cluster_descriptor_info();
+    cluster_desc->verify_cluster_descriptor_info(options.discover_remote_devices);
     return cluster_desc;
 }
 

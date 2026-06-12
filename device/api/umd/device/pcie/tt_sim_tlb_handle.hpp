@@ -28,24 +28,24 @@ public:
      * This bypasses the hardware constructor and sets up simulation state.
      */
     static std::unique_ptr<TTSimTlbHandle> create(
-        SimulationTlbAllocator* allocator,
+        std::shared_ptr<SimulationTlbAllocator> allocator,
         class TTSimCommunicator* communicator,
         int tlb_id,
         size_t size,
         const TlbMapping tlb_mapping);
 
-    ~TTSimTlbHandle() noexcept override = default;
+    ~TTSimTlbHandle() noexcept override;
 
     void configure(const tlb_data& new_config) override;
 
-    SimulationTlbAllocator* get_tlb_allocator() const { return allocator_; }
+    SimulationTlbAllocator* get_tlb_allocator() const { return allocator_.get(); }
 
     tt::ARCH get_arch() const override;
 
 private:
     // Private constructor to enforce use of create() factory method.
     TTSimTlbHandle(
-        SimulationTlbAllocator* allocator,
+        std::shared_ptr<SimulationTlbAllocator> allocator,
         class TTSimCommunicator* communicator,
         int tlb_id,
         size_t size,
@@ -53,7 +53,7 @@ private:
 
     void free_tlb() noexcept override;
 
-    SimulationTlbAllocator* allocator_;
+    std::shared_ptr<SimulationTlbAllocator> allocator_;
     class TTSimCommunicator* sim_communicator_;
     uint64_t tlb_reg_addr_ = 0;
 };

@@ -66,15 +66,15 @@ class TestNoEthMapReset(unittest.TestCase):
 
         # Perform appropriate warm reset
         if is_wormhole_ubb and not kmd_supports_reset:
-            print("Executing UBB warm reset...")
-            tt_umd.WarmReset.ubb_warm_reset()
+            print("Executing UBB warm reset with recovery...")
+            tt_umd.WarmResetWithRecovery.ubb_warm_reset()
         else:
             should_perform_secondary_bus_reset = not is_wormhole_ubb
             print(
-                f"Executing standard warm reset, with secondary bus reset: {should_perform_secondary_bus_reset}"
+                f"Executing standard warm reset with recovery, with secondary bus reset: {should_perform_secondary_bus_reset}"
             )
-            tt_umd.WarmReset.warm_reset(
-                pci_ids, secondary_bus_reset=should_perform_secondary_bus_reset
+            tt_umd.WarmResetWithRecovery.warm_reset(
+                secondary_bus_reset=should_perform_secondary_bus_reset
             )
 
         reset_time = time.time() - reset_start

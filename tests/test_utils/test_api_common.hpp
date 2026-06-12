@@ -9,12 +9,14 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "umd/device/cluster.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 
 using namespace tt::umd;
 
@@ -92,20 +94,6 @@ inline bool is_galaxy_configuration(Cluster* cluster) {
             cluster->get_cluster_description()->get_board_type(0) == tt::BoardType::UBB_BLACKHOLE);
 }
 
-inline bool has_remote_chips() {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        return false;
-    }
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
-    tt_device->init_tt_device();
-
-    auto board_type = tt_device->get_board_type();
-    return board_type == tt::BoardType::N300;
-}
-
-inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
-
 // Returns the top-left (lowest x, lowest y) and bottom-right (highest x, highest y) TENSIX cores
 // in translated coordinates for the given SoC descriptor.
 inline std::vector<CoreCoord> get_tensix_corners(const SocDescriptor& soc_desc) {
@@ -132,3 +120,7 @@ class ClusterReadWriteL1Test : public ::testing::TestWithParam<ClusterOptions> {
 // by ARC firmware (doppler throttle state), so tests must start at or above this address.
 // In some cases you also have to be careful about not overwriting the membar address.
 constexpr uint64_t SAFE_IO_L1_ADDRESS = 0x1000;
+
+// True when the test should run against a simulator, indicated by TT_UMD_SIMULATOR
+// pointing at the simulator binary directory.
+inline bool is_simulation_test() { return std::getenv("TT_UMD_SIMULATOR") != nullptr; }

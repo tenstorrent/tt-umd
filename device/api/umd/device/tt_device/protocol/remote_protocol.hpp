@@ -9,9 +9,9 @@
 #include <cstdint>
 #include <memory>
 
+#include "umd/device/tt_device/ethernet_broadcast.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -43,6 +43,7 @@ public:
 
 private:
     std::unique_ptr<RemoteCommunication> remote_communication_;
+    std::unique_ptr<EthernetBroadcast> ethernet_broadcast_;
 };
 
 }  // namespace tt::umd

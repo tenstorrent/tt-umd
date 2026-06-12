@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -11,6 +12,7 @@
 
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 class TTDevice;
@@ -23,10 +25,18 @@ public:
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 
-    static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
+    // Constructs the reader and waits for the ARC telemetry table to be fully populated.
+    static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(
+        TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
 
 protected:
     ArcTelemetryReader(TTDevice* tt_device);
+
+    // Wait until the telemetry table is fully populated by ARC firmware.
+    // FLASH_BUNDLE_VERSION is the last entry written by ARC, so a non-zero value
+    // guarantees all other entries are also present.
+    // Retries reinitializing the telemetry table until the entry appears or timeout expires.
+    virtual void wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
 
     virtual void get_telemetry_address() = 0;
 

@@ -116,7 +116,7 @@ void TTDevice::init_tt_device(
     probe_arc();
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     construct_soc_descriptor(soc_arch_descriptor);
 }

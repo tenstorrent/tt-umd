@@ -6,8 +6,10 @@
 
 #include <fmt/format.h>
 
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "tt-logger/tt-logger.hpp"
@@ -26,29 +28,43 @@ static constexpr FirmwareBundleVersion FW_NEW_TELEMETRY = FirmwareBundleVersion(
 
 ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_device) {}
 
-std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(TTDevice* tt_device) {
+std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(
+    TTDevice* tt_device, std::chrono::milliseconds timeout_ms) {
+    std::unique_ptr<ArcTelemetryReader> reader;
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             FirmwareBundleVersion fw_bundle_version = get_firmware_version_util(tt_device);
 
             if (fw_bundle_version >= FW_NEW_TELEMETRY) {
                 log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
-                return std::make_unique<WormholeArcTelemetryReader>(tt_device);
+                reader = std::make_unique<WormholeArcTelemetryReader>(tt_device);
+            } else {
+                log_debug(tt::LogUMD, "Creating old-style telemetry reader.");
+                reader = std::make_unique<SmBusArcTelemetryReader>(tt_device);
             }
-
-            log_debug(tt::LogUMD, "Creating old-style telemetry reader.");
-            return std::make_unique<SmBusArcTelemetryReader>(tt_device);
+            break;
         }
         case tt::ARCH::BLACKHOLE:
             log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
-            return std::make_unique<BlackholeArcTelemetryReader>(tt_device);
+            reader = std::make_unique<BlackholeArcTelemetryReader>(tt_device);
+            break;
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for creating ArcTelemetryReader.");
     }
+    reader->wait_for_telemetry_initialized(timeout_ms);
+    return reader;
 }
 
 void ArcTelemetryReader::initialize_telemetry() {
     tt_device->read_from_device(&entry_count, arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t));
+
+    // Bail out if entry_count looks like garbage (uninitialized ARC memory). Allocating
+    // vectors from an unbounded value can cause OOM. Callers re-poll via
+    // wait_for_telemetry_initialized() until a sane value appears.
+    if (entry_count > TelemetryTag::NUMBER_OF_TAGS) {
+        entry_count = 0;
+        return;
+    }
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at telemetry.h
@@ -100,6 +116,26 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_values.find(telemetry_tag) != telemetry_values.end();
+}
+
+void ArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto poll_interval = std::chrono::milliseconds(10);
+
+    while (!is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION) ||
+           read_entry(TelemetryTag::FLASH_BUNDLE_VERSION) == 0) {
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            log_warning(
+                tt::LogUMD, "Timeout waiting for ARC telemetry initialization (FLASH_BUNDLE_VERSION not populated).");
+            return;
+        }
+        std::this_thread::sleep_for(poll_interval);
+        telemetry_values.clear();
+        telemetry_offset.clear();
+        entry_count = 0;
+        get_telemetry_address();
+        initialize_telemetry();
+    }
 }
 
 }  // namespace tt::umd

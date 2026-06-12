@@ -24,6 +24,8 @@ inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(200);
 
+inline constexpr auto TELEMETRY_INIT_TIMEOUT = std::chrono::milliseconds(1'000);
+
 inline constexpr auto WARM_RESET_M3_TIMEOUT = std::chrono::milliseconds(20'000);
 inline constexpr auto WARM_RESET_REAPPEAR_POLL_INTERVAL = std::chrono::milliseconds(100);
 inline constexpr auto WARM_RESET_DEVICES_REAPPEAR_TIMEOUT = std::chrono::milliseconds(10'000);

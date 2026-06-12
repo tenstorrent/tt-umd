@@ -136,6 +136,9 @@ target_sources(
         tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
         arc/blackhole_spi_tt_device.cpp
+        # Pure POSIX (UNIX socket + filesystem); no simulation deps, so always built. This
+        # lets its unit tests run in the no-card baremetal CI lane (TT_UMD_BUILD_SIMULATION=OFF).
+        simulation/simulation_socket.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -245,6 +248,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
+                api/umd/device/simulation/simulation_socket.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp

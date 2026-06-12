@@ -41,7 +41,18 @@ public:
     virtual void read_block_reconfigure(
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
+    virtual void read_register_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+
     virtual void write_block_reconfigure(
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict);
+
+    virtual void write_register_reconfigure(
         const void* mem_ptr,
         tt_xy_pair core,
         uint64_t addr,
@@ -85,6 +96,17 @@ public:
     virtual void safe_read_block_reconfigure(
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
+    virtual void safe_read_register_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+
+    virtual void safe_write_register_reconfigure(
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict);
+
     virtual void safe_noc_multicast_write_reconfigure(
         const void* src,
         size_t size,
@@ -103,6 +125,17 @@ public:
 protected:
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
+
+    tlb_data make_tlb_config(
+        uint64_t addr,
+        tt_xy_pair core_end,
+        NocId noc_id,
+        uint64_t ordering,
+        bool mcast = false,
+        tt_xy_pair core_start = {}) const;
+
+    template <typename buffer_pointer, typename io_operation>
+    void transfer_and_reconfigure(tlb_data config, buffer_pointer buffer, size_t size, io_operation op);
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;

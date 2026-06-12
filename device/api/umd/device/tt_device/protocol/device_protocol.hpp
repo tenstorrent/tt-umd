@@ -9,6 +9,7 @@
 
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -26,6 +27,14 @@ public:
 
     virtual void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
     virtual void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+
+    // Strict-ordered MMIO register read. Transports with a dedicated register aperture (PCIe) override
+    // this; the default falls back to a (relaxed) block read, which is the correct behaviour for transports
+    // that route registers as ordinary memory (e.g. remote/Ethernet).
+    virtual void read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+        validate_register_access(addr, size);
+        read_from_device(mem_ptr, core, addr, size, noc_id);
+    }
 
     // [[nodiscard]] tells the compiler that the return value should not be ignored.
     // This ensures the caller handles the software fallback

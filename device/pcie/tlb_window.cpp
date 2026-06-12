@@ -13,6 +13,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -40,6 +41,33 @@ void TlbWindow::read_block_reconfigure(
         size_t transfer_size = std::min(size, tlb_size);
 
         read_block(0, buffer_addr, transfer_size);
+
+        size -= transfer_size;
+        addr += transfer_size;
+        buffer_addr += transfer_size;
+
+        config.local_offset = addr;
+    }
+}
+
+void TlbWindow::read_register_reconfigure(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    validate_register_access(addr, size);
+    uint8_t* buffer_addr = static_cast<uint8_t*>(mem_ptr);
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
+    config.ordering = ordering;
+    config.static_vc = tlb_handle->get_arch() != tt::ARCH::BLACKHOLE;
+
+    while (size > 0) {
+        configure(config);
+        size_t tlb_size = get_size();
+        size_t transfer_size = std::min(size, tlb_size);
+
+        read_register(0, buffer_addr, transfer_size);
 
         size -= transfer_size;
         addr += transfer_size;
@@ -157,6 +185,11 @@ void TlbWindow::safe_write_block_reconfigure(
 void TlbWindow::safe_read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     read_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
+}
+
+void TlbWindow::safe_read_register_reconfigure(
+    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    read_register_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
 }
 
 void TlbWindow::safe_noc_multicast_write_reconfigure(

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -43,3 +45,26 @@ public:
 };
 
 }  // namespace tt::umd::error
+
+namespace tt::umd {
+
+/**
+ * @brief Precondition guard for register (MMIO word) accesses.
+ *
+ * Device registers are read and written one 32-bit word at a time, so both the address and the
+ * transfer size must be 4-byte aligned; otherwise the word-granular access would silently truncate
+ * the size or read/write a misaligned location. This guard is replicated at every layer that exposes
+ * a register-read entry point (TTDevice, DeviceProtocol, TlbWindow) so that each layer validates its
+ * own inputs rather than trusting its caller, mirroring how TlbWindow::validate() is repeated in every
+ * primitive access.
+ */
+inline void validate_register_access(uint64_t addr, size_t size) {
+    if (size % sizeof(uint32_t) != 0) {
+        UMD_THROW(error::RuntimeError, "Size must be a multiple of 4 bytes.");
+    }
+    if (addr % sizeof(uint32_t) != 0) {
+        UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
+    }
+}
+
+}  // namespace tt::umd

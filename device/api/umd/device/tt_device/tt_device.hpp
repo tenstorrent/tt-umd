@@ -176,6 +176,13 @@ public:
     virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
+    // Strict-ordered MMIO register read for callers that hold only a TTDevice (e.g. tt-telemetry, which
+    // discovers bare TTDevices rather than constructing the Chip/Cluster layer). Thin forwarder to the
+    // device protocol layer, which picks the correct path per transport (PCIe: dedicated register read via
+    // a UC TLB window; others: relaxed block-read fallback). addr and size must be 4-byte aligned.
+    virtual void read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems

@@ -305,6 +305,17 @@ void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, si
     read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
 }
 
+void TTDevice::read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    ZoneScopedC(tracy::Color::Orange);
+    validate_register_access(addr, size);
+    device_protocol_->read_from_device_reg(mem_ptr, core, addr, size, get_selected_noc_id());
+}
+
+void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    read_from_device_reg(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+}
+
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
     device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());

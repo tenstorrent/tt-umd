@@ -41,6 +41,11 @@ public:
     virtual void read_block_reconfigure(
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
+    // Register-oriented counterpart to read_block_reconfigure: reconfigures the window for (core, addr) and
+    // reads via the volatile register path (read_register) rather than a block copy. Ordering defaults to Strict.
+    virtual void read_register_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+
     virtual void write_block_reconfigure(
         const void* mem_ptr,
         tt_xy_pair core,
@@ -83,6 +88,9 @@ public:
         uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_read_block_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+
+    virtual void safe_read_register_reconfigure(
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
     virtual void safe_noc_multicast_write_reconfigure(

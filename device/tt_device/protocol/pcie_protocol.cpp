@@ -81,6 +81,16 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
     }
 }
 
+void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        read_from_device_reg_impl<true>(mem_ptr, core, addr, size, noc_id);
+    } else {
+        read_from_device_reg_impl<false>(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
 template <bool safe>
 void PcieProtocol::write_to_device_impl(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
@@ -97,6 +107,17 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
         get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
         get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+template <bool safe>
+void PcieProtocol::read_from_device_reg_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    // Reuses the cached UC TLB window and io_lock_ (held by the caller); read_register_reconfigure builds the
+    // tlb_data (Strict ordering by default) and performs a volatile register read.
+    if constexpr (safe) {
+        get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 

@@ -406,6 +406,8 @@ void TTDevice::wait_for_non_mmio_flush() {
     get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
 }
 
+void TTDevice::advance_device_execution() {}
+
 bool TTDevice::is_remote() { return is_remote_tt_device; }
 
 int TTDevice::get_communication_device_id() const { return communication_device_id_; }
@@ -448,8 +450,6 @@ ChipInfo TTDevice::get_chip_info() {
 }
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
-
-void TTDevice::advance_device_execution() {}
 
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;

@@ -148,6 +148,21 @@ public:
     // Explicit to prevent implicit conversion from ClusterOptions at call sites.
     explicit Cluster(ClusterOptions options);
 
+    // Factories that build ClusterOptions inside libtt-umd to avoid cross-DSO STL ABI issues.
+    static std::unique_ptr<Cluster> create_silicon_cluster(
+        std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt);
+    static std::unique_ptr<Cluster> create_single_chip_simulation_cluster(
+        uint32_t num_host_mem_ch_per_mmio_device, ChipId chip_id, const char* simulator_path);
+    static std::unique_ptr<Cluster> create_simulation_cluster_with_descriptor(
+        uint32_t num_host_mem_ch_per_mmio_device,
+        const char* simulator_path,
+        const char* sdesc_path,
+        ClusterDescriptor* cluster_descriptor);
+    static std::unique_ptr<Cluster> create_mock_cluster(
+        const char* sdesc_path, ClusterDescriptor* cluster_descriptor = nullptr);
+    static std::unique_ptr<Cluster> create_swemule_cluster(
+        const char* sdesc_path, ClusterDescriptor* cluster_descriptor = nullptr);
+
     /**
      * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
      * leave the device in a state where it can be re-initialized.

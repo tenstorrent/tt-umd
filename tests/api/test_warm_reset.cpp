@@ -402,9 +402,6 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
 }
 
 TEST(WarmResetTest, ClusterWarmReset) {
-    if constexpr (utils::is_arm_platform()) {
-        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
-    }
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (is_galaxy_configuration(cluster.get())) {

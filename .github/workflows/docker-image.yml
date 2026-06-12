@@ -78,6 +78,12 @@ jobs:
             echo "Image $CI_IMAGE:${{ steps.hash.outputs.tag }} not found, will build."
           fi
 
+      - name: Set up QEMU
+        # Emulated (non-native arch) image builds, e.g. the riscv64 image, need
+        # QEMU/binfmt so their rootfs RUN steps run on the x86 builder.
+        if: steps.check.outputs.exists == 'false' && inputs.docker-version == 'ubuntu-24.04-riscv'
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         if: steps.check.outputs.exists == 'false'
         uses: docker/setup-buildx-action@v3
@@ -89,6 +95,9 @@ jobs:
           context: .github
           file: .github/${{ inputs.docker-version }}.Dockerfile
           push: true
+          # Emulated riscv64 image is built for linux/riscv64; everything else
+          # uses the builder's native platform (empty = default).
+          platforms: ${{ inputs.docker-version == 'ubuntu-24.04-riscv' && 'linux/riscv64' || '' }}
           build-args: |
             GIT_SHA=${{ github.sha }}
           tags: |

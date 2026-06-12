@@ -400,6 +400,7 @@ public:
      * @param selected_riscs Bitmask of riscs to assert reset for
      */
     virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
      * Deassert risc reset for a specific core.
@@ -409,6 +410,7 @@ public:
      * @param staggered_start Whether to use staggered start
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -428,8 +430,10 @@ public:
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -445,6 +449,7 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    void dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * Read the training status of the given ETH core.

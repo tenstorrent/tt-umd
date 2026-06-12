@@ -57,11 +57,14 @@ enum class RiscType : std::uint64_t;
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device,
     std::unique_ptr<architecture_implementation> architecture_impl,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
     communication_device_type_(IODeviceType::PCIe),
     communication_device_id_(pci_device->get_device_num()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
+    assign_soc_arch_descriptor(soc_arch_descriptor);
+
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
@@ -75,11 +78,14 @@ TTDevice::TTDevice(
 TTDevice::TTDevice(
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
-    std::unique_ptr<architecture_implementation> architecture_impl) :
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
+    assign_soc_arch_descriptor(soc_arch_descriptor);
+
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
@@ -87,11 +93,14 @@ TTDevice::TTDevice(
 
 TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
-    std::unique_ptr<architecture_implementation> architecture_impl) :
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
     communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
     architecture_impl_(std::move(architecture_impl)),
     arch(architecture_impl_->get_architecture()) {
+    assign_soc_arch_descriptor(soc_arch_descriptor);
+
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_capabilities_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
@@ -102,8 +111,22 @@ void TTDevice::probe_arc() {
     read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
-void TTDevice::init_tt_device(
-    const std::chrono::milliseconds timeout_ms, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+    if (soc_arch_descriptor != nullptr) {
+        UMD_ASSERT(
+            soc_arch_descriptor->get_arch() == arch,
+            error::RuntimeError,
+            fmt::format(
+                "SocArchDescriptor architecture {} does not match device architecture {}.",
+                arch_to_str(soc_arch_descriptor->get_arch()),
+                arch_to_str(arch)));
+        soc_arch_descriptor_ = soc_arch_descriptor;
+    } else {
+        soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
+    }
+}
+
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
@@ -118,11 +141,14 @@ void TTDevice::init_tt_device(
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    construct_soc_descriptor(soc_arch_descriptor);
+    construct_soc_descriptor(soc_arch_descriptor_);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
-    int device_number, IODeviceType device_type, bool use_safe_api) {
+    int device_number,
+    IODeviceType device_type,
+    bool use_safe_api,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         (!use_safe_api) || (device_type == IODeviceType::PCIe),
@@ -134,9 +160,11 @@ void TTDevice::init_tt_device(
         arch = jtag_device->get_jtag_arch(device_number);
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(jtag_device), device_number));
+                return std::unique_ptr<WormholeTTDevice>(
+                    new WormholeTTDevice(std::move(jtag_device), device_number, soc_arch_descriptor));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(jtag_device), device_number));
+                return std::unique_ptr<BlackholeTTDevice>(
+                    new BlackholeTTDevice(std::move(jtag_device), device_number, soc_arch_descriptor));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -149,9 +177,11 @@ void TTDevice::init_tt_device(
 
     switch (arch) {
         case ARCH::WORMHOLE_B0:
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(pci_device), use_safe_api));
+            return std::unique_ptr<WormholeTTDevice>(
+                new WormholeTTDevice(std::move(pci_device), soc_arch_descriptor, use_safe_api));
         case ARCH::BLACKHOLE:
-            return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(std::move(pci_device), use_safe_api));
+            return std::unique_ptr<BlackholeTTDevice>(
+                new BlackholeTTDevice(std::move(pci_device), soc_arch_descriptor, use_safe_api));
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -159,13 +189,16 @@ void TTDevice::init_tt_device(
     }
 }
 
-std::unique_ptr<TTDevice> TTDevice::create(std::unique_ptr<RemoteCommunication> remote_communication) {
+std::unique_ptr<TTDevice> TTDevice::create(
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
     tt::ARCH arch = remote_communication->get_local_device()->get_arch();
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::move(remote_communication)));
+            return std::unique_ptr<WormholeTTDevice>(
+                new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
         }
         default:
             UMD_THROW(

@@ -552,21 +552,6 @@ void LocalChip::noc_multicast_write(
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
-
-    // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported on PCIe devices.");
-    }
-
-    std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-    get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
-        src,
-        size,
-        get_soc_descriptor().translate_chip_coord_to_translated(core_start),
-        get_soc_descriptor().translate_chip_coord_to_translated(core_end),
-        addr,
-        get_selected_noc_id(),
-        tlb_data::Relaxed);
+    tt_device_->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 }  // namespace tt::umd

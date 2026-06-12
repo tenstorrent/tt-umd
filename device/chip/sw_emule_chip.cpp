@@ -98,17 +98,17 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
-        ? get_dram_channel_backing(
-              static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
-        : get_core(tt_xy_pair(core.x, core.y));
+                                      ? get_dram_channel_backing(static_cast<uint32_t>(
+                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
+                                      : get_core(tt_xy_pair(core.x, core.y));
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
-        ? get_dram_channel_backing(
-              static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
-        : get_core(tt_xy_pair(core.x, core.y));
+                                      ? get_dram_channel_backing(static_cast<uint32_t>(
+                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
+                                      : get_core(tt_xy_pair(core.x, core.y));
     std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 

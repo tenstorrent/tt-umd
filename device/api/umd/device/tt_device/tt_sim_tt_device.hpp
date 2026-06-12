@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -26,6 +27,7 @@ namespace tt::umd {
 
 class TTSimCommunicator;
 class SimulationSysmemManager;
+class SimulationSocket;
 class SocDescriptor;
 
 class TTSimTTDevice : public TTDevice {
@@ -92,6 +94,9 @@ public:
 
     SimulationTlbAllocator *get_tlb_allocator() { return tlb_allocator_.get(); }
 
+    // Takes ownership of the serving socket that exposes this device (created by discovery).
+    void adopt_socket(std::unique_ptr<SimulationSocket> socket);
+
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
 
@@ -110,6 +115,10 @@ private:
     std::filesystem::path simulator_directory_;
     ChipId chip_id_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+
+    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
+    // it. The host keeps its own direct in-process fast path; the socket is for remote clients.
+    std::unique_ptr<SimulationSocket> socket_;
 
     uint32_t libttsim_pci_device_id;
 

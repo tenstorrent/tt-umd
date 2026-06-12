@@ -5,6 +5,8 @@
 #pragma once
 
 #include <cstdint>
+#include <string_view>
+#include <unordered_map>
 
 namespace tt::umd::blackhole {
 
@@ -51,6 +53,23 @@ enum BlackholeArcMessageQueueIndex : uint8_t {
     MONITORING = 1,
     TOOLS = 2,
     APPLICATION = 3,
+};
+
+// SMC init stages.
+enum SMCInitStageFlags : uint8_t {
+    INIT_STAGE_REGULATOR = 0,
+    INIT_STAGE_CABLE_FAULT = 1,
+    INIT_STAGE_TENSIX = 2,
+    INIT_STAGE_MRISC_LOAD = 3,
+    INIT_STAGE_GDDR_TRAIN = 4,
+};
+
+inline const std::unordered_map<SMCInitStageFlags, std::string_view> SMC_INIT_STAGE_INTERPRETATION = {
+    {INIT_STAGE_REGULATOR, "Regulator init failure"},
+    {INIT_STAGE_CABLE_FAULT, "Cable fault"},
+    {INIT_STAGE_TENSIX, "Tensix initialization failure"},
+    {INIT_STAGE_MRISC_LOAD, "MRISC load failure"},
+    {INIT_STAGE_GDDR_TRAIN, "GDDR training failure"},
 };
 
 }  // namespace tt::umd::blackhole

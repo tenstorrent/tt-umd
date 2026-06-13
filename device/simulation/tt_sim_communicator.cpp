@@ -323,17 +323,27 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
 }
 
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
-std::array<TTSimCommunicator *, TTSimCommunicator::kMaxDmaDevices> TTSimCommunicator::dma_instances_{};
+std::array<TTSimCommunicator::DmaHostRange, TTSimCommunicator::kMaxDmaDevices> TTSimCommunicator::dma_ranges_{};
+std::size_t TTSimCommunicator::dma_range_count_ = 0;
+std::mutex TTSimCommunicator::dma_ranges_mutex_;
 
-// Decode the originating MMIO device from a sim-tagged sysmem DMA paddr and return its
-// communicator plus the within-device offset. The sim adds device * kPerDevicePaddrStride
-// (see libttsim_pci_dma_mem_{rd,wr}_bytes); strip it and look the device up. Falls back to
-// callback_instance_ for the single-device / legacy path (device 0, no registered entry).
+// Route a sysmem DMA to the owning MMIO chip by host address: the address the chip emits already went
+// through its outbound iATU (UMD-programmed target = that chip's distinct host base), so we just find
+// the registered host window [host_base, host_base+size) that contains it -- exactly as a host routes a
+// DMA by which pinned region the physical address falls in. Rebase paddr to the within-window offset (so
+// the per-chip callback sees an offset relative to its own host base, like the single-device case) and
+// return the owning communicator. Falls back to callback_instance_ when no window matches (single
+// device, or an address outside any registered region).
 TTSimCommunicator *TTSimCommunicator::dma_route(uint64_t &paddr) {
-    uint32_t device = static_cast<uint32_t>(paddr / kPerDevicePaddrStride);
-    paddr -= static_cast<uint64_t>(device) * kPerDevicePaddrStride;
-    TTSimCommunicator *inst = (device < kMaxDmaDevices) ? dma_instances_[device] : nullptr;
-    return inst ? inst : callback_instance_;
+    std::lock_guard<std::mutex> lock(dma_ranges_mutex_);
+    for (std::size_t i = 0; i < dma_range_count_; i++) {
+        const DmaHostRange &r = dma_ranges_[i];
+        if (paddr >= r.host_base && paddr - r.host_base < r.host_size) {
+            paddr -= r.host_base;
+            return r.inst;
+        }
+    }
+    return callback_instance_;
 }
 
 void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
@@ -352,15 +362,29 @@ void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void 
 
 void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
+    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+    uint64_t host_base,
+    uint64_t host_size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
     callback_instance_ = this;
-    // Register this device for per-device DMA routing (dma_route()). chip_id_ is the BDF
-    // device index in multi-MMIO mode, so the sim's paddr tag (g_current_chip_id) lands here.
-    if (chip_id_ < kMaxDmaDevices) {
-        dma_instances_[chip_id_] = this;
+    // Register this chip's host window for address-range DMA routing (dma_route()). The chip's outbound
+    // iATU targets this window, so DMAs land here by address alone -- no per-chip tag. host_size==0
+    // (legacy / single-device) registers nothing and relies on the callback_instance_ fallback.
+    if (host_size != 0) {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        bool updated = false;
+        for (std::size_t i = 0; i < dma_range_count_; i++) {
+            if (dma_ranges_[i].inst == this) {  // re-registration: update in place
+                dma_ranges_[i] = {host_base, host_size, this};
+                updated = true;
+                break;
+            }
+        }
+        if (!updated && dma_range_count_ < kMaxDmaDevices) {
+            dma_ranges_[dma_range_count_++] = {host_base, host_size, this};
+        }
     }
     // The DMA callbacks are process-global, and libttsim forbids (re)registering them
     // once the simulator is running. With one shared simulator across chips, only the

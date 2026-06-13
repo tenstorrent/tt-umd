@@ -403,6 +403,16 @@ void RobustMutex::unlock() {
             error::RuntimeError,
             fmt::format("pthread_mutex_unlock failed() for mutex {} errno: {}", mutex_name_, std::to_string(err)));
     }
+
+    // Debug instrumentation: trace release of the NON_MMIO lock only (see matching log in lock()).
+    if (mutex_name_.rfind("NON_MMIO", 0) == 0) {
+        log_info(
+            LogUMD,
+            "Lock '{}' released by TID: {}, PID: {}",
+            mutex_name_,
+            static_cast<long>(::syscall(SYS_gettid)),
+            getpid());
+    }
 }
 
 std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seconds timeout) {
@@ -474,6 +484,17 @@ void RobustMutex::lock() {
                     "pthread_mutex_lock() failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
         }
         record_acquisition();
+    }
+
+    // Debug instrumentation: trace acquisition of the NON_MMIO lock only, to correlate with hangs in
+    // the remote ethernet IO path. Matches the TID/PID format of the "Waiting for lock" warning above.
+    if (mutex_name_.rfind("NON_MMIO", 0) == 0) {
+        log_info(
+            LogUMD,
+            "Lock '{}' acquired by TID: {}, PID: {}",
+            mutex_name_,
+            static_cast<long>(::syscall(SYS_gettid)),
+            getpid());
     }
 }
 

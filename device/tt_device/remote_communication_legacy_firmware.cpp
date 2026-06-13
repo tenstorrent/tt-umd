@@ -4,10 +4,14 @@
 
 #include "umd/device/tt_device/remote_communication_legacy_firmware.hpp"
 
+#include <sys/syscall.h>  // SYS_gettid
+#include <unistd.h>       // syscall
+
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -45,6 +49,20 @@ struct routing_cmd_t {
     uint16_t padding;
     uint32_t src_addr_tag;  // upper 32-bits of request source address.
 };
+
+// TEMPORARY fault-injection hook (debugging the NON_MMIO hang). Returns true when /tmp/umdbreak
+// exists and its first byte is '1'. From another console, `echo 1 > /tmp/umdbreak` forces a simulated
+// remote IO timeout on the next read_non_mmio; `echo 0 > /tmp/umdbreak` (or delete the file) stops it.
+// Remove this helper and its call site once the investigation is done.
+static bool umd_break_requested() {
+    std::ifstream break_file("/tmp/umdbreak");
+    if (!break_file.is_open()) {
+        return false;
+    }
+    char value = 0;
+    break_file.get(value);
+    return value == '1';
+}
 
 RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
     TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) :
@@ -172,6 +190,17 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
 
     auto start = std::chrono::steady_clock::now();
     while (offset < size_in_bytes) {
+        // Debug instrumentation: this inner loop has no timeout, so if the remote queue never drains
+        // (e.g. after a device reset) the thread spins here forever while holding the NON_MMIO lock.
+        // Log entry/exit so a stuck thread is visible as an "entering" with no matching "exited".
+        const bool entered_full_wait = full;
+        if (entered_full_wait) {
+            log_info(
+                LogUMD,
+                "read_non_mmio: entering full command-queue wait loop for device {} (TID: {}).",
+                local_tt_device_->get_communication_device_id(),
+                static_cast<long>(::syscall(SYS_gettid)));
+        }
         while (full) {
             local_tt_device_->read_from_device(
                 erisc_q_rptr.data(),
@@ -180,6 +209,13 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                     eth_interface_params.remote_update_ptr_size_bytes,
                 DATA_WORD_SIZE);
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
+        }
+        if (entered_full_wait) {
+            log_info(
+                LogUMD,
+                "read_non_mmio: exited full command-queue wait loop for device {} (TID: {}).",
+                local_tt_device_->get_communication_device_id(),
+                static_cast<long>(::syscall(SYS_gettid)));
         }
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
@@ -268,6 +304,17 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 remote_transfer_ethernet_core,
                 eth_interface_params.response_cmd_queue_base + eth_interface_params.cmd_counters_size_bytes,
                 DATA_WORD_SIZE);
+
+            // TEMPORARY fault injection: if /tmp/umdbreak contains '1', force the exact same timeout
+            // throw (utils::check_timeout -> utils.hpp) that a real remote IO stall produces, while the
+            // NON_MMIO lock is held. The fabricated start time (1h in the past) guarantees the 1ms
+            // timeout has elapsed so check_timeout throws here. Remove once the investigation is done.
+            if (umd_break_requested()) {
+                utils::check_timeout(
+                    std::chrono::steady_clock::now() - std::chrono::hours(1),
+                    std::chrono::milliseconds(1),
+                    "Timeout waiting for Ethernet core service remote IO request.");
+            }
 
             utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         } while (erisc_resp_q_rptr[0] == erisc_resp_q_wptr[0]);

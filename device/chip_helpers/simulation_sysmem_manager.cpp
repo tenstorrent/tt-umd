@@ -32,8 +32,12 @@ uint64_t align_up(uint64_t value, uint64_t alignment) { return (value + alignmen
 
 }  // namespace
 
-SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch) {
+SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch, uint32_t chip_id) {
+    // pcie_base_ is the chip-side NOC sysmem-window base (fixed per arch; used for buffers' NOC addresses).
+    // host_base_ is this chip's distinct host-physical base -- what UMD programs as the outbound-iATU
+    // region target, so each chip's DMA lands in its own host window with no per-chip tag at egress.
     pcie_base_ = get_pcie_base_for_arch(arch);
+    host_base_ = uint64_t(chip_id) * kPerChipHostStride;
     registry_ = std::make_shared<MappedBufferRegistry>();
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
@@ -72,8 +76,11 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
 
     for (int i = 0; i < num_host_mem_channels; i++) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
+        // physical_address is this chip's host base for the channel -- what UMD programs as the outbound
+        // iATU region target (host_base_ is per-chip distinct). The chip-side NOC sysmem-window address is
+        // separate (get_pcie_base_addr_from_device), so the iATU maps NOC-window offset -> this host base.
         hugepage_mapping_per_channel.push_back(
-            {system_memory_ + i * (1ULL << 30), channel_size, pcie_base_ + i * (1ULL << 30)});
+            {system_memory_ + i * (1ULL << 30), channel_size, host_base_ + i * (1ULL << 30)});
     }
 
     return true;

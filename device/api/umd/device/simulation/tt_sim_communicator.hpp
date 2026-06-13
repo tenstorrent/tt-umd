@@ -130,7 +130,9 @@ public:
      */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+        uint64_t host_base = 0,
+        uint64_t host_size = 0);
 
     void start_sim();
 
@@ -200,8 +202,10 @@ private:
     // model in docs/multichip/ARCHITECTURE.md. No libttsim_select_device_by_id; the
     // device is carried in the PCI config BDF and in the per-device BAR physical address.
     bool shared_bdf_mode_ = false;
+
     // Both modes use the single shared dlopen (s_shared_handle_) + refcount.
     bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
+
     uint32_t chip_id_ = 0;
     uint32_t num_chips_ = 1;
     static void *s_shared_handle_;
@@ -251,25 +255,29 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Per-MMIO-device DMA routing. Each MMIO device has its own host sysmem, and each chip's
-    // outbound iATU maps its (identical) NOC sysmem window onto that chip's own hugepage. The
-    // sim models that iATU on the chip side: it translates each sysmem DMA to the originating
-    // chip's host region (paddr + chip * stride). So here on the host side of the bus we route
-    // purely by the resulting *address* -- device = paddr / kPerDevicePaddrStride -> the owning
-    // device's callback (dma_instances_[device]) -- exactly like the BAR path in
-    // libttsim_pci_mem_rd_bytes. No chip id crosses the callback; the address already carries the
-    // iATU's per-device targeting. The within-window offset is always << the stride.
-    // callback_instance_ stays as the device-0 / single-device fallback.
-    static constexpr uint64_t kPerDevicePaddrStride = 0x1000000000ull;  // 64GiB; matches libttsim PER_DEVICE_PADDR_STRIDE
+    // Host-side DMA routing by address range. Each MMIO chip's outbound iATU (programmed by UMD via
+    // BAR2, honored by the sim) maps the chip's NOC sysmem window onto that chip's distinct host base.
+    // So a sysmem DMA arrives here carrying a real host address; we find the owning chip by which
+    // registered window [host_base, host_base+size) contains it -- exactly as a host/OS routes a DMA by
+    // which pinned region the address falls in. No chip id crosses the bus; the address alone targets.
+    // callback_instance_ stays as the single-device / unregistered fallback.
+    struct DmaHostRange {
+        uint64_t host_base = 0;
+        uint64_t host_size = 0;
+        TTSimCommunicator *inst = nullptr;
+    };
+
     static constexpr std::size_t kMaxDmaDevices = 32;
     static TTSimCommunicator *callback_instance_;
-    static std::array<TTSimCommunicator *, kMaxDmaDevices> dma_instances_;
+    static std::array<DmaHostRange, kMaxDmaDevices> dma_ranges_;
+    static std::size_t dma_range_count_;
+    static std::mutex dma_ranges_mutex_;
 
     // Static wrapper functions for C-style callbacks.
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
-    // Decode the originating device from a tagged DMA paddr (strips the device stride in
-    // place) and return its communicator, falling back to callback_instance_.
+    // Find the chip whose registered host window contains paddr, rebase paddr to the within-window
+    // offset, and return its communicator. Falls back to callback_instance_ if no window matches.
     static TTSimCommunicator *dma_route(uint64_t &paddr);
 
     // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()

@@ -177,7 +177,7 @@ void TTSimTTDevice::close_device() {
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if (communicator_->is_closed()) {
         return;
     }
@@ -198,7 +198,7 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if (communicator_->is_closed()) {
         return;
     }
@@ -343,7 +343,7 @@ ChipInfo TTSimTTDevice::get_chip_info() {
 }
 
 void TTSimTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write not supported for TTSim simulation device.");
 }
 
@@ -390,7 +390,7 @@ void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
 }
 
-void TTSimTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
+void TTSimTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in TTSim simulation device.");
 }
 

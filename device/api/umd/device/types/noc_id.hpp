@@ -25,6 +25,9 @@ inline std::string noc_to_str(NocId noc_id) noexcept {
     return "";
 }
 
+// Get the NocId selected for the current thread.
+NocId get_selected_noc_id();
+
 // Set the NocId for the current thread.
 // All subsequent device communications from this thread will use the selected NocId.
 void set_thread_noc_id(NocId noc_id);

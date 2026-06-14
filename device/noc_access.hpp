@@ -8,8 +8,6 @@
 
 namespace tt::umd {
 
-NocId get_selected_noc_id();
-
 bool is_selected_noc1();
 
 }  // namespace tt::umd

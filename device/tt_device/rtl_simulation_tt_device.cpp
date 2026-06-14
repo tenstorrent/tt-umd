@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -151,16 +150,15 @@ void RtlSimulationTTDevice::write_to_device(
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
 
-    NocId selected_noc_id = get_selected_noc_id();
-    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
 
-    if (selected_noc_id == NocId::SYSTEM_NOC) {
+    if (noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -169,16 +167,15 @@ void RtlSimulationTTDevice::write_to_device(
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
 
-    NocId selected_noc_id = get_selected_noc_id();
-    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
 
-    if (selected_noc_id == NocId::SYSTEM_NOC) {
+    if (noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }

@@ -297,22 +297,22 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
 
 void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
+    device_protocol_->read_from_device(mem_ptr, core, addr, size, noc_id);
 }
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     const SocDescriptor &soc_desc = get_soc_descriptor();
-    read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+    read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());
+    device_protocol_->write_to_device(mem_ptr, core, addr, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     const SocDescriptor &soc_desc = get_soc_descriptor();
-    write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+    write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size, noc_id);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -494,7 +494,7 @@ tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-    get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
+    get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
 }
 
 void TTDevice::noc_multicast_write(
@@ -505,7 +505,8 @@ void TTDevice::noc_multicast_write(
         size,
         soc_desc.translate_chip_coord_to_translated(core_start),
         soc_desc.translate_chip_coord_to_translated(core_end),
-        addr);
+        addr,
+        noc_id);
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
@@ -517,14 +518,14 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular write.
     pcie_dma_lock.unlock();
-    write_to_device(src, core, addr, size);
+    write_to_device(src, core, addr, size, noc_id);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
@@ -536,14 +537,14 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular read.
     pcie_dma_lock.unlock();
-    read_from_device(dst, core, addr, size);
+    read_from_device(dst, core, addr, size, noc_id);
 }
 
 void TTDevice::dma_multicast_write(
@@ -556,15 +557,14 @@ void TTDevice::dma_multicast_write(
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
-    noc_multicast_write(src, size, core_start, core_end, addr);
+    noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }

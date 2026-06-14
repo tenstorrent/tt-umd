@@ -3,13 +3,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
-#include <unistd.h>  // getpid
+#include <sys/mman.h>      // shm_unlink
+#include <sys/resource.h>  // setrlimit
+#include <sys/wait.h>      // waitpid
+#include <unistd.h>        // getpid, fork, _exit
 
 #include <atomic>
 #include <chrono>
+#include <csignal>
+#include <cstdlib>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <thread>
 
 #include "umd/device/utils/robust_mutex.hpp"
@@ -37,6 +43,15 @@ namespace {
 // Unique, test-only mutex names so we never collide with real device locks in /dev/shm.
 constexpr std::string_view kExceptionMutexName = "UMD_TEST_ROBUST_MUTEX_EXCEPTION";
 constexpr std::string_view kHangMutexName = "UMD_TEST_ROBUST_MUTEX_HANG";
+constexpr std::string_view kOrphanMutexName = "UMD_TEST_ROBUST_MUTEX_ORPHAN";
+constexpr std::string_view kCrashMutexName = "UMD_TEST_ROBUST_MUTEX_CRASH";
+
+// Remove any stale backing file so each crash test starts from a clean, freshly-initialized mutex
+// (otherwise a previous run's orphaned lock would poison the next run).
+void unlink_backing_file(std::string_view mutex_name) {
+    std::string shm_name = std::string(RobustMutex::SHM_FILE_PREFIX) + std::string(mutex_name);
+    shm_unlink(shm_name.c_str());
+}
 
 }  // namespace
 
@@ -109,4 +124,95 @@ TEST(RobustMutex, LockStaysHeldWhenHolderNeverReturns) {
     if (!owner_after.has_value()) {
         mutex.unlock();
     }
+}
+
+// CONTROL: a process that crashes (abort) while holding the lock, WITHOUT destroying the RobustMutex
+// first, is correctly recovered by the kernel's robust-futex mechanism. A fresh probe gets EOWNERDEAD,
+// which RobustMutex::probe_lock() recovers, so it reports the lock as free.
+//
+// This is the baseline proving robust recovery normally survives a hard crash. It is paired with
+// OrphanedWhenMutexDestroyedBeforeCrash below, which shows the one thing that breaks it.
+TEST(RobustMutex, RecoveredWhenHolderCrashesWithRegionMapped) {
+    unlink_backing_file(kCrashMutexName);
+
+    pid_t pid = fork();
+    ASSERT_NE(pid, -1) << "fork failed";
+    if (pid == 0) {
+        // Child: acquire the lock and crash while still holding it. Do NOT destroy the RobustMutex,
+        // so its /dev/shm mapping stays valid and the kernel's exit_robust_list walk succeeds.
+        struct rlimit no_core = {0, 0};
+        setrlimit(RLIMIT_CORE, &no_core);  // keep the test run tidy: no core file
+        RobustMutex mutex(kCrashMutexName);
+        mutex.initialize();
+        mutex.lock();
+        std::abort();
+        _exit(99);  // unreachable
+    }
+
+    int status = 0;
+    ASSERT_EQ(waitpid(pid, &status, 0), pid);
+
+    RobustMutex probe(kCrashMutexName);
+    probe.initialize();
+    std::optional<std::pair<pid_t, pid_t>> owner = probe.probe_lock(0s);
+    EXPECT_FALSE(owner.has_value())
+        << "Robust recovery should have reclaimed the lock from the crashed owner (EOWNERDEAD).";
+    if (!owner.has_value()) {
+        probe.unlock();
+    }
+    unlink_backing_file(kCrashMutexName);
+}
+
+// Regression test for the close_mutex() destruction-while-held guard, which fixes the tt-telemetry
+// orphaned-lock bug.
+//
+// The kernel only marks a robust mutex owner-dead if it can walk the dead thread's robust list, which
+// lives in the mutex's shared-memory region. The original bug: RobustMutex::~RobustMutex ->
+// close_mutex() munmap'd that region even while a thread still held the lock (e.g. tt-telemetry's
+// watchdog exit(1) running static destructors while a stuck thread held NON_MMIO). With the region
+// unmapped, the kernel's robust-list walk on the subsequent crash faulted and silently bailed, so
+// OWNER_DIED was never set and the lock was orphaned forever (EBUSY for everyone, cross-process /
+// cross-container).
+//
+// The fix: close_mutex() detects active_locks_ != 0 and leaks the mapping instead of unmapping it, so
+// the robust list stays valid and the kernel can still set OWNER_DIED on crash. This test reproduces
+// the exact teardown (destroy while held, then crash) and asserts the lock is now RECOVERABLE.
+TEST(RobustMutex, DestroyedWhileHeldThenCrashStillRecovers) {
+    unlink_backing_file(kOrphanMutexName);
+
+    pid_t pid = fork();
+    ASSERT_NE(pid, -1) << "fork failed";
+    if (pid == 0) {
+        // Child: acquire the lock, then destroy the RobustMutex while still holding it (mimicking
+        // exit()-time static destruction), then crash. close_mutex()'s guard must leak (not munmap)
+        // the still-held region so robust recovery survives.
+        struct rlimit no_core = {0, 0};
+        setrlimit(RLIMIT_CORE, &no_core);
+        {
+            RobustMutex mutex(kOrphanMutexName);
+            mutex.initialize();
+            mutex.lock();
+            // RobustMutex::lock() (unlike unique_lock) does NOT unlock on destruction, so when `mutex`
+            // goes out of scope here its destructor runs close_mutex() while the lock is still held:
+            // active_locks_ != 0 -> the guard leaks the mapping instead of munmap-ing it.
+        }
+        std::abort();
+        _exit(99);  // unreachable
+    }
+
+    int status = 0;
+    ASSERT_EQ(waitpid(pid, &status, 0), pid);
+
+    RobustMutex probe(kOrphanMutexName);
+    probe.initialize();
+    std::optional<std::pair<pid_t, pid_t>> owner = probe.probe_lock(0s);
+    // With the guard, the region stayed mapped, so the kernel set OWNER_DIED on crash and probe_lock()
+    // recovers it (EOWNERDEAD -> nullopt). Without the guard this would be orphaned (EBUSY -> owner set).
+    EXPECT_FALSE(owner.has_value())
+        << "Lock was orphaned: destroying a held RobustMutex munmap'd the region and broke robust "
+           "recovery. The close_mutex() destruction-while-held guard should have leaked the mapping.";
+    if (!owner.has_value()) {
+        probe.unlock();
+    }
+    unlink_backing_file(kOrphanMutexName);
 }

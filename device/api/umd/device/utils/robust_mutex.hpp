@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -111,6 +112,10 @@ private:
     int shm_fd_ = -1;
     pthread_mutex_wrapper* mutex_wrapper_ptr_ = nullptr;
     std::string mutex_name_;
+
+    // How many times this object currently holds the lock for a thread in this process.
+    // Used by close_mutex() to detect destruction-while-held.
+    std::atomic<int> active_locks_{0};
 };
 
 }  // namespace tt::umd

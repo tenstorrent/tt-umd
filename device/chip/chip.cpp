@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -272,11 +273,12 @@ void Chip::noc_multicast_write(const void* src, size_t size, CoreCoord core_star
         size,
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
-        addr);
+        addr,
+        get_selected_noc_id());
 }
 
 void Chip::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
-    get_tt_device()->noc_multicast_write(src, size, addr);
+    get_tt_device()->noc_multicast_write(src, size, addr, get_selected_noc_id());
 }
 
 }  // namespace tt::umd

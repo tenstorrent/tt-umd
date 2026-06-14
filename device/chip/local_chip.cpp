@@ -250,7 +250,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
     tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, translated_core, l1_dest, size);
+        tt_device_->write_to_device(src, translated_core, l1_dest, size, get_selected_noc_id());
         return;
     }
 
@@ -277,7 +277,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
     tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
         return;
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
@@ -291,17 +291,19 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_write_to_device(src, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+    tt_device_->dma_write_to_device(
+        src, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr, get_selected_noc_id());
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_read_from_device(dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+    tt_device_->dma_read_from_device(
+        dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr, get_selected_noc_id());
 }
 
 void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
     tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
-    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
+    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr, get_selected_noc_id());
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -314,7 +316,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, reg_dest, size);
+        tt_device_->write_to_device(src, core, reg_dest, size, get_selected_noc_id());
         return;
     }
 
@@ -346,7 +348,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, reg_src, size);
+        tt_device_->read_from_device(dest, translated_core, reg_src, size, get_selected_noc_id());
         return;
     }
 

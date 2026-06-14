@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -192,7 +191,7 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
         communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
     }
@@ -213,7 +212,7 @@ void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t ad
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
         communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
     }

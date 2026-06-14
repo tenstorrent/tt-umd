@@ -10,6 +10,7 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
+#include "noc_access.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -94,16 +95,19 @@ SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
         case ARCH::WORMHOLE_B0: {
             uint32_t eth_fw_version_read;
             tt_device->read_from_device(
-                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t));
+                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t), get_selected_noc_id());
             return SemVer::from_wormhole_eth_firmware_tag(eth_fw_version_read);
         }
         case ARCH::BLACKHOLE: {
             uint8_t major = 0;
             uint8_t minor = 0;
             uint8_t patch = 0;
-            tt_device->read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t));
-            tt_device->read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t));
-            tt_device->read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(
+                &major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t), get_selected_noc_id());
+            tt_device->read_from_device(
+                &minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t), get_selected_noc_id());
+            tt_device->read_from_device(
+                &patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t), get_selected_noc_id());
             return SemVer(major, minor, patch);
         }
         default:

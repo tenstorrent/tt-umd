@@ -182,7 +182,11 @@ public:
 
         uint32_t noc_translated_id_val;
         cluster_->get_tt_device(chip)->read_from_device(
-            &noc_translated_id_val, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
+            &noc_translated_id_val,
+            core,
+            noc_translated_id_reg_addr,
+            sizeof(noc_translated_id_val),
+            get_selected_noc_id());
 
         return extract_coords_from_reg(noc_translated_id_val);
     }
@@ -700,12 +704,17 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
         const tt_xy_pair& translated = it->second;
 
         uint32_t noc_node_id_val;
-        device->read_from_device(&noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        device->read_from_device(
+            &noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val), get_selected_noc_id());
         const auto [x, y] = extract_coords_from_reg(noc_node_id_val);
 
         uint32_t noc_translated_id_val;
         device->read_from_device(
-            &noc_translated_id_val, translated, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
+            &noc_translated_id_val,
+            translated,
+            noc_translated_id_reg_addr,
+            sizeof(noc_translated_id_val),
+            get_selected_noc_id());
         const auto [translated_x, translated_y] = extract_coords_from_reg(noc_translated_id_val);
 
         info += fmt::format(

@@ -146,14 +146,15 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config,
 
 RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
 
-void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void RtlSimulationTTDevice::write_to_device(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
 
-    NocId noc_id = get_selected_noc_id();
-    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    NocId selected_noc_id = get_selected_noc_id();
+    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
 
-    if (noc_id == NocId::SYSTEM_NOC) {
+    if (selected_noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
         return;
     }
@@ -165,13 +166,13 @@ void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core
     }
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
 
-    NocId noc_id = get_selected_noc_id();
-    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    NocId selected_noc_id = get_selected_noc_id();
+    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
 
-    if (noc_id == NocId::SYSTEM_NOC) {
+    if (selected_noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
         return;
     }
@@ -326,7 +327,7 @@ bool RtlSimulationTTDevice::get_noc_translation_enabled() {
 }
 
 void RtlSimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "dma_multicast_write() not supported for RTL simulation.");
 }
 
@@ -334,7 +335,7 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
+void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in RTL simulation device.");
 }
 

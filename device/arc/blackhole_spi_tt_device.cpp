@@ -12,6 +12,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -173,7 +174,8 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         }
 
         // Read data from buffer.
-        device_->read_from_device(data + bytes_read, device_->get_arc_core(), buffer_addr, chunk_size);
+        device_->read_from_device(
+            data + bytes_read, device_->get_arc_core(), buffer_addr, chunk_size, get_selected_noc_id());
         bytes_read += chunk_size;
         // Guard against bytes_read exceeding size (e.g. if device returned more than requested).
         bytes_read = std::min(bytes_read, size);
@@ -212,7 +214,8 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(remaining), buffer_size);
 
         // Write data to buffer first.
-        device_->write_to_device(data + bytes_written, device_->get_arc_core(), buffer_addr, chunk_size);
+        device_->write_to_device(
+            data + bytes_written, device_->get_arc_core(), buffer_addr, chunk_size, get_selected_noc_id());
 
         if (!skip_write_to_spi) {
             // Request ARC to write chunk from buffer to SPI using WRITE_EEPROM (0x1A).

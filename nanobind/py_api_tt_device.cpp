@@ -273,7 +273,7 @@ void bind_tt_device(nb::module_ &m) {
                 uint32_t value = 0;
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                    self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
                 return value;
             },
@@ -287,7 +287,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                    self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -302,7 +302,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(buffer.data(), core, addr, size);
+                    self.read_from_device(buffer.data(), core, addr, size, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -318,7 +318,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size());
+                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -334,7 +334,7 @@ void bind_tt_device(nb::module_ &m) {
                 PyBufferView buffer(data);
                 {
                     nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr);
+                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
                 }
             },
             nb::arg("addr"),
@@ -345,7 +345,7 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
             },
             nb::arg("addr"),
             nb::arg("value"),
@@ -364,7 +364,8 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core_end = {end_x, end_y};
                 {
                     nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), core_start, core_end, addr);
+                    self.noc_multicast_write(
+                        buffer.readable_data(), buffer.size(), core_start, core_end, addr, get_selected_noc_id());
                 }
             },
             nb::arg("start_x"),
@@ -388,7 +389,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t value) -> void {
                 tt_xy_pair core_start = {start_x, start_y};
                 tt_xy_pair core_end = {end_x, end_y};
-                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr, get_selected_noc_id());
             },
             nb::arg("start_x"),
             nb::arg("start_y"),
@@ -452,7 +453,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(buffer.data(), size, core, addr);
+                    self.dma_read_from_device(buffer.data(), size, core, addr, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -468,7 +469,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_write_to_device(buffer.readable_data(), buffer.size(), core, addr);
+                    self.dma_write_to_device(buffer.readable_data(), buffer.size(), core, addr, get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -599,7 +600,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(data_ptr, core, addr, data_size);
+                    self.read_from_device(data_ptr, core, addr, data_size, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -624,7 +625,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(data_ptr, data_size, core, addr);
+                    self.dma_read_from_device(data_ptr, data_size, core, addr, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -645,7 +646,7 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 return value;
             },
             nb::arg("noc_id"),
@@ -664,7 +665,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size());
+                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -683,7 +684,7 @@ void bind_tt_device(nb::module_ &m) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -700,7 +701,7 @@ void bind_tt_device(nb::module_ &m) {
                 PyBufferView buffer(data);
                 {
                     nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr);
+                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -715,7 +716,7 @@ void bind_tt_device(nb::module_ &m) {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("addr"),

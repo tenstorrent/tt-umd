@@ -70,7 +70,7 @@ protected:
         }
         NocIdSwitcher switcher(noc);
         tt_device_->read_from_device(
-            &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+            &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value), noc);
         return hang_read_value;
     }
 

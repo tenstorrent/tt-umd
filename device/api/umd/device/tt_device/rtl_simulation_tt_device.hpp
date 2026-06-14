@@ -39,8 +39,10 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create(
         const std::filesystem::path& simulator_directory, int num_host_mem_channels = 0);
 
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void read_from_device(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void write_to_device(
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
@@ -58,12 +60,17 @@ public:
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
     void dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        void* src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
-    void noc_multicast_write(const void* src, size_t size, uint64_t addr) override;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 

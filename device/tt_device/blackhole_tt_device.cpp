@@ -314,7 +314,7 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     }
 }
 
-void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
+void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
     //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
     //   Translation enabled:  hardware broadcast is avoided; use a software multicast with
@@ -327,14 +327,14 @@ void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64
         get_chip_info().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for BH devices without NOC translation enabled.");
-    if (is_selected_noc1()) {
+    if (noc_id == NocId::NOC1) {
         start_coord = xy_pair{1, 2};
         end_coord = xy_pair{2, 3};
     } else {
         start_coord = xy_pair{2, 3};
         end_coord = xy_pair{1, 2};
     }
-    noc_multicast_write(src, size, start_coord, end_coord, addr);
+    noc_multicast_write(src, size, start_coord, end_coord, addr, noc_id);
 }
 
 }  // namespace tt::umd

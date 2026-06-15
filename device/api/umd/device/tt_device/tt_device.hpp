@@ -69,12 +69,31 @@ enum class EthTrainingStatus {
 class TTDevice {
 public:
     /**
-     * Creates a proper TTDevice object for the given device number.
-     * Jtag support can be enabled.
+     * @brief Factory method to create a TTDevice instance.
+     *
+     * Creates and returns a unique pointer to a TTDevice object configured with the
+     * specified parameters. This is the primary way to instantiate TTDevice objects.
+     *
+     * @param device_number The device identifier/index to connect to, specific to the I/O device interface.
+     * @param device_type The type of I/O device interface to use. (default: PCIe)
+     * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
+     *                     Available only for PCIe I/O device type. (default: false)
+     * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
+     *                            If nullptr, a default descriptor will be used. (default: nullptr)
+     *
+     * @return std::unique_ptr<TTDevice> A unique pointer to the created TTDevice instance.
+     *
+     * @throws May throw exceptions if device creation fails or device_number is invalid.
      */
     static std::unique_ptr<TTDevice> create(
-        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+        int device_number,
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_safe_api = false,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     virtual ~TTDevice() = default;
 
@@ -366,9 +385,7 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(
-        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 
@@ -467,14 +484,17 @@ protected:
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
         bool use_safe_api);
     TTDevice(
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     TTDevice(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -492,6 +512,9 @@ protected:
 private:
     void probe_arc();
 
+    void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;

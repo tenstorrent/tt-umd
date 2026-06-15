@@ -630,4 +630,9 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
     soc_descriptor_ = soc_descriptor;
 }
 
+EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
+    return read_eth_core_training_status(soc_descriptor.translate_chip_coord_to_translated(eth_core));
+}
+
 }  // namespace tt::umd

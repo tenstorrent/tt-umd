@@ -458,6 +458,7 @@ public:
      * @return Training status
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
 
     const SocDescriptor &get_soc_descriptor() const;
 

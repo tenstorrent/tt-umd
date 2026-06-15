@@ -79,6 +79,7 @@ private:
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     friend std::unique_ptr<TTDevice> TTDevice::create(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+        std::optional<SocDescriptor> soc_descriptor);
 };
 }  // namespace tt::umd

@@ -191,14 +191,19 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
 std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+    std::optional<SocDescriptor> soc_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
     tt::ARCH arch = remote_communication->get_local_device()->get_arch();
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            return std::unique_ptr<WormholeTTDevice>(
+            auto device = std::unique_ptr<WormholeTTDevice>(
                 new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
+            if (soc_descriptor.has_value()) {
+                device->set_soc_descriptor(std::move(*soc_descriptor));
+            }
+            return device;
         }
         default:
             UMD_THROW(

@@ -39,7 +39,7 @@ public:
      */
     static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
     static std::unique_ptr<RemoteChip> create_for_simulation(
-        std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, SocDescriptor soc_descriptor, ChipInfo chip_info);
+        std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info);
 
     bool is_mmio_capable() const override;
 
@@ -50,7 +50,7 @@ public:
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
 
-    const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -83,13 +83,11 @@ public:
 
 private:
     RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
-    RemoteChip(
-        Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, SocDescriptor soc_descriptor, ChipInfo chip_info);
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info);
 
     Chip* local_chip_;
     RemoteCommunication* remote_communication_;
 
-    SocDescriptor soc_descriptor_;
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 };
 }  // namespace tt::umd

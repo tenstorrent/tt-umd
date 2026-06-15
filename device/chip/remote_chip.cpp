@@ -39,27 +39,26 @@ std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_
 }
 
 std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
-    std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, SocDescriptor soc_descriptor, ChipInfo chip_info) {
+    std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
     UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "Local chip passed to RemoteChip must not be null.");
-    return std::unique_ptr<RemoteChip>(
-        new RemoteChip(local_chip, std::move(remote_tt_device), std::move(soc_descriptor), chip_info));
+    // The remote TTDevice for a simulated chip is never run through init_tt_device() (it has no ARC to probe), so
+    // its SocDescriptor is supplied to TTDevice::create() instead. get_soc_descriptor() can then keep delegating
+    // to the TTDevice like every other chip.
+    return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device), chip_info));
 }
 
 RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()),
-    local_chip_(local_chip),
-    soc_descriptor_(remote_tt_device->get_soc_descriptor()) {
+    Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();
 }
 
-RemoteChip::RemoteChip(
-    Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, SocDescriptor soc_descriptor, ChipInfo chip_info) :
-    Chip(chip_info, soc_descriptor.arch), local_chip_(local_chip), soc_descriptor_(std::move(soc_descriptor)) {
+RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info) :
+    Chip(chip_info, remote_tt_device->get_soc_descriptor().arch), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
 }

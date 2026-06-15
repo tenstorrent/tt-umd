@@ -120,6 +120,8 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
             'merge_group|ASan|tt-ubuntu-2204-bh-loudbox-stable' \
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
+            'pull_request|*|6u' \
+            'merge_group|*|6u' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'pull_request|*|bh-gh-07' \
@@ -226,7 +228,8 @@ jobs:
           {runs-on: tt-ubuntu-2204-n150-stable},
           {runs-on: tt-ubuntu-2204-n300-stable},
           {runs-on: tt-ubuntu-2204-n300-llmbox-stable},
-          {runs-on: 6u},
+          # TODO: 6u temporarily disabled — machine compromised
+          # {runs-on: 6u},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

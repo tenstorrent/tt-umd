@@ -130,6 +130,10 @@ jobs:
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # wh_x2 is two Wormhole chips; reuse the per-chip Wormhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x2/soc_descriptor.yaml
+          # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
+          # and enumerates both the MMIO gateway and the remote chip. Without it, the sim is a single MMIO chip.
+          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/wormhole_N300.yaml \
+            sim_wh_x2/cluster_descriptor.yaml
 
       - name: Build UMD api_tests with simulation support
         run: |
@@ -202,13 +206,13 @@ jobs:
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
       # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
-      # simulated eth). The N300 cluster descriptor makes the cluster enumerate both chips,
-      # so the standard device-IO fixtures run across the gateway and the remote chip.
+      # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
+      # makes UMD enumerate both chips, so the standard device-IO fixtures run across the gateway and
+      # the remote chip.
       - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
-          TT_UMD_CLUSTER_DESCRIPTOR: wormhole_N300.yaml
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
 
@@ -216,7 +220,6 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
-          TT_UMD_CLUSTER_DESCRIPTOR: wormhole_N300.yaml
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 

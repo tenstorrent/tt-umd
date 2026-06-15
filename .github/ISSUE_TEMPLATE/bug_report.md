@@ -10,6 +10,11 @@ assignees: ''
 **Describe the bug**
 A clear and concise description of what the bug is.
 
+**Environment**
+- UMD commit: [e.g. `abc1234`] (branch, if applicable):
+- FW version: [e.g. 19.8.1]
+- KMD version: [e.g. 2.8.1]
+
 **Stack trace**
 Please paste the stack trace as this can speed up triaging.
 

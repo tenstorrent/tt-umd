@@ -39,7 +39,7 @@ static void set_barrier_params(Cluster& cluster) {
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-TEST(SiliconDriverBH, CreateDestroy) {
+TEST(ClusterBH, CreateDestroy) {
     DeviceParams default_params;
     for (int i = 0; i < 50; i++) {
         auto cluster_ptr = test_utils::make_default_test_cluster();
@@ -50,7 +50,7 @@ TEST(SiliconDriverBH, CreateDestroy) {
     }
 }
 
-TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
+TEST(ClusterBH, UnalignedStaticTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -91,7 +91,7 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, StaticTLB_RW) {
+TEST(ClusterBH, StaticTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -135,7 +135,7 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, DynamicTLB_RW) {
+TEST(ClusterBH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
     auto cluster_ptr = test_utils::make_default_test_cluster();
@@ -197,7 +197,7 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
 
 // TODO(#2485): Re-enable. Writes and reads are not synchronized so they can land on the device out of order; broke
 // after PR #2455.
-TEST(SiliconDriverBH, DISABLED_MultiThreadedDevice) {
+TEST(ClusterBH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     auto cluster_ptr = test_utils::make_default_test_cluster();
@@ -246,7 +246,7 @@ TEST(SiliconDriverBH, DISABLED_MultiThreadedDevice) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, MultiThreadedMemBar) {
+TEST(ClusterBH, MultiThreadedMemBar) {
     // Have 2 threads read and write from a single device concurrently
     // All (fairly large) transactions go through a static TLB.
     // We want to make sure the memory barrier is thread/process safe.
@@ -364,7 +364,7 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
 // Assumes single-writer single-process: nothing else on the host or device is writing
 // to this chip while the test runs. Compares the NIU counter delta against a
 // host-side counter, so any concurrent writer invalidates the assertion.
-TEST(SiliconDriverBH, WriteCountMatchesPostedWrites) {
+TEST(ClusterBH, WriteCountMatchesPostedWrites) {
     // NOC register that counts the number of posted write requests received by a core.
     constexpr uint64_t NIU_SLV_POSTED_WR_REQ_RECEIVED = 0xffb202e0;
     constexpr uint32_t kNumWrites = 100000;
@@ -447,7 +447,7 @@ TEST(ClusterBH, L2CPUCores) {
 }
 
 // Unlike WH, which can support both untranslated and translated coordinate spaces, on BH these spaces are overlapping.
-TEST(SiliconDriverBH, VirtualCoordinateBroadcast) {
+TEST(ClusterBH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
     // Blackhole has no ERISC firmware broadcast, so this exercises the SW fallback in broadcast_write_to_cluster.

@@ -21,6 +21,7 @@
 #include <variant>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -38,7 +39,7 @@ using namespace tt::umd;
 
 class TestNoc : public ::testing::Test {
 public:
-    void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
+    void SetUp() override { cluster_ = test_utils::make_default_test_cluster(); }
 
     void verify_noc_id_cores_via_other_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {

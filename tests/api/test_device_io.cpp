@@ -65,7 +65,7 @@ class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {};
 
 TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -109,7 +109,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
 
 TEST_P(TestDeviceIOFixture, RemoteFlush) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -152,7 +152,7 @@ TEST_P(TestDeviceIOFixture, RemoteFlush) {
 
 TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -201,7 +201,8 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     // to be reconfigured for each transaction
     const CoreType core_type = GetParam();
 
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -242,7 +243,7 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 }
 
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
@@ -303,7 +304,8 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     // TODO: sysmem_enabled parameter to be added in the following PR.
     auto [use_noc0, full_grid] = GetParam();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
@@ -456,8 +458,8 @@ INSTANTIATE_TEST_SUITE_P(
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
-    ClusterOptions options = GetParam();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+    const ClusterOptions& options = GetParam();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
 
     if (options.chip_type == ChipType::SIMULATION) {
         cluster->start_device({.init_device = true});
@@ -543,7 +545,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     }
 
     std::unique_ptr<Cluster> cluster =
-        make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
     if (cluster->get_soc_descriptor(0).arch == tt::ARCH::QUASAR) {
         GTEST_SKIP() << "Skipping the test for quasar since Sysmem is not supported yet.";
     }
@@ -664,7 +666,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, RegReadWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -709,7 +711,7 @@ TEST_F(TestDeviceIOFixture, RegReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -753,7 +755,7 @@ TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
         GTEST_SKIP() << "SMN is only available on the RTL simulator.";
     }
 
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     cluster->start_device({.init_device = true});
 
     TTDevice* tt_device = cluster->get_tt_device(0);
@@ -799,7 +801,8 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  */
 TEST(TestDeviceIO, DMA1) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -847,7 +850,8 @@ TEST(TestDeviceIO, DMA1) {
  */
 TEST(TestDeviceIO, DMA2) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = 1;
@@ -991,7 +995,7 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
 // (up to 1 MB) and a DRAM core (up to 256 MB).
 TEST_F(TestDeviceIOFixture, DISABLED_LoopbackStressSize) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const uint32_t seed = std::random_device{}();
     GTEST_LOG_(INFO) << "LoopbackStressSize RNG seed = " << seed;

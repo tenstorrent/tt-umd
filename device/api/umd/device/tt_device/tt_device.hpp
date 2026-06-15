@@ -99,7 +99,7 @@ public:
      * @brief Controls what happens when a hang is confirmed.
      */
     enum class HangAction {
-        THROW,   ///< Throw std::runtime_error (default).
+        THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
     };
 
@@ -273,8 +273,6 @@ public:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
     virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    void write_regs(volatile uint32_t *dest, const uint32_t *src, uint32_t word_len);
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
@@ -466,10 +464,7 @@ protected:
     int communication_device_id_ = -1;
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
-    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     LockManager lock_manager;
-    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
 
     TTDevice() = default;
     TTDevice(
@@ -507,6 +502,9 @@ private:
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
+    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;

@@ -563,7 +563,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr) {
     const SocDescriptor &soc_desc = get_soc_descriptor();
-    dma_write_to_device(dst, size, soc_desc.translate_chip_coord_to_translated(core), addr);
+    dma_read_from_device(dst, size, soc_desc.translate_chip_coord_to_translated(core), addr);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

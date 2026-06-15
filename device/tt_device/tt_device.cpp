@@ -201,7 +201,8 @@ std::unique_ptr<TTDevice> TTDevice::create(
             auto device = std::unique_ptr<WormholeTTDevice>(
                 new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
             if (soc_descriptor.has_value()) {
-                device->set_soc_descriptor(std::move(*soc_descriptor));
+                // set_soc_descriptor takes a const ref and copies internally, so no std::move here.
+                device->set_soc_descriptor(*soc_descriptor);
             }
             return device;
         }

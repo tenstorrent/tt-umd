@@ -112,18 +112,18 @@ void TTDevice::probe_arc() {
 }
 
 void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
-    if (soc_arch_descriptor != nullptr) {
-        UMD_ASSERT(
-            soc_arch_descriptor->get_arch() == arch,
-            error::RuntimeError,
-            fmt::format(
-                "SocArchDescriptor architecture {} does not match device architecture {}.",
-                arch_to_str(soc_arch_descriptor->get_arch()),
-                arch_to_str(arch)));
-        soc_arch_descriptor_ = soc_arch_descriptor;
-    } else {
+    if (soc_arch_descriptor == nullptr) {
         soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
+        return;
     }
+    UMD_ASSERT(
+        soc_arch_descriptor->get_arch() == arch,
+        error::RuntimeError,
+        fmt::format(
+            "SocArchDescriptor architecture {} does not match device architecture {}.",
+            arch_to_str(soc_arch_descriptor->get_arch()),
+            arch_to_str(arch)));
+    soc_arch_descriptor_ = soc_arch_descriptor;
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {

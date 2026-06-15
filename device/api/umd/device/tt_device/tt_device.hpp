@@ -69,14 +69,28 @@ enum class EthTrainingStatus {
 class TTDevice {
 public:
     /**
-     * Creates a proper TTDevice object for the given device number.
-     * Jtag support can be enabled.
+     * @brief Factory method to create a TTDevice instance.
+     *
+     * Creates and returns a unique pointer to a TTDevice object configured with the
+     * specified parameters. This is the primary way to instantiate TTDevice objects.
+     *
+     * @param device_number The device identifier/index to connect to, specific to the I/O device interface.
+     * @param device_type The type of I/O device interface to use. (default: PCIe)
+     * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
+     *                     Available only for PCIe I/O device type. (default: false)
+     * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
+     *                            If nullptr, a default descriptor will be used. (default: nullptr)
+     *
+     * @return std::unique_ptr<TTDevice> A unique pointer to the created TTDevice instance.
+     *
+     * @throws May throw exceptions if device creation fails or device_number is invalid.
      */
     static std::unique_ptr<TTDevice> create(
         int device_number,
         IODeviceType device_type = IODeviceType::PCIe,
         bool use_safe_api = false,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);

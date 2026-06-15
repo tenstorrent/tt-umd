@@ -9,7 +9,6 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -499,14 +498,6 @@ void TTDevice::noc_multicast_write(
         get_pcie_interface()->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
         return;
     }
-
-    UMD_ASSERT(
-        size <= std::numeric_limits<uint32_t>::max(),
-        error::RuntimeError,
-        fmt::format(
-            "noc_multicast_write size {} exceeds the maximum supported broadcast size of {} bytes.",
-            size,
-            std::numeric_limits<uint32_t>::max()));
 
     bool broadcast_success =
         device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());

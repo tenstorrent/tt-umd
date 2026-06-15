@@ -198,6 +198,36 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     }
 }
 
+#ifdef TT_UMD_BUILD_SIMULATION
+std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
+    ChipId chip_id, ClusterDescriptor* cluster_desc, SocDescriptor soc_desc) {
+    ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+    Chip* gateway_chip = get_chip(gateway_id);
+    SysmemManager* sysmem_manager = gateway_chip->get_sysmem_manager();
+    if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
+        sysmem_manager = nullptr;
+    }
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
+    remote_communication->set_remote_transfer_ethernet_cores(
+        gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
+    chip_info.harvesting_masks = soc_desc.harvesting_masks;
+    chip_info.board_type = cluster_desc->get_board_type(chip_id);
+    chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
+    chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
+
+    // The simulated remote chip has no ARC, so hand its SocDescriptor to the remote TTDevice directly
+    // instead of letting init_tt_device construct one.
+    auto remote_tt_device =
+        TTDevice::create(std::move(remote_communication), /*soc_arch_descriptor=*/nullptr, std::move(soc_desc));
+    return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
+}
+#endif  // TT_UMD_BUILD_SIMULATION
+
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ChipId chip_id,
     const ChipType& chip_type,
@@ -221,29 +251,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
         if (simulator_directory.extension() == ".so" && !cluster_desc->is_chip_mmio_capable(chip_id)) {
-            ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-            Chip* gateway_chip = get_chip(gateway_id);
-            SysmemManager* sysmem_manager = gateway_chip->get_sysmem_manager();
-            if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
-                sysmem_manager = nullptr;
-            }
-            auto remote_communication = RemoteCommunication::create_remote_communication(
-                gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
-            remote_communication->set_remote_transfer_ethernet_cores(
-                gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
-                    cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
-            ChipInfo chip_info;
-            chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
-            chip_info.harvesting_masks = soc_desc.harvesting_masks;
-            chip_info.board_type = cluster_desc->get_board_type(chip_id);
-            chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
-            chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
-
-            // The simulated remote chip has no ARC, so hand its SocDescriptor to the remote TTDevice directly
-            // instead of letting init_tt_device construct one.
-            auto remote_tt_device =
-                TTDevice::create(std::move(remote_communication), /*soc_arch_descriptor=*/nullptr, std::move(soc_desc));
-            return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
+            return create_simulation_remote_chip(chip_id, cluster_desc, std::move(soc_desc));
         }
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(

@@ -165,7 +165,12 @@ TTSimTTDevice::TTSimTTDevice(
     // (WH channel 3 is 768 MiB, the rest 1 GiB); configure_iatu_region keeps the region base on the
     // fixed 1 GiB channel grid (matching SimulationSysmemManager's placement) and uses region_size only
     // to bound the limit, so a sub-1-GiB channel still starts at the right NOC offset.
-    if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+    // Only program the outbound iATU in the multi-MMIO case (num_chips > 1), where address-based DMA
+    // routing needs each chip's NOC window mapped onto its distinct host base. A single-chip sim has one
+    // host window at base 0, so routing degenerates to a no-op and the legacy DMA path already works --
+    // and the single-chip libttsim builds do not model the BAR2 outbound iATU (they throw
+    // UnimplementedFunctionality on these register writes), so issuing them would regress single-chip.
+    if (num_chips > 1 && (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE)) {
         size_t nch = sysmem_manager_->get_num_host_mem_channels();
         for (size_t ch = 0; ch < nch; ch++) {
             HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);

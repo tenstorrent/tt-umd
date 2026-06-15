@@ -27,6 +27,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -46,6 +47,7 @@ enum class ARCH;
 namespace tt::umd {
 
 class ClusterDescriptor;
+class EthernetBroadcast;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
@@ -83,7 +85,7 @@ struct ClusterOptions {
      * If not provided, the value is determined automatically by determining the max
      * amount of chips connected through one PCIe interface in the ClusterDescriptor.
      */
-    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = 0;
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt;
 
     /**
      * If set, this soc descriptor will be used to construct devices on this cluster. If not set, the default soc
@@ -141,7 +143,11 @@ public:
      * - Perform this for each of the chips connected to the system.
      * @param options See documentation of ClusterOptions for explanation of specific arguments.
      */
-    Cluster(ClusterOptions options = {});
+    Cluster() : Cluster(ClusterOptions{}) {}
+
+    // Explicit to prevent implicit conversion from ClusterOptions at call sites.
+    explicit Cluster(ClusterOptions options);
+
     /**
      * Closing the device. Should undo everything that was done in the constructor. Break created links, free memory,
      * leave the device in a state where it can be re-initialized.
@@ -262,6 +268,14 @@ public:
      */
     void configure_active_ethernet_cores_for_mmio_device(
         ChipId mmio_chip, const std::unordered_set<CoreCoord>& active_eth_cores_per_chip);
+
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Passthroughs to libttsim_switch_register_fabric_* for wiring mock
+    // multichip fabric topologies under craq-sim.  Only available when
+    // the library is built with TT_UMD_BUILD_SIMULATION=ON.
+    void register_sim_fabric_endpoint_direction(ChipId chip_id, uint32_t eth_tile_id, uint32_t direction);
+    void register_sim_fabric_node_id(ChipId chip_id, uint32_t mesh_id, uint32_t fabric_chip_id);
+#endif  // TT_UMD_BUILD_SIMULATION
 
     //---------- Start and stop the device and tensix cores.
 
@@ -437,7 +451,7 @@ public:
         void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     void noc_multicast_write(
-        void* dst, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        const void* src, size_t size, ChipId chip, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * This function writes to multiple chips and cores in the cluster. A set of chips, rows and columns can be excluded
@@ -694,29 +708,6 @@ private:
     void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
     void deassert_resets_and_set_power_state();
 
-    // Validates that the caller-supplied rows/columns lie in the coordinate space selected by
-    // @p use_translated_coords (NOC0 when false, translated-index when true) and emits their
-    // virtual-space equivalents used by the ethernet broadcast path.
-    static void adjust_coordinates_for_ethernet_broadcast(
-        const std::set<uint32_t>& rows_to_exclude,
-        const std::set<uint32_t>& columns_to_exclude,
-        bool use_translated_coords,
-        std::set<uint32_t>& rows_to_exclude_virtual,
-        std::set<uint32_t>& cols_to_exclude_virtual);
-
-    // Communication Functions.
-    void ethernet_broadcast_write(
-        const void* mem_ptr,
-        uint32_t size_in_bytes,
-        uint64_t address,
-        const std::set<ChipId>& chips_to_exclude,
-        const std::set<uint32_t>& rows_to_exclude,
-        std::set<uint32_t>& cols_to_exclude,
-        bool use_translated_coords);
-
-    std::unordered_map<ChipId, std::vector<std::vector<int>>>& get_ethernet_broadcast_headers(
-        const std::set<ChipId>& chips_to_exclude);
-
     // Test functions.
     void log_device_summary();
     void log_pci_device_summary();
@@ -741,6 +732,8 @@ private:
     std::set<ChipId> remote_chip_ids_;
     std::set<ChipId> local_chip_ids_;
     std::unordered_map<ChipId, std::unique_ptr<Chip>> chips_;
+    std::unordered_map<ChipId, std::unique_ptr<RemoteCommunication>> remote_communications_;
+    std::unique_ptr<EthernetBroadcast> ethernet_broadcast_;
     tt::ARCH arch_name;
 
     std::unique_ptr<ClusterDescriptor> cluster_desc;
@@ -748,8 +741,6 @@ private:
     // Options used to construct this cluster, needed to re-run topology discovery on refresh.
     ClusterOptions options_;
 
-    std::map<std::set<ChipId>, std::unordered_map<ChipId, std::vector<std::vector<int>>>> bcast_header_cache;
-    bool use_ethernet_broadcast = false;
     bool use_translated_coords_for_eth_broadcast = false;
     std::optional<SemVer> eth_fw_version;  // Ethernet FW the driver is interfacing with.
     std::optional<FirmwareBundleVersion> fw_bundle_version;

@@ -33,16 +33,16 @@ struct CoreCoord;
 // An abstract class that represents a chip.
 class Chip {
 public:
-    Chip(SocDescriptor soc_descriptor);
+    Chip(tt::ARCH arch);
 
-    Chip(const ChipInfo chip_info, SocDescriptor soc_descriptor);
+    Chip(const ChipInfo chip_info, tt::ARCH arch);
 
     virtual ~Chip() = default;
 
     virtual void start_device(uint32_t dram_membar_subchannel = 0) = 0;
     virtual void close_device() = 0;
 
-    SocDescriptor& get_soc_descriptor();
+    virtual const SocDescriptor& get_soc_descriptor() const = 0;
 
     virtual bool is_mmio_capable() const = 0;
 
@@ -67,8 +67,9 @@ public:
     virtual void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) = 0;
     virtual void dma_multicast_write(
         void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) = 0;
-    virtual void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
-    virtual void noc_multicast_write(void* dst, size_t size, uint64_t addr);
+    virtual void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void noc_multicast_write(const void* src, size_t size, uint64_t addr);
 
     virtual void wait_for_non_mmio_flush() = 0;
 
@@ -152,8 +153,6 @@ protected:
         const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     ChipInfo chip_info_;
-
-    SocDescriptor soc_descriptor_;
 };
 
 }  // namespace tt::umd

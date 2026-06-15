@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip/chip.hpp"
@@ -23,6 +24,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -165,8 +167,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
 TEST(ApiTTDeviceTest, TestRemoteTTDevice) {
     // The test does large transfers to remote chip, so system memory significantly speeds up the tests.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     ClusterDescriptor* cluster_desc = cluster->get_cluster_description();
 
@@ -301,5 +302,54 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
         }
 
         tt_device->set_power_state(false);
+    }
+}
+
+TEST(ApiTTDeviceTest, UninitializedError) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+
+        // These methods should work without initialization.
+        EXPECT_NO_THROW(tt_device->get_arc_core());
+        EXPECT_NO_THROW(tt_device->get_arch());
+        EXPECT_NO_THROW(tt_device->get_architecture_implementation());
+        EXPECT_NO_THROW(tt_device->get_min_clock_freq());
+        EXPECT_NO_THROW(tt_device->is_remote());
+        EXPECT_NO_THROW(tt_device->get_refclk_counter());
+        EXPECT_NO_THROW(tt_device->get_communication_device_id());
+        EXPECT_NO_THROW(tt_device->get_communication_device_type());
+
+        using err = error::UmdException<error::UninitializedDeviceError>;
+        EXPECT_THROW(tt_device->get_chip_info(), err);
+        EXPECT_THROW(tt_device->get_soc_descriptor(), err);
+        EXPECT_THROW(tt_device->get_arc_messenger(), err);
+        EXPECT_THROW(tt_device->get_arc_telemetry_reader(), err);
+        EXPECT_THROW(tt_device->get_firmware_info_provider(), err);
+        EXPECT_THROW(tt_device->get_board_id(), err);
+        EXPECT_THROW(tt_device->get_board_type(), err);
+        EXPECT_THROW(tt_device->get_asic_location(), err);
+        EXPECT_THROW(tt_device->get_asic_temperature(), err);
+        EXPECT_THROW(tt_device->get_clock(), err);
+        EXPECT_THROW(tt_device->get_max_clock_freq(), err);
+        EXPECT_THROW(tt_device->get_firmware_version(), err);
+
+        // Initialize device.
+        ASSERT_NO_THROW(tt_device->init_tt_device());
+
+        // These methods should work only after successful initialization.
+        EXPECT_NO_THROW(tt_device->get_chip_info());
+        EXPECT_NO_THROW(tt_device->get_soc_descriptor());
+        EXPECT_NO_THROW(tt_device->get_arc_messenger());
+        EXPECT_NO_THROW(tt_device->get_arc_telemetry_reader());
+        EXPECT_NO_THROW(tt_device->get_firmware_info_provider());
+        EXPECT_NO_THROW(tt_device->get_board_id());
+        EXPECT_NO_THROW(tt_device->get_board_type());
+        EXPECT_NO_THROW(tt_device->get_asic_location());
+        EXPECT_NO_THROW(tt_device->get_asic_temperature());
+        EXPECT_NO_THROW(tt_device->get_clock());
+        EXPECT_NO_THROW(tt_device->get_max_clock_freq());
+        EXPECT_NO_THROW(tt_device->get_firmware_version());
     }
 }

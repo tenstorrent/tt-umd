@@ -50,6 +50,8 @@ RemoteCommunicationLegacyFirmware::RemoteCommunicationLegacyFirmware(
     TTDevice* local_tt_device, EthCoord target_chip, SysmemManager* sysmem_manager) :
     RemoteCommunication(local_tt_device, sysmem_manager), target_chip(target_chip) {}
 
+std::optional<EthCoord> RemoteCommunicationLegacyFirmware::get_target_eth_coord() { return target_chip; }
+
 /*
  *
  *                                       NON_MMIO_MUTEX Usage

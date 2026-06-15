@@ -63,7 +63,7 @@ public:
         override;
 
     void safe_noc_multicast_write_reconfigure(
-        void* dst,
+        const void* src,
         size_t size,
         tt_xy_pair core_start,
         tt_xy_pair core_end,

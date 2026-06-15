@@ -47,6 +47,10 @@ void RemoteCommunication::set_remote_transfer_ethernet_cores(
 
 TTDevice* RemoteCommunication::get_local_device() { return local_tt_device_; }
 
+void RemoteCommunication::set_sysmem_manager(SysmemManager* sysmem_manager) { sysmem_manager_ = sysmem_manager; }
+
+bool RemoteCommunication::has_sysmem_manager() const { return sysmem_manager_ != nullptr; }
+
 tt_xy_pair RemoteCommunication::get_remote_transfer_ethernet_core() {
     if (remote_transfer_eth_cores_.size() > 8) {
         // We cannot use more than 8 cores for umd access in one direction. Thats because of the available buffering in

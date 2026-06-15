@@ -490,7 +490,8 @@ protected:
 
     bool is_remote_tt_device = false;
 
-    tt_xy_pair arc_core;
+    CoreCoord arc_core_noc0;
+    CoreCoord arc_core_noc1;
 
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);

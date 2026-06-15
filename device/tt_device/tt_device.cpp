@@ -499,7 +499,7 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
     deassert_risc_reset(soc_desc.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
+tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {

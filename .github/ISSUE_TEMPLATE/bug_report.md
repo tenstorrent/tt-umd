@@ -11,9 +11,10 @@ assignees: ''
 A clear and concise description of what the bug is.
 
 **Environment**
-- UMD commit: [e.g. `abc1234`] (branch, if applicable):
+- UMD commit (branch if applicable): [e.g. `abc1234`, `main`]
 - FW version: [e.g. 19.8.1]
 - KMD version: [e.g. 2.8.1]
+- Board/system type: [e.g. N150, N300, P100, P150A, WH QuietBox, 6U Galaxy (WH), 6U Galaxy (BH)]
 
 **Stack trace**
 Please paste the stack trace as this can speed up triaging.

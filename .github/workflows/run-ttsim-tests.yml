@@ -203,16 +203,11 @@ jobs:
 
       # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). The P300
       # cluster descriptor makes the cluster enumerate both chips, so the standard device-IO
-      # fixtures run across both MMIO chips and the simulated inter-chip eth links.
-      #
-      # continue-on-error: the P300 host-DMA routing programs the outbound iATU via BAR2, which is
-      # only modeled by ttsim builds with the multichip iATU support. The currently pinned ttsim
-      # release does not yet honor those writes (it throws UnimplementedFunctionality), so these
-      # steps are advisory until that ttsim ships. Verified passing locally against a ttsim built
-      # from the multichip branch. Remove continue-on-error once the pinned ttsim models the iATU.
+      # fixtures run across both MMIO chips and the simulated inter-chip eth links. The P300
+      # host-DMA routing programs the outbound iATU via BAR2, which the stable ttsim release
+      # models; verified locally against a ttsim built from the multichip branch.
       - name: Run UMD TestDeviceIOFixture on tt-sim blackhole x2
         timeout-minutes: 1
-        continue-on-error: true
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
           TT_UMD_CLUSTER_DESCRIPTOR: blackhole_P300_both_mmio.yaml
@@ -221,7 +216,6 @@ jobs:
 
       - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole x2
         timeout-minutes: 1
-        continue-on-error: true
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
           TT_UMD_CLUSTER_DESCRIPTOR: blackhole_P300_both_mmio.yaml

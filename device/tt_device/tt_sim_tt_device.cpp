@@ -161,14 +161,15 @@ TTSimTTDevice::TTSimTTDevice(
     // Program this chip's outbound iATU exactly as UMD does on silicon (LocalChip::init_pcie_iatus):
     // one region per host-mem channel, mapping the NOC sysmem window onto this chip's distinct host
     // base. The simulator honors the iATU at DMA egress, so each chip's DMA lands in its own host
-    // window by address alone -- no per-chip tag. Use a uniform 1 GiB region stride so region `ch`
-    // maps NOC-window offset ch*1GiB -> this chip's host base + ch*1GiB (matches SimulationSysmemManager).
+    // window by address alone -- no per-chip tag. region_size is the channel's actual mapping size
+    // (WH channel 3 is 768 MiB, the rest 1 GiB); configure_iatu_region keeps the region base on the
+    // fixed 1 GiB channel grid (matching SimulationSysmemManager's placement) and uses region_size only
+    // to bound the limit, so a sub-1-GiB channel still starts at the right NOC offset.
     if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-        constexpr uint64_t kChannelStride = 1ULL << 30;
         size_t nch = sysmem_manager_->get_num_host_mem_channels();
         for (size_t ch = 0; ch < nch; ch++) {
             HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
-            configure_iatu_region(ch, m.physical_address, kChannelStride);
+            configure_iatu_region(ch, m.physical_address, m.mapping_size);
         }
     }
 }
@@ -374,8 +375,20 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
     bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
     bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
-    const uint64_t base = uint64_t(region) * region_size;  // region offset within the NOC sysmem window
+    // Channels sit on a fixed 1 GiB NOC-window grid (matching SimulationSysmemManager's placement),
+    // independent of region_size. region_size is the channel's actual mapping size and only bounds the
+    // limit: keeping base on the grid means a sub-1-GiB channel (WH channel 3 = 768 MiB) still starts at
+    // the right NOC offset (region * 1 GiB) while mapping only its backed range.
+    constexpr uint64_t kChannelStride = 1ULL << 30;
+    const uint64_t base = uint64_t(region) * kChannelStride;  // region offset within the NOC sysmem window
     const uint64_t limit = base + region_size - 1;
+    // limit and base are written as 32-bit registers (limit hi shares base hi). This holds only while the
+    // top of the region stays within 4 GiB; assert rather than silently truncate if stride/channel count
+    // ever grows past that.
+    UMD_ASSERT(
+        limit < (1ULL << 32),
+        error::RuntimeError,
+        "iATU region exceeds 32-bit base/limit; extend the iATU register writes to cover the high bits.");
     const uint64_t iatu = bar2_base + iatu_bar2_off + uint64_t(region) * 0x200;
     auto wr = [&](uint64_t off, uint32_t val) { communicator_->pci_mem_write_bytes(iatu + off, &val, sizeof(val)); };
     wr(0x04, 0);                       // region_ctrl_2: disable while (re)programming the region

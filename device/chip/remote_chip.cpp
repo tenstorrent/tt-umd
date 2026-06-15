@@ -112,22 +112,6 @@ void RemoteChip::dma_multicast_write(void* src, size_t size, CoreCoord core_star
     UMD_THROW(error::RuntimeError, "RemoteChip::dma_multicast_write is not available for this chip.");
 }
 
-void RemoteChip::noc_multicast_write(
-    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
-    }
-    const tt_xy_pair translated_start = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
-    const tt_xy_pair translated_end = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
-    for (const auto& core : get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-        if (core.x < translated_start.x || core.x > translated_end.x || core.y < translated_start.y ||
-            core.y > translated_end.y) {
-            continue;
-        }
-        write_to_device(CoreCoord(core.x, core.y, CoreType::TENSIX, CoordSystem::TRANSLATED), src, addr, size);
-    }
-}
-
 void RemoteChip::wait_for_non_mmio_flush() { remote_communication_->wait_for_non_mmio_flush(); }
 
 void RemoteChip::l1_membar(const std::unordered_set<CoreCoord>& cores) { wait_for_non_mmio_flush(); }

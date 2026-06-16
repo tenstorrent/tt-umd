@@ -576,6 +576,12 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
 void Cluster::assert_risc_reset() {
+    // SW-emule cores have no register backing, so the soft-reset register broadcast would
+    // land out of L1; reset is a no-op for emule.
+    if (options_.chip_type == ChipType::SWEMULE) {
+        return;
+    }
+
     // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
     // loop all chips and issues the reset separately.
     if (arch_name == tt::ARCH::QUASAR) {
@@ -591,6 +597,12 @@ void Cluster::assert_risc_reset() {
 }
 
 void Cluster::deassert_risc_reset() {
+    // SW-emule cores have no register backing, so the soft-reset register broadcast would
+    // land out of L1; reset is a no-op for emule.
+    if (options_.chip_type == ChipType::SWEMULE) {
+        return;
+    }
+
     // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
     // loop all chips and issues the reset separately.
     if (arch_name == tt::ARCH::QUASAR) {

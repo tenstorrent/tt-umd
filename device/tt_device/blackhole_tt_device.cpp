@@ -44,8 +44,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), soc_arch_descriptor, use_safe_api) {
-    arc_core_noc0 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/false);
-    arc_core_noc1 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/true);
+    set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
 }
@@ -55,8 +54,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>(), soc_arch_descriptor) {
-    arc_core_noc0 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/false);
-    arc_core_noc1 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/true);
+    set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
 }
@@ -352,6 +350,11 @@ void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64
         end_coord = xy_pair{1, 2};
     }
     noc_multicast_write(src, size, start_coord, end_coord, addr);
+}
+
+void BlackholeTTDevice::set_arc_coordinate() {
+    arc_core_noc0 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/false);
+    arc_core_noc1 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/true);
 }
 
 }  // namespace tt::umd

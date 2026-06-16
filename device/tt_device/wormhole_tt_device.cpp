@@ -45,10 +45,7 @@ WormholeTTDevice::WormholeTTDevice(
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), soc_arch_descriptor, use_safe_api) {
-    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
-    arc_core_noc1 = tt_xy_pair(
-        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+    set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
@@ -57,10 +54,7 @@ WormholeTTDevice::WormholeTTDevice(
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
-    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
-    arc_core_noc1 = tt_xy_pair(
-        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+    set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
@@ -68,10 +62,7 @@ WormholeTTDevice::WormholeTTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
-    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
-    arc_core_noc1 = tt_xy_pair(
-        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+    set_arc_coordinate();
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
         TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
@@ -456,6 +447,13 @@ void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
 
     noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
+}
+
+void WormholeTTDevice::set_arc_coordinate() {
+    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
+    arc_core_noc1 = tt_xy_pair(
+        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 }
 
 }  // namespace tt::umd

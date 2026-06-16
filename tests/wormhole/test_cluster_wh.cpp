@@ -63,13 +63,13 @@ static void set_barrier_params(Cluster& cluster) {
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-TEST(SiliconDriverWH, OneDramOneTensixNoEthSocDesc) {
+TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {
     std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
         .sdesc_path = "tests/soc_descs/wormhole_b0_one_dram_one_tensix_no_eth.yaml",
     });
 }
 
-TEST(SiliconDriverWH, CreateDestroy) {
+TEST(ClusterWH, CreateDestroy) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     for (int i = 0; i < 50; i++) {
         auto cluster = test_utils::make_default_test_cluster(ClusterOptions{
@@ -78,7 +78,7 @@ TEST(SiliconDriverWH, CreateDestroy) {
     }
 }
 
-TEST(SiliconDriverWH, CustomSocDesc) {
+TEST(ClusterWH, CustomSocDesc) {
     // Initialize the driver with a 1x1 descriptor and explictly do not perform harvesting.
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{
         .sdesc_path = test_utils::GetSocDescAbsPath("wormhole_b0_1x1.yaml"),
@@ -98,7 +98,7 @@ TEST(SiliconDriverWH, CustomSocDesc) {
     }
 }
 
-TEST(SiliconDriverWH, HarvestingRuntime) {
+TEST(ClusterWH, HarvestingRuntime) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -167,7 +167,7 @@ TEST(SiliconDriverWH, HarvestingRuntime) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
+TEST(ClusterWH, UnalignedStaticTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -208,7 +208,7 @@ TEST(SiliconDriverWH, UnalignedStaticTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, StaticTLB_RW) {
+TEST(ClusterWH, StaticTLB_RW) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -252,7 +252,7 @@ TEST(SiliconDriverWH, StaticTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, DynamicTLB_RW) {
+TEST(ClusterWH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
     auto cluster_ptr = test_utils::make_default_test_cluster();
@@ -289,7 +289,7 @@ TEST(SiliconDriverWH, DynamicTLB_RW) {
 
 // TODO(#2485): Re-enable. Writes and reads are not synchronized so they can land on the device out of order; broke
 // after PR #2455.
-TEST(SiliconDriverWH, DISABLED_MultiThreadedDevice) {
+TEST(ClusterWH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
     auto cluster_ptr = test_utils::make_default_test_cluster();
@@ -337,7 +337,7 @@ TEST(SiliconDriverWH, DISABLED_MultiThreadedDevice) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, MultiThreadedMemBar) {
+TEST(ClusterWH, MultiThreadedMemBar) {
     // Have 2 threads read and write from a single device concurrently
     // All (fairly large) transactions go through a static TLB.
     // We want to make sure the memory barrier is thread/process safe.
@@ -449,7 +449,7 @@ TEST(SiliconDriverWH, MultiThreadedMemBar) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, BroadcastWrite) {
+TEST(ClusterWH, BroadcastWrite) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
@@ -568,7 +568,7 @@ TEST(SiliconDriverWH, BroadcastWrite) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
+TEST(ClusterWH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
@@ -700,7 +700,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcast) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
+TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
     auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
@@ -840,7 +840,7 @@ TEST(SiliconDriverWH, VirtualCoordinateBroadcastPerChip) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
+TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
     // For each remote chip, broadcast a vector to its tensix grid using EthernetBroadcastSingleRemote
     // and verify the data is read back correctly.
     // Note: this test intentionally only covers the tensix branch. The DRAM branch (the virtual-column 0/5
@@ -854,7 +854,7 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
     auto remote_devices = cluster.get_target_remote_device_ids();
     if (remote_devices.empty()) {
         cluster.close_device();
-        GTEST_SKIP() << "SiliconDriverWH.EthernetBroadcastSingleRemotePerChip skipped: no remote devices found";
+        GTEST_SKIP() << "ClusterWH.EthernetBroadcastSingleRemotePerChip skipped: no remote devices found";
     }
 
     auto eth_version = cluster.get_ethernet_firmware_version();
@@ -862,7 +862,7 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
                                    cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
-        GTEST_SKIP() << "SiliconDriverWH.EthernetBroadcastSingleRemotePerChip skipped: ethernet version does not "
+        GTEST_SKIP() << "ClusterWH.EthernetBroadcastSingleRemotePerChip skipped: ethernet version does not "
                         "support Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
@@ -924,7 +924,7 @@ TEST(SiliconDriverWH, EthernetBroadcastSingleRemotePerChip) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
+TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
     // Broadcast to a partial tensix grid via DeviceProtocol::write_to_core_range and verify that
     // cores inside the range received the data while cores outside still hold zeros.
     Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
@@ -936,7 +936,7 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
     auto remote_devices = cluster.get_target_remote_device_ids();
     if (remote_devices.empty()) {
         cluster.close_device();
-        GTEST_SKIP() << "SiliconDriverWH.DeviceProtocolWriteCoreRange skipped: no remote devices found";
+        GTEST_SKIP() << "ClusterWH.DeviceProtocolWriteCoreRange skipped: no remote devices found";
     }
 
     auto eth_version = cluster.get_ethernet_firmware_version();
@@ -944,7 +944,7 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
                                    cluster.get_soc_descriptor(*mmio_devices.begin()).noc_translation_enabled;
     if (!virtual_bcast_supported) {
         cluster.close_device();
-        GTEST_SKIP() << "SiliconDriverWH.DeviceProtocolWriteCoreRange skipped: ethernet version does not support "
+        GTEST_SKIP() << "ClusterWH.DeviceProtocolWriteCoreRange skipped: ethernet version does not support "
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
@@ -1019,7 +1019,7 @@ TEST(SiliconDriverWH, DeviceProtocolWriteCoreRange) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverWH, LargeAddressTlb) {
+TEST(ClusterWH, LargeAddressTlb) {
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
 

@@ -130,6 +130,10 @@ jobs:
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
           # bh_x2 is two Blackhole chips; reuse the per-chip Blackhole soc descriptor.
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x2/soc_descriptor.yaml
+          # Place the P300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
+          # and enumerates both MMIO chips. Without it, the sim is a single MMIO chip.
+          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/blackhole_P300_both_mmio.yaml \
+            sim_bh_x2/cluster_descriptor.yaml
 
       - name: Build UMD api_tests with simulation support
         run: |
@@ -201,16 +205,15 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
-      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). The P300
-      # cluster descriptor makes the cluster enumerate both chips, so the standard device-IO
-      # fixtures run across both MMIO chips and the simulated inter-chip eth links. The P300
-      # host-DMA routing programs the outbound iATU via BAR2, which the stable ttsim release
-      # models; verified locally against a ttsim built from the multichip branch.
+      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). The
+      # cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths") makes UMD
+      # enumerate both chips, so the standard device-IO fixtures run across both MMIO chips and the
+      # simulated inter-chip eth links. The P300 host-DMA routing programs the outbound iATU via BAR2,
+      # which the stable ttsim release models; verified locally against a ttsim built from the multichip branch.
       - name: Run UMD TestDeviceIOFixture on tt-sim blackhole x2
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
-          TT_UMD_CLUSTER_DESCRIPTOR: blackhole_P300_both_mmio.yaml
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
 
@@ -218,7 +221,6 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
-          TT_UMD_CLUSTER_DESCRIPTOR: blackhole_P300_both_mmio.yaml
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 

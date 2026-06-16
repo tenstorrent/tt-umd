@@ -367,6 +367,24 @@ Cluster::Cluster(ClusterOptions options) {
         case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
             if (options.cluster_descriptor == nullptr) {
+#ifdef TT_UMD_BUILD_SIMULATION
+                // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
+                // topology, mirroring the soc_descriptor.yaml convention. When present, use it and target every
+                // chip it declares (e.g. both MMIO chips of a P300); otherwise fall through to the mock
+                // single-chip descriptor below (unchanged behaviour).
+                if (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so") {
+                    std::string cluster_desc_path =
+                        SimulationChip::get_cluster_descriptor_path_from_simulator_path(options.simulator_directory);
+                    if (std::filesystem::exists(cluster_desc_path)) {
+                        std::unique_ptr<ClusterDescriptor> full_cluster_desc =
+                            ClusterDescriptor::create_from_yaml(cluster_desc_path);
+                        options.target_devices = full_cluster_desc->get_all_chips();
+                        cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                            full_cluster_desc.get(), options.target_devices);
+                        break;
+                    }
+                }
+#endif
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;

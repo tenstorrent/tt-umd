@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 
@@ -71,5 +72,28 @@ inline const std::unordered_map<SMCInitStageFlags, std::string_view> SMC_INIT_ST
     {INIT_STAGE_MRISC_LOAD, "MRISC load failure"},
     {INIT_STAGE_GDDR_TRAIN, "GDDR training failure"},
 };
+
+// Interprets the smc_init_status bitmask and returns a comma-separated string of
+// active failure descriptions. Bit N corresponds to SMCInitStageFlags value N.
+// Returns "No errors" if no bits are set.
+inline std::string interpret_smc_init_status(uint32_t smc_init_status) {
+    std::string result;
+    for (uint8_t bit = 0; bit < 32; ++bit) {
+        if (!((smc_init_status >> bit) & 1u)) {
+            continue;
+        }
+        if (!result.empty()) {
+            result += ", ";
+        }
+        auto flag = static_cast<SMCInitStageFlags>(bit);
+        auto it = SMC_INIT_STAGE_INTERPRETATION.find(flag);
+        if (it != SMC_INIT_STAGE_INTERPRETATION.end()) {
+            result += it->second;
+        } else {
+            result += "unknown bit " + std::to_string(bit);
+        }
+    }
+    return result.empty() ? "No errors" : result;
+}
 
 }  // namespace tt::umd::blackhole

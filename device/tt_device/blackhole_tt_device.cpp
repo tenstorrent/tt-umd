@@ -206,7 +206,7 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         poll_interval);
 
     if (!arc_core_started) {
-        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_3, sizeof arc_error_status0);
+        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
         UMD_THROW(
             error::ArcStartupError,
             *this,

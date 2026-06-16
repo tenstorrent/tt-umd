@@ -10,14 +10,12 @@
 #include <cstdint>
 #include <iterator>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -259,7 +257,8 @@ inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
 inline constexpr uint32_t SCRATCH_RAM_0 = ARC_RESET_UNIT_OFFSET + 0x400;
 inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;   // BOOT_STATUS
-inline constexpr uint32_t SCRATCH_RAM_3 = ARC_RESET_UNIT_OFFSET + 0x410;   // ERROR_STATUS0
+inline constexpr uint32_t SCRATCH_RAM_4 = ARC_RESET_UNIT_OFFSET + 0x410;   // ERROR_STATUS0
+inline constexpr uint32_t SCRATCH_RAM_5 = ARC_RESET_UNIT_OFFSET + 0x418;   // ERROR_STATUS1
 inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;

@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 
@@ -52,7 +53,11 @@ ArcStartupError::ArcStartupError(
             scratch_status,
             postcode,
             message_id.has_value() ? fmt::format(", message_id={:#x}", message_id.value()) : "",
-            smc_init_status.has_value() ? fmt::format(", smc_init_status={:#x}", smc_init_status.value()) : ""),
+            smc_init_status.has_value() ? fmt::format(
+                                              ", smc_init_status={:#x} ({})",
+                                              smc_init_status.value(),
+                                              blackhole::interpret_smc_init_status(smc_init_status.value()))
+                                        : ""),
         {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id, smc_init_status}) {}
 
 ArcStartupError::ArcStartupError(

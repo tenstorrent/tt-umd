@@ -686,8 +686,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
 }
 
 bool TopologyDiscovery::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    xy_pair translated_core = tt_device->get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
-    return tt_device->read_eth_core_training_status(translated_core) == EthTrainingStatus::SUCCESS;
+    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 }  // namespace tt::umd

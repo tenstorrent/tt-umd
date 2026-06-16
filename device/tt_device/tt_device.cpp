@@ -513,6 +513,11 @@ void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs)
     set_risc_reset_state(core, soft_reset_new);
 }
 
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    assert_risc_reset(soc_desc.translate_chip_coord_to_translated(core), selected_riscs);
+}
+
 void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
@@ -522,7 +527,12 @@ void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_risc
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return arc_core; }
+void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    deassert_risc_reset(soc_desc.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
+}
+
+tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
@@ -625,6 +635,11 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     write_to_device(src, core, addr, size);
 }
 
+void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    dma_write_to_device(src, size, soc_desc.translate_chip_coord_to_translated(core), addr);
+}
+
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
@@ -642,6 +657,11 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
     // DMA unavailable, fall back to regular read.
     pcie_dma_lock.unlock();
     read_from_device(dst, core, addr, size);
+}
+
+void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    dma_read_from_device(dst, size, soc_desc.translate_chip_coord_to_translated(core), addr);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
@@ -662,6 +682,16 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
     noc_multicast_write(src, size, core_start, core_end, addr);
+}
+
+void TTDevice::dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    dma_multicast_write(
+        src,
+        size,
+        soc_desc.translate_chip_coord_to_translated(core_start),
+        soc_desc.translate_chip_coord_to_translated(core_end),
+        addr);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
@@ -696,6 +726,11 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
         UMD_THROW(error::RuntimeError, "SocDescriptor cannot be re-assgined to TTDevice.");
     }
     soc_descriptor_ = soc_descriptor;
+}
+
+EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
+    return read_eth_core_training_status(soc_descriptor.translate_chip_coord_to_translated(eth_core));
 }
 
 }  // namespace tt::umd

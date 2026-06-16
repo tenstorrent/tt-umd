@@ -537,7 +537,8 @@ tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
-    bool multicast_success = device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
+    bool multicast_success =
+        device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
 
     log_debug(
         LogUMD,

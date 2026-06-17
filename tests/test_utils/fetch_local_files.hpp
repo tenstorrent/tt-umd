@@ -40,6 +40,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "6u_cluster_desc.yaml",
              "blackhole_8xP150.yaml",
              "blackhole_4xP150.yaml",
+             "blackhole_galaxy.yaml",
              "blackhole_P100.yaml",
              "blackhole_P150.yaml",
              "blackhole_P300_first_mmio.yaml",

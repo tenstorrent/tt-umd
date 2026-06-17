@@ -214,6 +214,8 @@ properties:
                   - p150
                   - p300
                   - ubb
+                  - ubb_blackhole
+                  - ubb_wormhole
                   - quasar
                 description: Type of the board
             required: [board_type]

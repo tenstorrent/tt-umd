@@ -191,14 +191,14 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     uint32_t arc_boot_status = 0;
     uint32_t arc_postcode = 0;
+    uint32_t arc_error_status0 = 0;
 
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
     const bool arc_core_started = utils::poll_until(
         [this, &arc_boot_status, &arc_postcode]() {
-            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
-            read_from_arc_apb(
-                &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
+            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status);
+            read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_postcode);
             return (arc_boot_status & 0x7) == 0x5;
         },
         timeout_ms,
@@ -206,6 +206,7 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         poll_interval);
 
     if (!arc_core_started) {
+        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
         UMD_THROW(
             error::ArcStartupError,
             *this,
@@ -213,7 +214,9 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
             get_arc_core(),
             arc_boot_status,
             arc_postcode,
-            timeout_ms);
+            timeout_ms,
+            /*message_id=*/std::nullopt,
+            arc_error_status0);
     }
 }
 

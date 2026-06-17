@@ -17,6 +17,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -92,10 +93,10 @@ uint32_t WormholeArcMessenger::send_message(
     while (misc & (1 << 16)) {
         utils::check_timeout(
             trigger_start,
-            timeout_ms,
+            timeout::ARC_TRIGGER_CLEAR_TIMEOUT,
             fmt::format(
                 "Timed out after waiting {} ms for ARC to clear trigger bit on device {}",
-                timeout_ms.count(),
+                timeout::ARC_TRIGGER_CLEAR_TIMEOUT.count(),
                 tt_device->get_communication_device_id()));
         tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
     }

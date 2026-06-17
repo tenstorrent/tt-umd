@@ -87,15 +87,21 @@ uint32_t WormholeArcMessenger::send_message(
     tt_device->wait_for_non_mmio_flush();
 
     uint32_t misc;
+    auto trigger_start = std::chrono::steady_clock::now();
     tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
-
-    if (misc & (1 << 16)) {
-        log_error(LogUMD, "trigger_fw_int failed on device {}", tt_device->get_communication_device_id());
-        return 1;
-    } else {
-        uint32_t val_wr = misc | (1 << 16);
-        tt_device->write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+    while (misc & (1 << 16)) {
+        utils::check_timeout(
+            trigger_start,
+            timeout_ms,
+            fmt::format(
+                "Timed out after waiting {} ms for ARC to clear trigger bit on device {}",
+                timeout_ms.count(),
+                tt_device->get_communication_device_id()));
+        tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
     }
+
+    uint32_t val_wr = misc | (1 << 16);
+    tt_device->write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
 
     uint32_t status = 0xbadbad;
     auto start = std::chrono::steady_clock::now();

@@ -297,7 +297,7 @@ public:
     /**
      * Reset device via ioctl.
      */
-    static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
+    static void reset_devices(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.

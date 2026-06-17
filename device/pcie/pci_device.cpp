@@ -197,35 +197,21 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices()) {
-        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
-        // to check if the device is in the pci_target_devices set.
-        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
-            continue;
-        }
+static void reset_device_ioctl(int device_id, uint32_t flags) {
+    log_debug(tt::LogUMD, "Attempting to reset PCI device ID {} with flags {}", device_id, flags);
+    std::string device_path = fmt::format("/dev/tenstorrent/{}", device_id);
+    tt_device_t *dev = nullptr;
+    int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
+    if (err != 0) {
+        log_error(LogUMD, "Failed to open device {} on path {} with error: {}", device_id, device_path, strerror(err));
+        return;
+    }
 
-        log_debug(tt::LogUMD, "Attempting to reset PCI device ID {} with flags {}", n, flags);
-        std::string device_path = fmt::format("/dev/tenstorrent/{}", n);
-        tt_device_t *dev = nullptr;
-        int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
-        if (err != 0) {
-            log_error(LogUMD, "Failed to open device {} on path {} with error: {}", n, device_path, strerror(err));
-            continue;
-        }
-
-        try {
-            int err = tt_device_reset(dev, flags);
-            if (err != 0) {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format("Reset failed on device {} with flags {}: {}", n, flags, strerror(errno)));
-            }
-        } catch (const std::exception &e) {
-            log_error(tt::LogUMD, "Reset failed: {}", e.what());
-        } catch (...) {
-            log_error(tt::LogUMD, "Reset failed with unknown error.");
-        }
+    err = tt_device_reset(dev, flags);
+    if (err != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Reset failed on device {} with flags {}: {}", device_id, flags, strerror(errno)));
     }
 }
 
@@ -910,8 +896,22 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_config.static_vc);
 }
 
-void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
-    umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
+void PCIDevice::reset_devices(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
+        // to check if the device is in the pci_target_devices set.
+        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
+            log_warning(LogUMD, "Device requested for reset: {} not found.", n);
+            continue;
+        }
+        try {
+            reset_device_ioctl(n, static_cast<uint32_t>(flag));
+        } catch (const std::exception &e) {
+            log_error(tt::LogUMD, "Reset failed: {}", e.what());
+        } catch (...) {
+            log_error(tt::LogUMD, "Reset failed with unknown error.");
+        }
+    }
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {

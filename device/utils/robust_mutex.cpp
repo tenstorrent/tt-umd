@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2026 Sungjoon Moon
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -15,9 +16,12 @@
 
 #include <cerrno>  // errno, ENOENT
 #include <chrono>
+#include <csignal>  // sigaction, SIGINT
 #include <cstdint>
 #include <ctime>  // clock_gettime, timespec
+#include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
@@ -94,6 +98,53 @@ private:
 };
 
 pthread_mutex_t RobustMutex::multithread_mutex_ = PTHREAD_MUTEX_INITIALIZER;
+
+namespace {
+
+volatile sig_atomic_t sigint_seq = 0;
+
+void sigint_handler(int /*sig*/) { ++sigint_seq; }
+
+class SigintHandlerScope {
+public:
+    SigintHandlerScope() {
+        std::lock_guard<std::mutex> guard(mutex_);
+        seq_at_install_ = sigint_seq;
+        if (refcount_ == 0) {
+            struct sigaction sa = {};
+            sa.sa_handler = sigint_handler;
+            sigemptyset(&sa.sa_mask);
+            sa.sa_flags = 0;
+            int rc = sigaction(SIGINT, &sa, &saved_action_);
+            UMD_ASSERT(
+                rc == 0,
+                error::RuntimeError,
+                fmt::format("sigaction() install failed errno: {}", std::to_string(errno)));
+        }
+        ++refcount_;
+    }
+
+    ~SigintHandlerScope() noexcept {
+        std::lock_guard<std::mutex> guard(mutex_);
+        --refcount_;
+        if (refcount_ == 0) {
+            int rc = sigaction(SIGINT, &saved_action_, nullptr);
+            if (rc != 0) {
+                log_warning(LogUMD, "sigaction() restore failed errno: {}", std::to_string(errno));
+            }
+        }
+    }
+
+    bool interrupted() const { return sigint_seq != seq_at_install_; }
+
+private:
+    inline static std::mutex mutex_;
+    inline static int refcount_ = 0;
+    inline static struct sigaction saved_action_ = {};
+    sig_atomic_t seq_at_install_ = 0;
+};
+
+}  // namespace
 
 #ifdef __SANITIZE_THREAD__
 // Static storage for TSAN mutex identifiers.
@@ -448,33 +499,31 @@ std::optional<std::pair<pid_t, pid_t>> RobustMutex::probe_lock(std::chrono::seco
 }
 
 void RobustMutex::lock() {
-    // Use a 1-second timed attempt first so we can emit a warning when the lock is contended.
-    if (auto owner = probe_lock(std::chrono::seconds(1))) {
-        log_warning(
-            LogUMD,
-            "Waiting for lock '{}' which is currently held by thread TID: {}, PID: {}",
-            mutex_name_,
-            owner->second,
-            owner->first);
-
-        // Block indefinitely until the lock becomes available.
-        int lock_res = pthread_mutex_lock(&(mutex_wrapper_ptr_->mutex));
-        if (lock_res == EOWNERDEAD) {
-            int err = pthread_mutex_consistent(&(mutex_wrapper_ptr_->mutex));
-            if (err != 0) {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "pthread_mutex_consistent() failed for mutex {} errno: {}", mutex_name_, std::to_string(err)));
-            }
-        } else if (lock_res != 0) {
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "pthread_mutex_lock() failed for mutex {} errno: {}", mutex_name_, std::to_string(lock_res)));
-        }
-        record_acquisition();
+    auto owner = probe_lock(std::chrono::seconds(1));
+    if (!owner) {
+        return;
     }
+
+    log_warning(
+        LogUMD,
+        "Waiting for lock '{}' which is currently held by thread TID: {}, PID: {}",
+        mutex_name_,
+        owner->second,
+        owner->first);
+
+    {
+        SigintHandlerScope sigint_scope;
+        while (!sigint_scope.interrupted()) {
+            owner = probe_lock(std::chrono::seconds(1));
+            if (!owner) {
+                return;
+            }
+        }
+    }
+
+    log_warning(LogUMD, "Lock acquisition for '{}' interrupted", mutex_name_);
+    raise(SIGINT);
+    throw std::runtime_error("Interrupted");
 }
 
 }  // namespace tt::umd

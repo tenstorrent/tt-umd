@@ -56,7 +56,6 @@ enum BlackholeArcMessageQueueIndex : uint8_t {
     APPLICATION = 3,
 };
 
-// SMC init stages.
 enum SMCInitStageFlags : uint8_t {
     INIT_STAGE_REGULATOR = 0,
     INIT_STAGE_CABLE_FAULT = 1,

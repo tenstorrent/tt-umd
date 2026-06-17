@@ -69,7 +69,7 @@ ArcStartupError::ArcStartupError(
     std::chrono::milliseconds timeout,
     std::optional<uint32_t> message_id,
     std::optional<uint32_t> smc_init_status) :
-    ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id) {
+    ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id, smc_init_status) {
     message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
 }
 

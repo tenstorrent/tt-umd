@@ -198,8 +198,7 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     const bool arc_core_started = utils::poll_until(
         [this, &arc_boot_status, &arc_postcode]() {
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status);
-            read_from_arc_apb(
-                &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_boot_status);
+            read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_postcode);
             return (arc_boot_status & 0x7) == 0x5;
         },
         timeout_ms,

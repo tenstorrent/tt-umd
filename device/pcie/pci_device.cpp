@@ -205,36 +205,27 @@ static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices
             continue;
         }
 
-        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
-        if (fd == -1) {
+        log_debug(tt::LogUMD, "Attempting to reset PCI device ID {} with flags {}", n, flags);
+        std::string device_path = fmt::format("/dev/tenstorrent/{}", n);
+        tt_device_t *dev = nullptr;
+        int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
+        if (err != 0) {
+            log_error(LogUMD, "Failed to open device {} on path {} with error: {}", n, device_path, strerror(err));
             continue;
         }
 
         try {
-            tenstorrent_reset_device reset_info{};
-
-            reset_info.in.output_size_bytes = sizeof(reset_info.out);
-            reset_info.in.flags = flags;
-
-            reset_info.out.output_size_bytes = 0;
-            reset_info.out.result = 0;
-            if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
+            int err = tt_device_reset(dev, flags);
+            if (err != 0) {
                 UMD_THROW(
                     error::RuntimeError,
-                    fmt::format(
-                        "TENSTORRENT_IOCTL_RESET_DEVICE failed on device {} with flags {}: {}",
-                        n,
-                        flags,
-                        strerror(errno)));
+                    fmt::format("Reset failed on device {} with flags {}: {}", n, flags, strerror(errno)));
             }
         } catch (const std::exception &e) {
-            log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());
+            log_error(tt::LogUMD, "Reset failed: {}", e.what());
         } catch (...) {
-            log_error(tt::LogUMD, "Reset IOCTL failed with unknown error.");
+            log_error(tt::LogUMD, "Reset failed with unknown error.");
         }
-
-        close(fd);
     }
 }
 

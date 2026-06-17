@@ -45,7 +45,7 @@ WormholeTTDevice::WormholeTTDevice(
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), soc_arch_descriptor, use_safe_api) {
-    set_arc_coordinate();
+    WormholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
@@ -54,7 +54,7 @@ WormholeTTDevice::WormholeTTDevice(
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
-    set_arc_coordinate();
+    WormholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 

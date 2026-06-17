@@ -295,7 +295,14 @@ public:
     static uint8_t read_command_byte(const int pci_device_num);
 
     /**
-     * Reset device via ioctl.
+     * @brief Resets the specified Tenstorrent PCIe devices.
+     *
+     * @param pci_target_devices A set of PCI device identifiers to be reset.
+     *                          Each identifier uniquely identifies a device on the PCI bus.
+     * @param flag The type of reset operation to perform on the target devices.
+     *
+     * @note This is a blocking operation that may take time to complete depending
+     *       on the number of devices and the reset type.
      */
     static void reset_devices(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
 

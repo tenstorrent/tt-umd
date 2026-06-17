@@ -203,7 +203,7 @@ static void reset_device_ioctl(int device_id, uint32_t flags) {
     tt_device_t *dev = nullptr;
     int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
     if (err != 0) {
-        log_error(LogUMD, "Failed to open device {} on path {} with error: {}", device_id, device_path, strerror(err));
+        log_error(LogUMD, "Failed to open device {} on path {} with error: {}", device_id, device_path, strerror(-err));
         return;
     }
 
@@ -211,7 +211,7 @@ static void reset_device_ioctl(int device_id, uint32_t flags) {
     if (err != 0) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Reset failed on device {} with flags {}: {}", device_id, flags, strerror(errno)));
+            fmt::format("Reset failed on device {} with flags {}: {}", device_id, flags, strerror(-err)));
     }
 }
 
@@ -901,7 +901,6 @@ void PCIDevice::reset_devices(const std::unordered_set<int> &pci_target_devices,
         // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
         // to check if the device is in the pci_target_devices set.
         if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
-            log_warning(LogUMD, "Device requested for reset: {} not found.", n);
             continue;
         }
         try {

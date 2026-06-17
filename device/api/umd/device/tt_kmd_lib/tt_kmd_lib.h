@@ -389,9 +389,9 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
 /**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.
  *
- * @param dev Device handle; may be NULL for API version query
- * @param flags Reset flags.
- * @return 0 on success, error code on failure
+ * @param dev Device handle; must not be NULL
+ * @param reset_flags Reset flags.
+ * @return 0 on success, negative error code on failure
  */
 int tt_device_reset(tt_device_t* dev, uint32_t reset_flags);
 

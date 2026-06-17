@@ -291,17 +291,15 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_write_to_device(src, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+    tt_device_->dma_write_to_device(src, size, core, addr);
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_read_from_device(dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+    tt_device_->dma_read_from_device(dst, size, core, addr);
 }
 
 void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
-    tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
-    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
+    tt_device_->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {

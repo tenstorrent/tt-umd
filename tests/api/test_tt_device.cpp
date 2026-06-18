@@ -93,6 +93,29 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
     }
 }
 
+TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+
+        uint32_t buf = 0;
+
+        EXPECT_ANY_THROW(tt_device->write_to_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS + 1, sizeof(buf)));
+        EXPECT_ANY_THROW(tt_device->read_from_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS + 1, sizeof(buf)));
+
+        EXPECT_ANY_THROW(tt_device->write_to_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS, 5));
+        EXPECT_ANY_THROW(tt_device->read_from_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS, 5));
+
+        tt_device->set_power_state(false);
+    }
+}
+
 TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {

@@ -41,18 +41,7 @@ public:
     virtual void read_block_reconfigure(
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
 
-    virtual void read_register_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
     virtual void write_block_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void write_register_reconfigure(
         const void* mem_ptr,
         tt_xy_pair core,
         uint64_t addr,
@@ -66,6 +55,19 @@ public:
         tt_xy_pair core_start,
         tt_xy_pair core_end,
         uint64_t addr,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict);
+
+    // Register reconfigure methods perform 32-bit chunked transfers with strict ordering.
+    // Alignment enforcement is the caller's responsibility.
+    virtual void read_register_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+
+    virtual void write_register_reconfigure(
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
         NocId noc_id,
         uint64_t ordering = tlb_data::Strict);
 

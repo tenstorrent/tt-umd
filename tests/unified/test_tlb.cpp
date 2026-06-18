@@ -4,10 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -20,7 +20,9 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt;
@@ -490,5 +492,37 @@ TEST(TestTlb, TLBStaticTensix) {
 
     for (int i = 0; i < num_writes; i++) {
         EXPECT_EQ(readback[i], i);
+    }
+}
+
+TEST(TestTlb, TestRegisterReconfigureL1RoundTrip) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t one_mb = 1 << 20;
+    const uint64_t l1_start = 0x100;
+    const size_t test_size = (3 * one_mb / 2) - l1_start;
+    const size_t num_words = test_size / sizeof(uint32_t);
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    const auto& tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    std::vector<uint32_t> pattern(num_words);
+    std::generate(pattern.begin(), pattern.end(), [i = uint32_t{0}]() mutable { return i++ * 0xDEAD0001; });
+
+    const auto cores_end = tensix_cores.begin() + std::min(size_t{4}, tensix_cores.size());
+    for (auto it = tensix_cores.begin(); it != cores_end; ++it) {
+        tt_xy_pair xy{it->x, it->y};
+
+        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(one_mb, TlbMapping::UC));
+
+        tlb_window->write_register_reconfigure(pattern.data(), xy, l1_start, test_size, NocId::NOC0);
+
+        std::vector<uint32_t> readback(num_words, 0);
+        tlb_window->read_register_reconfigure(readback.data(), xy, l1_start, test_size, NocId::NOC0);
+
+        EXPECT_EQ(readback, pattern) << "Mismatch on core " << it->str();
     }
 }

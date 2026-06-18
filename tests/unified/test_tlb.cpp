@@ -500,14 +500,15 @@ TEST(TestTlb, TestRegisterReconfigureL1RoundTrip) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
     const ChipId chip = 0;
-    const uint64_t one_mb = 1 << 20;
     const uint64_t l1_start = 0x100;
-    const size_t test_size = (3 * one_mb / 2) - l1_start;
-    const size_t num_words = test_size / sizeof(uint32_t);
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
     const auto& tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    const size_t num_words = ((1 << 20) + (1 << 17)) / sizeof(uint32_t);
+    const size_t test_size = num_words * sizeof(uint32_t);
+    const size_t tlb_size = 1 << 21;
 
     std::vector<uint32_t> pattern(num_words);
     std::generate(pattern.begin(), pattern.end(), [i = uint32_t{0}]() mutable { return i++ * 0xDEAD0001; });
@@ -516,7 +517,7 @@ TEST(TestTlb, TestRegisterReconfigureL1RoundTrip) {
     for (auto it = tensix_cores.begin(); it != cores_end; ++it) {
         tt_xy_pair xy{it->x, it->y};
 
-        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(one_mb, TlbMapping::UC));
+        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
 
         tlb_window->write_register_reconfigure(pattern.data(), xy, l1_start, test_size, NocId::NOC0);
 

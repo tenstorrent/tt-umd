@@ -16,6 +16,13 @@
 
 namespace tt::umd {
 
+TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
+    tlb_data aligned_config = config;
+    aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
+    tlb_handle->configure(aligned_config);
+    offset_from_aligned_addr = config.local_offset - (config.local_offset & ~(tlb_handle->get_size() - 1));
+}
+
 tlb_data TlbWindow::make_tlb_config(
     uint64_t addr, tt_xy_pair core_end, NocId noc_id, uint64_t ordering, bool mcast, tt_xy_pair core_start) const {
     tlb_data config{};
@@ -43,13 +50,6 @@ void TlbWindow::transfer_and_reconfigure(tlb_data config, buffer_pointer buffer,
         config.local_offset += transfer_size;
         buffer += transfer_size;
     }
-}
-
-TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
-    tlb_data aligned_config = config;
-    aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
-    tlb_handle->configure(aligned_config);
-    offset_from_aligned_addr = config.local_offset - (config.local_offset & ~(tlb_handle->get_size() - 1));
 }
 
 void TlbWindow::read_block_reconfigure(

@@ -69,24 +69,24 @@ struct ScopedJumpGuard {
 SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
     TlbWindow(std::move(handle), config) {}
 
-void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
+void SiliconTlbWindow::write16(uint64_t offset, uint16_t value, const std::function<bool()> &on_timeout) {
     validate(offset, sizeof(uint16_t));
-    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value);
+    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, on_timeout);
 }
 
-uint16_t SiliconTlbWindow::read16(uint64_t offset) {
+uint16_t SiliconTlbWindow::read16(uint64_t offset, const std::function<bool()> &on_timeout) {
     validate(offset, sizeof(uint16_t));
-    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset));
+    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), on_timeout);
 }
 
-void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
+void SiliconTlbWindow::write32(uint64_t offset, uint32_t value, const std::function<bool()> &on_timeout) {
     validate(offset, sizeof(uint32_t));
-    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value);
+    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, on_timeout);
 }
 
-uint32_t SiliconTlbWindow::read32(uint64_t offset) {
+uint32_t SiliconTlbWindow::read32(uint64_t offset, const std::function<bool()> &on_timeout) {
     validate(offset, sizeof(uint32_t));
-    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset));
+    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), on_timeout);
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
@@ -109,31 +109,33 @@ void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
     read_regs((void *)src, n, (void *)dst);
 }
 
-void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
+void SiliconTlbWindow::write_block(
+    uint64_t offset, const void *data, size_t size, const std::function<bool()> &on_timeout) {
     auto *dst = reinterpret_cast<volatile uint32_t *>(tlb_handle->get_base() + get_total_offset(offset));
 
     validate(offset, size);
 
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device((void *)dst, data, size);
+        memcpy_to_device((void *)dst, data, size, on_timeout);
     } else {
-        umd::memcpy_to_device(dst, data, size);
+        umd::memcpy_to_device(dst, data, size, on_timeout);
     }
 }
 
-void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
+void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size, const std::function<bool()> &on_timeout) {
     const volatile void *src = tlb_handle->get_base() + get_total_offset(offset);
 
     validate(offset, size);
 
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(data, src, size);
+        memcpy_from_device(data, src, size, on_timeout);
     } else {
-        umd::memcpy_from_device(data, src, size);
+        umd::memcpy_from_device(data, src, size, on_timeout);
     }
 }
 
-void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, std::size_t num_bytes) {
+void SiliconTlbWindow::memcpy_from_device(
+    void *dest, const volatile void *src, std::size_t num_bytes, const std::function<bool()> &on_timeout) {
     using copy_t = std::uint32_t;
 
     // Start by aligning the source (device) pointer.
@@ -145,7 +147,9 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, 
     if (src_misalignment != 0) {
         sp = reinterpret_cast<copy_t *>(src_addr - src_misalignment);
 
-        copy_t tmp = *sp++;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), on_timeout);
+        sp++;
 
         auto leading_len = std::min(sizeof(tmp) - src_misalignment, num_bytes);
         memcpy(dest, reinterpret_cast<char *>(&tmp) + src_misalignment, leading_len);
@@ -159,7 +163,7 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, 
     // Copy the source-aligned middle using non-overlapping wide loads.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    umd::memcpy_from_device(dest, sp, middle_bytes);
+    umd::memcpy_from_device(dest, sp, middle_bytes, on_timeout);
 
     auto *dp = static_cast<char *>(dest) + middle_bytes;
     sp += num_words;
@@ -167,12 +171,14 @@ void SiliconTlbWindow::memcpy_from_device(void *dest, const volatile void *src, 
     // Finally copy any sub-word trailer.
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
-        copy_t tmp = *sp;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, sp, sizeof(tmp), on_timeout);
         memcpy(dp, &tmp, trailing_len);
     }
 }
 
-void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t num_bytes) {
+void SiliconTlbWindow::memcpy_to_device(
+    void *dest, const void *src, std::size_t num_bytes, const std::function<bool()> &on_timeout) {
     using copy_t = std::uint32_t;
 
     // Start by aligning the destination (device) pointer. If needed, do RMW to fix up the
@@ -186,7 +192,8 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
         // Read-modify-write for the first dest element.
         dp = reinterpret_cast<copy_t *>(dest_addr - dest_misalignment);
 
-        copy_t tmp = *dp;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), on_timeout);
 
         auto leading_len = std::min(sizeof(tmp) - dest_misalignment, num_bytes);
 
@@ -194,7 +201,8 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
         num_bytes -= leading_len;
         src = static_cast<const char *>(src) + leading_len;
 
-        *dp++ = tmp;
+        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), on_timeout);
+        dp++;
 
     } else {
         dp = static_cast<copy_t *>(dest);
@@ -203,7 +211,7 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
     // Copy the destination-aligned middle using non-overlapping wide stores.
     std::size_t num_words = num_bytes / sizeof(copy_t);
     std::size_t middle_bytes = num_words * sizeof(copy_t);
-    umd::memcpy_to_device(dp, src, middle_bytes);
+    umd::memcpy_to_device(dp, src, middle_bytes, on_timeout);
 
     dp += num_words;
     auto *sp = static_cast<const char *>(src) + middle_bytes;
@@ -211,11 +219,12 @@ void SiliconTlbWindow::memcpy_to_device(void *dest, const void *src, std::size_t
     // Finally copy any sub-word trailer, again RMW on the destination.
     auto trailing_len = num_bytes % sizeof(copy_t);
     if (trailing_len != 0) {
-        copy_t tmp = *dp;
+        copy_t tmp;
+        umd::memcpy_from_device(&tmp, dp, sizeof(tmp), on_timeout);
 
         memcpy(&tmp, sp, trailing_len);
 
-        *dp++ = tmp;
+        umd::memcpy_to_device(dp, &tmp, sizeof(tmp), on_timeout);
     }
 }
 
@@ -247,17 +256,21 @@ decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
     }
 }
 
-void SiliconTlbWindow::safe_write16(uint64_t offset, uint16_t value) {
-    execute_safe(&SiliconTlbWindow::write16, offset, value);
+void SiliconTlbWindow::safe_write16(uint64_t offset, uint16_t value, const std::function<bool()> &on_timeout) {
+    execute_safe(&SiliconTlbWindow::write16, offset, value, on_timeout);
 }
 
-uint16_t SiliconTlbWindow::safe_read16(uint64_t offset) { return execute_safe(&SiliconTlbWindow::read16, offset); }
-
-void SiliconTlbWindow::safe_write32(uint64_t offset, uint32_t value) {
-    execute_safe(&SiliconTlbWindow::write32, offset, value);
+uint16_t SiliconTlbWindow::safe_read16(uint64_t offset, const std::function<bool()> &on_timeout) {
+    return execute_safe(&SiliconTlbWindow::read16, offset, on_timeout);
 }
 
-uint32_t SiliconTlbWindow::safe_read32(uint64_t offset) { return execute_safe(&SiliconTlbWindow::read32, offset); }
+void SiliconTlbWindow::safe_write32(uint64_t offset, uint32_t value, const std::function<bool()> &on_timeout) {
+    execute_safe(&SiliconTlbWindow::write32, offset, value, on_timeout);
+}
+
+uint32_t SiliconTlbWindow::safe_read32(uint64_t offset, const std::function<bool()> &on_timeout) {
+    return execute_safe(&SiliconTlbWindow::read32, offset, on_timeout);
+}
 
 void SiliconTlbWindow::safe_write_register(uint64_t offset, const void *data, size_t size) {
     execute_safe(&SiliconTlbWindow::write_register, offset, data, size);
@@ -267,22 +280,36 @@ void SiliconTlbWindow::safe_read_register(uint64_t offset, void *data, size_t si
     execute_safe(&SiliconTlbWindow::read_register, offset, data, size);
 }
 
-void SiliconTlbWindow::safe_write_block(uint64_t offset, const void *data, size_t size) {
-    execute_safe(&SiliconTlbWindow::write_block, offset, data, size);
+void SiliconTlbWindow::safe_write_block(
+    uint64_t offset, const void *data, size_t size, const std::function<bool()> &on_timeout) {
+    execute_safe(&SiliconTlbWindow::write_block, offset, data, size, on_timeout);
 }
 
-void SiliconTlbWindow::safe_read_block(uint64_t offset, void *data, size_t size) {
-    execute_safe(&SiliconTlbWindow::read_block, offset, data, size);
+void SiliconTlbWindow::safe_read_block(
+    uint64_t offset, void *data, size_t size, const std::function<bool()> &on_timeout) {
+    execute_safe(&SiliconTlbWindow::read_block, offset, data, size, on_timeout);
 }
 
 void SiliconTlbWindow::safe_write_block_reconfigure(
-    const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    execute_safe(&SiliconTlbWindow::write_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+    const void *mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    uint64_t ordering,
+    const std::function<bool()> &on_timeout) {
+    execute_safe(&SiliconTlbWindow::write_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering, on_timeout);
 }
 
 void SiliconTlbWindow::safe_read_block_reconfigure(
-    void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    execute_safe(&SiliconTlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+    void *mem_ptr,
+    tt_xy_pair core,
+    uint64_t addr,
+    size_t size,
+    NocId noc_id,
+    uint64_t ordering,
+    const std::function<bool()> &on_timeout) {
+    execute_safe(&SiliconTlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering, on_timeout);
 }
 
 void SiliconTlbWindow::safe_read_register_reconfigure(
@@ -302,9 +329,18 @@ void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
     tt_xy_pair core_end,
     uint64_t addr,
     NocId noc_id,
-    uint64_t ordering) {
+    uint64_t ordering,
+    const std::function<bool()> &on_timeout) {
     execute_safe(
-        &SiliconTlbWindow::noc_multicast_write_reconfigure, src, size, core_start, core_end, addr, noc_id, ordering);
+        &SiliconTlbWindow::noc_multicast_write_reconfigure,
+        src,
+        size,
+        core_start,
+        core_end,
+        addr,
+        noc_id,
+        ordering,
+        on_timeout);
 }
 
 }  // namespace tt::umd

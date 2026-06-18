@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
@@ -28,18 +29,25 @@ public:
     virtual ~TlbWindow() = default;
 
     // Pure virtual methods for memory access - to be implemented by derived classes.
-    virtual void write16(uint64_t offset, uint16_t value) = 0;
-    virtual uint16_t read16(uint64_t offset) = 0;
-    virtual void write32(uint64_t offset, uint32_t value) = 0;
-    virtual uint32_t read32(uint64_t offset) = 0;
+    virtual void write16(uint64_t offset, uint16_t value, const std::function<bool()>& on_timeout = {}) = 0;
+    virtual uint16_t read16(uint64_t offset, const std::function<bool()>& on_timeout = {}) = 0;
+    virtual void write32(uint64_t offset, uint32_t value, const std::function<bool()>& on_timeout = {}) = 0;
+    virtual uint32_t read32(uint64_t offset, const std::function<bool()>& on_timeout = {}) = 0;
     virtual void write_register(uint64_t offset, const void* data, size_t size) = 0;
     virtual void read_register(uint64_t offset, void* data, size_t size) = 0;
-    virtual void write_block(uint64_t offset, const void* data, size_t size) = 0;
-    virtual void read_block(uint64_t offset, void* data, size_t size) = 0;
+    virtual void write_block(
+        uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {}) = 0;
+    virtual void read_block(uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {}) = 0;
 
     // Shared higher-level methods that use the virtual methods above.
     virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict,
+        const std::function<bool()>& on_timeout = {});
 
     virtual void write_block_reconfigure(
         const void* mem_ptr,
@@ -47,7 +55,8 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const std::function<bool()>& on_timeout = {});
 
     virtual void noc_multicast_write_reconfigure(
         const void* src,
@@ -56,7 +65,8 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const std::function<bool()>& on_timeout = {});
 
     // Register reconfigure methods perform 32-bit chunked transfers with strict ordering.
     // Alignment enforcement is the caller's responsibility.
@@ -71,21 +81,23 @@ public:
         NocId noc_id,
         uint64_t ordering = tlb_data::Strict);
 
-    virtual void safe_write16(uint64_t offset, uint16_t value) = 0;
+    virtual void safe_write16(uint64_t offset, uint16_t value, const std::function<bool()>& on_timeout = {}) = 0;
 
-    virtual uint16_t safe_read16(uint64_t offset) = 0;
+    virtual uint16_t safe_read16(uint64_t offset, const std::function<bool()>& on_timeout = {}) = 0;
 
-    virtual void safe_write32(uint64_t offset, uint32_t value);
+    virtual void safe_write32(uint64_t offset, uint32_t value, const std::function<bool()>& on_timeout = {});
 
-    virtual uint32_t safe_read32(uint64_t offset);
+    virtual uint32_t safe_read32(uint64_t offset, const std::function<bool()>& on_timeout = {});
 
     virtual void safe_write_register(uint64_t offset, const void* data, size_t size);
 
     virtual void safe_read_register(uint64_t offset, void* data, size_t size);
 
-    virtual void safe_write_block(uint64_t offset, const void* data, size_t size);
+    virtual void safe_write_block(
+        uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {});
 
-    virtual void safe_read_block(uint64_t offset, void* data, size_t size);
+    virtual void safe_read_block(
+        uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {});
 
     virtual void safe_write_block_reconfigure(
         const void* mem_ptr,
@@ -93,10 +105,17 @@ public:
         uint64_t addr,
         size_t size,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const std::function<bool()>& on_timeout = {});
 
     virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
+        void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict,
+        const std::function<bool()>& on_timeout = {});
 
     virtual void safe_read_register_reconfigure(
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
@@ -116,7 +135,8 @@ public:
         tt_xy_pair core_end,
         uint64_t addr,
         NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
+        uint64_t ordering = tlb_data::Strict,
+        const std::function<bool()>& on_timeout = {});
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;

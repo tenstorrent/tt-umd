@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 #include "umd/device/pcie/tlb_window.hpp"
@@ -28,18 +29,19 @@ public:
     TTSimTlbWindow(std::unique_ptr<TlbHandle> handle, TTSimCommunicator* communicator, const tlb_data config = {});
 
     // Implementation of memory access methods using TTSimCommunicator.
-    void write16(uint64_t offset, uint16_t value) override;
-    uint16_t read16(uint64_t offset) override;
-    void write32(uint64_t offset, uint32_t value) override;
-    uint32_t read32(uint64_t offset) override;
+    void write16(uint64_t offset, uint16_t value, const std::function<bool()>& on_timeout = {}) override;
+    uint16_t read16(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
+    void write32(uint64_t offset, uint32_t value, const std::function<bool()>& on_timeout = {}) override;
+    uint32_t read32(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
     void write_register(uint64_t offset, const void* data, size_t size) override;
     void read_register(uint64_t offset, void* data, size_t size) override;
-    void write_block(uint64_t offset, const void* data, size_t size) override;
-    void read_block(uint64_t offset, void* data, size_t size) override;
+    void write_block(
+        uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
+    void read_block(uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
 
-    void safe_write16(uint64_t offset, uint16_t value) override;
+    void safe_write16(uint64_t offset, uint16_t value, const std::function<bool()>& on_timeout = {}) override;
 
-    uint16_t safe_read16(uint64_t offset) override;
+    uint16_t safe_read16(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
 
 private:
     /**

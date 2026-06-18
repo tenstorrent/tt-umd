@@ -86,12 +86,14 @@ jobs:
       - name: Run Python tests for tt-exalens library
         env:
           TT_LOGGER_LEVEL: debug
+          PYTHONWARNINGS: ignore::ResourceWarning
         run: |
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
 
       - name: Run Python tests for tt-exalens app
         env:
           TT_LOGGER_LEVEL: debug
+          PYTHONWARNINGS: ignore::ResourceWarning
         run: |
           python3 -m unittest discover -v -t . -s test/app -p *test*.py
 
@@ -99,6 +101,7 @@ jobs:
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
           TT_LOGGER_LEVEL: debug
+          PYTHONWARNINGS: ignore::ResourceWarning
         shell: bash
         run: |
           python3 -m unittest discover -v -t . -s test/ttexalens -p *test*.py
@@ -107,5 +110,6 @@ jobs:
         env:
           TTEXALENS_TESTS_USE_NOC1: 1
           TT_LOGGER_LEVEL: debug
+          PYTHONWARNINGS: ignore::ResourceWarning
         run: |
           python3 -m unittest discover -v -t . -s test/app -p *test*.py

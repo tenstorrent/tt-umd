@@ -9,6 +9,10 @@
 namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
+// Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at runtime via
+// MmioTimeoutConfig::set_op_timeout. Set to 2 ms, the measured cost of a 4-byte MMIO op.
+inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(2);
+
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 // ARC clears the interrupt trigger bit quickly; this just guards against concurrent
 // processes/threads opening clusters, which causes KMD to send ARC messages that

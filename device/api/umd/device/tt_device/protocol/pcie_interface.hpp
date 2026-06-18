@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -47,6 +48,11 @@ public:
 
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
     virtual uint32_t bar_read32(uint32_t addr) = 0;
+
+    // Hook for the timed MMIO path: invoked (with the in-flight op's NOC) when a single op exceeds its
+    // per-op budget. Returns true if that NOC is confirmed hung (abort the transfer with
+    // DeviceTimeoutError), false to treat the slow op as a false positive and continue.
+    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;
 };
 
 }  // namespace tt::umd

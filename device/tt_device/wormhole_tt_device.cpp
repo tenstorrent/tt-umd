@@ -62,7 +62,7 @@ WormholeTTDevice::WormholeTTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
-    set_arc_coordinate();
+    WormholeTTDevice::set_arc_coordinate();
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
         TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),

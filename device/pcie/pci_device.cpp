@@ -197,21 +197,21 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_device_ioctl(int device_id, uint32_t flags) {
+static void send_reset_ioctl(int device_id, uint32_t flags) {
     log_debug(tt::LogUMD, "Attempting to reset PCI device ID {} with flags {}", device_id, flags);
     std::string device_path = fmt::format("/dev/tenstorrent/{}", device_id);
     tt_device_t *dev = nullptr;
     int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
     if (err != 0) {
-        log_error(LogUMD, "Failed to open device {} on path {} with error: {}", device_id, device_path, strerror(-err));
-        return;
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to open device {}: {}", device_id, strerror(-err)));
     }
 
     err = tt_device_reset(dev, flags);
     if (err != 0) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Reset failed on device {} with flags {}: {}", device_id, flags, strerror(-err)));
+            fmt::format(
+                "Sending reset command failed on device {} with flags {:#x}: {}", device_id, flags, strerror(-err)));
     }
 }
 
@@ -896,7 +896,8 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_config.static_vc);
 }
 
-void PCIDevice::reset_devices(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
+void PCIDevice::send_reset_ioctl_to_devices(
+    const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flags, bool ignore_failures) {
     for (int n : PCIDevice::enumerate_devices()) {
         // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
         // to check if the device is in the pci_target_devices set.
@@ -904,11 +905,12 @@ void PCIDevice::reset_devices(const std::unordered_set<int> &pci_target_devices,
             continue;
         }
         try {
-            reset_device_ioctl(n, static_cast<uint32_t>(flag));
-        } catch (const std::exception &e) {
-            log_error(tt::LogUMD, "Reset failed: {}", e.what());
-        } catch (...) {
-            log_error(tt::LogUMD, "Reset failed with unknown error.");
+            send_reset_ioctl(n, static_cast<uint32_t>(flags));
+        } catch (error::UmdBaseException &e) {
+            if (!ignore_failures) {
+                throw;
+            }
+            log_error(LogUMD, "Sending reset ioctl to device {} failed: {}", n, e.what());
         }
     }
 }

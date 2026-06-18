@@ -297,14 +297,16 @@ public:
     /**
      * @brief Resets the specified Tenstorrent PCIe devices.
      *
-     * @param pci_target_devices A set of PCI device identifiers to be reset.
+     * @param pci_target_devices A set of PCI device identifiers to be reset. (/dev/tenstorrent/N)
      *                          Each identifier uniquely identifies a device on the PCI bus.
      * @param flag The type of reset operation to perform on the target devices.
+     * @param ignore_failures Ignore any failures when sending reset ioctls.
      *
      * @note This is a blocking operation that may take time to complete depending
      *       on the number of devices and the reset type.
      */
-    static void reset_devices(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
+    static void send_reset_ioctl_to_devices(
+        const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag, bool ignore_failures = true);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.

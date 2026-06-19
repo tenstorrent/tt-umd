@@ -801,6 +801,15 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
     EXPECT_EQ(WEXITSTATUS(status), params.expected_rc);
 }
 
+static void terminate_processes(std::initializer_list<pid_t> pids) {
+    for (pid_t p : pids) {
+        if (p > 0) {
+            kill(p, SIGKILL);
+            waitpid(p, nullptr, 0);
+        }
+    }
+}
+
 TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
@@ -844,7 +853,10 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
 
     // P2: holds Cluster, waits for reset, then destroys and recreates.
     pid_t p2 = fork();
-    ASSERT_NE(p2, -1);
+    if (p2 == -1) {
+        terminate_processes({p1});
+        FAIL() << "Second fork() failed";
+    }
     if (p2 == 0) {
         auto cluster = std::make_unique<Cluster>();
         children_ready.notify(P2_SLOT);
@@ -862,8 +874,10 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
         _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);
     }
 
-    ASSERT_TRUE(children_ready.wait_for_all(SYNC_TIMEOUT_S))
-        << "Timed out waiting for child processes to create Cluster.";
+    if (!children_ready.wait_for_all(SYNC_TIMEOUT_S)) {
+        terminate_processes({p1, p2});
+        FAIL() << "Timed out waiting for child processes to create Cluster.";
+    }
 
     WarmResetWithRecovery::warm_reset();
 
@@ -875,6 +889,5 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     EXPECT_EQ(WEXITSTATUS(status), EXIT_SUCCESS_CODE)
         << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
 
-    kill(p1, SIGKILL);
-    waitpid(p1, nullptr, 0);
+    terminate_processes({p1});
 }

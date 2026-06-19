@@ -10,6 +10,7 @@
 
 #include <cerrno>
 #include <cstdint>
+#include <cstdio>
 #include <stdexcept>
 #include <vector>
 
@@ -48,7 +49,7 @@ public:
     void notify(int slot) {
         uint64_t val = 1;
         if (write(fds[slot], &val, sizeof(val)) != sizeof(val)) {
-            perror("MultiProcessEvent: signal failed");
+            std::perror("MultiProcessEvent: signal failed");
         }
     }
 

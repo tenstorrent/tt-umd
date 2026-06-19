@@ -110,7 +110,10 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<EthCoord> eth_coord,
+        TTDevice* gateway_device,
+        std::set<uint32_t> gateway_eth_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor = nullptr) = 0;
 
     TTDevice* get_tt_device(const uint64_t asic_id);
 

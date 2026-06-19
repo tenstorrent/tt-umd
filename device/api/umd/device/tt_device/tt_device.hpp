@@ -69,12 +69,31 @@ enum class EthTrainingStatus {
 class TTDevice {
 public:
     /**
-     * Creates a proper TTDevice object for the given device number.
-     * Jtag support can be enabled.
+     * @brief Factory method to create a TTDevice instance.
+     *
+     * Creates and returns a unique pointer to a TTDevice object configured with the
+     * specified parameters. This is the primary way to instantiate TTDevice objects.
+     *
+     * @param device_number The device identifier/index to connect to, specific to the I/O device interface.
+     * @param device_type The type of I/O device interface to use. (default: PCIe)
+     * @param use_safe_api Flag to enable safe I/O API that can recover from SIGBUS errors.
+     *                     Available only for PCIe I/O device type. (default: false)
+     * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
+     *                            If nullptr, a default descriptor will be used. (default: nullptr)
+     *
+     * @return std::unique_ptr<TTDevice> A unique pointer to the created TTDevice instance.
+     *
+     * @throws May throw exceptions if device creation fails or device_number is invalid.
      */
     static std::unique_ptr<TTDevice> create(
-        int device_number, IODeviceType device_type = IODeviceType::PCIe, bool use_safe_api = false);
-    static std::unique_ptr<TTDevice> create(std::unique_ptr<RemoteCommunication> remote_communication);
+        int device_number,
+        IODeviceType device_type = IODeviceType::PCIe,
+        bool use_safe_api = false,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+
+    static std::unique_ptr<TTDevice> create(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
     virtual ~TTDevice() = default;
 
@@ -366,9 +385,7 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(
-        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 
@@ -400,6 +417,7 @@ public:
      * @param selected_riscs Bitmask of riscs to assert reset for
      */
     virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
      * Deassert risc reset for a specific core.
@@ -409,6 +427,7 @@ public:
      * @param staggered_start Whether to use staggered start
      */
     virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -428,8 +447,10 @@ public:
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr);
 
     virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
+    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -445,6 +466,7 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+    void dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
      * Read the training status of the given ETH core.
@@ -453,6 +475,7 @@ public:
      * @return Training status
      */
     virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
 
     const SocDescriptor &get_soc_descriptor() const;
 
@@ -467,14 +490,17 @@ protected:
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
         bool use_safe_api);
     TTDevice(
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     TTDevice(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl);
+        std::unique_ptr<architecture_implementation> architecture_impl,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -484,14 +510,20 @@ protected:
 
     bool is_remote_tt_device = false;
 
-    tt_xy_pair arc_core;
+    xy_pair arc_core_noc0;
+    xy_pair arc_core_noc1;
 
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
+    virtual void set_arc_coordinate() {}
+
 private:
     void probe_arc();
 
+    void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;

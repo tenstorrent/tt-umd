@@ -81,7 +81,7 @@ void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vecto
         bool serialize_cores = true;
 
         for (const auto &dram_core : dram_cores) {
-            if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
+            if ((dram_core.x >= grid_size.x) || (dram_core.y >= grid_size.y)) {
                 serialize_cores = false;
             }
         }

@@ -10,6 +10,7 @@
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -85,14 +86,14 @@ public:
 
     uint64_t dram_bank_size() const { return dram_bank_size_; }
 
-    // Get the tt_emule::Core for a given physical core coordinate.
-    // Lazy-creates with appropriate role (WORKER or DRAM) and size.
+    // Get the tt_emule::Core for a given worker core coordinate (lazy-create).
     tt_emule::Core* get_core(tt_xy_pair core_xy);
 
-private:
-    // Is this core coordinate a DRAM core?
-    bool is_dram_core(tt_xy_pair core_xy) const;
+    // Get the single backing for a DRAM channel (lazy-create). Every NOC endpoint
+    // coord of a channel resolves here, so a noc=1 read sees a noc=0 / host write.
+    tt_emule::Core* get_dram_channel_backing(uint32_t channel);
 
+private:
     std::mutex core_mutex_;
 
     // L1Pool for worker cores — single contiguous MAP_32BIT mmap with
@@ -106,8 +107,10 @@ private:
     // All cores (worker + DRAM), keyed by physical {x,y}.
     std::unordered_map<tt_xy_pair, std::unique_ptr<tt_emule::Core>> cores_;
 
-    // Cached set of DRAM cores for fast lookup.
-    std::unordered_map<tt_xy_pair, uint32_t> dram_core_to_channel_;
+    // One backing per DRAM channel — every NOC endpoint coord of a channel resolves
+    // here (else a noc=1 access reads a different mmap than the noc=0 / host write).
+    std::unordered_map<uint32_t, tt_emule::Core*> dram_channel_core_;
+    std::vector<std::unique_ptr<tt_emule::Core>> dram_backings_;  // owns the per-channel mmaps
 
     uint32_t l1_size_;
     uint64_t dram_bank_size_;

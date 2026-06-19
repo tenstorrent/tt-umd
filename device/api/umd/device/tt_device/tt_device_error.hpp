@@ -39,6 +39,7 @@ struct ArcStartupData : public DeviceCoreData {
     uint32_t scratch_status = 0;
     uint32_t postcode = 0;
     std::optional<uint32_t> message_id = std::nullopt;
+    std::optional<uint32_t> smc_init_status = std::nullopt;
 };
 
 struct ArcStartupError : UmdError<ArcStartupData> {
@@ -48,7 +49,8 @@ struct ArcStartupError : UmdError<ArcStartupData> {
         xy_pair arc_core,
         uint32_t scratch_status,
         uint32_t postcode,
-        std::optional<uint32_t> message_id = std::nullopt);
+        std::optional<uint32_t> message_id = std::nullopt,
+        std::optional<uint32_t> smc_init_status = std::nullopt);
     ArcStartupError(
         const TTDevice& tt_device,
         NocId noc_id,
@@ -56,7 +58,8 @@ struct ArcStartupError : UmdError<ArcStartupData> {
         uint32_t scratch_status,
         uint32_t postcode,
         std::chrono::milliseconds timeout,
-        std::optional<uint32_t> message_id = std::nullopt);
+        std::optional<uint32_t> message_id = std::nullopt,
+        std::optional<uint32_t> smc_init_status = std::nullopt);
 };
 
 struct NocHangData : TTDeviceData {

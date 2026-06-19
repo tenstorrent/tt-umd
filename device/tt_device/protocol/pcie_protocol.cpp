@@ -120,7 +120,11 @@ void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t
     }
 }
 
-bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t, NocId) { return false; }
+bool PcieProtocol::write_to_core_range(
+    const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id) {
+    noc_multicast_write(mem_ptr, size, core_start, core_end, addr, noc_id);
+    return true;
+}
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
 

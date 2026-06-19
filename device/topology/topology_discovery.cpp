@@ -152,7 +152,8 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type, options.use_safe_api);
+        std::unique_ptr<TTDevice> tt_device =
+            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
@@ -176,7 +177,7 @@ void TopologyDiscovery::get_connected_devices() {
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
         try {
-            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_arch_descriptor_);
+            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
         } catch (error::UmdBaseException& err) {
             if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                 throw;
@@ -361,12 +362,13 @@ void TopologyDiscovery::discover_remote_devices() {
                 std::unique_ptr<TTDevice> remote_device = create_remote_device(
                     eth_coord,
                     devices.at(gateway_device_id).get(),
-                    active_eth_channels_per_device.at(gateway_device_id));
+                    active_eth_channels_per_device.at(gateway_device_id),
+                    soc_arch_descriptor_);
                 ChipId chip_id = get_next_chip_id();
 
                 bool device_init_failed = false;
                 try {
-                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_arch_descriptor_);
+                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT);
                 } catch (error::UmdBaseException& err) {
                     if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
                         throw;
@@ -684,8 +686,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
 }
 
 bool TopologyDiscovery::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    xy_pair translated_core = tt_device->get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
-    return tt_device->read_eth_core_training_status(translated_core) == EthTrainingStatus::SUCCESS;
+    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 }  // namespace tt::umd

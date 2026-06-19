@@ -54,14 +54,20 @@ public:
 
     bool wait_for(int slot, int timeout_seconds = 5) {
         fd_set read_set;
-        FD_ZERO(&read_set);
-        FD_SET(fds[slot], &read_set);
+        struct timeval timeout;
+        int ret;
 
-        struct timeval timeout {
-            timeout_seconds, 0
-        };
+        while (true) {
+            FD_ZERO(&read_set);
+            FD_SET(fds[slot], &read_set);
+            timeout = {timeout_seconds, 0};
+            ret = select(fds[slot] + 1, &read_set, nullptr, nullptr, &timeout);
+            if (ret != -1 || errno != EINTR) {
+                break;
+            }
+        }
 
-        if (select(fds[slot] + 1, &read_set, nullptr, nullptr, &timeout) <= 0) {
+        if (ret <= 0) {
             return false;
         }
 

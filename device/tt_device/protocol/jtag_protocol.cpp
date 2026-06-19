@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "umd/device/jtag/jtag_device.hpp"
-#include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 

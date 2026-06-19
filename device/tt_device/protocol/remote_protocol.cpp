@@ -14,7 +14,7 @@
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 

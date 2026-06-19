@@ -22,7 +22,7 @@
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 

@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 
 #define UMD_ERROR_HPP_INTERNAL_INCLUDE
 #include "umd/device/utils/error_detail.hpp"
@@ -100,21 +99,3 @@ private:
 };
 
 }  // namespace tt::umd::error
-
-namespace tt::umd {
-
-template <typename Alignment, typename Value>
-inline void throw_if_not_aligned(Value value, const std::string& what) {
-    static_assert(std::is_integral_v<Alignment>, "Alignment type must be integral.");
-    static_assert(std::is_integral_v<Value>, "Value type must be integral.");
-    if (value % sizeof(Alignment) != 0) {
-        UMD_THROW(error::RuntimeError, what + " must be " + std::to_string(sizeof(Alignment)) + "-byte aligned.");
-    }
-}
-
-inline void validate_register_access(uint64_t addr, size_t size) {
-    throw_if_not_aligned<uint32_t>(addr, "Register address");
-    throw_if_not_aligned<uint32_t>(size, "Register access size");
-}
-
-}  // namespace tt::umd

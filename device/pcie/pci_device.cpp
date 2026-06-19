@@ -1076,8 +1076,7 @@ void PCIDevice::set_power_state(bool busy) {
 
     int ret = tt_device_set_power_state(tt_device_handle, power_flags);
     if (ret != 0) {
-        log_warning(
-            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(-ret));
+        log_warning(LogUMD, "Setting power state failed on device {}: {}", pci_device_num, strerror(-ret));
     }
 }
 

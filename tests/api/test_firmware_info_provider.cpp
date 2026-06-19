@@ -612,7 +612,12 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
             (arch == tt::ARCH::BLACKHOLE && fw_version >= FirmwareBundleVersion(19, 9, 0))) {
             EXPECT_TRUE(heartbeats.has_value());
             if (heartbeats.has_value()) {
-                EXPECT_EQ(heartbeats.value().size(), 16u);
+                size_t expected_size = (arch == tt::ARCH::BLACKHOLE) ? 14u : 16u;
+                EXPECT_EQ(heartbeats.value().size(), expected_size);
+                for (const auto& [coord, status] : heartbeats.value()) {
+                    EXPECT_EQ(coord.core_type, CoreType::ETH);
+                    EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
+                }
             }
         }
     }
@@ -635,6 +640,10 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
             EXPECT_TRUE(retrains.has_value());
             if (retrains.has_value()) {
                 EXPECT_EQ(retrains.value().size(), 16u);
+                for (const auto& [coord, status] : retrains.value()) {
+                    EXPECT_EQ(coord.core_type, CoreType::ETH);
+                    EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
+                }
             }
         }
     }
@@ -644,6 +653,7 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
+        tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
         auto links = fw_info->get_eth_link_status();
 
@@ -655,7 +665,12 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
         if (fw_version >= FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_TRUE(links.has_value());
             if (links.has_value()) {
-                EXPECT_EQ(links.value().size(), 16u);
+                size_t expected_size = (arch == tt::ARCH::BLACKHOLE) ? 14u : 16u;
+                EXPECT_EQ(links.value().size(), expected_size);
+                for (const auto& [coord, status] : links.value()) {
+                    EXPECT_EQ(coord.core_type, CoreType::ETH);
+                    EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
+                }
             }
         }
     }

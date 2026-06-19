@@ -285,6 +285,16 @@ void SiliconTlbWindow::safe_read_block_reconfigure(
     execute_safe(&SiliconTlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
 }
 
+void SiliconTlbWindow::safe_read_register_reconfigure(
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    execute_safe(&SiliconTlbWindow::read_register_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+}
+
+void SiliconTlbWindow::safe_write_register_reconfigure(
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    execute_safe(&SiliconTlbWindow::write_register_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+}
+
 void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
     const void *src,
     size_t size,

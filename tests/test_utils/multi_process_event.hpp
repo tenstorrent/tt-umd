@@ -48,7 +48,7 @@ public:
 
     void notify(int slot) {
         uint64_t val = 1;
-        if (write(fds[slot], &val, sizeof(val)) != sizeof(val)) {
+        if (write(fds.at(slot), &val, sizeof(val)) != sizeof(val)) {
             std::perror("MultiProcessEvent: signal failed");
         }
     }
@@ -60,9 +60,9 @@ public:
 
         while (true) {
             FD_ZERO(&read_set);
-            FD_SET(fds[slot], &read_set);
+            FD_SET(fds.at(slot), &read_set);
             timeout = {timeout_seconds, 0};
-            ret = select(fds[slot] + 1, &read_set, nullptr, nullptr, &timeout);
+            ret = select(fds.at(slot) + 1, &read_set, nullptr, nullptr, &timeout);
             if (ret != -1 || errno != EINTR) {
                 break;
             }
@@ -73,7 +73,7 @@ public:
         }
 
         uint64_t val;
-        return read(fds[slot], &val, sizeof(val)) == sizeof(val);
+        return read(fds.at(slot), &val, sizeof(val)) == sizeof(val);
     }
 
     bool wait_for_all(int timeout_seconds_per_slot = 5) {

@@ -1071,20 +1071,13 @@ void PCIDevice::set_power_state(bool busy) {
         return;
     }
 
-    tenstorrent_power_state power_state{};
-    power_state.argsz = sizeof(power_state);
-    power_state.validity = TT_POWER_VALIDITY(4, 0);
+    uint16_t power_flags =
+        busy ? TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE : 0;
 
-    if (busy) {
-        power_state.power_flags =
-            TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
-    } else {
-        power_state.power_flags = 0;
-    }
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_SET_POWER_STATE, &power_state) == -1) {
+    int ret = tt_device_set_power_state(tt_device_handle, power_flags);
+    if (ret != 0) {
         log_warning(
-            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(errno));
+            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(-ret));
     }
 }
 

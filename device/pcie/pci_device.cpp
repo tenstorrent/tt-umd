@@ -449,18 +449,15 @@ PCIDevice::PCIDevice(int pci_device_number) :
                 pci_device_number));
     }
 
-    tenstorrent_get_driver_info driver_info{};
-    driver_info.in.output_size_bytes = sizeof(driver_info.out);
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
-        UMD_THROW(error::RuntimeError, "TENSTORRENT_IOCTL_GET_DRIVER_INFO failed.");
-    }
+    uint64_t driver_api_version = 0;
+    tt_driver_get_attr(tt_device_handle, tt_driver_attr::TT_DRIVER_API_VERSION, &driver_api_version);
 
     log_debug(
         LogUMD,
-        "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
+        "Opened PCI device {}; KMD version: {} (API version: {}); IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
-        driver_info.out.driver_version,
+        driver_api_version,
         iommu_enabled ? "enabled" : "disabled");
 
     UMD_ASSERT(

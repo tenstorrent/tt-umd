@@ -1071,10 +1071,12 @@ void PCIDevice::set_power_state(bool busy) {
         return;
     }
 
-    uint16_t power_flags =
-        busy ? TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE : 0;
+    constexpr uint16_t not_busy_flags = 0;
+    constexpr uint16_t busy_flags =
+        TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_L2CPU_ENABLE | TT_POWER_FLAG_TENSIX_ENABLE;
+    uint16_t flags = busy ? busy_flags : not_busy_flags;
 
-    int ret = tt_device_set_power_state(tt_device_handle, power_flags);
+    int ret = tt_device_set_power_state(tt_device_handle, flags);
     if (ret != 0) {
         log_warning(LogUMD, "Setting power state failed on device {}: {}", pci_device_num, strerror(-ret));
     }

@@ -391,10 +391,12 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
 /**
  * @brief Power flags for use with tt_device_set_power_state().
  */
-#define TT_POWER_FLAG_MAX_AI_CLK (1U << 0)       /**< 1=Max AI Clock,  0=Min AI Clock */
-#define TT_POWER_FLAG_MRISC_PHY_WAKEUP (1U << 1) /**< 1=PHY Wakeup,    0=PHY Powerdown */
-#define TT_POWER_FLAG_TENSIX_ENABLE (1U << 2)    /**< 1=Enable Tensix, 0=Clock Gate Tensix */
-#define TT_POWER_FLAG_L2CPU_ENABLE (1U << 3)     /**< 1=Enable L2CPU,  0=Clock Gate L2CPU */
+enum tt_power_flags {
+    TT_POWER_FLAG_MAX_AI_CLK = (1U << 0),       /**< 1=Max AI Clock,  0=Min AI Clock */
+    TT_POWER_FLAG_MRISC_PHY_WAKEUP = (1U << 1), /**< 1=PHY Wakeup,    0=PHY Powerdown */
+    TT_POWER_FLAG_TENSIX_ENABLE = (1U << 2),    /**< 1=Enable Tensix, 0=Clock Gate Tensix */
+    TT_POWER_FLAG_L2CPU_ENABLE = (1U << 3)      /**< 1=Enable L2CPU,  0=Clock Gate L2CPU */
+};
 
 /**
  * @brief Set per-client power state requirements for this device file descriptor.

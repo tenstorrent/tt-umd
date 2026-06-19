@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/firmware/eth_status_utils.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -672,6 +673,54 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
                     EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
                 }
             }
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, PrintEthStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        tt::ARCH arch = tt_device->get_arch();
+        const auto& soc_desc = tt_device->get_soc_descriptor();
+
+        log_info(tt::LogUMD, "=== ETH Status for {} ===", (arch == tt::ARCH::BLACKHOLE) ? "Blackhole" : "Wormhole");
+        log_info(
+            tt::LogUMD,
+            "Harvested ETH channels: {} / {}",
+            soc_desc.get_num_harvested_eth_channels(),
+            soc_desc.get_num_eth_channels());
+
+        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        if (heartbeats.has_value()) {
+            log_info(tt::LogUMD, "--- Heartbeat (all channels) ---");
+            for (const auto& [coord, status] : heartbeats.value()) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "active" : "inactive");
+            }
+
+            auto filtered = filter_harvested_eth_status(heartbeats.value(), soc_desc);
+            log_info(
+                tt::LogUMD, "--- Heartbeat (non-harvested: {}/{}) ---", filtered.size(), heartbeats.value().size());
+            for (const auto& [coord, status] : filtered) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "active" : "inactive");
+            }
+        } else {
+            log_info(tt::LogUMD, "Heartbeat: unavailable");
+        }
+
+        auto links = fw_info->get_eth_link_status();
+        if (links.has_value()) {
+            log_info(tt::LogUMD, "--- Link status (all channels) ---");
+            for (const auto& [coord, status] : links.value()) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "up" : "down");
+            }
+
+            auto filtered = filter_harvested_eth_status(links.value(), soc_desc);
+            log_info(tt::LogUMD, "--- Link status (non-harvested: {}/{}) ---", filtered.size(), links.value().size());
+            for (const auto& [coord, status] : filtered) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "up" : "down");
+            }
+        } else {
+            log_info(tt::LogUMD, "Link status: unavailable");
         }
     }
 }

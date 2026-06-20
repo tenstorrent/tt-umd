@@ -514,3 +514,23 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
 
     return 0;
 }
+
+int tt_device_reset(tt_device_t* dev, uint32_t reset_flags) {
+    struct tenstorrent_reset_device reset_info = {0};
+
+    if (dev == NULL) {
+        return -ENODEV;
+    }
+
+    reset_info.in.output_size_bytes = sizeof(reset_info.out);
+    reset_info.in.flags = reset_flags;
+
+    reset_info.out.output_size_bytes = 0;
+    reset_info.out.result = 0;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) != 0) {
+        return -errno;
+    }
+
+    return tt_device_close(dev);
+}

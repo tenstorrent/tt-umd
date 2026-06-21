@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 #include "umd/device/types/noc_id.hpp"
@@ -26,6 +27,10 @@ public:
 
     virtual void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
     virtual void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+
+    virtual void write_to_device_reg(
+        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
+    virtual void read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) = 0;
 
     // [[nodiscard]] tells the compiler that the return value should not be ignored.
     // This ensures the caller handles the software fallback

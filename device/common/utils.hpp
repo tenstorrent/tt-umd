@@ -9,12 +9,15 @@
 
 #include <array>
 #include <chrono>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <type_traits>
 #include <unordered_set>
 #include <vector>
 
@@ -290,3 +293,21 @@ constexpr bool is_riscv_platform() {
 }
 
 }  // namespace tt::umd::utils
+
+namespace tt::umd {
+
+template <typename Alignment, typename Value>
+inline void throw_if_not_aligned(Value value, const std::string& what) {
+    static_assert(std::is_integral_v<Alignment>, "Alignment type must be integral.");
+    static_assert(std::is_integral_v<Value>, "Value type must be integral.");
+    if (value % sizeof(Alignment) != 0) {
+        UMD_THROW(error::RuntimeError, what + " must be " + std::to_string(sizeof(Alignment)) + "-byte aligned.");
+    }
+}
+
+inline void validate_register_access(uint64_t addr, size_t size) {
+    throw_if_not_aligned<uint32_t>(addr, "Register address");
+    throw_if_not_aligned<uint32_t>(size, "Register access size");
+}
+
+}  // namespace tt::umd

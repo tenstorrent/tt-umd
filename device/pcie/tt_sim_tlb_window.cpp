@@ -44,12 +44,14 @@ uint32_t TTSimTlbWindow::read32(uint64_t offset, const std::function<bool()>& /*
     return value;
 }
 
-void TTSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
+void TTSimTlbWindow::write_register(
+    uint64_t offset, const void* data, size_t size, const std::function<bool()>& /*on_timeout*/) {
     validate(offset, size);
     sim_communicator_->pci_mem_write_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
 }
 
-void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
+void TTSimTlbWindow::read_register(
+    uint64_t offset, void* data, size_t size, const std::function<bool()>& /*on_timeout*/) {
     validate(offset, size);
     sim_communicator_->pci_mem_read_bytes(get_physical_address(offset), data, static_cast<uint32_t>(size));
 }

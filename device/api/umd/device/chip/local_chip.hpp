@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -105,6 +106,11 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
+
+    // Builds the per-op MMIO timeout veto for TLB-mapped transfers: on an overrun the configured hang
+    // check is consulted for the in-flight op's NOC. A hung NOC confirms the timeout (aborts with
+    // DeviceTimeoutError); a healthy NOC vetoes it so a slow-but-completing op is not a false positive.
+    std::function<bool()> make_io_timeout_callback();
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;

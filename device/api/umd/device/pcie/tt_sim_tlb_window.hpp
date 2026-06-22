@@ -33,8 +33,9 @@ public:
     uint16_t read16(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
     void write32(uint64_t offset, uint32_t value, const std::function<bool()>& on_timeout = {}) override;
     uint32_t read32(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
-    void write_register(uint64_t offset, const void* data, size_t size) override;
-    void read_register(uint64_t offset, void* data, size_t size) override;
+    void write_register(
+        uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
+    void read_register(uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
     void write_block(
         uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
     void read_block(uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;

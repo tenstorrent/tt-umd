@@ -30,8 +30,9 @@ public:
     uint16_t read16(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
     void write32(uint64_t offset, uint32_t value, const std::function<bool()>& on_timeout = {}) override;
     uint32_t read32(uint64_t offset, const std::function<bool()>& on_timeout = {}) override;
-    void write_register(uint64_t offset, const void* data, size_t size) override;
-    void read_register(uint64_t offset, void* data, size_t size) override;
+    void write_register(
+        uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
+    void read_register(uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
     void write_block(
         uint64_t offset, const void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
     void read_block(uint64_t offset, void* data, size_t size, const std::function<bool()>& on_timeout = {}) override;
@@ -109,8 +110,9 @@ private:
     static void memcpy_to_device(
         void* dest, const void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
 
-    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
-    void read_regs(void* src_reg, uint32_t word_len, void* data);
+    void write_regs(
+        volatile uint32_t* dest, const uint32_t* src, uint32_t word_len, const std::function<bool()>& on_timeout = {});
+    void read_regs(void* src_reg, uint32_t word_len, void* data, const std::function<bool()>& on_timeout = {});
 
     template <typename Func, typename... Args>
     decltype(auto) execute_safe(Func&& func, Args&&... args);

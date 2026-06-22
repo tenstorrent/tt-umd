@@ -53,11 +53,13 @@ uint32_t RtlSimTlbWindow::read32(uint64_t offset, const std::function<bool()>& /
     return value;
 }
 
-void RtlSimTlbWindow::write_register(uint64_t offset, const void* data, size_t size) {
+void RtlSimTlbWindow::write_register(
+    uint64_t offset, const void* data, size_t size, const std::function<bool()>& /*on_timeout*/) {
     translate_and_write(offset, data, size);
 }
 
-void RtlSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
+void RtlSimTlbWindow::read_register(
+    uint64_t offset, void* data, size_t size, const std::function<bool()>& /*on_timeout*/) {
     translate_and_read(offset, data, size);
 }
 

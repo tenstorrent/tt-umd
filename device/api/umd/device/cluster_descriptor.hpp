@@ -254,7 +254,7 @@ public:
 
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
-    using DeviceHealthErrors = std::variant<error::ArcStartupError, error::NocHangError, error::PcieHangError>;
+    using DeviceHealthError = std::variant<error::ArcStartupError, error::NocHangError, error::PcieHangError>;
 
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
@@ -318,7 +318,7 @@ private:
     std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 
     std::vector<ChipId> unhealthy_devices;
-    std::map<ChipId, DeviceHealthErrors> health_errors;
+    std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

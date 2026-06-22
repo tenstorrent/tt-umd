@@ -149,7 +149,7 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
-    std::map<uint64_t, ClusterDescriptor::DeviceHealthErrors> health_errors;
+    std::map<uint64_t, std::vector<ClusterDescriptor::DeviceHealthError>> health_errors;
 
     bool is_running_on_6u = false;
 

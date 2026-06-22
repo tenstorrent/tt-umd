@@ -142,8 +142,8 @@ bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const s
             throw;
         }
         log_warning(LogUMD, err.message());
-        if (std::optional<ClusterDescriptor::DeviceHealthErrors> health_error = to_device_health_error(err)) {
-            health_errors.emplace(generate_unhealthy_asic_id(chip_id), std::move(*health_error));
+        if (std::optional<ClusterDescriptor::DeviceHealthError> health_error = determine_device_init_error(err)) {
+            health_errors[generate_unhealthy_asic_id(chip_id)].push_back(std::move(*health_error));
         }
         return false;
     }
@@ -440,7 +440,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
 
-        cluster_desc->health_errors.insert({current_chip_id, std::move(health_errors.at(current_device_asic_id))});
+        cluster_desc->health_errors.insert({current_chip_id, std::move(health_errors[current_device_asic_id])});
 
         // Cluster descriptor is not designed to contain partial information about devices,
         // so we cannot add information about unhealthy devices.

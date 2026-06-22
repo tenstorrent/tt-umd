@@ -62,6 +62,18 @@ public:
         void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict)
         override;
 
+    void safe_read_register_reconfigure(
+        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict)
+        override;
+
+    void safe_write_register_reconfigure(
+        const void* mem_ptr,
+        tt_xy_pair core,
+        uint64_t addr,
+        size_t size,
+        NocId noc_id,
+        uint64_t ordering = tlb_data::Strict) override;
+
     void safe_noc_multicast_write_reconfigure(
         const void* src,
         size_t size,

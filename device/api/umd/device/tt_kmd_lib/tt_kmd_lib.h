@@ -8,8 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "umd/device/pcie/pci_ids.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -414,6 +412,15 @@ enum tt_power_flags {
  * @return 0 on success, negative error code on failure
  */
 int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
+
+/**
+ * @brief Reset the given device. The device handle will be invalidated after a successful reset.
+ *
+ * @param dev Device handle; must not be NULL
+ * @param reset_flags Reset flags.
+ * @return 0 on success, negative error code on failure
+ */
+int tt_device_reset(tt_device_t* dev, uint32_t reset_flags);
 
 #ifdef __cplusplus
 }

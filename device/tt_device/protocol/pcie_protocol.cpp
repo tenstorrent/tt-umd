@@ -22,7 +22,7 @@
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -97,6 +97,26 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
         get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
         get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 

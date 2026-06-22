@@ -197,44 +197,21 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices()) {
-        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
-        // to check if the device is in the pci_target_devices set.
-        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
-            continue;
-        }
+static void send_reset_ioctl(int device_id, uint32_t flags) {
+    log_debug(tt::LogUMD, "Attempting to reset PCI device ID {} with flags {}", device_id, flags);
+    std::string device_path = fmt::format("/dev/tenstorrent/{}", device_id);
+    tt_device_t *dev = nullptr;
+    int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
+    if (err != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to open device {}: {}", device_id, strerror(-err)));
+    }
 
-        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
-        if (fd == -1) {
-            continue;
-        }
-
-        try {
-            tenstorrent_reset_device reset_info{};
-
-            reset_info.in.output_size_bytes = sizeof(reset_info.out);
-            reset_info.in.flags = flags;
-
-            reset_info.out.output_size_bytes = 0;
-            reset_info.out.result = 0;
-            if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "TENSTORRENT_IOCTL_RESET_DEVICE failed on device {} with flags {}: {}",
-                        n,
-                        flags,
-                        strerror(errno)));
-            }
-        } catch (const std::exception &e) {
-            log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());
-        } catch (...) {
-            log_error(tt::LogUMD, "Reset IOCTL failed with unknown error.");
-        }
-
-        close(fd);
+    err = tt_device_reset(dev, flags);
+    if (err != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Sending reset command failed on device {} with flags {:#x}: {}", device_id, flags, strerror(-err)));
     }
 }
 
@@ -916,8 +893,23 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_config.static_vc);
 }
 
-void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
-    umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
+void PCIDevice::send_reset_ioctl_to_devices(
+    const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flags, bool ignore_failures) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
+        // to check if the device is in the pci_target_devices set.
+        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
+            continue;
+        }
+        try {
+            send_reset_ioctl(n, static_cast<uint32_t>(flags));
+        } catch (error::UmdBaseException &e) {
+            if (!ignore_failures) {
+                throw;
+            }
+            log_error(LogUMD, "Sending reset ioctl to device {} failed: {}", n, e.what());
+        }
+    }
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {

@@ -117,7 +117,7 @@ jobs:
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
       on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     # Arm variants must build natively on an arm runner; everything else uses the standard x86 runner.
-    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
@@ -324,7 +324,7 @@ jobs:
 
     name: Build umd manylinux wheel (${{ matrix.arch }})
     # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
 
     steps:
       - uses: actions/checkout@v6

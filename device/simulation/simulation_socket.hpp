@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <atomic>
+#include <asio.hpp>
 #include <filesystem>
 #include <memory>
 #include <thread>
@@ -24,6 +24,9 @@ namespace tt::umd {
 // destruction it closes the socket and removes the file.
 //
 // It does not yet handle client requests: connections are accepted and dropped.
+//
+// Internal to the simulation subsystem (not part of the public UMD API): this header
+// pulls in asio, which is a private dependency of the library.
 //
 // Note: distinct from SimulationHost, which is the (nng) RTL transport over which the
 // simulator process connects back into UMD.
@@ -57,16 +60,20 @@ private:
     // throws on real socket errors.
     bool bind_and_listen();
 
-    void accept_loop();
+    // Re-arms the async accept; connections carry no requests yet (owner-only), so each
+    // accepted socket is dropped immediately.
+    void do_accept();
 
     std::filesystem::path socket_path_;
-    int listen_fd_ = -1;
-    int shutdown_pipe_[2] = {-1, -1};
-    std::thread accept_thread_;
-    std::atomic<bool> running_{false};
     // True only after a successful bind_and_listen(); gates teardown so a never-bound
     // object never removes a live owner's socket file.
     bool bound_ = false;
+
+    // asio owns the listen fd (RAII) and the shutdown handshake (io_context::stop() instead
+    // of a self-pipe). The accept loop runs on io_thread_.
+    asio::io_context io_;
+    asio::local::stream_protocol::acceptor acceptor_{io_};
+    std::thread io_thread_;
 };
 
 }  // namespace tt::umd

@@ -11,7 +11,7 @@
 #include <filesystem>
 #include <string>
 
-#include "umd/device/simulation/simulation_socket.hpp"
+#include "simulation/simulation_socket.hpp"
 
 using namespace tt::umd;
 

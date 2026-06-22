@@ -2,17 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/simulation/simulation_socket.hpp"
+#include "simulation/simulation_socket.hpp"
 
 #include <fmt/format.h>
-#include <poll.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
+#include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
 
-#include <cerrno>
 #include <cstdlib>
-#include <cstring>
+#include <memory>
 #include <system_error>
 
 #include "umd/device/utils/error.hpp"
@@ -21,38 +17,35 @@ namespace tt::umd {
 
 namespace {
 
-// Fills a sockaddr_un for a pathname socket, throwing if the path is too long.
-sockaddr_un make_unix_addr(const std::filesystem::path& path) {
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    if (path.string().size() >= sizeof(addr.sun_path)) {
+using stream_protocol = asio::local::stream_protocol;
+
+// Builds an endpoint for a pathname socket, throwing if the path is too long for sockaddr_un.
+// asio's endpoint(path) would itself throw on overflow, but with a less actionable message.
+stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
+    if (path.string().size() >= sizeof(sockaddr_un::sun_path)) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Simulation server socket path is too long ({} >= {}): {}",
                 path.string().size(),
-                sizeof(addr.sun_path),
+                sizeof(sockaddr_un::sun_path),
                 path.string()));
     }
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
-    return addr;
+    return stream_protocol::endpoint(path.string());
 }
 
 // Returns true if a listener is currently reachable at path.
 bool is_live(const std::filesystem::path& path) {
-    // is_live() is a predicate; a path too long for sockaddr_un can't name a reachable
-    // listener, so report not-live rather than throwing (make_unix_addr would UMD_THROW).
+    // is_live() is a predicate; a path too long to name a reachable listener can't have one,
+    // so report not-live rather than letting make_endpoint() throw.
     if (path.string().size() >= sizeof(sockaddr_un::sun_path)) {
         return false;
     }
-    int fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) {
-        return false;
-    }
-    sockaddr_un addr = make_unix_addr(path);
-    bool ok = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
-    ::close(fd);
-    return ok;
+    asio::io_context io;
+    stream_protocol::socket probe(io);
+    std::error_code ec;
+    probe.connect(make_endpoint(path), ec);
+    return !ec;
 }
 
 }  // namespace
@@ -75,6 +68,18 @@ std::unique_ptr<SimulationSocket> SimulationSocket::try_create(const std::filesy
     return socket;
 }
 
+void SimulationSocket::do_accept() {
+    auto sock = std::make_shared<stream_protocol::socket>(io_);
+    acceptor_.async_accept(*sock, [this, sock](const std::error_code& ec) {
+        // A non-aborted error or io_context::stop() (teardown) ends the loop; otherwise
+        // drop this connection (liveness only) and re-arm.
+        if (ec) {
+            return;
+        }
+        do_accept();
+    });
+}
+
 bool SimulationSocket::bind_and_listen() {
     if (socket_path_.has_parent_path()) {
         // A socket is only reachable cross-user if the directory holding it is too, so a
@@ -92,50 +97,46 @@ bool SimulationSocket::bind_and_listen() {
         }
     }
 
-    listen_fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
-    if (listen_fd_ < 0) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Failed to create simulation server socket: {}", std::strerror(errno)));
+    const stream_protocol::endpoint endpoint = make_endpoint(socket_path_);
+
+    // The acceptor closes its fd on destruction (RAII), so error paths only need to undo the
+    // socket *file* that bind() created -- the fd is handled when this object is torn down.
+    std::error_code ec;
+    acceptor_.open(endpoint.protocol(), ec);
+    if (ec) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to create simulation server socket: {}", ec.message()));
     }
 
-    sockaddr_un addr = make_unix_addr(socket_path_);
-    if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-        if (errno == EADDRINUSE) {
-            // Something already holds the path. A live owner means we must attach as a client
-            // instead (return false); a stale leftover (crashed owner) is reclaimed.
-            //
-            // Reclaim is best-effort and assumes a single contender per path: the
-            // is_live() -> remove() -> re-bind() sequence is a TOCTOU window, so two
-            // processes racing to reclaim the same stale socket (or a new owner binding in
-            // the gap) is undefined. The socket dir is assumed trusted (see
-            // default_socket_path), which is what makes this acceptable. Note a stale socket
-            // owned by another user may not be removable under a sticky dir (e.g. /tmp).
-            if (is_live(socket_path_)) {
-                ::close(listen_fd_);
-                listen_fd_ = -1;
-                return false;
-            }
-            std::filesystem::remove(socket_path_);
-            if (::bind(listen_fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
-                int err = errno;
-                ::close(listen_fd_);
-                listen_fd_ = -1;
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "Failed to bind simulation server socket at {} after reclaim: {}",
-                        socket_path_.string(),
-                        std::strerror(err)));
-            }
-        } else {
-            int err = errno;
-            ::close(listen_fd_);
-            listen_fd_ = -1;
+    acceptor_.bind(endpoint, ec);
+    // Compare against asio's own error constant: standalone asio uses a system category that
+    // does not bridge to std::generic_category, so `ec == std::errc::address_in_use` is false.
+    if (ec == asio::error::address_in_use) {
+        // Something already holds the path. A live owner means we must attach as a client
+        // instead (return false); a stale leftover (crashed owner) is reclaimed.
+        //
+        // Reclaim is best-effort and assumes a single contender per path: the
+        // is_live() -> remove() -> re-bind() sequence is a TOCTOU window, so two
+        // processes racing to reclaim the same stale socket (or a new owner binding in
+        // the gap) is undefined. The socket dir is assumed trusted (see
+        // default_socket_path), which is what makes this acceptable. Note a stale socket
+        // owned by another user may not be removable under a sticky dir (e.g. /tmp).
+        if (is_live(socket_path_)) {
+            return false;
+        }
+        std::filesystem::remove(socket_path_);
+        acceptor_.bind(endpoint, ec);
+        if (ec) {
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
-                    "Failed to bind simulation server socket at {}: {}", socket_path_.string(), std::strerror(err)));
+                    "Failed to bind simulation server socket at {} after reclaim: {}",
+                    socket_path_.string(),
+                    ec.message()));
         }
+    } else if (ec) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to bind simulation server socket at {}: {}", socket_path_.string(), ec.message()));
     }
 
     // The socket must be connectable by any user (cross-user attach): bind() created it with
@@ -150,8 +151,6 @@ bool SimulationSocket::bind_and_listen() {
         std::filesystem::perm_options::replace,
         perm_ec);
     if (perm_ec) {
-        ::close(listen_fd_);
-        listen_fd_ = -1;
         std::filesystem::remove(socket_path_);
         UMD_THROW(
             error::RuntimeError,
@@ -161,29 +160,16 @@ bool SimulationSocket::bind_and_listen() {
                 perm_ec.message()));
     }
 
-    if (::listen(listen_fd_, /*backlog=*/16) != 0) {
-        int err = errno;
-        ::close(listen_fd_);
-        listen_fd_ = -1;
+    acceptor_.listen(/*backlog=*/16, ec);
+    if (ec) {
         std::filesystem::remove(socket_path_);
         UMD_THROW(
             error::RuntimeError,
-            fmt::format(
-                "Failed to listen on simulation server socket at {}: {}", socket_path_.string(), std::strerror(err)));
+            fmt::format("Failed to listen on simulation server socket at {}: {}", socket_path_.string(), ec.message()));
     }
 
-    if (::pipe(shutdown_pipe_) != 0) {
-        int err = errno;
-        ::close(listen_fd_);
-        listen_fd_ = -1;
-        std::filesystem::remove(socket_path_);
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Failed to create simulation server shutdown pipe: {}", std::strerror(err)));
-    }
-
-    running_ = true;
-    accept_thread_ = std::thread(&SimulationSocket::accept_loop, this);
+    do_accept();
+    io_thread_ = std::thread([this] { io_.run(); });
     bound_ = true;
     return true;
 }
@@ -191,62 +177,21 @@ bool SimulationSocket::bind_and_listen() {
 SimulationSocket::~SimulationSocket() {
     // Only a successfully-bound owner tears down and removes the file. A never-bound object
     // (try_create() lost to a live owner and returned nullptr) must not delete the live
-    // owner's socket. The throwing ctor is unaffected: a throw from its body skips the
-    // destructor entirely.
+    // owner's socket. The throwing ctor is safe either way: if bind_and_listen() throws,
+    // bound_ is still false, so this destructor is a no-op for the file.
     if (!bound_) {
         return;
     }
-    running_ = false;
-    if (shutdown_pipe_[1] >= 0) {
-        const char byte = 0;
-        // Best-effort wake of the accept loop; the running_ flag is the source of truth.
-        [[maybe_unused]] ssize_t written = ::write(shutdown_pipe_[1], &byte, 1);
-    }
-    if (accept_thread_.joinable()) {
-        accept_thread_.join();
-    }
-    if (listen_fd_ >= 0) {
-        ::close(listen_fd_);
-        listen_fd_ = -1;
-    }
-    if (shutdown_pipe_[0] >= 0) {
-        ::close(shutdown_pipe_[0]);
-        shutdown_pipe_[0] = -1;
-    }
-    if (shutdown_pipe_[1] >= 0) {
-        ::close(shutdown_pipe_[1]);
-        shutdown_pipe_[1] = -1;
+    // Wake the accept loop and let io_.run() return; the acceptor fd is closed by acceptor_'s
+    // destructor (RAII).
+    io_.stop();
+    if (io_thread_.joinable()) {
+        io_thread_.join();
     }
     // Non-throwing overload: the destructor is implicitly noexcept, so a thrown
     // filesystem_error would call std::terminate. Cleanup is best-effort.
     std::error_code ec;
     std::filesystem::remove(socket_path_, ec);
-}
-
-void SimulationSocket::accept_loop() {
-    while (running_) {
-        pollfd fds[2];
-        fds[0] = {listen_fd_, POLLIN, 0};
-        fds[1] = {shutdown_pipe_[0], POLLIN, 0};
-
-        int ready = ::poll(fds, 2, /*timeout=*/-1);
-        if (ready < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            break;
-        }
-        if (fds[1].revents & POLLIN) {
-            break;
-        }
-        if (fds[0].revents & POLLIN) {
-            int client_fd = ::accept(listen_fd_, nullptr, nullptr);
-            if (client_fd >= 0) {
-                // No request handling yet (owner-only): accept and drop the connection.
-                ::close(client_fd);
-            }
-        }
-    }
 }
 
 std::filesystem::path SimulationSocket::default_socket_path(ChipId chip_id) {

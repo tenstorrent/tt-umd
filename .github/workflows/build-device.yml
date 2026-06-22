@@ -47,15 +47,56 @@ jobs:
       - id: set-matrix
         shell: bash
         run: |
+          # The matrices are authored as readable multi-line JSON heredocs and
+          # compacted to a single line with `jq -c` before being written to
+          # GITHUB_OUTPUT. This keeps every YAML line within yamllint's 120-char
+          # limit while emitting the same compact JSON the build job consumes.
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             echo "Selecting 2-leg smoke matrix for pull_request event."
-            echo 'build-matrix={"image":[{"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"fedora-39","compiler-c":"gcc-13","compiler-cpp":"g++-13","package":"rpm"}]}' >> "$GITHUB_OUTPUT"
-            echo 'test-matrix={"build":[{"package":"deb","distro":"ubuntu-24.04","compiler-c":"clang-20"},{"package":"rpm","distro":"fedora-39","compiler-c":"gcc-13"}]}' >> "$GITHUB_OUTPUT"
+            build_matrix=$(jq -c . <<'JSON'
+          {"image":[
+            {"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},
+            {"distro":"fedora-39","compiler-c":"gcc-13","compiler-cpp":"g++-13","package":"rpm"}
+          ]}
+          JSON
+          )
+            test_matrix=$(jq -c . <<'JSON'
+          {"build":[
+            {"package":"deb","distro":"ubuntu-24.04","compiler-c":"clang-20"},
+            {"package":"rpm","distro":"fedora-39","compiler-c":"gcc-13"}
+          ]}
+          JSON
+          )
           else
             echo "Selecting full matrix for ${{ github.event_name }} event."
-            echo 'build-matrix={"image":[{"distro":"ubuntu-22.04","compiler-c":"clang-13","compiler-cpp":"clang++-13","package":"deb"},{"distro":"ubuntu-22.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"ubuntu-22.04","compiler-c":"gcc-11","compiler-cpp":"g++-11","package":"deb"},{"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"ubuntu-24.04","compiler-c":"gcc-11","compiler-cpp":"g++-11","package":"deb"},{"distro":"ubuntu-24.04-arm","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"fedora-39","compiler-c":"gcc-13","compiler-cpp":"g++-13","package":"rpm"},{"distro":"fedora-39","compiler-c":"clang-17","compiler-cpp":"clang++-17","package":"rpm"},{"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb","use_release_flags":true},{"distro":"fedora-39","compiler-c":"clang-17","compiler-cpp":"clang++-17","package":"rpm","use_release_flags":true}]}' >> "$GITHUB_OUTPUT"
-            echo 'test-matrix={"build":[{"package":"deb","distro":"ubuntu-22.04","compiler-c":"gcc-11"},{"package":"deb","distro":"ubuntu-24.04","compiler-c":"gcc-11"},{"package":"rpm","distro":"fedora-39","compiler-c":"gcc-13"}]}' >> "$GITHUB_OUTPUT"
+            build_matrix=$(jq -c . <<'JSON'
+          {"image":[
+            {"distro":"ubuntu-22.04","compiler-c":"clang-13","compiler-cpp":"clang++-13","package":"deb"},
+            {"distro":"ubuntu-22.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},
+            {"distro":"ubuntu-22.04","compiler-c":"gcc-11","compiler-cpp":"g++-11","package":"deb"},
+            {"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},
+            {"distro":"ubuntu-24.04","compiler-c":"gcc-11","compiler-cpp":"g++-11","package":"deb"},
+            {"distro":"ubuntu-24.04-arm","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},
+            {"distro":"fedora-39","compiler-c":"gcc-13","compiler-cpp":"g++-13","package":"rpm"},
+            {"distro":"fedora-39","compiler-c":"clang-17","compiler-cpp":"clang++-17","package":"rpm"},
+            {"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20",
+             "package":"deb","use_release_flags":true},
+            {"distro":"fedora-39","compiler-c":"clang-17","compiler-cpp":"clang++-17",
+             "package":"rpm","use_release_flags":true}
+          ]}
+          JSON
+          )
+            test_matrix=$(jq -c . <<'JSON'
+          {"build":[
+            {"package":"deb","distro":"ubuntu-22.04","compiler-c":"gcc-11"},
+            {"package":"deb","distro":"ubuntu-24.04","compiler-c":"gcc-11"},
+            {"package":"rpm","distro":"fedora-39","compiler-c":"gcc-13"}
+          ]}
+          JSON
+          )
           fi
+          echo "build-matrix=${build_matrix}" >> "$GITHUB_OUTPUT"
+          echo "test-matrix=${test_matrix}" >> "$GITHUB_OUTPUT"
 
   ensure-ubuntu-2204-image:
     name: Ensure ubuntu-22.04 Docker image
@@ -115,7 +156,12 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [generate-matrix, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
+    needs:
+      - generate-matrix
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
     strategy:
       fail-fast: false
       # Matrix is selected by generate-matrix based on the triggering event:

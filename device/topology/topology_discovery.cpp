@@ -31,6 +31,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -133,6 +134,22 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
+bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
+    try {
+        tt_device->init_tt_device(timeout);
+    } catch (error::UmdBaseException& err) {
+        if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+            throw;
+        }
+        log_warning(LogUMD, err.message());
+        if (std::optional<ClusterDescriptor::DeviceHealthErrors> health_error = to_device_health_error(err)) {
+            health_errors.emplace(generate_unhealthy_asic_id(chip_id), std::move(*health_error));
+        }
+        return false;
+    }
+    return true;
+}
+
 void TopologyDiscovery::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> local_device_ids;
@@ -176,13 +193,7 @@ void TopologyDiscovery::get_connected_devices() {
         ChipId chip_id = get_next_chip_id();
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        try {
-            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-        } catch (error::UmdBaseException& err) {
-            if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
-                throw;
-            }
-            log_warning(LogUMD, err.message());
+        if (!init_device(tt_device.get(), chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
             uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
             devices_to_discover.emplace(asic_id, std::move(tt_device));
             asic_id_to_chip_id.emplace(asic_id, chip_id);
@@ -366,16 +377,8 @@ void TopologyDiscovery::discover_remote_devices() {
                     soc_arch_descriptor_);
                 ChipId chip_id = get_next_chip_id();
 
-                bool device_init_failed = false;
-                try {
-                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT);
-                } catch (error::UmdBaseException& err) {
-                    if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
-                        throw;
-                    }
-                    device_init_failed = true;
-                    log_warning(LogUMD, err.message());
-
+                bool device_init_failed = !init_device(remote_device.get(), chip_id, timeout::ARC_STARTUP_TIMEOUT);
+                if (device_init_failed) {
                     uint64_t mock_asic_id = generate_unhealthy_asic_id(chip_id);
                     devices_to_discover.emplace(mock_asic_id, std::move(remote_device));
                     asic_id_to_chip_id.emplace(mock_asic_id, chip_id);
@@ -436,6 +439,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
+
+        cluster_desc->health_errors.insert({current_chip_id, std::move(health_errors.at(current_device_asic_id))});
 
         // Cluster descriptor is not designed to contain partial information about devices,
         // so we cannot add information about unhealthy devices.

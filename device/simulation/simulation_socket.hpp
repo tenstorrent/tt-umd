@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <asio.hpp>
 #include <filesystem>
 #include <memory>
-#include <thread>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
@@ -25,8 +23,9 @@ namespace tt::umd {
 //
 // It does not yet handle client requests: connections are accepted and dropped.
 //
-// Internal to the simulation subsystem (not part of the public UMD API): this header
-// pulls in asio, which is a private dependency of the library.
+// Internal to the simulation subsystem (not part of the public UMD API). The asio transport
+// is held behind a pImpl so this header stays free of asio (a private dependency of the
+// library) -- see Impl in the .cpp.
 //
 // Note: distinct from SimulationHost, which is the (nng) RTL transport over which the
 // simulator process connects back into UMD.
@@ -69,11 +68,11 @@ private:
     // object never removes a live owner's socket file.
     bool bound_ = false;
 
-    // asio owns the listen fd (RAII) and the shutdown handshake (io_context::stop() instead
-    // of a self-pipe). The accept loop runs on io_thread_.
-    asio::io_context io_;
-    asio::local::stream_protocol::acceptor acceptor_{io_};
-    std::thread io_thread_;
+    // Holds the asio transport (io_context, acceptor, accept-loop thread). Defined in the .cpp
+    // so asio stays out of this header; owns the listen fd (RAII) and the shutdown handshake
+    // (io_context::stop() instead of a self-pipe).
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 }  // namespace tt::umd

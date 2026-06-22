@@ -7,9 +7,11 @@
 #include <fmt/format.h>
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
 
+#include <asio.hpp>
 #include <cstdlib>
 #include <memory>
 #include <system_error>
+#include <thread>
 
 #include "umd/device/utils/error.hpp"
 
@@ -50,7 +52,15 @@ bool is_live(const std::filesystem::path& path) {
 
 }  // namespace
 
-SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path, DeferBind) : socket_path_(socket_path) {}
+// The asio transport, kept out of the header (see SimulationSocket::Impl forward declaration).
+struct SimulationSocket::Impl {
+    asio::io_context io;
+    stream_protocol::acceptor acceptor{io};
+    std::thread io_thread;
+};
+
+SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path, DeferBind) :
+    socket_path_(socket_path), impl_(std::make_unique<Impl>()) {}
 
 SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path) :
     SimulationSocket(socket_path, DeferBind{}) {
@@ -69,8 +79,8 @@ std::unique_ptr<SimulationSocket> SimulationSocket::try_create(const std::filesy
 }
 
 void SimulationSocket::do_accept() {
-    auto sock = std::make_shared<stream_protocol::socket>(io_);
-    acceptor_.async_accept(*sock, [this, sock](const std::error_code& ec) {
+    auto sock = std::make_shared<stream_protocol::socket>(impl_->io);
+    impl_->acceptor.async_accept(*sock, [this, sock](const std::error_code& ec) {
         // A non-aborted error or io_context::stop() (teardown) ends the loop; otherwise
         // drop this connection (liveness only) and re-arm.
         if (ec) {
@@ -102,12 +112,12 @@ bool SimulationSocket::bind_and_listen() {
     // The acceptor closes its fd on destruction (RAII), so error paths only need to undo the
     // socket *file* that bind() created -- the fd is handled when this object is torn down.
     std::error_code ec;
-    acceptor_.open(endpoint.protocol(), ec);
+    impl_->acceptor.open(endpoint.protocol(), ec);
     if (ec) {
         UMD_THROW(error::RuntimeError, fmt::format("Failed to create simulation server socket: {}", ec.message()));
     }
 
-    acceptor_.bind(endpoint, ec);
+    impl_->acceptor.bind(endpoint, ec);
     // Compare against asio's own error constant: standalone asio uses a system category that
     // does not bridge to std::generic_category, so `ec == std::errc::address_in_use` is false.
     if (ec == asio::error::address_in_use) {
@@ -124,7 +134,7 @@ bool SimulationSocket::bind_and_listen() {
             return false;
         }
         std::filesystem::remove(socket_path_);
-        acceptor_.bind(endpoint, ec);
+        impl_->acceptor.bind(endpoint, ec);
         if (ec) {
             UMD_THROW(
                 error::RuntimeError,
@@ -160,7 +170,7 @@ bool SimulationSocket::bind_and_listen() {
                 perm_ec.message()));
     }
 
-    acceptor_.listen(/*backlog=*/16, ec);
+    impl_->acceptor.listen(/*backlog=*/16, ec);
     if (ec) {
         std::filesystem::remove(socket_path_);
         UMD_THROW(
@@ -169,7 +179,7 @@ bool SimulationSocket::bind_and_listen() {
     }
 
     do_accept();
-    io_thread_ = std::thread([this] { io_.run(); });
+    impl_->io_thread = std::thread([this] { impl_->io.run(); });
     bound_ = true;
     return true;
 }
@@ -182,11 +192,11 @@ SimulationSocket::~SimulationSocket() {
     if (!bound_) {
         return;
     }
-    // Wake the accept loop and let io_.run() return; the acceptor fd is closed by acceptor_'s
-    // destructor (RAII).
-    io_.stop();
-    if (io_thread_.joinable()) {
-        io_thread_.join();
+    // Wake the accept loop and let impl_->io.run() return; the acceptor fd is closed by the
+    // acceptor's destructor (RAII) when impl_ is destroyed.
+    impl_->io.stop();
+    if (impl_->io_thread.joinable()) {
+        impl_->io_thread.join();
     }
     // Non-throwing overload: the destructor is implicitly noexcept, so a thrown
     // filesystem_error would call std::terminate. Cleanup is best-effort.

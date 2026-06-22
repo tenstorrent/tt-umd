@@ -30,6 +30,33 @@ env:
   WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
+  # Select which build/test matrix to run based on the triggering event.
+  # On pull_request we run a 2-leg smoke subset to save CI minutes; the full
+  # 10-leg sweep runs on merge_group, push:main, and workflow_dispatch.
+  # NOTE: the smoke legs below MUST be a subset of the full build matrix, and
+  # the test-packages smoke legs MUST match the PLATFORM_SUFFIX (distro +
+  # compiler-c) of legs the build smoke matrix actually produces, otherwise
+  # test-packages would fail downloading non-existent build artifacts.
+  generate-matrix:
+    name: Generate build/test matrix
+    runs-on: ubuntu-latest
+    outputs:
+      build-matrix: ${{ steps.set-matrix.outputs.build-matrix }}
+      test-matrix: ${{ steps.set-matrix.outputs.test-matrix }}
+    steps:
+      - id: set-matrix
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "Selecting 2-leg smoke matrix for pull_request event."
+            echo 'build-matrix={"image":[{"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"fedora-39","compiler-c":"gcc-13","compiler-cpp":"g++-13","package":"rpm"}]}' >> "$GITHUB_OUTPUT"
+            echo 'test-matrix={"build":[{"package":"deb","distro":"ubuntu-24.04","compiler-c":"clang-20"},{"package":"rpm","distro":"fedora-39","compiler-c":"gcc-13"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo "Selecting full matrix for ${{ github.event_name }} event."
+            echo 'build-matrix={"image":[{"distro":"ubuntu-22.04","compiler-c":"clang-13","compiler-cpp":"clang++-13","package":"deb"},{"distro":"ubuntu-22.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"ubuntu-22.04","compiler-c":"gcc-11","compiler-cpp":"g++-11","package":"deb"},{"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"ubuntu-24.04","compiler-c":"gcc-11","compiler-cpp":"g++-11","package":"deb"},{"distro":"ubuntu-24.04-arm","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb"},{"distro":"fedora-39","compiler-c":"gcc-13","compiler-cpp":"g++-13","package":"rpm"},{"distro":"fedora-39","compiler-c":"clang-17","compiler-cpp":"clang++-17","package":"rpm"},{"distro":"ubuntu-24.04","compiler-c":"clang-20","compiler-cpp":"clang++-20","package":"deb","use_release_flags":true},{"distro":"fedora-39","compiler-c":"clang-17","compiler-cpp":"clang++-17","package":"rpm","use_release_flags":true}]}' >> "$GITHUB_OUTPUT"
+            echo 'test-matrix={"build":[{"package":"deb","distro":"ubuntu-22.04","compiler-c":"gcc-11"},{"package":"deb","distro":"ubuntu-24.04","compiler-c":"gcc-11"},{"package":"rpm","distro":"fedora-39","compiler-c":"gcc-13"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
   ensure-ubuntu-2204-image:
     name: Ensure ubuntu-22.04 Docker image
     permissions:
@@ -88,30 +115,13 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
+    needs: [generate-matrix, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
     strategy:
       fail-fast: false
-      matrix:
-        image: [
-          {distro: ubuntu-22.04, compiler-c: clang-13, compiler-cpp: clang++-13, package: deb},
-          {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          {distro: ubuntu-22.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
-          # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
-          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
-          # Arm64 build, built natively on an arm runner.
-          {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
-          # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
-          {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
-          # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
-          # Given that it's already tested out on ubuntu, version 17 is fine here.
-          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm},
-          # Release-flags builds: mirror release.yml CMake flags (TT_UMD_BUILD_SIMULATION=OFF,
-          # CMAKE_BUILD_TYPE=Release) to catch clang-tidy issues before merge that would only
-          # surface in the release pipeline.
-          {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb, use_release_flags: true},
-          {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: rpm, use_release_flags: true},
-        ]
+      # Matrix is selected by generate-matrix based on the triggering event:
+      # 2-leg smoke subset on pull_request, full 10-leg sweep otherwise.
+      # The full set of entries is defined verbatim in the generate-matrix job.
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.build-matrix) }}
 
     name: >-
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
@@ -370,16 +380,15 @@ jobs:
             ${{ env.WHEEL_OUTPUT_DIR }}
 
   test-packages:
-    needs: [build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    needs: [generate-matrix, build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
     strategy:
       fail-fast: false
-      matrix:
-        build: [
-          {package: deb, distro: ubuntu-22.04, compiler-c: gcc-11},
-          {package: deb, distro: ubuntu-24.04, compiler-c: gcc-11},
-          {package: rpm, distro: fedora-39, compiler-c: gcc-13}
-        ]
+      # Matrix is selected by generate-matrix based on the triggering event.
+      # On pull_request the smoke legs match the PLATFORM_SUFFIX of the packages
+      # the build smoke matrix produces (ubuntu-24.04-clang-20, fedora-39-gcc-13)
+      # so artifact downloads resolve. Full set runs otherwise.
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.test-matrix) }}
 
     name: Test ${{ matrix.build.package }} package on ${{ matrix.build.distro }} with ${{ matrix.build.compiler-c }}
     runs-on: ubuntu-22.04
@@ -489,3 +498,23 @@ jobs:
             echo "ERROR: Python package not found! Test skipped improperly."
             exit 1  # Force CI failure
           fi
+
+  # Single aggregate gate that summarizes the whole workflow into one pass/fail
+  # status. This is the check intended to be pinned in branch protection (in a
+  # follow-up), replacing the per-matrix job names so the required check set no
+  # longer changes when the matrix is trimmed on pull_request.
+  ci-complete:
+    name: ci-complete
+    needs: [generate-matrix, build, build-manylinux-wheels, test-packages]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all dependencies succeeded
+        if: contains(needs.*.result, 'failure') == false && contains(needs.*.result, 'cancelled') == false
+        run: echo "All checks passed"
+      - name: Fail if any dependency failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "One or more required jobs failed or were cancelled."
+          echo "Results: ${{ join(needs.*.result, ', ') }}"
+          exit 1

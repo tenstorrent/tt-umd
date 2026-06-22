@@ -426,18 +426,15 @@ PCIDevice::PCIDevice(int pci_device_number) :
                 pci_device_number));
     }
 
-    tenstorrent_get_driver_info driver_info{};
-    driver_info.in.output_size_bytes = sizeof(driver_info.out);
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
-        UMD_THROW(error::RuntimeError, "TENSTORRENT_IOCTL_GET_DRIVER_INFO failed.");
-    }
+    uint64_t driver_api_version = 0;
+    tt_driver_get_attr(tt_device_handle, tt_driver_attr::TT_DRIVER_API_VERSION, &driver_api_version);
 
     log_debug(
         LogUMD,
-        "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
+        "Opened PCI device {}; KMD version: {} (API version: {}); IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
-        driver_info.out.driver_version,
+        driver_api_version,
         iommu_enabled ? "enabled" : "disabled");
 
     UMD_ASSERT(
@@ -1066,20 +1063,14 @@ void PCIDevice::set_power_state(bool busy) {
         return;
     }
 
-    tenstorrent_power_state power_state{};
-    power_state.argsz = sizeof(power_state);
-    power_state.validity = TT_POWER_VALIDITY(4, 0);
+    constexpr uint16_t not_busy_flags = 0;
+    constexpr uint16_t busy_flags =
+        TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_L2CPU_ENABLE | TT_POWER_FLAG_TENSIX_ENABLE;
+    uint16_t flags = busy ? busy_flags : not_busy_flags;
 
-    if (busy) {
-        power_state.power_flags =
-            TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
-    } else {
-        power_state.power_flags = 0;
-    }
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_SET_POWER_STATE, &power_state) == -1) {
-        log_warning(
-            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(errno));
+    int ret = tt_device_set_power_state(tt_device_handle, flags);
+    if (ret != 0) {
+        log_warning(LogUMD, "Setting power state failed on device {}: {}", pci_device_num, strerror(-ret));
     }
 }
 

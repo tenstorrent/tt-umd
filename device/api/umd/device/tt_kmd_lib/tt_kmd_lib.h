@@ -387,6 +387,33 @@ int tt_tlb_map(tt_device_t* dev, tt_tlb_t* tlb, tt_noc_addr_config_t* config);
 int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, uint64_t addr);
 
 /**
+ * @brief Power flags for use with tt_device_set_power_state().
+ */
+enum tt_power_flags {
+    TT_POWER_FLAG_MAX_AI_CLK = (1U << 0),       /**< 1=Max AI Clock,  0=Min AI Clock */
+    TT_POWER_FLAG_MRISC_PHY_WAKEUP = (1U << 1), /**< 1=PHY Wakeup,    0=PHY Powerdown */
+    TT_POWER_FLAG_TENSIX_ENABLE = (1U << 2),    /**< 1=Enable Tensix, 0=Clock Gate Tensix */
+    TT_POWER_FLAG_L2CPU_ENABLE = (1U << 3)      /**< 1=Enable L2CPU,  0=Clock Gate L2CPU */
+};
+
+/**
+ * @brief Set per-client power state requirements for this device file descriptor.
+ *
+ * Declares the power requirements of this file descriptor to the driver.
+ * The driver aggregates requirements across all open file descriptors,
+ * applying bitwise OR for power_flags. When the file descriptor is closed,
+ * its contribution is removed.
+ *
+ * Opening the device with O_APPEND opts out of legacy mode, allowing the
+ * device to enter low-power idle states when no client holds power flags.
+ *
+ * @param dev        Device handle
+ * @param power_flags Bitmask of TT_POWER_FLAG_* values
+ * @return 0 on success, negative error code on failure
+ */
+int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags);
+
+/**
  * @brief Reset the given device. The device handle will be invalidated after a successful reset.
  *
  * @param dev Device handle; must not be NULL

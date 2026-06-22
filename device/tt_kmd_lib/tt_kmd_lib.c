@@ -515,6 +515,20 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
     return 0;
 }
 
+int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
+    struct tenstorrent_power_state ps = {0};
+    ps.argsz = sizeof(ps);
+    ps.flags = 0;
+    ps.validity = TT_POWER_VALIDITY(4, 0);
+    ps.power_flags = power_flags;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_SET_POWER_STATE, &ps) != 0) {
+        return -errno;
+    }
+
+    return 0;
+}
+
 int tt_device_reset(tt_device_t* dev, uint32_t reset_flags) {
     struct tenstorrent_reset_device reset_info = {0};
 

@@ -256,6 +256,8 @@ public:
 
     using DeviceHealthError = std::variant<error::ArcStartupError, error::NocHangError, error::PcieHangError>;
 
+    const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
+
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 

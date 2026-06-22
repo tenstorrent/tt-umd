@@ -123,15 +123,9 @@ jobs:
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
     container:
-      # Arm jobs run on GitHub-hosted runners, which can't resolve the internal
-      # Harbor mirror, so they pull directly from ghcr.io (same as test-packages).
-      # x86 jobs run on self-hosted runners and use the Harbor pull-through cache.
+      # All jobs run on GitHub-hosted runners and pull images directly from ghcr.io.
       image: >-
-        ${{
-        matrix.image.distro == 'ubuntu-24.04-arm'
-        && 'ghcr.io'
-        || 'harbor.ci.tenstorrent.net/ghcr.io'
-        }}/${{ github.repository }}/tt-umd-ci-${{
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{
         matrix.image.distro }}:${{
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||

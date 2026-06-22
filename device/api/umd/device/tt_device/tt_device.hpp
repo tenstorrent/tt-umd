@@ -509,6 +509,12 @@ protected:
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
+    // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
+    // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
+    // their noc_multicast_write override here instead of duplicating the fallback loop.
+    void multicast_write_via_unicast(
+        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }

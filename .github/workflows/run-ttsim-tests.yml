@@ -43,8 +43,7 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500  # Need enough history for `git describe`
-          fetch-tags: true  # Need tags for `git describe`
+          fetch-depth: 1
 
       - name: Checkout UMD
         uses: actions/checkout@v6
@@ -52,6 +51,7 @@ jobs:
           # Clone directly into tt-metal directory for umd
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
+          fetch-depth: 1
 
       - name: Get ttsim version
         id: get-ttsim-version

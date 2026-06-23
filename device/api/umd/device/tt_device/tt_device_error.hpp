@@ -74,7 +74,7 @@ struct PcieHangData : TTDeviceData {
     uint32_t data_read;
 };
 
-struct PcieHangError : UmdError<TTDeviceData> {
+struct PcieHangError : UmdError<PcieHangData> {
     PcieHangError(const TTDevice& tt_device, uint32_t data_read);
 };
 

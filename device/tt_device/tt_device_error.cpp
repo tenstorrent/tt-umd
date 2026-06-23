@@ -30,7 +30,7 @@ NocHangError::NocHangError(const TTDevice& tt_device, NocId noc_id) :
 }
 
 PcieHangError::PcieHangError(const TTDevice& tt_device, uint32_t data_read) :
-    UmdError<TTDeviceData>(
+    UmdError<PcieHangData>(
         fmt::format(
             "Read {:#x} over PCIe ID {}: the board should be reset.",
             data_read,

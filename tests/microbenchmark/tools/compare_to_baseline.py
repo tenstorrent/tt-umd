@@ -6,7 +6,7 @@
 Run benchmarks locally (with `UMD_MICROBENCHMARK_RESULTS_PATH` set so the C++
 exporter actually writes JSON), then point this script at the resulting
 directory and your arch to get a markdown regression report against the
-in-repo per-arch baseline YAML for that arch.
+in-repo per-arch baseline YAML for that arch. Intended to be run locally on some of our dedicated runners.
 
 Example:
 
@@ -27,8 +27,7 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from summarize_regressions import (  # noqa: E402
+from summarize_regressions import (
     ARCH_PATTERNS,
     load_baselines_dir,
     read_arch_results,

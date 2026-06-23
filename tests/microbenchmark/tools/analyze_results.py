@@ -9,12 +9,10 @@ import socket
 import psutil
 import pandas as pd
 import argparse
-import sys
 from pathlib import Path
 from datetime import datetime
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from formatting import format_throughput  # noqa: E402
+from formatting import format_throughput
 
 
 def format_time(time_sec):

@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <set>
@@ -17,6 +18,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -205,26 +207,18 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(TTDevice* tt_devic
     uint32_t routing_firmware_disabled;
     tt_device->read_from_device(
         &routing_firmware_disabled, eth_core, EthAddresses::ROUTING_FIRMWARE_STATE, sizeof(uint32_t));
-    if (is_running_on_6u && routing_firmware_disabled == 0) {
-        auto message = fmt::format(
-            "Routing FW on 6U unexpectedly enabled on device {} core {}.",
-            get_local_asic_id(tt_device, eth_core),
-            eth_core.str());
-        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
-            log_warning(LogUMD, message);
-            return;
-        }
-        UMD_THROW(error::RuntimeError, message);
-    } else if (!is_running_on_6u && routing_firmware_disabled == 1) {
-        auto message = fmt::format(
-            "Routing FW unexpectedly disabled on device {} core {}.",
-            get_local_asic_id(tt_device, eth_core),
-            eth_core.str());
-        if (options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::IGNORE) {
-            log_warning(LogUMD, message);
-            return;
-        }
-        UMD_THROW(error::RuntimeError, message);
+    if (is_running_on_6u != (routing_firmware_disabled != 0)) {
+        uint64_t asic_id = get_asic_id(tt_device);
+        auto err = UMD_THROW_OR_RETURN(
+            options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::THROW,
+            error::UnexpectedRoutingFirmwareConfigError,
+            *tt_device,
+            asic_id,
+            /*expected=*/routing_firmware_disabled == is_running_on_6u,
+            /*found=*/routing_firmware_disabled,
+            eth_core);
+        log_warning(LogUMD, err.message());
+        health_errors[asic_id].push_back(std::move(err));
     }
 }
 

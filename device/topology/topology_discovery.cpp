@@ -629,6 +629,7 @@ bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
 bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth_core) {
     const auto start = std::chrono::steady_clock::now();
     uint32_t previous_reading = 0;
+    uint64_t asic_id = get_asic_id(tt_device);
     // First loop: Wait until heartbeat changes from 0 (post reset).
     while (true) {
         uint32_t current_reading = get_eth_heartbeat(tt_device, eth_core);
@@ -638,14 +639,16 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
             break;
         }
 
-        if (utils::check_timeout(
-                start,
-                timeout::ETH_STARTUP_TIMEOUT,
-                fmt::format(
-                    "Timed out waiting for ETH heartbeat on core {} to start. Stuck at {:#x}.",
-                    eth_core.str(),
-                    current_reading),
-                utils::TimeoutAction::Return)) {
+        if (utils::check_timeout(start, timeout::ETH_STARTUP_TIMEOUT)) {
+            auto err = UMD_THROW_OR_RETURN(
+                options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
+                error::EthFirmwareHeartbeatError,
+                *tt_device,
+                asic_id,
+                current_reading,
+                eth_core);
+            log_warning(LogUMD, err.message());
+            health_errors[asic_id].push_back(std::move(err));
             return false;
         }
 
@@ -662,25 +665,25 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
             signature != erisc_firmware::FABRIC_HEARTBEAT_SIGNATURE) {
             log_warning(
                 LogUMD,
-                "Read invalid heartbeat value: {:#x} from ETH core: {}, FW possibly corrupted.",
+                "Read invalid heartbeat signature: {:#x} from ETH core: {}, FW possibly corrupted.",
                 current_reading,
                 eth_core.str());
-            return false;
         }
 
         if (previous_reading != current_reading) {
             return true;
         }
 
-        if (utils::check_timeout(
-                second_start,
-                timeout::ETH_HEARTBEAT_TIMEOUT,
-                fmt::format(
-                    "Timed out waiting for ETH heartbeat on core {} to advance. Stuck at {:#x} -> {:#x}.",
-                    eth_core.str(),
-                    previous_reading,
-                    current_reading),
-                utils::TimeoutAction::Return)) {
+        if (utils::check_timeout(second_start, timeout::ETH_HEARTBEAT_TIMEOUT)) {
+            auto err = UMD_THROW_OR_RETURN(
+                options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
+                error::EthFirmwareHeartbeatError,
+                *tt_device,
+                asic_id,
+                current_reading,
+                eth_core);
+            log_warning(LogUMD, err.message());
+            health_errors[asic_id].push_back(std::move(err));
             return false;
         }
 

@@ -260,7 +260,10 @@ public:
         error::NocHangError,
         error::PcieHangError,
         error::UnsupportedCMFWError,
-        error::CMFWMismatchError>;
+        error::CMFWMismatchError,
+        error::UnexpectedRoutingFirmwareConfigError,
+        error::EthFirmwareMismatchError,
+        error::EthFirmwareHeartbeatError>;
 
     const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
 

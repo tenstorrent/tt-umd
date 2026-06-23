@@ -22,7 +22,16 @@ TEST(SimulationTopologyDiscovery, CreatesHostDeviceAndExposesSocket) {
     }
 
     const std::filesystem::path socket = SimulationSocket::default_socket_path(0);
-    std::filesystem::remove(socket);
+    // discover() resolves this well-known machine-wide path internally, so the test can't point
+    // it at a private one. Rather than blindly unlink it (which would clobber a host from a
+    // concurrent run), probe with try_create: a live owner -> skip; otherwise we hold a fresh or
+    // reclaimed socket, released here so discover() can bind it itself.
+    {
+        auto probe = SimulationSocket::try_create(socket);
+        if (probe == nullptr) {
+            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping to avoid clobbering it.";
+        }
+    }
 
     SimulationTopologyDiscoveryOptions options;
     options.simulator_directory = simulator_path;
@@ -35,4 +44,19 @@ TEST(SimulationTopologyDiscovery, CreatesHostDeviceAndExposesSocket) {
     }
 
     EXPECT_FALSE(std::filesystem::exists(socket));  // torn down with the device
+}
+
+// When a live host already holds the socket, discovery must report the not-yet-implemented
+// client/attach path as an error rather than trying to host. This exercises the host-vs-client
+// arbiter's throw branch without a simulator: discover() bails before TTSimTTDevice::create().
+TEST(SimulationTopologyDiscovery, ThrowsWhenLiveHostAlreadyExists) {
+    const std::filesystem::path socket = SimulationSocket::default_socket_path(0);
+    auto host = SimulationSocket::try_create(socket);
+    if (host == nullptr) {
+        GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
+    }
+
+    SimulationTopologyDiscoveryOptions options;
+    options.simulator_directory = "unused";  // discover() throws before it is touched.
+    EXPECT_THROW(SimulationTopologyDiscovery::discover(options), std::exception);
 }

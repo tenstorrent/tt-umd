@@ -16,7 +16,8 @@ class TTDevice;
 class ClusterDescriptor;
 
 struct SimulationTopologyDiscoveryOptions {
-    // The simulator build to host (the TTSim .so, or an RTL sim directory).
+    // The simulator build to host: a TTSim .so (when the path ends in .so) or an RTL simulator
+    // directory. The backend is selected from the path, mirroring the simulation device factory.
     std::filesystem::path simulator_directory;
     // Connectivity/topology used to configure the simulator on the host path. Optional; when
     // attaching to a live host the topology comes from the host instead.

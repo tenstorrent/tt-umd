@@ -11,20 +11,20 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 50
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 50
 
 jobs:
   build-and-run-ttsim:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '50') }}
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
@@ -191,6 +191,7 @@ jobs:
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
       # # Galaxy tests can be a bit longer, should run on the order of minutes.
+      # Temporarily disabled due to cluster descriptor path issues on metal tests.
       # - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
       #   timeout-minutes: 5
       #   env:

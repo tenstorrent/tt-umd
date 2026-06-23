@@ -45,9 +45,8 @@ public:
     const std::filesystem::path& socket_path() const { return socket_path_; }
 
     // Deterministic per-chip socket path (the naming contract a client connects to):
-    // <dir>/tt-umd-sim-<chip_id>.sock, where <dir> is $TT_UMD_SIM_SOCKET_DIR if set,
-    // otherwise the system temp directory. No uid in the name: one shared socket per chip
-    // that any user may attach to.
+    // <temp_dir>/tt-umd-sim-<chip_id>.sock, under the system temp directory. No uid in the
+    // name: one shared socket per chip that any user may attach to.
     static std::filesystem::path default_socket_path(ChipId chip_id = 0);
 
 private:

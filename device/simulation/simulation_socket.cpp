@@ -8,7 +8,6 @@
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
 
 #include <asio.hpp>
-#include <cstdlib>
 #include <memory>
 #include <system_error>
 #include <thread>
@@ -133,7 +132,28 @@ bool SimulationSocket::bind_and_listen() {
         if (is_live(socket_path_)) {
             return false;
         }
-        std::filesystem::remove(socket_path_);
+        // Reclaim only an actual stale socket. A non-socket object squatting the path (regular
+        // file, dir) also yields EADDRINUSE on bind; refuse to unlink it rather than destroy
+        // unrelated data, even though the dir is assumed trusted. remove() errors are surfaced
+        // (not ignored) so a failed reclaim doesn't fall through to a confusing re-bind failure.
+        std::error_code stat_ec;
+        if (!std::filesystem::is_socket(socket_path_, stat_ec)) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Cannot host simulation server: {} is in use by a non-socket file; refusing to remove it",
+                    socket_path_.string()));
+        }
+        std::error_code remove_ec;
+        std::filesystem::remove(socket_path_, remove_ec);
+        if (remove_ec) {
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Failed to reclaim stale simulation server socket at {}: {}",
+                    socket_path_.string(),
+                    remove_ec.message()));
+        }
         impl_->acceptor.bind(endpoint, ec);
         if (ec) {
             UMD_THROW(
@@ -205,16 +225,11 @@ SimulationSocket::~SimulationSocket() {
 }
 
 std::filesystem::path SimulationSocket::default_socket_path(ChipId chip_id) {
-    std::filesystem::path dir = std::filesystem::temp_directory_path();
-    if (const char* env = std::getenv("TT_UMD_SIM_SOCKET_DIR")) {
-        dir = std::filesystem::path(env);
-    }
-    // One shared socket per chip per machine: the name carries no uid, so every process
-    // (any user) resolves the same path and attaches to the single host. The socket dir is
-    // assumed trusted: the path is predictable and the socket is world-writable (see
-    // bind_and_listen), so any local user can connect to or squat it. $TT_UMD_SIM_SOCKET_DIR
-    // is taken verbatim.
-    return dir / fmt::format("tt-umd-sim-{}.sock", chip_id);
+    // One shared socket per chip per machine, under the system temp directory: the name
+    // carries no uid, so every process (any user) resolves the same path and attaches to the
+    // single host. The socket dir is assumed trusted: the path is predictable and the socket
+    // is world-writable (see bind_and_listen), so any local user can connect to or squat it.
+    return std::filesystem::temp_directory_path() / fmt::format("tt-umd-sim-{}.sock", chip_id);
 }
 
 }  // namespace tt::umd

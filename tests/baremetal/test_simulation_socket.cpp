@@ -9,6 +9,7 @@
 
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 
 #include "simulation/simulation_socket.hpp"
@@ -133,4 +134,16 @@ TEST(SimulationSocket, DefaultSocketPathIsPerChip) {
 
 TEST(SimulationSocket, DefaultSocketPathIsAbsolute) {
     EXPECT_TRUE(SimulationSocket::default_socket_path(0).is_absolute());
+}
+
+// A non-socket file squatting the path also yields EADDRINUSE on bind; the reclaim path
+// must refuse to delete it instead of destroying unrelated data.
+TEST(SimulationSocket, RefusesToReclaimNonSocketFile) {
+    const std::filesystem::path path = unique_socket_path(7);
+    { std::ofstream(path) << "not a socket"; }
+
+    EXPECT_THROW(SimulationSocket::try_create(path), std::exception);
+    EXPECT_TRUE(std::filesystem::exists(path));  // the regular file was left untouched
+
+    std::filesystem::remove(path);
 }

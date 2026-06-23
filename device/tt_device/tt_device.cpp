@@ -636,6 +636,21 @@ void TTDevice::noc_multicast_write(
         addr);
 }
 
+void TTDevice::multicast_write_via_unicast(
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    // No hardware multicast on simulation backends; fall back to per-core unicast.
+    // TODO: investigate proper multicast support for simulations so we can remove this workaround.
+    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
+        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+            // BLACKHOLE: x==8 is ARC/L2CPU and x==9 is GDDR, not actual Tensix cores.
+            if (arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
+                continue;
+            }
+            write_to_device(src, tt_xy_pair{x, y}, addr, size);
+        }
+    }
+}
+
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {

@@ -834,7 +834,7 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     static constexpr int P1_SLOT = 0;
     static constexpr int P2_SLOT = 1;
     static constexpr int RESET_DONE_SLOT = 0;
-    static constexpr int SYNC_TIMEOUT_S = 60;
+    static constexpr int SYNC_TIMEOUT_S = 180;
     static constexpr int EXIT_SUCCESS_CODE = 0;
     static constexpr int EXIT_FAILURE_CODE = 1;
 

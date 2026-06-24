@@ -122,44 +122,33 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     communicator_->shutdown();
 }
 
-void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
-    log_debug(
-        tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, translated_core.str());
-
-    NocId noc_id = get_selected_noc_id();
-    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
-
-    if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-        return;
-    }
-
-    if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
-    } else {
-        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-    }
+void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+}
 
+bool RtlSimulationTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     NocId noc_id = get_selected_noc_id();
     validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
-
     if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-        return;
+        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        return true;
     }
+    return false;
+}
 
-    if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
-    } else {
-        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
+bool RtlSimulationTTDevice::handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return true;
     }
+    return false;
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

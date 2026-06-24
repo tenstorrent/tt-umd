@@ -3,10 +3,17 @@
 
 """Cross-architecture regression summary against in-repo per-arch baselines.
 
-Reads benchmark JSON artifacts produced by `run-benchmarks.yml` (one artifact
-directory per architecture, each containing nanobench JSONs) and compares each
-case's throughput against the stored `median_value` from the per-arch
-YAMLs in `tests/microbenchmark/baselines/`. Emits markdown with:
+Reads the nanobench JSON artifacts produced by `run-benchmarks.yml` (one
+directory per architecture). Only `name`, `batch`, `median(elapsed)` and
+`unit` are read from each result, and throughput is derived as batch / median:
+
+    {"results": [{"name": "default", "unit": "byte", "batch": 1048576.0,
+                  "median(elapsed)": 4.2e-06, ...}]}
+
+Baselines are per-arch YAML in `tests/microbenchmark/baselines/`, shaped
+`<title>: {<case>: {median_value, tolerance_pct[, gate: true]}}`. Each run's
+throughput is compared to the case's `median_value`; a Δ% beyond
+±`tolerance_pct` is a breach (DOWN/UP). Emits markdown with:
 
   1. A coarse cross-arch table (one row per test, one column per arch),
      reporting only breach counts per severity tier — never an aggregated Δ%.

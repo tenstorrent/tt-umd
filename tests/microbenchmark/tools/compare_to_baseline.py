@@ -17,6 +17,9 @@ Example:
 
     python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'n150'
 
+See `summarize_regressions.py` for the input/baseline formats and the
+comparison rule; this is just a single-arch local wrapper around it.
+
 The summary is printed to stdout. Exit code is 1 if any `gate: true` case in
 the per-arch baseline YAML breached as DOWN (same gating rule as the CI
 workflow); 0 otherwise.

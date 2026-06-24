@@ -13,16 +13,6 @@ on:
       card:
         required: true
         type: string
-      runner-label:
-        required: true
-        type: string
-        description: >-
-          GHA runner label to bind the job to. Temporary for testing (for now
-          just n150 - bgd-lab-06 included in regression detection): this input
-          is used to pin n150 to the bgd-lab-06 hostname; for the other arches
-          the card label is passed here, same as how labels are used for those
-          cards elsewhere. Will be revisited once dedicated runners are set up
-          for all three arches.
       timeout:
         required: true
         type: number
@@ -44,7 +34,7 @@ jobs:
 
     name: Run benchmarks for ${{ inputs.arch }} on ${{ inputs.card }} on ${{ inputs.ubuntu-docker-version }}
     runs-on:
-      - ${{ inputs.runner-label }}
+      - ${{ inputs.card }}
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
       # Set dummy var for baremetal, as options has to have some value

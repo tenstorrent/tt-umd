@@ -21,7 +21,7 @@ download it and point this script at the result.
 Example:
 
     gh run download <run-id> \\
-        --name benchmark-json-wormhole_b0-tt-ubuntu-2204-n150-viommu-stable-ubuntu-22.04 \\
+        --name benchmark-json-wormhole_b0-n150-umd-perf-ubuntu-22.04 \\
         --dir /tmp/ci-bench
 
     python3 tests/microbenchmark/tools/update_baseline.py \\

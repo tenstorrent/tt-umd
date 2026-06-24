@@ -51,7 +51,6 @@ jobs:
 
       - name: Summarize regressions
         run: |
-          . /tmp/venv/bin/activate
           # Without set +e, the summarize_regressions.py exit code would terminate the job
           # before we could upload the summary artifact.
           set +e

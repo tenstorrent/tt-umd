@@ -12,7 +12,7 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 
-from formatting import format_throughput
+from utils import format_throughput
 
 
 def format_time(time_sec):

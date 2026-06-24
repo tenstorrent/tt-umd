@@ -27,7 +27,7 @@ from pathlib import Path
 
 import yaml
 
-from formatting import format_throughput
+from utils import format_throughput
 
 # nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
 # Python's json parser rejects (it only accepts the capitalized `NaN`).

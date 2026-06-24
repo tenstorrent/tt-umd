@@ -52,6 +52,7 @@ from datetime import date
 from pathlib import Path
 
 import yaml
+from utils import yaml_escape
 
 # --- Tolerance math -------------------------------------------------------------
 #
@@ -81,13 +82,6 @@ ARCH_RUNNERS: dict[str, tuple[str, str]] = {
 }
 
 BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
-
-
-def _yaml_escape(s: str) -> str:
-    """Wrap a string in quotes if it contains characters that confuse YAML."""
-    if any(c in s for c in ":#,&*!|>'\"%@`{}[]\n") or s.strip() != s:
-        return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    return s
 
 
 def derive_entry(
@@ -283,7 +277,7 @@ def render_arch_yaml(
                 suffix = "  # no new result this calibration"
 
             case_lines.append(
-                f"  {_yaml_escape(case_name)}: "
+                f"  {yaml_escape(case_name)}: "
                 f"{{ median_value: {median_value:.4g}, "
                 f"tolerance_pct: {tolerance_pct:g}{gate_str} }}{suffix}"
             )

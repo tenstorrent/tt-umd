@@ -14,6 +14,7 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -62,11 +63,23 @@ public:
 
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
+    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+
 protected:
     SimulationTTDevice(
         const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
+
+    // Build tlb_allocator_ once the backend knows its BAR0 base (0 for RTL, PCI-probed for TTSim).
+    void init_tlb_allocator(uint64_t bar0_base);
+    // Allocate the cached default TLB window for the current arch. Must be invoked from the derived
+    // constructor (after the communicator exists), since it dispatches to the virtual get_io_window.
+    void setup_cached_tlb_window();
+
+    // Construct the backend-specific TlbHandle + TlbWindow for an already-allocated TLB index.
+    virtual std::unique_ptr<TlbWindow> create_tlb_window(
+        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) = 0;
 
     std::recursive_mutex device_lock;
     std::filesystem::path simulator_directory_;

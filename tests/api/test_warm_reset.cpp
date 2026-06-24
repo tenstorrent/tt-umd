@@ -846,6 +846,7 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     ASSERT_NE(p1, -1);
     if (p1 == 0) {
         auto cluster = std::make_unique<Cluster>();
+        (void)cluster;
         children_ready.notify(P1_SLOT);
         pause();
         _exit(EXIT_SUCCESS_CODE);

@@ -328,44 +328,32 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
-}
-
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
-}
-
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    device_protocol_->read_from_device(
+        mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
-}
-
-void TTDevice::read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device_reg(mem_ptr, core, addr, size, get_selected_noc_id());
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    device_protocol_->write_to_device(
+        mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    read_from_device_reg(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
-}
-
-void TTDevice::write_to_device_reg(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device_reg(mem_ptr, core, addr, size, get_selected_noc_id());
+    const SocDescriptor &soc_desc = get_soc_descriptor();
+    device_protocol_->read_from_device_reg(
+        mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    ZoneScopedC(tracy::Color::Orange);
     const SocDescriptor &soc_desc = get_soc_descriptor();
-    write_to_device_reg(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+    device_protocol_->write_to_device_reg(
+        mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

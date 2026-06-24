@@ -7,7 +7,7 @@ Reads `median(elapsed)` + `medianAbsolutePercentError(elapsed)` per case from
 each `<title>.json` in the supplied directory and writes:
     median_value = batch / median(elapsed)
     tolerance_pct     = max(5, ceil(MAPE_K * mape_pct))
-into the per-arch YAML under `tests/microbenchmark/expected/baselines/`.
+into the per-arch YAML under `tests/microbenchmark/baselines/`.
 
 `mape_pct` is the within-run epoch spread reported by nanobench (already a
 percent of the median). MAPE_K=1 means "tolerance equals the observed
@@ -80,7 +80,7 @@ ARCH_RUNNERS: dict[str, tuple[str, str]] = {
     "BH p150b": ("bh_p150b.yaml", "bh-40"),
 }
 
-BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "expected" / "baselines"
+BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
 
 
 def arch_slug(arch_label: str) -> str:
@@ -183,7 +183,7 @@ def render_arch_yaml(
 
     out = io.StringIO()
     slug = arch_slug(arch)
-    out.write(f"# tests/microbenchmark/expected/baselines/{slug}.yaml\n")
+    out.write(f"# tests/microbenchmark/baselines/{slug}.yaml\n")
     out.write(
         f"# Calibrated for {arch} from a single bench invocation on dedicated "
         f"runner {runner_hostname!r}.\n"

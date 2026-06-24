@@ -1,7 +1,7 @@
 # Regression check against in-repo per-arch baseline YAMLs.
 #
 # Compares the current run against the per-arch baselines in
-# tests/microbenchmark/expected/baselines/<arch>.yaml (each derived from a
+# tests/microbenchmark/baselines/<arch>.yaml (each derived from a
 # single benchmark-json-* artifact of a prior CI run via
 # tests/microbenchmark/tools/update_baseline.py — median(elapsed) +
 # MAPE-derived tolerance), applies per-case tolerances, and emits a coarse
@@ -36,7 +36,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
-            tests/microbenchmark/expected/baselines/
+            tests/microbenchmark/baselines/
             tests/microbenchmark/tools/summarize_regressions.py
             tests/microbenchmark/tools/formatting.py
           sparse-checkout-cone-mode: false
@@ -57,7 +57,7 @@ jobs:
           set +e
           python3 tests/microbenchmark/tools/summarize_regressions.py \
             --current "${RESULTS_DIR}" \
-            --baselines-dir tests/microbenchmark/expected/baselines \
+            --baselines-dir tests/microbenchmark/baselines \
             --output "${SUMMARY_PATH}"
           rc=$?
           set -e

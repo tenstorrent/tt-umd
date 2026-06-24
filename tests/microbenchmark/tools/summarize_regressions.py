@@ -6,7 +6,7 @@
 Reads benchmark JSON artifacts produced by `run-benchmarks.yml` (one artifact
 directory per architecture, each containing nanobench JSONs) and compares each
 case's throughput against the stored `median_value` from the per-arch
-YAMLs in `tests/microbenchmark/expected/baselines/`. Emits markdown with:
+YAMLs in `tests/microbenchmark/baselines/`. Emits markdown with:
 
   1. A coarse cross-arch table (one row per test, one column per arch),
      reporting only breach counts per severity tier — never an aggregated Δ%.

@@ -2,7 +2,7 @@
 
 These scripts implement the perf regression pipeline: CI runs the benchmarks
 on dedicated runners, the resulting per-arch JSONs are compared against
-in-repo baselines (`tests/microbenchmark/expected/baselines/<arch>.yaml`),
+in-repo baselines (`tests/microbenchmark/baselines/<arch>.yaml`),
 and a markdown summary is published to the workflow's Step Summary tab.
 
 The three scripts you'll touch:
@@ -29,8 +29,8 @@ python3 tests/microbenchmark/tools/update_baseline.py \
     --from-results-dir /tmp/ci-bench
 
 # inspect the diff, commit wh_n150.yaml.
-git diff tests/microbenchmark/expected/baselines/wh_n150.yaml
-git add tests/microbenchmark/expected/baselines/wh_n150.yaml
+git diff tests/microbenchmark/baselines/wh_n150.yaml
+git add tests/microbenchmark/baselines/wh_n150.yaml
 git commit -m "Recalibrate WH n150 baseline from CI run <run-id>"
 ```
 
@@ -64,7 +64,7 @@ You'd run it locally only for debugging the CI step itself:
 ```bash
 python3 tests/microbenchmark/tools/summarize_regressions.py \
     --current /tmp/all-arch-results \
-    --baselines-dir tests/microbenchmark/expected/baselines \
+    --baselines-dir tests/microbenchmark/baselines \
     --output /tmp/summary.md
 ```
 

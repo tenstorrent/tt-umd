@@ -48,7 +48,7 @@ jobs:
         # n150 is pinned to its dedicated runner bgd-lab-06 (the host with the
         # calibrated baseline). n300 / p150b still use their existing pool
         # labels until those dedicated runners come online. Only n150 has a
-        # baseline in tests/microbenchmark/expected/baselines/, so only n150 is
+        # baseline in tests/microbenchmark/baselines/, so only n150 is
         # subject to regression-check — the other archs' bench results land in
         # artifacts but are silently ignored by summarize_regressions.
         test-group: [

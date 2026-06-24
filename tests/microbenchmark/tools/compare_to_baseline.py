@@ -35,7 +35,7 @@ from summarize_regressions import (
 )
 
 KNOWN_ARCH_LABELS = [label for label, _ in ARCH_PATTERNS]
-BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "expected" / "baselines"
+BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
 
 
 def _filter_baselines_to_arch(combined: dict, arch: str) -> dict:

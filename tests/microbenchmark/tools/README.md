@@ -101,8 +101,8 @@ python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'n150'
 ### ⚠️ Caveat: this is a smoke test, not a precise regression check
 
 Even when you run this on the same machine that produces the CI baseline
-(e.g. SSH'd into `bgd-lab-06`), the local run won't reproduce CI's numbers
-exactly:
+(SSH'd into the dedicated runner for that arch), the local run won't reproduce
+CI's numbers exactly:
 
 - **Different process invocation.** CI starts the binary inside its own
   container with a clean state; your local run starts from whatever state

@@ -46,13 +46,12 @@ import argparse
 import io
 import json
 import math
-import re
 import sys
 from datetime import date
 from pathlib import Path
 
 import yaml
-from utils import yaml_escape
+from utils import ARCH_NAMES, load_nanobench_json, yaml_escape
 
 # --- Tolerance math -------------------------------------------------------------
 #
@@ -68,18 +67,7 @@ from utils import yaml_escape
 TOLERANCE_FLOOR_PCT = 5
 MAPE_K = 1
 
-# nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
-# Python's json parser rejects (it only accepts the capitalized `NaN`).
-_NAN_RE = re.compile(r"-?\bnan\b")
-
-# Arch label -> (yaml filename, dedicated runner hostname). Used to find the
-# destination file under baselines/ and to fill in the runner_hostname
-# metadata field that records which machine produced the JSON output.
-ARCH_RUNNERS: dict[str, tuple[str, str]] = {
-    "n150": ("n150.yaml", "bgd-lab-06"),
-    "n300": ("n300.yaml", "bgd-lab-05"),
-    "p150": ("p150.yaml", "bh-40"),
-}
+HOST_SPEC_FILENAME = "machine_host_spec.json"
 
 BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
 
@@ -104,11 +92,10 @@ def collect_entries(results_dir: Path) -> dict:
     entries: dict = {}
     for path in sorted(results_dir.glob("*.json")):
         title = path.stem
-        if title == "machine_host_spec":
+        if path.name == HOST_SPEC_FILENAME:
             continue
         try:
-            text = _NAN_RE.sub("NaN", path.read_text())
-            data = json.loads(text)
+            data = load_nanobench_json(path)
         except (json.JSONDecodeError, OSError) as e:
             print(f"WARN: skipping {path}: {e}", file=sys.stderr)
             continue
@@ -133,6 +120,32 @@ def collect_entries(results_dir: Path) -> dict:
             )
             entries.setdefault(title, {})[case] = derive_entry(med, batch, mape_pct)
     return entries
+
+
+def read_runner_name(results_dir: Path) -> str:
+    """Read the CI runner name recorded in the host-spec sidecar.
+
+    gather_host_specs.py writes the GitHub Actions RUNNER_NAME (the runner's
+    registered name, e.g. a dedicated lab machine) into
+    `<HOST_SPEC_FILENAME>` under `host_info.CI_Runner`. Returns "unknown" if
+    the file is missing or doesn't carry the field — the container's own
+    hostname is an ephemeral container ID, so it is deliberately not used.
+    """
+    spec_path = results_dir / HOST_SPEC_FILENAME
+    if not spec_path.exists():
+        print(
+            f"WARN: {spec_path.name} not found in results; "
+            f"runner_hostname will be 'unknown'.",
+            file=sys.stderr,
+        )
+        return "unknown"
+    try:
+        data = json.loads(spec_path.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        print(f"WARN: could not read {spec_path}: {e}", file=sys.stderr)
+        return "unknown"
+    host_info = data.get("host_info") or {}
+    return host_info.get("CI_Runner") or "unknown"
 
 
 def load_existing_arch_yaml(path: Path) -> dict:
@@ -298,7 +311,7 @@ def main() -> int:
     p.add_argument(
         "--arch",
         required=True,
-        choices=list(ARCH_RUNNERS.keys()),
+        choices=ARCH_NAMES,
         help="Arch label whose baseline YAML to update.",
     )
     p.add_argument(
@@ -323,7 +336,7 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    yaml_filename, runner_hostname = ARCH_RUNNERS[args.arch]
+    yaml_filename = f"{args.arch}.yaml"
 
     try:
         results_dir = args.from_results_dir.resolve(strict=True)
@@ -331,6 +344,8 @@ def main() -> int:
         sys.exit(f"--from-results-dir does not exist: {args.from_results_dir}")
     if not results_dir.is_dir():
         sys.exit(f"--from-results-dir is not a directory: {results_dir}")
+
+    runner_hostname = read_runner_name(results_dir)
 
     out_path = args.baselines_dir / yaml_filename
     print(f"Arch:     {args.arch}", file=sys.stderr)

@@ -27,20 +27,13 @@ script is complementary, not a replacement.
 import argparse
 import json
 import math
-import re
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 import yaml
 
-from utils import format_throughput
-
-# nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
-# Python's json parser rejects (it only accepts the capitalized `NaN`).
-_NAN_RE = re.compile(r"-?\bnan\b")
-
-ARCH_NAMES = ["n150", "n300", "p150"]
+from utils import ARCH_NAMES, format_throughput, load_nanobench_json
 
 
 def arch_label_from_artifact(name: str) -> str | None:
@@ -70,8 +63,7 @@ def read_arch_results(json_dir: Path, arch_label: str = "(unknown)") -> dict:
         if title == "machine_host_spec":
             continue
         try:
-            text = _NAN_RE.sub("NaN", path.read_text())
-            data = json.loads(text)
+            data = load_nanobench_json(path)
         except (json.JSONDecodeError, OSError) as e:
             print(
                 f"WARN: skipping {arch_label}/{title}: cannot read JSON ({e})",

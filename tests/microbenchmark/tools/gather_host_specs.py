@@ -204,6 +204,8 @@ def gather_specs():
             "Distro": get_distro_pretty_name(),
             "Kernel": platform.release(),
             "Hostname": socket.gethostname(),
+            # CI runner's registered name; unlike Hostname above it isn't the ephemeral container ID. Absent outside CI.
+            "CI_Runner": os.environ.get("RUNNER_NAME", "unknown"),
             "Platform": platform.machine(),
             "Python": platform.python_version(),
             "Memory": f"{mem_gb} GB",

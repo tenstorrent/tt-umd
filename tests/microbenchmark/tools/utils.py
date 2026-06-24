@@ -8,6 +8,23 @@ Lives in its own module so consumers that only need these lightweight helpers
 pandas/psutil dependencies.
 """
 
+import json
+import re
+
+ARCH_NAMES = ["n150", "n300", "p150"]
+
+# nanobench renders unset floating-point fields as bare `-nan`/`nan`, which
+# Python's json parser rejects (it only accepts the capitalized `NaN`).
+_NAN_RE = re.compile(r"-?\bnan\b")
+
+
+def load_nanobench_json(path):
+    """Read a nanobench JSON file, normalizing bare `nan`/`-nan` to `NaN`.
+
+    Raises OSError / json.JSONDecodeError on failure for the caller to handle.
+    """
+    return json.loads(_NAN_RE.sub("NaN", path.read_text()))
+
 
 def format_throughput(throughput, unit):
     """Format throughput with appropriate units (bytes/s, KB/s, MB/s, GB/s)"""

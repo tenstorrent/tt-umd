@@ -14,17 +14,15 @@
 #include <utility>
 #include <variant>
 
-#include "noc_access.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
-#include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -65,61 +63,80 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
     return cached_tlb_window_.get();
 }
 
-void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        write_to_device_impl<true>(mem_ptr, core, addr, size);
+        write_to_device_impl<true>(mem_ptr, core, addr, size, noc_id);
     } else {
-        write_to_device_impl<false>(mem_ptr, core, addr, size);
+        write_to_device_impl<false>(mem_ptr, core, addr, size, noc_id);
     }
 }
 
-void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        read_from_device_impl<true>(mem_ptr, core, addr, size);
+        read_from_device_impl<true>(mem_ptr, core, addr, size, noc_id);
     } else {
-        read_from_device_impl<false>(mem_ptr, core, addr, size);
+        read_from_device_impl<false>(mem_ptr, core, addr, size, noc_id);
     }
 }
 
 template <bool safe>
-void PcieProtocol::write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void PcieProtocol::write_to_device_impl(
+    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 
 template <bool safe>
-void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 
-bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t) { return false; }
+void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+bool PcieProtocol::write_to_core_range(
+    const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id) {
+    noc_multicast_write(mem_ptr, size, core_start, core_end, addr, noc_id);
+    return true;
+}
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
 
 void PcieProtocol::noc_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Strict);
+            src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
     } else {
         get_cached_tlb_window()->noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, get_selected_noc_id(), tlb_data::Strict);
-    }
-}
-
-void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {
-    while (word_len-- != 0) {
-        *dest++ = *src++;
+            src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
     }
 }
 
@@ -141,33 +158,34 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) {
+bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
     // const_cast is safe here: dma_transfer only reads from the buffer in H2D direction (memcpy into DMA buffer).
     // dma_transfer uses void* to handle both H2D (read) and D2H (write) in a single function.
     // TODO: Split dma_transfer into separate H2D/D2H functions to remove this cast.
     return dma_transfer(
-        const_cast<void*>(src), size, addr, create_dma_tlb_config(addr, core), DmaDirection::H2D);  // NOLINT
+        const_cast<void*>(src), size, addr, create_dma_tlb_config(addr, core, noc_id), DmaDirection::H2D);  // NOLINT
 }
 
-bool PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) {
-    return dma_transfer(dst, size, addr, create_dma_tlb_config(addr, core), DmaDirection::D2H);
+bool PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+    return dma_transfer(dst, size, addr, create_dma_tlb_config(addr, core, noc_id), DmaDirection::D2H);
 }
 
 bool PcieProtocol::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core_end, core_start), DmaDirection::H2D);
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core_end, noc_id, core_start), DmaDirection::H2D);
 }
 
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
 // the x_end/y_end and x_start/y_start fields in tlb_data. For unicast, only core_end is needed
 // (the target core). When core_start is provided, the transfer becomes a multicast to the
 // core range [core_start, core_end].
-tlb_data PcieProtocol::create_dma_tlb_config(uint64_t addr, tt_xy_pair core_end, std::optional<tt_xy_pair> core_start) {
+tlb_data PcieProtocol::create_dma_tlb_config(
+    uint64_t addr, tt_xy_pair core_end, NocId noc_id, std::optional<tt_xy_pair> core_start) {
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core_end.x;
     config.y_end = core_end.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = tlb_data::Relaxed;
     config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
     if (core_start) {

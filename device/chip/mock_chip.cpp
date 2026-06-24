@@ -7,7 +7,6 @@
 #include <chrono>
 #include <cstdint>
 #include <type_traits>
-#include <utility>
 
 #include "umd/device/soc_descriptor.hpp"
 
@@ -15,7 +14,7 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<MockChip>(), "MockChip must be non-abstract.");
 
-MockChip::MockChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor)) {}
+MockChip::MockChip(const SocDescriptor& soc_descriptor) : Chip(soc_descriptor.arch), soc_descriptor_(soc_descriptor) {}
 
 bool MockChip::is_mmio_capable() const { return false; }
 
@@ -51,7 +50,8 @@ void MockChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint
 
 void MockChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
 
-void MockChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
+void MockChip::noc_multicast_write(
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {}
 
 int MockChip::arc_msg(
     uint32_t msg_code,
@@ -73,11 +73,17 @@ void MockChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void MockChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {}
 
-void MockChip::send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) {}
-
-void MockChip::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {}
-
 void MockChip::deassert_risc_resets() {}
+
+RiscType MockChip::get_risc_reset_state(CoreCoord core) { return RiscType::NONE; }
+
+void MockChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {}
+
+void MockChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {}
+
+void MockChip::assert_risc_reset(const RiscType selected_riscs) {}
+
+void MockChip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {}
 
 void MockChip::set_power_state(DevicePowerState state) {}
 

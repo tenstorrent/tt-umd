@@ -17,7 +17,7 @@ include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 ####################################################################################################################
 if(TT_UMD_BUILD_TESTS)
     CPMAddPackage(
-        NAME googletest
+        NAME GTest
         GITHUB_REPOSITORY google/googletest
         GIT_TAG v1.13.0
         VERSION 1.13.0
@@ -25,7 +25,7 @@ if(TT_UMD_BUILD_TESTS)
         OPTIONS
             "INSTALL_GTEST OFF"
     )
-    if(googletest_ADDED)
+    if(GTest_ADDED)
         target_compile_options(gtest PRIVATE -Wno-implicit-int-float-conversion)
     endif()
 endif()
@@ -43,6 +43,7 @@ CPMAddPackage(
         "YAML_CPP_BUILD_TESTS OFF"
         "YAML_CPP_BUILD_TOOLS OFF"
         "YAML_BUILD_SHARED_LIBS OFF"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 if(yaml-cpp_ADDED)
@@ -118,7 +119,7 @@ endif()
 # fmt : https://github.com/fmtlib/fmt
 ###################################################################################################################
 
-CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
 
 ###################################################################################################################
 # nanobench (for uBenchmarking)
@@ -140,12 +141,19 @@ CPMAddPackage(
         "SPDLOG_FMT_EXTERNAL_HO ON"
         "SPDLOG_INSTALL ON"
         "BUILD_SHARED_LIBS OFF"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 ####################################################################################################################
 # tt-logger
 ####################################################################################################################
-CPMAddPackage(NAME tt-logger GITHUB_REPOSITORY tenstorrent/tt-logger VERSION 1.1.8 SYSTEM YES)
+CPMAddPackage(
+    NAME tt-logger
+    GITHUB_REPOSITORY tenstorrent/tt-logger
+    VERSION 1.1.8
+    SYSTEM YES
+    FIND_PACKAGE_ARGUMENTS GLOBAL
+)
 
 ####################################################################################################################
 # cxxopts
@@ -158,6 +166,7 @@ CPMAddPackage(
     SYSTEM YES
     OPTIONS
         "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+    FIND_PACKAGE_ARGUMENTS GLOBAL
 )
 
 ####################################################################################################################
@@ -165,7 +174,7 @@ CPMAddPackage(
 ####################################################################################################################
 if(CPM_LOCAL_PACKAGES_ONLY)
     # When using only local packages, CPM uses "find_package".
-    # nanobind wants python included before CPM calls "find_package". 
+    # nanobind wants python included before CPM calls "find_package".
     find_package(
         Python
         COMPONENTS

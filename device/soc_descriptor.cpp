@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -80,7 +81,7 @@ void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vecto
         bool serialize_cores = true;
 
         for (const auto &dram_core : dram_cores) {
-            if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
+            if ((dram_core.x >= grid_size.x) || (dram_core.y >= grid_size.y)) {
                 serialize_cores = false;
             }
         }
@@ -423,6 +424,11 @@ std::vector<CoreCoord> SocDescriptor::translate_coordinates(
         translated_cores.push_back(translate_coord_to(core, coord_system));
     }
     return translated_cores;
+}
+
+bool SocDescriptor::is_core_of_type(const tt_xy_pair &core, CoreType core_type, CoordSystem coord_system) const {
+    const auto &cores = get_cores(core_type, coord_system);
+    return std::any_of(cores.begin(), cores.end(), [&core](const auto &c) { return c.x == core.x && c.y == core.y; });
 }
 
 std::vector<CoreCoord> SocDescriptor::get_cores(

@@ -4,18 +4,18 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <stdexcept>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -256,7 +256,9 @@ inline constexpr uint32_t ARC_FW_INT_VAL = 65536;
 inline constexpr uint32_t ARC_MSG_RESPONSE_OK_LIMIT = 240;
 
 inline constexpr uint32_t SCRATCH_RAM_0 = ARC_RESET_UNIT_OFFSET + 0x400;
-inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;
+inline constexpr uint32_t SCRATCH_RAM_2 = ARC_RESET_UNIT_OFFSET + 0x408;   // BOOT_STATUS
+inline constexpr uint32_t SCRATCH_RAM_4 = ARC_RESET_UNIT_OFFSET + 0x410;   // ERROR_STATUS0
+inline constexpr uint32_t SCRATCH_RAM_5 = ARC_RESET_UNIT_OFFSET + 0x418;   // ERROR_STATUS1
 inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
@@ -322,6 +324,9 @@ inline constexpr uint64_t ETH_FW_PATCH_ADDR = 0x7CFBC;
 // Return arc core pair that can be used to access ARC core on the device. This depends on information
 // whether NOC translation is enabled and if we want to use NOC0 or NOC1.
 tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1);
+
+// High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Blackhole boards.
+inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0x00, 0x40, 0xC0, 0x80};
 
 }  // namespace blackhole
 
@@ -493,6 +498,15 @@ public:
     size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return false; }  // False due to a known HW issue.
+
+    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
+        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
+        auto it = std::find(blackhole::UBB_TRAY_BUS_IDS.begin(), blackhole::UBB_TRAY_BUS_IDS.end(), bus_high);
+        if (it == blackhole::UBB_TRAY_BUS_IDS.end()) {
+            return std::nullopt;
+        }
+        return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
+    }
 };
 
 }  // namespace tt::umd

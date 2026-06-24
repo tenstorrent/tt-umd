@@ -20,7 +20,7 @@ class SocDescriptor;
 
 class MockChip : public Chip {
 public:
-    MockChip(SocDescriptor soc_descriptor);
+    MockChip(const SocDescriptor& soc_descriptor);
     bool is_mmio_capable() const override;
 
     void start_device(uint32_t dram_membar_subchannel = 0) override;
@@ -29,6 +29,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return soc_descriptor_; }
 
     int get_num_host_channels() override;
     int get_host_channel_size(std::uint32_t channel) override;
@@ -42,7 +44,8 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
-    void noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+    void noc_multicast_write(
+        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     int arc_msg(
         uint32_t msg_code,
@@ -57,9 +60,13 @@ public:
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
 
-    void send_tensix_risc_reset(CoreCoord core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void deassert_risc_resets() override;
+
+    RiscType get_risc_reset_state(CoreCoord core) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(const RiscType selected_riscs) override;
+    void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) override;
 
     void set_power_state(DevicePowerState state) override;
     int get_clock() override;
@@ -67,5 +74,8 @@ public:
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
+
+private:
+    SocDescriptor soc_descriptor_;
 };
 }  // namespace tt::umd

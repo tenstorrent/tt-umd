@@ -119,6 +119,7 @@ jobs:
           ${{ env.TEST_OUTPUT_DIR }}/umd/test_pcie_device/test_pcie_device
 
       - name: Run MISC tests
+        if: ${{ inputs.arch == 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/misc/umd_misc_tests
 

@@ -14,7 +14,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -22,12 +22,12 @@
 namespace tt::umd {
 
 TTSimTlbHandle::TTSimTlbHandle(
-    SimulationTlbManager* manager,
+    std::shared_ptr<SimulationTlbAllocator> allocator,
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
     const TlbMapping tlb_mapping) :
-    sim_manager_(manager), sim_communicator_(communicator) {
+    allocator_(std::move(allocator)), sim_communicator_(communicator) {
     tlb_id_ = tlb_id;
     tlb_size_ = size;
     tlb_mapping_ = tlb_mapping;
@@ -37,9 +37,9 @@ TTSimTlbHandle::TTSimTlbHandle(
     // handles all I/O), so the allocator has no pools and the get_*_from_index
     // calls would throw. Skip them for QUASAR; tlb_base_ / tlb_reg_addr_ stay at
     // their defaults (nullptr / 0), which the QUASAR path never dereferences.
-    if (sim_manager_ && sim_manager_->get_arch() != tt::ARCH::QUASAR) {
-        tlb_base_ = reinterpret_cast<uint8_t*>(sim_manager_->get_tlb_address_from_index(tlb_id_));
-        tlb_reg_addr_ = sim_manager_->get_tlb_reg_address_from_index(tlb_id_);
+    if (allocator_ && allocator_->get_architecture_impl()->get_architecture() != tt::ARCH::QUASAR) {
+        tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
+        tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }
 
     log_debug(
@@ -51,13 +51,16 @@ TTSimTlbHandle::TTSimTlbHandle(
 }
 
 std::unique_ptr<TTSimTlbHandle> TTSimTlbHandle::create(
-    SimulationTlbManager* manager,
+    std::shared_ptr<SimulationTlbAllocator> allocator,
     TTSimCommunicator* communicator,
     int tlb_id,
     size_t size,
     const TlbMapping tlb_mapping) {
-    return std::unique_ptr<TTSimTlbHandle>(new TTSimTlbHandle(manager, communicator, tlb_id, size, tlb_mapping));
+    return std::unique_ptr<TTSimTlbHandle>(
+        new TTSimTlbHandle(std::move(allocator), communicator, tlb_id, size, tlb_mapping));
 }
+
+TTSimTlbHandle::~TTSimTlbHandle() noexcept { TTSimTlbHandle::free_tlb(); }
 
 void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;
@@ -67,8 +70,14 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_.ordering = 0;
     tlb_config_.static_vc = 0;
 
-    // Get architecture from manager to determine correct offsets.
+    // Get architecture from allocator to determine correct offsets.
     tt::ARCH architecture = get_arch();
+
+    // Quasar has no real TLB registers to program — the communicator handles
+    // all I/O directly, so configure is a no-op beyond storing tlb_config_.
+    if (architecture == tt::ARCH::QUASAR) {
+        return;
+    }
 
     log_debug(
         LogUMD,
@@ -145,14 +154,14 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
 }
 
 void TTSimTlbHandle::free_tlb() noexcept {
-    if (sim_manager_) {
-        sim_manager_->deallocate_tlb_index(tlb_id_);
-        sim_manager_ = nullptr;
+    if (allocator_) {
+        allocator_->deallocate_tlb_index(tlb_id_);
+        allocator_ = nullptr;
 
         log_debug(LogUMD, "Freed simulation TLB with ID {}", tlb_id_);
     }
 }
 
-tt::ARCH TTSimTlbHandle::get_arch() const { return sim_manager_->get_arch(); }
+tt::ARCH TTSimTlbHandle::get_arch() const { return allocator_->get_architecture(); }
 
 }  // namespace tt::umd

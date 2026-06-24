@@ -11,14 +11,14 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
 
 jobs:
   build-and-run-ttsim:
@@ -43,8 +43,6 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500  # Need enough history for `git describe`
-          fetch-tags: true  # Need tags for `git describe`
 
       - name: Checkout UMD
         uses: actions/checkout@v6
@@ -89,6 +87,14 @@ jobs:
           fileName: "libttsim_bh.so"
           out-file-path: /tmp/ttsim-bh
 
+      - name: Download ttsim binary (qsr)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          fileName: "libttsim_qsr.so"
+          out-file-path: /tmp/ttsim-qsr
+
       - name: Build tt-metal
         run: |
           cd tt-metal
@@ -98,17 +104,19 @@ jobs:
           echo "TT_METAL_HOME=$(pwd)" >> $GITHUB_ENV
           echo "TT_METAL_RUNTIME_ROOT=$(pwd)" >> $GITHUB_ENV
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
-          ./build_metal.sh --build-all --enable-ccache
+          ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
 
       - name: Prepare sim paths
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh
+          mkdir -p sim_wh sim_bh sim_qsr
           mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
           mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
+          mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
+          cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
 
       - name: Build UMD api_tests with simulation support
         run: |
@@ -166,6 +174,20 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
+      - name: Run UMD TestDeviceIOFixture on tt-sim quasar
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim quasar
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
       # Galaxy tests can be a bit longer, should run on the order of minutes.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         timeout-minutes: 5
@@ -174,7 +196,7 @@ jobs:
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+            ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/wormhole/6u_cluster_desc
         run: |
           cd tt-metal
           export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
@@ -189,7 +211,7 @@ jobs:
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+            ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/blackhole/bh_6u_cluster_desc
         run: |
           cd tt-metal
           export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"

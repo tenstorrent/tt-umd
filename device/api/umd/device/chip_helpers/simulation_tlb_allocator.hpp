@@ -5,6 +5,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
@@ -34,6 +35,12 @@ public:
      *
      * If size is 0, allocate any available TLB, preferring smaller size classes first.
      *
+     * QUASAR has no real TLBs; the pools are empty by design (simulator's communicator
+     * handles all I/O underneath). For QUASAR, hand back an auto-incrementing dummy
+     * index so TLBManager bookkeeping (keyed by tlb id) does not collide across
+     * allocations. Callers should use the requested size directly on QUASAR rather
+     * than querying get_tlb_size_from_index() (which has no pool to look up).
+     *
      * @param size Requested TLB size in bytes (0 means any available).
      * @return TLB index if successful, -1 if no TLB available.
      */
@@ -60,6 +67,8 @@ public:
     uint64_t get_tlb_reg_address_from_index(int tlb_index);
 
     const architecture_implementation* get_architecture_impl() const;
+
+    tt::ARCH get_architecture() const;
 
 private:
     // A pool of TLB indices that all share a single size.
@@ -88,6 +97,9 @@ private:
 
     std::mutex allocation_mutex_;
     std::array<TlbSizeClass, NUM_SIZE_CLASSES> size_classes_;
+
+    // Counter for the Quasar bypass branch of allocate_tlb_index(); see its docstring.
+    std::atomic<int> next_bypass_tlb_id_{0};
 };
 
 }  // namespace tt::umd

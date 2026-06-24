@@ -197,44 +197,21 @@ PciDeviceInfo PCIDevice::read_device_info(int fd) {
         get_physical_slot_for_pcie_bdf(pci_bdf)};
 }
 
-static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, uint32_t flags) {
-    for (int n : PCIDevice::enumerate_devices()) {
-        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
-        // to check if the device is in the pci_target_devices set.
-        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
-            continue;
-        }
+static void send_reset_ioctl(int device_id, uint32_t flags) {
+    log_debug(tt::LogUMD, "Attempting to reset PCI device ID {} with flags {}", device_id, flags);
+    std::string device_path = fmt::format("/dev/tenstorrent/{}", device_id);
+    tt_device_t *dev = nullptr;
+    int err = tt_device_open(device_path.c_str(), &dev, O_RDWR | O_CLOEXEC | O_APPEND);
+    if (err != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to open device {}: {}", device_id, strerror(-err)));
+    }
 
-        log_debug(tt::LogUMD, "Issuing reset ioctl on PCI device ID {} with flags {}", n, flags);
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
-        if (fd == -1) {
-            continue;
-        }
-
-        try {
-            tenstorrent_reset_device reset_info{};
-
-            reset_info.in.output_size_bytes = sizeof(reset_info.out);
-            reset_info.in.flags = flags;
-
-            reset_info.out.output_size_bytes = 0;
-            reset_info.out.result = 0;
-            if (ioctl(fd, TENSTORRENT_IOCTL_RESET_DEVICE, &reset_info) == -1) {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "TENSTORRENT_IOCTL_RESET_DEVICE failed on device {} with flags {}: {}",
-                        n,
-                        flags,
-                        strerror(errno)));
-            }
-        } catch (const std::exception &e) {
-            log_error(tt::LogUMD, "Reset IOCTL failed: {}", e.what());
-        } catch (...) {
-            log_error(tt::LogUMD, "Reset IOCTL failed with unknown error.");
-        }
-
-        close(fd);
+    err = tt_device_reset(dev, flags);
+    if (err != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Sending reset command failed on device {} with flags {:#x}: {}", device_id, flags, strerror(-err)));
     }
 }
 
@@ -449,18 +426,15 @@ PCIDevice::PCIDevice(int pci_device_number) :
                 pci_device_number));
     }
 
-    tenstorrent_get_driver_info driver_info{};
-    driver_info.in.output_size_bytes = sizeof(driver_info.out);
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_GET_DRIVER_INFO, &driver_info) == -1) {
-        UMD_THROW(error::RuntimeError, "TENSTORRENT_IOCTL_GET_DRIVER_INFO failed.");
-    }
+    uint64_t driver_api_version = 0;
+    tt_driver_get_attr(tt_device_handle, tt_driver_attr::TT_DRIVER_API_VERSION, &driver_api_version);
 
     log_debug(
         LogUMD,
-        "Opened PCI device {}; KMD version: {}; API: {}; IOMMU: {}",
+        "Opened PCI device {}; KMD version: {} (API version: {}); IOMMU: {}",
         pci_device_num,
         kmd_version.to_string(),
-        driver_info.out.driver_version,
+        driver_api_version,
         iommu_enabled ? "enabled" : "disabled");
 
     UMD_ASSERT(
@@ -622,7 +596,7 @@ PCIDevice::~PCIDevice() {
 
     if (dma_buffer.buffer != nullptr && dma_buffer.buffer != MAP_FAILED) {
         TracyFreeN(dma_buffer.buffer, "DMA");
-        munmap(dma_buffer.buffer, dma_buffer.size + 0x1000);
+        munmap(dma_buffer.buffer, dma_buffer.size + static_cast<size_t>(sysconf(_SC_PAGESIZE)));
     }
 }
 
@@ -880,18 +854,22 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.
-    volatile uint64_t *tlb_reg_ptr =
-        reinterpret_cast<volatile uint64_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
+    // Use 32-bit stores throughout: on aarch64, Device/UC memory (which is how PCIe config
+    // registers are mapped) requires natural alignment for all accesses. Blackhole registers
+    // are 12 bytes apart (index * 12), making odd indices 4-byte aligned but NOT 8-byte aligned.
+    // A 64-bit store to a non-8-byte-aligned Device/UC address causes SIGBUS on aarch64.
+    // 32-bit stores only require 4-byte alignment, which index * 12 always satisfies.
+    volatile uint32_t *tlb_reg_ptr =
+        reinterpret_cast<volatile uint32_t *>(static_cast<char *>(tlb_config_space) + tlb_register_addr);
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = lower_64;
+    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
+    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
 
     if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total)
-        // Cast to uint32_t* to write only 4 bytes and avoid overwriting the next register.
-        volatile uint32_t *tlb_reg_upper_ptr = reinterpret_cast<volatile uint32_t *>(tlb_reg_ptr);
-        tlb_reg_upper_ptr[2] = static_cast<uint32_t>(upper_64);  // Write to bytes 8-11
+        // Blackhole needs the upper 32 bits as well (96-bit total).
+        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
     }
 
     log_trace(
@@ -915,8 +893,23 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         tlb_config.static_vc);
 }
 
-void PCIDevice::reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag) {
-    umd::reset_device_ioctl(pci_target_devices, static_cast<uint32_t>(flag));
+void PCIDevice::send_reset_ioctl_to_devices(
+    const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flags, bool ignore_failures) {
+    for (int n : PCIDevice::enumerate_devices()) {
+        // Since TT_VISIBLE_DEVICES and pci_target_devices filtering is decoupled now, we need
+        // to check if the device is in the pci_target_devices set.
+        if (!pci_target_devices.empty() && pci_target_devices.find(n) == pci_target_devices.end()) {
+            continue;
+        }
+        try {
+            send_reset_ioctl(n, static_cast<uint32_t>(flags));
+        } catch (error::UmdBaseException &e) {
+            if (!ignore_failures) {
+                throw;
+            }
+            log_error(LogUMD, "Sending reset ioctl to device {} failed: {}", n, e.what());
+        }
+    }
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
@@ -942,7 +935,8 @@ uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
 }
 
 bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
-    const size_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    const size_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
     void *dma_buf_mapping =
         mmap(nullptr, dma_buf_alloc_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
@@ -968,7 +962,8 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
 bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
     tenstorrent_allocate_dma_buf dma_buf{};
 
-    const uint64_t dma_buf_alloc_size = dma_buf_size + 0x1000;  // + 0x1000 for completion page
+    const uint64_t page_size = static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
+    const uint64_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
     dma_buf.in.requested_size = dma_buf_alloc_size;
     dma_buf.in.buf_index = 0;
@@ -1064,24 +1059,18 @@ void PCIDevice::set_power_state(bool busy) {
     }
 
     if (kmd_version < KMD_POWER_STATE) {
-        log_warning(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
+        log_debug(LogUMD, "KMD version {} does not support power state management.", kmd_version.to_string());
         return;
     }
 
-    tenstorrent_power_state power_state{};
-    power_state.argsz = sizeof(power_state);
-    power_state.validity = TT_POWER_VALIDITY(4, 0);
+    constexpr uint16_t not_busy_flags = 0;
+    constexpr uint16_t busy_flags =
+        TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_L2CPU_ENABLE | TT_POWER_FLAG_TENSIX_ENABLE;
+    uint16_t flags = busy ? busy_flags : not_busy_flags;
 
-    if (busy) {
-        power_state.power_flags =
-            TT_POWER_FLAG_MRISC_PHY_WAKEUP | TT_POWER_FLAG_TENSIX_ENABLE | TT_POWER_FLAG_L2CPU_ENABLE;
-    } else {
-        power_state.power_flags = 0;
-    }
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_SET_POWER_STATE, &power_state) == -1) {
-        log_warning(
-            LogUMD, "TENSTORRENT_IOCTL_SET_POWER_STATE failed on device {}: {}", pci_device_num, strerror(errno));
+    int ret = tt_device_set_power_state(tt_device_handle, flags);
+    if (ret != 0) {
+        log_warning(LogUMD, "Setting power state failed on device {}: {}", pci_device_num, strerror(-ret));
     }
 }
 

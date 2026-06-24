@@ -10,7 +10,6 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -28,9 +27,7 @@ uint32_t WormholeHangDetector::read_hang_check_reg_via_noc(NocId noc) {
     tt_xy_pair core = get_hang_check_core(noc);
     uint64_t addr = get_arch_impl()->get_noc_reg_base(CoreType::ARC, static_cast<uint32_t>(noc)) +
                     get_arch_impl()->get_noc_node_id_offset();
-    uint32_t value = 0;
-    get_protocol()->read_from_device(&value, core, addr, sizeof(value));
-    return value;
+    return read_noc_reg(core, addr, noc);
 }
 
 tt_xy_pair WormholeHangDetector::get_hang_check_core(NocId noc) {

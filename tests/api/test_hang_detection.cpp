@@ -13,6 +13,8 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -22,7 +24,6 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
@@ -63,7 +64,9 @@ protected:
     uint32_t hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-            tt_device_->set_risc_reset_state(tensix_core, static_cast<uint32_t>(TENSIX_ASSERT_SOFT_RESET));
+            tt_device_->set_risc_reset_state(
+                tensix_core,
+                tt_device_->get_architecture_implementation()->get_soft_reset_reg_value(RiscType::ALL_TENSIX));
         }
         NocIdSwitcher switcher(noc);
         tt_device_->read_from_device(
@@ -75,9 +78,9 @@ protected:
         int pci_device_id = tt_device_->get_pci_device()->get_device_num();
         tt_device_.reset();
         soc_desc_.reset();
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
 
-        auto cluster = std::make_unique<Cluster>();
+        auto cluster = test_utils::make_default_test_cluster();
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";
         cluster.reset();
 

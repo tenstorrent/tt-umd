@@ -71,25 +71,8 @@ jobs:
       - name: Install UMD wheel
         run: pip install tt_umd-*.whl --force-reinstall
 
-      # Textual provides App.run_test(headless=True) for testing TUIs without a real terminal.
-      # This discovers devices via UMD, initializes the tt-smi backend and app, renders one
-      # frame in headless mode, then quits — exercising the full startup path on real hardware.
+      # tt-smi -ls runs full UMD discovery (using tt-smi's own TopologyDiscoveryOptions)
+      # and the full backend init (telemetry, firmware, board info), prints the board list,
+      # and exits non-interactively. Picks up any future tt-smi option changes automatically.
       - name: Run tt-smi
-        run: |
-          python3 - << 'EOF'
-          import asyncio
-          from tt_umd import TopologyDiscovery
-          from tt_smi.tt_smi import TTSMI
-          from tt_smi.tt_smi_backend import TTSMIBackend
-
-          cluster_descriptor, devices = TopologyDiscovery.discover()
-          backend = TTSMIBackend(devices=devices, umd_cluster_descriptor=cluster_descriptor, pretty_output=False)
-          app = TTSMI(backend=backend)
-
-          async def run():
-              async with app.run_test(headless=True) as pilot:
-                  await pilot.press("q")
-
-          asyncio.run(asyncio.wait_for(run(), timeout=60))
-          print("tt-smi ran successfully")
-          EOF
+        run: tt-smi -ls

@@ -14,13 +14,15 @@
 
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
+#include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
 
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
-SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_descriptor)) {
+SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
+    Chip(soc_descriptor.arch), soc_descriptor_(soc_descriptor) {
     auto& soc = get_soc_descriptor();
 
     l1_size_ = soc.worker_l1_size;
@@ -29,14 +31,6 @@ SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_desc
     // offsets up to 1 GB within a 2 GB bank, so capping below bank size causes
     // writes to segfault.  Overcommit means only touched pages use physical RAM.
     dram_bank_size_ = soc.dram_bank_size;
-
-    // Build DRAM core lookup table from SOC descriptor.
-    auto dram_cores = soc.get_dram_cores();
-    for (uint32_t channel = 0; channel < dram_cores.size(); ++channel) {
-        for (const auto& core : dram_cores[channel]) {
-            dram_core_to_channel_[tt_xy_pair(core.x, core.y)] = channel;
-        }
-    }
 
     // Allocate L1Pool for worker cores.
     // Use a generous count covering Tensix + Ethernet + Router + other non-DRAM cores,
@@ -49,7 +43,25 @@ SWEmuleChip::SWEmuleChip(SocDescriptor soc_descriptor) : Chip(std::move(soc_desc
     worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
 }
 
-bool SWEmuleChip::is_dram_core(tt_xy_pair core_xy) const { return dram_core_to_channel_.count(core_xy) > 0; }
+// One physical backing per DRAM CHANNEL. A channel is fronted by several NOC endpoint
+// coords (per-NOC preferred workers / subchannels) that all address the same bank on
+// silicon, so the host (NOC0/TRANSLATED) and a noc=1 kernel read must land on the same
+// Core. Callers resolve the channel from the tagged CoreCoord (host) or the loop index
+// (runner) via SocDescriptor's LOGICAL mapping; here we just alias the channel to one
+// mmap (individual, not pooled, not MAP_32BIT).
+tt_emule::Core* SWEmuleChip::get_dram_channel_backing(uint32_t channel) {
+    std::lock_guard<std::mutex> lock(core_mutex_);
+    auto it = dram_channel_core_.find(channel);
+    if (it != dram_channel_core_.end()) {
+        return it->second;
+    }
+    auto dram_core = std::make_unique<tt_emule::Core>(
+        tt_emule::CoreCoord{channel, 0}, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
+    tt_emule::Core* raw_ptr = dram_core.get();
+    dram_channel_core_[channel] = raw_ptr;
+    dram_backings_.push_back(std::move(dram_core));
+    return raw_ptr;
+}
 
 tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     std::lock_guard<std::mutex> lock(core_mutex_);
@@ -59,13 +71,10 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         return it->second.get();
     }
 
-    // Lazy-create with appropriate role and size.
+    // Lazy-create worker core.
     tt_emule::CoreCoord coord{core_xy.x, core_xy.y};
     std::unique_ptr<tt_emule::Core> core;
-    if (is_dram_core(core_xy)) {
-        // DRAM cores: individual mmap (not from pool, not MAP_32BIT).
-        core = std::make_unique<tt_emule::Core>(coord, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
-    } else if (next_slot_ < worker_pool_->num_slots()) {
+    if (next_slot_ < worker_pool_->num_slots()) {
         // Worker cores: allocate from L1Pool (aligned slots, bitmask offset extraction).
         size_t slot = next_slot_++;
         uint8_t* slot_mem = worker_pool_->slot_ptr(slot);
@@ -88,15 +97,19 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 }
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
-    tt_xy_pair key(core.x, core.y);
-    tt_emule::Core* target_core = get_core(key);
-    std::memcpy(target_core->l1_ptr(static_cast<uint32_t>(l1_dest)), src, size);
+    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
+                                      ? get_dram_channel_backing(static_cast<uint32_t>(
+                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
+                                      : get_core(tt_xy_pair(core.x, core.y));
+    std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
-    tt_xy_pair key(core.x, core.y);
-    tt_emule::Core* target_core = get_core(key);
-    std::memcpy(dest, target_core->l1_ptr(static_cast<uint32_t>(l1_src)), size);
+    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
+                                      ? get_dram_channel_backing(static_cast<uint32_t>(
+                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
+                                      : get_core(tt_xy_pair(core.x, core.y));
+    std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 
 // Register I/O forwards to the same memory path — emulated cores have no distinct
@@ -121,7 +134,7 @@ void SWEmuleChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, u
 
 bool SWEmuleChip::is_mmio_capable() const { return false; }
 
-void SWEmuleChip::start_device() {}
+void SWEmuleChip::start_device(uint32_t) {}
 
 void SWEmuleChip::close_device() {}
 
@@ -147,7 +160,7 @@ void SWEmuleChip::dma_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint6
     throw std::runtime_error("SWEmuleChip::dma_multicast_write is not implemented");
 }
 
-void SWEmuleChip::noc_multicast_write(void*, size_t, CoreCoord, CoreCoord, uint64_t) {
+void SWEmuleChip::noc_multicast_write(const void*, size_t, CoreCoord, CoreCoord, uint64_t) {
     throw std::runtime_error("SWEmuleChip::noc_multicast_write is not implemented");
 }
 
@@ -159,11 +172,7 @@ void SWEmuleChip::l1_membar(const std::unordered_set<CoreCoord>&) {}
 
 void SWEmuleChip::dram_membar(const std::unordered_set<CoreCoord>&) {}
 
-void SWEmuleChip::dram_membar(const std::unordered_set<uint32_t>&) {}
-
-void SWEmuleChip::send_tensix_risc_reset(CoreCoord, const TensixSoftResetOptions&) {}
-
-void SWEmuleChip::send_tensix_risc_reset(const TensixSoftResetOptions&) {}
+void SWEmuleChip::dram_membar(const std::unordered_set<uint32_t>&, uint32_t) {}
 
 void SWEmuleChip::deassert_risc_resets() {}
 

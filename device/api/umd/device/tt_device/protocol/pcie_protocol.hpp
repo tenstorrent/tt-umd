@@ -40,25 +40,29 @@ public:
     ~PcieProtocol() override;
 
     // DeviceProtocol interface.
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     bool write_to_core_range(
-        const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size) override;
+        const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id)
+        override;
     int get_mmio_id() override;
 
     // PcieInterface.
     PCIDevice* get_pci_device() override;
-    [[nodiscard]] bool dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) override;
-    [[nodiscard]] bool dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) override;
+    [[nodiscard]] bool dma_write_to_device(
+        const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) override;
+    [[nodiscard]] bool dma_read_from_device(
+        void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) override;
     [[nodiscard]] bool dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) override;
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void* src, size_t size) override;
     void dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) override;
     void noc_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
-    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) override;
+        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) override;
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
 
@@ -74,13 +78,13 @@ private:
 
     enum class DmaDirection { H2D, D2H };
     tlb_data create_dma_tlb_config(
-        uint64_t addr, tt_xy_pair core_end, std::optional<tt_xy_pair> core_start = std::nullopt);
+        uint64_t addr, tt_xy_pair core_end, NocId noc_id, std::optional<tt_xy_pair> core_start = std::nullopt);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
     template <bool safe>
-    void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    void write_to_device_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
     template <bool safe>
-    void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    void read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
 
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;

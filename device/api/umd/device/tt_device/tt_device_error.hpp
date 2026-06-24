@@ -22,7 +22,7 @@ namespace tt::umd::error {
 
 struct TTDeviceData {
     TTDeviceData() = default;
-    TTDeviceData(TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id = std::nullopt);
+    TTDeviceData(const TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id = std::nullopt);
 
     IODeviceType io_device_type = IODeviceType::UNDEFINED;
     ChipId chip_id = 0;
@@ -39,24 +39,27 @@ struct ArcStartupData : public DeviceCoreData {
     uint32_t scratch_status = 0;
     uint32_t postcode = 0;
     std::optional<uint32_t> message_id = std::nullopt;
+    std::optional<uint32_t> smc_init_status = std::nullopt;
 };
 
 struct ArcStartupError : UmdError<ArcStartupData> {
     ArcStartupError(
-        TTDevice& tt_device,
+        const TTDevice& tt_device,
         NocId noc_id,
         xy_pair arc_core,
         uint32_t scratch_status,
         uint32_t postcode,
-        std::optional<uint32_t> message_id = std::nullopt);
+        std::optional<uint32_t> message_id = std::nullopt,
+        std::optional<uint32_t> smc_init_status = std::nullopt);
     ArcStartupError(
-        TTDevice& tt_device,
+        const TTDevice& tt_device,
         NocId noc_id,
         xy_pair arc_core,
         uint32_t scratch_status,
         uint32_t postcode,
         std::chrono::milliseconds timeout,
-        std::optional<uint32_t> message_id = std::nullopt);
+        std::optional<uint32_t> message_id = std::nullopt,
+        std::optional<uint32_t> smc_init_status = std::nullopt);
 };
 
 struct NocHangData : TTDeviceData {
@@ -64,7 +67,7 @@ struct NocHangData : TTDeviceData {
 };
 
 struct NocHangError : UmdError<NocHangData> {
-    NocHangError(TTDevice& tt_device, NocId noc_id);
+    NocHangError(const TTDevice& tt_device, NocId noc_id);
 };
 
 struct PcieHangData : TTDeviceData {
@@ -72,7 +75,11 @@ struct PcieHangData : TTDeviceData {
 };
 
 struct PcieHangError : UmdError<TTDeviceData> {
-    PcieHangError(TTDevice& tt_device, uint32_t data_read);
+    PcieHangError(const TTDevice& tt_device, uint32_t data_read);
+};
+
+struct UninitializedDeviceError : UmdError<TTDeviceData> {
+    UninitializedDeviceError(const TTDevice& tt_device);
 };
 
 }  // namespace tt::umd::error

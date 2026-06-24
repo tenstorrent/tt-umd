@@ -37,4 +37,12 @@ enum class level {
  */
 void set_level(level lvl);
 
+/**
+ * @brief Returns the current global logging level.
+ *
+ * Reads the level from the underlying logger registry. Intended for tests
+ * that need to save/restore the level around calls to set_level().
+ */
+level get_level();
+
 }  // namespace tt::umd::logging

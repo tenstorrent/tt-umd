@@ -44,6 +44,12 @@ protected:
         }
         tt_device.reset(sim_device);
         device.release();  // NOLINT(bugprone-unused-return-value)
+
+        const tt::ARCH arch = tt_device->get_soc_descriptor().arch;
+        if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+            GTEST_SKIP() << "tile_wr_bytes/tile_rd_bytes are no longer supported on TTSim for arch "
+                         << tt::arch_to_str(arch);
+        }
     }
 
     void TearDown() override {
@@ -392,7 +398,7 @@ TEST_F(TTSimDeviceIOFixture, RepeatedWriteReadCycles) {
 // ---------------------------------------------------------------------------
 
 // Allocate a 4GB TLB window explicitly. On Blackhole this is mapped through BAR4
-// rather than BAR0, exercising SimulationTlbManager::get_tlb_address_from_index's
+// rather than BAR0, exercising SimulationTlbAllocator::get_tlb_address_from_index's
 // BAR4 branch and the simulator's BAR4 TLB-translation path.
 TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
     const SocDescriptor& soc = tt_device->get_soc_descriptor();
@@ -404,7 +410,7 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathRoundTrip) {
     const tt_xy_pair core = soc.translate_coord_to(tensix_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
-    auto tlb_window = tt_device->get_tlb_manager()->allocate_tlb_window({}, TlbMapping::WC, SIZE_4GB);
+    auto tlb_window = tt_device->get_io_window({}, TlbMapping::WC, SIZE_4GB);
     ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
     EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
 
@@ -438,7 +444,7 @@ TEST_F(TTSimDeviceIOFixture, FourGBTlbBar4PathDramRoundTrip) {
     const tt_xy_pair core = soc.translate_coord_to(dram_cores.at(0), CoordSystem::TRANSLATED);
 
     constexpr size_t SIZE_4GB = 4ULL * 1024ULL * 1024ULL * 1024ULL;
-    auto tlb_window = tt_device->get_tlb_manager()->allocate_tlb_window({}, TlbMapping::WC, SIZE_4GB);
+    auto tlb_window = tt_device->get_io_window({}, TlbMapping::WC, SIZE_4GB);
     ASSERT_NE(tlb_window, nullptr) << "Failed to allocate a 4GB TLB window on Blackhole";
     EXPECT_EQ(tlb_window->get_size(), SIZE_4GB);
 

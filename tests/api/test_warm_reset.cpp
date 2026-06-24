@@ -29,6 +29,9 @@
 #include <vector>
 
 #include "device/api/umd/device/warm_reset.hpp"
+#include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/multi_process_event.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -88,7 +91,7 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
     }
 
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = test_utils::make_default_test_cluster();
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
     }
@@ -114,12 +117,12 @@ TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
         EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
     // even though this is a TTDevice test.
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -190,7 +193,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
     std::thread background_reset_thread([&]() {
         std::this_thread::sleep_for(std::chrono::microseconds(delay_us));
-        WarmReset::warm_reset();
+        WarmResetWithRecovery::warm_reset();
     });
 
     auto start_time = std::chrono::steady_clock::now();
@@ -283,7 +286,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     // Trigger the reset after a small delay.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     t1.join();
     t2.join();
@@ -298,7 +301,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     constexpr int NUM_CHILDREN = 3;
-    utils::MultiProcessPipe pipes(NUM_CHILDREN);
+    test_utils::MultiProcessPipe pipes(NUM_CHILDREN);
     std::vector<pid_t> pids;
 
     for (int i = 0; i < NUM_CHILDREN; ++i) {
@@ -345,7 +348,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
     // Parent triggers the reset that affects ALL windows on that PCIe link.
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     for (pid_t p : pids) {
         int status;
@@ -355,7 +358,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 }
 
 TEST(WarmResetTest, GalaxyWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     static constexpr uint32_t DEFAULT_VALUE_IN_SCRATCH_REGISTER = 0;
 
     if (!is_galaxy_configuration(cluster.get())) {
@@ -381,11 +384,11 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
             write_test_data);
     }
 
-    WarmReset::ubb_warm_reset();
+    WarmResetWithRecovery::ubb_warm_reset();
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
@@ -403,7 +406,7 @@ TEST(WarmResetTest, ClusterWarmReset) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (is_galaxy_configuration(cluster.get())) {
         GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
@@ -430,11 +433,11 @@ TEST(WarmResetTest, ClusterWarmReset) {
         EXPECT_THROW(hanged_tt_device->is_pcie_hung(), std::runtime_error);
     }
 
-    WarmReset::warm_reset();
+    WarmResetWithRecovery::warm_reset();
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
 
     EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
 
@@ -471,7 +474,7 @@ enum class WarmResetMethod { PCI_DEVICE_IDS, CHIP_IDS, PCI_BDFS };
 class ClusterWarmResetScratchMethodTest : public testing::TestWithParam<WarmResetMethod> {};
 
 TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_target_device_ids().empty()) {
         GTEST_SKIP() << "No chips present on the system. Skipping test.";
@@ -493,7 +496,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
 
     switch (GetParam()) {
         case WarmResetMethod::PCI_DEVICE_IDS:
-            WarmReset::warm_reset();
+            WarmResetWithRecovery::warm_reset();
             break;
         case WarmResetMethod::CHIP_IDS: {
             std::vector<int> chip_ids;
@@ -501,7 +504,7 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (auto& id : cluster->get_target_mmio_device_ids()) {
                 chip_ids.push_back(id);
             }
-            WarmReset::warm_reset_chip_id(chip_ids);
+            WarmResetWithRecovery::warm_reset_chip_id(chip_ids);
             break;
         }
         case WarmResetMethod::PCI_BDFS: {
@@ -511,14 +514,14 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
             for (const auto& [id, info] : pci_device_info) {
                 pci_bdfs.push_back(info.pci_bdf);
             }
-            WarmReset::warm_reset_pci_bdfs(pci_bdfs);
+            WarmResetWithRecovery::warm_reset_pci_bdfs(pci_bdfs);
             break;
         }
     }
 
     cluster.reset();
 
-    cluster = std::make_unique<Cluster>();
+    cluster = test_utils::make_default_test_cluster();
     chip_id = *cluster->get_target_device_ids().begin();
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
@@ -796,4 +799,96 @@ TEST_P(WarmResetProcessWaitTest, ValidatesTimeoutLogic) {
 
     ASSERT_TRUE(WIFEXITED(status));
     EXPECT_EQ(WEXITSTATUS(status), params.expected_rc);
+}
+
+static void terminate_processes(std::initializer_list<pid_t> pids) {
+    for (pid_t p : pids) {
+        if (p > 0) {
+            kill(p, SIGKILL);
+            waitpid(p, nullptr, 0);
+        }
+    }
+}
+
+// Flaky test, warm reset has a probability of failure.
+TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
+    if constexpr (utils::is_arm_platform()) {
+        GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
+    }
+
+    if (PCIDevice::enumerate_devices().empty()) {
+        GTEST_SKIP() << "No chips present on the system.";
+    }
+
+    // KMD versions after 2.8.0 disable PCIe hot-plug on galaxy machines. Without this,
+    // a warm reset triggers PCI remove/re-probe, creating new cdevs on the host while
+    // Docker's device inodes remain stale. If a process holds pre-reset FDs, the old cdev
+    // stays alive via refcount, and chrdev_open() dispatches new opens to it instead of
+    // falling through cdev_map to the new cdev — blocking all device access in the container.
+    static constexpr SemVer MIN_KMD_VERSION{2, 8, 0};
+    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << MIN_KMD_VERSION.str();
+    }
+
+    static constexpr int NUM_CHILDREN = 2;
+    static constexpr int P1_SLOT = 0;
+    static constexpr int P2_SLOT = 1;
+    static constexpr int RESET_DONE_SLOT = 0;
+    static constexpr int SYNC_TIMEOUT_S = 180;
+    static constexpr int EXIT_SUCCESS_CODE = 0;
+    static constexpr int EXIT_FAILURE_CODE = 1;
+
+    test_utils::MultiProcessEvent children_ready(NUM_CHILDREN);
+    test_utils::MultiProcessEvent reset_done(1);
+
+    // P1: holds Cluster (stale FDs) and never releases.
+    pid_t p1 = fork();
+    ASSERT_NE(p1, -1);
+    if (p1 == 0) {
+        auto cluster = std::make_unique<Cluster>();
+        children_ready.notify(P1_SLOT);
+        pause();
+        _exit(EXIT_SUCCESS_CODE);
+    }
+
+    // P2: holds Cluster, waits for reset, then destroys and recreates.
+    pid_t p2 = fork();
+    if (p2 == -1) {
+        terminate_processes({p1});
+        FAIL() << "Second fork() failed";
+    }
+    if (p2 == 0) {
+        auto cluster = std::make_unique<Cluster>();
+        children_ready.notify(P2_SLOT);
+
+        if (!reset_done.wait_for(RESET_DONE_SLOT, SYNC_TIMEOUT_S)) {
+            _exit(EXIT_FAILURE_CODE);
+        }
+
+        cluster.reset();
+        try {
+            cluster = std::make_unique<Cluster>();
+        } catch (...) {
+            _exit(EXIT_FAILURE_CODE);
+        }
+        _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);
+    }
+
+    if (!children_ready.wait_for_all(SYNC_TIMEOUT_S)) {
+        terminate_processes({p1, p2});
+        FAIL() << "Timed out waiting for child processes to create Cluster.";
+    }
+
+    WarmResetWithRecovery::warm_reset();
+
+    reset_done.notify(RESET_DONE_SLOT);
+
+    int status;
+    waitpid(p2, &status, 0);
+    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally.";
+    EXPECT_EQ(WEXITSTATUS(status), EXIT_SUCCESS_CODE)
+        << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
+
+    terminate_processes({p1});
 }

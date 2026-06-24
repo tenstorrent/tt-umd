@@ -13,9 +13,11 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/blackhole_coordinate_manager.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
+#include "umd/device/coordinates/quasar_coordinate_manager.hpp"
 #include "umd/device/coordinates/wormhole_coordinate_manager.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/common.hpp"
@@ -676,7 +678,29 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 {},
                 wormhole::NOC0_X_TO_NOC1_X,
                 wormhole::NOC0_Y_TO_NOC1_Y);
-        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
+        case tt::ARCH::QUASAR: {
+            // TODO (#2494): Replace grendel::DISPATCH_CORES_NOC0 ({}) with real Quasar dispatch locations
+            // once finalized, and revisit translated-coordinate tables in QuasarCoordinateManager.
+            return create_coordinate_manager(
+                arch,
+                noc_translation_enabled,
+                harvesting_masks,
+                grendel::TENSIX_GRID_SIZE,
+                grendel::TENSIX_CORES_NOC0,
+                grendel::DRAM_GRID_SIZE,
+                flatten_vector(grendel::DRAM_CORES_NOC0),
+                grendel::ETH_CORES_NOC0,
+                grendel::ARC_GRID_SIZE,
+                grendel::ARC_CORES_NOC0,
+                grendel::PCIE_GRID_SIZE,
+                grendel::PCIE_CORES_NOC0,
+                grendel::ROUTER_CORES_NOC0,
+                grendel::SECURITY_CORES_NOC0,
+                grendel::L2CPU_CORES_NOC0,
+                grendel::DISPATCH_CORES_NOC0,
+                grendel::NOC0_X_TO_NOC1_X,
+                grendel::NOC0_Y_TO_NOC1_Y);
+        }
         case tt::ARCH::BLACKHOLE: {
             return create_coordinate_manager(
                 arch,
@@ -743,7 +767,27 @@ std::shared_ptr<CoordinateManager> CoordinateManager::create_coordinate_manager(
                 dispatch_cores,
                 noc0_x_to_noc1_x,
                 noc0_y_to_noc1_y);
-        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
+        case tt::ARCH::QUASAR:
+            // TODO (#2494): QuasarCoordinateManager currently maps NOC0 -> TRANSLATED as identity.
+            // Replace with real Quasar NOC translation tables once the hardware spec is finalized.
+            return std::make_shared<QuasarCoordinateManager>(
+                noc_translation_enabled,
+                harvesting_masks,
+                tensix_grid_size,
+                tensix_cores,
+                dram_grid_size,
+                dram_cores,
+                eth_cores,
+                arc_grid_size,
+                arc_cores,
+                pcie_grid_size,
+                pcie_cores,
+                router_cores,
+                security_cores,
+                l2cpu_cores,
+                dispatch_cores,
+                noc0_x_to_noc1_x,
+                noc0_y_to_noc1_y);
         case tt::ARCH::BLACKHOLE:
             return std::make_shared<BlackholeCoordinateManager>(
                 noc_translation_enabled,

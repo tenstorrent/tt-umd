@@ -547,7 +547,12 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
             break;
-        case tt::ARCH::QUASAR:  // TODO (#450): Add Quasar configuration
+        case tt::ARCH::QUASAR:
+            // TODO (#450): Add Quasar configuration. Until the hardware spec is finalized
+            // we leave all harvesting masks at 0 rather than borrowing Blackhole's silicon
+            // example, which doesn't apply to Quasar's ETH layout.
+            board_type = BoardType::UNKNOWN;
+            break;
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::UNKNOWN;
             // Example value from silicon machine.
@@ -928,19 +933,6 @@ const std::unordered_map<ChipId, EthCoord> &ClusterDescriptor::get_chip_location
 // TODO: implement this for Blackhole and old Wormhole configurations.
 const std::unordered_map<ChipId, uint64_t> &ClusterDescriptor::get_chip_unique_ids() const { return chip_unique_ids; }
 
-ChipId ClusterDescriptor::get_shelf_local_physical_chip_coords(ChipId virtual_coord) {
-    UMD_ASSERT(
-        !this->chip_locations.empty(),
-        error::RuntimeError,
-        "Getting physical chip coordinates is only valid for systems where chips have coordinates");
-    // NoC 0 coordinates of chip inside a single rack. Calculated based on Galaxy topology.
-    // See:
-    // https://yyz-gitlab.local.tenstorrent.com/tenstorrent/budabackend/-/wikis/uploads/23e7a5168f38dfb706f9887fde78cb03/image.png
-    int x = get_chip_locations().at(virtual_coord).x;
-    int y = get_chip_locations().at(virtual_coord).y;
-    return 8 * x + y;
-}
-
 // Return map, but filter by enabled active chips.
 const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio() const { return chips_with_mmio; }
 
@@ -1223,7 +1215,7 @@ std::unordered_set<ChipId> ClusterDescriptor::get_board_chips(const uint64_t boa
     UMD_THROW(error::RuntimeError, fmt::format("Board to chips mapping for board {:#x} not found.", board_id));
 }
 
-bool ClusterDescriptor::verify_board_info_for_chips() {
+bool ClusterDescriptor::verify_board_info_for_chips(bool check_chip_count) {
     bool board_info_good = true;
     for (const ChipId chip : all_chips) {
         if (!chip_to_board_id.empty() && chip_to_board_id.find(chip) == chip_to_board_id.end()) {
@@ -1232,18 +1224,20 @@ bool ClusterDescriptor::verify_board_info_for_chips() {
         }
     }
 
-    for (const auto &[board_id, chips] : board_to_chips) {
-        const BoardType board_type = get_board_type_from_board_id(board_id);
-        const uint32_t number_chips_from_board = get_number_of_chips_from_board_type(board_type);
-        if (chips.size() != number_chips_from_board) {
-            log_warning(
-                LogUMD,
-                "Board {:#x} has {} chips, but expected {} chips for board type {}.",
-                board_id,
-                chips.size(),
-                number_chips_from_board,
-                board_type_to_string(board_type));
-            board_info_good = false;
+    if (check_chip_count) {
+        for (const auto &[board_id, chips] : board_to_chips) {
+            const BoardType board_type = get_board_type_from_board_id(board_id);
+            const uint32_t number_chips_from_board = get_number_of_chips_from_board_type(board_type);
+            if (chips.size() != number_chips_from_board) {
+                log_warning(
+                    LogUMD,
+                    "Board {:#x} has {} chips, but expected {} chips for board type {}.",
+                    board_id,
+                    chips.size(),
+                    number_chips_from_board,
+                    board_type_to_string(board_type));
+                board_info_good = false;
+            }
         }
     }
 
@@ -1346,10 +1340,10 @@ bool ClusterDescriptor::verify_harvesting_information() {
     return harvesting_info_good;
 }
 
-bool ClusterDescriptor::verify_cluster_descriptor_info() {
+bool ClusterDescriptor::verify_cluster_descriptor_info(bool check_board_chip_count) {
     bool cluster_desc_info_good = true;
 
-    cluster_desc_info_good &= verify_board_info_for_chips();
+    cluster_desc_info_good &= verify_board_info_for_chips(check_board_chip_count);
 
     cluster_desc_info_good &= verify_same_architecture();
 
@@ -1377,5 +1371,19 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     }
     return it->second;
 }
+
+std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
+    const BoardType board = get_board_type(chip_id);
+    if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
+        return std::nullopt;
+    }
+    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
+    if (!arch_impl) {
+        return std::nullopt;
+    }
+    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
+}
+
+const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }
 
 }  // namespace tt::umd

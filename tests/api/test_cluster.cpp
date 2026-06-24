@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
+#include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -41,10 +43,12 @@ using namespace tt::umd;
 // Galaxy.
 
 // This test should be one line only.
-TEST(ApiClusterTest, OpenAllSiliconChips) { std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>(); }
+TEST(ApiClusterTest, OpenAllSiliconChips) {
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
+}
 
 TEST(TestCluster, PrintAllSiliconChipsAllCores) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     for (ChipId chip : umd_cluster->get_target_device_ids()) {
         std::cout << "Chip " << chip << std::endl;
@@ -84,7 +88,7 @@ TEST(TestCluster, PrintAllSiliconChipsAllCores) {
 }
 
 TEST(TestCluster, TestClusterAICLKControl) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     auto get_expected_clock_val = [&cluster](ChipId chip_id, bool busy) {
         tt::ARCH arch = cluster->get_cluster_description()->get_arch(chip_id);
@@ -114,12 +118,12 @@ TEST(TestCluster, TestClusterAICLKControl) {
 }
 
 TEST(TestCluster, RefreshClusterDescriptionDoesNotThrow) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
     EXPECT_NO_THROW(cluster->refresh_cluster_description());
 }
 
 TEST(TestCluster, GetEthernetFirmware) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     // BoardType P100 doesn't have eth cores.
     std::optional<SemVer> eth_version;
@@ -160,7 +164,7 @@ TEST(TestCluster, TestDifferentPowerModes) {
     }
 
     {
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+        std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
         for (ChipId chip_id : cluster->get_target_device_ids()) {
             TTDevice* tt_device = cluster->get_tt_device(chip_id);
             ArcTelemetryReader* telemetry_reader = tt_device->get_arc_telemetry_reader();

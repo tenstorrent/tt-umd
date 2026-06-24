@@ -12,12 +12,11 @@
 #include <mutex>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
-#include "umd/device/chip_helpers/simulation_tlb_manager.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -25,7 +24,6 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
-class SimulationTlbManager;
 class SocDescriptor;
 class TlbWindow;
 
@@ -62,18 +60,22 @@ public:
     void dma_multicast_write(
         void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) override;
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
-    void noc_multicast_write(void* src, size_t size, uint64_t addr) override;
+    void noc_multicast_write(
+        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+
+    using TTDevice::noc_multicast_write;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
-    TLBManager* get_tlb_manager() override;
+    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+
+    SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
@@ -84,7 +86,7 @@ private:
 
     std::filesystem::path simulator_directory_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
-    std::unique_ptr<SimulationTlbManager> tlb_manager_;
+    std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
 };
 }  // namespace tt::umd

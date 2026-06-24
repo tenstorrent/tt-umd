@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -39,9 +40,9 @@ public:
 
 protected:
     TopologyDiscovery(
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
         const TopologyDiscoveryOptions& options = {},
-        IODeviceType io_device_type = IODeviceType::PCIe,
-        const std::string& soc_descriptor_path = "");
+        IODeviceType io_device_type = IODeviceType::PCIe);
 
     static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
         const TopologyDiscoveryOptions& options = {},
@@ -109,7 +110,10 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<EthCoord> eth_coord,
+        TTDevice* gateway_device,
+        std::set<uint32_t> gateway_eth_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor = nullptr) = 0;
 
     TTDevice* get_tt_device(const uint64_t asic_id);
 
@@ -149,7 +153,6 @@ protected:
 
     const TopologyDiscoveryOptions options;
     const IODeviceType io_device_type = IODeviceType::PCIe;
-    const std::string& soc_descriptor_path = "";
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) = 0;
 
@@ -175,6 +178,9 @@ private:
     static uint64_t generate_unhealthy_asic_id(ChipId chip_id) { return chip_id | (UNHEALTHY_ASIC_ID_PREFIX << 32); }
 
     static bool is_marked_unhealthy(uint64_t asic_id) { return (asic_id >> 32) == (UNHEALTHY_ASIC_ID_PREFIX); }
+
+    // A shared descriptor for all created SocDescriptors in TTDevices.
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
 };
 
 }  // namespace tt::umd

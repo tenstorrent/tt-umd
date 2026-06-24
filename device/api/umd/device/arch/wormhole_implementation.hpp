@@ -4,10 +4,12 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -338,6 +340,18 @@ inline constexpr size_t tensix_translated_coordinate_start_y = 18;
 inline constexpr size_t eth_translated_coordinate_start_x = 18;
 inline constexpr size_t eth_translated_coordinate_start_y = 16;
 
+inline constexpr size_t translated_coordinate_start_x = 16;
+inline constexpr size_t translated_coordinate_start_y = 16;
+
+// This vector maps translated space to virtual space. Note that virtual space is not used at many places, and it is not
+// supported in our coordinate manager because it was bringing confusion. It only makes sense on Wormhole, and it
+// overlaps with NOC0 space, but takes harvesting into account. Since the translated space also takes harvesting into
+// account, there is a direct mapping between these two spaces. When indexing into this vector using translated
+// coordinates, you should subtract translated_coordinate_start_ constants. For example the first entry in both vectors
+// would correspond to the VIRTUAL x,y coordinates of the TRANSLATED 16,16 coordinate.
+static const std::vector<uint32_t> TRANSLATED_TO_VIRTUAL_X = {0, 5, 1, 2, 3, 4, 6, 7, 8, 9};
+static const std::vector<uint32_t> TRANSLATED_TO_VIRTUAL_Y = {0, 6, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11};
+
 // Constants related to bits in the soft reset register.
 inline constexpr uint32_t SOFT_RESET_BRISC = 1 << 11;
 inline constexpr uint32_t SOFT_RESET_TRISC0 = 1 << 12;
@@ -350,6 +364,9 @@ inline constexpr uint32_t SOFT_RESET_STAGGERED_START = 1 << 31;
 inline constexpr uint32_t SPI_PAGE_ERASE_SIZE = 0x1000;
 inline constexpr uint32_t SPI_ROM_SIZE = 1 << 24;
 inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
+
+// High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Wormhole boards.
+inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0xC0, 0x80, 0x00, 0x40};
 
 }  // namespace wormhole
 
@@ -516,6 +533,15 @@ public:
     size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
 
     bool get_static_vc() const override { return true; }
+
+    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
+        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
+        auto it = std::find(wormhole::UBB_TRAY_BUS_IDS.begin(), wormhole::UBB_TRAY_BUS_IDS.end(), bus_high);
+        if (it == wormhole::UBB_TRAY_BUS_IDS.end()) {
+            return std::nullopt;
+        }
+        return static_cast<uint8_t>(std::distance(wormhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
+    }
 };
 
 }  // namespace tt::umd

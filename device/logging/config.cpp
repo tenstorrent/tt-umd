@@ -40,6 +40,30 @@ spdlog::level::level_enum to_spdlog_level(level lvl) {
     return spdlog::level::info;  // fallback
 }
 
+/// Inverse of to_spdlog_level.
+level from_spdlog_level(spdlog::level::level_enum lvl) {
+    switch (lvl) {
+        case spdlog::level::trace:
+            return level::trace;
+        case spdlog::level::debug:
+            return level::debug;
+        case spdlog::level::info:
+            return level::info;
+        case spdlog::level::warn:
+            return level::warn;
+        case spdlog::level::err:
+            return level::error;
+        case spdlog::level::critical:
+            return level::critical;
+        case spdlog::level::off:
+            return level::off;
+        default:
+            return level::info;
+    }
+}
+
 void set_level(level lvl) { ::tt::LoggerRegistry::instance().set_level(to_spdlog_level(lvl)); }
+
+level get_level() { return from_spdlog_level(::tt::LoggerRegistry::instance().get(::tt::LogUMD)->level()); }
 
 }  // namespace tt::umd::logging

@@ -239,7 +239,8 @@ jobs:
 
   build-cpp-artifacts:
     name: Build C++ Artifacts on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+    # Arm variants build natively on an arm runner; everything else uses the standard x86 runner.
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
     needs: prepare-release
     timeout-minutes: 30
     strategy:
@@ -248,6 +249,8 @@ jobs:
         image: [
           {distro: ubuntu-22.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
           {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
+          # Arm64 build, built natively on an arm runner.
+          {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: DEB, package_ext: deb},
           {distro: fedora-39, compiler-c: clang-17, compiler-cpp: clang++-17, package: RPM, package_ext: rpm},
         ]
     container:
@@ -291,10 +294,15 @@ jobs:
           if-no-files-found: error
 
   build-python-wheels:
-    name: Build Python Wheel (manylinux)
-    runs-on: tt-ubuntu-2204-large-stable
+    name: Build Python Wheel (manylinux ${{ matrix.arch }})
     needs: prepare-release
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -312,8 +320,12 @@ jobs:
       - name: Build manylinux wheels
         shell: bash
         env:
-          # Use custom manylinux Docker image with all dependencies pre-installed
+          # Only build wheels for the runner's native architecture.
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # Use custom manylinux Docker images with all dependencies pre-installed.
+          # cibuildwheel picks the image matching the architecture being built.
           CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux:latest
+          CIBW_MANYLINUX_AARCH64_IMAGE: ghcr.io/tenstorrent/tt-umd/tt-umd-ci-manylinux-aarch64:latest
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -327,7 +339,7 @@ jobs:
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-${{ matrix.arch }}
           path: ${{ env.WHEEL_OUTPUT_DIR }}
 
   publish-to-testpypi:
@@ -346,7 +358,8 @@ jobs:
       - name: Download all the wheels
         uses: actions/download-artifact@v8
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          pattern: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-*
+          merge-multiple: true
           path: dist/
 
       - name: Publish distribution 📦 to TestPyPI
@@ -371,7 +384,8 @@ jobs:
       - name: Download all the wheels
         uses: actions/download-artifact@v8
         with:
-          name: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels
+          pattern: tt-umd-v${{ needs.prepare-release.outputs.version }}-manylinux-wheels-*
+          merge-multiple: true
           path: dist/
 
       - name: Publish distribution 📦 to PyPI
@@ -386,7 +400,7 @@ jobs:
       contents: write
       packages: write
       id-token: write
-    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi]
+    needs: [prepare-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi, publish-to-pypi]
     outputs:
       upload_url: ${{ steps.release.outputs.upload_url }}
       release_url: ${{ steps.release.outputs.url }}
@@ -431,11 +445,12 @@ jobs:
             ### System Packages (.deb / .rpm)
             - **Ubuntu 22.04**: DEB packages are attached under Assets
             - **Ubuntu 24.04**: DEB packages are attached under Assets
+            - **Ubuntu 24.04 (arm64)**: DEB packages are attached under Assets
             - **Fedora 39**: RPM packages are attached under Assets
             - Includes: `umd-runtime`, `umd-dev` and `umd-python` packages
 
             ### Python Wheels
-            - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64)
+            - **manylinux_2_28 wheels** for Python 3.9-3.13 (x86_64 and aarch64)
             - Compatible with Ubuntu 20.04+, RHEL 8+, and other modern Linux distributions
             - Includes Python bindings for tt-umd
             - PyPI: https://pypi.org/project/tt-umd/
@@ -448,14 +463,20 @@ jobs:
             *This release was automatically generated when the VERSION file was updated.
             Release notes were extracted from CHANGELOG file.*
           files: ./final-assets/*
-          draft: true
+          draft: false
           prerelease: true
           make_latest: false
 
   notify-completion:
     name: Notify Release Completion
     runs-on: ubuntu-22.04
-    needs: [prepare-release, create-release, build-cpp-artifacts, build-python-wheels, publish-to-testpypi]
+    needs:
+      - prepare-release
+      - create-release
+      - build-cpp-artifacts
+      - build-python-wheels
+      - publish-to-testpypi
+      - publish-to-pypi
     if: needs.create-release.result == 'success'
     steps:
       - name: Prepare Slack message
@@ -465,27 +486,21 @@ jobs:
           VERSION="${{ needs.prepare-release.outputs.version }}"
           REPO="${{ github.repository }}"
           RELEASE_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
-          DRAFT_RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
-          echo "🔗 Draft Release URL: $DRAFT_RELEASE_URL"
+          PUBLISHED_RELEASE_URL="${{ needs.create-release.outputs.release_url }}"
+          echo "🔗 Published Release URL: $PUBLISHED_RELEASE_URL"
           echo "🔗 Release URL: $RELEASE_URL"
 
           # Create the message content using a here-document to avoid quote issues
           cat << EOF > /tmp/slack_message.txt
-          🚧 TT-UMD Draft Release Created!
+          🚀 TT-UMD Release Published!
 
-          Draft Release v${VERSION} has been successfully created!
-          When published, the release will be available at this link: ${RELEASE_URL}
+          Release v${VERSION} has been successfully published!
+          The release is available at: ${RELEASE_URL}
 
           📋 Release highlights from CHANGELOG:
           ${{ needs.prepare-release.outputs.version_changelog }}
 
-          ⚠️ Action Required:
-          The release is currently in DRAFT mode. Please:
-          1. Review the release notes and changelog
-          2. Verify all information is accurate
-          3. Publish the release when ready
-
-          🔗 Edit Release: ${DRAFT_RELEASE_URL}
+          🔗 View Release: ${PUBLISHED_RELEASE_URL}
 
           📋 Pull Requests in this release:
           ${{ needs.prepare-release.outputs.pr_summary }}

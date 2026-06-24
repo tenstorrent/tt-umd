@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -27,12 +28,14 @@ public:
     virtual PCIDevice* get_pci_device() = 0;
 
     // Return true on success, false if DMA is unavailable.
-    [[nodiscard]] virtual bool dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr) = 0;
+    [[nodiscard]] virtual bool dma_write_to_device(
+        const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) = 0;
     // Return true on success, false if DMA is unavailable.
-    [[nodiscard]] virtual bool dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr) = 0;
+    [[nodiscard]] virtual bool dma_read_from_device(
+        void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) = 0;
     // Return true on success, false if DMA is unavailable.
     [[nodiscard]] virtual bool dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
+        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) = 0;
 
     virtual void dma_d2h(void* dst, uint32_t src, size_t size) = 0;
     virtual void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) = 0;
@@ -40,9 +43,8 @@ public:
     virtual void dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) = 0;
 
     virtual void noc_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) = 0;
+        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) = 0;
 
-    virtual void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) = 0;
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
     virtual uint32_t bar_read32(uint32_t addr) = 0;
 };

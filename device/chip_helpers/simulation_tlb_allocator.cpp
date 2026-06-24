@@ -24,6 +24,14 @@ SimulationTlbAllocator::SimulationTlbAllocator(
 
 int SimulationTlbAllocator::allocate_tlb_index(size_t size) {
     ZoneScopedC(tracy::Color::Cyan);
+
+    // QUASAR has no real TLBs; the pools are empty by design (simulator's communicator
+    // handles all I/O underneath). Hand back an auto-incrementing dummy index so
+    // TLBManager bookkeeping (keyed by tlb id) does not collide across allocations.
+    if (architecture_ == tt::ARCH::QUASAR) {
+        return next_bypass_tlb_id_++;
+    }
+
     std::lock_guard<std::mutex> lock(allocation_mutex_);
 
     // Walk size classes smallest-first; pick the first free slot in the first
@@ -100,6 +108,8 @@ uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
 
 const architecture_implementation* SimulationTlbAllocator::get_architecture_impl() const { return arch_impl_; }
 
+tt::ARCH SimulationTlbAllocator::get_architecture() const { return architecture_; }
+
 SimulationTlbAllocator::TlbSizeClass* SimulationTlbAllocator::find_size_class_for_index(int tlb_index) {
     // Returning nullptr for negative indices avoids signed/unsigned comparison
     // pitfalls below (where size_t promotion would turn -1 into SIZE_MAX).
@@ -141,12 +151,11 @@ void SimulationTlbAllocator::initialize_architecture_config() {
         // ONE_MB and SIXTEEN_MB stay at default (count=0).
 
     } else {
-        // Intentional: architectures like QUASAR construct SimulationTlbManager
-        // but bypass this allocator entirely (allocate_default_tlb_window
-        // short-circuits to a fixed dummy index without ever calling
-        // allocate_tlb_index). Leaving every pool empty is the signal that
-        // allocator-driven addressing is not in use; clients can detect this
-        // via has_configured_pools().
+        // Intentional: architectures like QUASAR construct a SimulationTlbAllocator
+        // but the sim TTDevice's constructor bypasses it entirely (builds the
+        // cached TLB window with a fixed index, never calling allocate_tlb_index).
+        // Leaving every pool empty is the signal that allocator-driven addressing
+        // is not in use.
         log_debug(
             LogUMD,
             fmt::format(

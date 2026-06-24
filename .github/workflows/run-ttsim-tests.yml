@@ -11,14 +11,14 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
 
 jobs:
   build-and-run-ttsim:
@@ -43,7 +43,6 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 1
 
       - name: Checkout UMD
         uses: actions/checkout@v6
@@ -51,7 +50,6 @@ jobs:
           # Clone directly into tt-metal directory for umd
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
-          fetch-depth: 1
 
       - name: Get ttsim version
         id: get-ttsim-version

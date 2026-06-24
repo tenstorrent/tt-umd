@@ -220,11 +220,12 @@ void bind_tt_device(nb::module_ &m) {
         .def_static(
             "create",
             static_cast<std::unique_ptr<TTDevice> (*)(
-                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
+                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &, bool)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
             nb::arg("soc_arch_descriptor") = nullptr,
+            nb::arg("exclusive") = false,
             nb::rv_policy::take_ownership,
             release_gil())
         .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())

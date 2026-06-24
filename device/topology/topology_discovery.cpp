@@ -152,8 +152,8 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device =
-            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(
+            device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_, options.open_devices_exclusively);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(

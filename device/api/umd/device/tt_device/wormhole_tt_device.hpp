@@ -78,7 +78,8 @@ private:
         int device_number,
         IODeviceType device_type,
         bool use_safe_api,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+        bool exclusive);
     friend std::unique_ptr<TTDevice> TTDevice::create(
         std::unique_ptr<RemoteCommunication> remote_communication,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);

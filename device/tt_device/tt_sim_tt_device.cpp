@@ -79,15 +79,15 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
+    SimulationTTDevice(
+        simulator_directory, std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
     // Pass chip_id to the communicator. If the loaded .so supports the multichip
     // multichip ABI (libttsim_create_device_by_id + libttsim_select_device_by_id),
     // the communicator will auto-detect at initialize() time and switch to
     // shared-dlopen mode regardless of copy_sim_binary.
     communicator_(
         std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id))),
-    simulator_directory_(simulator_directory),
-    chip_id_(chip_id),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     // Populate the base-class arch field from the soc descriptor. TTSim does not go through
     // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream

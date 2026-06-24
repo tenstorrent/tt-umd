@@ -15,7 +15,7 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/simulation_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -29,7 +29,7 @@ class SimulationServerSocket;
 class SocDescriptor;
 class TlbWindow;
 
-class RtlSimulationTTDevice : public TTDevice {
+class RtlSimulationTTDevice : public SimulationTTDevice {
 public:
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,
@@ -87,12 +87,6 @@ protected:
 
 private:
     std::unique_ptr<RtlSimCommunicator> communicator_;
-    std::recursive_mutex device_lock;
-
-    std::filesystem::path simulator_directory_;
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
-    std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
-    std::unique_ptr<TlbWindow> cached_tlb_window_;
 
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
     // it. The host keeps its own direct fast path; the socket is for remote clients.

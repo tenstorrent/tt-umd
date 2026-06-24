@@ -38,7 +38,7 @@ jobs:
           sparse-checkout: |
             tests/microbenchmark/baselines/
             tests/microbenchmark/tools/summarize_regressions.py
-            tests/microbenchmark/tools/formatting.py
+            tests/microbenchmark/tools/utils.py
           sparse-checkout-cone-mode: false
 
       - name: Download all benchmark JSON artifacts

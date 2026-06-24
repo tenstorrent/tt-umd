@@ -149,6 +149,8 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
+    std::map<uint64_t, std::vector<ClusterDescriptor::DeviceHealthError>> health_errors;
+
     bool is_running_on_6u = false;
 
     const TopologyDiscoveryOptions options;
@@ -167,6 +169,11 @@ protected:
     std::optional<FirmwareBundleVersion> first_fw_bundle_version;
 
 private:
+    // Initializes the device. On success returns true. On a recoverable initialization failure, logs
+    // the error, records the structured error in health_errors keyed by the device's mocked (unhealthy)
+    // ASIC ID, and returns false. Rethrows when device_init_failure_action is THROW.
+    bool init_device(TTDevice* tt_device, ChipId chip_id, std::chrono::milliseconds timeout);
+
     // Next available ChipId.
     ChipId next_chip_id = 0;
 

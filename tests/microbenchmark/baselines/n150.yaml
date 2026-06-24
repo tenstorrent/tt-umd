@@ -1,5 +1,5 @@
-# tests/microbenchmark/baselines/wh_n150.yaml
-# Calibrated for WH n150 from a single bench invocation on dedicated runner 'bgd-lab-06'.
+# tests/microbenchmark/baselines/n150.yaml
+# Calibrated for n150 from a single bench invocation on dedicated runner 'bgd-lab-06'.
 # To recalibrate: download a benchmark-json-* artifact from a CI run
 # of build-and-run-all-benchmarks.yml and pass its directory to
 # tests/microbenchmark/tools/update_baseline.py via --from-results-dir.
@@ -10,7 +10,7 @@
 
 metadata:
   schema_version: 1
-  arch: "WH n150"
+  arch: "n150"
   runner_hostname: "bgd-lab-06"
   calibrated_at: "2026-05-22"
   notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."

@@ -15,7 +15,7 @@ Example:
     ./build/test/umd/microbenchmark/umd_microbenchmark \\
         --gtest_filter='MicrobenchmarkOpenCluster.ClusterConstructor'
 
-    python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'WH n150'
+    python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'n150'
 
 The summary is printed to stdout. Exit code is 1 if any `gate: true` case in
 the per-arch baseline YAML breached as DOWN (same gating rule as the CI
@@ -28,13 +28,12 @@ import sys
 from pathlib import Path
 
 from summarize_regressions import (
-    ARCH_PATTERNS,
+    ARCH_NAMES,
     load_baselines_dir,
     read_arch_results,
     render_summary,
 )
 
-KNOWN_ARCH_LABELS = [label for label, _ in ARCH_PATTERNS]
 BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
 
 
@@ -73,7 +72,7 @@ def main() -> int:
     p.add_argument(
         "--arch",
         required=True,
-        choices=KNOWN_ARCH_LABELS,
+        choices=ARCH_NAMES,
         help="Arch label to compare against (must match a file in --baselines-dir).",
     )
     p.add_argument(

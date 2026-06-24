@@ -25,14 +25,14 @@ Example:
         --dir /tmp/ci-bench
 
     python3 tests/microbenchmark/tools/update_baseline.py \\
-        --arch 'WH n150' --from-results-dir /tmp/ci-bench
+        --arch 'n150' --from-results-dir /tmp/ci-bench
 
-    # inspect the diff, commit wh_n150.yaml.
+    # inspect the diff, commit n150.yaml.
 
 Dry-run prints what would be written without modifying the YAML:
 
     python3 tests/microbenchmark/tools/update_baseline.py \\
-        --arch 'WH n150' --from-results-dir /tmp/ci-bench --dry-run
+        --arch 'n150' --from-results-dir /tmp/ci-bench --dry-run
 
 All cases present in the supplied results are written to the YAML. Existing
 `gate: true` flags are preserved when overwriting. Cases present in the
@@ -75,19 +75,12 @@ _NAN_RE = re.compile(r"-?\bnan\b")
 # destination file under baselines/ and to fill in the runner_hostname
 # metadata field that records which machine produced the JSON output.
 ARCH_RUNNERS: dict[str, tuple[str, str]] = {
-    "WH n150": ("wh_n150.yaml", "bgd-lab-06"),
-    "WH n300": ("wh_n300.yaml", "bgd-lab-05"),
-    "BH p150b": ("bh_p150b.yaml", "bh-40"),
+    "n150": ("n150.yaml", "bgd-lab-06"),
+    "n300": ("n300.yaml", "bgd-lab-05"),
+    "p150": ("p150.yaml", "bh-40"),
 }
 
 BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
-
-
-def arch_slug(arch_label: str) -> str:
-    """Canonical filename slug for a given arch label.
-    "WH n150" -> "wh_n150", "BH p150b" -> "bh_p150b".
-    """
-    return arch_label.lower().replace(" ", "_")
 
 
 def _yaml_escape(s: str) -> str:
@@ -157,6 +150,7 @@ def load_existing_arch_yaml(path: Path) -> dict:
 
 def render_arch_yaml(
     arch: str,
+    yaml_filename: str,
     runner_hostname: str,
     new_entries: dict,
     existing: dict,
@@ -182,8 +176,7 @@ def render_arch_yaml(
     existing_tests = {t: cases for t, cases in existing.items() if t != "metadata"}
 
     out = io.StringIO()
-    slug = arch_slug(arch)
-    out.write(f"# tests/microbenchmark/baselines/{slug}.yaml\n")
+    out.write(f"# tests/microbenchmark/baselines/{yaml_filename}\n")
     out.write(
         f"# Calibrated for {arch} from a single bench invocation on dedicated "
         f"runner {runner_hostname!r}.\n"
@@ -359,7 +352,7 @@ def main() -> int:
 
     existing = load_existing_arch_yaml(out_path)
     yaml_text, change_lines = render_arch_yaml(
-        args.arch, runner_hostname, new_entries, existing
+        args.arch, yaml_filename, runner_hostname, new_entries, existing
     )
 
     if args.dry_run:

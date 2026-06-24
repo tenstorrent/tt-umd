@@ -1,6 +1,6 @@
 # metadata:
 #   schema_version: 1
-#   arch: "BH p150b"
+#   arch: "p150"
 #   runner_hostname: "bh-40"
 #   calibrated_at: "2026-05-11"
 #   calibrated_from_runs: 30

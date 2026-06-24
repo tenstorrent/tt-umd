@@ -33,23 +33,14 @@ from formatting import format_throughput
 # Python's json parser rejects (it only accepts the capitalized `NaN`).
 _NAN_RE = re.compile(r"-?\bnan\b")
 
-# --- Arch label canonicalization -------------------------------------------------
-# Artifact names look like:
-#   benchmark-json-wormhole_b0-tt-ubuntu-2204-n150-viommu-stable-ubuntu-22.04
-# We canonicalize to short labels matching the per-arch YAML filenames.
-# Substring match keeps this robust to minor variations (e.g. -iter1 suffixes).
-ARCH_PATTERNS = [
-    ("WH n150", ["n150"]),
-    ("WH n300", ["n300"]),
-    ("BH p150b", ["p150b"]),
-]
+ARCH_NAMES = ["n150", "n300", "p150"]
 
 
 def arch_label_from_artifact(name: str) -> str | None:
-    """Return canonical arch label (e.g. "WH n150") or None if unrecognized."""
-    for label, needles in ARCH_PATTERNS:
-        if all(n in name for n in needles):
-            return label
+    """Return the arch's card name (e.g. "n150") or None if unrecognized."""
+    for card in ARCH_NAMES:
+        if card in name:
+            return card
     return None
 
 

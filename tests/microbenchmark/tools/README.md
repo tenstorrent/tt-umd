@@ -25,13 +25,13 @@ gh run download <run-id> \
     --dir /tmp/ci-bench
 
 python3 tests/microbenchmark/tools/update_baseline.py \
-    --arch 'WH n150' \
+    --arch 'n150' \
     --from-results-dir /tmp/ci-bench
 
-# inspect the diff, commit wh_n150.yaml.
-git diff tests/microbenchmark/baselines/wh_n150.yaml
-git add tests/microbenchmark/baselines/wh_n150.yaml
-git commit -m "Recalibrate WH n150 baseline from CI run <run-id>"
+# inspect the diff, commit n150.yaml.
+git diff tests/microbenchmark/baselines/n150.yaml
+git add tests/microbenchmark/baselines/n150.yaml
+git commit -m "Recalibrate n150 baseline from CI run <run-id>"
 ```
 
 Behavior:
@@ -95,7 +95,7 @@ mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
 ./build/test/umd/microbenchmark/umd_microbenchmark \
     --gtest_filter='MicrobenchmarkOpenCluster.ClusterConstructor'
 
-python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'WH n150'
+python3 tests/microbenchmark/tools/compare_to_baseline.py --arch 'n150'
 ```
 
 ### ⚠️ Caveat: this is a smoke test, not a precise regression check
@@ -126,7 +126,7 @@ Use this for: "I think I just broke something obvious, let me see ±10%."
 build-and-run-all-benchmarks.yml         (orchestrator, matrix per arch)
    ├─ build-tests           → uploads compiled binary artifact
    ├─ run-benchmarks (×N)   → on dedicated runner per arch
-   │                          (bgd-lab-06 for WH n150, etc.)
+   │                          (bgd-lab-06 for n150, etc.)
    │                          uploads benchmark-json-<arch>-... artifact
    ├─ analyze-results       → per-arch drift-vs-latest-main (existing)
    └─ regression-check      → downloads all benchmark-json-*,

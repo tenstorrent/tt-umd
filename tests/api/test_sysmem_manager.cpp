@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
@@ -81,7 +82,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
         GTEST_SKIP() << "Skipping test for Blackhole, as PCIE DMA is not supported on Blackhole.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
@@ -139,7 +140,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
         GTEST_SKIP() << "Skipping test for Blackhole, as PCIE DMA is not supported on Blackhole.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
@@ -199,7 +200,7 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
@@ -228,7 +229,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
         GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
     }
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 

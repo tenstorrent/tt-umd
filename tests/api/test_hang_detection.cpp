@@ -14,16 +14,19 @@
 
 #include "device/api/umd/device/warm_reset.hpp"
 #include "device/api/umd/device/warm_reset_with_recovery.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
+#include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
@@ -64,7 +67,9 @@ protected:
     uint32_t hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
-            tt_device_->set_risc_reset_state(tensix_core, static_cast<uint32_t>(TENSIX_ASSERT_SOFT_RESET));
+            tt_device_->set_risc_reset_state(
+                tensix_core,
+                tt_device_->get_architecture_implementation()->get_soft_reset_reg_value(RiscType::ALL_TENSIX));
         }
         NocIdSwitcher switcher(noc);
         tt_device_->read_from_device(
@@ -78,7 +83,7 @@ protected:
         soc_desc_.reset();
         WarmResetWithRecovery::warm_reset();
 
-        auto cluster = std::make_unique<Cluster>();
+        auto cluster = test_utils::make_default_test_cluster();
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";
         cluster.reset();
 
@@ -168,3 +173,50 @@ INSTANTIATE_TEST_SUITE_P(
     NocHangDetectionTest,
     ::testing::Values(NocId::NOC0, NocId::NOC1),
     [](const ::testing::TestParamInfo<NocId>& info) { return (info.param == NocId::NOC0) ? "NOC0" : "NOC1"; });
+
+// Hangs NOC0 on the first discovered device, then runs topology discovery with device init
+// failures ignored, and verifies that the resulting cluster descriptor records a NocHangError
+// in its health errors for the unhealthy device.
+TEST_F(HangDetectionTest, DISABLED_TopologyDiscoveryRecordsNocHangHealthError) {
+    if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
+        GTEST_SKIP()
+            << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
+    }
+
+    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+
+    // NOC0 is the NOC that init_tt_device() probes during discovery, so hang that one.
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    hang_noc(tensix_core, NocId::NOC0);
+    ASSERT_TRUE(tt_device_->is_noc_hung(NocId::NOC0, TTDevice::HangAction::RETURN))
+        << "Failed to hang NOC0 before running topology discovery.";
+
+    // Release the device so topology discovery can open it fresh and hit the hang during init.
+    tt_device_.reset();
+    soc_desc_.reset();
+
+    TopologyDiscoveryOptions options;
+    options.discover_remote_devices = false;
+    options.device_init_failure_action = TopologyDiscoveryOptions::Action::IGNORE;
+    auto [cluster_desc, devices] = TopologyDiscovery::discover(options);
+
+    // The hung device should be discovered as unhealthy and have a NocHangError recorded.
+    EXPECT_FALSE(cluster_desc->get_unhealthy_devices().empty()) << "No unhealthy devices were recorded.";
+
+    bool found_noc_hang = false;
+    for (const auto& [chip_id, errors] : cluster_desc->get_health_errors()) {
+        for (const auto& error : errors) {
+            if (std::holds_alternative<error::NocHangError>(error)) {
+                found_noc_hang = true;
+            }
+        }
+    }
+    EXPECT_TRUE(found_noc_hang) << "Expected a NocHangError in cluster descriptor health errors.";
+
+    // Release discovery's device handles, then warm reset to recover the hung device so the host
+    // and subsequent tests are left in a good state.
+    cluster_desc.reset();
+    devices.clear();
+    WarmResetWithRecovery::warm_reset();
+    init_device(pci_device_id);
+}

@@ -11,6 +11,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/chip/remote_chip.hpp"
 #include "umd/device/cluster.hpp"
@@ -72,7 +73,7 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
 }
 
 TEST(TestTelemetry, RemoteTelemetry) {
-    std::unique_ptr<Cluster> umd_cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
     auto remote_chips = umd_cluster->get_target_remote_device_ids();
     if (remote_chips.empty()) {
         GTEST_SKIP() << "No remote devices found in cluster.";

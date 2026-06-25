@@ -23,7 +23,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -116,13 +115,13 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
     switch (arch) {
         case tt::ARCH::BLACKHOLE:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
             break;
         case tt::ARCH::WORMHOLE_B0:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
             break;
         case tt::ARCH::QUASAR:
-            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
             break;
         default:
             log_debug(
@@ -184,29 +183,6 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uin
     }
 }
 
-// Three overloads exist for send_tensix_risc_reset:
-// 1. (tt_xy_pair, TensixSoftResetOptions) - main implementation used by C++ callers.
-// 2. (tt_xy_pair, bool) - convenience wrapper used by the Python (nanobind) bindings.
-// 3. (TensixSoftResetOptions) - required by the chip-level interface contract; throws because RTL
-//    simulation always requires an explicit core coordinate.
-void RtlSimulationTTDevice::send_tensix_risc_reset(
-    tt_xy_pair translated_core, const TensixSoftResetOptions& soft_resets) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    if (soft_resets == TENSIX_ASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending assert_risc_reset signal..");
-        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
-    } else if (soft_resets == TENSIX_DEASSERT_SOFT_RESET) {
-        log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal..");
-        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
-    } else {
-        UMD_THROW(error::RuntimeError, "Invalid soft reset option.");
-    }
-}
-
-void RtlSimulationTTDevice::send_tensix_risc_reset(const TensixSoftResetOptions& soft_resets) {
-    UMD_THROW(error::RuntimeError, "send_tensix_risc_reset() without core not supported for RTL simulation.");
-}
-
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
@@ -238,7 +214,8 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
@@ -279,7 +256,8 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         communicator_->all_tensix_reset_deassert(core.x, core.y);
     }
@@ -358,7 +336,12 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
 }
 
-void RtlSimulationTTDevice::noc_multicast_write(void* src, size_t size, uint64_t addr) {
+void RtlSimulationTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr);
+}
+
+void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in RTL simulation device.");
 }
 

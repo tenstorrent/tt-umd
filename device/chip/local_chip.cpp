@@ -28,7 +28,6 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -36,46 +35,19 @@
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
 static_assert(!std::is_abstract<LocalChip>(), "LocalChip must be non-abstract.");
 
-std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, const std::string& sdesc_path, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
-
-    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
-    if (sdesc_path.empty()) {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(tt_device->get_arch());
-    } else {
-        soc_arch_descriptor = std::make_shared<SocArchDescriptor>(sdesc_path);
-    }
-    ChipInfo chip_info = tt_device->get_chip_info();
-    return LocalChip::create(
-        std::move(tt_device), SocDescriptor(soc_arch_descriptor, chip_info), num_host_mem_channels);
-}
-
-std::unique_ptr<LocalChip> LocalChip::create(
-    int physical_device_id, const SocDescriptor& soc_descriptor, int num_host_mem_channels, IODeviceType device_type) {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // Create TTDevice and make sure the arc is ready so we can read its telemetry.
-    // physical_device_id is not actually physical for JTAG devices here.
-    // It represents the index within a vector of jlink devices discovered by JtagDevice.
-    auto tt_device = TTDevice::create(physical_device_id, device_type);
-    tt_device->init_tt_device();
-
-    return LocalChip::create(std::move(tt_device), soc_descriptor, num_host_mem_channels);
-}
-
-std::unique_ptr<LocalChip> LocalChip::create(
-    std::unique_ptr<TTDevice> tt_device, const SocDescriptor& soc_descriptor, int num_host_mem_channels) {
+std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device, int num_host_mem_channels) {
     std::unique_ptr<TLBManager> tlb_manager = nullptr;
     std::unique_ptr<SysmemManager> sysmem_manager = nullptr;
-    std::unique_ptr<RemoteCommunication> remote_communication = nullptr;
+
+    if (tt_device == nullptr) {
+        UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
+    }
 
     // The variables below are only needed when using PCIe.
     // JTAG(currently the only communication protocol other than PCIe) has no use of them.
@@ -83,29 +55,18 @@ std::unique_ptr<LocalChip> LocalChip::create(
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
-    // Note that the eth_coord is not important here since this is only used for eth broadcasting.
-    SysmemManager* sysmem_ptr =
-        (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() > 0) ? sysmem_manager.get() : nullptr;
-    remote_communication = RemoteCommunication::create_remote_communication(tt_device.get(), {0, 0, 0, 0}, sysmem_ptr);
 
-    return std::unique_ptr<LocalChip>(new LocalChip(
-        soc_descriptor,
-        std::move(tt_device),
-        std::move(tlb_manager),
-        std::move(sysmem_manager),
-        std::move(remote_communication)));
+    return std::unique_ptr<LocalChip>(
+        new LocalChip(std::move(tt_device), std::move(tlb_manager), std::move(sysmem_manager)));
 }
 
 LocalChip::LocalChip(
-    SocDescriptor soc_descriptor,
     std::unique_ptr<TTDevice> tt_device,
     std::unique_ptr<TLBManager> tlb_manager,
-    std::unique_ptr<SysmemManager> sysmem_manager,
-    std::unique_ptr<RemoteCommunication> remote_communication) :
-    Chip(tt_device->get_chip_info(), std::move(soc_descriptor)),
+    std::unique_ptr<SysmemManager> sysmem_manager) :
+    Chip(tt_device->get_chip_info(), tt_device->get_arch()),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
-    remote_communication_(std::move(remote_communication)),
     tt_device_(std::move(tt_device)) {
     tt_device_->set_power_state(true);
     wait_chip_to_be_ready();
@@ -120,7 +81,6 @@ LocalChip::~LocalChip() {
     tt_device_->set_power_state(false);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
-    remote_communication_.reset();
     sysmem_manager_.reset();
     tlb_manager_.reset();
     tt_device_.reset();
@@ -149,19 +109,19 @@ void LocalChip::initialize_default_chip_mutexes() {
 void LocalChip::initialize_membars(uint32_t dram_subchannel) {
     ZoneScopedC(tracy::Color::DarkGreen);
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
+        get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
         l1_address_params.tensix_l1_barrier_base);
     set_membar_flag(
-        soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
+        get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
         MemBarFlag::RESET,
         l1_address_params.eth_l1_barrier_base);
 
     std::vector<CoreCoord> dram_cores_vector = {};
-    dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
-    for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
+    dram_cores_vector.reserve(get_soc_descriptor().get_num_dram_channels());
+    for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor().get_num_dram_channels(); dram_idx++) {
         dram_cores_vector.push_back(
-            soc_descriptor_.get_dram_core_for_channel(dram_idx, dram_subchannel, CoordSystem::TRANSLATED));
+            get_soc_descriptor().get_dram_core_for_channel(dram_idx, dram_subchannel, CoordSystem::TRANSLATED));
     }
     set_membar_flag(dram_cores_vector, MemBarFlag::RESET, dram_address_params.DRAM_BARRIER_BASE);
 }
@@ -331,17 +291,15 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_write_to_device(src, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+    tt_device_->dma_write_to_device(src, size, core, addr);
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_read_from_device(dst, size, get_soc_descriptor().translate_chip_coord_to_translated(core), addr);
+    tt_device_->dma_read_from_device(dst, size, core, addr);
 }
 
 void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    tt_xy_pair start_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
-    tt_xy_pair end_coord = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
-    tt_device_->dma_multicast_write(src, size, start_coord, end_coord, addr);
+    tt_device_->dma_multicast_write(src, size, core_start, core_end, addr);
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -405,39 +363,11 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
 
-void LocalChip::ethernet_broadcast_write(
-    const void* src, uint64_t core_dest, uint32_t size, std::vector<int> broadcast_header) {
-    // Depending on the device type, the implementation may vary.
-    // Currently JTAG doesn't support remote communication.
-    if (!remote_communication_) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Ethernet remote transfer is currently not supported for {} devices.",
-                DeviceTypeToString.at(tt_device_->get_communication_device_type())));
-    }
+void LocalChip::wait_for_non_mmio_flush() {}
 
-    // target_chip and target_core are ignored when broadcast is enabled.
-    remote_communication_->write_to_non_mmio({0, 0}, src, core_dest, size, true, std::move(broadcast_header));
-}
+void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>&) {}
 
-void LocalChip::wait_for_non_mmio_flush() {
-    if (remote_communication_) {
-        remote_communication_->wait_for_non_mmio_flush();
-    }
-}
-
-void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {
-    // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor().translate_coords_to_xy_pair(cores, CoordSystem::TRANSLATED));
-}
-
-void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {
-    // Set cores to be used by the broadcast communication.
-    remote_communication_->set_remote_transfer_ethernet_cores(
-        get_soc_descriptor().get_eth_xy_pairs_for_channels(channels, CoordSystem::TRANSLATED));
-}
+void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>&) {}
 
 std::unique_lock<RobustMutex> LocalChip::acquire_mutex(const std::string& mutex_name, int pci_device_id) {
     return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
@@ -458,7 +388,7 @@ void LocalChip::init_pcie_iatus() {
             UMD_THROW(error::RuntimeError, fmt::format("Hugepages are not allocated for channel: {}", channel));
         }
 
-        if (soc_descriptor_.arch == tt::ARCH::WORMHOLE_B0) {
+        if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
             // TODO: stop doing this.  The intent was good, but it's not
             // documented and nothing takes advantage of it.
             if (channel == 3) {
@@ -508,7 +438,7 @@ void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& core
 }
 
 void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
-    const bool include_dram_in_l1_membar = soc_descriptor_.arch == tt::ARCH::BLACKHOLE;
+    const bool include_dram_in_l1_membar = get_soc_descriptor().arch == tt::ARCH::BLACKHOLE;
     if (!cores.empty()) {
         // Insert barrier on specific cores with L1.
         std::vector<CoreCoord> workers_to_sync = {};
@@ -516,7 +446,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_to_sync = {};
 
         for (const auto& core : cores) {
-            auto core_from_soc = soc_descriptor_.get_coord_at(core, core.coord_system);
+            auto core_from_soc = get_soc_descriptor().get_coord_at(core, core.coord_system);
             if (core_from_soc.core_type == CoreType::TENSIX) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
@@ -535,13 +465,14 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert barrier on all cores with L1.
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
+            get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED),
             l1_address_params.tensix_l1_barrier_base);
         insert_host_to_device_barrier(
-            soc_descriptor_.get_cores(CoreType::ETH, CoordSystem::TRANSLATED), l1_address_params.eth_l1_barrier_base);
+            get_soc_descriptor().get_cores(CoreType::ETH, CoordSystem::TRANSLATED),
+            l1_address_params.eth_l1_barrier_base);
         if (include_dram_in_l1_membar) {
             insert_host_to_device_barrier(
-                soc_descriptor_.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED),
+                get_soc_descriptor().get_cores(CoreType::DRAM, CoordSystem::TRANSLATED),
                 dram_address_params.DRAM_BARRIER_BASE);
         }
     }
@@ -551,7 +482,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (!cores.empty()) {
         for (const auto& core : cores) {
             UMD_ASSERT(
-                soc_descriptor_.get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                get_soc_descriptor().get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
                 error::RuntimeError,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
@@ -560,10 +491,10 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     } else {
         // Insert Barrier on all DRAM Cores.
         std::vector<CoreCoord> dram_cores_vector = {};
-        dram_cores_vector.reserve(soc_descriptor_.get_num_dram_channels());
-        for (std::uint32_t dram_idx = 0; dram_idx < soc_descriptor_.get_num_dram_channels(); dram_idx++) {
+        dram_cores_vector.reserve(get_soc_descriptor().get_num_dram_channels());
+        for (std::uint32_t dram_idx = 0; dram_idx < get_soc_descriptor().get_num_dram_channels(); dram_idx++) {
             dram_cores_vector.push_back(
-                soc_descriptor_.get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
+                get_soc_descriptor().get_dram_core_for_channel(dram_idx, 0, CoordSystem::TRANSLATED));
         }
         insert_host_to_device_barrier(dram_cores_vector, dram_address_params.DRAM_BARRIER_BASE);
     }
@@ -572,14 +503,15 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
 void LocalChip::dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel) {
     std::unordered_set<CoreCoord> dram_cores_to_sync = {};
     for (const auto& chan : channels) {
-        dram_cores_to_sync.insert(soc_descriptor_.get_dram_core_for_channel(chan, subchannel, CoordSystem::TRANSLATED));
+        dram_cores_to_sync.insert(
+            get_soc_descriptor().get_dram_core_for_channel(chan, subchannel, CoordSystem::TRANSLATED));
     }
     dram_membar(dram_cores_to_sync);
 }
 
 void LocalChip::deassert_risc_resets() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (soc_descriptor_.arch != tt::ARCH::BLACKHOLE) {
+    if (get_soc_descriptor().arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
             wormhole::ARC_MSG_COMMON_PREFIX |
                 tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
@@ -612,26 +544,12 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     return cached_uc_tlb_window.get();
 }
 
-void LocalChip::noc_multicast_write(void* dst, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void LocalChip::noc_multicast_write(
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
-
-    // Multicast write relies on PCIe-specific TLB operations; ensure the communication device is PCIe.
-    if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported on PCIe devices.");
-    }
-
-    std::lock_guard<std::mutex> lock(wc_tlb_lock);
-
-    get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
-        dst,
-        size,
-        get_soc_descriptor().translate_chip_coord_to_translated(core_start),
-        get_soc_descriptor().translate_chip_coord_to_translated(core_end),
-        addr,
-        get_selected_noc_id(),
-        tlb_data::Relaxed);
+    tt_device_->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 }  // namespace tt::umd

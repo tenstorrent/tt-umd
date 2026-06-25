@@ -12,6 +12,7 @@
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/unordered_set.h>
+#include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/cluster_descriptor.hpp"
@@ -114,6 +115,7 @@ void bind_topology_discovery(nb::module_& m) {
             release_gil(),
             "Returns the ASIC location index within the chip's board (uint8), or 0 if unknown.")
         .def("get_unhealthy_devices", &ClusterDescriptor::get_unhealthy_devices, release_gil())
+        .def("get_health_errors", &ClusterDescriptor::get_health_errors, release_gil())
         .def_static(
             "create_constrained_cluster_descriptor",
             [](const ClusterDescriptor& full_cluster_desc, const std::unordered_set<ChipId>& target_chip_ids) {

@@ -24,15 +24,12 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 enum class IODeviceType;
-
-TopologyDiscoveryWormhole::TopologyDiscoveryWormhole(
-    const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path) :
-    TopologyDiscovery(options, io_device_type, soc_descriptor_path) {}
 
 uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, CoreCoord eth_core) {
     if (is_running_on_6u) {
@@ -131,7 +128,10 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
 }
 
 std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
-    std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) {
+    std::optional<EthCoord> eth_coord,
+    TTDevice* gateway_device,
+    std::set<uint32_t> gateway_eth_channels,
+    const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) {
     if (is_running_on_6u) {
         return nullptr;
     }
@@ -142,7 +142,7 @@ std::unique_ptr<TTDevice> TopologyDiscoveryWormhole::create_remote_device(
     remote_communication->set_remote_transfer_ethernet_cores(
         gateway_device->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             gateway_eth_channels, CoordSystem::TRANSLATED));
-    return TTDevice::create(std::move(remote_communication));
+    return TTDevice::create(std::move(remote_communication), soc_arch_descriptor);
 }
 
 uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) {

@@ -62,6 +62,40 @@ class TestTTDevice(unittest.TestCase):
             )
             dev.noc_write(tensix_core.x, tensix_core.y, 0x200, original_data)  # Restore
 
+            # Test noc_write with buffer-protocol inputs other than bytes
+            # (bytearray and memoryview) and verify the read-back matches.
+            try:
+                bytearray_data = bytearray((b ^ 0x5A) for b in original_data)
+                dev.noc_write(tensix_core.x, tensix_core.y, 0x200, bytearray_data)
+                self.assertEqual(
+                    dev.noc_read(
+                        tensix_core.x, tensix_core.y, 0x200, len(bytearray_data)
+                    ),
+                    bytes(bytearray_data),
+                    "noc_write with bytearray should round-trip",
+                )
+
+                memoryview_data = memoryview(bytes((b ^ 0x33) for b in original_data))
+                dev.noc_write(tensix_core.x, tensix_core.y, 0x200, memoryview_data)
+                self.assertEqual(
+                    dev.noc_read(
+                        tensix_core.x, tensix_core.y, 0x200, len(memoryview_data)
+                    ),
+                    bytes(memoryview_data),
+                    "noc_write with memoryview should round-trip",
+                )
+
+                # A non-contiguous memoryview must be rejected (PyBUF_SIMPLE
+                # requires C-contiguity) rather than silently writing wrong data.
+                non_contiguous = memoryview(bytes(32))[::2]
+                self.assertFalse(non_contiguous.contiguous)
+                with self.assertRaises(BufferError):
+                    dev.noc_write(tensix_core.x, tensix_core.y, 0x200, non_contiguous)
+            finally:
+                dev.noc_write(
+                    tensix_core.x, tensix_core.y, 0x200, original_data
+                )  # Restore
+
             # Test noc_read with buffer parameter
             buffer_size = 32
             buffer = bytearray(buffer_size)
@@ -78,6 +112,49 @@ class TestTTDevice(unittest.TestCase):
                 "Buffer-based noc_read should match original noc_read",
             )
             print(f"noc_read buffer version verified against original version")
+
+            # The buffer-based noc_read accepts any writable buffer-protocol
+            # object, e.g. a memoryview over a bytearray.
+            mv_buffer = bytearray(buffer_size)
+            dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, memoryview(mv_buffer))
+            self.assertEqual(
+                bytes(mv_buffer),
+                data_via_original,
+                "memoryview-based noc_read should match original noc_read",
+            )
+
+            # A memoryview can target a sub-region of a larger bytearray that
+            # does not start at offset 0. Only that region must be filled; the
+            # surrounding bytes must stay untouched. The backing buffer is
+            # prefilled with a sentinel so the untouched-region checks hold
+            # regardless of the actual device contents.
+            region_offset = 8
+            region_size = 16
+            sentinel = 0xAB
+            backing = bytearray([sentinel]) * buffer_size
+            region = memoryview(backing)[region_offset : region_offset + region_size]
+            dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, region)
+            self.assertEqual(
+                bytes(backing[region_offset : region_offset + region_size]),
+                data_via_original[:region_size],
+                "memoryview sub-region should be filled from the device",
+            )
+            self.assertEqual(
+                bytes(backing[:region_offset]),
+                bytes([sentinel]) * region_offset,
+                "bytes before the memoryview region must be untouched",
+            )
+            self.assertEqual(
+                bytes(backing[region_offset + region_size :]),
+                bytes([sentinel]) * (buffer_size - region_offset - region_size),
+                "bytes after the memoryview region must be untouched",
+            )
+
+            # A read-only buffer (e.g. bytes) cannot be filled and must be
+            # rejected with a BufferError rather than silently discarding the
+            # device data.
+            with self.assertRaises(BufferError):
+                dev.noc_read(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
             dev.set_power_state(False)
 
     def test_dma_tt_device(self):
@@ -178,6 +255,21 @@ class TestTTDevice(unittest.TestCase):
                 "Buffer-based noc_read should match original noc_read",
             )
             print(f"noc_read buffer version verified against original version")
+
+            # The buffer-based read accepts any writable buffer-protocol object,
+            # e.g. a memoryview over a bytearray.
+            mv_buffer = bytearray(buffer_size)
+            read_fn(0, tensix_core.x, tensix_core.y, 0x300, memoryview(mv_buffer))
+            self.assertEqual(
+                bytes(mv_buffer),
+                data_via_original,
+                "memoryview-based read should match original read",
+            )
+
+            # A read-only buffer (e.g. bytes) cannot be filled and must be
+            # rejected with a BufferError.
+            with self.assertRaises(BufferError):
+                read_fn(0, tensix_core.x, tensix_core.y, 0x300, bytes(buffer_size))
             dev.set_power_state(False)
 
     def test_remote_tt_device(self):
@@ -372,6 +464,19 @@ class TestTTDevice(unittest.TestCase):
 
         # Verify the message passed through
         self.assertIn("This is a test exception from C++", str(cm.exception))
+
+    def test_device_timeout_exception_type_binding(self):
+        """
+        Verifies that the C++ DeviceTimeoutError maps to a Python type that can be caught
+        specifically, and is also catchable as the base UmdBaseException.
+        """
+        # It can be caught as its own specific type.
+        with self.assertRaises(tt_umd.error.DeviceTimeoutError):
+            tt_umd.error.raise_device_timeout_error_for_testing()
+
+        # It is a subclass of the base UMD exception, so the base catches it too.
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.error.raise_device_timeout_error_for_testing()
 
     def test_hang_detection_api(self):
         """Verify HangAction enum and hang detection methods on a healthy device."""

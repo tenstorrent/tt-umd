@@ -19,7 +19,6 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/tensix_soft_reset_options.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -41,6 +40,14 @@ public:
 
     static std::unique_ptr<TTSimTTDevice> create(
         const std::filesystem::path &simulator_directory, int num_host_mem_channels = 0, bool copy_sim_binary = false);
+
+    // Factory for multichip testing: create a device with an explicit chip_id
+    // so callers can open two devices with distinct IDs (chip 0 and chip 1) and
+    // verify that I/O on one does not affect the other.
+    // Named distinctly from create() because ChipId is an alias for int, which
+    // would otherwise produce a duplicate signature.
+    static std::unique_ptr<TTSimTTDevice> create_for_chip(
+        const std::filesystem::path &simulator_directory, ChipId chip_id, bool copy_sim_binary = false);
 
     void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
@@ -64,10 +71,14 @@ public:
     void dma_multicast_write(
         void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void noc_multicast_write(void *src, size_t size, uint64_t addr) override;
+    void close_device();
+    void start_device();
+    void noc_multicast_write(
+        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    void send_tensix_risc_reset(tt_xy_pair translated_core, const TensixSoftResetOptions &soft_resets) override;
-    void send_tensix_risc_reset(const TensixSoftResetOptions &soft_resets) override;
+    using TTDevice::noc_multicast_write;
+    void noc_multicast_write(const void *src, size_t size, uint64_t addr) override;
+
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 

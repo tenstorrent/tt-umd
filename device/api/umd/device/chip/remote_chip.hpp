@@ -33,21 +33,11 @@ class RemoteChip : public Chip {
 public:
     /** Create a RemoteChip instance.
      *
+     * @param remote_tt_device An existing, initialized remote TTDevice.
      * @param local_chip The local chip to be used for communication to this remote chip.
-     * @param target_eth_coord The target Ethernet coordinates for the remote chip.
-     * @param remote_transfer_eth_channels The set of Ethernet channels on local chip to use for remote communication.
      * @return A unique pointer to the created RemoteChip instance.
      */
-    static std::unique_ptr<RemoteChip> create(
-        LocalChip* local_chip,
-        EthCoord target_eth_coord,
-        const std::set<uint32_t>& remote_transfer_eth_channels,
-        const std::string& sdesc_path = "");
-    static std::unique_ptr<RemoteChip> create(
-        LocalChip* local_chip,
-        EthCoord target_eth_coord,
-        const std::set<uint32_t>& remote_transfer_eth_channels,
-        SocDescriptor soc_descriptor);
+    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip);
 
     bool is_mmio_capable() const override;
 
@@ -57,6 +47,8 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+
+    const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 
     void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) override;
     void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) override;
@@ -86,7 +78,7 @@ public:
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(SocDescriptor soc_descriptor, LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
 
     LocalChip* local_chip_;
     RemoteCommunication* remote_communication_;

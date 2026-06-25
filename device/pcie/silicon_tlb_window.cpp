@@ -285,8 +285,18 @@ void SiliconTlbWindow::safe_read_block_reconfigure(
     execute_safe(&SiliconTlbWindow::read_block_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
 }
 
+void SiliconTlbWindow::safe_read_register_reconfigure(
+    void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    execute_safe(&SiliconTlbWindow::read_register_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+}
+
+void SiliconTlbWindow::safe_write_register_reconfigure(
+    const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    execute_safe(&SiliconTlbWindow::write_register_reconfigure, mem_ptr, core, addr, size, noc_id, ordering);
+}
+
 void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
-    void *dst,
+    const void *src,
     size_t size,
     tt_xy_pair core_start,
     tt_xy_pair core_end,
@@ -294,7 +304,7 @@ void SiliconTlbWindow::safe_noc_multicast_write_reconfigure(
     NocId noc_id,
     uint64_t ordering) {
     execute_safe(
-        &SiliconTlbWindow::noc_multicast_write_reconfigure, dst, size, core_start, core_end, addr, noc_id, ordering);
+        &SiliconTlbWindow::noc_multicast_write_reconfigure, src, size, core_start, core_end, addr, noc_id, ordering);
 }
 
 }  // namespace tt::umd

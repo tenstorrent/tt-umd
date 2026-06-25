@@ -9,6 +9,8 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
+#include <chrono>
+
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -29,6 +31,19 @@ void bind_error(nb::module_ &m) {
 
     // Base exception class.
     static nb::exception<UmdBaseException> umd_base_exception(error_module, "UmdBaseException");
+
+    // DeviceTimeoutError: a critical, catchable exception so Python callers can recover from a host-side
+    // MMIO timeout rather than crash. It is thrown wrapped as UmdException<DeviceTimeoutError>; registering
+    // it after the base, as a UmdBaseException subclass, makes its translator take precedence, so both
+    // `except error.DeviceTimeoutError` and `except error.UmdBaseException` catch it.
+    nb::exception<UmdException<DeviceTimeoutError>>(error_module, "DeviceTimeoutError", umd_base_exception);
+    error_module.def(
+        "raise_device_timeout_error_for_testing",
+        []() {
+            UMD_THROW(DeviceTimeoutError, "store", 4, std::chrono::nanoseconds(0), std::chrono::milliseconds(0), 0, 0);
+        },
+        release_gil(),
+        "Raise a DeviceTimeoutError from C++ to verify it propagates to Python.");
 
     // NoData struct for errors without metadata.
     nb::class_<NoData>(error_module, "NoData").def(nb::init<>(), release_gil());

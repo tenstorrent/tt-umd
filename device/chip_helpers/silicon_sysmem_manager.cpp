@@ -7,7 +7,7 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 
 #include <fmt/format.h>
-#include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_2MB
+#include <linux/mman.h>  // for MAP_HUGE_1GB, MAP_HUGE_512MB, MAP_HUGE_2MB
 #include <sys/mman.h>    // for mmap, munmap
 #include <sys/stat.h>    // for fstat
 #include <unistd.h>
@@ -37,11 +37,14 @@
 
 namespace tt::umd {
 
-// Try to mmap with 1GB hugepages first, then 2MB hugepages, then regular pages.
-// This is a performance optimization: hugepages reduce page fault overhead during allocation.
-// All three options are functionally correct when IOMMU is enabled.
+// Try hugepage sizes from largest to smallest, then fall back to regular pages.
+// Larger hugepages are strictly preferred: each hugepage maps to one SMMU TLB entry
+// regardless of size, so 1GB (PUD/level-1 block) consumes half as many TLB entries as
+// 512MB (PMD/level-2 block) for the same total memory, reducing IOMMU mapping overhead.
+// 512MB is only meaningful on AArch64 with 64K base pages; it is not exposed on x86.
 static void *mmap_with_hugepage_fallback(size_t size) {
     constexpr size_t kHugepage1GiB = 1ULL << 30;
+    constexpr size_t kHugepage512MiB = 512ULL << 20;
     constexpr size_t kHugepage2MiB = 2ULL << 20;
 
     void *addr = MAP_FAILED;
@@ -57,6 +60,21 @@ static void *mmap_with_hugepage_fallback(size_t size) {
             0);
         if (addr != MAP_FAILED) {
             log_debug(LogUMD, "Allocated {:#x} bytes using 1GB hugepages.", size);
+            return addr;
+        }
+    }
+
+    // 512MB hugepages (PMD block on AArch64 with 64K base pages).
+    if (size >= kHugepage512MiB && (size % kHugepage512MiB) == 0) {
+        addr = mmap(
+            nullptr,
+            size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_512MB | MAP_POPULATE,
+            -1,
+            0);
+        if (addr != MAP_FAILED) {
+            log_debug(LogUMD, "Allocated {:#x} bytes using 512MB hugepages.", size);
             return addr;
         }
     }
@@ -78,7 +96,14 @@ static void *mmap_with_hugepage_fallback(size_t size) {
 
     addr = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
     if (addr != MAP_FAILED) {
-        log_debug(LogUMD, "Allocated {:#x} bytes using regular pages.", size);
+        log_warning(
+            LogUMD,
+            "Sysmem ({:#x} bytes) using regular pages; pre-allocate hugepages for better DMA performance "
+            "(e.g. {} × 1GB or {} × 2MB; on AArch64 also {} × 512MB).",
+            size,
+            (size + kHugepage1GiB - 1) / kHugepage1GiB,
+            (size + kHugepage2MiB - 1) / kHugepage2MiB,
+            (size + kHugepage512MiB - 1) / kHugepage512MiB);
     }
     return addr;
 }
@@ -278,8 +303,10 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
             if (noc_address != expected_noc_address) {
                 log_warning(
                     LogUMD,
-                    "NOC address of a hugepage does not match the expected address. Proceeding could lead to undefined "
-                    "behavior");
+                    "NOC address of a hugepage does not match the expected address. This usually means another "
+                    "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
+                    "process from a previous run). To fix this, find and kill the other processes using the "
+                    "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
             }
         } else {
             physical_address = pci_device_->map_for_hugepage(mapping, actual_size);
@@ -382,11 +409,30 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         // If this happens, it means that something else is using the address
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
-        log_error(LogUMD, "Expected NOC address: {:#x}, but got {:#x}", pcie_base_, *noc_address);
-        UMD_THROW(error::RuntimeError, "Proceeding could lead to undefined behavior");
+        //
+        // The usual cause is a stale process (a leftover/crashed run) that still
+        // holds a sysmem mapping at the NOC base address, so this process gets
+        // bumped to a different address. The fix is to find and kill those
+        // processes, then retry.
+        log_error(
+            LogUMD,
+            "Expected sysmem to be mapped at NOC address {:#x}, but it was mapped at {:#x}. This usually means "
+            "another process is already holding the sysmem NOC address space UMD requires (often a stale or "
+            "crashed process from a previous run). To fix this, find and kill the other processes using the "
+            "Tenstorrent device(s), then retry.",
+            pcie_base_,
+            *noc_address);
+        UMD_THROW(
+            error::RuntimeError,
+            "Sysmem mapped at unexpected NOC address (likely a stale process holding sysmem); proceeding could "
+            "lead to undefined behavior");
     }
 
-    log_debug(LogUMD, "Mapped sysmem without hugepages to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
+    if (map_buffer_to_noc) {
+        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
+    } else {
+        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}", iova);
+    }
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;

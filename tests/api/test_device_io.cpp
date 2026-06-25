@@ -34,6 +34,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
@@ -64,7 +65,7 @@ class TestDeviceIOFixture : public ::testing::TestWithParam<CoreType> {};
 
 TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     // Initialize random data.
     size_t data_size = 1024;
@@ -108,7 +109,7 @@ TEST_P(TestDeviceIOFixture, SimpleIOAllTargets) {
 
 TEST_P(TestDeviceIOFixture, RemoteFlush) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster();
 
     const ClusterDescriptor* cluster_desc = umd_cluster->get_cluster_description();
 
@@ -151,7 +152,7 @@ TEST_P(TestDeviceIOFixture, RemoteFlush) {
 
 TEST_P(TestDeviceIOFixture, SimpleIOSpecificDevices) {
     const CoreType core_type = GetParam();
-    std::unique_ptr<Cluster> umd_cluster = make_cluster_for_test(ClusterOptions{
+    std::unique_ptr<Cluster> umd_cluster = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = {0},
     });
 
@@ -200,7 +201,8 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
     // to be reconfigured for each transaction
     const CoreType core_type = GetParam();
 
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -241,7 +243,7 @@ TEST_P(TestDeviceIOFixture, DynamicTLB_RW) {
 }
 
 TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
         GTEST_SKIP() << "DMA multicast write is not supported on Blackhole architecture.";
@@ -290,7 +292,7 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
-class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool>> {};
+class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool, bool>> {};
 
 // Parametrized over (use_noc0, full_grid, sysmem_enabled):
 //   use_noc0       - true: NOC0 coordinates; false: translated coordinates
@@ -299,10 +301,12 @@ class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<boo
 // For full_grid+NOC0 the range is {0,0}–{grid_size-1}; for full_grid+translated the tensix corners are used.
 // Bystander verification is only performed for isolated-core multicasts.
 TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
-    // TODO: sysmem_enabled parameter to be added in the following PR.
-    auto [use_noc0, full_grid] = GetParam();
+    auto [use_noc0, full_grid, sysmem_enabled] = GetParam();
 
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(
+        ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
+
+    test_utils::safe_test_cluster_start(cluster.get());
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
@@ -321,11 +325,12 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     for (const ChipId chip_id : cluster->get_target_device_ids()) {
         log_info(
             LogUMD,
-            "Testing {} {} multicast writes on chip {} remote: {}",
+            "Testing {} {} multicast writes on chip {} remote: {} sysmem_enabled: {}",
             use_noc0 ? "NOC0" : "translated",
             full_grid ? "full-grid" : "single-core",
             chip_id,
-            cluster->get_cluster_description()->is_chip_remote(chip_id));
+            cluster->get_cluster_description()->is_chip_remote(chip_id),
+            sysmem_enabled);
 
         TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
@@ -431,15 +436,17 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     }
 }
 
-static std::vector<std::tuple<bool, bool>> get_multicast_write_params() {
+static std::vector<std::tuple<bool, bool, bool>> get_multicast_write_params() {
     const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
-    std::vector<std::tuple<bool, bool>> params;
+    std::vector<std::tuple<bool, bool, bool>> params;
     for (bool use_noc0 : {false, true}) {
         if (use_noc0 && is_blackhole) {
             continue;  // NOC0 multicast not supported on Blackhole
         }
         for (bool full_grid : {false, true}) {
-            params.emplace_back(use_noc0, full_grid);
+            for (bool sysmem_enabled : {false, true}) {
+                params.emplace_back(use_noc0, full_grid, sysmem_enabled);
+            }
         }
     }
     return params;
@@ -449,14 +456,15 @@ INSTANTIATE_TEST_SUITE_P(
     AllCombinations,
     TestMulticastWriteFixture,
     ::testing::ValuesIn(get_multicast_write_params()),
-    [](const ::testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+    [](const ::testing::TestParamInfo<std::tuple<bool, bool, bool>>& info) {
         return std::string(std::get<0>(info.param) ? "NOC0" : "Translated") + "_" +
-               (std::get<1>(info.param) ? "FullGrid" : "SingleCore");
+               (std::get<1>(info.param) ? "FullGrid" : "SingleCore") + "_" +
+               (std::get<2>(info.param) ? "SysmemEnabled" : "SysmemDisabled");
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {
-    ClusterOptions options = GetParam();
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+    const ClusterOptions& options = GetParam();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(options);
 
     if (options.chip_type == ChipType::SIMULATION) {
         cluster->start_device({.init_device = true});
@@ -542,7 +550,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     }
 
     std::unique_ptr<Cluster> cluster =
-        make_cluster_for_test(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = channels});
     if (cluster->get_soc_descriptor(0).arch == tt::ARCH::QUASAR) {
         GTEST_SKIP() << "Skipping the test for quasar since Sysmem is not supported yet.";
     }
@@ -663,7 +671,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, RegReadWrite) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -708,7 +716,7 @@ TEST_F(TestDeviceIOFixture, RegReadWrite) {
 }
 
 TEST_F(TestDeviceIOFixture, WriteDataReadReg) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const CoreCoord tensix_core = cluster->get_soc_descriptor(0).get_cores(CoreType::TENSIX)[0];
 
@@ -744,6 +752,40 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(CoreType::TENSIX, CoreType::DRAM),
     [](const ::testing::TestParamInfo<CoreType>& info) { return std::string(to_str(info.param)); });
 
+// SMN (System Management Network) read/write round-trip through the NocId::SYSTEM_NOC path.
+// SMN is only implemented on the RTL simulator (Quasar), so the test skips when not running
+// against a simulator.
+TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
+    if (!is_simulation_test()) {
+        GTEST_SKIP() << "SMN is only available on the RTL simulator.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    cluster->start_device({.init_device = true});
+
+    TTDevice* tt_device = cluster->get_tt_device(0);
+    const SocDescriptor& soc_desc = cluster->get_soc_descriptor(0);
+    const tt_xy_pair core =
+        soc_desc.translate_coord_to(soc_desc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED);
+
+    // SMN writes require the size to be a multiple of 4 bytes.
+    constexpr size_t data_size = 256;
+    constexpr uint64_t addr = SAFE_IO_L1_ADDRESS;
+    std::vector<uint8_t> write_data(data_size, 0);
+    for (size_t i = 0; i < data_size; i++) {
+        write_data[i] = i % 256;
+    }
+
+    // Selecting SYSTEM_NOC routes write_to_device/read_from_device through the SMN path.
+    NocIdSwitcher noc_switcher(NocId::SYSTEM_NOC);
+    tt_device->write_to_device(write_data.data(), core, addr, data_size);
+
+    std::vector<uint8_t> read_data(data_size, 0);
+    tt_device->read_from_device(read_data.data(), core, addr, data_size);
+
+    EXPECT_EQ(write_data, read_data);
+}
+
 /**
  * Helper that reads data from a device core using the appropriate mechanism for the
  * current architecture. On Wormhole B0, PCIe DMA reads are required/preferred, so
@@ -764,7 +806,8 @@ void read_data_based_on_architecture(Cluster& cluster, CoreCoord core, void* mem
  */
 TEST(TestDeviceIO, DMA1) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = soc_descriptor.get_num_dram_channels();
@@ -812,7 +855,8 @@ TEST(TestDeviceIO, DMA1) {
  */
 TEST(TestDeviceIO, DMA2) {
     const ChipId chip = 0;
-    Cluster cluster;
+    std::unique_ptr<Cluster> cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     auto& soc_descriptor = cluster.get_soc_descriptor(chip);
     size_t dram_count = 1;
@@ -954,10 +998,9 @@ TEST(TestDramMembar, StartDeviceDramMembarSubchannel) {
 }
 
 // Stress-size loopback: write/read increasing power-of-two payloads on a Tensix core
-// (up to 1 MB) and a DRAM core (up to 256 MB). The equivalent SimulationChip-level test
-// still lives in tests/simulation/ for the tt-umd-simulators consumer.
+// (up to 1 MB) and a DRAM core (up to 256 MB).
 TEST_F(TestDeviceIOFixture, DISABLED_LoopbackStressSize) {
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const uint32_t seed = std::random_device{}();
     GTEST_LOG_(INFO) << "LoopbackStressSize RNG seed = " << seed;

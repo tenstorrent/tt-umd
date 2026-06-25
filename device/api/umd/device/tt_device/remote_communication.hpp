@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <set>
 #include <unordered_set>
 #include <vector>
@@ -60,9 +61,17 @@ public:
 
     TTDevice* get_local_device();
 
+    virtual std::optional<EthCoord> get_target_eth_coord() = 0;
+
     // Get the active eth core that will be used for the next remote communication.
     // Which core is used for remote communication can change.
     tt_xy_pair get_remote_transfer_ethernet_core();
+
+    // Sets the sysmem manager used for host-DRAM-backed transfers (required for broadcasts and used to speed up
+    // large transfers).
+    void set_sysmem_manager(SysmemManager* sysmem_manager);
+
+    bool has_sysmem_manager() const;
 
 protected:
     void update_active_eth_core_idx();

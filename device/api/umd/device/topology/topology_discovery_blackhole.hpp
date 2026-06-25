@@ -18,7 +18,10 @@ struct TopologyDiscoveryOptions;
 class TopologyDiscoveryBlackhole : public TopologyDiscovery {
 public:
     TopologyDiscoveryBlackhole(
-        const TopologyDiscoveryOptions& options, IODeviceType io_device_type, const std::string& soc_descriptor_path);
+        std::shared_ptr<SocArchDescriptor> soc_arch_descriptor,
+        const TopologyDiscoveryOptions& options,
+        IODeviceType io_device_type) :
+        TopologyDiscovery(std::move(soc_arch_descriptor), options, io_device_type) {}
 
 protected:
     tt::ARCH get_topology_arch() const override { return tt::ARCH::BLACKHOLE; }
@@ -48,7 +51,10 @@ protected:
     void verify_routing_firmware_state(TTDevice* tt_device, const CoreCoord eth_core) override {}
 
     std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<EthCoord> eth_coord,
+        TTDevice* gateway_device,
+        std::set<uint32_t> gateway_eth_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) override;
 
     void patch_eth_connections() override;
 

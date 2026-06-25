@@ -19,6 +19,7 @@
 
 #include "test_utils/assembly_programs_for_tests.hpp"
 #include "test_utils/setup_risc_cores.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -35,8 +36,7 @@ using namespace tt::umd;
 // this program is explained in the GENERATE_ASSEMBLY_FOR_TESTS.md file.
 TEST(TestRiscProgram, DeassertResetBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     constexpr uint32_t a_variable_value = 0x87654000;
     constexpr uint64_t a_variable_address = 0x10000;
@@ -88,8 +88,7 @@ TEST(TestRiscProgram, DeassertResetBrisc) {
 
 TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -159,8 +158,7 @@ TEST(TestRiscProgram, DeassertResetWithCounterBrisc) {
 
 TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     // The test has large transfers to remote chip, so system memory significantly speeds up the test.
-    std::unique_ptr<Cluster> cluster =
-        std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = get_num_host_ch_for_test()});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(ClusterOptions{}, /*needs_sysmem=*/true);
 
     // TODO: remove this check when it is figured out what is happening with Blackhole version of this test.
     if (cluster->get_tt_device(0)->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -277,7 +275,8 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::ValuesIn(ClusterAssertDeassertRiscsTest::generate_all_risc_cores_combinations()));
 
 TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    std::unique_ptr<Cluster> cluster =
+        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
     constexpr uint64_t write_address = 0x1000;
 
     test_utils::safe_test_cluster_start(cluster.get());
@@ -314,8 +313,7 @@ TEST(TestRiscProgram, StartDeviceWithValidRiscProgram) {
     cluster->close_device();
 }
 
-// Mirrors SimpleApiTest from tests/simulation/test_simulation_device.cpp:
-// a basic write/read loopback on the first TENSIX core followed by assert/deassert
+// Basic write/read loopback on the first TENSIX core followed by assert/deassert
 // of a variety of RiscType masks (ALL_TENSIX, ALL_NEO_DMS, BRISC, custom DM bitmask).
 // Sim-only: silicon liveness validation would require an arch-specific RISC program;
 // this only confirms the API accepts the masks without throwing.
@@ -324,7 +322,7 @@ TEST(TestRiscProgram, SimpleApiTest) {
         GTEST_SKIP() << "SimpleApiTest is currently sim-only.";
     }
 
-    std::unique_ptr<Cluster> cluster = make_cluster_for_test();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (auto chip_id : cluster->get_target_device_ids()) {
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);

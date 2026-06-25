@@ -15,9 +15,11 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -232,11 +234,6 @@ public:
      */
     std::set<uint32_t> get_idle_eth_channels(ChipId chip_id);
 
-    /**
-     * Galaxy specific function.
-     */
-    ChipId get_shelf_local_physical_chip_coords(ChipId virtual_coord);
-
     uint8_t get_asic_location(ChipId chip_id) const;
 
     IODeviceType get_io_device_type() const;
@@ -257,6 +254,10 @@ public:
 
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
+    using DeviceHealthError = std::variant<error::ArcStartupError, error::NocHangError, error::PcieHangError>;
+
+    const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
+
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 
@@ -274,12 +275,12 @@ private:
     void fill_mock_hardcoded_data(ChipId logical_id);
 
     // Verify for some common mistakes.
-    bool verify_cluster_descriptor_info();
+    bool verify_cluster_descriptor_info(bool check_board_chip_count = true);
 
     // Return the default randomly generated path for serializing cluster descriptors.
     std::filesystem::path get_default_cluster_descriptor_file_path() const;
 
-    bool verify_board_info_for_chips();
+    bool verify_board_info_for_chips(bool check_chip_count = true);
 
     bool verify_same_architecture();
 
@@ -319,6 +320,7 @@ private:
     std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 
     std::vector<ChipId> unhealthy_devices;
+    std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

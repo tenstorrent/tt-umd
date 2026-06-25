@@ -48,6 +48,15 @@ jobs:
     with:
       docker-version: ubuntu-24.04
 
+  ensure-ubuntu-2404-arm-image:
+    name: Ensure ubuntu-24.04-arm Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-arm
+
   ensure-fedora-39-image:
     name: Ensure fedora-39 Docker image
     permissions:
@@ -66,11 +75,20 @@ jobs:
     with:
       docker-version: manylinux
 
+  ensure-manylinux-aarch64-image:
+    name: Ensure manylinux-aarch64 Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: manylinux-aarch64
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
     strategy:
       fail-fast: false
       matrix:
@@ -81,6 +99,8 @@ jobs:
           # Note: Clang-13 is obsolete on Ubuntu 24.04, we're intentionally skipping it.
           {distro: ubuntu-24.04, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
           {distro: ubuntu-24.04, compiler-c: gcc-11, compiler-cpp: g++-11, package: deb},
+          # Arm64 build, built natively on an arm runner.
+          {distro: ubuntu-24.04-arm, compiler-c: clang-20, compiler-cpp: clang++-20, package: deb},
           # Note: Fedora 39 default is GCC 13, and 11 is obsolete.
           {distro: fedora-39, compiler-c: gcc-13, compiler-cpp: g++-13, package: rpm},
           # Note: Fedora 39 default is Clang 17, and it is not trivial to install clang-20.
@@ -96,18 +116,28 @@ jobs:
     name: >-
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
       on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
-    runs-on: tt-ubuntu-2204-large-stable
+    # Arm variants must build natively on an arm runner; everything else uses the standard x86 runner.
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
     container:
+      # Arm jobs run on GitHub-hosted runners, which can't resolve the internal
+      # Harbor mirror, so they pull directly from ghcr.io (same as test-packages).
+      # x86 jobs run on self-hosted runners and use the Harbor pull-through cache.
       image: >-
-        harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        ${{
+        matrix.image.distro == 'ubuntu-24.04-arm'
+        && 'ghcr.io'
+        || 'harbor.ci.tenstorrent.net/ghcr.io'
+        }}/${{ github.repository }}/tt-umd-ci-${{
         matrix.image.distro }}:${{
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
-        needs.ensure-fedora-39-image.outputs.image-tag }}
+        matrix.image.distro == 'ubuntu-24.04-arm' && needs.ensure-ubuntu-2404-arm-image.outputs.image-tag ||
+        matrix.image.distro == 'fedora-39' && needs.ensure-fedora-39-image.outputs.image-tag ||
+        'latest' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -286,10 +316,15 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: ensure-manylinux-image
+    needs: [ensure-manylinux-image, ensure-manylinux-aarch64-image]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
 
-    name: Build umd manylinux wheel
-    runs-on: tt-ubuntu-2204-large-stable
+    name: Build umd manylinux wheel (${{ matrix.arch }})
+    # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -307,10 +342,16 @@ jobs:
       - name: Build manylinux wheels
         shell: bash
         env:
-          # Use custom manylinux Docker image with all dependencies pre-installed
+          # Only build wheels for the runner's native architecture.
+          CIBW_ARCHS: ${{ matrix.arch }}
+          # Use custom manylinux Docker images with all dependencies pre-installed.
+          # cibuildwheel picks the image matching the architecture being built.
           CIBW_MANYLINUX_X86_64_IMAGE: >-
             ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux:${{
             needs.ensure-manylinux-image.outputs.image-tag }}
+          CIBW_MANYLINUX_AARCH64_IMAGE: >-
+            ghcr.io/${{ github.repository }}/tt-umd-ci-manylinux-aarch64:${{
+            needs.ensure-manylinux-aarch64-image.outputs.image-tag }}
           # This command will be executed for each wheel build to verify that the wheel is functional.
           CIBW_TEST_COMMAND: 'python -c "import tt_umd"'
         run: |
@@ -324,7 +365,7 @@ jobs:
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: manylinux-wheel-artifact
+          name: manylinux-wheel-artifact-${{ matrix.arch }}
           path: |
             ${{ env.WHEEL_OUTPUT_DIR }}
 

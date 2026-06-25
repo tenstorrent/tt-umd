@@ -30,7 +30,7 @@ void WormholeArcTelemetryReader::get_telemetry_address() {
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_X_0,
         sizeof(uint32_t));
 
-    telemetry_table_addr_reg = telemetry_table_addr_offset;
+    telemetry_table_addr_reg = telemetry_table_arc_addr;
     telemetry_table_addr = telemetry_table_arc_addr + wormhole::ARC_NOC_ADDRESS_START;
 
     uint32_t telemetry_values_arc_addr;

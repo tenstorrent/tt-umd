@@ -158,7 +158,7 @@ protected:
 
     virtual bool verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) = 0;
 
-    void verify_fw_bundle_version(TTDevice* tt_device);
+    void verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.

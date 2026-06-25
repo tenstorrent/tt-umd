@@ -107,10 +107,11 @@ private:
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
 
-    // Builds the per-op MMIO timeout veto for TLB-mapped transfers: on an overrun the configured hang
-    // check is consulted for the in-flight op's NOC. A hung NOC confirms the timeout (aborts with
-    // DeviceTimeoutError); a healthy NOC vetoes it so a slow-but-completing op is not a false positive.
-    std::function<bool()> make_io_timeout_callback();
+    // Builds the per-op MMIO timeout hang check installed on the cached TLB windows: given the in-flight
+    // op's NOC, returns whether that NOC is hung. SiliconTlbWindow turns this into the OpTimeoutGuard
+    // false-alarm veto (a hung NOC confirms the timeout; a healthy NOC lets a slow-but-completing op
+    // through). Reads through an independent, separately-locked window so it does not re-enter the TLB lock.
+    std::function<bool(NocId)> make_io_timeout_hang_check();
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;

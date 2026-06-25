@@ -17,7 +17,11 @@ struct UnsupportedCMFWData : public TTDeviceData {
 };
 
 struct UnsupportedCMFWError : public UmdError<UnsupportedCMFWData> {
-    UnsupportedCMFWError(const TTDevice& tt_device, uint64_t topology_unique_id, FirmwareBundleVersion found);
+    UnsupportedCMFWError(
+        const TTDevice& tt_device,
+        uint64_t topology_unique_id,
+        FirmwareBundleVersion found,
+        FirmwareBundleVersion minimum);
 };
 
 struct CMFWMismatchData : public TTDeviceData {

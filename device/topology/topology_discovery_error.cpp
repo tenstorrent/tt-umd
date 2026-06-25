@@ -10,18 +10,19 @@
 
 namespace tt::umd::error {
 UnsupportedCMFWError::UnsupportedCMFWError(
-    const TTDevice& tt_device, uint64_t topology_unique_id, FirmwareBundleVersion found) :
+    const TTDevice& tt_device,
+    uint64_t topology_unique_id,
+    FirmwareBundleVersion found,
+    FirmwareBundleVersion minimum) :
     UmdError<UnsupportedCMFWData>(
         fmt::format(
             "Firmware bundle version {} on device {} is older than the minimum compatible version {} for {} "
             "architecture.",
             found.to_string(),
             topology_unique_id,
-            FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device.get_arch()).to_string(),
+            minimum.to_string(),
             arch_to_str(tt_device.get_arch())),
-        {{tt_device, topology_unique_id},
-         found,
-         FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt_device.get_arch())}) {}
+        {{tt_device, topology_unique_id}, found, minimum}) {}
 
 CMFWMismatchError::CMFWMismatchError(
     const TTDevice& tt_device,

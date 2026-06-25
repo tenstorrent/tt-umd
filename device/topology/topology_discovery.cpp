@@ -208,8 +208,6 @@ void TopologyDiscovery::get_connected_devices() {
             continue;
         }
 
-        verify_fw_bundle_version(tt_device.get());
-
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
             init_first_device(tt_device.get());
@@ -232,6 +230,8 @@ void TopologyDiscovery::get_connected_devices() {
         uint64_t asic_id = get_asic_id(tt_device.get());
         devices_to_discover.emplace(asic_id, std::move(tt_device));
         asic_id_to_chip_id.emplace(asic_id, chip_id);
+
+        verify_fw_bundle_version(tt_device.get(), asic_id);
 
         log_debug(
             LogUMD,
@@ -267,7 +267,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
-        verify_fw_bundle_version(tt_device);
+        verify_fw_bundle_version(tt_device, current_device_asic_id);
 
         if (!options.discover_remote_devices) {
             continue;
@@ -550,9 +550,8 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 
 void TopologyDiscovery::patch_eth_connections() {}
 
-void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
+void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
-    uint64_t asic_id = get_asic_id(tt_device);
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
@@ -588,7 +587,8 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
             error::UnsupportedCMFWError,
             *tt_device,
             asic_id,
-            fw_bundle_version);
+            fw_bundle_version,
+            minimum_compatible_fw_bundle_version);
         log_warning(LogUMD, err.message());
         health_errors[asic_id].push_back(std::move(err));
         return;

@@ -642,7 +642,7 @@ void TTDevice::advance_device_execution() {}
 
 uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     uint32_t tensix_risc_state;
-    read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    read_from_device_reg(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
@@ -650,7 +650,7 @@ uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
 uint32_t TTDevice::get_risc_reset_state(CoreCoord core) { return get_risc_reset_state(resolve_coordinate(core)); }
 
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
-    write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    write_to_device_reg(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 

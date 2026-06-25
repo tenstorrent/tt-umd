@@ -15,9 +15,12 @@
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/topology/topology_discovery_error.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -252,6 +255,15 @@ public:
 
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
+    using DeviceHealthError = std::variant<
+        error::ArcStartupError,
+        error::NocHangError,
+        error::PcieHangError,
+        error::UnsupportedCMFWError,
+        error::CMFWMismatchError>;
+
+    const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
+
 private:
     int get_ethernet_link_coord_distance(const EthCoord &location_a, const EthCoord &location_b) const;
 
@@ -314,6 +326,7 @@ private:
     std::map<ChipId, HarvestingMasks> harvesting_masks_map;
 
     std::vector<ChipId> unhealthy_devices;
+    std::map<ChipId, std::vector<DeviceHealthError>> health_errors;
 
     IODeviceType io_device_type = IODeviceType::PCIe;
 

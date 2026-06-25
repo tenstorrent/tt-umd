@@ -4,9 +4,29 @@
 
 #pragma once
 
+#include <optional>
+
+#include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+// Converts a device initialization exception into a structured health error, if it is one of the
+// recoverable hardware errors tracked in the cluster descriptor. Returns std::nullopt otherwise.
+inline std::optional<ClusterDescriptor::DeviceHealthError> determine_device_init_error(error::UmdBaseException& err) {
+    if (auto* arc_err = dynamic_cast<error::UmdException<error::ArcStartupError>*>(&err)) {
+        return arc_err->error();
+    }
+    if (auto* noc_err = dynamic_cast<error::UmdException<error::NocHangError>*>(&err)) {
+        return noc_err->error();
+    }
+    if (auto* pcie_err = dynamic_cast<error::UmdException<error::PcieHangError>*>(&err)) {
+        return pcie_err->error();
+    }
+    return std::nullopt;
+}
 
 template <typename T>
 void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes) {

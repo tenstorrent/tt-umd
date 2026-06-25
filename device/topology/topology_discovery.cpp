@@ -30,7 +30,9 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
+#include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -133,6 +135,22 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
+bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
+    try {
+        tt_device->init_tt_device(timeout);
+    } catch (error::UmdBaseException& err) {
+        if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
+            throw;
+        }
+        log_warning(LogUMD, err.message());
+        if (std::optional<ClusterDescriptor::DeviceHealthError> health_error = determine_device_init_error(err)) {
+            health_errors[generate_unhealthy_asic_id(chip_id)].push_back(std::move(*health_error));
+        }
+        return false;
+    }
+    return true;
+}
+
 void TopologyDiscovery::get_connected_devices() {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::vector<int> local_device_ids;
@@ -152,7 +170,8 @@ void TopologyDiscovery::get_connected_devices() {
     }
 
     for (auto& device_id : local_device_ids) {
-        std::unique_ptr<TTDevice> tt_device = TTDevice::create(device_id, io_device_type, options.use_safe_api);
+        std::unique_ptr<TTDevice> tt_device =
+            TTDevice::create(device_id, io_device_type, options.use_safe_api, soc_arch_descriptor_);
         if (options.low_power) {
             // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
             log_warning(
@@ -175,13 +194,7 @@ void TopologyDiscovery::get_connected_devices() {
         ChipId chip_id = get_next_chip_id();
 
         // When coming out of reset, devices can take on the order of minutes to become ready.
-        try {
-            tt_device->init_tt_device(timeout::ARC_LONG_POST_RESET_TIMEOUT, soc_arch_descriptor_);
-        } catch (error::UmdBaseException& err) {
-            if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
-                throw;
-            }
-            log_warning(LogUMD, err.message());
+        if (!init_device(tt_device.get(), chip_id, timeout::ARC_LONG_POST_RESET_TIMEOUT)) {
             uint64_t asic_id = generate_unhealthy_asic_id(chip_id);
             devices_to_discover.emplace(asic_id, std::move(tt_device));
             asic_id_to_chip_id.emplace(asic_id, chip_id);
@@ -194,8 +207,6 @@ void TopologyDiscovery::get_connected_devices() {
                 asic_id);
             continue;
         }
-
-        verify_fw_bundle_version(tt_device.get());
 
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
@@ -254,7 +265,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
-        verify_fw_bundle_version(tt_device);
+        verify_fw_bundle_version(tt_device, current_device_asic_id);
 
         if (!options.discover_remote_devices) {
             continue;
@@ -361,19 +372,12 @@ void TopologyDiscovery::discover_remote_devices() {
                 std::unique_ptr<TTDevice> remote_device = create_remote_device(
                     eth_coord,
                     devices.at(gateway_device_id).get(),
-                    active_eth_channels_per_device.at(gateway_device_id));
+                    active_eth_channels_per_device.at(gateway_device_id),
+                    soc_arch_descriptor_);
                 ChipId chip_id = get_next_chip_id();
 
-                bool device_init_failed = false;
-                try {
-                    remote_device->init_tt_device(timeout::ARC_STARTUP_TIMEOUT, soc_arch_descriptor_);
-                } catch (error::UmdBaseException& err) {
-                    if (options.device_init_failure_action == TopologyDiscoveryOptions::Action::THROW) {
-                        throw;
-                    }
-                    device_init_failed = true;
-                    log_warning(LogUMD, err.message());
-
+                bool device_init_failed = !init_device(remote_device.get(), chip_id, timeout::ARC_STARTUP_TIMEOUT);
+                if (device_init_failed) {
                     uint64_t mock_asic_id = generate_unhealthy_asic_id(chip_id);
                     devices_to_discover.emplace(mock_asic_id, std::move(remote_device));
                     asic_id_to_chip_id.emplace(mock_asic_id, chip_id);
@@ -434,6 +438,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
     for (const auto& [current_device_asic_id, tt_device] : devices) {
         ChipId current_chip_id = asic_id_to_chip_id.at(current_device_asic_id);
+
+        cluster_desc->health_errors.insert({current_chip_id, std::move(health_errors[current_device_asic_id])});
 
         // Cluster descriptor is not designed to contain partial information about devices,
         // so we cannot add information about unhealthy devices.
@@ -542,22 +548,20 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 
 void TopologyDiscovery::patch_eth_connections() {}
 
-void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
+void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
-            const std::string mismatch_msg = fmt::format(
-                "Firmware bundle version mismatch for device {}: expected {}, got {}",
-                get_asic_id(tt_device),
-                first_fw_bundle_version->to_string(),
-                fw_bundle_version.to_string());
-            if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW) {
-                UMD_THROW(error::RuntimeError, mismatch_msg);
-            } else {
-                log_warning(LogUMD, mismatch_msg);
-                return;
-            }
+            auto err = UMD_THROW_OR_RETURN(
+                options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW,
+                error::CMFWMismatchError,
+                *tt_device,
+                asic_id,
+                first_fw_bundle_version.value(),
+                fw_bundle_version);
+            log_warning(LogUMD, err.message());
+            health_errors[asic_id].push_back(std::move(err));
         }
         return;
     }
@@ -576,17 +580,16 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         latest_supported_fw_bundle_version.to_string());
 
     if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
-        const std::string cmfw_unsupported_msg = fmt::format(
-            "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
-            "architecture.",
-            fw_bundle_version.to_string(),
-            minimum_compatible_fw_bundle_version.to_string(),
-            arch_to_str(arch));
-        if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW) {
-            UMD_THROW(error::RuntimeError, cmfw_unsupported_msg);
-        } else {
-            return;
-        }
+        auto err = UMD_THROW_OR_RETURN(
+            options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW,
+            error::UnsupportedCMFWError,
+            *tt_device,
+            asic_id,
+            fw_bundle_version,
+            minimum_compatible_fw_bundle_version);
+        log_warning(LogUMD, err.message());
+        health_errors[asic_id].push_back(std::move(err));
+        return;
     }
 
     if (fw_bundle_version > latest_supported_fw_bundle_version) {
@@ -684,8 +687,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
 }
 
 bool TopologyDiscovery::is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core) {
-    xy_pair translated_core = tt_device->get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
-    return tt_device->read_eth_core_training_status(translated_core) == EthTrainingStatus::SUCCESS;
+    return tt_device->read_eth_core_training_status(eth_core) == EthTrainingStatus::SUCCESS;
 }
 
 }  // namespace tt::umd

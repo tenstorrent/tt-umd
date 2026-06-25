@@ -31,7 +31,7 @@ using namespace tt::umd;
 
 // Have 2 threads read and write to all cores on the Galaxy.
 TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = test_utils::make_default_test_cluster();
 
     // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
@@ -58,9 +58,10 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
     }
 
-    Cluster device(ClusterOptions{
+    auto device_ptr = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = all_devices,
     });
+    Cluster& device = *device_ptr;
 
     test::utils::set_barrier_params(device);
 
@@ -126,7 +127,7 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsL1) {
 }
 
 TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
-    auto cluster = std::make_unique<Cluster>();
+    auto cluster = test_utils::make_default_test_cluster();
 
     // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
@@ -153,9 +154,10 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
             << "Target chip on thread 2 " << chip << " is not in the Galaxy cluster";
     }
 
-    Cluster device(ClusterOptions{
+    auto device_ptr = test_utils::make_default_test_cluster(ClusterOptions{
         .target_devices = all_devices,
     });
+    Cluster& device = *device_ptr;
 
     test::utils::set_barrier_params(device);
 
@@ -213,7 +215,8 @@ TEST(GalaxyConcurrentThreads, WriteToAllChipsDram) {
 TEST(GalaxyConcurrentThreads, PushInputsWhileSignalingCluster) {
     // Galaxy Setup.
     std::shared_ptr<ClusterDescriptor> cluster_desc = Cluster::create_cluster_descriptor();
-    Cluster device;
+    auto device_ptr = test_utils::make_default_test_cluster();
+    Cluster& device = *device_ptr;
     std::unordered_set<ChipId> target_devices = cluster_desc->get_all_chips();
     test::utils::set_barrier_params(device);
 

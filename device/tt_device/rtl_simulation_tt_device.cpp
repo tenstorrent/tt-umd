@@ -214,7 +214,8 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
@@ -255,7 +256,8 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         communicator_->all_tensix_reset_deassert(core.x, core.y);
     }
@@ -332,6 +334,11 @@ void RtlSimulationTTDevice::dma_multicast_write(
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
 void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {

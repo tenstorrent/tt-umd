@@ -12,7 +12,7 @@
 
 #include "umd/device/types/arch.hpp"
 
-namespace test_utils {
+namespace tt::umd::test_utils {
 
 inline std::string GetAbsPath(const std::string& relative_path) {
 #ifdef UMD_TESTS_ROOT_PATH
@@ -40,6 +40,7 @@ inline std::vector<std::string> GetAllClusterDescs() {
              "6u_cluster_desc.yaml",
              "blackhole_8xP150.yaml",
              "blackhole_4xP150.yaml",
+             "blackhole_galaxy.yaml",
              "blackhole_P100.yaml",
              "blackhole_P150.yaml",
              "blackhole_P300_first_mmio.yaml",
@@ -97,4 +98,4 @@ inline std::string get_soc_descriptor_path(tt::ARCH arch) {
     }
 }
 
-}  // namespace test_utils
+}  // namespace tt::umd::test_utils

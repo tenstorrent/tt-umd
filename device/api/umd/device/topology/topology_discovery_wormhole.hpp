@@ -59,7 +59,10 @@ protected:
     uint32_t get_logical_remote_eth_channel(TTDevice* tt_device, CoreCoord local_eth_core) override;
 
     std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<EthCoord> eth_coord,
+        TTDevice* gateway_device,
+        std::set<uint32_t> gateway_eth_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) override;
 
     bool is_using_eth_coords() override;
 

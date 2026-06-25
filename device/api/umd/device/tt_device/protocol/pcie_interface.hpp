@@ -45,7 +45,6 @@ public:
     virtual void noc_multicast_write(
         const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) = 0;
 
-    virtual void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) = 0;
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
     virtual uint32_t bar_read32(uint32_t addr) = 0;
 };

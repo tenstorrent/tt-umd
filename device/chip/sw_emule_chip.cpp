@@ -32,21 +32,6 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     // writes to segfault.  Overcommit means only touched pages use physical RAM.
     dram_bank_size_ = soc.dram_bank_size;
 
-    // Build DRAM core lookup table from SOC descriptor.
-    // soc.get_dram_cores() returns NOC0 coordinates, but the runtime
-    // (Cluster::write_core / read_core) translates to CoordSystem::TRANSLATED
-    // before invoking the chip driver.  Without converting here, is_dram_core()
-    // misses for translated coords on Blackhole (where TRANSLATED != NOC0 for
-    // DRAM cores) and routes large DRAM writes into a 1.5 MB worker slot —
-    // OOB-aborts as soon as the offset exceeds the worker L1 size.
-    auto dram_cores = soc.get_dram_cores();
-    for (uint32_t channel = 0; channel < dram_cores.size(); ++channel) {
-        for (const auto& core : dram_cores[channel]) {
-            CoreCoord translated = soc.translate_coord_to(core, CoordSystem::TRANSLATED);
-            dram_core_to_channel_[tt_xy_pair(translated.x, translated.y)] = channel;
-        }
-    }
-
     // Allocate L1Pool for worker cores.
     // Use a generous count covering Tensix + Ethernet + Router + other non-DRAM cores,
     // since all non-DRAM cores go through the pool for consistent bitmask offset extraction.
@@ -58,7 +43,25 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
 }
 
-bool SWEmuleChip::is_dram_core(tt_xy_pair core_xy) const { return dram_core_to_channel_.count(core_xy) > 0; }
+// One physical backing per DRAM CHANNEL. A channel is fronted by several NOC endpoint
+// coords (per-NOC preferred workers / subchannels) that all address the same bank on
+// silicon, so the host (NOC0/TRANSLATED) and a noc=1 kernel read must land on the same
+// Core. Callers resolve the channel from the tagged CoreCoord (host) or the loop index
+// (runner) via SocDescriptor's LOGICAL mapping; here we just alias the channel to one
+// mmap (individual, not pooled, not MAP_32BIT).
+tt_emule::Core* SWEmuleChip::get_dram_channel_backing(uint32_t channel) {
+    std::lock_guard<std::mutex> lock(core_mutex_);
+    auto it = dram_channel_core_.find(channel);
+    if (it != dram_channel_core_.end()) {
+        return it->second;
+    }
+    auto dram_core = std::make_unique<tt_emule::Core>(
+        tt_emule::CoreCoord{channel, 0}, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
+    tt_emule::Core* raw_ptr = dram_core.get();
+    dram_channel_core_[channel] = raw_ptr;
+    dram_backings_.push_back(std::move(dram_core));
+    return raw_ptr;
+}
 
 tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     std::lock_guard<std::mutex> lock(core_mutex_);
@@ -68,13 +71,10 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         return it->second.get();
     }
 
-    // Lazy-create with appropriate role and size.
+    // Lazy-create worker core.
     tt_emule::CoreCoord coord{core_xy.x, core_xy.y};
     std::unique_ptr<tt_emule::Core> core;
-    if (is_dram_core(core_xy)) {
-        // DRAM cores: individual mmap (not from pool, not MAP_32BIT).
-        core = std::make_unique<tt_emule::Core>(coord, tt_emule::CoreRole::DRAM, static_cast<size_t>(dram_bank_size_));
-    } else if (next_slot_ < worker_pool_->num_slots()) {
+    if (next_slot_ < worker_pool_->num_slots()) {
         // Worker cores: allocate from L1Pool (aligned slots, bitmask offset extraction).
         size_t slot = next_slot_++;
         uint8_t* slot_mem = worker_pool_->slot_ptr(slot);
@@ -97,14 +97,18 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 }
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
-    tt_xy_pair key(core.x, core.y);
-    tt_emule::Core* target_core = get_core(key);
+    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
+                                      ? get_dram_channel_backing(static_cast<uint32_t>(
+                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
+                                      : get_core(tt_xy_pair(core.x, core.y));
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
-    tt_xy_pair key(core.x, core.y);
-    tt_emule::Core* target_core = get_core(key);
+    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
+                                      ? get_dram_channel_backing(static_cast<uint32_t>(
+                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
+                                      : get_core(tt_xy_pair(core.x, core.y));
     std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 

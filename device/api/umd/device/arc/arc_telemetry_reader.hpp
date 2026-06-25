@@ -32,10 +32,10 @@ public:
 protected:
     ArcTelemetryReader(TTDevice* tt_device);
 
-    // Wait until the telemetry table is fully populated by ARC firmware.
-    // FLASH_BUNDLE_VERSION is the last entry written by ARC, so a non-zero value
-    // guarantees all other entries are also present.
-    // Retries reinitializing the telemetry table until the entry appears or timeout expires.
+    // Wait until ARC firmware has published the telemetry table. ARC writes the table pointer
+    // register only after the whole table has been populated, so a non-zero pointer register
+    // guarantees that all entries are present. Re-reads the pointer until it becomes non-zero or
+    // the timeout expires, then initializes the table once.
     virtual void wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
 
     virtual void get_telemetry_address() = 0;
@@ -44,6 +44,9 @@ protected:
 
     // Address of the telemetry table struct on ARC core.
     uint64_t telemetry_table_addr{0};
+
+    // Raw value of the ARC register holding the telemetry table pointer (0 until published).
+    uint32_t telemetry_table_addr_reg{0};
 
     // Number of entries in the telemetry table.
     uint32_t entry_count{0};

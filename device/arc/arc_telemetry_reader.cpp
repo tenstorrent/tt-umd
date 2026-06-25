@@ -58,14 +58,6 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
 void ArcTelemetryReader::initialize_telemetry() {
     tt_device->read_from_device(&entry_count, arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t));
 
-    // Bail out if entry_count looks like garbage (uninitialized ARC memory). Allocating
-    // vectors from an unbounded value can cause OOM. Callers re-poll via
-    // wait_for_telemetry_initialized() until a sane value appears.
-    if (entry_count > TelemetryTag::NUMBER_OF_TAGS) {
-        entry_count = 0;
-        return;
-    }
-
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at telemetry.h
     uint32_t tag_table_address = telemetry_table_addr + 2 * sizeof(uint32_t);
@@ -122,20 +114,17 @@ void ArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::millisecond
     auto start = std::chrono::steady_clock::now();
     constexpr auto poll_interval = std::chrono::milliseconds(10);
 
-    while (!is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION) ||
-           read_entry(TelemetryTag::FLASH_BUNDLE_VERSION) == 0) {
+    get_telemetry_address();
+    while (telemetry_table_addr_reg == 0) {
         if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            log_warning(
-                tt::LogUMD, "Timeout waiting for ARC telemetry initialization (FLASH_BUNDLE_VERSION not populated).");
+            log_warning(tt::LogUMD, "Timeout waiting for ARC telemetry initialization (table pointer not published).");
             return;
         }
         std::this_thread::sleep_for(poll_interval);
-        telemetry_values.clear();
-        telemetry_offset.clear();
-        entry_count = 0;
         get_telemetry_address();
-        initialize_telemetry();
     }
+
+    initialize_telemetry();
 }
 
 }  // namespace tt::umd

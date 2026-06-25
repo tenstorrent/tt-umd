@@ -14,13 +14,13 @@ namespace tt::umd {
 
 BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
     arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), is_selected_noc1());
-    get_telemetry_address();
-    initialize_telemetry();
+    wait_for_telemetry_initialized();
 }
 
 void BlackholeArcTelemetryReader::get_telemetry_address() {
     uint32_t telemetry_table_addr_u32;
     tt_device->read_from_arc_apb(&telemetry_table_addr_u32, blackhole::SCRATCH_RAM_13, sizeof(uint32_t));
+    telemetry_table_addr_reg = telemetry_table_addr_u32;
     telemetry_table_addr = telemetry_table_addr_u32;
     uint32_t telemetry_values_addr_u32;
     tt_device->read_from_arc_apb(&telemetry_values_addr_u32, blackhole::SCRATCH_RAM_12, sizeof(uint32_t));

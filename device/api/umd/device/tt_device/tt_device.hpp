@@ -530,6 +530,8 @@ private:
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
+    xy_pair resolve_coordinate(CoreCoord core) const;
+
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;

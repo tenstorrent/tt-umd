@@ -25,10 +25,16 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+
+namespace {
+// AICLK rarely settles on the exact target; accept any value within this percentage of the target.
+constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
+}  // namespace
 
 Chip::Chip(tt::ARCH arch) { set_default_params(arch); }
 
@@ -224,6 +230,15 @@ void Chip::wait_for_aiclk_value(
     }
     uint32_t aiclk = tt_device->get_clock();
     while (aiclk != target_aiclk) {
+        if (is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT)) {
+            log_warning(
+                LogUMD,
+                "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
+                aiclk,
+                AICLK_TOLERANCE_PERCENT,
+                target_aiclk);
+            return;
+        }
         auto end = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         if (duration.count() > timeout_ms.count()) {

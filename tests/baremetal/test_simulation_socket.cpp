@@ -18,11 +18,10 @@ using namespace tt::umd;
 
 namespace {
 
-// A unique-per-test socket path under the temp dir, named with the pid and the
-// caller's tag so concurrent test binaries / cases don't collide.
-std::filesystem::path unique_socket_path(int tag) {
-    return std::filesystem::temp_directory_path() /
-           ("tt-umd-sim-server-test-" + std::to_string(::getpid()) + "-" + std::to_string(tag) + ".sock");
+// A socket path under the temp dir, named with the pid so concurrent test binaries don't
+// collide. A fixed name is enough because the fixture removes it around every test.
+std::filesystem::path test_socket_path() {
+    return std::filesystem::temp_directory_path() / ("tt-umd-sim-server-test-" + std::to_string(::getpid()) + ".sock");
 }
 
 // Attempts a connect() to a UNIX socket at path. Returns true if it connected.
@@ -54,78 +53,77 @@ void leave_stale_socket(const std::filesystem::path& path) {
     ASSERT_TRUE(std::filesystem::exists(path));
 }
 
+// Provides a fresh socket path that is removed before and after each test, so cases share a
+// fixed name without leaking sockets between runs.
+class SimulationSocketTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        path_ = test_socket_path();
+        std::filesystem::remove(path_);
+    }
+
+    void TearDown() override { std::filesystem::remove(path_); }
+
+    std::filesystem::path path_;
+};
+
 }  // namespace
 
-TEST(SimulationSocket, ExposesConnectableSocket) {
-    const std::filesystem::path path = unique_socket_path(1);
-    std::filesystem::remove(path);
+TEST_F(SimulationSocketTest, ExposesConnectableSocket) {
+    auto server = SimulationSocket::create(path_);
 
-    SimulationSocket server(path);
-
-    EXPECT_TRUE(std::filesystem::exists(path));
-    EXPECT_TRUE(can_connect(path));
-
-    std::filesystem::remove(path);
+    EXPECT_TRUE(std::filesystem::exists(path_));
+    EXPECT_TRUE(can_connect(path_));
 }
 
-TEST(SimulationSocket, RemovesSocketOnDestruction) {
-    const std::filesystem::path path = unique_socket_path(2);
-    std::filesystem::remove(path);
+TEST_F(SimulationSocketTest, RemovesSocketOnDestruction) {
+    { auto server = SimulationSocket::create(path_); }
 
-    { SimulationSocket server(path); }
-
-    EXPECT_FALSE(std::filesystem::exists(path));
-    EXPECT_FALSE(can_connect(path));
+    EXPECT_FALSE(std::filesystem::exists(path_));
+    EXPECT_FALSE(can_connect(path_));
 }
 
-TEST(SimulationSocket, ReclaimsStaleSocketFile) {
-    const std::filesystem::path path = unique_socket_path(3);
-    leave_stale_socket(path);
-    EXPECT_FALSE(can_connect(path));
+TEST_F(SimulationSocketTest, ReclaimsStaleSocketFile) {
+    leave_stale_socket(path_);
+    EXPECT_FALSE(can_connect(path_));
 
-    SimulationSocket server(path);
+    auto server = SimulationSocket::create(path_);
 
-    EXPECT_TRUE(can_connect(path));
-
-    std::filesystem::remove(path);
+    EXPECT_TRUE(can_connect(path_));
 }
 
-TEST(SimulationSocket, ThrowsWhenLiveServerAlreadyExists) {
-    const std::filesystem::path path = unique_socket_path(4);
-    std::filesystem::remove(path);
+TEST_F(SimulationSocketTest, ThrowsWhenLiveServerAlreadyExists) {
+    auto server = SimulationSocket::create(path_);
 
-    SimulationSocket server(path);
-
-    EXPECT_ANY_THROW(SimulationSocket second(path));
-
-    std::filesystem::remove(path);
+    EXPECT_ANY_THROW(SimulationSocket::create(path_));
 }
 
-TEST(SimulationSocket, TryCreateReturnsNullWhenLiveHostExists) {
-    const std::filesystem::path path = unique_socket_path(5);
-    std::filesystem::remove(path);
-
-    auto host = SimulationSocket::try_create(path);
+TEST_F(SimulationSocketTest, TryCreateReturnsNullWhenLiveHostExists) {
+    auto host = SimulationSocket::try_create(path_);
     ASSERT_NE(host, nullptr);
-    EXPECT_EQ(SimulationSocket::try_create(path), nullptr);  // live host -> null, no throw
+    EXPECT_EQ(SimulationSocket::try_create(path_), nullptr);  // live host -> null, no throw
 
     // The throwaway object from the failed try_create above must not remove the live
     // host's socket on destruction (ownership-gated teardown).
-    EXPECT_TRUE(std::filesystem::exists(path));
-    EXPECT_TRUE(can_connect(path));
-
-    std::filesystem::remove(path);
+    EXPECT_TRUE(std::filesystem::exists(path_));
+    EXPECT_TRUE(can_connect(path_));
 }
 
-TEST(SimulationSocket, TryCreateReclaimsStaleSocket) {
-    const std::filesystem::path path = unique_socket_path(6);
-    leave_stale_socket(path);
+TEST_F(SimulationSocketTest, TryCreateReclaimsStaleSocket) {
+    leave_stale_socket(path_);
 
-    auto host = SimulationSocket::try_create(path);
+    auto host = SimulationSocket::try_create(path_);
     EXPECT_NE(host, nullptr);  // stale leftover reclaimed
-    EXPECT_TRUE(can_connect(path));
+    EXPECT_TRUE(can_connect(path_));
+}
 
-    std::filesystem::remove(path);
+// A non-socket file squatting the path also yields EADDRINUSE on bind; the reclaim path
+// must refuse to delete it instead of destroying unrelated data.
+TEST_F(SimulationSocketTest, RefusesToReclaimNonSocketFile) {
+    { std::ofstream(path_) << "not a socket"; }
+
+    EXPECT_THROW(SimulationSocket::try_create(path_), std::exception);
+    EXPECT_TRUE(std::filesystem::exists(path_));  // the regular file was left untouched
 }
 
 TEST(SimulationSocket, DefaultSocketPathIsPerChip) {
@@ -134,16 +132,4 @@ TEST(SimulationSocket, DefaultSocketPathIsPerChip) {
 
 TEST(SimulationSocket, DefaultSocketPathIsAbsolute) {
     EXPECT_TRUE(SimulationSocket::default_socket_path(0).is_absolute());
-}
-
-// A non-socket file squatting the path also yields EADDRINUSE on bind; the reclaim path
-// must refuse to delete it instead of destroying unrelated data.
-TEST(SimulationSocket, RefusesToReclaimNonSocketFile) {
-    const std::filesystem::path path = unique_socket_path(7);
-    { std::ofstream(path) << "not a socket"; }
-
-    EXPECT_THROW(SimulationSocket::try_create(path), std::exception);
-    EXPECT_TRUE(std::filesystem::exists(path));  // the regular file was left untouched
-
-    std::filesystem::remove(path);
 }

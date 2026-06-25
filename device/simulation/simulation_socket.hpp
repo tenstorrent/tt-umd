@@ -11,15 +11,14 @@
 
 namespace tt::umd {
 
-// Owns the per-chip UNIX domain socket that exposes one simulation device on disk
-// ("the card"). One socket per simulated device.
+// Manages a per-chip UNIX domain socket that represents a simulated device on disk
+// ("the card"). One socket per simulated chip.
 //
-// Binding the socket is the act of surfacing the device; a client proves liveness
-// by connecting to it. On construction it reclaims a stale socket left by a dead
-// owner. Whether a live owner already holds the path is the host-vs-client arbiter:
-// the throwing constructor refuses in that case, while try_create() returns nullptr so
-// the caller (SimulationTopologyDiscovery) can attach as a client instead. On
-// destruction it closes the socket and removes the file.
+// The socket acts as a presence indicator: if a process can bind the path it becomes the
+// host; if a live host already exists, try_create() returns nullptr so the caller
+// (SimulationTopologyDiscovery) can attach as a client instead, while create() throws. Stale
+// sockets left by crashed owners are automatically reclaimed. On destruction the host closes
+// the socket and removes the file.
 //
 // It does not yet handle client requests: connections are accepted and dropped.
 //
@@ -31,8 +30,6 @@ namespace tt::umd {
 // simulator process connects back into UMD.
 class SimulationSocket {
 public:
-    // Binds and listens; throws if a live owner already holds the path.
-    explicit SimulationSocket(const std::filesystem::path& socket_path);
     ~SimulationSocket();
 
     SimulationSocket(const SimulationSocket&) = delete;
@@ -42,6 +39,10 @@ public:
     // holds the path (so the caller can attach as a client). Throws on real socket errors.
     static std::unique_ptr<SimulationSocket> try_create(const std::filesystem::path& socket_path);
 
+    // Like try_create(), but throws (instead of returning nullptr) when a live owner already
+    // holds the path. For callers that require ownership and have no client path to fall back to.
+    static std::unique_ptr<SimulationSocket> create(const std::filesystem::path& socket_path);
+
     const std::filesystem::path& socket_path() const { return socket_path_; }
 
     // Deterministic per-chip socket path (the naming contract a client connects to):
@@ -50,13 +51,16 @@ public:
     static std::filesystem::path default_socket_path(ChipId chip_id = 0);
 
 private:
-    struct DeferBind {};
-
-    SimulationSocket(const std::filesystem::path& socket_path, DeferBind);
+    // Non-throwing; only initializes members. Binding happens in bind_and_listen(), driven by
+    // the try_create()/create() factories.
+    explicit SimulationSocket(const std::filesystem::path& socket_path);
 
     // Binds + listens + starts the accept loop. Returns false if a live owner holds the path;
     // throws on real socket errors.
     bool bind_and_listen();
+
+    // True if a listener is currently reachable at socket_path_.
+    bool is_live();
 
     // Re-arms the async accept; connections carry no requests yet (owner-only), so each
     // accepted socket is dropped immediately.

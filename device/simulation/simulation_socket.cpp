@@ -35,20 +35,6 @@ stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
     return stream_protocol::endpoint(path.string());
 }
 
-// Returns true if a listener is currently reachable at path.
-bool is_live(const std::filesystem::path& path) {
-    // is_live() is a predicate; a path too long to name a reachable listener can't have one,
-    // so report not-live rather than letting make_endpoint() throw.
-    if (path.string().size() >= sizeof(sockaddr_un::sun_path)) {
-        return false;
-    }
-    asio::io_context io;
-    stream_protocol::socket probe(io);
-    std::error_code ec;
-    probe.connect(make_endpoint(path), ec);
-    return !ec;
-}
-
 }  // namespace
 
 // The asio transport, kept out of the header (see SimulationSocket::Impl forward declaration).
@@ -58,21 +44,22 @@ struct SimulationSocket::Impl {
     std::thread io_thread;
 };
 
-SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path, DeferBind) :
+SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path) :
     socket_path_(socket_path), impl_(std::make_unique<Impl>()) {}
 
-SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path) :
-    SimulationSocket(socket_path, DeferBind{}) {
-    if (!bind_and_listen()) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("A live simulation server already exists at: {}", socket_path_.string()));
-    }
-}
-
 std::unique_ptr<SimulationSocket> SimulationSocket::try_create(const std::filesystem::path& socket_path) {
-    std::unique_ptr<SimulationSocket> socket(new SimulationSocket(socket_path, DeferBind{}));
+    std::unique_ptr<SimulationSocket> socket(new SimulationSocket(socket_path));
     if (!socket->bind_and_listen()) {
         return nullptr;
+    }
+    return socket;
+}
+
+std::unique_ptr<SimulationSocket> SimulationSocket::create(const std::filesystem::path& socket_path) {
+    auto socket = try_create(socket_path);
+    if (!socket) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("A live simulation server already exists at: {}", socket_path.string()));
     }
     return socket;
 }
@@ -87,6 +74,20 @@ void SimulationSocket::do_accept() {
         }
         do_accept();
     });
+}
+
+bool SimulationSocket::is_live() {
+    // is_live() is a predicate; a path too long to name a reachable listener can't have one,
+    // so report not-live rather than letting make_endpoint() throw.
+    if (socket_path_.string().size() >= sizeof(sockaddr_un::sun_path)) {
+        return false;
+    }
+    // Reuse impl_->io rather than spin up a throwaway io_context: a synchronous connect()
+    // doesn't run the event loop, so the shared context is untouched (cf. warm_reset.cpp).
+    stream_protocol::socket probe(impl_->io);
+    std::error_code ec;
+    probe.connect(make_endpoint(socket_path_), ec);
+    return !ec;
 }
 
 bool SimulationSocket::bind_and_listen() {
@@ -129,7 +130,7 @@ bool SimulationSocket::bind_and_listen() {
         // the gap) is undefined. The socket dir is assumed trusted (see
         // default_socket_path), which is what makes this acceptable. Note a stale socket
         // owned by another user may not be removable under a sticky dir (e.g. /tmp).
-        if (is_live(socket_path_)) {
+        if (is_live()) {
             return false;
         }
         // Reclaim only an actual stale socket. A non-socket object squatting the path (regular

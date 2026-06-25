@@ -244,7 +244,7 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                 log_debug(
                     LogUMD, "Retraining ETH core {} on device {}, attempt {}.", eth_core.str(), asic_id, attempt + 1);
                 uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
-                tt_device->write_to_device(
+                tt_device->write_to_device_reg(
                     &trigger_val, translated_eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
                 all_eth_cores_trained = false;
             }

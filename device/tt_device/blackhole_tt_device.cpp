@@ -267,7 +267,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(
+        read_from_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -290,7 +290,7 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(
+        write_to_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }

@@ -55,12 +55,20 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
 
 PcieProtocol::~PcieProtocol() = default;
 
-TlbWindow* PcieProtocol::get_cached_tlb_window() {
-    if (cached_tlb_window_ == nullptr) {
-        cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
+TlbWindow* PcieProtocol::get_cached_wc_tlb_window() {
+    if (cached_wc_tlb_window_ == nullptr) {
+        cached_wc_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
+            pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+    }
+    return cached_wc_tlb_window_.get();
+}
+
+TlbWindow* PcieProtocol::get_cached_uc_tlb_window() {
+    if (cached_uc_tlb_window_ == nullptr) {
+        cached_uc_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
             pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
     }
-    return cached_tlb_window_.get();
+    return cached_uc_tlb_window_.get();
 }
 
 void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
@@ -85,18 +93,18 @@ template <bool safe>
 void PcieProtocol::write_to_device_impl(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_wc_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_wc_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 
 template <bool safe>
 void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if constexpr (safe) {
-        get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_wc_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_wc_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -104,9 +112,9 @@ void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uin
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        get_cached_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_uc_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_uc_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -114,9 +122,9 @@ void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_uc_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+        get_cached_uc_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -132,10 +140,10 @@ void PcieProtocol::noc_multicast_write(
     const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
+        get_cached_wc_tlb_window()->safe_noc_multicast_write_reconfigure(
             src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
     } else {
-        get_cached_tlb_window()->noc_multicast_write_reconfigure(
+        get_cached_wc_tlb_window()->noc_multicast_write_reconfigure(
             src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
     }
 }

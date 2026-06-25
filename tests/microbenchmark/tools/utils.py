@@ -26,6 +26,18 @@ def load_nanobench_json(path):
     return json.loads(_NAN_RE.sub("NaN", path.read_text()))
 
 
+def arch_label_from_string(s):
+    """Return the first ARCH_NAMES label that appears in `s`, else None.
+
+    Recovers the arch from a card/runner label or artifact name, e.g.
+    "n150-umd-perf" -> "n150", "benchmark-json-wormhole_b0-n300-..." -> "n300".
+    """
+    for arch in ARCH_NAMES:
+        if arch in s:
+            return arch
+    return None
+
+
 def format_throughput(throughput, unit):
     """Format throughput with appropriate units (bytes/s, KB/s, MB/s, GB/s)"""
     if unit and unit != "byte":

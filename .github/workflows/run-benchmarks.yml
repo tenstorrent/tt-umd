@@ -88,7 +88,8 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
             python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
-            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
+            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec \
+            --card "${{ inputs.card }}"
 
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}

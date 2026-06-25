@@ -33,16 +33,7 @@ from pathlib import Path
 
 import yaml
 
-from utils import ARCH_NAMES, format_throughput, load_nanobench_json
-
-
-def arch_label_from_artifact(name: str) -> str | None:
-    """Return the arch's card name (e.g. "n150") or None if unrecognized."""
-    for card in ARCH_NAMES:
-        if card in name:
-            return card
-    return None
-
+from utils import arch_label_from_string, format_throughput, load_nanobench_json
 
 # --- Data collection -------------------------------------------------------------
 
@@ -112,7 +103,7 @@ def collect_current_results(current_dir: Path) -> dict:
             continue
         if not artifact_dir.name.startswith("benchmark-json-"):
             continue
-        arch = arch_label_from_artifact(artifact_dir.name)
+        arch = arch_label_from_string(artifact_dir.name)
         if arch is None:
             print(
                 f"WARN: cannot derive arch label from artifact {artifact_dir.name}; skipping",

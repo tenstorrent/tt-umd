@@ -16,7 +16,9 @@ noise (cold-cache or between-process effects), raise MAPE_K — K≈2.5 covers
 ~3σ of a median-vs-median comparison under normal-distribution assumptions.
 
 Typical workflow: a CI run produced a `benchmark-json-<arch>-...` artifact;
-download it and point this script at the result.
+download it and point this script at the result. The arch is inferred from the
+`Card` field recorded in the artifact's machine_host_spec.json, so --arch is
+optional (pass it only to override the inference).
 
 Example:
 
@@ -25,14 +27,14 @@ Example:
         --dir /tmp/ci-bench
 
     python3 tests/microbenchmark/tools/update_baseline.py \\
-        --arch 'n150' --from-results-dir /tmp/ci-bench
+        --from-results-dir /tmp/ci-bench
 
-    # inspect the diff, commit n150.yaml.
+    # inspect the diff, commit the updated <arch>.yaml.
 
 Dry-run prints what would be written without modifying the YAML:
 
     python3 tests/microbenchmark/tools/update_baseline.py \\
-        --arch 'n150' --from-results-dir /tmp/ci-bench --dry-run
+        --from-results-dir /tmp/ci-bench --dry-run
 
 All cases present in the supplied results are written to the YAML. Existing
 `gate: true` flags are preserved when overwriting. Cases present in the
@@ -51,7 +53,7 @@ from datetime import date
 from pathlib import Path
 
 import yaml
-from utils import ARCH_NAMES, load_nanobench_json, yaml_escape
+from utils import ARCH_NAMES, arch_label_from_string, load_nanobench_json, yaml_escape
 
 # --- Tolerance math -------------------------------------------------------------
 #
@@ -122,30 +124,26 @@ def collect_entries(results_dir: Path) -> dict:
     return entries
 
 
-def read_runner_name(results_dir: Path) -> str:
-    """Read the CI runner name recorded in the host-spec sidecar.
+def read_host_info(results_dir: Path) -> dict:
+    """Return the `host_info` dict from the host-spec sidecar, or {} if absent.
 
-    gather_host_specs.py writes the GitHub Actions RUNNER_NAME (the runner's
-    registered name, e.g. a dedicated lab machine) into
-    `<HOST_SPEC_FILENAME>` under `host_info.CI_Runner`. Returns "unknown" if
-    the file is missing or doesn't carry the field — the container's own
-    hostname is an ephemeral container ID, so it is deliberately not used.
+    Source of the runner name and the card the arch label is inferred from. Returns
+    {} (with a warning) if the file is missing or unreadable.
     """
     spec_path = results_dir / HOST_SPEC_FILENAME
     if not spec_path.exists():
         print(
             f"WARN: {spec_path.name} not found in results; "
-            f"runner_hostname will be 'unknown'.",
+            f"runner_hostname will be 'unknown' and --arch must be given.",
             file=sys.stderr,
         )
-        return "unknown"
+        return {}
     try:
         data = json.loads(spec_path.read_text())
     except (json.JSONDecodeError, OSError) as e:
         print(f"WARN: could not read {spec_path}: {e}", file=sys.stderr)
-        return "unknown"
-    host_info = data.get("host_info") or {}
-    return host_info.get("CI_Runner") or "unknown"
+        return {}
+    return data.get("host_info") or {}
 
 
 def load_existing_arch_yaml(path: Path) -> dict:
@@ -310,9 +308,13 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--arch",
-        required=True,
         choices=ARCH_NAMES,
-        help="Arch label whose baseline YAML to update.",
+        default=None,
+        help=(
+            "Arch label whose baseline YAML to update. Optional: when omitted, "
+            "it's inferred from the `Card` field in the results' "
+            f"{HOST_SPEC_FILENAME}. Pass it to override that inference."
+        ),
     )
     p.add_argument(
         "--from-results-dir",
@@ -336,8 +338,6 @@ def main() -> int:
     )
     args = p.parse_args()
 
-    yaml_filename = f"{args.arch}.yaml"
-
     try:
         results_dir = args.from_results_dir.resolve(strict=True)
     except FileNotFoundError:
@@ -345,10 +345,20 @@ def main() -> int:
     if not results_dir.is_dir():
         sys.exit(f"--from-results-dir is not a directory: {results_dir}")
 
-    runner_hostname = read_runner_name(results_dir)
+    host_info = read_host_info(results_dir)
+    runner_hostname = host_info.get("CI_Runner") or "unknown"
+
+    arch = args.arch or arch_label_from_string(host_info.get("Card") or "")
+    if not arch:
+        sys.exit(
+            "Could not determine arch: pass --arch explicitly, or run against "
+            f"results whose {HOST_SPEC_FILENAME} carries a `Card` field "
+            f"containing one of {ARCH_NAMES}."
+        )
+    yaml_filename = f"{arch}.yaml"
 
     out_path = args.baselines_dir / yaml_filename
-    print(f"Arch:     {args.arch}", file=sys.stderr)
+    print(f"Arch:     {arch}", file=sys.stderr)
     print(f"Source:   {results_dir}", file=sys.stderr)
     print(f"Output:   {out_path}", file=sys.stderr)
 
@@ -361,7 +371,7 @@ def main() -> int:
 
     existing = load_existing_arch_yaml(out_path)
     yaml_text, change_lines = render_arch_yaml(
-        args.arch, yaml_filename, runner_hostname, new_entries, existing
+        arch, yaml_filename, runner_hostname, new_entries, existing
     )
 
     if args.dry_run:

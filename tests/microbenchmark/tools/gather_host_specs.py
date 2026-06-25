@@ -191,7 +191,7 @@ def get_tenstorrent_pcie_info_manual():
 # Main Logic
 
 
-def gather_specs():
+def gather_specs(card="unknown"):
     """Aggregates all system info using manual sysfs/psutil methods."""
     io_settings = get_io_perf_settings()
     mem_gb = round(psutil.virtual_memory().total / (1024**3), 2)
@@ -206,6 +206,8 @@ def gather_specs():
             "Hostname": socket.gethostname(),
             # CI runner's registered name; unlike Hostname above it isn't the ephemeral container ID. Absent outside CI.
             "CI_Runner": os.environ.get("RUNNER_NAME", "unknown"),
+            # CI runner/board label (e.g. "n150-umd-perf"); arch is recovered from it downstream.
+            "Card": card,
             "Platform": platform.machine(),
             "Python": platform.python_version(),
             "Memory": f"{mem_gb} GB",
@@ -331,11 +333,17 @@ def main():
         action="store_true",
         help="Do not write files; print to stdout. Defaults to JSON unless a format is specified. Incompatible with --output/-o.",
     )
+    parser.add_argument(
+        "--card",
+        type=str,
+        default="unknown",
+        help="CI runner/board label (e.g. 'n150-umd-perf'); recorded so the arch can be recovered downstream.",
+    )
 
     args = parser.parse_args()
 
     # 1. Gather the specs using manual methods
-    specs = gather_specs()
+    specs = gather_specs(card=args.card)
 
     # 2. Determine filenames and formats
     base_filename = args.output

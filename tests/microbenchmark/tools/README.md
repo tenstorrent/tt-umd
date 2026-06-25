@@ -25,14 +25,17 @@ gh run download <run-id> \
     --dir /tmp/ci-bench
 
 python3 tests/microbenchmark/tools/update_baseline.py \
-    --arch 'n150' \
     --from-results-dir /tmp/ci-bench
 
-# inspect the diff, commit n150.yaml.
+# inspect the diff, commit the updated <arch>.yaml.
 git diff tests/microbenchmark/baselines/n150.yaml
 git add tests/microbenchmark/baselines/n150.yaml
 git commit -m "Recalibrate n150 baseline from CI run <run-id>"
 ```
+
+The arch is inferred from the `Card` field in the artifact's
+`machine_host_spec.json`; pass `--arch <label>` only to override it (e.g. when
+recalibrating from results that lack the host-spec sidecar).
 
 Behavior:
 

@@ -257,11 +257,11 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
 
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_dest, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size, make_io_timeout_callback());
+        tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
         get_cached_wc_tlb_window()->write_block_reconfigure(
-            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed, make_io_timeout_callback());
+            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -283,11 +283,11 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
         TlbWindow* tlb_window = tlb_manager_->get_tlb_window(translated_core);
-        tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size, make_io_timeout_callback());
+        tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
         get_cached_wc_tlb_window()->read_block_reconfigure(
-            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed, make_io_timeout_callback());
+            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed);
     }
 }
 
@@ -330,7 +330,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
-    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size, make_io_timeout_callback());
+    tlb_window->write_register(reg_dest - tlb_window->get_base_address(), src, size);
 }
 
 void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) {
@@ -361,17 +361,15 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
-    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size, make_io_timeout_callback());
+    tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
 
-std::function<bool()> LocalChip::make_io_timeout_callback() {
-    // Consulted only on a per-op MMIO overrun (see OpTimeoutGuard), as the guard's false-alarm veto.
-    // Evaluate the NOC selection at call time so the check tracks the in-flight op's NOC. Returning true
-    // (NOC healthy, not hung) declares the overrun a false alarm and lets a slow-but-completing op
-    // through; returning false (NOC hung) confirms the timeout and aborts with DeviceTimeoutError. The
-    // hang check reads through an independent, separately-locked window, so it does not re-enter this
-    // op's TLB lock.
-    return [this]() -> bool { return !tt_device_->is_noc_hung(get_selected_noc_id(), TTDevice::HangAction::RETURN); };
+std::function<bool(NocId)> LocalChip::make_io_timeout_hang_check() {
+    // Installed on the cached TLB windows so the per-op MMIO timeout path can consult NOC liveness on an
+    // overrun (see SiliconTlbWindow / OpTimeoutGuard). Returns whether the given NOC is hung; the window
+    // turns that into the guard's false-alarm veto. The hang check reads through an independent,
+    // separately-locked window, so it does not re-enter this op's TLB lock.
+    return [this](NocId noc) -> bool { return tt_device_->is_noc_hung(noc, TTDevice::HangAction::RETURN); };
 }
 
 void LocalChip::wait_for_non_mmio_flush() {}
@@ -537,8 +535,11 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(
+                get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC),
+            tlb_data{},
+            make_io_timeout_hang_check());
         return cached_wc_tlb_window.get();
     }
 
@@ -547,8 +548,11 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(
+            get_tt_device()->get_pci_device()->allocate_tlb(
+                get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC),
+            tlb_data{},
+            make_io_timeout_hang_check());
         return cached_uc_tlb_window.get();
     }
 

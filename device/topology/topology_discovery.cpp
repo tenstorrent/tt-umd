@@ -231,8 +231,6 @@ void TopologyDiscovery::get_connected_devices() {
         devices_to_discover.emplace(asic_id, std::move(tt_device));
         asic_id_to_chip_id.emplace(asic_id, chip_id);
 
-        verify_fw_bundle_version(tt_device.get(), asic_id);
-
         log_debug(
             LogUMD,
             "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",

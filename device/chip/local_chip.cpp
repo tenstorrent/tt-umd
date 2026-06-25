@@ -365,12 +365,13 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 }
 
 std::function<bool()> LocalChip::make_io_timeout_callback() {
-    // Consulted only on a per-op MMIO overrun (see OpTimeoutGuard). Evaluate the NOC selection at call
-    // time so the check tracks the in-flight op's NOC. Returning true (NOC hung) confirms the timeout and
-    // aborts with DeviceTimeoutError; false (healthy) vetoes it so a slow-but-completing op is not a false
-    // positive. The hang check reads through an independent, separately-locked window, so it does not
-    // re-enter this op's TLB lock.
-    return [this]() -> bool { return tt_device_->is_noc_hung(get_selected_noc_id(), TTDevice::HangAction::RETURN); };
+    // Consulted only on a per-op MMIO overrun (see OpTimeoutGuard), as the guard's false-alarm veto.
+    // Evaluate the NOC selection at call time so the check tracks the in-flight op's NOC. Returning true
+    // (NOC healthy, not hung) declares the overrun a false alarm and lets a slow-but-completing op
+    // through; returning false (NOC hung) confirms the timeout and aborts with DeviceTimeoutError. The
+    // hang check reads through an independent, separately-locked window, so it does not re-enter this
+    // op's TLB lock.
+    return [this]() -> bool { return !tt_device_->is_noc_hung(get_selected_noc_id(), TTDevice::HangAction::RETURN); };
 }
 
 void LocalChip::wait_for_non_mmio_flush() {}

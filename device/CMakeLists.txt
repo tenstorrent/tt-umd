@@ -265,7 +265,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/error_detail.hpp
                 api/umd/device/utils/error.hpp
                 api/umd/device/utils/mmio_timeout_config.hpp
-                api/umd/device/utils/op_budget_timer.hpp
                 api/umd/device/utils/op_timeout_guard.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp

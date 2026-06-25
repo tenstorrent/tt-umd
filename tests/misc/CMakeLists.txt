@@ -2,7 +2,6 @@ set(UMD_MISC_TESTS_SRCS
     test_semver.cpp
     test_errors.cpp
     test_robust_mutex.cpp
-    test_op_budget_timer.cpp
     test_op_timeout_guard.cpp
 )
 

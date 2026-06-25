@@ -84,7 +84,7 @@ UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
 UnresolvableCoordinateError::UnresolvableCoordinateError(const TTDevice& tt_device, CoreCoord core, NocId noc) :
     UmdError<DeviceCoreData>(
         fmt::format(
-            "Cannot resolve non-trivial coordinate system {} before initializing device. Device ID: {}",
+            "Cannot translate non-LITERAL coordinate system {} before initializing TTDevice. Device ID: {}",
             to_str(core.coord_system),
             tt_device.get_communication_device_id()),
         {{tt_device}, core, noc}) {}

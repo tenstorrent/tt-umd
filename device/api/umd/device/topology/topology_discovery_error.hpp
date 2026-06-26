@@ -9,7 +9,6 @@
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd::error {
@@ -51,7 +50,7 @@ struct EthFirmwareMismatchError : public UmdError<EthFirmwareMismatchData> {
         uint64_t topology_unique_id,
         SemVer expected,
         SemVer found,
-        xy_pair core,
+        CoreCoord core,
         NocId noc_id = NocId::DEFAULT_NOC);
 };
 
@@ -66,7 +65,7 @@ struct UnexpectedRoutingFirmwareConfigError : public UmdError<UnexpectedRoutingF
         uint64_t topology_unique_id,
         bool expected,
         bool found,
-        xy_pair core,
+        CoreCoord core,
         NocId noc_id = NocId::DEFAULT_NOC);
 };
 
@@ -79,7 +78,7 @@ struct EthFirmwareHeartbeatError : public UmdError<EthFirmwareHeartbeatData> {
         const TTDevice& tt_device,
         uint64_t topology_unique_id,
         uint32_t heartbeat_value,
-        xy_pair core,
+        CoreCoord core,
         NocId noc_id = NocId::DEFAULT_NOC);
 };
 

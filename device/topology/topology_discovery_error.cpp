@@ -38,7 +38,12 @@ CMFWMismatchError::CMFWMismatchError(
         {{tt_device, topology_unique_id}, expected, found}) {}
 
 EthFirmwareMismatchError::EthFirmwareMismatchError(
-    const TTDevice& tt_device, uint64_t topology_unique_id, SemVer expected, SemVer found, xy_pair core, NocId noc_id) :
+    const TTDevice& tt_device,
+    uint64_t topology_unique_id,
+    SemVer expected,
+    SemVer found,
+    CoreCoord core,
+    NocId noc_id) :
     UmdError<EthFirmwareMismatchData>(
         fmt::format(
             "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, found {}.",
@@ -49,7 +54,7 @@ EthFirmwareMismatchError::EthFirmwareMismatchError(
         {{{tt_device, topology_unique_id}, core, noc_id}, expected, found}) {}
 
 UnexpectedRoutingFirmwareConfigError::UnexpectedRoutingFirmwareConfigError(
-    const TTDevice& tt_device, uint64_t topology_unique_id, bool expected, bool found, xy_pair core, NocId noc_id) :
+    const TTDevice& tt_device, uint64_t topology_unique_id, bool expected, bool found, CoreCoord core, NocId noc_id) :
     UmdError<UnexpectedRoutingFirmwareConfigData>(
         fmt::format(
             "Routing firmware for device ASIC ID: {} ETH core {} is unexpectedly {}.",
@@ -59,7 +64,7 @@ UnexpectedRoutingFirmwareConfigError::UnexpectedRoutingFirmwareConfigError(
         {{{tt_device, topology_unique_id}, core, noc_id}, expected, found}) {}
 
 EthFirmwareHeartbeatError::EthFirmwareHeartbeatError(
-    const TTDevice& tt_device, uint64_t topology_unique_id, uint32_t heartbeat_value, xy_pair core, NocId noc_id) :
+    const TTDevice& tt_device, uint64_t topology_unique_id, uint32_t heartbeat_value, CoreCoord core, NocId noc_id) :
     UmdError<EthFirmwareHeartbeatData>(
         fmt::format(
             "Timed out waiting for ETH heartbeat on device ASIC ID: {}, ETH core {} to {}. Stuck at {:#x}",

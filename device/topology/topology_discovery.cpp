@@ -644,7 +644,7 @@ bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t
         SemVer minimum_supported = (get_topology_arch() == ARCH::BLACKHOLE)
                                        ? erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION
                                        : erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION;
-        if (expected_eth_fw_version < minimum_supported) {
+        if (*expected_eth_fw_version < minimum_supported) {
             log_warning(
                 LogUMD,
                 "The expected ETH firmware version {} is older than the minimum supported version {}",
@@ -654,7 +654,7 @@ bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t
         }
     }
 
-    if (eth_fw_version != expected_eth_fw_version) {
+    if (eth_fw_version != *expected_eth_fw_version) {
         auto err = error::EthFirmwareMismatchError(
             *tt_device, asic_id, expected_eth_fw_version.value(), eth_fw_version, eth_core);
         log_warning(LogUMD, err.message());

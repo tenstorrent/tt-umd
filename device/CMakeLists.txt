@@ -137,6 +137,10 @@ target_sources(
         tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
         arc/blackhole_spi_tt_device.cpp
+        # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
+        # so always built. This lets its unit tests run in the no-card baremetal CI lane
+        # (TT_UMD_BUILD_SIMULATION=OFF).
+        simulation/simulation_socket.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

@@ -233,8 +233,6 @@ void TopologyDiscovery::get_connected_devices() {
         devices_to_discover.emplace(asic_id, std::move(tt_device));
         asic_id_to_chip_id.emplace(asic_id, chip_id);
 
-        verify_fw_bundle_version(tt_device.get(), asic_id);
-
         log_debug(
             LogUMD,
             "Discovered {} device w/ MMIO, ID: {}, ASIC ID: {}",
@@ -590,7 +588,8 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
             error::UnsupportedCMFWError,
             *tt_device,
             asic_id,
-            fw_bundle_version);
+            fw_bundle_version,
+            minimum_compatible_fw_bundle_version);
         log_warning(LogUMD, err.message());
         health_errors[asic_id].push_back(std::move(err));
         return;

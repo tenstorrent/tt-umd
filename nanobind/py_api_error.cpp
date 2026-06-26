@@ -11,6 +11,7 @@
 
 #include <chrono>
 
+#include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -73,7 +74,8 @@ void bind_error(nb::module_ &m) {
         .def(nb::init<>(), release_gil())
         .def_rw("scratch_status", &ArcStartupData::scratch_status)
         .def_rw("postcode", &ArcStartupData::postcode)
-        .def_rw("message_id", &ArcStartupData::message_id);
+        .def_rw("message_id", &ArcStartupData::message_id)
+        .def_rw("smc_init_status", &ArcStartupData::smc_init_status);
 
     // ArcStartupError.
     nb::class_<ArcStartupError>(error_module, "ArcStartupError")
@@ -104,4 +106,88 @@ void bind_error(nb::module_ &m) {
         .def(
             "message", nb::overload_cast<>(&PcieHangError::message, nb::const_), release_gil(), "Get the error message")
         .def_prop_ro("data", nb::overload_cast<>(&PcieHangError::data, nb::const_), "Get the error data");
+
+    // UninitializedDeviceError. Its data is a plain TTDeviceData (no dedicated data struct).
+    nb::class_<UninitializedDeviceError>(error_module, "UninitializedDeviceError")
+        .def(
+            "message",
+            nb::overload_cast<>(&UninitializedDeviceError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro("data", nb::overload_cast<>(&UninitializedDeviceError::data, nb::const_), "Get the error data");
+
+    // UnsupportedCMFWData.
+    nb::class_<UnsupportedCMFWData, TTDeviceData>(error_module, "UnsupportedCMFWData")
+        .def(nb::init<>(), release_gil())
+        .def_rw("found", &UnsupportedCMFWData::found)
+        .def_rw("minimum", &UnsupportedCMFWData::minimum);
+
+    // UnsupportedCMFWError.
+    nb::class_<UnsupportedCMFWError>(error_module, "UnsupportedCMFWError")
+        .def(
+            "message",
+            nb::overload_cast<>(&UnsupportedCMFWError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro("data", nb::overload_cast<>(&UnsupportedCMFWError::data, nb::const_), "Get the error data");
+
+    // CMFWMismatchData.
+    nb::class_<CMFWMismatchData, TTDeviceData>(error_module, "CMFWMismatchData")
+        .def(nb::init<>(), release_gil())
+        .def_rw("expected", &CMFWMismatchData::expected)
+        .def_rw("found", &CMFWMismatchData::found);
+
+    // CMFWMismatchError.
+    nb::class_<CMFWMismatchError>(error_module, "CMFWMismatchError")
+        .def(
+            "message",
+            nb::overload_cast<>(&CMFWMismatchError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro("data", nb::overload_cast<>(&CMFWMismatchError::data, nb::const_), "Get the error data");
+
+    // EthFirmwareMismatchData.
+    nb::class_<EthFirmwareMismatchData, DeviceCoreData>(error_module, "EthFirmwareMismatchData")
+        .def(nb::init<>(), release_gil())
+        .def_rw("expected", &EthFirmwareMismatchData::expected)
+        .def_rw("found", &EthFirmwareMismatchData::found);
+
+    // EthFirmwareMismatchError.
+    nb::class_<EthFirmwareMismatchError>(error_module, "EthFirmwareMismatchError")
+        .def(
+            "message",
+            nb::overload_cast<>(&EthFirmwareMismatchError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro("data", nb::overload_cast<>(&EthFirmwareMismatchError::data, nb::const_), "Get the error data");
+
+    // UnexpectedRoutingFirmwareConfigData.
+    nb::class_<UnexpectedRoutingFirmwareConfigData, DeviceCoreData>(error_module, "UnexpectedRoutingFirmwareConfigData")
+        .def(nb::init<>(), release_gil())
+        .def_rw("expected", &UnexpectedRoutingFirmwareConfigData::expected)
+        .def_rw("found", &UnexpectedRoutingFirmwareConfigData::found);
+
+    // UnexpectedRoutingFirmwareConfigError.
+    nb::class_<UnexpectedRoutingFirmwareConfigError>(error_module, "UnexpectedRoutingFirmwareConfigError")
+        .def(
+            "message",
+            nb::overload_cast<>(&UnexpectedRoutingFirmwareConfigError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro(
+            "data", nb::overload_cast<>(&UnexpectedRoutingFirmwareConfigError::data, nb::const_), "Get the error data");
+
+    // EthFirmwareHeartbeatData.
+    nb::class_<EthFirmwareHeartbeatData, DeviceCoreData>(error_module, "EthFirmwareHeartbeatData")
+        .def(nb::init<>(), release_gil())
+        .def_rw("value", &EthFirmwareHeartbeatData::value);
+
+    // EthFirmwareHeartbeatError.
+    nb::class_<EthFirmwareHeartbeatError>(error_module, "EthFirmwareHeartbeatError")
+        .def(
+            "message",
+            nb::overload_cast<>(&EthFirmwareHeartbeatError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro("data", nb::overload_cast<>(&EthFirmwareHeartbeatError::data, nb::const_), "Get the error data");
 }

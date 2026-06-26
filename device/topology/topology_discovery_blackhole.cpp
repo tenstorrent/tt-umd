@@ -178,40 +178,6 @@ void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
     is_running_on_6u = tt_device->get_board_type() == BoardType::UBB_BLACKHOLE;
 }
 
-bool TopologyDiscoveryBlackhole::verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
-    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
-    uint64_t current_device_asic_id = get_asic_id(tt_device);
-
-    bool eth_fw_problem = false;
-    if (!expected_eth_fw_version.has_value()) {
-        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
-        if (expected_eth_fw_version.has_value()) {
-            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
-        } else {
-            expected_eth_fw_version = eth_fw_version;
-            log_debug(
-                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
-        }
-        if (erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION > eth_fw_version) {
-            log_warning(LogUMD, "ETH FW version is older than UMD supported version");
-            eth_fw_problem = true;
-        }
-    }
-
-    if (eth_fw_version != expected_eth_fw_version) {
-        log_warning(
-            LogUMD,
-            "ETH FW version mismatch for device ASIC ID: {} ETH core {}, expected: {}, got {}.",
-            current_device_asic_id,
-            eth_core.str(),
-            expected_eth_fw_version->to_string(),
-            eth_fw_version.to_string());
-        eth_fw_problem = true;
-    }
-
-    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
-}
-
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
     uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
     uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);

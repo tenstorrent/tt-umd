@@ -31,6 +31,8 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
+    void set_clock_state(DevicePowerState state) override;
+
     bool get_noc_translation_enabled() override;
 
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -74,6 +76,9 @@ protected:
     void set_arc_coordinate() override;
 
 private:
+    // Builds the ARC message (with the common prefix) that requests the given clock state.
+    uint32_t get_power_state_arc_msg(DevicePowerState state);
+
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,
         IODeviceType device_type,

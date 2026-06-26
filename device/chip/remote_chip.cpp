@@ -53,7 +53,7 @@ void RemoteChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
         if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-            set_power_state(DevicePowerState::LONG_IDLE);
+            set_clock_state(DevicePowerState::LONG_IDLE);
             assert_risc_reset(RiscType::ALL);
         }
     }

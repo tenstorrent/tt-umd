@@ -108,7 +108,9 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    virtual void set_power_state(DevicePowerState state);
+    // Set the device clock state. Delegates to the underlying TTDevice, which drives AICLK via ARC
+    // on supported silicon and is a no-op for chips without a controllable clock.
+    void set_clock_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -144,13 +146,6 @@ protected:
     virtual void wait_dram_cores_training(const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void set_default_params(ARCH arch);
-
-    uint32_t get_power_state_arc_msg(DevicePowerState state);
-
-    void wait_for_aiclk_value(
-        TTDevice* tt_device,
-        DevicePowerState power_state,
-        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     ChipInfo chip_info_;
 };

@@ -995,7 +995,7 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
 
 void Cluster::set_power_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
-        chip->set_power_state(device_state);
+        chip->set_clock_state(device_state);
     }
 }
 

@@ -68,7 +68,6 @@ public:
     void assert_risc_reset(const RiscType selected_riscs) override;
     void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) override;
 
-    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 

@@ -33,6 +33,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -364,6 +365,17 @@ public:
      */
     virtual void set_power_state(bool busy);
 
+    /**
+     * Set the device clock (AICLK) state by sending the corresponding power-state request to ARC
+     * and waiting for the clock to settle at the expected frequency.
+     *
+     * The default implementation is a no-op for backends without a controllable clock (e.g.
+     * simulation); supported silicon backends override it.
+     *
+     * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
+     */
+    virtual void set_clock_state(DevicePowerState state);
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -514,6 +526,11 @@ protected:
     // their noc_multicast_write override here instead of duplicating the fallback loop.
     void multicast_write_via_unicast(
         const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
+    // returns on timeout. Shared by silicon backends that drive the clock via ARC in set_clock_state.
+    void wait_for_aiclk_value(
+        DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 

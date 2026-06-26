@@ -111,8 +111,6 @@ void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void SimulationChip::deassert_risc_resets() {}
 
-void SimulationChip::set_power_state(DevicePowerState state) {}
-
 int SimulationChip::get_clock() { return 0; }
 
 int SimulationChip::arc_msg(

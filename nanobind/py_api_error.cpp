@@ -116,6 +116,15 @@ void bind_error(nb::module_ &m) {
             "Get the error message")
         .def_prop_ro("data", nb::overload_cast<>(&UninitializedDeviceError::data, nb::const_), "Get the error data");
 
+    // UnresolvableCoordinateError. Its data is a plain DeviceCoreData (no dedicated data struct).
+    nb::class_<UnresolvableCoordinateError>(error_module, "UnresolvableCoordinateError")
+        .def(
+            "message",
+            nb::overload_cast<>(&UnresolvableCoordinateError::message, nb::const_),
+            release_gil(),
+            "Get the error message")
+        .def_prop_ro("data", nb::overload_cast<>(&UnresolvableCoordinateError::data, nb::const_), "Get the error data");
+
     // UnsupportedCMFWData.
     nb::class_<UnsupportedCMFWData, TTDeviceData>(error_module, "UnsupportedCMFWData")
         .def(nb::init<>(), release_gil())

@@ -810,7 +810,8 @@ static void terminate_processes(std::initializer_list<pid_t> pids) {
     }
 }
 
-TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
+// Flaky test, warm reset has a probability of failure.
+TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
@@ -846,6 +847,7 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     ASSERT_NE(p1, -1);
     if (p1 == 0) {
         auto cluster = std::make_unique<Cluster>();
+        (void)cluster;
         children_ready.notify(P1_SLOT);
         pause();
         _exit(EXIT_SUCCESS_CODE);

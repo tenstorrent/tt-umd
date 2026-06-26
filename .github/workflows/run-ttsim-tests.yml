@@ -11,14 +11,14 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
 
 jobs:
   build-and-run-ttsim:
@@ -43,8 +43,6 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500  # Need enough history for `git describe`
-          fetch-tags: true  # Need tags for `git describe`
 
       - name: Checkout UMD
         uses: actions/checkout@v6

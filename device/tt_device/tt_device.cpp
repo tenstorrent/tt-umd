@@ -534,19 +534,19 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
+    const xy_pair core_start_xy = resolve_coordinate(core_start);
+    const xy_pair core_end_xy = resolve_coordinate(core_end);
     bool multicast_success =
-        device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
+        device_protocol_->write_to_core_range(src, core_start_xy, core_end_xy, addr, size, get_selected_noc_id());
 
     log_debug(
         LogUMD,
-        "Multicast on {} chip write to cores ({}, {}) - ({}, {}) {}",
+        "Multicast on {} chip write to cores {} - {} {}",
         is_remote_tt_device ? "remote" : "local",
-        core_start.x,
-        core_start.y,
-        core_end.x,
-        core_end.y,
+        core_start.str(),
+        core_end.str(),
         multicast_success ? "succeeded" : "fell back to unicast");
 
     // We need to flush the writes in case of remote communication.
@@ -588,38 +588,37 @@ void TTDevice::noc_multicast_write(
         return (tensix_harvesting_mask & (1u << row)) == 0;
     };
 
-    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
-        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
+    for (uint32_t x = core_start_xy.x; x <= core_end_xy.x; ++x) {
+        for (uint32_t y = core_start_xy.y; y <= core_end_xy.y; ++y) {
+            const CoreCoord xy_i = CoreCoord(x, y);
             log_trace(
                 LogUMD,
-                "noc_multicast_write fallback unicast to core at ({}, {}) is_tensix {}",
-                x,
-                y,
+                "noc_multicast_write fallback unicast to core at {}, is_tensix: {}.",
+                xy_i.str(),
                 is_active_tensix(x, y));
             if (is_active_tensix(x, y)) {
-                write_to_device(src, xy_pair(x, y), addr, size);
+                write_to_device(src, xy_i, addr, size);
             }
         }
     }
     get_remote_communication()->wait_for_non_mmio_flush();
 }
 
-void TTDevice::noc_multicast_write(
-    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    noc_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
-}
-
 void TTDevice::multicast_write_via_unicast(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+    const xy_pair core_start_xy = resolve_coordinate(core_start);
+    const xy_pair core_end_xy = resolve_coordinate(core_end);
     // No hardware multicast on simulation backends; fall back to per-core unicast.
     // TODO: investigate proper multicast support for simulations so we can remove this workaround.
-    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
-        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            // BLACKHOLE: x==8 is ARC/L2CPU and x==9 is GDDR, not actual Tensix cores.
-            if (arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
+    for (uint32_t x = core_start_xy.x; x <= core_end_xy.x; ++x) {
+        for (uint32_t y = core_start_xy.y; y <= core_end_xy.y; ++y) {
+            // Only multicast to actual Tensix cores; skip non-Tensix cores (e.g. ARC/L2CPU, DRAM) in the range.
+            const tt_xy_pair core{x, y};
+            if (!soc_descriptor.is_core_of_type(core, CoreType::TENSIX, CoordSystem::TRANSLATED)) {
                 continue;
             }
-            write_to_device(src, tt_xy_pair{x, y}, addr, size);
+            write_to_device(src, core, addr, size);
         }
     }
 }

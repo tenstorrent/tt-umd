@@ -22,6 +22,7 @@
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -341,7 +342,7 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
 }
 
 void RtlSimulationTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 

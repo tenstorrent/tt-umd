@@ -208,8 +208,6 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    virtual void noc_multicast_write(
         const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     /**
@@ -509,7 +507,7 @@ protected:
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
     void multicast_write_via_unicast(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+        const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 

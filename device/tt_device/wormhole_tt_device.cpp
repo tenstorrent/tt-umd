@@ -417,7 +417,7 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
 }
 
 void WormholeTTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     ZoneScopedC(tracy::Color::Orange);
     if (!is_remote_tt_device) {
         TTDevice::noc_multicast_write(src, size, core_start, core_end, addr);
@@ -430,15 +430,7 @@ void WormholeTTDevice::noc_multicast_write(
     //
     // Coordinates may be in TRANSLATED or NOC0 space; pick the coord system from core_start since the
     // two ranges don't overlap.
-    const CoordSystem coord_system =
-        (core_start.x >= wormhole::tensix_translated_coordinate_start_x) ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
-    for (const auto &core : get_soc_descriptor().get_cores(CoreType::TENSIX, coord_system)) {
-        if (core.x < core_start.x || core.x > core_end.x || core.y < core_start.y || core.y > core_end.y) {
-            continue;
-        }
-        log_trace(LogUMD, "noc_multicast_write fallback unicast to TENSIX core at ({}, {})", core.x, core.y);
-        write_to_device(src, xy_pair(core.x, core.y), addr, size);
-    }
+    multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
 void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {

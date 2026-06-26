@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "umd/device/chip/chip.hpp"
+#include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -254,7 +255,15 @@ public:
 
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
-    using DeviceHealthError = std::variant<error::ArcStartupError, error::NocHangError, error::PcieHangError>;
+    using DeviceHealthError = std::variant<
+        error::ArcStartupError,
+        error::NocHangError,
+        error::PcieHangError,
+        error::UnsupportedCMFWError,
+        error::CMFWMismatchError,
+        error::UnexpectedRoutingFirmwareConfigError,
+        error::EthFirmwareMismatchError,
+        error::EthFirmwareHeartbeatError>;
 
     const std::map<ChipId, std::vector<DeviceHealthError>> &get_health_errors() const { return health_errors; }
 

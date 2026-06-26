@@ -180,8 +180,8 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(
             error::UnexpectedRoutingFirmwareConfigError,
             *tt_device,
             asic_id,
-            /*expected=*/routing_firmware_disabled == is_running_on_6u,
-            /*found=*/routing_firmware_disabled,
+            /*expected=*/!is_running_on_6u,
+            /*found=*/routing_firmware_disabled == 0,
             eth_core);
         log_warning(LogUMD, err.message());
         health_errors[asic_id].push_back(std::move(err));

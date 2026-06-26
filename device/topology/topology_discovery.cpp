@@ -640,17 +640,23 @@ bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t
             log_debug(
                 LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
         }
+
+        SemVer minimum_supported = (get_topology_arch() == ARCH::BLACKHOLE)
+                                       ? erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION
+                                       : erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION;
+        if (expected_eth_fw_version < minimum_supported) {
+            log_warning(
+                LogUMD,
+                "The expected ETH firmware version {} is older than the minimum supported version {}",
+                expected_eth_fw_version->str(),
+                minimum_supported.str());
+            eth_fw_problem = true;
+        }
     }
 
     if (eth_fw_version != expected_eth_fw_version) {
-        auto err = UMD_THROW_OR_RETURN(
-            options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::THROW,
-            error::EthFirmwareMismatchError,
-            *tt_device,
-            asic_id,
-            expected_eth_fw_version.value(),
-            eth_fw_version,
-            eth_core);
+        auto err = error::EthFirmwareMismatchError(
+            *tt_device, asic_id, expected_eth_fw_version.value(), eth_fw_version, eth_core);
         log_warning(LogUMD, err.message());
         health_errors[asic_id].push_back(std::move(err));
         eth_fw_problem = true;
@@ -700,6 +706,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic
                 "Read invalid heartbeat signature: {:#x} from ETH core: {}, FW possibly corrupted.",
                 current_reading,
                 eth_core.str());
+            return false;
         }
 
         if (previous_reading != current_reading) {

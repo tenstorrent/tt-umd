@@ -242,7 +242,7 @@ void TTDevice::set_power_state(bool busy) {
     get_pci_device()->set_power_state(busy);
 }
 
-void TTDevice::set_clock_state(DevicePowerState state) {
+void TTDevice::set_clock_state(DevicePowerState /*state*/) {
     // No-op by default. Backends with a controllable clock (Wormhole, Blackhole) override this to
     // drive AICLK via ARC; backends without one (e.g. simulation) keep the no-op.
 }

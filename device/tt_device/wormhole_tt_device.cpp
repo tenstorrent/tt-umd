@@ -135,7 +135,7 @@ uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
 void WormholeTTDevice::set_clock_state(DevicePowerState state) {
     ZoneScoped;
     uint32_t msg = get_power_state_arc_msg(state);
-    int exit_code = get_arc_messenger()->send_message(wormhole::ARC_MSG_COMMON_PREFIX | msg, {0, 0});
+    int exit_code = get_arc_messenger()->send_message(msg, {0, 0});
     UMD_ASSERT(
         exit_code == 0,
         error::RuntimeError,

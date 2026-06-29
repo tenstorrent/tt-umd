@@ -8,8 +8,12 @@ on:
         required: true
         type: string
       timeout:
-        required: true
+        required: false
         type: number
+        default: 30
+        description: >-
+          Build job timeout in minutes. Defaults to 30, sized for the
+          github-hosted runners. Callers only set this to override.
       build-type:
         required: true
         type: string

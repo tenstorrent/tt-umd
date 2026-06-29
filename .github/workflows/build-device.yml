@@ -9,7 +9,7 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 15
+        default: 30
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
@@ -87,7 +87,7 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
     needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
     strategy:
       fail-fast: false
@@ -309,7 +309,7 @@ jobs:
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
     needs: [ensure-manylinux-image, ensure-manylinux-aarch64-image]
     strategy:
       fail-fast: false
@@ -365,7 +365,7 @@ jobs:
 
   test-packages:
     needs: [build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
     strategy:
       fail-fast: false
       matrix:

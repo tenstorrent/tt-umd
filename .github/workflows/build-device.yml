@@ -84,11 +84,24 @@ jobs:
     with:
       docker-version: manylinux-aarch64
 
+  ensure-riscv-image:
+    name: Ensure ubuntu-24.04-riscv Docker image
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-riscv
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
+    needs:
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
     strategy:
       fail-fast: false
       matrix:
@@ -311,6 +324,60 @@ jobs:
           path: |
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
+
+  build-riscv-emulated:
+    # Emulated riscv64 build. A riscv64 image can't be used as a job `container:`
+    # on an x86 runner (GitHub pulls it as linux/amd64 and fails), so this runs on
+    # a plain x86 runner, registers QEMU/binfmt, and builds inside the image via
+    # `docker run --platform linux/riscv64`. Build-only.
+    timeout-minutes: 60
+    needs: ensure-riscv-image
+    permissions:
+      packages: read
+    name: Build device (release flags) on ubuntu-24.04-riscv with gcc
+    runs-on: tt-ubuntu-2204-large-stable
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ${{ env.TT_UMD_DIR }}
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build All
+        shell: bash
+        run: |
+          IMAGE_TAG="${{ needs.ensure-riscv-image.outputs.image-tag }}"
+          IMAGE="ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv:${IMAGE_TAG}"
+          echo "Building inside $IMAGE under QEMU (linux/riscv64)..."
+          # Release flags (tests off -> no gtest), executed natively inside the
+          # emulated riscv64 image.
+          docker run --rm --platform linux/riscv64 \
+            -v "$GITHUB_WORKSPACE/${{ env.TT_UMD_DIR }}:/work" -w /work \
+            "$IMAGE" \
+            bash -c '
+              set -euo pipefail
+              git config --global --add safe.directory "*"
+              cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+                -DTT_UMD_BUILD_TESTS=OFF \
+                -DTT_UMD_BUILD_SIMULATION=OFF \
+                -DTT_UMD_BUILD_PIP=OFF \
+                -DTT_UMD_BUILD_PYTHON=ON \
+                -DTT_UMD_BUILD_EXAMPLES=OFF \
+                -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+                -DCMAKE_BUILD_TYPE=Release
+              cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+              echo "Compile complete."
+            '
 
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.

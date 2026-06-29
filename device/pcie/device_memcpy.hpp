@@ -30,8 +30,12 @@ namespace tt::umd {
  * written as individual byte-wide PCIe transactions (the Blackhole PCIe controller supports
  * sub-DWORD writes natively, so no read-modify-write is required).
  *
- * Each TLB-touching op is bounded by a per-op timeout; on overrun the optional on_timeout callback
- * decides whether to abort with tt::umd::error::DeviceTimeoutError (see the on_timeout doc above).
+ * Each TLB-touching op is bounded by a per-op timeout. on_timeout is an optional liveness veto,
+ * consulted only when a single op exceeds its budget: returning true means "false alarm, the op is
+ * healthy" and the transfer continues; returning false confirms the overrun. When the op is confirmed
+ * over budget (callback returned false, or no callback was supplied) the transfer aborts by throwing
+ * tt::umd::error::DeviceTimeoutError. The callback must not re-enter a timed memcpy on the same I/O
+ * lock path; any device access it performs must go through an independent window.
  */
 void memcpy_to_device(
     volatile void* dest, const void* src, std::size_t size, const std::function<bool()>& on_timeout = {});
@@ -54,10 +58,9 @@ void memcpy_from_device(
     void* dest, const volatile void* src, std::size_t size, const std::function<bool()>& on_timeout = {});
 
 /**
- * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Each carries the same
- * optional per-op budget as the bulk memcpy routines: on overrun the behavior follows on_timeout
- * (no callback throws DeviceTimeoutError; see the on_timeout doc above). Centralizing them here keeps
- * every TLB-touching store/load behind a single set of timed primitives.
+ * Single-DWORD/word scalar transfers to/from TLB-mapped device memory. Each carries the same per-op
+ * budget and on_timeout semantics as memcpy_to_device. Centralizing them here keeps every TLB-touching
+ * store/load behind a single set of timed primitives.
  */
 void write16_to_device(volatile void* dest, std::uint16_t value, const std::function<bool()>& on_timeout = {});
 void write32_to_device(volatile void* dest, std::uint32_t value, const std::function<bool()>& on_timeout = {});

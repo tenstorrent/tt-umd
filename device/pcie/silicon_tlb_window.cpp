@@ -67,42 +67,51 @@ struct ScopedJumpGuard {
 }
 
 SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
-    TlbWindow(std::move(handle), config) {}
+    TlbWindow(std::move(handle), config) {
+    update_io_timeout_callback();
+}
 
 void SiliconTlbWindow::set_io_timeout_hang_check(const std::function<bool(NocId)> &hang_check) {
     hang_check_ = hang_check;
+    update_io_timeout_callback();
 }
 
-std::function<bool()> SiliconTlbWindow::make_io_timeout_callback() const {
+void SiliconTlbWindow::configure(const tlb_data &new_config) {
+    TlbWindow::configure(new_config);
+    update_io_timeout_callback();
+}
+
+void SiliconTlbWindow::update_io_timeout_callback() {
     if (!hang_check_) {
-        return {};
+        io_timeout_callback_ = {};
+        return;
     }
     // The live TLB config's noc_sel is whatever the last (re)configure selected, so it identifies the
     // in-flight op's NOC. is_false_alarm semantics (OpTimeoutGuard): healthy NOC => true (ignore the
     // overrun), hung NOC => false (confirm it and abort with DeviceTimeoutError).
     const NocId noc = static_cast<NocId>(handle_ref().get_config().noc_sel);
     auto hang_check = hang_check_;
-    return [hang_check, noc]() -> bool { return !hang_check(noc); };
+    io_timeout_callback_ = [hang_check, noc]() -> bool { return !hang_check(noc); };
 }
 
 void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
-    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, make_io_timeout_callback());
+    write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
 uint16_t SiliconTlbWindow::read16(uint64_t offset) {
     validate(offset, sizeof(uint16_t));
-    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), make_io_timeout_callback());
+    return read16_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
     validate(offset, sizeof(uint32_t));
-    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, make_io_timeout_callback());
+    write32_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
 }
 
 uint32_t SiliconTlbWindow::read32(uint64_t offset) {
     validate(offset, sizeof(uint32_t));
-    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), make_io_timeout_callback());
+    return read32_from_device(tlb_handle->get_base() + get_total_offset(offset), io_timeout_callback_);
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
@@ -112,7 +121,7 @@ void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t 
 
     validate(offset, size);
 
-    write_regs(dst, src, n, make_io_timeout_callback());
+    write_regs(dst, src, n, io_timeout_callback_);
 }
 
 void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
@@ -122,7 +131,7 @@ void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
 
     validate(offset, size);
 
-    read_regs((void *)src, n, (void *)dst, make_io_timeout_callback());
+    read_regs((void *)src, n, (void *)dst, io_timeout_callback_);
 }
 
 void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
@@ -130,11 +139,10 @@ void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t siz
 
     validate(offset, size);
 
-    const std::function<bool()> on_timeout = make_io_timeout_callback();
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_to_device((void *)dst, data, size, on_timeout);
+        memcpy_to_device((void *)dst, data, size, io_timeout_callback_);
     } else {
-        umd::memcpy_to_device(dst, data, size, on_timeout);
+        umd::memcpy_to_device(dst, data, size, io_timeout_callback_);
     }
 }
 
@@ -143,11 +151,10 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
 
     validate(offset, size);
 
-    const std::function<bool()> on_timeout = make_io_timeout_callback();
     if (tlb_handle->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        memcpy_from_device(data, src, size, on_timeout);
+        memcpy_from_device(data, src, size, io_timeout_callback_);
     } else {
-        umd::memcpy_from_device(data, src, size, on_timeout);
+        umd::memcpy_from_device(data, src, size, io_timeout_callback_);
     }
 }
 

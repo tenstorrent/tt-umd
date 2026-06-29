@@ -91,14 +91,18 @@ public:
     // When empty (the default), an overrun aborts outright.
     void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) override;
 
+    // Reconfigures the window and refreshes the cached timeout callback, since the NOC may have changed.
+    void configure(const tlb_data& new_config) override;
+
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
 private:
-    // Builds the per-op timeout veto (an OpTimeoutGuard is_false_alarm callback) for the window's
-    // currently configured NOC: true means "healthy, false positive" so the overrun is ignored, false
-    // confirms it. Reads the NOC from the live TLB config, so it tracks whatever the last (re)configure
-    // selected. Returns an empty callback when no hang check is wired, which makes an overrun abort.
-    std::function<bool()> make_io_timeout_callback() const;
+    // Rebuilds io_timeout_callback_ (an OpTimeoutGuard is_false_alarm callback) for the window's currently
+    // configured NOC: true means "healthy, false positive" so the overrun is ignored, false confirms it.
+    // The NOC is read from the live TLB config, so this must be called whenever the config or hang check
+    // changes (construction, configure(), set_io_timeout_hang_check()). Leaves an empty callback when no
+    // hang check is wired, which makes an overrun abort.
+    void update_io_timeout_callback();
 
     // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).
     // Both routines assume that misaligned accesses are permitted on host memory.
@@ -120,6 +124,9 @@ private:
     decltype(auto) execute_safe(Func&& func, Args&&... args);
 
     std::function<bool(NocId)> hang_check_;
+    // Cached is_false_alarm callback bound to the currently configured NOC; refreshed by
+    // update_io_timeout_callback() so the IO paths need not rebuild it per call.
+    std::function<bool()> io_timeout_callback_;
 };
 
 }  // namespace tt::umd

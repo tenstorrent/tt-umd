@@ -126,7 +126,7 @@ public:
     // Shared utility methods.
     TlbHandle& handle_ref() const;
     size_t get_size() const;
-    void configure(const tlb_data& new_config);
+    virtual void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
 
 protected:

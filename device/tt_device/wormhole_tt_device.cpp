@@ -140,7 +140,14 @@ void WormholeTTDevice::set_clock_state(DevicePowerState state) {
         exit_code == 0,
         error::RuntimeError,
         fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
-    wait_for_aiclk_value(state);
+
+    // SHORT_IDLE has no defined target AICLK, so waiting for the clock to settle would needlessly
+    // block until timeout. Skip the wait for that state.
+    if (state == DevicePowerState::SHORT_IDLE) {
+        log_warning(LogUMD, "Skipping AICLK settle wait for SHORT_IDLE clock state.");
+    } else {
+        wait_for_aiclk_value(state);
+    }
 }
 
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {

@@ -21,6 +21,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -111,17 +112,21 @@ bool ArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
 }
 
 void ArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms) {
-    auto start = std::chrono::steady_clock::now();
+    constexpr auto busy_poll_window = std::chrono::microseconds(0);
     constexpr auto poll_interval = std::chrono::milliseconds(10);
 
-    get_telemetry_address();
-    while (telemetry_table_addr_reg == 0) {
-        if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            log_warning(tt::LogUMD, "Timeout waiting for ARC telemetry initialization (table pointer not published).");
-            return;
-        }
-        std::this_thread::sleep_for(poll_interval);
-        get_telemetry_address();
+    const bool initialized = utils::poll_until(
+        [this]() {
+            get_telemetry_address();
+            return telemetry_table_addr_reg != 0;
+        },
+        timeout_ms,
+        busy_poll_window,
+        poll_interval);
+
+    if (!initialized) {
+        log_warning(tt::LogUMD, "Timeout waiting for ARC telemetry initialization (table pointer not published).");
+        return;
     }
 
     initialize_telemetry();

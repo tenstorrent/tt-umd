@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "simulation/simulation_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -52,11 +53,12 @@ bool sim_dram_teleport_enabled() {
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
-    return TTSimTTDevice::create_for_chip(simulator_directory, /* chip_id= */ static_cast<ChipId>(0), copy_sim_binary);
+    return TTSimTTDevice::create_for_chip(
+        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels, copy_sim_binary);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
-    const std::filesystem::path& simulator_directory, ChipId chip_id, bool copy_sim_binary) {
+    const std::filesystem::path& simulator_directory, ChipId chip_id, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
@@ -67,7 +69,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary, 0);
+    return std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -168,7 +171,13 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapp
     return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
-TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() {
+    // Stop serving (and remove the socket) before tearing the backend down.
+    socket_.reset();
+    communicator_->shutdown();
+}
+
+void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationSocket> socket) { socket_ = std::move(socket); }
 
 void TTSimTTDevice::start_device() {}
 

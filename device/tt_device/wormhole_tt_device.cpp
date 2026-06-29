@@ -447,7 +447,7 @@ void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
 
     auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_remote_tt_device ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     noc_multicast_write(src, size, start, end, addr);
 }
 

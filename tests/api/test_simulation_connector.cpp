@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/simulation/simulation_connector.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 
@@ -21,13 +21,13 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path socket = SimulationSocket::default_socket_path(0);
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
     // discover() resolves this well-known machine-wide path internally, so the test can't point
     // it at a private one. Rather than blindly unlink it (which would clobber a host from a
     // concurrent run), probe with try_create: a live owner -> skip; otherwise we hold a fresh or
     // reclaimed socket, released here so discover() can bind it itself.
     {
-        auto probe = SimulationSocket::try_create(socket);
+        auto probe = SimulationServerSocket::try_create(socket);
         if (probe == nullptr) {
             GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping to avoid clobbering it.";
         }
@@ -50,8 +50,8 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
 // client/attach path as an error rather than trying to host. This exercises the host-vs-client
 // arbiter's throw branch without a simulator: discover() bails before TTSimTTDevice::create().
 TEST(SimulationConnector, ThrowsWhenLiveHostAlreadyExists) {
-    const std::filesystem::path socket = SimulationSocket::default_socket_path(0);
-    auto host = SimulationSocket::try_create(socket);
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
+    auto host = SimulationServerSocket::try_create(socket);
     if (host == nullptr) {
         GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
     }

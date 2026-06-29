@@ -140,7 +140,7 @@ target_sources(
         # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
         # so always built. This lets its unit tests run in the no-card baremetal CI lane
         # (TT_UMD_BUILD_SIMULATION=OFF).
-        simulation/simulation_socket.cpp
+        simulation/simulation_server_socket.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

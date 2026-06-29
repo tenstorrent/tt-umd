@@ -84,13 +84,6 @@ jobs:
       - name: Create benchmark results directory
         run: mkdir -p /tmp/umd_microbenchmark_results
 
-      - name: Gather host machine specification
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
-            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec \
-            --card "${{ inputs.card }}"
-
       - name: Run TLB benchmarks
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
@@ -115,6 +108,18 @@ jobs:
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/microbenchmark/umd_microbenchmark  --gtest_filter=MicrobenchmarkEthernetIO*
+
+      # Latest released UMD Python bindings, used only by gather_host_specs to
+      # detect the board type.
+      - name: Install UMD Python bindings
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: python3 -m pip install --no-cache-dir tt-umd
+
+      - name: Gather host machine specification
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
+            --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
 
       - name: Upload JSON benchmark results
         uses: actions/upload-artifact@v7

@@ -33,9 +33,10 @@ git add tests/microbenchmark/baselines/n150.yaml
 git commit -m "Recalibrate n150 baseline from CI run <run-id>"
 ```
 
-The arch is inferred from the `Card` field in the artifact's
-`machine_host_spec.json`; pass `--arch <label>` only to override it (e.g. when
-recalibrating from results that lack the host-spec sidecar).
+The arch (and the `<arch>.yaml` filename) is taken from the `BoardType` field in
+the artifact's `machine_host_spec.json`, which `gather_host_specs.py` detects on
+the runner via UMD's `tt_umd` bindings. If that field is missing or `unknown`,
+the script errors out.
 
 Behavior:
 

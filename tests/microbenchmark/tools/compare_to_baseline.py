@@ -35,7 +35,6 @@ from summarize_regressions import (
     read_arch_results,
     render_summary,
 )
-from utils import ARCH_NAMES
 
 BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
 
@@ -75,7 +74,7 @@ def main() -> int:
     p.add_argument(
         "--arch",
         required=True,
-        choices=ARCH_NAMES,
+        type=str,
         help="Arch label to compare against (must match a file in --baselines-dir).",
     )
     p.add_argument(

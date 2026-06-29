@@ -16,9 +16,9 @@ noise (cold-cache or between-process effects), raise MAPE_K — K≈2.5 covers
 ~3σ of a median-vs-median comparison under normal-distribution assumptions.
 
 Typical workflow: a CI run produced a `benchmark-json-<arch>-...` artifact;
-download it and point this script at the result. The arch is inferred from the
-`Card` field recorded in the artifact's machine_host_spec.json, so --arch is
-optional (pass it only to override the inference).
+download it and point this script at the result. The arch (and the YAML filename
+`<arch>.yaml`) is taken from the `BoardType` field recorded in the artifact's
+machine_host_spec.json, detected on the runner via UMD's `tt_umd` bindings.
 
 Example:
 
@@ -53,7 +53,7 @@ from datetime import date
 from pathlib import Path
 
 import yaml
-from utils import ARCH_NAMES, arch_label_from_string, load_nanobench_json, yaml_escape
+from utils import load_nanobench_json, yaml_escape
 
 # --- Tolerance math -------------------------------------------------------------
 #
@@ -127,14 +127,14 @@ def collect_entries(results_dir: Path) -> dict:
 def read_host_info(results_dir: Path) -> dict:
     """Return the `host_info` dict from the host-spec sidecar, or {} if absent.
 
-    Source of the runner name and the card the arch label is inferred from. Returns
-    {} (with a warning) if the file is missing or unreadable.
+    Source of the runner name and the detected board type the arch label comes
+    from. Returns {} (with a warning) if the file is missing or unreadable.
     """
     spec_path = results_dir / HOST_SPEC_FILENAME
     if not spec_path.exists():
         print(
             f"WARN: {spec_path.name} not found in results; "
-            f"runner_hostname will be 'unknown' and --arch must be given.",
+            "runner_hostname and arch cannot be determined.",
             file=sys.stderr,
         )
         return {}
@@ -307,16 +307,6 @@ def render_arch_yaml(
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
-        "--arch",
-        choices=ARCH_NAMES,
-        default=None,
-        help=(
-            "Arch label whose baseline YAML to update. Optional: when omitted, "
-            "it's inferred from the `Card` field in the results' "
-            f"{HOST_SPEC_FILENAME}. Pass it to override that inference."
-        ),
-    )
-    p.add_argument(
         "--from-results-dir",
         type=Path,
         required=True,
@@ -348,12 +338,13 @@ def main() -> int:
     host_info = read_host_info(results_dir)
     runner_hostname = host_info.get("CI_Runner") or "unknown"
 
-    arch = args.arch or arch_label_from_string(host_info.get("Card") or "")
+    detected = host_info.get("BoardType")
+    arch = detected if detected and detected != "unknown" else None
     if not arch:
         sys.exit(
-            "Could not determine arch: pass --arch explicitly, or run against "
-            f"results whose {HOST_SPEC_FILENAME} carries a `Card` field "
-            f"containing one of {ARCH_NAMES}."
+            f"Could not determine arch: run against results whose {HOST_SPEC_FILENAME} "
+            "carries a detected `BoardType` (written by gather_host_specs.py from "
+            "UMD's tt_umd bindings)."
         )
     yaml_filename = f"{arch}.yaml"
 

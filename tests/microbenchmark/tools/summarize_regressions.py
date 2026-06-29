@@ -33,9 +33,29 @@ from pathlib import Path
 
 import yaml
 
-from utils import arch_label_from_string, format_throughput, load_nanobench_json
+from utils import format_throughput, load_nanobench_json
+
+HOST_SPEC_FILENAME = "machine_host_spec.json"
 
 # --- Data collection -------------------------------------------------------------
+
+
+def board_type_from_artifact(artifact_dir: Path):
+    """Arch label for a `benchmark-json-*` artifact: the `BoardType` that gather
+    detected via tt_umd, read from its machine_host_spec.json. None if the sidecar
+    is missing/unreadable or carries no usable BoardType ("unknown").
+    """
+    spec_path = artifact_dir / HOST_SPEC_FILENAME
+    if not spec_path.exists():
+        return None
+    try:
+        data = json.loads(spec_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return None
+    board_type = (data.get("host_info") or {}).get("BoardType")
+    if not board_type or board_type == "unknown":
+        return None
+    return board_type
 
 
 def read_arch_results(json_dir: Path, arch_label: str = "(unknown)") -> dict:
@@ -103,10 +123,10 @@ def collect_current_results(current_dir: Path) -> dict:
             continue
         if not artifact_dir.name.startswith("benchmark-json-"):
             continue
-        arch = arch_label_from_string(artifact_dir.name)
+        arch = board_type_from_artifact(artifact_dir)
         if arch is None:
             print(
-                f"WARN: cannot derive arch label from artifact {artifact_dir.name}; skipping",
+                f"WARN: no detected BoardType in {artifact_dir.name}/{HOST_SPEC_FILENAME}; skipping",
                 file=sys.stderr,
             )
             continue

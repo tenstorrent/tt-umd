@@ -31,11 +31,11 @@ import sys
 from pathlib import Path
 
 from summarize_regressions import (
-    ARCH_NAMES,
     load_baselines_dir,
     read_arch_results,
     render_summary,
 )
+from utils import ARCH_NAMES
 
 BASELINES_DIR_DEFAULT = Path(__file__).resolve().parents[1] / "baselines"
 

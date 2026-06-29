@@ -82,4 +82,8 @@ struct UninitializedDeviceError : UmdError<TTDeviceData> {
     UninitializedDeviceError(const TTDevice& tt_device);
 };
 
+struct UnresolvableCoordinateError : UmdError<DeviceCoreData> {
+    UnresolvableCoordinateError(const TTDevice& tt_device, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
+};
+
 }  // namespace tt::umd::error

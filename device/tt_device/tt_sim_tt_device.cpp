@@ -186,45 +186,47 @@ void TTSimTTDevice::close_device() {
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     if (communicator_->is_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+            if (communicator_->dram_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
                 return;
             }
-            communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+            communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
             return;
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     if (communicator_->is_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-                communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+            if (!communicator_->dram_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
+                communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
             }
             communicator_->advance_clock(10);
             return;
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
     // in the absence of an API reliably called from all spin loops polling the device

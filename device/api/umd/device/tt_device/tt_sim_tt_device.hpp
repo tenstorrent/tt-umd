@@ -19,6 +19,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -53,8 +54,8 @@ public:
         int num_host_mem_channels = 0,
         bool copy_sim_binary = false);
 
-    void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-    void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+    void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;

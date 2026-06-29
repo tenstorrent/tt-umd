@@ -187,3 +187,18 @@ if(TT_UMD_BUILD_TESTS)
 endif(TT_UMD_BUILD_TESTS)
 
 include(packaging)
+
+# Print the effective value of every UMD option at the end of configuration.
+# Values come from the cache, so this reflects what is actually used for this
+# build, including values inherited from a previous configure of the same dir.
+message(STATUS "")
+message(STATUS "==================== UMD configuration summary ====================")
+message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+get_cmake_property(_umd_cache_vars CACHE_VARIABLES)
+list(SORT _umd_cache_vars)
+foreach(_var IN LISTS _umd_cache_vars)
+    if(_var MATCHES "^TT_")
+        message(STATUS "  ${_var} = ${${_var}}")
+    endif()
+endforeach()
+message(STATUS "===================================================================")

@@ -66,9 +66,8 @@ struct ScopedJumpGuard {
     signal(SIGBUS, SIG_DFL);
 }
 
-SiliconTlbWindow::SiliconTlbWindow(
-    std::unique_ptr<TlbHandle> handle, const tlb_data config, std::function<bool(NocId)> hang_check) :
-    TlbWindow(std::move(handle), config), hang_check_(std::move(hang_check)) {}
+SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
+    TlbWindow(std::move(handle), config) {}
 
 void SiliconTlbWindow::set_io_timeout_hang_check(const std::function<bool(NocId)> &hang_check) {
     hang_check_ = hang_check;

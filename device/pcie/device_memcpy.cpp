@@ -21,12 +21,10 @@ namespace tt::umd {
 
 namespace {
 
-// Builds the per-op timeout guard for the MMIO transfer routines: the configured budget plus the
-// optional liveness veto, with an overrun action that throws DeviceTimeoutError. `bytes_remaining` is
-// captured by reference so the error reflects how much was left when the stall fired.
-//
-// The veto must not re-enter the stalled op: it must not re-take its I/O lock or loop back into this
-// path, and any device I/O it does must go through an independent path (see on_timeout docs in the header).
+// Builds the per-op timeout guard for the MMIO transfer routines: the configured budget, the on_timeout
+// callback, and an overrun action that throws DeviceTimeoutError. `bytes_remaining` is captured by
+// reference so the error reflects how much was left when the stall fired. on_timeout must not re-enter
+// the stalled op (see the on_timeout docs in the header).
 auto make_mmio_timeout_guard(
     const char* op_verb,
     std::size_t total_bytes,

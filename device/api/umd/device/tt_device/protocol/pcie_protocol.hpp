@@ -99,9 +99,8 @@ private:
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 
-    // Hang check forwarded per-call to the cached window's timed memcpy path. The in-flight op's NOC is
-    // bound into a per-call lambda at each I/O call site, so the check probes the right NOC. Empty until a
-    // HangDetector is wired in (see TTDevice::set_hang_detector); while empty, an overrun throws.
+    // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
+    // TTDevice::set_hang_detector).
     std::function<bool(NocId)> hang_check_;
 };
 

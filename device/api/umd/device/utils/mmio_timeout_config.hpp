@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 
@@ -14,16 +15,15 @@ namespace tt::umd {
 /**
  * @brief Runtime-configurable per-op budget for host-side MMIO (TLB-mapped) transfers.
  *
- * The per-op MMIO timeout is still being tuned, so the budget is settable at runtime via this small
- * setter/getter instead of a constant. A programmatic setter (rather than an env var) is discoverable,
- * strongly typed, testable, and does not leak across processes; callers set it explicitly from their
- * code (or from Python). Once the right default settles this class can be deleted in favor of the
- * timeout::MMIO_OP_TIMEOUT constant. Defaults to timeout::MMIO_OP_TIMEOUT.
+ * Defaults to timeout::MMIO_OP_TIMEOUT; set_op_timeout overrides it at runtime. A non-positive budget
+ * disables the per-op MMIO timeout.
  */
 class MmioTimeoutConfig {
 public:
     static void set_op_timeout(std::chrono::milliseconds timeout) {
-        op_timeout_ms_.store(timeout.count(), std::memory_order_relaxed);
+        // Clamp non-positive budgets to 0 (disabled); a negative budget would otherwise make every op
+        // look over budget.
+        op_timeout_ms_.store(std::max<std::chrono::milliseconds::rep>(0, timeout.count()), std::memory_order_relaxed);
     }
 
     static std::chrono::milliseconds get_op_timeout() {

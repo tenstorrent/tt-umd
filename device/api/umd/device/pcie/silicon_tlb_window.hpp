@@ -24,12 +24,7 @@ class TlbHandle;
  */
 class SiliconTlbWindow : public TlbWindow {
 public:
-    // hang_check (optional) wires the per-op MMIO timeout: on a single-op overrun it is consulted for the
-    // window's currently configured NOC. Returning true means that NOC is hung (the transfer aborts with
-    // DeviceTimeoutError); false means it is healthy (a slow-but-completing op is not a false positive).
-    // When empty, an overrun aborts outright. See make_io_timeout_callback().
-    SiliconTlbWindow(
-        std::unique_ptr<TlbHandle> handle, const tlb_data config = {}, std::function<bool(NocId)> hang_check = {});
+    SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
 
     // Implementation of memory access methods using direct pointer access.
     void write16(uint64_t offset, uint16_t value) override;
@@ -90,6 +85,10 @@ public:
         NocId noc_id,
         uint64_t ordering = tlb_data::Strict) override;
 
+    // Wires the per-op MMIO timeout: on a single-op overrun hang_check is consulted for the window's
+    // currently configured NOC. Returning true means that NOC is hung (the transfer aborts with
+    // DeviceTimeoutError); false means it is healthy (a slow-but-completing op is not a false positive).
+    // When empty (the default), an overrun aborts outright.
     void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) override;
 
     static void set_sigbus_safe_handler(bool set_safe_handler);

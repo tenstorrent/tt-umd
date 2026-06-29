@@ -314,6 +314,13 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
         return;
     }
 
+    // A null detector disables hang detection: clear any previously wired callback and stop before
+    // dereferencing it below.
+    if (hang_detector_ == nullptr) {
+        pcie_capabilities_->set_io_timeout_callback({});
+        return;
+    }
+
     // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
     // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
     pcie_capabilities_->set_io_timeout_callback(

@@ -365,10 +365,6 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
 }
 
 std::function<bool(NocId)> LocalChip::make_io_timeout_hang_check() {
-    // Installed on the cached TLB windows so the per-op MMIO timeout path can consult NOC liveness on an
-    // overrun (see SiliconTlbWindow / OpTimeoutGuard). Returns whether the given NOC is hung; the window
-    // turns that into the guard's false-alarm veto. The hang check reads through an independent,
-    // separately-locked window, so it does not re-enter this op's TLB lock.
     return [this](NocId noc) -> bool { return tt_device_->is_noc_hung(noc, TTDevice::HangAction::RETURN); };
 }
 
@@ -535,11 +531,9 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(
-                get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC),
-            tlb_data{},
-            make_io_timeout_hang_check());
+        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        cached_wc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_wc_tlb_window.get();
     }
 
@@ -548,11 +542,9 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(
-            get_tt_device()->get_pci_device()->allocate_tlb(
-                get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC),
-            tlb_data{},
-            make_io_timeout_hang_check());
+        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
+            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        cached_uc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_uc_tlb_window.get();
     }
 

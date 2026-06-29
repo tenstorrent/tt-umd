@@ -65,11 +65,9 @@ void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& han
 
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
-        cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(
-            pci_device_->allocate_tlb(
-                pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC),
-            tlb_data{},
-            hang_check_);
+        cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
+            pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
     }
     return cached_tlb_window_.get();
 }

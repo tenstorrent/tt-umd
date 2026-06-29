@@ -11,8 +11,8 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class TTDevice;
@@ -31,7 +31,7 @@ struct TTDeviceData {
 };
 
 struct DeviceCoreData : public TTDeviceData {
-    xy_pair core = {0, 0};
+    CoreCoord core = {0, 0};
     NocId noc_id = NocId::DEFAULT_NOC;
 };
 
@@ -80,6 +80,10 @@ struct PcieHangError : UmdError<PcieHangData> {
 
 struct UninitializedDeviceError : UmdError<TTDeviceData> {
     UninitializedDeviceError(const TTDevice& tt_device);
+};
+
+struct UnresolvableCoordinateError : UmdError<DeviceCoreData> {
+    UnresolvableCoordinateError(const TTDevice& tt_device, CoreCoord core, NocId noc = NocId::DEFAULT_NOC);
 };
 
 }  // namespace tt::umd::error

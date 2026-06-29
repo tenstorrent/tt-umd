@@ -191,14 +191,10 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
-    virtual void read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device_reg(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
@@ -550,6 +546,8 @@ private:
     void probe_arc();
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
+    xy_pair resolve_coordinate(CoreCoord core) const;
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;

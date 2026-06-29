@@ -82,7 +82,7 @@ protected:
 
     virtual bool is_eth_port_disabled(TTDevice* tt_device, CoreCoord eth_core) { return false; }
 
-    virtual bool eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth_core);
+    virtual bool eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core);
 
     virtual uint32_t get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) = 0;
 
@@ -122,7 +122,7 @@ protected:
 
     bool is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core);
 
-    virtual void verify_routing_firmware_state(TTDevice* tt_device, const CoreCoord eth_core) = 0;
+    virtual void verify_routing_firmware_state(TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -156,9 +156,9 @@ protected:
     const TopologyDiscoveryOptions options;
     const IODeviceType io_device_type = IODeviceType::PCIe;
 
-    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) = 0;
+    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core);
 
-    void verify_fw_bundle_version(TTDevice* tt_device);
+    void verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.

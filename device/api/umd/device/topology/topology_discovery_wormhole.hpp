@@ -68,9 +68,7 @@ protected:
 
     void init_first_device(TTDevice* tt_device) override;
 
-    void verify_routing_firmware_state(TTDevice* tt_device, const CoreCoord eth_core) override;
-
-    bool verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) override;
+    void verify_routing_firmware_state(TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) override;
 
     bool is_eth_port_disabled(TTDevice* tt_device, CoreCoord eth_core) override;
 

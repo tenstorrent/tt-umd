@@ -17,6 +17,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -24,6 +25,7 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
+class SimulationServerSocket;
 class SocDescriptor;
 class TlbWindow;
 
@@ -39,8 +41,8 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create(
         const std::filesystem::path& simulator_directory, int num_host_mem_channels = 0);
 
-    void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
-    void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    void read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+    void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
 
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
@@ -77,6 +79,9 @@ public:
 
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
+    // Takes ownership of the serving socket that exposes this device (created by discovery).
+    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
+
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
@@ -88,5 +93,9 @@ private:
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
+
+    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
+    // it. The host keeps its own direct fast path; the socket is for remote clients.
+    std::unique_ptr<SimulationServerSocket> socket_;
 };
 }  // namespace tt::umd

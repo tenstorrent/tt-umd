@@ -30,8 +30,21 @@ env:
   WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
+  # Skips the heavy sweep on PRs (a build already runs as part of the tests) but
+  # runs it on merge. Skipped on pull_request, and since the root jobs need it,
+  # the skip propagates to every job that (directly or transitively) depends on
+  # them. The build-device-complete leaf is the required check (always() reports
+  # it).
+  pr-gate:
+    name: PR gate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'
+
   ensure-ubuntu-2204-image:
     name: Ensure ubuntu-22.04 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -41,6 +54,7 @@ jobs:
 
   ensure-ubuntu-2404-image:
     name: Ensure ubuntu-24.04 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -50,6 +64,7 @@ jobs:
 
   ensure-ubuntu-2404-arm-image:
     name: Ensure ubuntu-24.04-arm Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -59,6 +74,7 @@ jobs:
 
   ensure-fedora-39-image:
     name: Ensure fedora-39 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -68,6 +84,7 @@ jobs:
 
   ensure-manylinux-image:
     name: Ensure manylinux Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -77,6 +94,7 @@ jobs:
 
   ensure-manylinux-aarch64-image:
     name: Ensure manylinux-aarch64 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -88,7 +106,12 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
+    needs:
+      - pr-gate
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
     strategy:
       fail-fast: false
       matrix:
@@ -310,7 +333,7 @@ jobs:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
     timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
-    needs: [ensure-manylinux-image, ensure-manylinux-aarch64-image]
+    needs: [pr-gate, ensure-manylinux-image, ensure-manylinux-aarch64-image]
     strategy:
       fail-fast: false
       matrix:
@@ -364,7 +387,7 @@ jobs:
             ${{ env.WHEEL_OUTPUT_DIR }}
 
   test-packages:
-    needs: [build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    needs: [pr-gate, build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
     timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
     strategy:
       fail-fast: false
@@ -483,3 +506,33 @@ jobs:
             echo "ERROR: Python package not found! Test skipped improperly."
             exit 1  # Force CI failure
           fi
+
+  # Single leaf check to require in branch protection. Treats skipped jobs as
+  # passing (expected on pull_request), fails on any failure or cancellation.
+  # All jobs are listed so a failure can't hide behind a skipped dependent.
+  build-device-complete:
+    name: build-device-complete
+    runs-on: ubuntu-latest
+    needs:
+      - pr-gate
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
+      - ensure-manylinux-image
+      - ensure-manylinux-aarch64-image
+      - build
+      - build-manylinux-wheels
+      - test-packages
+    if: always()
+    steps:
+      - name: Check no job failed or was cancelled
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Results: ${results}"
+          for r in $results; do
+            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
+              echo "A required job failed or was cancelled."
+              exit 1
+            fi
+          done

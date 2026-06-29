@@ -31,10 +31,8 @@
 
 namespace tt::umd {
 
-namespace {
 // AICLK rarely settles on the exact target; accept any value within this percentage of the target.
 constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
-}  // namespace
 
 Chip::Chip(tt::ARCH arch) { set_default_params(arch); }
 

@@ -15,7 +15,7 @@ namespace tt::umd {
 class TTDevice;
 class ClusterDescriptor;
 
-struct SimulationTopologyDiscoveryOptions {
+struct SimulationConnectorOptions {
     // The simulator build to host: a TTSim .so (when the path ends in .so) or an RTL simulator
     // directory. The backend is selected from the path, mirroring the simulation device factory.
     std::filesystem::path simulator_directory;
@@ -33,9 +33,9 @@ struct SimulationTopologyDiscoveryOptions {
 //
 // Socket-first: binding the socket is the host-vs-client arbiter. The client/attach branch lands
 // in a later PR; for now a live socket is reported as an error.
-class SimulationTopologyDiscovery {
+class SimulationConnector {
 public:
-    static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationTopologyDiscoveryOptions& options);
+    static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationConnectorOptions& options);
 };
 
 }  // namespace tt::umd

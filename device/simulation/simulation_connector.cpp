@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/simulation/simulation_topology_discovery.hpp"
+#include "umd/device/simulation/simulation_connector.hpp"
 
 #include <fmt/format.h>
 
@@ -15,8 +15,7 @@
 
 namespace tt::umd {
 
-std::map<ChipId, std::unique_ptr<TTDevice>> SimulationTopologyDiscovery::discover(
-    const SimulationTopologyDiscoveryOptions& options) {
+std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
 
     // Single-chip for now. Socket-first: try to claim the path; success => we are the host.

@@ -10,10 +10,11 @@ namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
 // Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at runtime via
-// MmioTimeoutConfig::set_op_timeout. A healthy 4-byte MMIO op is microseconds, but on a contended/
-// virtualized host a single op can stall for ~12 ms; 100 ms leaves ample margin over that while staying
-// well below the ~700 ms latency of a read on a hung NOC, so genuine hangs are still caught promptly.
-inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(100);
+// MmioTimeoutConfig::set_op_timeout. A healthy MMIO op is microseconds. On the production path a longer
+// transient stall is absorbed by the hang-detector veto (a healthy NOC lets the op continue), so the
+// budget is kept tight to catch a genuinely hung NOC quickly. Paths that drive a TLB window without a
+// veto wired (e.g. raw SiliconTlbWindow in tests) should widen it via MmioTimeoutConfig.
+inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(2);
 
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 // ARC clears the interrupt trigger bit quickly; this just guards against concurrent

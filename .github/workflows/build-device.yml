@@ -511,7 +511,7 @@ jobs:
   # passing (expected on pull_request), fails on any failure or cancellation.
   # All jobs are listed so a failure can't hide behind a skipped dependent.
   build-device-complete:
-    name: build-device-complete
+    name: All builds passed
     runs-on: ubuntu-latest
     needs:
       - pr-gate

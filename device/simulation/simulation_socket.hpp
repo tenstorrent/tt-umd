@@ -16,7 +16,7 @@ namespace tt::umd {
 //
 // The socket acts as a presence indicator: if a process can bind the path it becomes the
 // host; if a live host already exists, try_create() returns nullptr so the caller
-// (SimulationTopologyDiscovery) can attach as a client instead, while create() throws. Stale
+// (SimulationConnector) can attach as a client instead, while create() throws. Stale
 // sockets left by crashed owners are automatically reclaimed. On destruction the host closes
 // the socket and removes the file.
 //

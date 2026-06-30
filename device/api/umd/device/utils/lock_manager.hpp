@@ -24,8 +24,6 @@ enum class MutexType {
     NON_MMIO,
     // Used to serialize memory barrier operations.
     MEM_BARRIER,
-    // Used for calling CEM tool.
-    CREATE_ETH_MAP,
     // Used for guarding against multiple users initializing the same chip.
     CHIP_IN_USE,
     // Used for guarding PCIe DMA operations against concurrent access from multiple processes.
@@ -45,7 +43,6 @@ public:
         {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
         {MutexType::NON_MMIO, "NON_MMIO"},
         {MutexType::MEM_BARRIER, "MEM_BARRIER"},
-        {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
         {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
         {MutexType::PCIE_DMA, "PCIE_DMA"},
     };
@@ -63,7 +60,6 @@ public:
     // Mutex types that are initialized system-wide (no device_id).
     inline static const std::vector<MutexType> SYSTEM_WIDE_MUTEX_TYPES = {
         MutexType::ARC_MSG,
-        MutexType::CREATE_ETH_MAP,
     };
 
     // This set of functions is used to manage mutexes which are system wide and not chip specific.

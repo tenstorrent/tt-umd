@@ -41,6 +41,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -139,7 +140,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     probe_arc();
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     construct_soc_descriptor(soc_arch_descriptor_);
 }
@@ -328,44 +329,28 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-void TTDevice::read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
-    ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device(mem_ptr, core, addr, size, get_selected_noc_id());
-}
-
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    read_from_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
-}
-
-void TTDevice::write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device(mem_ptr, core, addr, size, get_selected_noc_id());
+
+    device_protocol_->read_from_device(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    write_to_device(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
-}
-
-void TTDevice::read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->read_from_device_reg(mem_ptr, core, addr, size, get_selected_noc_id());
+
+    device_protocol_->write_to_device(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    read_from_device_reg(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
-}
-
-void TTDevice::write_to_device_reg(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
     ZoneScopedC(tracy::Color::Orange);
-    device_protocol_->write_to_device_reg(mem_ptr, core, addr, size, get_selected_noc_id());
+
+    device_protocol_->read_from_device_reg(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    write_to_device_reg(mem_ptr, soc_desc.translate_chip_coord_to_translated(core), addr, size);
+    ZoneScopedC(tracy::Color::Orange);
+
+    device_protocol_->write_to_device_reg(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -511,10 +496,7 @@ uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
     return tensix_risc_state;
 }
 
-uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    return get_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core));
-}
+uint32_t TTDevice::get_risc_reset_state(CoreCoord core) { return get_risc_reset_state(resolve_coordinate(core)); }
 
 void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
     write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
@@ -522,8 +504,7 @@ void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) 
 }
 
 void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    set_risc_reset_state(soc_desc.translate_chip_coord_to_translated(core), risc_flags);
+    set_risc_reset_state(resolve_coordinate(core), risc_flags);
 }
 
 void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
@@ -534,8 +515,7 @@ void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs)
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    assert_risc_reset(soc_desc.translate_chip_coord_to_translated(core), selected_riscs);
+    assert_risc_reset(resolve_coordinate(core), selected_riscs);
 }
 
 void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
@@ -548,8 +528,7 @@ void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_risc
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    deassert_risc_reset(soc_desc.translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
+    deassert_risc_reset(resolve_coordinate(core), selected_riscs, staggered_start);
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
@@ -627,13 +606,7 @@ void TTDevice::noc_multicast_write(
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    noc_multicast_write(
-        src,
-        size,
-        soc_desc.translate_chip_coord_to_translated(core_start),
-        soc_desc.translate_chip_coord_to_translated(core_end),
-        addr);
+    noc_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
 }
 
 void TTDevice::multicast_write_via_unicast(
@@ -671,8 +644,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    dma_write_to_device(src, size, soc_desc.translate_chip_coord_to_translated(core), addr);
+    dma_write_to_device(src, size, resolve_coordinate(core), addr);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
@@ -695,8 +667,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    dma_read_from_device(dst, size, soc_desc.translate_chip_coord_to_translated(core), addr);
+    dma_read_from_device(dst, size, resolve_coordinate(core), addr);
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
@@ -720,13 +691,7 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
 }
 
 void TTDevice::dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    const SocDescriptor &soc_desc = get_soc_descriptor();
-    dma_multicast_write(
-        src,
-        size,
-        soc_desc.translate_chip_coord_to_translated(core_start),
-        soc_desc.translate_chip_coord_to_translated(core_end),
-        addr);
+    dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
@@ -766,6 +731,16 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
 EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     const SocDescriptor &soc_descriptor = get_soc_descriptor();
     return read_eth_core_training_status(soc_descriptor.translate_chip_coord_to_translated(eth_core));
+}
+
+xy_pair TTDevice::resolve_coordinate(CoreCoord core) const {
+    if (core.coord_system == CoordSystem::LITERAL) {
+        return xy_pair(core.x, core.y);
+    }
+    if (!soc_descriptor_.has_value()) {
+        UMD_THROW(error::UnresolvableCoordinateError, *this, core, get_selected_noc_id());
+    }
+    return get_soc_descriptor().translate_chip_coord_to_translated(core);
 }
 
 }  // namespace tt::umd

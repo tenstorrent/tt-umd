@@ -129,6 +129,7 @@ target_sources(
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
+        topology/topology_discovery_error.cpp
         tt_device/remote_communication.cpp
         tt_device/remote_communication_legacy_firmware.cpp
         jtag/jtag_device.cpp
@@ -136,6 +137,11 @@ target_sources(
         tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
         arc/blackhole_spi_tt_device.cpp
+        # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
+        # so always built. This lets its unit tests run in the no-card baremetal CI lane
+        # (TT_UMD_BUILD_SIMULATION=OFF).
+        simulation/simulation_server_socket.cpp
+        simulation/simulation_client.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -143,6 +149,7 @@ if(TT_UMD_BUILD_SIMULATION)
         tt-umd
         PRIVATE
             simulation/simulation_chip.cpp
+            simulation/simulation_connector.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
@@ -245,6 +252,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/noc_id.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
+                api/umd/device/simulation/simulation_connector.hpp
+                api/umd/device/simulation/simulation_client.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
@@ -255,6 +264,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/topology/topology_discovery.hpp
                 api/umd/device/topology/topology_utils.hpp
                 api/umd/device/topology/topology_discovery_options.hpp
+                api/umd/device/topology/topology_discovery_error.hpp
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/error_detail.hpp
                 api/umd/device/utils/error.hpp

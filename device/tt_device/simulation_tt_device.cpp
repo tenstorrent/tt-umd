@@ -6,11 +6,14 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -26,6 +29,39 @@ SimulationTTDevice::SimulationTTDevice(
 SimulationTTDevice::~SimulationTTDevice() = default;
 
 void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
+
+void SimulationTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    if (is_device_closed()) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    if (handle_special_write(mem_ptr, translated_core, addr, size)) {
+        return;
+    }
+    if (should_use_cached_tlb_window()) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+    } else {
+        tile_write_bytes(translated_core, addr, mem_ptr, size);
+    }
+}
+
+void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+    if (is_device_closed()) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    if (handle_special_read(mem_ptr, translated_core, addr, size)) {
+        return;
+    }
+    if (should_use_cached_tlb_window()) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+    } else {
+        tile_read_bytes(translated_core, addr, mem_ptr, size);
+    }
+    after_read();
+}
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
     tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());

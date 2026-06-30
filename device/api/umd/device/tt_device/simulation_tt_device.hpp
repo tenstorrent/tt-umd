@@ -14,6 +14,7 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -40,6 +41,9 @@ public:
     void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
 
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
+    void read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+    void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void* src, size_t size) override;
@@ -80,6 +84,29 @@ protected:
     // Construct the backend-specific TlbHandle + TlbWindow for an already-allocated TLB index.
     virtual std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) = 0;
+
+    // --- read/write_from_device hooks ---
+
+    // Direct tile (NOC unicast) access through the backend communicator.
+    virtual void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) = 0;
+    virtual void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) = 0;
+
+    // Returns true when the device is closed and I/O should be silently skipped. Default: never.
+    virtual bool is_device_closed() { return false; }
+
+    // Backend-specific fast paths handled entirely outside the cached-TLB / tile path. Return true if
+    // the access was fully handled (and nothing further should run). Default: not handled.
+    virtual bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) { return false; }
+
+    virtual bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+        return false;
+    }
+
+    // Whether read/write should route through cached_tlb_window_. Default: whenever it exists.
+    virtual bool should_use_cached_tlb_window() { return cached_tlb_window_ != nullptr; }
+
+    // Post-read clocking hook. Default: no-op.
+    virtual void after_read() {}
 
     std::recursive_mutex device_lock;
     std::filesystem::path simulator_directory_;

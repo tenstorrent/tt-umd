@@ -54,9 +54,6 @@ public:
         int num_host_mem_channels = 0,
         bool copy_sim_binary = false);
 
-    void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-    void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
@@ -83,6 +80,13 @@ public:
 protected:
     std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
+    void tile_read_bytes(tt_xy_pair core, uint64_t addr, void *mem_ptr, size_t size) override;
+    void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void *mem_ptr, size_t size) override;
+    bool is_device_closed() override;
+    bool handle_special_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool handle_special_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
+    void after_read() override;
 
 private:
     void initialize_sysmem_functions();

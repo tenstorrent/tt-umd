@@ -50,6 +50,20 @@ static std::string opt_str(const std::optional<double>& v, const std::string& fm
     return v.has_value() ? fmt::format(fmt::runtime(fmt_spec), v.value()) : "nullopt";
 }
 
+static std::string opt_str(const std::vector<std::optional<uint32_t>>& vs) {
+    if (vs.empty()) {
+        return "-";
+    }
+    std::string result;
+    for (size_t i = 0; i < vs.size(); ++i) {
+        if (i > 0) {
+            result += ", ";
+        }
+        result += vs[i].has_value() ? std::to_string(vs[i].value()) : "nullopt";
+    }
+    return result;
+}
+
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
     if (fw_version <= FW_VERSION_18_3) {
         return "LEGACY (<= 18.3)";
@@ -293,7 +307,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        std::optional<uint32_t> fan_speed = fw_info->get_fan_speed();
+        auto fan_speed = fw_info->get_fan_speed();
         std::optional<uint32_t> tdp = fw_info->get_tdp();
         std::optional<uint32_t> tdc = fw_info->get_tdc();
         std::optional<uint32_t> vcore = fw_info->get_vcore();
@@ -486,8 +500,7 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
     }
 }
 
-// Disabled until fan speed updates from CMFW 19.10 are implemented. (#2778).
-TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
+TEST_F(TestFirmwareInfoProvider, FanSpeed) {
     for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
@@ -507,23 +520,27 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
             opt_str(speed_percentage),
             opt_str(speed_rpm));
 
-        if (speed_percentage.has_value()) {
-            EXPECT_GE(speed_percentage.value(), 0u);
-            EXPECT_LE(speed_percentage.value(), 100u);
+        for (auto percentage : speed_percentage) {
+            if (percentage.has_value()) {
+                EXPECT_GE(percentage, 0u);
+                EXPECT_LE(percentage, 100u);
+            }
         }
 
-        if (speed_rpm.has_value()) {
-            EXPECT_LT(speed_rpm.value(), 20000u);
+        for (auto rpm : speed_rpm) {
+            if (rpm.has_value()) {
+                EXPECT_LT(rpm, 20000u);
+            }
         }
 
         // FAN_RPM is not available in legacy Wormhole (<= 18.3) SMBus telemetry;
         // only FAN_SPEED (percentage) is reported.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
-            EXPECT_FALSE(speed_rpm.has_value());
-        } else {
+            EXPECT_TRUE(speed_rpm.empty());
+        } else if (fw_version <= FirmwareBundleVersion(19, 10, 0)) {
             // On modern firmware, both should be available or both absent
             // (nullopt when fans are not present on board or not controlled by FW).
-            EXPECT_EQ(speed_percentage.has_value(), speed_rpm.has_value());
+            EXPECT_EQ(speed_percentage.empty(), speed_rpm.empty());
         }
     }
 }

@@ -16,5 +16,5 @@ metadata:
   notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."
 
 ClusterConstructor:
-  default: { median_value: 480.7, tolerance_pct: 5 }
-  from sdesc: { median_value: 297.8, tolerance_pct: 5 }
+  default: { median_value: 341.3, tolerance_pct: 5 }
+  from sdesc: { median_value: 299.9, tolerance_pct: 5 }

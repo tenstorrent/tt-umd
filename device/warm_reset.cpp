@@ -40,6 +40,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
@@ -204,13 +205,13 @@ bool WarmReset::warm_reset_arch_agnostic(
     }
     log_info(tt::LogUMD, "Starting reset on devices: {}", fmt::join(device_infos, ", "));
     if (secondary_bus_reset) {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::RESET_PCIE_LINK);
     }
 
     if (reset_m3) {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::ASIC_DMC_RESET);
     } else {
-        PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::ASIC_RESET);
+        PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::ASIC_RESET);
     }
 
     // Calculate post-reset wait time: use provided M3 timeout if M3 reset, otherwise scale based on device count
@@ -233,13 +234,13 @@ bool WarmReset::warm_reset_arch_agnostic(
         }
     }
 
-    PCIDevice::reset_device_ioctl(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_id_set, TenstorrentResetDevice::POST_RESET);
     return true;
 }
 
 bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::CONFIG_WRITE);
 
     std::map<int, bool> reset_bits;
 
@@ -286,7 +287,7 @@ bool WarmReset::warm_reset_blackhole_legacy(std::vector<int> pci_device_ids) {
     if (all_reset_bits_set) {
         log_info(tt::LogUMD, "Reset successfully completed.");
     }
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
     return all_reset_bits_set;
 }
 
@@ -297,7 +298,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     static constexpr uint32_t MSG_TYPE_TRIGGER_RESET = 0x56 | wormhole::ARC_MSG_COMMON_PREFIX;
 
     std::unordered_set<int> pci_device_ids_set(pci_device_ids.begin(), pci_device_ids.end());
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::RESET_PCIE_LINK);
 
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     tt_devices.reserve(pci_device_ids.size());
@@ -343,7 +344,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     std::vector<uint64_t> refclk_current;
     refclk_current.reserve(pci_device_ids.size());
 
-    PCIDevice::reset_device_ioctl(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
+    PCIDevice::send_reset_ioctl_to_devices(pci_device_ids_set, TenstorrentResetDevice::RESTORE_STATE);
 
     for (const auto& tt_device : tt_devices) {
         refclk_current.emplace_back(tt_device->get_refclk_counter());

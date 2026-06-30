@@ -163,11 +163,13 @@ RobustMutex::RobustMutex(RobustMutex&& other) noexcept {
     shm_fd_ = other.shm_fd_;
     mutex_wrapper_ptr_ = other.mutex_wrapper_ptr_;
     mutex_name_ = other.mutex_name_;
+    active_locks_.store(other.active_locks_.load(std::memory_order_relaxed), std::memory_order_relaxed);
 
     // Invalidate the other object, so the destructor doesn't try to close the same resources.
     other.shm_fd_ = -1;
     other.mutex_wrapper_ptr_ = nullptr;
     other.mutex_name_ = "";
+    other.active_locks_.store(0, std::memory_order_relaxed);
 }
 
 RobustMutex& RobustMutex::operator=(RobustMutex&& other) noexcept {
@@ -177,11 +179,13 @@ RobustMutex& RobustMutex::operator=(RobustMutex&& other) noexcept {
         shm_fd_ = other.shm_fd_;
         mutex_wrapper_ptr_ = other.mutex_wrapper_ptr_;
         mutex_name_ = other.mutex_name_;
+        active_locks_.store(other.active_locks_.load(std::memory_order_relaxed), std::memory_order_relaxed);
 
         // Invalidate the other object, so the destructor doesn't try to close the same resources.
         other.shm_fd_ = -1;
         other.mutex_wrapper_ptr_ = nullptr;
         other.mutex_name_ = "";
+        other.active_locks_.store(0, std::memory_order_relaxed);
     }
     return *this;
 }
@@ -366,8 +370,20 @@ size_t RobustMutex::get_file_size(int fd) {
 
 void RobustMutex::close_mutex() noexcept {
     if (mutex_wrapper_ptr_ != nullptr) {
-        // Unmap the shared memory backed pthread_mutex object.
-        if (munmap((void*)mutex_wrapper_ptr_, sizeof(pthread_mutex_wrapper)) != 0) {
+        if (active_locks_.load(std::memory_order_relaxed) != 0) {
+            // The mutex is being destroyed while a thread in this process still holds it. This indicates a
+            // use-after-free bug:
+            //  threads using the lock should be stopped before destroying it. Unmapping the
+            // shared region now would (a) dangle the holding thread's kernel robust-list entry, so if the
+            // process later crashes the kernel cannot set FUTEX_OWNER_DIED and the lock is orphaned for
+            // everyone, and (b) leave the holder using freed memory on
+            // unlock(). Leak the mapping instead of corrupting recovery state, and report the bug.
+            log_error(
+                tt::LogUMD,
+                "RobustMutex '{}' destroyed while still held in this process; leaking its shared mapping "
+                "to preserve robust-lock recovery. Stop threads using the lock before destroying it.",
+                mutex_name_);
+        } else if (munmap((void*)mutex_wrapper_ptr_, sizeof(pthread_mutex_wrapper)) != 0) {
             // This is on the destructor path, so we don't want to throw an exception.
             log_warning(tt::LogUMD, "munmap() failed for mutex {} errno: {}", mutex_name_, std::to_string(errno));
         }
@@ -388,6 +404,7 @@ void RobustMutex::close_mutex() noexcept {
 void RobustMutex::record_acquisition() {
     __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, static_cast<pid_t>(::syscall(SYS_gettid)), __ATOMIC_RELAXED);
     __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, getpid(), __ATOMIC_RELAXED);
+    active_locks_.fetch_add(1, std::memory_order_relaxed);
     tsan_annotate_mutex_acquire(mutex_name_);
 }
 
@@ -397,6 +414,7 @@ void RobustMutex::unlock() {
     // Clear the owner TID and PID before unlocking.
     __atomic_store_n(&mutex_wrapper_ptr_->owner_tid, 0, __ATOMIC_RELAXED);
     __atomic_store_n(&mutex_wrapper_ptr_->owner_pid, 0, __ATOMIC_RELAXED);
+    active_locks_.fetch_sub(1, std::memory_order_relaxed);
     int err = pthread_mutex_unlock(&(mutex_wrapper_ptr_->mutex));
     if (err != 0) {
         UMD_THROW(

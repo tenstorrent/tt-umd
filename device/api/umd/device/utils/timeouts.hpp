@@ -10,6 +10,10 @@ namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
+// ARC clears the interrupt trigger bit quickly; this just guards against concurrent
+// processes/threads opening clusters, which causes KMD to send ARC messages that
+// may leave the trigger bit set momentarily.
+inline constexpr auto ARC_TRIGGER_CLEAR_TIMEOUT = std::chrono::milliseconds(5);
 inline constexpr auto ARC_STARTUP_TIMEOUT = std::chrono::milliseconds(300'000);
 inline constexpr auto ARC_POST_RESET_TIMEOUT = std::chrono::milliseconds(1'000);
 inline constexpr auto ARC_LONG_POST_RESET_TIMEOUT = std::chrono::milliseconds(300'000);
@@ -23,6 +27,8 @@ inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);
 inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(200);
+
+inline constexpr auto TELEMETRY_INIT_TIMEOUT = std::chrono::milliseconds(1'000);
 
 inline constexpr auto WARM_RESET_M3_TIMEOUT = std::chrono::milliseconds(20'000);
 inline constexpr auto WARM_RESET_REAPPEAR_POLL_INTERVAL = std::chrono::milliseconds(100);

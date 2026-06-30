@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -52,11 +53,12 @@ bool sim_dram_teleport_enabled() {
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
-    return TTSimTTDevice::create_for_chip(simulator_directory, /* chip_id= */ static_cast<ChipId>(0), copy_sim_binary);
+    return TTSimTTDevice::create_for_chip(
+        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels, copy_sim_binary);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
-    const std::filesystem::path& simulator_directory, ChipId chip_id, bool copy_sim_binary) {
+    const std::filesystem::path& simulator_directory, ChipId chip_id, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
@@ -67,7 +69,8 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary, 0);
+    return std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -168,7 +171,13 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapp
     return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
-TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() {
+    // Stop serving (and remove the socket) before tearing the backend down.
+    socket_.reset();
+    communicator_->shutdown();
+}
+
+void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
 
 void TTSimTTDevice::start_device() {}
 
@@ -177,45 +186,47 @@ void TTSimTTDevice::close_device() {
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     if (communicator_->is_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+            if (communicator_->dram_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
                 return;
             }
-            communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+            communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
             return;
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     if (communicator_->is_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-                communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+            if (!communicator_->dram_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
+                communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
             }
             communicator_->advance_clock(10);
             return;
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
     // in the absence of an API reliably called from all spin loops polling the device
@@ -388,6 +399,11 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
+}
+
+void TTSimTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
 }
 
 void TTSimTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {

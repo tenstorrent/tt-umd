@@ -12,6 +12,7 @@
 #include <utility>
 
 #include "noc_access.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -24,6 +25,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -144,43 +146,54 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config,
     return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
-RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
+RtlSimulationTTDevice::~RtlSimulationTTDevice() {
+    // Stop serving (and remove the socket) before tearing the backend down.
+    socket_.reset();
+    communicator_->shutdown();
+}
+
+void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+    socket_ = std::move(socket);
+}
 
 void RtlSimulationTTDevice::write_to_device(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    log_debug(
+        tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, translated_core.str());
 
     NocId selected_noc_id = get_selected_noc_id();
     validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
 
-    if (selected_noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 
     NocId selected_noc_id = get_selected_noc_id();
     validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
 
-    if (selected_noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
 }
 
@@ -215,7 +228,8 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
@@ -256,7 +270,8 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         communicator_->all_tensix_reset_deassert(core.x, core.y);
     }
@@ -333,6 +348,11 @@ void RtlSimulationTTDevice::dma_multicast_write(
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
 }
 
 void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {

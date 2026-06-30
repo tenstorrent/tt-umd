@@ -465,6 +465,19 @@ class TestTTDevice(unittest.TestCase):
         # Verify the message passed through
         self.assertIn("This is a test exception from C++", str(cm.exception))
 
+    def test_device_timeout_exception_type_binding(self):
+        """
+        Verifies that the C++ DeviceTimeoutError maps to a Python type that can be caught
+        specifically, and is also catchable as the base UmdBaseException.
+        """
+        # It can be caught as its own specific type.
+        with self.assertRaises(tt_umd.error.DeviceTimeoutError):
+            tt_umd.error.raise_device_timeout_error_for_testing()
+
+        # It is a subclass of the base UMD exception, so the base catches it too.
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.error.raise_device_timeout_error_for_testing()
+
     def test_hang_detection_api(self):
         """Verify HangAction enum and hang detection methods on a healthy device."""
         # Enum is reachable and has distinct members.

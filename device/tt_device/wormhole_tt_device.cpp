@@ -40,30 +40,29 @@
 
 namespace tt::umd {
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), use_safe_api) {
-    arc_core = is_selected_noc1() ? tt_xy_pair(
-                                        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                                  : wormhole::ARC_CORES_NOC0[0];
+WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<PCIDevice> pci_device,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+    bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), soc_arch_descriptor, use_safe_api) {
+    WormholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>()) {
-    arc_core = is_selected_noc1() ? tt_xy_pair(
-                                        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                                  : wormhole::ARC_CORES_NOC0[0];
+WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<JtagDevice> jtag_device,
+    uint8_t jlink_id,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
+    WormholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<RemoteCommunication> remote_communication) :
-    TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>()) {
-    arc_core = is_selected_noc1() ? tt_xy_pair(
-                                        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-                                        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y])
-                                  : wormhole::ARC_CORES_NOC0[0];
+WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<RemoteCommunication> remote_communication,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
+    WormholeTTDevice::set_arc_coordinate();
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
         TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
@@ -353,7 +352,7 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
                         error::ArcStartupError,
                         *this,
                         get_selected_noc_id(),
-                        arc_core,
+                        get_arc_core(),
                         bar_read_arc_reset_scratch_status,
                         bar_read_arc_post_code);
 
@@ -405,7 +404,7 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
             error::ArcStartupError,
             *this,
             get_selected_noc_id(),
-            arc_core,
+            get_arc_core(),
             bar_read_arc_reset_scratch_status,
             bar_read_arc_post_code,
             timeout_ms,
@@ -417,37 +416,19 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
 }
 
-void WormholeTTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    ZoneScopedC(tracy::Color::Orange);
-    if (!is_remote_tt_device) {
-        TTDevice::noc_multicast_write(src, size, core_start, core_end, addr);
-        return;
-    }
-
-    // TODO: implement multicast over remote communication.
-    // For now, fall back to unicast over the non-harvested TENSIX cores reported by the soc descriptor
-    // that fall inside the multicast range, matching hardware multicast behavior.
-    //
-    // Coordinates may be in TRANSLATED or NOC0 space; pick the coord system from core_start since the
-    // two ranges don't overlap.
-    const CoordSystem coord_system =
-        (core_start.x >= wormhole::tensix_translated_coordinate_start_x) ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
-    for (const auto &core : get_soc_descriptor().get_cores(CoreType::TENSIX, coord_system)) {
-        if (core.x < core_start.x || core.x > core_end.x || core.y < core_start.y || core.y > core_end.y) {
-            continue;
-        }
-        log_trace(LogUMD, "noc_multicast_write fallback unicast to TENSIX core at ({}, {})", core.x, core.y);
-        write_to_device(src, xy_pair(core.x, core.y), addr, size);
-    }
-}
-
 void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     // Same range is used for NOC0 and NOC1.
     // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
 
-    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
+    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr, noc_id);
+}
+
+void WormholeTTDevice::set_arc_coordinate() {
+    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
+    arc_core_noc1 = tt_xy_pair(
+        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 }
 
 }  // namespace tt::umd

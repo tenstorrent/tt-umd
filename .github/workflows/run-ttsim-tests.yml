@@ -11,14 +11,14 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
   workflow_call:
     inputs:
       timeout:
         required: false
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 60
 
 jobs:
   build-and-run-ttsim:
@@ -43,8 +43,6 @@ jobs:
           path: tt-metal
           repository: tenstorrent/tt-metal
           submodules: recursive
-          fetch-depth: 500  # Need enough history for `git describe`
-          fetch-tags: true  # Need tags for `git describe`
 
       - name: Checkout UMD
         uses: actions/checkout@v6
@@ -198,7 +196,7 @@ jobs:
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+            ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/wormhole/6u_cluster_desc
         run: |
           cd tt-metal
           export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/6u_cluster_desc.yaml"
@@ -213,7 +211,7 @@ jobs:
           TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
           TT_METAL_TESTS_DIR: >-
-            ${{ github.workspace }}/tt-metal/tests/tt_metal/tt_fabric/custom_mock_cluster_descriptors
+            ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/blackhole/bh_6u_cluster_desc
         run: |
           cd tt-metal
           export TT_METAL_MOCK_CLUSTER_DESC_PATH="${TT_METAL_TESTS_DIR}/bh_6u_cluster_desc.yaml"

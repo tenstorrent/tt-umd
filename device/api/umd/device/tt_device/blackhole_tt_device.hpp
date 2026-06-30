@@ -55,8 +55,14 @@ public:
     void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
 protected:
-    BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
-    BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
+    BlackholeTTDevice(
+        std::unique_ptr<PCIDevice> pci_device,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+        bool use_safe_api);
+    BlackholeTTDevice(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual bool is_arc_available_over_axi();
 
@@ -65,10 +71,16 @@ protected:
     // Number of retrain attempts is chosen based on syseng team testing.
     uint32_t get_max_dram_retrain_attempts() const override { return 3; }
 
+    void set_arc_coordinate() override;
+
 private:
     int get_pcie_x_coordinate();
 
-    friend std::unique_ptr<TTDevice> TTDevice::create(int device_number, IODeviceType device_type, bool use_safe_api);
+    friend std::unique_ptr<TTDevice> TTDevice::create(
+        int device_number,
+        IODeviceType device_type,
+        bool use_safe_api,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

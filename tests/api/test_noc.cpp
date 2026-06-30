@@ -417,11 +417,9 @@ TEST_P(TestNocValidity, VerifyNocTranslationHostSide) {
         GTEST_SKIP() << "NOC_ID_LOGICAL register reports incorrect translated coordinates for ROUTER_ONLY";
     }
 
-    // Skip ETH (NOC1) and PCIe (both NOCs) on Blackhole for harvested cores - well known problem:
+    // Skip PCIe (both NOCs) on Blackhole for harvested cores - well known problem:
     // - PCIe: https://github.com/tenstorrent/tt-umd/issues/826
-    // - ETH: https://github.com/tenstorrent/tt-umd/issues/825
-    if (arch == ARCH::BLACKHOLE && use_harvested_cores &&
-        ((core_type == CoreType::ETH && noc == CoordSystem::NOC1) || core_type == CoreType::PCIE)) {
+    if (arch == ARCH::BLACKHOLE && use_harvested_cores && core_type == CoreType::PCIE) {
         GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
     }
 

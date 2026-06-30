@@ -37,7 +37,8 @@ public:
         const SocDescriptor &soc_descriptor,
         ChipId chip_id,
         bool copy_sim_binary = false,
-        int num_host_mem_channels = 0);
+        int num_host_mem_channels = 0,
+        size_t num_chips = 1);
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
@@ -56,6 +57,11 @@ public:
 
     void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
     void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+
+    // Configure this chip's outbound iATU (NOC->host) the silicon way: iATU register writes via BAR2.
+    // The simulator decodes these into its iATU model and honors them at DMA egress, so the chip's DMA
+    // resolves to this chip's distinct host base (configured as the region target) purely by address.
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;

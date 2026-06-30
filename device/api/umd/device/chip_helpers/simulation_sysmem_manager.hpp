@@ -21,8 +21,20 @@ namespace tt::umd {
 
 class SimulationSysmemManager : public SysmemManager {
 public:
-    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch);
+    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch, uint32_t chip_id = 0);
     ~SimulationSysmemManager() override;
+
+    // Per-chip host base for this chip's sysmem. On silicon each chip's pinned host memory lives at a
+    // distinct host physical address; UMD programs that address into the chip's outbound iATU as the
+    // region target, and the chip's DMA resolves there purely by address (no per-chip "magic"). We
+    // model that by giving chip N a distinct host base (N * kPerChipHostStride) and using it as the
+    // hugepage physical_address (= iATU target). The simulator's host-side DMA router (dma_route) then
+    // routes by which chip's [host_base, host_base + kPerChipHostStride) window contains the address.
+    static constexpr uint64_t kPerChipHostStride = 1ULL << 36;  // 64 GiB; >> per-chip sysmem, non-overlapping
+
+    uint64_t get_host_base() const { return host_base_; }
+
+    uint64_t get_host_region_size() const { return kPerChipHostStride; }
 
     bool pin_or_map_sysmem_to_device() override;
 
@@ -76,6 +88,7 @@ private:
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
+    uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * kPerChipHostStride)
     std::vector<std::pair<void*, size_t>> owned_allocations_;
     std::shared_ptr<MappedBufferRegistry> registry_;
 };

@@ -62,6 +62,9 @@ inline std::unique_ptr<Cluster> make_default_test_cluster(ClusterOptions options
         options.chip_type = ChipType::SIMULATION;
         options.target_devices = {0};
         options.simulator_directory = std::filesystem::path(sim_path);
+        // A multichip simulator's topology is auto-discovered by the Cluster from a cluster_descriptor.yaml
+        // placed beside the .so (see SimulationChip::get_cluster_descriptor_path_from_simulator_path); no
+        // test-side env var is needed.
     }
     return std::make_unique<Cluster>(options);
 }

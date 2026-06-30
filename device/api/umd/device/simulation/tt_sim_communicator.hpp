@@ -6,6 +6,7 @@
 
 #include <sys/types.h>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -30,7 +31,10 @@ public:
      *   for legacy single-chip consumers.
      */
     TTSimCommunicator(
-        const std::filesystem::path &simulator_directory, bool copy_sim_binary = false, uint32_t chip_id = 0);
+        const std::filesystem::path &simulator_directory,
+        bool copy_sim_binary = false,
+        uint32_t chip_id = 0,
+        uint32_t num_chips = 1);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -126,7 +130,9 @@ public:
      */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+        uint64_t host_base = 0,
+        uint64_t host_size = 0);
 
     void start_sim();
 
@@ -190,7 +196,18 @@ private:
     // True when the loaded .so supports the multichip ABI and this
     // communicator is using the shared dlopen path.
     bool multichip_mode_ = false;
+    // True when the .so has NO multichip ABI but the cluster has >1 chip: all
+    // communicators share a single dlopen (so the simulator's per-chip state array is
+    // shared) and each chip is addressed by its PCI device (BDF) -- the host-enumeration
+    // model in docs/multichip/ARCHITECTURE.md. No libttsim_select_device_by_id; the
+    // device is carried in the PCI config BDF and in the per-device BAR physical address.
+    bool shared_bdf_mode_ = false;
+
+    // Both modes use the single shared dlopen (s_shared_handle_) + refcount.
+    bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
+
     uint32_t chip_id_ = 0;
+    uint32_t num_chips_ = 1;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
     static bool s_sim_initialized_;
@@ -238,14 +255,30 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Known limitation: callback_instance_ is process-global; in multichip mode,
-    // only the last chip to call set_pcie_dma_mem_callbacks receives correct DMA
-    // callbacks.  Fix requires libttsim ABI change to support per-chip context pointer.
+    // Host-side DMA routing by address range. Each MMIO chip's outbound iATU (programmed by UMD via
+    // BAR2, honored by the sim) maps the chip's NOC sysmem window onto that chip's distinct host base.
+    // So a sysmem DMA arrives here carrying a real host address; we find the owning chip by which
+    // registered window [host_base, host_base+size) contains it -- exactly as a host/OS routes a DMA by
+    // which pinned region the address falls in. No chip id crosses the bus; the address alone targets.
+    // callback_instance_ stays as the single-device / unregistered fallback.
+    struct DmaHostRange {
+        uint64_t host_base = 0;
+        uint64_t host_size = 0;
+        TTSimCommunicator *inst = nullptr;
+    };
+
+    static constexpr std::size_t kMaxDmaDevices = 32;
     static TTSimCommunicator *callback_instance_;
+    static std::array<DmaHostRange, kMaxDmaDevices> dma_ranges_;
+    static std::size_t dma_range_count_;
+    static std::mutex dma_ranges_mutex_;
 
     // Static wrapper functions for C-style callbacks.
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    // Find the chip whose registered host window contains paddr, rebase paddr to the within-window
+    // offset, and return its communicator. Falls back to callback_instance_ if no window matches.
+    static TTSimCommunicator *dma_route(uint64_t &paddr);
 
     // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all

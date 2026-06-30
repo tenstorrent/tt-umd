@@ -42,11 +42,30 @@ std::mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
 
 TTSimCommunicator::TTSimCommunicator(
-    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id) :
-    simulator_directory_(simulator_directory), copy_sim_binary_(copy_sim_binary), chip_id_(chip_id) {}
+    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
+    simulator_directory_(simulator_directory),
+    copy_sim_binary_(copy_sim_binary),
+    chip_id_(chip_id),
+    num_chips_(num_chips) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
-    if (multichip_mode_) {
+    // Unregister from the process-global DMA routing tables first. The shared simulator may still be
+    // alive (other chips not yet destructed) and could emit a DMA; leaving a stale entry/callback
+    // pointing at this freed communicator would route into freed memory (use-after-free).
+    {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        for (std::size_t i = 0; i < dma_range_count_; i++) {
+            if (dma_ranges_[i].inst == this) {
+                dma_ranges_[i] = dma_ranges_[dma_range_count_ - 1];  // compact: move last into the hole
+                dma_ranges_[--dma_range_count_] = {};
+                break;
+            }
+        }
+        if (callback_instance_ == this) {
+            callback_instance_ = nullptr;
+        }
+    }
+    if (uses_shared_handle()) {
         // Shared dlopen -- decrement refcount. When last communicator
         // destructs, call libttsim_exit (which the deferred shutdown()
         // path didn't call), then dlclose. The simulator is process-global,
@@ -61,7 +80,14 @@ TTSimCommunicator::~TTSimCommunicator() {
             s_sim_initialized_ = false;
         }
     } else if (libttsim_handle_) {
-        dlclose(libttsim_handle_);
+        // If initialize() threw after aliasing s_shared_handle_ (the probe keeps that handle) but
+        // before committing to a shared-handle mode, libttsim_handle_ may equal s_shared_handle_. It is
+        // owned by the shared-refcount path; dlclosing it here would leave other communicators with a
+        // dangling s_shared_handle_.
+        std::lock_guard<std::mutex> lock(s_shared_init_mutex_);
+        if (libttsim_handle_ != s_shared_handle_) {
+            dlclose(libttsim_handle_);
+        }
     }
     close_simulator_binary();
 }
@@ -150,6 +176,36 @@ void TTSimCommunicator::initialize() {
         return;
     }
 
+    // No multichip ABI, but a multi-chip cluster: share a single dlopen so all chips
+    // live in one libttsim process image (one shared per-chip state array), and address
+    // each chip by its PCI device (BDF) + per-device BAR window. This is the BDF
+    // host-enumeration path (docs/multichip/ARCHITECTURE.md) -- no select_device_by_id,
+    // no virtual eth switch (the simulator routes inter-chip eth internally).
+    if (num_chips_ > 1) {
+        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        if (!s_shared_handle_) {
+            s_shared_handle_ = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
+            if (!s_shared_handle_) {
+                UMD_THROW(error::RuntimeError, fmt::format("Failed to dlopen simulator library: {}", dlerror()));
+            }
+        }
+        libttsim_handle_ = s_shared_handle_;
+        DLSYM_FUNCTION(libttsim_init)
+        DLSYM_FUNCTION(libttsim_exit)
+        DLSYM_FUNCTION(libttsim_pci_config_rd32)
+        DLSYM_FUNCTION(libttsim_pci_mem_rd_bytes)
+        DLSYM_FUNCTION(libttsim_pci_mem_wr_bytes)
+        DLSYM_FUNCTION(libttsim_tile_rd_bytes)
+        DLSYM_FUNCTION(libttsim_tile_wr_bytes)
+        DLSYM_FUNCTION(libttsim_clock)
+        DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+        shared_bdf_mode_ = true;
+        s_shared_refcount_++;
+        log_info(
+            tt::LogEmulationDriver, "TTSim BDF multichip mode (chip_id={}, shared dlopen, per-device BARs)", chip_id_);
+        return;
+    }
+
     // Legacy path: per-chip memfd + dlopen.
     if (copy_sim_binary_) {
         create_simulator_binary();
@@ -176,6 +232,16 @@ void TTSimCommunicator::start_sim() {
         dev_handle_ = pfn_libttsim_create_device_by_id_(chip_id_, /*chip_x=*/int(chip_id_), /*chip_y=*/0);
         return;
     }
+    if (shared_bdf_mode_) {
+        // Shared dlopen: initialize the simulator exactly once. Chips are addressed by
+        // BDF, so there is no per-chip registration call.
+        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        if (!s_sim_initialized_) {
+            pfn_libttsim_init_();
+            s_sim_initialized_ = true;
+        }
+        return;
+    }
     pfn_libttsim_init_();
 }
 
@@ -188,7 +254,7 @@ void TTSimCommunicator::shutdown() {
         return;
     }
     log_info(tt::LogEmulationDriver, "Sending exit signal to remote...");
-    if (multichip_mode_) {
+    if (uses_shared_handle()) {
         // Defer libttsim_exit until the last communicator destructs (handled
         // by refcount in the destructor's shared-handle close path). The
         // simulator is process-global; calling exit per chip would be wrong.
@@ -251,10 +317,18 @@ void TTSimCommunicator::pci_mem_write_bytes(uint64_t paddr, const void *data, ui
 
 uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint32_t offset) {
     std::lock_guard<std::mutex> lock(device_lock_);
-    // pci_config_read32 reads compile-time constants; no chip selection needed.
-    // But we still select for consistency and future-proofing.
-    select_chip_if_needed();
-    return pfn_libttsim_pci_config_rd32_(bus_device_function, offset);
+    // In BDF mode there is no select_device_by_id: this chip's PCI device is named by
+    // its BDF (device field = chip_id), so each chip reads its own per-device BAR bases.
+    // Callers pass bus_device_function 0 ("this device"); we fill in the device field.
+    uint32_t bdf = bus_device_function;
+    if (shared_bdf_mode_) {
+        // BDF: function[2:0], device[7:3], bus[15:8]. The device field is only 5 bits, so chip_id >= 32
+        // would silently overflow into the bus field and misroute. Fail loudly instead.
+        UMD_ASSERT(chip_id_ < 32, error::RuntimeError, "BDF device field is 5 bits; chip_id must be < 32 in BDF mode.");
+        bdf |= (chip_id_ << 3);
+    }
+    select_chip_if_needed();  // no-op outside the multichip-ABI mode
+    return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
@@ -273,26 +347,82 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
 }
 
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+std::array<TTSimCommunicator::DmaHostRange, TTSimCommunicator::kMaxDmaDevices> TTSimCommunicator::dma_ranges_{};
+std::size_t TTSimCommunicator::dma_range_count_ = 0;
+std::mutex TTSimCommunicator::dma_ranges_mutex_;
+
+// Route a sysmem DMA to the owning MMIO chip by host address: the address the chip emits already went
+// through its outbound iATU (UMD-programmed target = that chip's distinct host base), so we just find
+// the registered host window [host_base, host_base+size) that contains it -- exactly as a host routes a
+// DMA by which pinned region the physical address falls in. Rebase paddr to the within-window offset (so
+// the per-chip callback sees an offset relative to its own host base, like the single-device case) and
+// return the owning communicator. Falls back to callback_instance_ when no window matches (single
+// device, or an address outside any registered region).
+TTSimCommunicator *TTSimCommunicator::dma_route(uint64_t &paddr) {
+    std::lock_guard<std::mutex> lock(dma_ranges_mutex_);
+    for (std::size_t i = 0; i < dma_range_count_; i++) {
+        const DmaHostRange &r = dma_ranges_[i];
+        if (paddr >= r.host_base && paddr - r.host_base < r.host_size) {
+            paddr -= r.host_base;
+            return r.inst;
+        }
+    }
+    return callback_instance_;
+}
 
 void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
-        callback_instance_->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+    TTSimCommunicator *inst = dma_route(paddr);
+    if (inst && inst->pci_dma_mem_rd_bytes_callback_) {
+        inst->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
     }
 }
 
 void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_wr_bytes_callback_) {
-        callback_instance_->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+    TTSimCommunicator *inst = dma_route(paddr);
+    if (inst && inst->pci_dma_mem_wr_bytes_callback_) {
+        inst->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
     }
 }
 
 void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
+    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+    uint64_t host_base,
+    uint64_t host_size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
-    callback_instance_ = this;
+    // callback_instance_ and dma_ranges_ are both read by dma_route() under dma_ranges_mutex_, so they
+    // must be written under that same mutex (not device_lock_) to avoid a data race with DMA callbacks.
+    {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        callback_instance_ = this;
+        // Register this chip's host window for address-range DMA routing (dma_route()). The chip's
+        // outbound iATU targets this window, so DMAs land here by address alone -- no per-chip tag.
+        // host_size==0 (legacy / single-device) registers nothing and relies on the callback_instance_
+        // fallback.
+        if (host_size != 0) {
+            bool updated = false;
+            for (std::size_t i = 0; i < dma_range_count_; i++) {
+                if (dma_ranges_[i].inst == this) {  // re-registration: update in place
+                    dma_ranges_[i] = {host_base, host_size, this};
+                    updated = true;
+                    break;
+                }
+            }
+            if (!updated && dma_range_count_ < kMaxDmaDevices) {
+                dma_ranges_[dma_range_count_++] = {host_base, host_size, this};
+            }
+        }
+    }
+    // The DMA callbacks are process-global, and libttsim forbids (re)registering them
+    // once the simulator is running. With one shared simulator across chips, only the
+    // first chip -- which runs libttsim_init in start_sim() -- registers them, before
+    // init. Later chips just record their callback (last-writer-wins, the pre-existing
+    // single-instance limitation) and skip the now-illegal re-registration.
+    if (uses_shared_handle() && s_sim_initialized_) {
+        return;
+    }
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
 

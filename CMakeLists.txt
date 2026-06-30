@@ -191,14 +191,28 @@ include(packaging)
 # Print the effective value of every UMD option at the end of configuration.
 # Values come from the cache, so this reflects what is actually used for this
 # build, including values inherited from a previous configure of the same dir.
+# Listed explicitly (rather than filtered by prefix) so that when UMD is part of
+# a larger build we only print options we own, not unrelated cache variables.
+set(_umd_summary_vars
+    CMAKE_BUILD_TYPE
+    TT_EMULE_PATH
+    TT_UMD_BUILD_ALL
+    TT_UMD_BUILD_EMULE
+    TT_UMD_BUILD_EXAMPLES
+    TT_UMD_BUILD_JTAG
+    TT_UMD_BUILD_PIP
+    TT_UMD_BUILD_PYTHON
+    TT_UMD_BUILD_SIMULATION
+    TT_UMD_BUILD_STATIC
+    TT_UMD_BUILD_TESTS
+    TT_UMD_BUILD_TOOLS
+    TT_UMD_ENABLE_CLANG_TIDY
+    TT_UMD_ENABLE_LOGGING
+    TT_UMD_ENABLE_TRACY
+)
 message(STATUS "")
 message(STATUS "==================== UMD configuration summary ====================")
-message(STATUS "CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
-get_cmake_property(_umd_cache_vars CACHE_VARIABLES)
-list(SORT _umd_cache_vars)
-foreach(_var IN LISTS _umd_cache_vars)
-    if(_var MATCHES "^TT_")
-        message(STATUS "  ${_var} = ${${_var}}")
-    endif()
+foreach(_var IN LISTS _umd_summary_vars)
+    message(STATUS "  ${_var} = ${${_var}}")
 endforeach()
 message(STATUS "===================================================================")

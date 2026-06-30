@@ -30,10 +30,8 @@ endif()
 
 if(TT_UMD_BUILD_STATIC)
     add_library(tt-umd STATIC)
-    message(STATUS "Building tt-umd library as STATIC")
 else()
     add_library(tt-umd SHARED)
-    message(STATUS "Building tt-umd library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
 
@@ -341,7 +339,6 @@ endif()
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
     target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
-    message(STATUS "Tracy profiling enabled for tt-umd library")
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support

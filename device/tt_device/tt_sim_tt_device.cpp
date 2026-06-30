@@ -238,9 +238,10 @@ void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket)
 void TTSimTTDevice::start_device() {}
 
 void TTSimTTDevice::close_device() {
-    // Client mode has no local backend (communicator_); closing means dropping the host session.
+    // Client mode has no local backend (communicator_) to close; the host session is dropped by
+    // client_->detach() in the destructor (idempotent), keeping teardown symmetric with
+    // RtlSimulationTTDevice, which has no close_device() override.
     if (client_) {
-        client_->detach();
         return;
     }
     communicator_->mark_closed();

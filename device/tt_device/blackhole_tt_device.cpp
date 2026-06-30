@@ -243,13 +243,7 @@ void BlackholeTTDevice::set_clock_state(DevicePowerState state) {
         error::RuntimeError,
         fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
 
-    // SHORT_IDLE has no defined target AICLK, so waiting for the clock to settle would needlessly
-    // block until timeout. Skip the wait for that state.
-    if (state == DevicePowerState::SHORT_IDLE) {
-        log_warning(LogUMD, "Skipping AICLK settle wait for SHORT_IDLE clock state.");
-    } else {
-        wait_for_aiclk_value(state);
-    }
+    wait_for_aiclk_value(state);
 }
 
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {

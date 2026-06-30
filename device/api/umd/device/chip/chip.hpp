@@ -108,8 +108,6 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    // Set the device clock state. Delegates to the underlying TTDevice, which drives AICLK via ARC
-    // on supported silicon and is a no-op for chips without a controllable clock.
     void set_clock_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;

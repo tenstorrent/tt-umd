@@ -252,11 +252,21 @@ void TTDevice::set_clock_state(DevicePowerState /*state*/) {
 void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
     auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
-    if (power_state == DevicePowerState::BUSY) {
-        target_aiclk = get_max_clock_freq();
-    } else if (power_state == DevicePowerState::LONG_IDLE) {
-        target_aiclk = get_min_clock_freq();
+
+    switch (power_state) {
+        case DevicePowerState::BUSY:
+            target_aiclk = get_max_clock_freq();
+            break;
+        case DevicePowerState::LONG_IDLE:
+            target_aiclk = get_min_clock_freq();
+            break;
+        case DevicePowerState::SHORT_IDLE:
+            log_warning(LogUMD, "Skipping AICLK settle wait for SHORT_IDLE clock state.");
+            return;
+        default:
+            UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
     }
+
     uint32_t aiclk = get_clock();
     while (aiclk != target_aiclk) {
         auto end = std::chrono::steady_clock::now();

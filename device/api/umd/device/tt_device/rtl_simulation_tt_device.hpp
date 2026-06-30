@@ -54,7 +54,9 @@ public:
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
-    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
+protected:
+    std::unique_ptr<TlbWindow> create_tlb_window(
+        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
 
 private:
     std::unique_ptr<RtlSimCommunicator> communicator_;

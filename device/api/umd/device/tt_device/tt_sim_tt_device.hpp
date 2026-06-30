@@ -77,10 +77,12 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
-
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
+
+protected:
+    std::unique_ptr<TlbWindow> create_tlb_window(
+        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
 
 private:
     void initialize_sysmem_functions();

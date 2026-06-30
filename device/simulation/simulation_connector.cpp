@@ -8,7 +8,7 @@
 
 #include <utility>
 
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/utils/error.hpp"
@@ -20,13 +20,13 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
 
     // Single-chip for now. Socket-first: try to claim the path; success => we are the host.
     const ChipId chip_id = 0;
-    const std::filesystem::path socket_path = SimulationSocket::default_socket_path(chip_id);
+    const std::filesystem::path socket_path = SimulationServerSocket::default_socket_path(chip_id);
 
     // The backend (TTSim .so vs RTL directory) is chosen by the simulator path, mirroring the
     // simulation device factory; the host-vs-client role is chosen socket-first below.
     const bool is_ttsim = options.simulator_directory.extension() == ".so";
 
-    std::unique_ptr<SimulationSocket> socket = SimulationSocket::try_create(socket_path);
+    std::unique_ptr<SimulationServerSocket> socket = SimulationServerSocket::try_create(socket_path);
     if (socket == nullptr) {
         // A live host already serves this device. The client/attach path lands in a later PR.
         UMD_THROW(

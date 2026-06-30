@@ -12,7 +12,7 @@
 #include <utility>
 
 #include "noc_access.hpp"
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -152,7 +152,9 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     communicator_->shutdown();
 }
 
-void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationSocket> socket) { socket_ = std::move(socket); }
+void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+    socket_ = std::move(socket);
+}
 
 void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);

@@ -25,7 +25,7 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
-class SimulationSocket;
+class SimulationServerSocket;
 class SocDescriptor;
 class TlbWindow;
 
@@ -80,7 +80,7 @@ public:
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
     // Takes ownership of the serving socket that exposes this device (created by discovery).
-    void adopt_socket(std::unique_ptr<SimulationSocket> socket);
+    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
 
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
@@ -96,6 +96,6 @@ private:
 
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
     // it. The host keeps its own direct fast path; the socket is for remote clients.
-    std::unique_ptr<SimulationSocket> socket_;
+    std::unique_ptr<SimulationServerSocket> socket_;
 };
 }  // namespace tt::umd

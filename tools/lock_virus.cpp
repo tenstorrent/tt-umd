@@ -155,14 +155,9 @@ int main(int argc, char* argv[]) {
         // Build the full set of expected lock names.
         std::set<std::string> found_set(found_locks.begin(), found_locks.end());
         std::vector<std::string> expected_names;
-        expected_names.reserve(
-            LockManager::SYSTEM_WIDE_MUTEX_TYPES.size() +
-            device_ids.size() * LockManager::CHIP_SPECIFIC_MUTEX_TYPES.size());
+        expected_names.reserve(device_ids.size() * LockManager::CHIP_SPECIFIC_MUTEX_TYPES.size());
 
         static const std::string prefix(RobustMutex::SHM_FILE_PREFIX);
-        for (MutexType type : LockManager::SYSTEM_WIDE_MUTEX_TYPES) {
-            expected_names.push_back(prefix + LockManager::MUTEX_TYPE_TO_STRING.at(type));
-        }
         for (int id : device_ids) {
             for (const auto& name : chip_specific_mutex_names(id)) {
                 expected_names.push_back(prefix + name);

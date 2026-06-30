@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -50,6 +51,7 @@ public:
     int get_mmio_id() override;
 
     // PcieInterface.
+    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
     PCIDevice* get_pci_device() override;
     [[nodiscard]] bool dma_write_to_device(
         const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) override;
@@ -96,6 +98,10 @@ private:
     std::mutex dma_mutex_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
+
+    // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
+    // TTDevice::set_hang_detector).
+    std::function<bool(NocId)> hang_check_;
 };
 
 }  // namespace tt::umd

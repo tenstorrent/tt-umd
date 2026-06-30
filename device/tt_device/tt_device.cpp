@@ -250,9 +250,7 @@ void TTDevice::set_clock_state(DevicePowerState /*state*/) {
 }
 
 void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
-    auto start = std::chrono::steady_clock::now();
     uint32_t target_aiclk = 0;
-
     switch (power_state) {
         case DevicePowerState::BUSY:
             target_aiclk = get_max_clock_freq();
@@ -267,43 +265,47 @@ void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chr
             UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
     }
 
-    uint32_t aiclk = get_clock();
-    while (aiclk != target_aiclk) {
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms.count()) {
-            auto *telemetry = get_arc_telemetry_reader();
-            std::string arb_max_info;
-            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
-                const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
-                const uint32_t arb_freq = arb_max & 0xFFFF;
-                const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
-                arb_max_info = fmt::format(", AICLK clamped by max-arbiter index {} at {} MHz", arb_idx, arb_freq);
-            }
+    const bool settled = utils::poll_until(
+        [&] { return get_clock() == target_aiclk; },
+        timeout_ms,
+        std::chrono::microseconds(500),
+        std::chrono::microseconds(100));
+
+    if (!settled) {
+        log_aiclk_timeout_warning(target_aiclk, timeout_ms);
+    }
+}
+
+void TTDevice::log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms) {
+    const uint32_t aiclk = get_clock();
+
+    auto *telemetry = get_arc_telemetry_reader();
+    std::string arb_max_info;
+    if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+        const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+        arb_max_info = fmt::format(
+            ", AICLK clamped by max-arbiter index {} at {} MHz", (arb_max >> 16) & 0xFFFF, arb_max & 0xFFFF);
+    }
+
+    log_warning(
+        LogUMD,
+        "AICLK failed to settle after {} ms. Expected {}, observed {}. ASIC temperature: {}{}",
+        timeout_ms.count(),
+        target_aiclk,
+        aiclk,
+        get_asic_temperature(),
+        arb_max_info);
+
+    if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+        const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+        if (timeout_ms.count() <= update_telem_speed_ms) {
             log_warning(
                 LogUMD,
-                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
-                "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
-                "{}{}",
+                "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the observed "
+                "AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
                 timeout_ms.count(),
-                target_aiclk,
-                aiclk,
-                get_asic_temperature(),
-                arb_max_info);
-            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
-                const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
-                if (timeout_ms.count() <= update_telem_speed_ms) {
-                    log_warning(
-                        LogUMD,
-                        "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
-                        "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
-                        timeout_ms.count(),
-                        update_telem_speed_ms);
-                }
-            }
-            return;
+                update_telem_speed_ms);
         }
-        aiclk = get_clock();
     }
 }
 

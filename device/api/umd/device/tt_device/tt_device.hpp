@@ -545,6 +545,8 @@ protected:
 private:
     void probe_arc();
 
+    void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
+
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     xy_pair resolve_coordinate(CoreCoord core) const;

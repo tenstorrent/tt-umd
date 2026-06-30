@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -177,7 +177,7 @@ TTSimTTDevice::~TTSimTTDevice() {
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationSocket> socket) { socket_ = std::move(socket); }
+void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
 
 void TTSimTTDevice::start_device() {}
 

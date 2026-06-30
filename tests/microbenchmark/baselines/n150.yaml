@@ -12,9 +12,9 @@ metadata:
   schema_version: 1
   arch: "n150"
   runner_hostname: "bgd-lab-06"
-  calibrated_at: "2026-05-22"
+  calibrated_at: "2026-06-30"
   notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."
 
 ClusterConstructor:
-  default: { median_value: 248.7, tolerance_pct: 5 }
-  from sdesc: { median_value: 194.5, tolerance_pct: 5 }
+  default: { median_value: 480.7, tolerance_pct: 5 }
+  from sdesc: { median_value: 297.8, tolerance_pct: 5 }

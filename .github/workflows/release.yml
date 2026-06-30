@@ -240,7 +240,7 @@ jobs:
   build-cpp-artifacts:
     name: Build C++ Artifacts on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     # Arm variants build natively on an arm runner; everything else uses the standard x86 runner.
-    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
     needs: prepare-release
     timeout-minutes: 30
     strategy:
@@ -302,7 +302,7 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
     # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
 
     steps:
       - uses: actions/checkout@v6

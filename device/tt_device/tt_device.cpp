@@ -43,6 +43,7 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -51,6 +52,9 @@
 
 namespace tt::umd {
 enum class RiscType : std::uint64_t;
+
+// AICLK rarely settles on the exact target; accept any value within this percentage of the target.
+constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
@@ -141,7 +145,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     probe_arc();
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
     construct_soc_descriptor(soc_arch_descriptor_);
 }
@@ -265,14 +269,28 @@ void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chr
             UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
     }
 
+    uint32_t aiclk = 0;
     const bool settled = utils::poll_until(
-        [&] { return get_clock() == target_aiclk; },
+        [&] {
+            aiclk = get_clock();
+            return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
+        },
         timeout_ms,
         std::chrono::microseconds(500),
         std::chrono::microseconds(100));
 
     if (!settled) {
         log_aiclk_timeout_warning(target_aiclk, timeout_ms);
+        return;
+    }
+
+    if (aiclk != target_aiclk) {
+        log_warning(
+            LogUMD,
+            "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
+            aiclk,
+            AICLK_TOLERANCE_PERCENT,
+            target_aiclk);
     }
 }
 

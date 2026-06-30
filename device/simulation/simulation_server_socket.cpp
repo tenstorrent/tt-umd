@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 
 #include <fmt/format.h>
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
@@ -37,25 +37,25 @@ stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
 
 }  // namespace
 
-// The asio transport, kept out of the header (see SimulationSocket::Impl forward declaration).
-struct SimulationSocket::Impl {
+// The asio transport, kept out of the header (see SimulationServerSocket::Impl forward declaration).
+struct SimulationServerSocket::Impl {
     asio::io_context io;
     stream_protocol::acceptor acceptor{io};
     std::thread io_thread;
 };
 
-SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path) :
+SimulationServerSocket::SimulationServerSocket(const std::filesystem::path& socket_path) :
     socket_path_(socket_path), impl_(std::make_unique<Impl>()) {}
 
-std::unique_ptr<SimulationSocket> SimulationSocket::try_create(const std::filesystem::path& socket_path) {
-    std::unique_ptr<SimulationSocket> socket(new SimulationSocket(socket_path));
+std::unique_ptr<SimulationServerSocket> SimulationServerSocket::try_create(const std::filesystem::path& socket_path) {
+    std::unique_ptr<SimulationServerSocket> socket(new SimulationServerSocket(socket_path));
     if (!socket->bind_and_listen()) {
         return nullptr;
     }
     return socket;
 }
 
-std::unique_ptr<SimulationSocket> SimulationSocket::create(const std::filesystem::path& socket_path) {
+std::unique_ptr<SimulationServerSocket> SimulationServerSocket::create(const std::filesystem::path& socket_path) {
     auto socket = try_create(socket_path);
     if (!socket) {
         UMD_THROW(
@@ -64,7 +64,7 @@ std::unique_ptr<SimulationSocket> SimulationSocket::create(const std::filesystem
     return socket;
 }
 
-void SimulationSocket::do_accept() {
+void SimulationServerSocket::do_accept() {
     auto sock = std::make_shared<stream_protocol::socket>(impl_->io);
     impl_->acceptor.async_accept(*sock, [this, sock](const std::error_code& ec) {
         // A non-aborted error or io_context::stop() (teardown) ends the loop; otherwise
@@ -76,7 +76,7 @@ void SimulationSocket::do_accept() {
     });
 }
 
-bool SimulationSocket::is_live() {
+bool SimulationServerSocket::is_live() {
     // is_live() is a predicate; a path too long to name a reachable listener can't have one,
     // so report not-live rather than letting make_endpoint() throw.
     if (socket_path_.string().size() >= sizeof(sockaddr_un::sun_path)) {
@@ -90,7 +90,7 @@ bool SimulationSocket::is_live() {
     return !ec;
 }
 
-bool SimulationSocket::bind_and_listen() {
+bool SimulationServerSocket::bind_and_listen() {
     if (socket_path_.has_parent_path()) {
         // A socket is only reachable cross-user if the directory holding it is too, so a
         // directory we create for it gets /tmp's semantics: 0777 + sticky bit. World rwx lets
@@ -205,7 +205,7 @@ bool SimulationSocket::bind_and_listen() {
     return true;
 }
 
-SimulationSocket::~SimulationSocket() {
+SimulationServerSocket::~SimulationServerSocket() {
     // Only a successfully-bound owner tears down and removes the file. A never-bound object
     // (try_create() lost to a live owner and returned nullptr) must not delete the live
     // owner's socket. The throwing ctor is safe either way: if bind_and_listen() throws,
@@ -225,7 +225,7 @@ SimulationSocket::~SimulationSocket() {
     std::filesystem::remove(socket_path_, ec);
 }
 
-std::filesystem::path SimulationSocket::default_socket_path(ChipId chip_id) {
+std::filesystem::path SimulationServerSocket::default_socket_path(ChipId chip_id) {
     // One shared socket per chip per machine, under the system temp directory: the name
     // carries no uid, so every process (any user) resolves the same path and attaches to the
     // single host. The socket dir is assumed trusted: the path is predictable and the socket

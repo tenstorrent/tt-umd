@@ -12,7 +12,7 @@
 #include <fstream>
 #include <string>
 
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 
 using namespace tt::umd;
 
@@ -55,7 +55,7 @@ void leave_stale_socket(const std::filesystem::path& path) {
 
 // Provides a fresh socket path that is removed before and after each test, so cases share a
 // fixed name without leaking sockets between runs.
-class SimulationSocketTest : public ::testing::Test {
+class SimulationServerSocketTest : public ::testing::Test {
 protected:
     void SetUp() override {
         path_ = test_socket_path();
@@ -69,39 +69,39 @@ protected:
 
 }  // namespace
 
-TEST_F(SimulationSocketTest, ExposesConnectableSocket) {
-    auto server = SimulationSocket::create(path_);
+TEST_F(SimulationServerSocketTest, ExposesConnectableSocket) {
+    auto server = SimulationServerSocket::create(path_);
 
     EXPECT_TRUE(std::filesystem::exists(path_));
     EXPECT_TRUE(can_connect(path_));
 }
 
-TEST_F(SimulationSocketTest, RemovesSocketOnDestruction) {
-    { auto server = SimulationSocket::create(path_); }
+TEST_F(SimulationServerSocketTest, RemovesSocketOnDestruction) {
+    { auto server = SimulationServerSocket::create(path_); }
 
     EXPECT_FALSE(std::filesystem::exists(path_));
     EXPECT_FALSE(can_connect(path_));
 }
 
-TEST_F(SimulationSocketTest, ReclaimsStaleSocketFile) {
+TEST_F(SimulationServerSocketTest, ReclaimsStaleSocketFile) {
     leave_stale_socket(path_);
     EXPECT_FALSE(can_connect(path_));
 
-    auto server = SimulationSocket::create(path_);
+    auto server = SimulationServerSocket::create(path_);
 
     EXPECT_TRUE(can_connect(path_));
 }
 
-TEST_F(SimulationSocketTest, ThrowsWhenLiveServerAlreadyExists) {
-    auto server = SimulationSocket::create(path_);
+TEST_F(SimulationServerSocketTest, ThrowsWhenLiveServerAlreadyExists) {
+    auto server = SimulationServerSocket::create(path_);
 
-    EXPECT_ANY_THROW(SimulationSocket::create(path_));
+    EXPECT_ANY_THROW(SimulationServerSocket::create(path_));
 }
 
-TEST_F(SimulationSocketTest, TryCreateReturnsNullWhenLiveHostExists) {
-    auto host = SimulationSocket::try_create(path_);
+TEST_F(SimulationServerSocketTest, TryCreateReturnsNullWhenLiveHostExists) {
+    auto host = SimulationServerSocket::try_create(path_);
     ASSERT_NE(host, nullptr);
-    EXPECT_EQ(SimulationSocket::try_create(path_), nullptr);  // live host -> null, no throw
+    EXPECT_EQ(SimulationServerSocket::try_create(path_), nullptr);  // live host -> null, no throw
 
     // The throwaway object from the failed try_create above must not remove the live
     // host's socket on destruction (ownership-gated teardown).
@@ -109,27 +109,27 @@ TEST_F(SimulationSocketTest, TryCreateReturnsNullWhenLiveHostExists) {
     EXPECT_TRUE(can_connect(path_));
 }
 
-TEST_F(SimulationSocketTest, TryCreateReclaimsStaleSocket) {
+TEST_F(SimulationServerSocketTest, TryCreateReclaimsStaleSocket) {
     leave_stale_socket(path_);
 
-    auto host = SimulationSocket::try_create(path_);
+    auto host = SimulationServerSocket::try_create(path_);
     EXPECT_NE(host, nullptr);  // stale leftover reclaimed
     EXPECT_TRUE(can_connect(path_));
 }
 
 // A non-socket file squatting the path also yields EADDRINUSE on bind; the reclaim path
 // must refuse to delete it instead of destroying unrelated data.
-TEST_F(SimulationSocketTest, RefusesToReclaimNonSocketFile) {
+TEST_F(SimulationServerSocketTest, RefusesToReclaimNonSocketFile) {
     { std::ofstream(path_) << "not a socket"; }
 
-    EXPECT_THROW(SimulationSocket::try_create(path_), std::exception);
+    EXPECT_THROW(SimulationServerSocket::try_create(path_), std::exception);
     EXPECT_TRUE(std::filesystem::exists(path_));  // the regular file was left untouched
 }
 
-TEST(SimulationSocket, DefaultSocketPathIsPerChip) {
-    EXPECT_NE(SimulationSocket::default_socket_path(0), SimulationSocket::default_socket_path(1));
+TEST(SimulationServerSocket, DefaultSocketPathIsPerChip) {
+    EXPECT_NE(SimulationServerSocket::default_socket_path(0), SimulationServerSocket::default_socket_path(1));
 }
 
-TEST(SimulationSocket, DefaultSocketPathIsAbsolute) {
-    EXPECT_TRUE(SimulationSocket::default_socket_path(0).is_absolute());
+TEST(SimulationServerSocket, DefaultSocketPathIsAbsolute) {
+    EXPECT_TRUE(SimulationServerSocket::default_socket_path(0).is_absolute());
 }

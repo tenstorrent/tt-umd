@@ -78,10 +78,6 @@ uint32_t WormholeArcMessenger::send_message(
                                              MutexType::ARC_MSG,
                                              tt_device->get_communication_device_id(),
                                              tt_device->get_communication_device_type());
-    // TODO: This lock is deprecated, and will be removed once all clients update the code and start locking using the
-    // locks above. This prevents a potential intermediary bug where two clients running on different UMD versions are
-    // not synchronizing on the same lock.
-    auto lock_global = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;

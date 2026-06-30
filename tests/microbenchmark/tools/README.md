@@ -11,7 +11,7 @@ The three scripts you'll touch:
 |---|---|
 | [`update_baseline.py`](update_baseline.py) | Update a per-arch baseline YAML from a CI artifact. Run when you want to (re)calibrate. |
 | [`summarize_regressions.py`](summarize_regressions.py) | What CI's `regression-check` job runs. Compares all archs in one pass and writes the markdown summary. You rarely run this by hand. |
-| [`compare_to_baseline.py`](compare_to_baseline.py) | **Legacy.** Predates the move to CI-calibrated baselines (originally - tool to compare local benchmark runs on one dedicated runner against locally-calibrated baselines). Likely to be removed or merged into `summarize_regressions.py`. See caveat below. |
+| [`compare_to_baseline.py`](compare_to_baseline.py) | Local smoke test: compares a hand-run against an arch's CI baseline. Expect larger drift than CI-to-CI — good for catching big regressions, not precise checks. See caveat below. |
 
 ## `update_baseline.py` — re-calibrate one arch from a CI artifact
 
@@ -76,22 +76,16 @@ Exit code: `0` always, except when a `gate: true` case breaches DOWN — then
 exit `1` so CI fails. Non-gated breaches are soft alerts; they show up in
 the summary but don't fail the job.
 
-## `compare_to_baseline.py` — legacy local comparator
+## `compare_to_baseline.py` — local smoke test vs the CI baseline
 
-**Leftover from an earlier design.** This script was written when baselines
-were themselves populated from local benchmark runs — an apples-to-apples
-local-vs-local comparison on the same shell, same binary, same invocation
-pattern. Since baselines moved to being calibrated from dedicated CI runners
-(see `update_baseline.py`), this comparison is no longer apples-to-apples:
-local runs and CI runs diverge by an unmeasured amount even on the same
-physical hardware (see caveat below).
+Compares a **local** benchmark run against the CI-calibrated baseline for one
+arch. Local and CI numbers diverge (different process/container/host state — see
+caveat), so expect larger differences here than in CI-to-CI comparison; it's for
+catching obviously big drifts, not precise regression checks.
 
-Likely future: either removed outright, or folded into `summarize_regressions.py`
-as an optional single-arch view that operates on a downloaded CI artifact.
-
-For now it still works as a wrapper around `summarize_regressions.py`. Takes
-a local results directory (typically `$UMD_MICROBENCHMARK_RESULTS_PATH` from
-a hand-run of the benchmark binary) and produces a single-arch table.
+A thin wrapper around `summarize_regressions.py`. Point it at a local results
+directory (typically `$UMD_MICROBENCHMARK_RESULTS_PATH` from a hand-run of the
+benchmark binary) plus the arch whose baseline to compare against.
 
 ```bash
 export UMD_MICROBENCHMARK_RESULTS_PATH=/tmp/umd-bench

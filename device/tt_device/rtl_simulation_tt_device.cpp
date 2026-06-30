@@ -352,7 +352,7 @@ void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
 
 void RtlSimulationTTDevice::noc_multicast_write(
     const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+    multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
 void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {

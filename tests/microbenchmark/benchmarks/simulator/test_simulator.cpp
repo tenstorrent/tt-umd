@@ -44,7 +44,7 @@ protected:
     ClusterOptions sim_options() const {
         ClusterOptions options;
         options.chip_type = ChipType::SIMULATION;
-        options.target_devices = {0};
+        options.target_devices = {CHIP_ID};
         options.simulator_directory = std::filesystem::path(sim_path_);
         options.num_host_mem_ch_per_mmio_device = 0;
         return options;

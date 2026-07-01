@@ -6,8 +6,6 @@
 #include <nanobench.h>
 
 #include <chrono>
-#include <cstdlib>
-#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -45,29 +43,6 @@ TEST(MicrobenchmarkOpenCluster, ClusterConstructor) {
 
     options.sdesc_path = test_utils::get_soc_descriptor_path(arch);
     bench.name("from sdesc").run([&] {
-        std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
-        ankerl::nanobench::doNotOptimizeAway(cluster);
-    });
-    test::utils::export_results(bench);
-}
-
-TEST(MicrobenchmarkOpenClusterSim, ClusterConstructor) {
-    const char* sim_path = std::getenv("TT_UMD_SIMULATOR");
-    if (sim_path == nullptr) {
-        GTEST_SKIP() << "TT_UMD_SIMULATOR not set; skipping simulator startup benchmark.";
-    }
-
-    ClusterOptions options;
-    options.chip_type = ChipType::SIMULATION;
-    options.target_devices = {0};
-    options.simulator_directory = std::filesystem::path(sim_path);
-    options.num_host_mem_ch_per_mmio_device = 0;
-
-    auto bench = ankerl::nanobench::Bench()
-                     .maxEpochTime(std::chrono::seconds(30))
-                     .title("ClusterConstructorSim")
-                     .unit("cluster");
-    bench.name("default").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
         ankerl::nanobench::doNotOptimizeAway(cluster);
     });

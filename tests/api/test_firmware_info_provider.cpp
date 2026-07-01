@@ -541,12 +541,12 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         // only FAN_SPEED (percentage) is reported.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
             EXPECT_EQ(speed_rpm.at(0), std::nullopt);
-        } else if (fw_version <= FirmwareBundleVersion(19, 10, 0)) {
+        } else if (fw_version < FirmwareBundleVersion(19, 10, 0)) {
             // On modern firmware, both should be available or both absent
             // (nullopt when fans are not present on board or not controlled by FW).
             EXPECT_EQ(speed_percentage.at(0).has_value(), speed_rpm.at(0).has_value());
             EXPECT_EQ(speed_percentage.at(1).has_value(), speed_rpm.at(1).has_value());
-        }
+        }  // 19.10 and later do not have this expectation.
     }
 }
 

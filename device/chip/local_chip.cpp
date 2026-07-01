@@ -413,6 +413,10 @@ void LocalChip::set_membar_flag(
         write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
+    // This readback poll has no timeout: if a core's NOC/Tensix never acknowledges the barrier (e.g. a wedged
+    // chip during device bring-up) the loop spins forever and the hang is silent. Periodically report which
+    // cores have not acked so the stuck device/core is identifiable.
+    uint64_t poll_iterations = 0;
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
@@ -428,6 +432,27 @@ void LocalChip::set_membar_flag(
                         barrier_value);
                 }
             }
+        }
+        if (++poll_iterations % 100000 == 0) {
+            std::string not_synced;
+            size_t shown = 0;
+            for (const auto& core : cores) {
+                if (cores_synced.find(core) == cores_synced.end() && shown++ < 8) {
+                    not_synced += core.str() + " ";
+                }
+            }
+            log_warning(
+                LogUMD,
+                "set_membar_flag: {}/{} core(s) have not acked barrier {} @ 0x{:x} after {} polls (pci dev {}); "
+                "still waiting on: {}{}",
+                cores.size() - cores_synced.size(),
+                cores.size(),
+                barrier_value,
+                barrier_addr,
+                poll_iterations,
+                tt_device_->get_pci_device()->get_device_num(),
+                not_synced,
+                cores.size() - cores_synced.size() > 8 ? "..." : "");
         }
     }
     // Ensure that reads or writes after this do not get reordered.

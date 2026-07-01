@@ -4,8 +4,14 @@
 
 #include "device_memcpy.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <functional>
+
+#include "umd/device/utils/error.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
+#include "umd/device/utils/op_timeout_guard.hpp"
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -13,42 +19,101 @@
 
 namespace tt::umd {
 
-void write16_to_device(volatile void* dest, std::uint16_t value) {
+namespace {
+
+// Builds the per-op timeout guard for the MMIO transfer routines: the configured budget, the on_timeout
+// callback, and an overrun action that throws DeviceTimeoutError. `bytes_remaining` is captured by
+// reference so the error reflects how much was left when the stall fired. on_timeout must not re-enter
+// the stalled op (see the on_timeout docs in the header).
+auto make_mmio_timeout_guard(
+    const char* op_verb,
+    std::size_t total_bytes,
+    const std::size_t& bytes_remaining,
+    const std::function<bool()>& on_timeout) {
+    const auto budget = MmioTimeoutConfig::get_op_timeout();
+    return OpTimeoutGuard(
+        budget,
+        on_timeout,
+        [op_verb, budget, total_bytes, &bytes_remaining](std::chrono::nanoseconds delta, std::uint32_t op_bytes) {
+            UMD_THROW(error::DeviceTimeoutError, op_verb, op_bytes, delta, budget, bytes_remaining, total_bytes);
+        });
+}
+
+}  // namespace
+
+// The single-word scalar transfers below get the same per-op budget as the bulk memcpy paths:
+// the volatile store/load is bracketed by a steady_clock sample and checked via the timeout guard, so
+// a slow-but-completing op (e.g. a ~700 ms read of a hung NOC register) trips the timeout instead of
+// silently returning. The check brackets each op, so it bounds a slow-but-completing access but cannot
+// preempt a CPU already stalled mid-access; SIGBUS covers only mapping invalidation (e.g. on reset),
+// not a stall.
+void write16_to_device(volatile void* dest, std::uint16_t value, const std::function<bool()>& on_timeout) {
+    std::size_t remaining = sizeof(value);
+    auto timer = make_mmio_timeout_guard("store", sizeof(value), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
     *reinterpret_cast<volatile std::uint16_t*>(dest) = value;
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
 }
 
-void write32_to_device(volatile void* dest, std::uint32_t value) {
+void write32_to_device(volatile void* dest, std::uint32_t value, const std::function<bool()>& on_timeout) {
+    std::size_t remaining = sizeof(value);
+    auto timer = make_mmio_timeout_guard("store", sizeof(value), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
     *reinterpret_cast<volatile std::uint32_t*>(dest) = value;
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
 }
 
-std::uint16_t read16_from_device(const volatile void* src) {
-    return *reinterpret_cast<const volatile std::uint16_t*>(src);
+std::uint16_t read16_from_device(const volatile void* src, const std::function<bool()>& on_timeout) {
+    std::size_t remaining = sizeof(std::uint16_t);
+    auto timer = make_mmio_timeout_guard("load", sizeof(std::uint16_t), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    std::uint16_t value = *reinterpret_cast<const volatile std::uint16_t*>(src);
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
+    return value;
 }
 
-std::uint32_t read32_from_device(const volatile void* src) {
-    return *reinterpret_cast<const volatile std::uint32_t*>(src);
+std::uint32_t read32_from_device(const volatile void* src, const std::function<bool()>& on_timeout) {
+    std::size_t remaining = sizeof(std::uint32_t);
+    auto timer = make_mmio_timeout_guard("load", sizeof(std::uint32_t), remaining, on_timeout);
+    auto t = std::chrono::steady_clock::now();
+    std::uint32_t value = *reinterpret_cast<const volatile std::uint32_t*>(src);
+    remaining = 0;
+    timer.record_and_check(t, sizeof(value));
+    return value;
 }
 
-void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
+void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, const std::function<bool()>& on_timeout) {
+    const std::size_t original_size = size;
     auto* d = static_cast<volatile std::uint8_t*>(dest);
     auto* s = static_cast<const std::uint8_t*>(src);
 
+    auto timer = make_mmio_timeout_guard("store", original_size, size, on_timeout);
+
     // Phase 0: Align device destination to 4 bytes using byte-wide volatile stores.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(d) % 4) != 0) {
+        auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timer.record_and_check(t, 1);
     }
 
 #if defined(__x86_64__) || defined(_M_X64)
-    // The AVX2 intrinsics below are not themselves volatile, so the compiler is free to
-    // reorder them relative to other non-volatile accesses. The volatile byte/4-byte loops
-    // in Phases 0/4/5 bound the reordering window for this function.
+    // The AVX2 intrinsics below are not themselves volatile. Each record_and_check() call
+    // is an opaque function call and therefore acts as a compiler barrier — it prevents
+    // the compiler from reordering the volatile-conceptual SIMD store around it. The
+    // bulk loop checks the timeout once per 256-byte block (after all 8 unrolled AVX2
+    // stores), keeping the store pipeline intact within a block. The explicit volatile
+    // loops in Phases 0/4/5 still bound the ordering for the byte/word tails.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* d_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(d));
 
     // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned stores).
     // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
     while (size >= 256) {
+        // Loads are from host memory (s) — no TLB access, not instrumented.
         __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
         __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 32));
         __m256i v2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 64));
@@ -58,6 +123,11 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
         __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 192));
         __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s + 224));
 
+        // All 8 stores go to TLB-mapped device memory. One timeout check after the
+        // whole 256-byte block keeps the AVX2 store pipeline intact while still
+        // detecting any stall — a single posted-write pile-up will stall the CPU
+        // mid-block and the check fires once the block completes.
+        auto t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v0);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 32), v1);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 64), v2);
@@ -66,6 +136,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 160), v5);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 192), v6);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 224), v7);
+        timer.record_and_check(t, 256);
 
         d_simd += 256;
         s += 256;
@@ -75,7 +146,9 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     // Phase 2: Remaining 32-byte chunks.
     while (size >= 32) {
         __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
+        auto t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v);
+        timer.record_and_check(t, 32);
         d_simd += 32;
         s += 32;
         size -= 32;
@@ -84,7 +157,9 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     // Phase 3: Remaining 16-byte chunk.
     if (size >= 16) {
         __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s));
+        auto t = std::chrono::steady_clock::now();
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d_simd), v);
+        timer.record_and_check(t, 16);
         d_simd += 16;
         s += 16;
         size -= 16;
@@ -182,7 +257,9 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
     while (size >= 4) {
         std::uint32_t tmp;
         std::memcpy(&tmp, s, sizeof(tmp));
+        auto t = std::chrono::steady_clock::now();
         *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        timer.record_and_check(t, 4);
         d += 4;
         s += 4;
         size -= 4;
@@ -190,31 +267,45 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size) {
 
     // Phase 5: Trailing bytes (0-3) using byte-wide volatile stores.
     while (size > 0) {
+        auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timer.record_and_check(t, 1);
     }
 }
 
-void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) {
+void memcpy_from_device(
+    void* dest, const volatile void* src, std::size_t size, const std::function<bool()>& on_timeout) {
+    const std::size_t original_size = size;
     auto* d = static_cast<std::uint8_t*>(dest);
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
+    auto timer = make_mmio_timeout_guard("load", original_size, size, on_timeout);
+
     // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(s) % 4) != 0) {
+        auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timer.record_and_check(t, 1);
     }
 
 #if defined(__x86_64__) || defined(_M_X64)
-    // The AVX2 intrinsics below are not themselves volatile, so the compiler is free to
-    // reorder them relative to other non-volatile accesses. The volatile byte/4-byte loops
-    // in Phases 0/4/5 bound the reordering window for this function.
+    // See memcpy_to_device for the volatile-ordering / compiler-barrier reasoning.
+    // The bulk loop checks the timeout once per 256-byte block (after all 8 unrolled
+    // AVX2 loads), so the CPU can keep 8 non-posted PCIe reads in flight concurrently
+    // within a block. Coarser checks in the tail phases (1 per 32/16/4/byte op) keep
+    // detection responsive even at sub-256-byte granularity.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
     auto* s_simd = const_cast<std::uint8_t*>(static_cast<const volatile std::uint8_t*>(s));
 
     // Phase 1: Bulk 256-byte blocks (8 x 32-byte AVX2 unaligned loads).
     // After this loop, 0 <= size < 256; remaining bytes are handled by Phases 2-5.
     while (size >= 256) {
+        // All 8 loads come from TLB-mapped device memory. One timeout check after the
+        // whole 256-byte block restores the 8-way non-posted-read pipeline (the CPU can
+        // have up to 8 reads outstanding concurrently) while still detecting any stall.
+        auto t = std::chrono::steady_clock::now();
         __m256i v0 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
         __m256i v1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 32));
         __m256i v2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 64));
@@ -223,7 +314,9 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) 
         __m256i v5 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 160));
         __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 192));
         __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 224));
+        timer.record_and_check(t, 256);
 
+        // Stores go to host memory (d) — no TLB access, not instrumented.
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v0);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 32), v1);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d + 64), v2);
@@ -240,7 +333,9 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) 
 
     // Phase 2: Remaining 32-byte chunks.
     while (size >= 32) {
+        auto t = std::chrono::steady_clock::now();
         __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
+        timer.record_and_check(t, 32);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v);
         d += 32;
         s_simd += 32;
@@ -249,7 +344,9 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) 
 
     // Phase 3: Remaining 16-byte chunk.
     if (size >= 16) {
+        auto t = std::chrono::steady_clock::now();
         __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s_simd));
+        timer.record_and_check(t, 16);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d), v);
         d += 16;
         s_simd += 16;
@@ -318,7 +415,9 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) 
 
     // Phase 4: Remaining 4-byte chunks.
     while (size >= 4) {
+        auto t = std::chrono::steady_clock::now();
         std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        timer.record_and_check(t, 4);
         std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
         s += 4;
@@ -327,8 +426,10 @@ void memcpy_from_device(void* dest, const volatile void* src, std::size_t size) 
 
     // Phase 5: Trailing bytes (0-3) using byte-wide volatile loads.
     while (size > 0) {
+        auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timer.record_and_check(t, 1);
     }
 }
 

@@ -30,10 +30,8 @@ endif()
 
 if(TT_UMD_BUILD_STATIC)
     add_library(tt-umd STATIC)
-    message(STATUS "Building tt-umd library as STATIC")
 else()
     add_library(tt-umd SHARED)
-    message(STATUS "Building tt-umd library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
 
@@ -141,6 +139,7 @@ target_sources(
         # so always built. This lets its unit tests run in the no-card baremetal CI lane
         # (TT_UMD_BUILD_SIMULATION=OFF).
         simulation/simulation_server_socket.cpp
+        simulation/simulation_client.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -252,6 +251,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/simulation_connector.hpp
+                api/umd/device/simulation/simulation_client.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
@@ -266,6 +266,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/error_detail.hpp
                 api/umd/device/utils/error.hpp
+                api/umd/device/utils/mmio_timeout_config.hpp
+                api/umd/device/utils/op_timeout_guard.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
@@ -341,7 +343,6 @@ endif()
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
     target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
-    message(STATUS "Tracy profiling enabled for tt-umd library")
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support

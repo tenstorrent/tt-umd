@@ -21,6 +21,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/risc_type.hpp"
@@ -64,6 +65,21 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
         simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);
 }
 
+std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create_client(
+    const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    UMD_ASSERT(
+        client != nullptr,
+        error::RuntimeError,
+        "Client-mode RtlSimulationTTDevice requires a non-null SimulationClient.");
+    // The SoC descriptor is read straight from the local simulator build -- the same files the
+    // host used -- so the client can describe the device without loading or running a simulator.
+    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
+    // make_unique can't reach the private client-mode constructor; this static factory can via new.
+    return std::unique_ptr<RtlSimulationTTDevice>(
+        new RtlSimulationTTDevice(soc_descriptor, chip_id, std::move(client)));
+}
+
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
@@ -77,6 +93,28 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
     arch = get_soc_descriptor().arch;
 
+    // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
+    setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
+    teardown_ = [this] { communicator_->shutdown(); };
+    setup_();
+}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
+    client_(std::move(client)) {
+    set_soc_descriptor(soc_descriptor);
+    arch = soc_descriptor.arch;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+
+    // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
+    // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
+    // create_client() has already validated that client_ is non-null.
+    setup_ = [this] { client_->attach(); };
+    teardown_ = [this] { client_->detach(); };
+    setup_();
+}
+
+void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
     // Register sysmem callbacks so the simulator can read/write host memory.
     if (num_host_mem_channels > 0) {
         SimulationSysmemManager* mgr = sysmem_manager_.get();
@@ -135,6 +173,11 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 }
 
 std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    if (client_) {
+        // Client mode runs no backend, so tlb_allocator_/communicator_ are never constructed. Fail
+        // loudly instead of dereferencing them; client-mode device I/O is not available yet.
+        UMD_THROW(error::RuntimeError, "Client-mode RtlSimulationTTDevice does not support TLB windows yet.");
+    }
     int tlb_index = tlb_allocator_->allocate_tlb_index(size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
@@ -149,7 +192,15 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config,
 RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     // Stop serving (and remove the socket) before tearing the backend down.
     socket_.reset();
-    communicator_->shutdown();
+    // teardown_ is communicator_->shutdown() (host) or client_->detach() (client). The
+    // destructor is implicitly noexcept, so this is best-effort.
+    if (teardown_) {
+        try {
+            teardown_();
+        } catch (const std::exception& e) {
+            log_warning(tt::LogEmulationDriver, "RtlSimulationTTDevice teardown failed: {}", e.what());
+        }
+    }
 }
 
 void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
@@ -158,6 +209,12 @@ void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket>
 
 void RtlSimulationTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
+            "read/write).");
+    }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     log_debug(
@@ -179,6 +236,12 @@ void RtlSimulationTTDevice::write_to_device(
 }
 
 void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
+            "read/write).");
+    }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
 

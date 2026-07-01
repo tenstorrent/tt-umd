@@ -30,6 +30,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
 // allowing other Python threads to run in parallel while this binding executes. Pass
@@ -144,6 +145,21 @@ void bind_tt_device(nb::module_ &m) {
         []() { throw error::SigbusError("This is a test exception from C++"); },
         release_gil(),
         "A helper function to verify SigbusError propagation");
+
+    // Runtime-configurable per-op MMIO (TLB-mapped) transfer budget. Lets a script tune the timeout
+    // explicitly (e.g. tighten it for latency-sensitive ops). Values are datetime.timedelta.
+    nb::class_<MmioTimeoutConfig>(m, "MmioTimeoutConfig")
+        .def_static(
+            "set_op_timeout",
+            &MmioTimeoutConfig::set_op_timeout,
+            nb::arg("timeout"),
+            release_gil(),
+            "Set the per-op MMIO transfer budget (datetime.timedelta).")
+        .def_static(
+            "get_op_timeout",
+            &MmioTimeoutConfig::get_op_timeout,
+            release_gil(),
+            "Get the current per-op MMIO transfer budget (datetime.timedelta).");
 
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)

@@ -51,31 +51,11 @@ jobs:
           path: tt-metal/tt_metal/third_party/umd
           submodules: recursive
 
-      - name: Get ttsim version
-        id: get-ttsim-version
-        run: |
-          # Extract the default ttsim-version value from tt-metal's ttsim.yaml
-          if [ -f "tt-metal/.github/workflows/ttsim.yaml" ]; then
-            TTSIM_VERSION=$(grep -A 5 "ttsim-version:" tt-metal/.github/workflows/ttsim.yaml \
-                      | grep "default:" \
-                      | sed 's/.*default: *"\?\([^"]*\)"\?.*/\1/' \
-                      | tr -d ' ')
-            if [ -z "$TTSIM_VERSION" ]; then
-              echo "Warning: Could not extract ttsim version from input default, using v1.0.0"
-              TTSIM_VERSION="v1.0.0"
-            fi
-          else
-            echo "Warning: ttsim.yaml not found, using v1.0.0"
-            TTSIM_VERSION="v1.0.0"
-          fi
-          echo "Extracted ttsim version: $TTSIM_VERSION"
-          echo "ttsim-version=$TTSIM_VERSION" >> $GITHUB_OUTPUT
-
       - name: Download ttsim binary (wh)
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
-          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          latest: true
           fileName: "libttsim_wh.so"
           out-file-path: /tmp/ttsim-wh
 
@@ -83,7 +63,7 @@ jobs:
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
-          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          latest: true
           fileName: "libttsim_bh.so"
           out-file-path: /tmp/ttsim-bh
 
@@ -91,7 +71,7 @@ jobs:
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
-          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          latest: true
           fileName: "libttsim_qsr.so"
           out-file-path: /tmp/ttsim-qsr
 

@@ -511,6 +511,10 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         auto speed_percentage = fw_info->get_fan_speed();
         auto speed_rpm = fw_info->get_fan_rpm();
 
+        // Always report information about 2 fans.
+        EXPECT_EQ(speed_percentage.size(), 2);
+        EXPECT_EQ(speed_rpm.size(), 2);
+
         log_info(
             tt::LogUMD,
             "Device {}: arch={}, fw_range={}, fan_speed={} %, fan_rpm={} rpm",
@@ -536,11 +540,12 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         // FAN_RPM is not available in legacy Wormhole (<= 18.3) SMBus telemetry;
         // only FAN_SPEED (percentage) is reported.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
-            EXPECT_TRUE(speed_rpm.empty());
+            EXPECT_EQ(speed_rpm.at(0), std::nullopt);
         } else if (fw_version <= FirmwareBundleVersion(19, 10, 0)) {
             // On modern firmware, both should be available or both absent
             // (nullopt when fans are not present on board or not controlled by FW).
-            EXPECT_EQ(speed_percentage.empty(), speed_rpm.empty());
+            EXPECT_EQ(speed_percentage.at(0).has_value(), speed_rpm.at(0).has_value());
+            EXPECT_EQ(speed_percentage.at(1).has_value(), speed_rpm.at(1).has_value());
         }
     }
 }

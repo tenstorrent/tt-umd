@@ -430,21 +430,22 @@ std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
 }
 
 std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speed() const {
-    std::vector<std::optional<uint32_t>> fan_speeds;
+    std::vector<std::optional<uint32_t>> fan_speeds(2, std::nullopt);
+
     auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
     // No fan speed information available.
     if (!fan_speed.has_value()) {
         return fan_speeds;
     }
 
-    fan_speeds.push_back((fan_speed == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_speed));
+    fan_speeds.at(0) = (fan_speed == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_speed);
     return fan_speeds;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
 
 std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpm() const {
-    std::vector<std::optional<uint32_t>> fan_rpms;
+    std::vector<std::optional<uint32_t>> fan_rpms(2, std::nullopt);
     auto fan_rpm = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
     // No fan speed information available.
     if (!fan_rpm.has_value()) {
@@ -454,12 +455,12 @@ std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpm() const {
     if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version >= FirmwareBundleVersion(19, 10, 0)) {
         uint32_t left_fan = fan_rpm.value() >> 16;
         uint32_t right_fan = fan_rpm.value() & 0xFFFF;
-        fan_rpms.push_back((left_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(left_fan));
-        fan_rpms.push_back((right_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(right_fan));
+        fan_rpms.at(0) = (left_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(left_fan);
+        fan_rpms.at(1) = (right_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(right_fan);
         return fan_rpms;
     }
 
-    fan_rpms.push_back((fan_rpm == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_rpm));
+    fan_rpms.at(0) = (fan_rpm == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_rpm);
     return fan_rpms;
 }
 

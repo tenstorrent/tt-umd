@@ -98,6 +98,17 @@ set_target_properties(
             lock_virus
 )
 
+add_executable(repro repro.cpp)
+target_link_libraries(repro PRIVATE tools_common)
+set_target_properties(
+    repro
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            repro
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -108,4 +119,5 @@ add_custom_target(
         warm_reset
         tlb_virus
         lock_virus
+        repro
 )

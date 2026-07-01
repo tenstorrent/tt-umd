@@ -166,13 +166,13 @@ void RtlSimulationTTDevice::write_to_device(
     NocId selected_noc_id = get_selected_noc_id();
     validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
 
-    if (noc_id == NocId::SYSTEM_NOC) {
+    if (selected_noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, selected_noc_id);
     } else {
         communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
@@ -185,13 +185,13 @@ void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint
     NocId selected_noc_id = get_selected_noc_id();
     validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
 
-    if (noc_id == NocId::SYSTEM_NOC) {
+    if (selected_noc_id == NocId::SYSTEM_NOC) {
         communicator_->smn_tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, selected_noc_id);
     } else {
         communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }

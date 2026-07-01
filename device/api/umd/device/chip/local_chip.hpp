@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -105,6 +106,8 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
+
+    std::function<bool(NocId)> make_io_timeout_hang_check();
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;

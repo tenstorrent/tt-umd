@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -363,6 +364,10 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     tlb_window->read_register(reg_src - tlb_window->get_base_address(), dest, size);
 }
 
+std::function<bool(NocId)> LocalChip::make_io_timeout_hang_check() {
+    return [this](NocId noc) -> bool { return tt_device_->is_noc_hung(noc, TTDevice::HangAction::RETURN); };
+}
+
 void LocalChip::wait_for_non_mmio_flush() {}
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>&) {}
@@ -528,6 +533,7 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
         cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        cached_wc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_wc_tlb_window.get();
     }
 
@@ -538,6 +544,7 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
         cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
             get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        cached_uc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_uc_tlb_window.get();
     }
 

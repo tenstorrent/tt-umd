@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -28,6 +29,7 @@ namespace tt::umd {
 class TTSimCommunicator;
 class SimulationSysmemManager;
 class SimulationServerSocket;
+class SimulationClient;
 class SocDescriptor;
 
 class TTSimTTDevice : public TTDevice {
@@ -38,6 +40,7 @@ public:
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0);
+
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
@@ -53,6 +56,11 @@ public:
         ChipId chip_id,
         int num_host_mem_channels = 0,
         bool copy_sim_binary = false);
+
+    // Builds a client-mode device that attaches to a live host (see the .cpp for how the SoC
+    // descriptor is sourced); discovery uses this when a host already owns the socket.
+    static std::unique_ptr<TTSimTTDevice> create_client(
+        const std::filesystem::path &simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
 
     void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
     void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
@@ -111,9 +119,26 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
+    // Client-mode constructor: this device does not own a simulator (.so); it forwards device
+    // operations to a remote host through client. Reached only via create_client(), which
+    // validates the arguments before construction.
+    TTSimTTDevice(const SocDescriptor &soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
+
+    // Host-mode backend bring-up (.so init, PCI read, TLB setup).
+    void initialize_backend();
+
+    // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
+    // difference today: host mode drives the in-process .so backend (communicator_), client mode
+    // drives the remote host (client_->attach()/detach()).
+    std::function<void()> setup_;
+    std::function<void()> teardown_;
+
+    // Set only in client mode; the remote host this device talks to. Null in host/local mode.
+    std::unique_ptr<SimulationClient> client_;
 
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;

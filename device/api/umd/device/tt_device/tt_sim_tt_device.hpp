@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -19,6 +20,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -26,6 +28,8 @@ namespace tt::umd {
 
 class TTSimCommunicator;
 class SimulationSysmemManager;
+class SimulationServerSocket;
+class SimulationClient;
 class SocDescriptor;
 
 class TTSimTTDevice : public TTDevice {
@@ -36,6 +40,7 @@ public:
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0);
+
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
@@ -47,12 +52,20 @@ public:
     // Named distinctly from create() because ChipId is an alias for int, which
     // would otherwise produce a duplicate signature.
     static std::unique_ptr<TTSimTTDevice> create_for_chip(
-        const std::filesystem::path &simulator_directory, ChipId chip_id, bool copy_sim_binary = false);
+        const std::filesystem::path &simulator_directory,
+        ChipId chip_id,
+        int num_host_mem_channels = 0,
+        bool copy_sim_binary = false);
+
+    // Builds a client-mode device that attaches to a live host (see the .cpp for how the SoC
+    // descriptor is sourced); discovery uses this when a host already owns the socket.
+    static std::unique_ptr<TTSimTTDevice> create_client(
+        const std::filesystem::path &simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
 
     void read_from_device(
-        void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
     void write_to_device(
-        const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void dma_d2h(void *dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
@@ -80,6 +93,15 @@ public:
 
     void close_device();
     void start_device();
+    void noc_multicast_write(
+        const void *src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    using TTDevice::noc_multicast_write;
     void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
@@ -99,6 +121,9 @@ public:
 
     SimulationTlbAllocator *get_tlb_allocator() { return tlb_allocator_.get(); }
 
+    // Takes ownership of the serving socket that exposes this device (created by discovery).
+    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
+
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
 
@@ -106,9 +131,26 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
+    // Client-mode constructor: this device does not own a simulator (.so); it forwards device
+    // operations to a remote host through client. Reached only via create_client(), which
+    // validates the arguments before construction.
+    TTSimTTDevice(const SocDescriptor &soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
+
+    // Host-mode backend bring-up (.so init, PCI read, TLB setup).
+    void initialize_backend();
+
+    // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
+    // difference today: host mode drives the in-process .so backend (communicator_), client mode
+    // drives the remote host (client_->attach()/detach()).
+    std::function<void()> setup_;
+    std::function<void()> teardown_;
+
+    // Set only in client mode; the remote host this device talks to. Null in host/local mode.
+    std::unique_ptr<SimulationClient> client_;
 
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
@@ -117,6 +159,10 @@ private:
     std::filesystem::path simulator_directory_;
     ChipId chip_id_;
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+
+    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
+    // it. The host keeps its own direct in-process fast path; the socket is for remote clients.
+    std::unique_ptr<SimulationServerSocket> socket_;
 
     uint32_t libttsim_pci_device_id;
 

@@ -11,6 +11,8 @@
 #include <type_traits>
 #include <utility>
 
+#include "noc_access.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -19,10 +21,12 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -61,6 +65,21 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
         simulator_directory, soc_descriptor, DEFAULT_CHIP_ID, num_host_mem_channels);
 }
 
+std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create_client(
+    const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    UMD_ASSERT(
+        client != nullptr,
+        error::RuntimeError,
+        "Client-mode RtlSimulationTTDevice requires a non-null SimulationClient.");
+    // The SoC descriptor is read straight from the local simulator build -- the same files the
+    // host used -- so the client can describe the device without loading or running a simulator.
+    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
+    // make_unique can't reach the private client-mode constructor; this static factory can via new.
+    return std::unique_ptr<RtlSimulationTTDevice>(
+        new RtlSimulationTTDevice(soc_descriptor, chip_id, std::move(client)));
+}
+
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,
@@ -74,6 +93,28 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
     arch = get_soc_descriptor().arch;
 
+    // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
+    setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
+    teardown_ = [this] { communicator_->shutdown(); };
+    setup_();
+}
+
+RtlSimulationTTDevice::RtlSimulationTTDevice(
+    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
+    client_(std::move(client)) {
+    set_soc_descriptor(soc_descriptor);
+    arch = soc_descriptor.arch;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+
+    // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
+    // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
+    // create_client() has already validated that client_ is non-null.
+    setup_ = [this] { client_->attach(); };
+    teardown_ = [this] { client_->detach(); };
+    setup_();
+}
+
+void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
     // Register sysmem callbacks so the simulator can read/write host memory.
     if (num_host_mem_channels > 0) {
         SimulationSysmemManager* mgr = sysmem_manager_.get();
@@ -132,6 +173,11 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 }
 
 std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    if (client_) {
+        // Client mode runs no backend, so tlb_allocator_/communicator_ are never constructed. Fail
+        // loudly instead of dereferencing them; client-mode device I/O is not available yet.
+        UMD_THROW(error::RuntimeError, "Client-mode RtlSimulationTTDevice does not support TLB windows yet.");
+    }
     int tlb_index = tlb_allocator_->allocate_tlb_index(size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
@@ -143,41 +189,74 @@ std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config,
     return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
-RtlSimulationTTDevice::~RtlSimulationTTDevice() { communicator_->shutdown(); }
-
-void RtlSimulationTTDevice::write_to_device(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
-
-    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
-
-    if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
-        return;
-    }
-
-    if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
-    } else {
-        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+RtlSimulationTTDevice::~RtlSimulationTTDevice() {
+    // Stop serving (and remove the socket) before tearing the backend down.
+    socket_.reset();
+    // teardown_ is communicator_->shutdown() (host) or client_->detach() (client). The
+    // destructor is implicitly noexcept, so this is best-effort.
+    if (teardown_) {
+        try {
+            teardown_();
+        } catch (const std::exception& e) {
+            log_warning(tt::LogEmulationDriver, "RtlSimulationTTDevice teardown failed: {}", e.what());
+        }
     }
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
+void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+    socket_ = std::move(socket);
+}
 
+void RtlSimulationTTDevice::write_to_device(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
+            "read/write).");
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    log_debug(
+        tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, translated_core.str());
+
+    NocId selected_noc_id = get_selected_noc_id();
     validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
 
-    if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    if (selected_noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
         return;
     }
 
     if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, selected_noc_id);
     } else {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
+    }
+}
+
+void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
+            "read/write).");
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+
+    NocId selected_noc_id = get_selected_noc_id();
+    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
+
+    if (selected_noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
+        return;
+    }
+
+    if (cached_tlb_window_) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, selected_noc_id);
+    } else {
+        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
 }
 
@@ -212,7 +291,8 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // In case of Wormhole and Blackhole, we don't check which cores are selected, we just assert all tensix cores.
         // So the functionality is if we called with RiscType::ALL_TENSIX or RiscType::ALL.
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
@@ -253,7 +333,8 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
         }
     }
 
-    if (get_soc_descriptor().arch != tt::ARCH::QUASAR || (selected_riscs | RiscType::ALL_NEO_DMS) == RiscType::NONE) {
+    if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
+        (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
         communicator_->all_tensix_reset_deassert(core.x, core.y);
     }
@@ -330,6 +411,11 @@ void RtlSimulationTTDevice::dma_multicast_write(
 
 void RtlSimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in RTL simulation device.");
+}
+
+void RtlSimulationTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
 void RtlSimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {

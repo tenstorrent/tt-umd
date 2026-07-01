@@ -102,28 +102,28 @@ io_device_type: PCIe
 harvesting:
   0:
     noc_translation: true
-    harvest_mask: 0
+    harvest_mask: 192
     dram_harvesting_mask: 0
     eth_harvesting_mask: 288
     pcie_harvesting_mask: 2
     l2cpu_harvesting_mask: 0
   1:
     noc_translation: true
-    harvest_mask: 0
+    harvest_mask: 192
     dram_harvesting_mask: 0
     eth_harvesting_mask: 288
     pcie_harvesting_mask: 2
     l2cpu_harvesting_mask: 0
   2:
     noc_translation: true
-    harvest_mask: 0
+    harvest_mask: 192
     dram_harvesting_mask: 0
     eth_harvesting_mask: 288
     pcie_harvesting_mask: 2
     l2cpu_harvesting_mask: 0
   3:
     noc_translation: true
-    harvest_mask: 0
+    harvest_mask: 192
     dram_harvesting_mask: 0
     eth_harvesting_mask: 288
     pcie_harvesting_mask: 2

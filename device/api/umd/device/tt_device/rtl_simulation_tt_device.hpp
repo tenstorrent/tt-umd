@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -17,6 +18,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
@@ -24,6 +26,8 @@ namespace tt::umd {
 
 class RtlSimCommunicator;
 class SimulationSysmemManager;
+class SimulationServerSocket;
+class SimulationClient;
 class SocDescriptor;
 class TlbWindow;
 
@@ -34,15 +38,21 @@ public:
         const SocDescriptor& soc_descriptor,
         ChipId chip_id,
         int num_host_mem_channels = 0);
+
     ~RtlSimulationTTDevice();
 
     static std::unique_ptr<RtlSimulationTTDevice> create(
         const std::filesystem::path& simulator_directory, int num_host_mem_channels = 0);
 
+    // Builds a client-mode device that attaches to a live host (see the .cpp for how the SoC
+    // descriptor is sourced); discovery uses this when a host already owns the socket.
+    static std::unique_ptr<RtlSimulationTTDevice> create_client(
+        const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+
     void read_from_device(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+        void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
     void write_to_device(
-        const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+        const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
@@ -70,6 +80,15 @@ public:
     void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
     void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
 
+    void noc_multicast_write(
+        const void* src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    using TTDevice::noc_multicast_write;
     void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
@@ -80,10 +99,32 @@ public:
 
     SimulationTlbAllocator* get_tlb_allocator() { return tlb_allocator_.get(); }
 
+    // Takes ownership of the serving socket that exposes this device (created by discovery).
+    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
+
 protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
 private:
+    // Client-mode constructor: this device does not own a simulator; it forwards device operations
+    // to a remote host through client. Reached only via create_client(), which validates the
+    // arguments before construction.
+    RtlSimulationTTDevice(
+        const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+
+    // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
+    // host-mem channel count because the RAM callbacks need it.
+    void initialize_backend(int num_host_mem_channels);
+
+    // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
+    // difference today: host mode drives the in-process RTL backend (communicator_), client mode
+    // drives the remote host (client_->attach()/detach()).
+    std::function<void()> setup_;
+    std::function<void()> teardown_;
+
+    // Set only in client mode; the remote host this device talks to. Null in host/local mode.
+    std::unique_ptr<SimulationClient> client_;
+
     std::unique_ptr<RtlSimCommunicator> communicator_;
     std::recursive_mutex device_lock;
 
@@ -91,5 +132,9 @@ private:
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
+
+    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
+    // it. The host keeps its own direct fast path; the socket is for remote clients.
+    std::unique_ptr<SimulationServerSocket> socket_;
 };
 }  // namespace tt::umd

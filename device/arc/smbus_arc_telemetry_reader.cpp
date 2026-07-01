@@ -6,11 +6,13 @@
 
 #include <fmt/format.h>
 
+#include <chrono>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "noc_access.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
+#include "tt-logger/tt-logger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -25,6 +27,7 @@ SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelem
                                          wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                          wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
     SmBusArcTelemetryReader::get_telemetry_address();
+    SmBusArcTelemetryReader::wait_for_telemetry_initialized();
 }
 
 void SmBusArcTelemetryReader::get_telemetry_address() {
@@ -61,6 +64,20 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag) {
 
 bool SmBusArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag) {
     return telemetry_tag >= 0 && telemetry_tag < wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS;
+}
+
+void SmBusArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms) {
+    auto start = std::chrono::steady_clock::now();
+    constexpr auto poll_interval = std::chrono::milliseconds(10);
+
+    while (read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION) == 0) {
+        if (std::chrono::steady_clock::now() - start > timeout_ms) {
+            log_warning(
+                tt::LogUMD, "Timeout waiting for SMBus telemetry initialization (FW_BUNDLE_VERSION not populated).");
+            return;
+        }
+        std::this_thread::sleep_for(poll_interval);
+    }
 }
 
 }  // namespace tt::umd

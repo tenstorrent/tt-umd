@@ -8,8 +8,12 @@ on:
         required: true
         type: string
       timeout:
-        required: true
+        required: false
         type: number
+        default: 30
+        description: >-
+          Build job timeout in minutes. Defaults to 30, sized for the
+          github-hosted runners. Callers only set this to override.
       build-type:
         required: true
         type: string
@@ -93,7 +97,7 @@ jobs:
       matrix:
         use_tracy: ${{ fromJSON(inputs.build-tracy && '[false, true]' || '[false]') }}
 
-    runs-on: tt-ubuntu-2204-large-stable
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
@@ -158,7 +162,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
-    runs-on: tt-ubuntu-2204-large-stable
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 

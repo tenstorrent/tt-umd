@@ -104,29 +104,6 @@ void SimulationChip::dma_multicast_write(
     UMD_THROW(error::RuntimeError, "dma_multicast_write is not supported in SimulationChip.");
 }
 
-void SimulationChip::noc_multicast_write(
-    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    // TODO: Support other core types once needed.
-    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
-    }
-    // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
-    // Until then, do individual writes to each core in the range.
-    const tt_xy_pair translated_start = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
-    const tt_xy_pair translated_end = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
-    for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
-        for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
-            // Since we are doing set of unicasts, we must skip cores that are not actual Tensix cores.
-            // These are in columns where x = 8 (ARC core, L2CPU) and x = 9 (GDDR).
-            // TODO: investigate proper multicast support for simulations so we can remove this workaround.
-            if (get_soc_descriptor().arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
-                continue;
-            }
-            write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), src, addr, size);
-        }
-    }
-}
-
 void SimulationChip::wait_for_non_mmio_flush() {}
 
 void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}

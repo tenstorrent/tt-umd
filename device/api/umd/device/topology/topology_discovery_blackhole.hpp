@@ -48,16 +48,17 @@ protected:
 
     uint64_t mangle_asic_id(uint64_t board_id, uint8_t asic_location);
 
-    void verify_routing_firmware_state(TTDevice* tt_device, const CoreCoord eth_core) override {}
+    void verify_routing_firmware_state(TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) override {}
 
     std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) override;
+        std::optional<EthCoord> eth_coord,
+        TTDevice* gateway_device,
+        std::set<uint32_t> gateway_eth_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor) override;
 
     void patch_eth_connections() override;
 
     void init_first_device(TTDevice* tt_device) override;
-
-    bool verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) override;
 
     uint32_t get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) override;
 

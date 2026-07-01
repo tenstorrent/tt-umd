@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -21,6 +22,7 @@
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
@@ -51,11 +53,12 @@ bool sim_dram_teleport_enabled() {
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create(
     const std::filesystem::path& simulator_directory, int num_host_mem_channels, bool copy_sim_binary) {
-    return TTSimTTDevice::create_for_chip(simulator_directory, /* chip_id= */ static_cast<ChipId>(0), copy_sim_binary);
+    return TTSimTTDevice::create_for_chip(
+        simulator_directory, /* chip_id= */ static_cast<ChipId>(0), num_host_mem_channels, copy_sim_binary);
 }
 
 std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
-    const std::filesystem::path& simulator_directory, ChipId chip_id, bool copy_sim_binary) {
+    const std::filesystem::path& simulator_directory, ChipId chip_id, int num_host_mem_channels, bool copy_sim_binary) {
     auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
     tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
     ChipInfo chip_info{};
@@ -66,7 +69,27 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
     SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
-    return std::make_unique<TTSimTTDevice>(simulator_directory, soc_descriptor, chip_id, copy_sim_binary, 0);
+    return std::make_unique<TTSimTTDevice>(
+        simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
+}
+
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
+    const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    UMD_ASSERT(
+        client != nullptr, error::RuntimeError, "Client-mode TTSimTTDevice requires a non-null SimulationClient.");
+    // The SoC descriptor is read straight from the local simulator build -- the same files the
+    // host used -- so the client can describe the device without loading or running the .so.
+    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    tt::ARCH arch = SocDescriptor::get_arch_from_soc_descriptor_path(soc_desc_path);
+    ChipInfo chip_info{};
+    if (arch == tt::ARCH::BLACKHOLE) {
+        // Same default ETH harvesting mask as create_for_chip(): BH SocDescriptor construction
+        // rejects an empty mask, so apply it here too. Keep in sync with create_for_chip().
+        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    }
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path), chip_info);
+    // make_unique can't reach the private client-mode constructor; this static factory can via new.
+    return std::unique_ptr<TTSimTTDevice>(new TTSimTTDevice(soc_descriptor, chip_id, std::move(client)));
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -90,6 +113,13 @@ TTSimTTDevice::TTSimTTDevice(
     // consumers (e.g. tt-exalens constructing a SocDescriptor from the device) see the wrong arch.
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+    // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
+    setup_ = [this] { initialize_backend(); };
+    teardown_ = [this] { communicator_->shutdown(); };
+    setup_();
+}
+
+void TTSimTTDevice::initialize_backend() {
     communicator_->initialize();
     initialize_sysmem_functions();
     communicator_->start_sim();
@@ -155,7 +185,27 @@ TTSimTTDevice::TTSimTTDevice(
     }
 }
 
+TTSimTTDevice::TTSimTTDevice(
+    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
+    client_(std::move(client)), chip_id_(chip_id) {
+    set_soc_descriptor(soc_descriptor);
+    arch = soc_descriptor.arch;
+    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+
+    // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
+    // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
+    // create_client() has already validated that client_ is non-null.
+    setup_ = [this] { client_->attach(); };
+    teardown_ = [this] { client_->detach(); };
+    setup_();
+}
+
 std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    if (client_) {
+        // Client mode runs no backend, so tlb_allocator_/communicator_ are never constructed. Fail
+        // loudly instead of dereferencing them; client-mode device I/O is not available yet.
+        UMD_THROW(error::RuntimeError, "Client-mode TTSimTTDevice does not support TLB windows yet.");
+    }
     int tlb_index = tlb_allocator_->allocate_tlb_index(size);
     if (tlb_index == -1) {
         UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
@@ -167,54 +217,87 @@ std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapp
     return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
-TTSimTTDevice::~TTSimTTDevice() { communicator_->shutdown(); }
+TTSimTTDevice::~TTSimTTDevice() {
+    // Stop serving (and remove the socket) before tearing the backend down.
+    socket_.reset();
+    // teardown_ is communicator_->shutdown() (host) or client_->detach() (client). The
+    // destructor is implicitly noexcept, so this is best-effort -- a throw here would call
+    // std::terminate during unwinding.
+    if (teardown_) {
+        try {
+            teardown_();
+        } catch (const std::exception& e) {
+            log_warning(tt::LogEmulationDriver, "TTSimTTDevice teardown failed: {}", e.what());
+        }
+    }
+}
+
+void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
 
 void TTSimTTDevice::start_device() {}
 
 void TTSimTTDevice::close_device() {
+    // Client mode has no local backend (communicator_) to close; the host session is dropped by
+    // client_->detach() in the destructor (idempotent), keeping teardown symmetric with
+    // RtlSimulationTTDevice, which has no close_device() override.
+    if (client_) {
+        return;
+    }
     communicator_->mark_closed();
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Client-mode TTSimTTDevice device I/O is not available yet (SimulationClient has no read/write).");
+    }
     if (communicator_->is_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+            if (communicator_->dram_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
                 return;
             }
-            communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+            communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
             return;
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Client-mode TTSimTTDevice device I/O is not available yet (SimulationClient has no read/write).");
+    }
     if (communicator_->is_closed()) {
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
-                communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+            if (!communicator_->dram_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
+                communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
             }
             communicator_->advance_clock(10);
             return;
         }
     }
     if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
-        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
     }
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
     // in the absence of an API reliably called from all spin loops polling the device
@@ -387,6 +470,11 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
 
 void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
+}
+
+void TTSimTTDevice::noc_multicast_write(
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
 void TTSimTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {

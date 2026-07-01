@@ -19,6 +19,7 @@
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
@@ -29,6 +30,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
 // allowing other Python threads to run in parallel while this binding executes. Pass
@@ -144,6 +146,21 @@ void bind_tt_device(nb::module_ &m) {
         release_gil(),
         "A helper function to verify SigbusError propagation");
 
+    // Runtime-configurable per-op MMIO (TLB-mapped) transfer budget. Lets a script tune the timeout
+    // explicitly (e.g. tighten it for latency-sensitive ops). Values are datetime.timedelta.
+    nb::class_<MmioTimeoutConfig>(m, "MmioTimeoutConfig")
+        .def_static(
+            "set_op_timeout",
+            &MmioTimeoutConfig::set_op_timeout,
+            nb::arg("timeout"),
+            release_gil(),
+            "Set the per-op MMIO transfer budget (datetime.timedelta).")
+        .def_static(
+            "get_op_timeout",
+            &MmioTimeoutConfig::get_op_timeout,
+            release_gil(),
+            "Get the current per-op MMIO transfer budget (datetime.timedelta).");
+
     nb::class_<PciDeviceInfo>(m, "PciDeviceInfo")
         .def_ro("vendor_id", &PciDeviceInfo::vendor_id)
         .def_ro("device_id", &PciDeviceInfo::device_id)
@@ -218,10 +235,12 @@ void bind_tt_device(nb::module_ &m) {
     tt_device_class
         .def_static(
             "create",
-            static_cast<std::unique_ptr<TTDevice> (*)(int, IODeviceType, bool)>(&TTDevice::create),
+            static_cast<std::unique_ptr<TTDevice> (*)(
+                int, IODeviceType, bool, const std::shared_ptr<SocArchDescriptor> &)>(&TTDevice::create),
             nb::arg("device_number"),
             nb::arg("device_type") = IODeviceType::PCIe,
             nb::arg("use_safe_api") = true,
+            nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
             release_gil())
         .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())
@@ -229,7 +248,6 @@ void bind_tt_device(nb::module_ &m) {
             "init_tt_device",
             &TTDevice::init_tt_device,
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
-            nb::arg("soc_arch_descriptor") = nullptr,
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())

@@ -6,10 +6,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -83,9 +85,25 @@ public:
         NocId noc_id,
         uint64_t ordering = tlb_data::Strict) override;
 
+    // Wires the per-op MMIO timeout: on a single-op overrun hang_check is consulted for the window's
+    // currently configured NOC. Returning true means that NOC is hung (the transfer aborts with
+    // DeviceTimeoutError); false means it is healthy (a slow-but-completing op is not a false positive).
+    // When empty (the default), an overrun aborts outright.
+    void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) override;
+
+    // Reconfigures the window and refreshes the cached timeout callback, since the NOC may have changed.
+    void configure(const tlb_data& new_config) override;
+
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
 private:
+    // Rebuilds io_timeout_callback_ (an OpTimeoutGuard is_false_alarm callback) for the window's currently
+    // configured NOC: true means "healthy, false positive" so the overrun is ignored, false confirms it.
+    // The NOC is read from the live TLB config, so this must be called whenever the config or hang check
+    // changes (construction, configure(), set_io_timeout_hang_check()). Leaves an empty callback when no
+    // hang check is wired, which makes an overrun abort.
+    void update_io_timeout_callback();
+
     // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).
     // Both routines assume that misaligned accesses are permitted on host memory.
     //
@@ -93,14 +111,22 @@ private:
     // which glibc's memcpy may perform when unrolling. This affects from and to device.
     // 2. syseng#3487 WH GDDR5 controller has a bug when 1-byte writes are temporarily adjacent
     // to 2-byte writes. We avoid ever performing a 1-byte write to the device. This only affects to device.
-    static void memcpy_from_device(void* dest, const volatile void* src, std::size_t num_bytes);
-    static void memcpy_to_device(void* dest, const void* src, std::size_t num_bytes);
+    static void memcpy_from_device(
+        void* dest, const volatile void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
+    static void memcpy_to_device(
+        void* dest, const void* src, std::size_t num_bytes, const std::function<bool()>& on_timeout);
 
-    void write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len);
-    void read_regs(void* src_reg, uint32_t word_len, void* data);
+    void write_regs(
+        volatile uint32_t* dest, const uint32_t* src, uint32_t word_len, const std::function<bool()>& on_timeout);
+    void read_regs(void* src_reg, uint32_t word_len, void* data, const std::function<bool()>& on_timeout);
 
     template <typename Func, typename... Args>
     decltype(auto) execute_safe(Func&& func, Args&&... args);
+
+    std::function<bool(NocId)> hang_check_;
+    // Cached is_false_alarm callback bound to the currently configured NOC; refreshed by
+    // update_io_timeout_callback() so the IO paths need not rebuild it per call.
+    std::function<bool()> io_timeout_callback_;
 };
 
 }  // namespace tt::umd

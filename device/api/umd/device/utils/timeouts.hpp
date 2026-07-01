@@ -9,6 +9,13 @@
 namespace tt::umd::timeout {
 inline constexpr auto NON_MMIO_RW_TIMEOUT = std::chrono::milliseconds(5'000);
 
+// Default per-op budget for a single host-side MMIO (TLB-mapped) transfer, overridable at runtime via
+// MmioTimeoutConfig::set_op_timeout. A healthy MMIO op is microseconds, but on a contended/virtualized
+// host (e.g. a viommu CI runner) a single op can take several ms; 10 ms sits above that floor so the
+// hang-detector veto's own probe read completes and a slow-but-healthy op continues, while staying well
+// below the ~700 ms latency of a read on a hung NOC so genuine hangs are still caught promptly.
+inline constexpr auto MMIO_OP_TIMEOUT = std::chrono::milliseconds(10);
+
 inline constexpr auto ARC_MESSAGE_TIMEOUT = std::chrono::milliseconds(1'000);
 // ARC clears the interrupt trigger bit quickly; this just guards against concurrent
 // processes/threads opening clusters, which causes KMD to send ARC messages that
@@ -27,6 +34,8 @@ inline constexpr auto ETH_STARTUP_TIMEOUT = std::chrono::milliseconds(10'000);
 inline constexpr auto ETH_HEARTBEAT_TIMEOUT = std::chrono::milliseconds(50);
 
 inline constexpr auto AICLK_TIMEOUT = std::chrono::milliseconds(200);
+
+inline constexpr auto TELEMETRY_INIT_TIMEOUT = std::chrono::milliseconds(1'000);
 
 inline constexpr auto WARM_RESET_M3_TIMEOUT = std::chrono::milliseconds(20'000);
 inline constexpr auto WARM_RESET_REAPPEAR_POLL_INTERVAL = std::chrono::milliseconds(100);

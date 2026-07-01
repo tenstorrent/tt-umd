@@ -32,14 +32,12 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     // writes to segfault.  Overcommit means only touched pages use physical RAM.
     dram_bank_size_ = soc.dram_bank_size;
 
-    // Allocate L1Pool for worker cores.
-    // Use a generous count covering Tensix + Ethernet + Router + other non-DRAM cores,
-    // since all non-DRAM cores go through the pool for consistent bitmask offset extraction.
-    // Add extra headroom for cores created via translated coords that differ from physical coords.
+    // One slot per Tensix core (all coord namings for a worker resolve to one Core, and
+    // only WORKER cores use the pool), so num_tensix is an exact bound — no padding. The
+    // pool sits in the scarce low-4 GB window (tt_emule/low4g_mmap.hpp), so over-sizing
+    // costs mesh capacity; get_core() falls back to an individual mmap if exceeded.
     size_t num_tensix = soc.get_cores(tt::CoreType::TENSIX).size();
-    // 128 is a safe upper bound on Tensix cores across known architectures (Wormhole=72,
-    // Blackhole~120). Used as fallback if SOC descriptor reports zero.
-    size_t pool_size = (num_tensix > 0 ? num_tensix : 128) * 2;  // 2× headroom
+    size_t pool_size = (num_tensix > 0 ? num_tensix : 128);  // 128 = WH/BH fallback if SOC reports 0
     worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
 }
 
@@ -66,6 +64,9 @@ tt_emule::Core* SWEmuleChip::get_dram_channel_backing(uint32_t channel) {
 tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     std::lock_guard<std::mutex> lock(core_mutex_);
 
+    // Keyed on raw (x,y): callers must use one canonical naming per worker (today
+    // TRANSLATED) — a tile's names share one L1 on silicon, so two encodings for the same
+    // worker must not split it into two Core backings.
     auto it = cores_.find(core_xy);
     if (it != cores_.end()) {
         return it->second.get();

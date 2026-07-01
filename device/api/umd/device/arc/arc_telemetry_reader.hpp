@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -11,6 +12,7 @@
 
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 class TTDevice;
@@ -23,10 +25,18 @@ public:
 
     virtual bool is_entry_available(const uint8_t telemetry_tag);
 
-    static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(TTDevice* tt_device);
+    // Constructs the reader and waits for the ARC telemetry table to be fully populated.
+    static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(
+        TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
 
 protected:
     ArcTelemetryReader(TTDevice* tt_device);
+
+    // Wait until ARC firmware has published the telemetry table. ARC writes the table pointer
+    // register only after the whole table has been populated, so a non-zero pointer register
+    // guarantees that all entries are present. Re-reads the pointer until it becomes non-zero or
+    // the timeout expires, then initializes the table once.
+    virtual void wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
 
     virtual void get_telemetry_address() = 0;
 
@@ -34,6 +44,9 @@ protected:
 
     // Address of the telemetry table struct on ARC core.
     uint64_t telemetry_table_addr{0};
+
+    // Raw value of the ARC register holding the telemetry table pointer (0 until published).
+    uint32_t telemetry_table_addr_reg{0};
 
     // Number of entries in the telemetry table.
     uint32_t entry_count{0};

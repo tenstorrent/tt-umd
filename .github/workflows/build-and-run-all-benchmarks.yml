@@ -44,8 +44,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `card` doubles as the runs-on label. n150 is pinned to its dedicated
+        # runner via the n150-umd-perf label (the host with the calibrated
+        # baseline). n300 / p150b still use their existing pool labels until
+        # those dedicated runners come online. Only n150 has a baseline in
+        # tests/microbenchmark/baselines/, so only n150 is subject to
+        # regression-check — the other archs' bench results land in artifacts
+        # but are silently ignored by summarize_regressions for now.
         test-group: [
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable, timeout: 45},
+          {arch: wormhole_b0, card: n150-umd-perf, timeout: 45},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable, timeout: 45},
           {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable, timeout: 45},
         ]
@@ -67,7 +74,7 @@ jobs:
       fail-fast: false
       matrix:
         test-group: [
-          {arch: wormhole_b0, card: tt-ubuntu-2204-n150-viommu-stable},
+          {arch: wormhole_b0, card: n150-umd-perf},
           {arch: wormhole_b0, card: tt-ubuntu-2204-n300-viommu-stable},
           {arch: blackhole, card: tt-ubuntu-2204-p150b-viommu-stable},
         ]
@@ -80,3 +87,16 @@ jobs:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       card: ${{ matrix.test-group.card}}
       baseline-run-id: ${{ inputs.baseline-run-id }}
+
+  # Regression check against in-repo per-arch baseline YAMLs. Runs in parallel with
+  # analyze-results, which answers a different question (drift vs. the single
+  # latest main run).
+  regression-check:
+    secrets: inherit
+    needs: run-benchmarks
+    if: ${{ needs.run-benchmarks.result == 'success' }}
+    permissions:
+      contents: read
+      packages: read
+      actions: read
+    uses: ./.github/workflows/regression-check.yml

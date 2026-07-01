@@ -97,7 +97,14 @@ tlb_configuration TLBManager::get_tlb_configuration(tt_xy_pair core) {
 std::unique_ptr<TlbWindow> TLBManager::allocate_tlb_window(
     tlb_data config, const TlbMapping mapping, const size_t tlb_size) {
     ZoneScopedC(tracy::Color::Cyan);
-    return tt_device_->get_io_window(config, mapping, tlb_size);
+    std::unique_ptr<TlbWindow> tlb_window = tt_device_->get_io_window(config, mapping, tlb_size);
+    // Statically-mapped windows do device memory I/O, so they carry the same per-op MMIO timeout hang
+    // check as the cached windows (see SiliconTlbWindow). Set once at creation rather than per op, so the
+    // shared window's state is not mutated on the I/O path.
+    TTDevice* tt_device = tt_device_;
+    tlb_window->set_io_timeout_hang_check(
+        [tt_device](NocId noc) -> bool { return tt_device->is_noc_hung(noc, TTDevice::HangAction::RETURN); });
+    return tlb_window;
 }
 
 void TLBManager::clear_mapped_tlbs() {

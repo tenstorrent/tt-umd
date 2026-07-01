@@ -530,7 +530,7 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
-    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
     bool is_remote_tt_device = false;
 

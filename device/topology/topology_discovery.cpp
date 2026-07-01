@@ -578,9 +578,16 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
         FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
-        "UMD supported firmware bundle versions: {} - {}",
+        "System firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",
+        fw_bundle_version.to_string(),
         minimum_compatible_fw_bundle_version.to_string(),
-        latest_supported_fw_bundle_version.to_string());
+        latest_supported_fw_bundle_version.to_string(),
+        fw_bundle_version > latest_supported_fw_bundle_version
+            ? fmt::format(
+                  " Firmware bundle version is newer than the latest fully tested version for {} architecture. Newest "
+                  "features may not be supported.",
+                  arch_to_str(arch))
+            : "");
 
     if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
         auto err = UMD_THROW_OR_RETURN(
@@ -593,16 +600,6 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
         log_warning(LogUMD, err.message());
         health_errors[asic_id].push_back(std::move(err));
         return;
-    }
-
-    if (fw_bundle_version > latest_supported_fw_bundle_version) {
-        log_info(
-            LogUMD,
-            "Firmware bundle version {} on the system is newer than the latest fully tested version {} for {} "
-            "architecture. Newest features may not be supported.",
-            fw_bundle_version.to_string(),
-            latest_supported_fw_bundle_version.to_string(),
-            arch_to_str(arch));
     }
 }
 

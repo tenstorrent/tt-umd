@@ -362,11 +362,8 @@ public:
     virtual void set_power_state(bool busy);
 
     /**
-     * Set the device clock (AICLK) state by sending the corresponding power-state request to ARC
+     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
      * and waiting for the clock to settle at the expected frequency.
-     *
-     * The default implementation is a no-op for backends without a controllable clock (e.g.
-     * simulation); supported silicon backends override it.
      *
      * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
      */
@@ -524,7 +521,7 @@ protected:
         const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
-    // returns on timeout. Shared by silicon backends that drive the clock via ARC in set_clock_state.
+    // returns on timeout.
     void wait_for_aiclk_value(
         DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 

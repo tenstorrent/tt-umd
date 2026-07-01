@@ -167,11 +167,7 @@ void Chip::advance_device_execution() {
     }
 }
 
-void Chip::set_clock_state(DevicePowerState state) {
-    if (auto* tt_device = get_tt_device()) {
-        tt_device->set_clock_state(state);
-    }
-}
+void Chip::set_clock_state(DevicePowerState state) { get_tt_device()->set_clock_state(state); }
 
 void Chip::noc_multicast_write(const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     // TODO: Support other core types once needed.

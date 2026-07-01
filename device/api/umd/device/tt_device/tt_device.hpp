@@ -321,6 +321,10 @@ public:
 
     FirmwareBundleVersion get_firmware_version();
 
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address();
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size();
+
     /**
      * Waits for ARC core to be fully ready for communication.
      * Must be called before using ArcMessenger.

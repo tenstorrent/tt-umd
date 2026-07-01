@@ -35,7 +35,6 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-      timeout: 10
       build-type: ${{ inputs.build-type || 'Release' }}
       build-wheel: false
 

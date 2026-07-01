@@ -28,20 +28,20 @@ namespace tt::umd {
 //
 // Note: distinct from SimulationHost, which is the (nng) RTL transport over which the
 // simulator process connects back into UMD.
-class SimulationSocket {
+class SimulationServerSocket {
 public:
-    ~SimulationSocket();
+    ~SimulationServerSocket();
 
-    SimulationSocket(const SimulationSocket&) = delete;
-    SimulationSocket& operator=(const SimulationSocket&) = delete;
+    SimulationServerSocket(const SimulationServerSocket&) = delete;
+    SimulationServerSocket& operator=(const SimulationServerSocket&) = delete;
 
     // Binds and listens, reclaiming a stale socket. Returns nullptr if a *live* owner already
     // holds the path (so the caller can attach as a client). Throws on real socket errors.
-    static std::unique_ptr<SimulationSocket> try_create(const std::filesystem::path& socket_path);
+    static std::unique_ptr<SimulationServerSocket> try_create(const std::filesystem::path& socket_path);
 
     // Like try_create(), but throws (instead of returning nullptr) when a live owner already
     // holds the path. For callers that require ownership and have no client path to fall back to.
-    static std::unique_ptr<SimulationSocket> create(const std::filesystem::path& socket_path);
+    static std::unique_ptr<SimulationServerSocket> create(const std::filesystem::path& socket_path);
 
     const std::filesystem::path& socket_path() const { return socket_path_; }
 
@@ -53,7 +53,7 @@ public:
 private:
     // Non-throwing; only initializes members. Binding happens in bind_and_listen(), driven by
     // the try_create()/create() factories.
-    explicit SimulationSocket(const std::filesystem::path& socket_path);
+    explicit SimulationServerSocket(const std::filesystem::path& socket_path);
 
     // Binds + listens + starts the accept loop. Returns false if a live owner holds the path;
     // throws on real socket errors.

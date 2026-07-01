@@ -22,12 +22,24 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 
+// The TLBManager window here comes from get_io_window, which carries no hang-detector veto, so a single
+// MMIO op that stalls on a contended host would trip the tight default per-op budget and throw
+// DeviceTimeoutError. Widen the budget for the test and restore the default afterwards.
+class ApiTLBManager : public ::testing::Test {
+protected:
+    void SetUp() override { MmioTimeoutConfig::set_op_timeout(std::chrono::milliseconds(100)); }
+
+    void TearDown() override { MmioTimeoutConfig::set_op_timeout(timeout::MMIO_OP_TIMEOUT); }
+};
+
 // TODO: Once default auto TLB setup is in, check it is setup properly.
-TEST(ApiTLBManager, ManualTLBConfiguration) {
+TEST_F(ApiTLBManager, ManualTLBConfiguration) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     for (int pci_device_id : pci_device_ids) {

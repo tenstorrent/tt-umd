@@ -6,6 +6,8 @@
 
 #include <sys/types.h>
 
+#include <array>
+#include <atomic>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -137,6 +139,9 @@ public:
     void register_eth_endpoint(uint32_t eth_tile_id, uint64_t mac);
     void switch_drain();
     void register_peer(uint32_t eth_tile_id, void *peer_dev, uint32_t peer_tile_id);
+    // Configure a cross-rank (inter-process) eth link with real fds (e.g. a named-FIFO pair),
+    // so the sim's FD transport carries traffic to a peer chip owned by another rank/process.
+    void configure_eth_link_fd(uint32_t eth_tile_id, int write_fd, int read_fd);
     void register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id);
     void register_fabric_endpoint_direction(uint32_t eth_tile_id, uint32_t direction);
 
@@ -216,6 +221,9 @@ private:
     void (*pfn_libttsim_set_pci_dma_mem_callbacks_)(
         void (*pfn_pci_dma_mem_rd_bytes)(uint64_t paddr, void *p, uint32_t size),
         void (*pfn_pci_dma_mem_wr_bytes)(uint64_t paddr, const void *p, uint32_t size)) = nullptr;
+    void (*pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_)(
+        void (*pfn_pci_dma_mem_rd_bytes)(uint32_t chip_id, uint64_t paddr, void *p, uint32_t size),
+        void (*pfn_pci_dma_mem_wr_bytes)(uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size)) = nullptr;
 
     // Multichip ABI. Resolved via dlsym; nullptr if .so is legacy single-chip.
     void *(*pfn_libttsim_create_device_by_id_)(uint32_t chip_id, int chip_x, int chip_y) = nullptr;
@@ -227,6 +235,7 @@ private:
     void (*pfn_libttsim_switch_reset_)() = nullptr;
     void (*pfn_libttsim_switch_register_)(void *dev, uint32_t tile_id, uint64_t mac) = nullptr;
     void (*pfn_libttsim_configure_eth_link_virtual_)(void *dev, uint32_t tile_id, uint64_t local_mac) = nullptr;
+    void (*pfn_libttsim_configure_eth_link_fd_)(void *dev, uint32_t tile_id, int write_fd, int read_fd) = nullptr;
     void (*pfn_libttsim_switch_register_peer_)(void *dev, uint32_t tile_id, void *peer_dev, uint32_t peer_tile_id) =
         nullptr;
     void (*pfn_libttsim_switch_register_fabric_node_id_)(void *dev, uint32_t mesh_id, uint32_t chip_id) = nullptr;
@@ -238,14 +247,17 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Known limitation: callback_instance_ is process-global; in multichip mode,
-    // only the last chip to call set_pcie_dma_mem_callbacks receives correct DMA
-    // callbacks.  Fix requires libttsim ABI change to support per-chip context pointer.
+    static constexpr uint32_t kMaxCallbackChipIds = 1024;
+    static std::array<std::atomic<TTSimCommunicator *>, kMaxCallbackChipIds> callback_instances_by_chip_;
     static TTSimCommunicator *callback_instance_;
 
     // Static wrapper functions for C-style callbacks.
+    static TTSimCommunicator *get_callback_instance(uint32_t chip_id);
     static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
     static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    static void pci_dma_mem_rd_bytes_by_chip_wrapper(uint32_t chip_id, uint64_t paddr, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_by_chip_wrapper(
+        uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size);
 
     // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all

@@ -160,6 +160,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 add_subdirectory(device)
+
 if(TT_UMD_BUILD_PYTHON)
     add_subdirectory(nanobind)
 endif()

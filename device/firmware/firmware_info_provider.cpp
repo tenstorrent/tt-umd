@@ -16,6 +16,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -672,9 +673,24 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
     return read_scalar<uint32_t>(FirmwareFeature::THERM_TRIP_COUNT);
 }
 
+// The firmware bitmask is indexed by physical channel, and ETH_CORES_NOC0 holds the physical coords in that same
+// channel order. So bit N maps directly to core N; harvested channels report 0 here and are dropped later by
+// filter_harvested_eth_status.
+// NOTE: This mapping depends on the ordering of ETH_CORES_NOC0 matching the firmware's physical channel indexing.
+// That array is expected to remain stable; reordering it would silently break the bit-to-core mapping.
 std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) const {
-    const auto& eth_cores_noc0 =
-        (tt_device->get_arch() == tt::ARCH::BLACKHOLE) ? blackhole::ETH_CORES_NOC0 : wormhole::ETH_CORES_NOC0;
+    const std::vector<tt_xy_pair>& eth_cores_noc0 = [this]() -> const std::vector<tt_xy_pair>& {
+        switch (tt_device->get_arch()) {
+            case tt::ARCH::WORMHOLE_B0:
+                return wormhole::ETH_CORES_NOC0;
+            case tt::ARCH::BLACKHOLE:
+                return blackhole::ETH_CORES_NOC0;
+            case tt::ARCH::QUASAR:
+                return grendel::ETH_CORES_NOC0;
+            default:
+                UMD_THROW(error::RuntimeError, "ETH status parsing not supported for this architecture.");
+        }
+    }();
 
     std::vector<std::pair<CoreCoord, bool>> statuses;
     statuses.reserve(eth_cores_noc0.size());

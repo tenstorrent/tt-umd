@@ -18,8 +18,8 @@
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/firmware/eth_status_utils.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -677,7 +677,9 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
     }
 }
 
-TEST_F(TestFirmwareInfoProvider, PrintEthStatus) {
+// Diagnostic-only: logs ETH status and the harvesting filter for manual inspection. Disabled by default (no
+// assertions); run explicitly with --gtest_also_run_disabled_tests.
+TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();
         tt::ARCH arch = tt_device->get_arch();

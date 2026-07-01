@@ -13,6 +13,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -44,7 +45,8 @@ uint64_t TopologyDiscoveryWormhole::get_remote_board_id(TTDevice* tt_device, Cor
         &board_id,
         eth_core,
         EthAddresses::RESULTS_BUF + (4 * EthAddresses::ERISC_REMOTE_BOARD_ID_LO_OFFSET),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     return board_id;
 }
 
@@ -69,13 +71,15 @@ uint64_t TopologyDiscoveryWormhole::get_local_asic_id(TTDevice* tt_device, CoreC
         &asic_id_lo,
         eth_core,
         EthAddresses::RESULTS_BUF + (4 * EthAddresses::ERISC_LOCAL_BOARD_ID_LO_OFFSET),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     uint32_t asic_id_hi;
     tt_device->read_from_device(
         &asic_id_hi,
         eth_core,
         EthAddresses::RESULTS_BUF + (4 * (EthAddresses::ERISC_LOCAL_BOARD_ID_LO_OFFSET + 1)),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
@@ -85,20 +89,22 @@ uint64_t TopologyDiscoveryWormhole::get_remote_asic_id(TTDevice* tt_device, Core
         &asic_id_lo,
         eth_core,
         EthAddresses::RESULTS_BUF + (4 * EthAddresses::ERISC_REMOTE_BOARD_ID_LO_OFFSET),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     uint32_t asic_id_hi;
     tt_device->read_from_device(
         &asic_id_hi,
         eth_core,
         EthAddresses::RESULTS_BUF + (4 * (EthAddresses::ERISC_REMOTE_BOARD_ID_LO_OFFSET + 1)),
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     return ((static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo);
 }
 
 std::optional<EthCoord> TopologyDiscoveryWormhole::get_local_eth_coord(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t current_device_eth_coord_info;
     tt_device->read_from_device(
-        &current_device_eth_coord_info, eth_core, EthAddresses::NODE_INFO + 8, sizeof(uint32_t));
+        &current_device_eth_coord_info, eth_core, EthAddresses::NODE_INFO + 8, sizeof(uint32_t), get_selected_noc_id());
 
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
@@ -116,12 +122,14 @@ std::optional<EthCoord> TopologyDiscoveryWormhole::get_remote_eth_coord(TTDevice
     EthCoord eth_coord;
     eth_coord.cluster_id = 0;
     uint32_t remote_id;
-    tt_device->read_from_device(&remote_id, eth_core, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t));
+    tt_device->read_from_device(
+        &remote_id, eth_core, EthAddresses::NODE_INFO + (4 * rack_offset), sizeof(uint32_t), get_selected_noc_id());
 
     eth_coord.rack = remote_id & 0xFF;
     eth_coord.shelf = (remote_id >> 8) & 0xFF;
 
-    tt_device->read_from_device(&remote_id, eth_core, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t));
+    tt_device->read_from_device(
+        &remote_id, eth_core, EthAddresses::NODE_INFO + (4 * shelf_offset), sizeof(uint32_t), get_selected_noc_id());
 
     eth_coord.x = (remote_id >> 16) & 0x3F;
     eth_coord.y = (remote_id >> 22) & 0x3F;
@@ -153,7 +161,8 @@ uint32_t TopologyDiscoveryWormhole::get_remote_eth_channel(TTDevice* tt_device, 
         &remote_eth_id,
         local_eth_core,
         EthAddresses::RESULTS_BUF + 4 * EthAddresses::ERISC_REMOTE_ETH_ID_OFFSET,
-        sizeof(uint32_t));
+        sizeof(uint32_t),
+        get_selected_noc_id());
     return remote_eth_id;
 }
 
@@ -173,7 +182,11 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(
     TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) {
     uint32_t routing_firmware_disabled;
     tt_device->read_from_device(
-        &routing_firmware_disabled, eth_core, EthAddresses::ROUTING_FIRMWARE_STATE, sizeof(uint32_t));
+        &routing_firmware_disabled,
+        eth_core,
+        EthAddresses::ROUTING_FIRMWARE_STATE,
+        sizeof(uint32_t),
+        get_selected_noc_id());
     bool unexpected_config =
         (is_running_on_6u && routing_firmware_disabled == 0) || (!is_running_on_6u && routing_firmware_disabled == 1);
     if (unexpected_config) {
@@ -193,20 +206,26 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(
 bool TopologyDiscoveryWormhole::is_eth_port_disabled(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t port_disable_mask = 0;
     tt_device->read_from_device(
-        &port_disable_mask, eth_core, wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR, sizeof(uint32_t));
+        &port_disable_mask,
+        eth_core,
+        wormhole::ETH_BOOT_PARAMS_PORT_DISABLE_ADDR,
+        sizeof(uint32_t),
+        get_selected_noc_id());
     const uint32_t channel = tt_device->get_soc_descriptor().get_eth_channel_for_core(eth_core);
     return (port_disable_mask >> channel) & 1;
 }
 
 uint32_t TopologyDiscoveryWormhole::get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t heartbeat_value = 0;
-    tt_device->read_from_device(&heartbeat_value, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t));
+    tt_device->read_from_device(
+        &heartbeat_value, eth_core, wormhole::ETH_HEARTBEAT_ADDR, sizeof(uint32_t), get_selected_noc_id());
     return heartbeat_value;
 }
 
 uint32_t TopologyDiscoveryWormhole::get_eth_postcode(TTDevice* tt_device, CoreCoord eth_core) {
     uint32_t postcode = 0;
-    tt_device->read_from_device(&postcode, eth_core, wormhole::ETH_POSTCODE_ADDR, sizeof(uint32_t));
+    tt_device->read_from_device(
+        &postcode, eth_core, wormhole::ETH_POSTCODE_ADDR, sizeof(uint32_t), get_selected_noc_id());
     return postcode;
 }
 
@@ -245,7 +264,11 @@ void TopologyDiscoveryWormhole::retrain_eth_cores() {
                     LogUMD, "Retraining ETH core {} on device {}, attempt {}.", eth_core.str(), asic_id, attempt + 1);
                 uint32_t trigger_val = wormhole::ETH_TRIGGER_RETRAIN_VAL;
                 tt_device->write_to_device(
-                    &trigger_val, translated_eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
+                    &trigger_val,
+                    translated_eth_core,
+                    wormhole::ETH_RETRAIN_ADDR,
+                    sizeof(uint32_t),
+                    get_selected_noc_id());
                 all_eth_cores_trained = false;
             }
         }

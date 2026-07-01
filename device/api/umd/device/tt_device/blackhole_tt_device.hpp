@@ -80,7 +80,8 @@ private:
         int device_number,
         IODeviceType device_type,
         bool use_safe_api,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+        bool exclusive);
 
     static constexpr uint64_t ATU_OFFSET_IN_BH_BAR2 = 0x1000;
     std::set<size_t> iatu_regions_;

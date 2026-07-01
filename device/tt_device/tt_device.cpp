@@ -150,7 +150,8 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     int device_number,
     IODeviceType device_type,
     bool use_safe_api,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+    bool exclusive) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         (!use_safe_api) || (device_type == IODeviceType::PCIe),
@@ -174,7 +175,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         }
     }
 
-    auto pci_device = std::make_unique<PCIDevice>(device_number);
+    auto pci_device = std::make_unique<PCIDevice>(device_number, exclusive);
     arch = pci_device->get_arch();
 
     switch (arch) {

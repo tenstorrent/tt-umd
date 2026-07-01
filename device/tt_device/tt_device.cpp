@@ -371,25 +371,25 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->read_from_device(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_from_device(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->write_to_device(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_to_device(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->read_from_device_reg(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_from_device_reg(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->write_to_device_reg(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_to_device_reg(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -615,7 +615,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
-    dma_write_to_device(src, size, resolve_coordinate(core), addr);
+    dma_write_to_device(src, size, resolve_coordinate(core), addr, noc_id);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
@@ -638,7 +638,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
-    dma_read_from_device(dst, size, resolve_coordinate(core), addr);
+    dma_read_from_device(dst, size, resolve_coordinate(core), addr, noc_id);
 }
 
 void TTDevice::dma_multicast_write(
@@ -663,7 +663,7 @@ void TTDevice::dma_multicast_write(
 
 void TTDevice::dma_multicast_write(
     void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
+    dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, noc_id);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }

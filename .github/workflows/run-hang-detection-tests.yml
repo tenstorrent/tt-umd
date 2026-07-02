@@ -66,8 +66,6 @@ jobs:
         with:
           submodules: recursive
 
-      # Build only the hang_detection_tests target (plus the umd library it links) -- no need for the
-      # full umd_tests aggregate or the tools here.
       - name: Build hang_detection_tests
         run: |
           echo "Compiling the code..."

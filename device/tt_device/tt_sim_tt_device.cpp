@@ -246,7 +246,7 @@ void TTSimTTDevice::close_device() {
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     if (client_) {
         UMD_THROW(
             error::RuntimeError,
@@ -273,7 +273,7 @@ void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_
     }
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTSimTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     if (client_) {
         UMD_THROW(
             error::RuntimeError,

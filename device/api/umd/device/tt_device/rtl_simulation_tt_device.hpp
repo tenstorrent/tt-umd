@@ -49,8 +49,10 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
 
-    void read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-    void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+    void read_from_device(
+        void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void write_to_device(
+        const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(

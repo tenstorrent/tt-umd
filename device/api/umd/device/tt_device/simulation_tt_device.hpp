@@ -51,12 +51,22 @@ public:
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
     void dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        void* src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void noc_multicast_write(
-        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        const void* src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
     using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void* src, size_t size, uint64_t addr) override;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 

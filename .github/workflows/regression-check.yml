@@ -1,0 +1,76 @@
+# Regression check against in-repo per-arch baseline YAMLs.
+#
+# Compares the current run against the per-arch baselines in
+# tests/microbenchmark/baselines/<arch>.yaml (each derived from a
+# single benchmark-json-* artifact of a prior CI run via
+# tests/microbenchmark/tools/update_baseline.py — median(elapsed) +
+# MAPE-derived tolerance), applies per-case tolerances, and emits a coarse
+# cross-arch summary plus per-(test, arch) detail sections to
+# $GITHUB_STEP_SUMMARY.
+#
+# Pilot: soft by default, but can hard-fail when gate: true breaches.
+name: Regression check against in-repo baseline
+
+on:
+  workflow_call:
+  # No inputs — downloads benchmark-json-* artifacts from the parent run.
+
+env:
+  RESULTS_DIR: /tmp/all-arch-results
+  SUMMARY_PATH: /tmp/regression_summary.md
+
+jobs:
+  regression-check:
+    name: Regression summary vs per-arch baselines
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read   # actions/checkout
+      packages: read   # pull ghcr.io container image
+      actions: read    # actions/download-artifact API access
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
+
+    steps:
+      - name: Checkout regression tooling
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            tests/microbenchmark/baselines/
+            tests/microbenchmark/tools/summarize_regressions.py
+            tests/microbenchmark/tools/utils.py
+          sparse-checkout-cone-mode: false
+
+      - name: Download all benchmark JSON artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: benchmark-json-*
+          path: ${{ env.RESULTS_DIR }}
+          merge-multiple: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summarize regressions
+        run: |
+          # Without set +e, the summarize_regressions.py exit code would terminate the job
+          # before we could upload the summary artifact.
+          set +e
+          python3 tests/microbenchmark/tools/summarize_regressions.py \
+            --current "${RESULTS_DIR}" \
+            --baselines-dir tests/microbenchmark/baselines \
+            --output "${SUMMARY_PATH}"
+          rc=$?
+          set -e
+          if [ -f "${SUMMARY_PATH}" ]; then
+            cat "${SUMMARY_PATH}" >> "${GITHUB_STEP_SUMMARY}"
+            echo "----- regression summary -----"
+            cat "${SUMMARY_PATH}"
+          fi
+          exit "${rc}"
+
+      - name: Upload regression summary artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-summary
+          path: ${{ env.SUMMARY_PATH }}
+          if-no-files-found: warn

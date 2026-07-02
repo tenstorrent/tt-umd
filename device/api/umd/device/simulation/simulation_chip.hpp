@@ -85,7 +85,6 @@ public:
 
     void deassert_risc_resets() override;
 
-    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 

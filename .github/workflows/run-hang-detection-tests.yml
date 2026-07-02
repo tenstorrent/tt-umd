@@ -1,0 +1,137 @@
+# Destructive NOC hang / MMIO-timeout tests, run ON DEMAND only.
+# Trigger manually from the Actions tab ("Run workflow"), picking the card to run on.
+name: Run hang detection tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      card:
+        description: 'Card/runner to run the destructive hang tests on'
+        required: true
+        type: choice
+        default: tt-ubuntu-2204-n150-stable
+        options:
+          - tt-ubuntu-2204-n150-stable
+          - tt-ubuntu-2204-n300-stable
+          - tt-ubuntu-2204-p150b-stable
+          - bh-gh-07
+      build-type:
+        description: 'CMake build type'
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
+      ubuntu-docker-version:
+        description: 'Ubuntu docker image version to build and run in'
+        required: true
+        default: ubuntu-22.04
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
+      timeout:
+        description: 'Per-job timeout in minutes'
+        required: true
+        default: 30
+        type: number
+
+env:
+  BUILD_OUTPUT_DIR: ./build
+  TEST_OUTPUT_DIR: ./build/test
+  LIB_OUTPUT_DIR: ./build/lib
+  DEPS_OUTPUT_DIR: ./build/_deps
+  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
+  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
+  ARTIFACT_NAME: hang-detection-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+
+jobs:
+  build:
+    name: Build hang_detection_tests (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+
+    env:
+      CC: clang-20
+      CXX: clang++-20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # Build only the hang_detection_tests target (plus the umd library it links) -- no need for the
+      # full umd_tests aggregate or the tools here.
+      - name: Build hang_detection_tests
+        run: |
+          echo "Compiling the code..."
+          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=OFF \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target hang_detection_tests
+          echo "Compile complete."
+
+      - name: Tar build artifacts
+        shell: bash
+        run: |
+          tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
+          ${{ env.LIB_OUTPUT_DIR }} \
+          ${{ env.DEPS_OUTPUT_DIR }} \
+          ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
+          ${{ env.SOC_DESCRIPTORS_DIR }}
+
+      - name: Upload build artifacts archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: artifact.tar
+
+  run:
+    name: Run hang_detection_tests (${{ inputs.card }})
+    needs: build
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - ${{ inputs.card }}
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+
+    env:
+      LD_LIBRARY_PATH: ./build/lib
+
+    steps:
+      - name: Cleanup workspace directory from previous runs
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      - name: Use build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+
+      - name: Untar build artifacts
+        shell: bash
+        run: tar xvf artifact.tar
+
+      - name: Run hang detection tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/hang_detection/hang_detection_tests

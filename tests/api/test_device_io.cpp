@@ -52,11 +52,8 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
-        options.push_back(ClusterOptions{
-            .chip_type = ChipType::SIMULATION,
-            .target_devices = {0},
-            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+    if (const char* sim_path = std::getenv(TT_UMD_SIMULATOR_ENV)) {
+        options.push_back(test_utils::get_default_sim_cluster_options(sim_path));
     }
     return options;
 }

@@ -454,7 +454,7 @@ void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_
     // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
 
-    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
+    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr, noc_id);
 }
 
 void WormholeTTDevice::set_arc_coordinate() {

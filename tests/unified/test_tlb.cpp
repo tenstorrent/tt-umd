@@ -4,10 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <string>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -20,8 +20,12 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -32,7 +36,18 @@ bool is_kmd_version_good() {
     return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }
 
-TEST(TestTlb, TestTlbWindowAllocateNew) {
+// Every TestTlb case drives a TLB window directly (raw SiliconTlbWindow / static TLB window), so the
+// op carries no hang-detector veto: a single MMIO transfer that stalls on a contended host would trip
+// the tight default per-op budget and throw DeviceTimeoutError. Widen the budget for the duration of
+// each test and restore the default afterwards so the override never leaks into other tests.
+class TestTlb : public ::testing::Test {
+protected:
+    void SetUp() override { MmioTimeoutConfig::set_op_timeout(std::chrono::milliseconds(100)); }
+
+    void TearDown() override { MmioTimeoutConfig::set_op_timeout(timeout::MMIO_OP_TIMEOUT); }
+};
+
+TEST_F(TestTlb, TestTlbWindowAllocateNew) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -78,7 +93,7 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
     }
 }
 
-TEST(TestTlb, TestTlbWindowReuse) {
+TEST_F(TestTlb, TestTlbWindowReuse) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -130,7 +145,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
 }
 
 // TODO: debug this test failing on T3K.
-TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
+TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -177,7 +192,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     }
 }
 
-TEST(TestTlb, TestTlbWindowReadWrite) {
+TEST_F(TestTlb, TestTlbWindowReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -221,7 +236,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     }
 }
 
-TEST(TestTlb, TestTlbWindowReadWrite16) {
+TEST_F(TestTlb, TestTlbWindowReadWrite16) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -290,7 +305,7 @@ TEST(TestTlb, TestTlbWindowReadWrite16) {
     }
 }
 
-TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
+TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -343,7 +358,7 @@ TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     }
 }
 
-TEST(TestTlb, TestTlbOffsetReadWrite) {
+TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -406,7 +421,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
     }
 }
 
-TEST(TestTlb, TestTlbAccessOutofBounds) {
+TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -460,7 +475,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
     }
 }
 
-TEST(TestTlb, TLBStaticTensix) {
+TEST_F(TestTlb, TLBStaticTensix) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const size_t tlb_size = cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
@@ -490,5 +505,38 @@ TEST(TestTlb, TLBStaticTensix) {
 
     for (int i = 0; i < num_writes; i++) {
         EXPECT_EQ(readback[i], i);
+    }
+}
+
+TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
+    if (!is_kmd_version_good()) {
+        GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
+    }
+    const ChipId chip = 0;
+    const uint64_t l1_start = 0x100;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+    const auto& tensix_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+
+    const size_t num_words = ((1 << 20) + (1 << 17)) / sizeof(uint32_t);
+    const size_t test_size = num_words * sizeof(uint32_t);
+    const size_t tlb_size = 1 << 21;
+
+    std::vector<uint32_t> pattern(num_words);
+    std::generate(pattern.begin(), pattern.end(), [i = uint32_t{0}]() mutable { return i++ * 0xDEAD0001; });
+
+    const auto cores_end = tensix_cores.begin() + std::min(size_t{4}, tensix_cores.size());
+    for (auto it = tensix_cores.begin(); it != cores_end; ++it) {
+        tt_xy_pair xy{it->x, it->y};
+
+        auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
+
+        tlb_window->write_register_reconfigure(pattern.data(), xy, l1_start, test_size, NocId::NOC0);
+
+        std::vector<uint32_t> readback(num_words, 0);
+        tlb_window->read_register_reconfigure(readback.data(), xy, l1_start, test_size, NocId::NOC0);
+
+        EXPECT_EQ(readback, pattern) << "Mismatch on core " << it->str();
     }
 }

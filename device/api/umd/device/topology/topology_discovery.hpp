@@ -82,7 +82,7 @@ protected:
 
     virtual bool is_eth_port_disabled(TTDevice* tt_device, CoreCoord eth_core) { return false; }
 
-    virtual bool eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth_core);
+    virtual bool eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core);
 
     virtual uint32_t get_eth_heartbeat(TTDevice* tt_device, CoreCoord eth_core) = 0;
 
@@ -110,7 +110,10 @@ protected:
 
     // eth_core should be in NoC 0 coordinates.
     virtual std::unique_ptr<TTDevice> create_remote_device(
-        std::optional<EthCoord> eth_coord, TTDevice* gateway_device, std::set<uint32_t> gateway_eth_channels) = 0;
+        std::optional<EthCoord> eth_coord,
+        TTDevice* gateway_device,
+        std::set<uint32_t> gateway_eth_channels,
+        const std::shared_ptr<SocArchDescriptor>& soc_arch_descriptor = nullptr) = 0;
 
     TTDevice* get_tt_device(const uint64_t asic_id);
 
@@ -119,7 +122,7 @@ protected:
 
     bool is_eth_trained(TTDevice* tt_device, const CoreCoord eth_core);
 
-    virtual void verify_routing_firmware_state(TTDevice* tt_device, const CoreCoord eth_core) = 0;
+    virtual void verify_routing_firmware_state(TTDevice* tt_device, uint64_t asic_id, const CoreCoord eth_core) = 0;
 
     // This is hack to report proper logical ETH IDs, since eth id on ETH core on Blackhole
     // does not take harvesting into consideration. This function will be overridden just for Blackhole.
@@ -146,14 +149,16 @@ protected:
     // It's required to know which chip should be used for remote communication.
     std::map<uint64_t, uint64_t> remote_asic_id_to_mmio_device_id;
 
+    std::map<uint64_t, std::vector<ClusterDescriptor::DeviceHealthError>> health_errors;
+
     bool is_running_on_6u = false;
 
     const TopologyDiscoveryOptions options;
     const IODeviceType io_device_type = IODeviceType::PCIe;
 
-    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, CoreCoord eth_core) = 0;
+    virtual bool verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core);
 
-    void verify_fw_bundle_version(TTDevice* tt_device);
+    void verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id);
 
     // The expected ETH FW version, matching the version shipped in the firmware bundle.
     // If there is no available expected version, we use the version from the first discovered local device.
@@ -164,6 +169,11 @@ protected:
     std::optional<FirmwareBundleVersion> first_fw_bundle_version;
 
 private:
+    // Initializes the device. On success returns true. On a recoverable initialization failure, logs
+    // the error, records the structured error in health_errors keyed by the device's mocked (unhealthy)
+    // ASIC ID, and returns false. Rethrows when device_init_failure_action is THROW.
+    bool init_device(TTDevice* tt_device, ChipId chip_id, std::chrono::milliseconds timeout);
+
     // Next available ChipId.
     ChipId next_chip_id = 0;
 

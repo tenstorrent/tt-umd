@@ -4,6 +4,7 @@
 
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 
+#include <functional>
 #include <memory>
 #include <utility>
 

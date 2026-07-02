@@ -9,7 +9,6 @@
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
@@ -60,14 +59,12 @@ void SimulationChip::close_device() {}
 
 void SimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->write_to_device(
-        src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size, get_selected_noc_id());
+    tt_device_->write_to_device(src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size);
 }
 
 void SimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->read_from_device(
-        dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size, get_selected_noc_id());
+    tt_device_->read_from_device(dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size);
 }
 
 void SimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
@@ -104,29 +101,6 @@ void SimulationChip::dma_multicast_write(
     UMD_THROW(error::RuntimeError, "dma_multicast_write is not supported in SimulationChip.");
 }
 
-void SimulationChip::noc_multicast_write(
-    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    // TODO: Support other core types once needed.
-    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
-    }
-    // TODO: investigate how to do multicast in Simulation, both RTL sim and TTSim.
-    // Until then, do individual writes to each core in the range.
-    const tt_xy_pair translated_start = get_soc_descriptor().translate_chip_coord_to_translated(core_start);
-    const tt_xy_pair translated_end = get_soc_descriptor().translate_chip_coord_to_translated(core_end);
-    for (uint32_t x = translated_start.x; x <= translated_end.x; ++x) {
-        for (uint32_t y = translated_start.y; y <= translated_end.y; ++y) {
-            // Since we are doing set of unicasts, we must skip cores that are not actual Tensix cores.
-            // These are in columns where x = 8 (ARC core, L2CPU) and x = 9 (GDDR).
-            // TODO: investigate proper multicast support for simulations so we can remove this workaround.
-            if (get_soc_descriptor().arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
-                continue;
-            }
-            write_to_device(CoreCoord(x, y, core_start.core_type, CoordSystem::TRANSLATED), src, addr, size);
-        }
-    }
-}
-
 void SimulationChip::wait_for_non_mmio_flush() {}
 
 void SimulationChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {}
@@ -136,8 +110,6 @@ void SimulationChip::dram_membar(const std::unordered_set<uint32_t>& channels, u
 void SimulationChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {}
 
 void SimulationChip::deassert_risc_resets() {}
-
-void SimulationChip::set_power_state(DevicePowerState state) {}
 
 int SimulationChip::get_clock() { return 0; }
 

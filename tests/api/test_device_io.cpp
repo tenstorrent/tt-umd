@@ -292,7 +292,7 @@ TEST_F(TestDeviceIOFixture, TestDmaMulticastWrite) {
     }
 }
 
-class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool>> {};
+class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<bool, bool, bool>> {};
 
 // Parametrized over (use_noc0, full_grid, sysmem_enabled):
 //   use_noc0       - true: NOC0 coordinates; false: translated coordinates
@@ -301,11 +301,12 @@ class TestMulticastWriteFixture : public ::testing::TestWithParam<std::tuple<boo
 // For full_grid+NOC0 the range is {0,0}–{grid_size-1}; for full_grid+translated the tensix corners are used.
 // Bystander verification is only performed for isolated-core multicasts.
 TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
-    // TODO: sysmem_enabled parameter to be added in the following PR.
-    auto [use_noc0, full_grid] = GetParam();
+    auto [use_noc0, full_grid, sysmem_enabled] = GetParam();
 
-    std::unique_ptr<Cluster> cluster =
-        test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 0});
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster(
+        ClusterOptions{.num_host_mem_ch_per_mmio_device = sysmem_enabled ? 1 : 0});
+
+    test_utils::safe_test_cluster_start(cluster.get());
 
     constexpr uint64_t address = SAFE_IO_L1_ADDRESS;
     constexpr size_t num_words = 10;
@@ -324,11 +325,12 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     for (const ChipId chip_id : cluster->get_target_device_ids()) {
         log_info(
             LogUMD,
-            "Testing {} {} multicast writes on chip {} remote: {}",
+            "Testing {} {} multicast writes on chip {} remote: {} sysmem_enabled: {}",
             use_noc0 ? "NOC0" : "translated",
             full_grid ? "full-grid" : "single-core",
             chip_id,
-            cluster->get_cluster_description()->is_chip_remote(chip_id));
+            cluster->get_cluster_description()->is_chip_remote(chip_id),
+            sysmem_enabled);
 
         TTDevice* tt_device = cluster->get_chip(chip_id)->get_tt_device();
         const SocDescriptor& soc_desc = cluster->get_soc_descriptor(chip_id);
@@ -434,15 +436,17 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
     }
 }
 
-static std::vector<std::tuple<bool, bool>> get_multicast_write_params() {
+static std::vector<std::tuple<bool, bool, bool>> get_multicast_write_params() {
     const bool is_blackhole = PCIDevice::get_pcie_arch() == tt::ARCH::BLACKHOLE;
-    std::vector<std::tuple<bool, bool>> params;
+    std::vector<std::tuple<bool, bool, bool>> params;
     for (bool use_noc0 : {false, true}) {
         if (use_noc0 && is_blackhole) {
             continue;  // NOC0 multicast not supported on Blackhole
         }
         for (bool full_grid : {false, true}) {
-            params.emplace_back(use_noc0, full_grid);
+            for (bool sysmem_enabled : {false, true}) {
+                params.emplace_back(use_noc0, full_grid, sysmem_enabled);
+            }
         }
     }
     return params;
@@ -452,9 +456,10 @@ INSTANTIATE_TEST_SUITE_P(
     AllCombinations,
     TestMulticastWriteFixture,
     ::testing::ValuesIn(get_multicast_write_params()),
-    [](const ::testing::TestParamInfo<std::tuple<bool, bool>>& info) {
+    [](const ::testing::TestParamInfo<std::tuple<bool, bool, bool>>& info) {
         return std::string(std::get<0>(info.param) ? "NOC0" : "Translated") + "_" +
-               (std::get<1>(info.param) ? "FullGrid" : "SingleCore");
+               (std::get<1>(info.param) ? "FullGrid" : "SingleCore") + "_" +
+               (std::get<2>(info.param) ? "SysmemEnabled" : "SysmemDisabled");
     });
 
 TEST_P(ClusterReadWriteL1Test, ReadWriteL1) {

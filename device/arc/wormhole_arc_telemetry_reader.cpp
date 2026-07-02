@@ -19,31 +19,28 @@ WormholeArcTelemetryReader::WormholeArcTelemetryReader(TTDevice* tt_device) : Ar
                                    : tt_xy_pair(
                                          wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
                                          wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
-    WormholeArcTelemetryReader::get_telemetry_address();
-    initialize_telemetry();
+    wait_for_telemetry_initialized();
 }
 
 void WormholeArcTelemetryReader::get_telemetry_address() {
-    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
-    uint32_t telemetry_table_addr_offset;
+    uint32_t telemetry_table_arc_addr;
     tt_device->read_from_device(
-        &telemetry_table_addr_offset,
+        &telemetry_table_arc_addr,
         arc_core,
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_X_0,
-        sizeof(uint32_t),
-        get_selected_noc_id());
+        sizeof(uint32_t));
 
-    telemetry_table_addr = telemetry_table_addr_offset + noc_telemetry_offset;
+    telemetry_table_addr_reg = telemetry_table_arc_addr;
+    telemetry_table_addr = telemetry_table_arc_addr + wormhole::ARC_NOC_ADDRESS_START;
 
-    uint32_t telemetry_values_addr_offset;
+    uint32_t telemetry_values_arc_addr;
     tt_device->read_from_device(
-        &telemetry_values_addr_offset,
+        &telemetry_values_arc_addr,
         arc_core,
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_Y_0,
-        sizeof(uint32_t),
-        get_selected_noc_id());
+        sizeof(uint32_t));
 
-    telemetry_values_addr = telemetry_values_addr_offset + noc_telemetry_offset;
+    telemetry_values_addr = telemetry_values_arc_addr + wormhole::ARC_NOC_ADDRESS_START;
 }
 
 }  // namespace tt::umd

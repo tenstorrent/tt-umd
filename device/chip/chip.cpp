@@ -19,12 +19,9 @@
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -135,27 +132,6 @@ void Chip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_sta
     }
 }
 
-uint32_t Chip::get_power_state_arc_msg(DevicePowerState state) {
-    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
-    switch (state) {
-        case BUSY: {
-            msg |= architecture_implementation::create(get_soc_descriptor().arch)->get_arc_message_arc_go_busy();
-            break;
-        }
-        case LONG_IDLE: {
-            msg |= architecture_implementation::create(get_soc_descriptor().arch)->get_arc_message_arc_go_long_idle();
-            break;
-        }
-        case SHORT_IDLE: {
-            msg |= architecture_implementation::create(get_soc_descriptor().arch)->get_arc_message_arc_go_short_idle();
-            break;
-        }
-        default:
-            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
-    }
-    return msg;
-}
-
 int Chip::arc_msg(
     uint32_t msg_code,
     bool wait_for_done,
@@ -192,74 +168,9 @@ void Chip::advance_device_execution() {
     }
 }
 
-void Chip::set_power_state(DevicePowerState state) {
-    ZoneScoped;
-    int exit_code = 0;
-    if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
-        uint32_t msg = get_power_state_arc_msg(state);
-        exit_code = arc_msg(wormhole::ARC_MSG_COMMON_PREFIX | msg, true, {0, 0});
-    } else if (get_soc_descriptor().arch == tt::ARCH::BLACKHOLE) {
-        if (state == DevicePowerState::BUSY) {
-            exit_code =
-                get_tt_device()->get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
-        } else {
-            exit_code = get_tt_device()->get_arc_messenger()->send_message(
-                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
-        }
-    }
-    UMD_ASSERT(
-        exit_code == 0,
-        error::RuntimeError,
-        fmt::format("Failed to set power state to {} with exit code: {}", (int)state, exit_code));
-    wait_for_aiclk_value(get_tt_device(), state);
-}
-
-void Chip::wait_for_aiclk_value(
-    TTDevice* tt_device, DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
-    auto start = std::chrono::steady_clock::now();
-    uint32_t target_aiclk = 0;
-    if (power_state == DevicePowerState::BUSY) {
-        target_aiclk = tt_device->get_max_clock_freq();
-    } else if (power_state == DevicePowerState::LONG_IDLE) {
-        target_aiclk = tt_device->get_min_clock_freq();
-    }
-    uint32_t aiclk = tt_device->get_clock();
-    while (aiclk != target_aiclk) {
-        auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        if (duration.count() > timeout_ms.count()) {
-            auto* telemetry = tt_device->get_arc_telemetry_reader();
-            std::string arb_max_info;
-            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
-                const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
-                const uint32_t arb_freq = arb_max & 0xFFFF;
-                const uint32_t arb_idx = (arb_max >> 16) & 0xFFFF;
-                arb_max_info = fmt::format(", AICLK clamped by max-arbiter index {} at {} MHz", arb_idx, arb_freq);
-            }
-            log_warning(
-                LogUMD,
-                "Waiting for AICLK value to settle failed on timeout after {}. Expected to see {}, last value "
-                "observed {}. This can be due to possible overheating of the chip or other issues. ASIC temperature: "
-                "{}{}",
-                timeout_ms.count(),
-                target_aiclk,
-                aiclk,
-                tt_device->get_asic_temperature(),
-                arb_max_info);
-            if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
-                const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
-                if (timeout_ms.count() <= update_telem_speed_ms) {
-                    log_warning(
-                        LogUMD,
-                        "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the "
-                        "observed AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
-                        timeout_ms.count(),
-                        update_telem_speed_ms);
-                }
-            }
-            return;
-        }
-        aiclk = tt_device->get_clock();
+void Chip::set_clock_state(DevicePowerState state) {
+    if (auto* tt_device = get_tt_device()) {
+        tt_device->set_clock_state(state);
     }
 }
 

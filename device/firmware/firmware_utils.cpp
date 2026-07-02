@@ -10,7 +10,6 @@
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 
-#include "noc_access.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
@@ -27,25 +26,9 @@ namespace tt::umd {
 
 FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
-            std::make_unique<SmBusArcTelemetryReader>(tt_device);
-
-        // Poll for a valid firmware version. If no valid version is found within 250ms,
-        // log a warning and return the last read value.
-        auto start = std::chrono::steady_clock::now();
-        auto timeout_duration = std::chrono::milliseconds(250);
-        while (std::chrono::steady_clock::now() - start < timeout_duration) {
-            auto fw_bundle_version =
-                smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION);
-            if (fw_bundle_version != 0) {
-                return FirmwareBundleVersion::from_firmware_bundle_tag(fw_bundle_version);
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-        log_warning(
-            tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
+        SmBusArcTelemetryReader smbus_reader(tt_device);
         return FirmwareBundleVersion::from_firmware_bundle_tag(
-            smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+            smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
@@ -95,19 +78,16 @@ SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
         case ARCH::WORMHOLE_B0: {
             uint32_t eth_fw_version_read;
             tt_device->read_from_device(
-                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t), get_selected_noc_id());
+                &eth_fw_version_read, eth_core, wormhole::ETH_FW_VERSION_ADDR, sizeof(uint32_t));
             return SemVer::from_wormhole_eth_firmware_tag(eth_fw_version_read);
         }
         case ARCH::BLACKHOLE: {
             uint8_t major = 0;
             uint8_t minor = 0;
             uint8_t patch = 0;
-            tt_device->read_from_device(
-                &major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t), get_selected_noc_id());
-            tt_device->read_from_device(
-                &minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t), get_selected_noc_id());
-            tt_device->read_from_device(
-                &patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t), get_selected_noc_id());
+            tt_device->read_from_device(&major, eth_core, blackhole::ETH_FW_MAJOR_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(&minor, eth_core, blackhole::ETH_FW_MINOR_ADDR, sizeof(uint8_t));
+            tt_device->read_from_device(&patch, eth_core, blackhole::ETH_FW_PATCH_ADDR, sizeof(uint8_t));
             return SemVer(major, minor, patch);
         }
         default:

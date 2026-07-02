@@ -32,22 +32,29 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), use_safe_api) {
-    arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
+BlackholeTTDevice::BlackholeTTDevice(
+    std::unique_ptr<PCIDevice> pci_device,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
+    bool use_safe_api) :
+    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), soc_arch_descriptor, use_safe_api) {
+    BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
 }
 
-BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id) :
-    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>()) {
-    arc_core = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), is_selected_noc1());
+BlackholeTTDevice::BlackholeTTDevice(
+    std::unique_ptr<JtagDevice> jtag_device,
+    uint8_t jlink_id,
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>(), soc_arch_descriptor) {
+    BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
 }
@@ -184,14 +191,14 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
 void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     uint32_t arc_boot_status = 0;
     uint32_t arc_postcode = 0;
+    uint32_t arc_error_status0 = 0;
 
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
     const bool arc_core_started = utils::poll_until(
         [this, &arc_boot_status, &arc_postcode]() {
-            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof(arc_boot_status));
-            read_from_arc_apb(
-                &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_boot_status));
+            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status);
+            read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_postcode);
             return (arc_boot_status & 0x7) == 0x5;
         },
         timeout_ms,
@@ -199,8 +206,17 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
         poll_interval);
 
     if (!arc_core_started) {
+        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
         UMD_THROW(
-            error::ArcStartupError, *this, get_selected_noc_id(), arc_core, arc_boot_status, arc_postcode, timeout_ms);
+            error::ArcStartupError,
+            *this,
+            get_selected_noc_id(),
+            get_arc_core(),
+            arc_boot_status,
+            arc_postcode,
+            timeout_ms,
+            /*message_id=*/std::nullopt,
+            arc_error_status0);
     }
 }
 
@@ -213,6 +229,28 @@ uint32_t BlackholeTTDevice::get_clock() {
 }
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
+
+void BlackholeTTDevice::set_clock_state(DevicePowerState state) {
+    ZoneScoped;
+    int exit_code = 0;
+    switch (state) {
+        case DevicePowerState::BUSY:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            break;
+        case DevicePowerState::LONG_IDLE:
+        case DevicePowerState::SHORT_IDLE:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            break;
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
+    }
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
+
+    wait_for_aiclk_value(state);
+}
 
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
@@ -229,7 +267,8 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        read_from_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -251,7 +290,8 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(mem_ptr, arc_core, architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        write_to_device(
+            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
     bar_write32(
@@ -335,6 +375,11 @@ void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64
         end_coord = xy_pair{1, 2};
     }
     noc_multicast_write(src, size, start_coord, end_coord, addr, noc_id);
+}
+
+void BlackholeTTDevice::set_arc_coordinate() {
+    arc_core_noc0 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/false);
+    arc_core_noc1 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/true);
 }
 
 }  // namespace tt::umd

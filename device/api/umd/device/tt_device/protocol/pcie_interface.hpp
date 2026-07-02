@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -47,6 +48,10 @@ public:
 
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
     virtual uint32_t bar_read32(uint32_t addr) = 0;
+
+    // Sets the hang check invoked on an IO-op timeout: returns true if the in-flight NOC is hung (abort),
+    // false to continue.
+    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;
 };
 
 }  // namespace tt::umd

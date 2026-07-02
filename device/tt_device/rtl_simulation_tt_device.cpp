@@ -203,10 +203,6 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     }
 }
 
-void RtlSimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
-    socket_ = std::move(socket);
-}
-
 void RtlSimulationTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     if (client_) {

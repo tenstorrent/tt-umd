@@ -34,6 +34,8 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
+    void set_clock_state(DevicePowerState state) override;
+
     bool get_noc_translation_enabled() override;
 
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;

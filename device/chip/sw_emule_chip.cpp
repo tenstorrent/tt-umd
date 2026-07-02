@@ -177,8 +177,6 @@ void SWEmuleChip::dram_membar(const std::unordered_set<uint32_t>&, uint32_t) {}
 
 void SWEmuleChip::deassert_risc_resets() {}
 
-void SWEmuleChip::set_power_state(DevicePowerState) {}
-
 int SWEmuleChip::arc_msg(
     uint32_t, bool, const std::vector<uint32_t>&, const std::chrono::milliseconds, uint32_t* return_3, uint32_t*) {
     if (return_3) {

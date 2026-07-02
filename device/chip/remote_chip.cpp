@@ -29,15 +29,15 @@ namespace tt::umd {
 
 static_assert(!std::is_abstract<RemoteChip>(), "RemoteChip must be non-abstract.");
 
-std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip) {
+std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
-    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "LocalChip passed to RemoteChip must not be null.");
+    UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "Local chip passed to RemoteChip must not be null.");
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device)));
 }
 
-RemoteChip::RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
+RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
@@ -54,7 +54,7 @@ void RemoteChip::close_device() {
     // in LONG_IDLE by tt-smi reset would hang
     if ((uint32_t)local_chip_->get_clock() != local_chip_->get_tt_device()->get_min_clock_freq()) {
         if ((uint32_t)get_clock() != get_tt_device()->get_min_clock_freq()) {
-            set_power_state(DevicePowerState::LONG_IDLE);
+            set_clock_state(DevicePowerState::LONG_IDLE);
             assert_risc_reset(RiscType::ALL);
         }
     }

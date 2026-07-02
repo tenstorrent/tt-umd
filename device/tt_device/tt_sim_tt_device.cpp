@@ -99,15 +99,15 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
+    SimulationTTDevice(
+        simulator_directory, std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
     // Pass chip_id to the communicator. If the loaded .so supports the multichip
     // multichip ABI (libttsim_create_device_by_id + libttsim_select_device_by_id),
     // the communicator will auto-detect at initialize() time and switch to
     // shared-dlopen mode regardless of copy_sim_binary.
     communicator_(
         std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id))),
-    simulator_directory_(simulator_directory),
-    chip_id_(chip_id),
-    sysmem_manager_(std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)) {
+    chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     // Populate the base-class arch field from the soc descriptor. TTSim does not go through
     // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream
@@ -233,8 +233,6 @@ TTSimTTDevice::~TTSimTTDevice() {
     }
 }
 
-void TTSimTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
-
 void TTSimTTDevice::start_device() {}
 
 void TTSimTTDevice::close_device() {
@@ -355,38 +353,6 @@ void TTSimTTDevice::advance_device_execution() {
     }
 }
 
-void TTSimTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC CSM access is not supported in TTSim simulation device.");
-}
-
-void TTSimTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC CSM access is not supported in TTSim simulation device.");
-}
-
 void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     UMD_THROW(error::RuntimeError, "Waiting for ARC core start is not supported in TTSim simulation device.");
 }
@@ -400,19 +366,6 @@ EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(tt_xy_pair eth_co
     UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
 }
 
-uint32_t TTSimTTDevice::get_clock() {
-    UMD_THROW(error::RuntimeError, "Getting clock is not supported in TTSim simulation device.");
-}
-
-uint32_t TTSimTTDevice::get_min_clock_freq() {
-    UMD_THROW(error::RuntimeError, "Getting minimum clock frequency is not supported in TTSim simulation device.");
-}
-
-bool TTSimTTDevice::get_noc_translation_enabled() {
-    // TTSim operates on logical/virtual coordinates end-to-end; NOC translation is never applied.
-    return false;
-}
-
 ChipInfo TTSimTTDevice::get_chip_info() {
     // No firmware_info_provider on the simulator; mirror the defaults used inside
     // TTSimTTDevice::create(). BH SocDescriptor construction rejects an empty eth_harvesting_mask
@@ -423,11 +376,6 @@ ChipInfo TTSimTTDevice::get_chip_info() {
         chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
     }
     return chip_info;
-}
-
-void TTSimTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "DMA multicast write not supported for TTSim simulation device.");
 }
 
 void TTSimTTDevice::initialize_sysmem_functions() {
@@ -467,19 +415,6 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
     }
     const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
     sim_mgr->write_to_sysmem(channel, p, paddr % (1ULL << 30), size);
-}
-
-void TTSimTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported in TTSim device.");
-}
-
-void TTSimTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    multicast_write_via_unicast(src, size, core_start, core_end, addr);
-}
-
-void TTSimTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported in TTSim simulation device.");
 }
 
 }  // namespace tt::umd

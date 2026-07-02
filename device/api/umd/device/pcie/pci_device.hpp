@@ -295,9 +295,18 @@ public:
     static uint8_t read_command_byte(const int pci_device_num);
 
     /**
-     * Reset device via ioctl.
+     * @brief Resets the specified Tenstorrent PCIe devices.
+     *
+     * @param pci_target_devices A set of PCI device identifiers to be reset. (/dev/tenstorrent/N)
+     *                          Each identifier uniquely identifies a device on the PCI bus.
+     * @param flag The type of reset operation to perform on the target devices.
+     * @param ignore_failures Ignore any failures when sending reset ioctls.
+     *
+     * @note This is a blocking operation that may take time to complete depending
+     *       on the number of devices and the reset type.
      */
-    static void reset_device_ioctl(const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag);
+    static void send_reset_ioctl_to_devices(
+        const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag, bool ignore_failures = true);
 
     /**
      * Temporary function which allows us to support both ways of mapping buffers during the transition period.
@@ -321,7 +330,7 @@ public:
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).
      * When busy is true, all power domains are requested (max AI clock, PHY wakeup, Tensix and L2CPU enabled).
      * When busy is false, all power flags are released, allowing the device to enter a low-power idle state.
-     * Has no effect on KMD versions older than 2.6.0.
+     * Has no effect on KMD versions older than 2.6.0. Has no effect on non-Blackhole devices.
      *
      * @param busy true to request full power, false to release power flags.
      */

@@ -12,6 +12,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 
 using namespace tt::umd;
@@ -30,7 +31,7 @@ NocHangError::NocHangError(const TTDevice& tt_device, NocId noc_id) :
 }
 
 PcieHangError::PcieHangError(const TTDevice& tt_device, uint32_t data_read) :
-    UmdError<TTDeviceData>(
+    UmdError<PcieHangData>(
         fmt::format(
             "Read {:#x} over PCIe ID {}: the board should be reset.",
             data_read,
@@ -79,5 +80,13 @@ UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
             "This method cannot be called before initializing TTDevice. Device ID: {}",
             tt_device.get_communication_device_id()),
         tt_device) {}
+
+UnresolvableCoordinateError::UnresolvableCoordinateError(const TTDevice& tt_device, CoreCoord core, NocId noc) :
+    UmdError<DeviceCoreData>(
+        fmt::format(
+            "Cannot translate non-LITERAL coordinate system {} before initializing TTDevice. Device ID: {}",
+            to_str(core.coord_system),
+            tt_device.get_communication_device_id()),
+        {{tt_device}, core, noc}) {}
 
 }  // namespace tt::umd::error

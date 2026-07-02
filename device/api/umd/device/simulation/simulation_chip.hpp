@@ -76,8 +76,6 @@ public:
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
-    void noc_multicast_write(
-        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void wait_for_non_mmio_flush() override;
 
@@ -87,7 +85,6 @@ public:
 
     void deassert_risc_resets() override;
 
-    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 

@@ -33,6 +33,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -190,10 +191,11 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+
+    virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -359,6 +361,14 @@ public:
      */
     virtual void set_power_state(bool busy);
 
+    /**
+     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
+     * and waiting for the clock to settle at the expected frequency.
+     *
+     * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
+     */
+    virtual void set_clock_state(DevicePowerState state);
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -504,9 +514,20 @@ protected:
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
+    // Emulates a NOC multicast write by issuing a unicast write_to_device to every core in the
+    // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
+    // their noc_multicast_write override here instead of duplicating the fallback loop.
+    void multicast_write_via_unicast(
+        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+
+    // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
+    // returns on timeout.
+    void wait_for_aiclk_value(
+        DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
+
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
-    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
     bool is_remote_tt_device = false;
 
@@ -521,7 +542,11 @@ protected:
 private:
     void probe_arc();
 
+    void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
+
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
+    xy_pair resolve_coordinate(CoreCoord core) const;
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;

@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -42,12 +43,15 @@ public:
     // DeviceProtocol interface.
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
+    void read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     bool write_to_core_range(
         const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id)
         override;
     int get_mmio_id() override;
 
     // PcieInterface.
+    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
     PCIDevice* get_pci_device() override;
     [[nodiscard]] bool dma_write_to_device(
         const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) override;
@@ -94,6 +98,10 @@ private:
     std::mutex dma_mutex_;
     std::unique_ptr<TlbWindow> cached_tlb_window_;
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
+
+    // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
+    // TTDevice::set_hang_detector).
+    std::function<bool(NocId)> hang_check_;
 };
 
 }  // namespace tt::umd

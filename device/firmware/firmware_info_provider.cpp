@@ -322,7 +322,7 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
 /* static */ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
-    return FirmwareBundleVersion(19, 5, 0);
+    return FirmwareBundleVersion(19, 7, 1);
 }
 
 /* static */ FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {

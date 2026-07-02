@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-This script gathers machine specification information.
-
-Information is gathered manually through sysfs, /proc, and psutil methods.
-This avoids any dependency on external tools.
+This script gathers machine specification information. Host info comes from
+sysfs/proc/psutil (no special deps); the board type is read via UMD's `tt_umd`
+bindings, guarded so a missing module/device degrades to "unknown".
 """
 
 import os
@@ -191,7 +190,49 @@ def get_tenstorrent_pcie_info_manual():
 # Main Logic
 
 
-def gather_specs():
+def detect_board_type():
+    """Detect the board type via `tt_umd`; `str(BoardType)` gives the pipeline's
+    labels ("n150"/"n300"/"p150"). Returns "unknown" (guarded) on any failure.
+    """
+    try:
+        import tt_umd
+    except ImportError as e:
+        print(
+            f"INFO: tt_umd module not available ({e}); board type 'unknown'.",
+            file=sys.stderr,
+        )
+        return "unknown"
+
+    try:
+        cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
+        board_types = {
+            str(cluster_descriptor.get_board_type(chip))
+            for chip in cluster_descriptor.get_all_chips()
+        }
+    except Exception as e:
+        print(
+            f"INFO: could not detect board type via tt_umd: {e}",
+            file=sys.stderr,
+        )
+        return "unknown"
+
+    board_types.discard("unknown")
+    if not board_types:
+        print(
+            "INFO: no board type reported by tt_umd; using 'unknown'.", file=sys.stderr
+        )
+        return "unknown"
+    board_type = sorted(board_types)[0]
+    if len(board_types) > 1:
+        # Mixed-board host: the per-arch baseline model assumes one board type.
+        print(
+            f"WARN: multiple board types {sorted(board_types)}; using '{board_type}'.",
+            file=sys.stderr,
+        )
+    return board_type
+
+
+def gather_specs(board_type="unknown"):
     """Aggregates all system info using manual sysfs/psutil methods."""
     io_settings = get_io_perf_settings()
     mem_gb = round(psutil.virtual_memory().total / (1024**3), 2)
@@ -204,6 +245,10 @@ def gather_specs():
             "Distro": get_distro_pretty_name(),
             "Kernel": platform.release(),
             "Hostname": socket.gethostname(),
+            # CI runner's registered name; unlike Hostname above it isn't the ephemeral container ID. Absent outside CI.
+            "CI_Runner": os.environ.get("RUNNER_NAME", "unknown"),
+            # Board type detected on this machine via UMD's Python bindings (e.g. "n300")
+            "BoardType": board_type,
             "Platform": platform.machine(),
             "Python": platform.python_version(),
             "Memory": f"{mem_gb} GB",
@@ -329,11 +374,10 @@ def main():
         action="store_true",
         help="Do not write files; print to stdout. Defaults to JSON unless a format is specified. Incompatible with --output/-o.",
     )
-
     args = parser.parse_args()
 
     # 1. Gather the specs using manual methods
-    specs = gather_specs()
+    specs = gather_specs(board_type=detect_board_type())
 
     # 2. Determine filenames and formats
     base_filename = args.output

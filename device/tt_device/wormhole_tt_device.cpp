@@ -111,6 +111,39 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
+uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
+    switch (state) {
+        case BUSY: {
+            msg |= get_architecture_implementation()->get_arc_message_arc_go_busy();
+            break;
+        }
+        case LONG_IDLE: {
+            msg |= get_architecture_implementation()->get_arc_message_arc_go_long_idle();
+            break;
+        }
+        case SHORT_IDLE: {
+            msg |= get_architecture_implementation()->get_arc_message_arc_go_short_idle();
+            break;
+        }
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
+    }
+    return msg;
+}
+
+void WormholeTTDevice::set_clock_state(DevicePowerState state) {
+    ZoneScoped;
+    uint32_t msg = get_power_state_arc_msg(state);
+    int exit_code = get_arc_messenger()->send_message(msg, {0, 0});
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
+
+    wait_for_aiclk_value(state);
+}
+
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
@@ -414,31 +447,6 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
-}
-
-void WormholeTTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    ZoneScopedC(tracy::Color::Orange);
-    if (!is_remote_tt_device) {
-        TTDevice::noc_multicast_write(src, size, core_start, core_end, addr);
-        return;
-    }
-
-    // TODO: implement multicast over remote communication.
-    // For now, fall back to unicast over the non-harvested TENSIX cores reported by the soc descriptor
-    // that fall inside the multicast range, matching hardware multicast behavior.
-    //
-    // Coordinates may be in TRANSLATED or NOC0 space; pick the coord system from core_start since the
-    // two ranges don't overlap.
-    const CoordSystem coord_system =
-        (core_start.x >= wormhole::tensix_translated_coordinate_start_x) ? CoordSystem::TRANSLATED : CoordSystem::NOC0;
-    for (const auto &core : get_soc_descriptor().get_cores(CoreType::TENSIX, coord_system)) {
-        if (core.x < core_start.x || core.x > core_end.x || core.y < core_start.y || core.y > core_end.y) {
-            continue;
-        }
-        log_trace(LogUMD, "noc_multicast_write fallback unicast to TENSIX core at ({}, {})", core.x, core.y);
-        write_to_device(src, xy_pair(core.x, core.y), addr, size);
-    }
 }
 
 void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {

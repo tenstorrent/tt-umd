@@ -40,19 +40,16 @@ inline bool has_remote_chips() {
 // present, 0 for local-only configurations.
 inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
 
-inline void apply_default_sim_cluster_options(
-    ClusterOptions& options, const std::filesystem::path& simulator_directory) {
+inline ClusterOptions get_default_sim_cluster_options(
+    const std::filesystem::path& simulator_directory,
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt,
+    ClusterOptions options = {}) {
     options.chip_type = ChipType::SIMULATION;
     options.target_devices = {0};
     options.simulator_directory = simulator_directory;
-}
-
-inline ClusterOptions get_default_sim_cluster_options(
-    const std::filesystem::path& simulator_directory,
-    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt) {
-    ClusterOptions options;
-    apply_default_sim_cluster_options(options, simulator_directory);
-    options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    if (num_host_mem_ch_per_mmio_device.has_value()) {
+        options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    }
     return options;
 }
 
@@ -75,7 +72,7 @@ inline std::unique_ptr<Cluster> make_default_test_cluster(ClusterOptions options
         options.num_host_mem_ch_per_mmio_device = needs_sysmem ? get_num_host_ch_for_test() : 0UL;
     }
     if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
-        apply_default_sim_cluster_options(options, sim_path);
+        options = get_default_sim_cluster_options(sim_path, std::nullopt, std::move(options));
     }
     return std::make_unique<Cluster>(options);
 }

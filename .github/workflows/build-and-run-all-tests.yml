@@ -122,9 +122,7 @@ jobs:
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            'pull_request|*|bh-gh-07' \
-            'merge_group|ASan|bh-gh-07' \
-            'merge_group|TSan|bh-gh-07' \
+            '*|*|bh-gh-07' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
           )

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -105,6 +106,11 @@ private:
 
     // Cached set of DRAM cores for fast lookup.
     std::unordered_map<tt_xy_pair, uint32_t> dram_core_to_channel_;
+
+    // Host-side register/MMIO shadow for reset and lifecycle writes that do not
+    // target L1 memory.
+    std::mutex register_mutex_;
+    std::unordered_map<uint64_t, std::array<uint8_t, 8>> register_values_;
 
     uint32_t l1_size_;
     uint64_t dram_bank_size_;

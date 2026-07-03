@@ -17,6 +17,17 @@
 
 namespace tt::umd {
 
+namespace {
+uint64_t make_register_key(tt_xy_pair core_xy, uint64_t addr) {
+    return (static_cast<uint64_t>(core_xy.x & 0xff) << 56) | (static_cast<uint64_t>(core_xy.y & 0xff) << 48) |
+           (addr & 0x0000ffffffffffffULL);
+}
+
+bool address_fits(uint64_t addr, size_t size, uint64_t limit) {
+    return addr <= limit && size <= limit - addr;
+}
+}  // namespace
+
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
@@ -96,12 +107,32 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     tt_xy_pair key(core.x, core.y);
+    if (!is_dram_core(key) && !address_fits(l1_dest, size, l1_size_)) {
+        std::array<uint8_t, 8> value = {};
+        std::memcpy(value.data(), src, std::min<size_t>(size, value.size()));
+        std::lock_guard<std::mutex> lock(register_mutex_);
+        register_values_[make_register_key(key, l1_dest)] = value;
+        return;
+    }
     tt_emule::Core* target_core = get_core(key);
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     tt_xy_pair key(core.x, core.y);
+    if (!is_dram_core(key) && !address_fits(l1_src, size, l1_size_)) {
+        std::array<uint8_t, 8> value = {};
+        {
+            std::lock_guard<std::mutex> lock(register_mutex_);
+            auto it = register_values_.find(make_register_key(key, l1_src));
+            if (it != register_values_.end()) {
+                value = it->second;
+            }
+        }
+        std::memset(dest, 0, size);
+        std::memcpy(dest, value.data(), std::min<size_t>(size, value.size()));
+        return;
+    }
     tt_emule::Core* target_core = get_core(key);
     std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }

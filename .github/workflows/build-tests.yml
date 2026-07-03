@@ -124,9 +124,11 @@ jobs:
           echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
       - name: Run sccache-cache
+        if: ${{ inputs.use-sccache }}
         uses: mozilla-actions/sccache-action@v0.0.10
 
       - name: Configure sccache
+        if: ${{ inputs.use-sccache }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -150,8 +152,8 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            ${{ inputs.use-sccache && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
+            ${{ inputs.use-sccache && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -169,6 +171,7 @@ jobs:
           ${{ env.SOC_DESCRIPTORS_DIR }}
 
       - name: Run sccache stat for check
+        if: ${{ inputs.use-sccache }}
         shell: bash
         run: ${SCCACHE_PATH} --show-stats
 

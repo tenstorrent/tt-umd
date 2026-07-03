@@ -374,10 +374,20 @@ def main():
         action="store_true",
         help="Do not write files; print to stdout. Defaults to JSON unless a format is specified. Incompatible with --output/-o.",
     )
+    parser.add_argument(
+        "--board-type",
+        type=str,
+        default=None,
+        help=(
+            "Override the auto-detected board type, e.g. 'sim-wh' for a simulator run. "
+            "When omitted, the board type is auto-detected via tt_umd."
+        ),
+    )
     args = parser.parse_args()
 
     # 1. Gather the specs using manual methods
-    specs = gather_specs(board_type=detect_board_type())
+    board_type = args.board_type if args.board_type is not None else detect_board_type()
+    specs = gather_specs(board_type=board_type)
 
     # 2. Determine filenames and formats
     base_filename = args.output

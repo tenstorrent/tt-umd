@@ -251,7 +251,8 @@ jobs:
         test-group: [
           {runs-on: tt-ubuntu-2204-p150b-stable},
           {runs-on: tt-ubuntu-2204-n150-stable},
-          {runs-on: tt-ubuntu-2204-n300-stable},
+          # TODO: Re-enable once exalens tests NOC0 hang bug is resolved.
+          # {runs-on: tt-ubuntu-2204-n300-stable},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

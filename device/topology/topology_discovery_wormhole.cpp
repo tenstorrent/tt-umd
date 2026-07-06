@@ -174,7 +174,9 @@ void TopologyDiscoveryWormhole::verify_routing_firmware_state(
     uint32_t routing_firmware_disabled;
     tt_device->read_from_device(
         &routing_firmware_disabled, eth_core, EthAddresses::ROUTING_FIRMWARE_STATE, sizeof(uint32_t));
-    if (is_running_on_6u != (routing_firmware_disabled != 0)) {
+    bool unexpected_config =
+        (is_running_on_6u && routing_firmware_disabled == 0) || (!is_running_on_6u && routing_firmware_disabled == 1);
+    if (unexpected_config) {
         auto err = UMD_THROW_OR_RETURN(
             options.unexpected_routing_firmware_config == TopologyDiscoveryOptions::Action::THROW,
             error::UnexpectedRoutingFirmwareConfigError,

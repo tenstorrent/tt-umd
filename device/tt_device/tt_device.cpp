@@ -28,6 +28,7 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -41,7 +42,9 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
@@ -50,6 +53,9 @@
 
 namespace tt::umd {
 enum class RiscType : std::uint64_t;
+
+// AICLK rarely settles on the exact target; accept any value within this percentage of the target.
+constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
 
 /* static */ void TTDevice::set_sigbus_safe_handler(bool set_safe_handler) {
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
@@ -243,6 +249,85 @@ void TTDevice::set_power_state(bool busy) {
     get_pci_device()->set_power_state(busy);
 }
 
+void TTDevice::set_clock_state(DevicePowerState /*state*/) {
+    // No-op by default. Backends with a controllable clock (Wormhole, Blackhole) override this to
+    // drive AICLK via ARC; backends without one (e.g. simulation) keep the no-op.
+}
+
+void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
+    uint32_t target_aiclk = 0;
+    switch (power_state) {
+        case DevicePowerState::BUSY:
+            target_aiclk = get_max_clock_freq();
+            break;
+        case DevicePowerState::LONG_IDLE:
+            target_aiclk = get_min_clock_freq();
+            break;
+        case DevicePowerState::SHORT_IDLE:
+            log_warning(LogUMD, "Skipping AICLK settle wait for SHORT_IDLE clock state.");
+            return;
+        default:
+            UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
+    }
+
+    uint32_t aiclk = 0;
+    const bool settled = utils::poll_until(
+        [&] {
+            aiclk = get_clock();
+            return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
+        },
+        timeout_ms,
+        std::chrono::microseconds(500),
+        std::chrono::microseconds(100));
+
+    if (!settled) {
+        log_aiclk_timeout_warning(target_aiclk, timeout_ms);
+        return;
+    }
+
+    if (aiclk != target_aiclk) {
+        log_warning(
+            LogUMD,
+            "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
+            aiclk,
+            AICLK_TOLERANCE_PERCENT,
+            target_aiclk);
+    }
+}
+
+void TTDevice::log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms) {
+    const uint32_t aiclk = get_clock();
+
+    auto *telemetry = get_arc_telemetry_reader();
+    std::string arb_max_info;
+    if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+        const uint32_t arb_max = telemetry->read_entry(TelemetryTag::AICLK_ARB_MAX);
+        arb_max_info = fmt::format(
+            ", AICLK clamped by max-arbiter index {} at {} MHz", (arb_max >> 16) & 0xFFFF, arb_max & 0xFFFF);
+    }
+
+    log_warning(
+        LogUMD,
+        "AICLK failed to settle after {} ms. Expected {}, observed {}. ASIC temperature: {}{}",
+        timeout_ms.count(),
+        target_aiclk,
+        aiclk,
+        get_asic_temperature(),
+        arb_max_info);
+
+    if (telemetry != nullptr && telemetry->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+        const uint32_t update_telem_speed_ms = telemetry->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+        if (timeout_ms.count() <= update_telem_speed_ms) {
+            log_warning(
+                LogUMD,
+                "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the observed "
+                "AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                timeout_ms.count(),
+                update_telem_speed_ms);
+        }
+    }
+}
+
 DeviceProtocol *TTDevice::get_device_protocol() { return device_protocol_.get(); }
 
 PcieInterface *TTDevice::get_pcie_interface() {
@@ -304,6 +389,44 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
         return true;
     }
     return false;
+}
+
+void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
+    hang_detector_ = std::move(hang_detector);
+
+    // The per-op timed MMIO path is PCIe-specific, so the hang-check wiring only applies to PCIe devices.
+    if (pcie_capabilities_ == nullptr) {
+        return;
+    }
+
+    // A null detector disables hang detection: clear any previously wired callback and stop before
+    // dereferencing it below.
+    if (hang_detector_ == nullptr) {
+        pcie_capabilities_->set_io_timeout_callback({});
+        return;
+    }
+
+    // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
+    // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
+    pcie_capabilities_->set_io_timeout_callback(
+        [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
+
+    // The liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must read through a
+    // dedicated, separately-locked window rather than the protocol's cached window. The window and lock live
+    // in the lambda's capture; HangDetector only sees the std::function and stays unaware of either.
+    auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
+    auto window_lock = std::make_shared<std::mutex>();
+    hang_detector_->set_noc_reg_reader([window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
+        std::lock_guard<std::mutex> lock(*window_lock);
+        uint32_t value = 0;
+        try {
+            window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+        } catch (const error::UmdException<error::DeviceTimeoutError> &) {
+            // The probe read carries its own per-op budget; an overrun means the NOC is hung.
+            return HANG_READ_VALUE;
+        }
+        return value;
+    });
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

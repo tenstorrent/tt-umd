@@ -31,8 +31,9 @@ struct SimulationConnectorOptions {
 //                        binds + serves its socket;
 //   - live socket     -> create a socket-backed client device that attaches to the host.
 //
-// Socket-first: binding the socket is the host-vs-client arbiter. The client/attach branch lands
-// in a later PR; for now a live socket is reported as an error.
+// Socket-first: binding the socket is the host-vs-client arbiter. A client device attaches to the
+// host over the socket via SimulationClient (slim today -- just connect/disconnect; device-op
+// forwarding lands as that API grows).
 class SimulationConnector {
 public:
     static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationConnectorOptions& options);

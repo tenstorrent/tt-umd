@@ -260,3 +260,15 @@ jobs:
           echo "Running C++ unit tests for blackhole..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+
+  # Compare the simulator microbenchmark results against the per-arch baselines in
+  # tests/microbenchmark/baselines/sim-*.yaml.
+  regression-check:
+    secrets: inherit
+    needs: build-and-run-ttsim
+    if: ${{ needs.build-and-run-ttsim.result == 'success' }}
+    permissions:
+      contents: read
+      packages: read
+      actions: read
+    uses: ./.github/workflows/regression-check.yml

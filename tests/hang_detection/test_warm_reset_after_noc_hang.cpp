@@ -24,13 +24,24 @@
 using namespace tt;
 using namespace tt::umd;
 
+class WarmResetAfterNocHangTest : public ::testing::Test {
+protected:
+    bool noc_hung_ = false;
+
+    void TearDown() override {
+        if (noc_hung_) {
+            WarmResetWithRecovery::warm_reset();
+        }
+    }
+};
+
 // Hangs a NOC by writing to core (15, 15), then warm resets and verifies the device recovers and I/O
 // works again afterwards. This is primarily a warm-reset recovery test (the NOC hang is just the way to
 // put the device in a bad state), which is why it lives in its own file rather than alongside the
 // is_noc_hung / MMIO-timeout API tests. It is still destructive, so it stays in the on-demand
 // hang_detection_tests target. Skipped on Wormhole (a warm reset may not recover the device there,
 // needing a watchdog reset) and on ARM64 (can hang the whole host).
-TEST(WarmResetTest, TTDeviceWarmResetAfterNocHang) {
+TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
 
     auto arch = PCIDevice(pci_device_ids[0]).get_arch();
@@ -65,6 +76,7 @@ TEST(WarmResetTest, TTDeviceWarmResetAfterNocHang) {
     tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // send to core 15, 15 which will hang the NOC
+    noc_hung_ = true;
     tt_device->write_to_device(data.data(), xy_pair{15, 15}, address, data.size());
 
     // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
@@ -73,6 +85,7 @@ TEST(WarmResetTest, TTDeviceWarmResetAfterNocHang) {
     }
 
     WarmResetWithRecovery::warm_reset();
+    noc_hung_ = false;
 
     // After a warm reset, topology discovery must be performed to detect available chips.
     // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,

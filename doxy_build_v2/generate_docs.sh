@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 VERSION=""
+VERBOSE=false
 SAVE_ARTIFACTS=false
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUT_DIR="$SCRIPT_DIR/generated_docs"
+OUT_DIR="$SCRIPT_DIR/output"
 cd "$SCRIPT_DIR"
 
 version_suffix() {
@@ -13,54 +14,78 @@ version_suffix() {
     fi
 }
 
+run() {
+    if [[ "$VERBOSE" == true ]]; then
+        "$@"
+    else
+        "$@" > /dev/null 2>&1
+    fi
+}
+
+FAILURES=0
+
+step() {
+    local name="$1"
+    shift
+    echo -n "  $name ... "
+    if "$@"; then
+        echo "OK"
+    else
+        echo "FAILED"
+        return 1
+    fi
+}
+
 build_base_components() {
-    echo "=== Base Components PDF ==="
+    echo "[1/6] Base Components PDF"
     mkdir -p "$OUT_DIR"
-    doxygen Doxyfile
-    make -C latex
-    cp latex/refman.pdf "$OUT_DIR/base_components_umd$(version_suffix).pdf"
+    step "doxygen"  run doxygen Doxyfile           || { ((FAILURES++)); return; }
+    step "latex"    run make -C latex              || { ((FAILURES++)); return; }
+    step "copy"     cp latex/refman.pdf "$OUT_DIR/base_components_umd$(version_suffix).pdf"
 }
 
 build_ttdevice_reference() {
-    echo "=== TTDevice Reference PDF ==="
+    echo "[2/6] TTDevice Reference PDF"
     mkdir -p "$OUT_DIR"
-    doxygen Doxyfile_ttdevice
-    make -C latex_ttdevice
-    cp latex_ttdevice/refman.pdf "$OUT_DIR/base_tt_device_reference$(version_suffix).pdf"
+    step "doxygen"  run doxygen Doxyfile_ttdevice  || { ((FAILURES++)); return; }
+    step "latex"    run make -C latex_ttdevice     || { ((FAILURES++)); return; }
+    step "copy"     cp latex_ttdevice/refman.pdf "$OUT_DIR/base_tt_device_reference$(version_suffix).pdf"
 }
 
 build_mapping_table() {
     local src="$1"
     local out="$2"
-    echo "=== ${out} ==="
     mkdir -p "$OUT_DIR"
-    pandoc "$src" \
+    step "pandoc" run pandoc "$src" \
         -f markdown+raw_html -t html5 --standalone --self-contained \
         --shift-heading-level-by=-1 \
         --css pandoc_table.css \
-        -o "$OUT_DIR/$out"
+        -o "$OUT_DIR/$out" || { ((FAILURES++)); return; }
 }
 
 build_chip_mapping() {
+    echo "[3/6] Chip Mapping HTML"
     build_mapping_table base_api_mapping_table.md "chip_tt_device_mapping$(version_suffix).html"
 }
 
 build_cluster_mapping() {
+    echo "[4/6] Cluster Mapping HTML"
     build_mapping_table workload_api_mapping_table.md "cluster_tt_device_mapping$(version_suffix).html"
 }
 
 build_exalens_mapping() {
+    echo "[5/6] Exalens Mapping HTML"
     build_mapping_table exalens_umd.md "tt_exalens_tt_umd_mapping$(version_suffix).html"
 }
 
 build_readme() {
-    echo "=== README ==="
+    echo "[6/6] README HTML"
     mkdir -p "$OUT_DIR"
-    pandoc README.md \
+    step "pandoc" run pandoc README.md \
         -f markdown -t html5 --standalone --self-contained \
         --shift-heading-level-by=-1 \
         --css pandoc_table.css \
-        -o "$OUT_DIR/README.html"
+        -o "$OUT_DIR/README.html" || { ((FAILURES++)); return; }
 }
 
 build_all() {
@@ -79,9 +104,10 @@ cleanup_artifacts() {
 }
 
 clean() {
-    echo "=== Cleaning ==="
+    echo "Cleaning..."
     rm -rf latex/ latex_ttdevice/
     rm -rf "$OUT_DIR"
+    echo "Done."
 }
 
 usage() {
@@ -98,6 +124,7 @@ Options:
   --exalens-mapping   Exalens mapping HTML only
   --readme            README HTML only
   --save-artifacts    Keep intermediate latex/ and latex_ttdevice/ directories
+  --verbose           Show full build output
   --clean             Remove all generated files
   --help, -h          Show this help
 
@@ -107,6 +134,7 @@ Examples:
   ./generate_docs.sh --version=2.0 --chip-mapping       # Single doc with version
   ./generate_docs.sh --base-components --ttdevice-ref    # Two specific docs
   ./generate_docs.sh --version=1.0 --save-artifacts     # Keep latex build artifacts
+  ./generate_docs.sh --verbose                           # Show full build output
   ./generate_docs.sh --clean                             # Remove all generated files
 EOF
 }
@@ -116,6 +144,7 @@ TARGETS=()
 for arg in "$@"; do
     case "$arg" in
         --version=*)        VERSION="${arg#--version=}" ;;
+        --verbose)          VERBOSE=true ;;
         --save-artifacts)   SAVE_ARTIFACTS=true ;;
         --all)              TARGETS+=(all) ;;
         --base-components)  TARGETS+=(base_components) ;;
@@ -147,4 +176,10 @@ for target in "${TARGETS[@]}"; do
 done
 
 cleanup_artifacts
-echo "=== Done ==="
+
+if [[ "$FAILURES" -gt 0 ]]; then
+    echo "Done with $FAILURES failure(s). Output in: $OUT_DIR/"
+    exit 1
+else
+    echo "Done. Output in: $OUT_DIR/"
+fi

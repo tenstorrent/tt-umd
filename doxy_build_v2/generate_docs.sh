@@ -4,7 +4,7 @@ set -euo pipefail
 VERSION=""
 SAVE_ARTIFACTS=false
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-OUT_DIR="$SCRIPT_DIR/base_api_docs"
+OUT_DIR="$SCRIPT_DIR/generated_docs"
 cd "$SCRIPT_DIR"
 
 version_suffix() {

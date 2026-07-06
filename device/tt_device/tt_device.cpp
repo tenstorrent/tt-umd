@@ -29,6 +29,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -416,17 +417,19 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
     // in the lambda's capture; HangDetector only sees the std::function and stays unaware of either.
     auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
     auto window_lock = std::make_shared<std::mutex>();
-    hang_detector_->set_noc_reg_reader([window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
-        std::lock_guard<std::mutex> lock(*window_lock);
-        uint32_t value = 0;
-        try {
-            window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
-        } catch (const error::UmdException<error::DeviceTimeoutError> &) {
-            // The probe read carries its own per-op budget; an overrun means the NOC is hung.
-            return HANG_READ_VALUE;
-        }
-        return value;
-    });
+    HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector_.get());
+    hang_detector_impl->set_noc_reg_reader(
+        [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
+            std::lock_guard<std::mutex> lock(*window_lock);
+            uint32_t value = 0;
+            try {
+                window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+            } catch (const error::UmdException<error::DeviceTimeoutError> &) {
+                // The probe read carries its own per-op budget; an overrun means the NOC is hung.
+                return HANG_READ_VALUE;
+            }
+            return value;
+        });
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.

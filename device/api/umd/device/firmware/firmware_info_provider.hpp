@@ -92,14 +92,16 @@ public:
     std::optional<uint32_t> get_arcclk() const;
 
     /*
-     * Get targetted fan speed as a percentage (0-100), if fans are present and controllable by firmware.
-     * @returns Targetted fan speeds [percent], nullopt if not available.
+     * Get targeted speed per fan as a percentage (0-100). Individual entries
+     * can be nullopt if fan speed is not available.
+     * @returns Targeted fan speeds [percent]
      */
     std::vector<std::optional<uint32_t>> get_fan_speed() const;
 
     /*
-     * Get actual fan speeds in RPM, if fans are present and controllable by firmware.
-     * @returns Actual fan speed [RPM], nullopt if not available.
+     * Get actual speed per fan in RPM. Individual entries
+     * can be nullopt if fan RPM is not available.
+     * @returns Actual fan RPM [percent]
      */
     std::vector<std::optional<uint32_t>> get_fan_rpm() const;
 

@@ -169,7 +169,9 @@ jobs:
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
       - name: Install microbenchmark python deps
-        run: python3 -m pip install --no-cache-dir pandas psutil
+        run: |
+          python3 -m ensurepip --upgrade
+          python3 -m pip install --no-cache-dir pandas psutil
 
       - name: Run UMD simulator microbenchmarks (wormhole)
         timeout-minutes: 2

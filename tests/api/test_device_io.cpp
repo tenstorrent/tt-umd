@@ -552,11 +552,6 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         GTEST_SKIP() << "Skipping the test for quasar since Sysmem is not supported yet.";
     }
 
-    constexpr auto mmio_chip_id = 0;
-    const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
-    const auto pcie_core = pci_cores.at(0);
-    const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
-
     auto random_address_between = [&](uint64_t lo, uint64_t hi) -> uint64_t {
         static std::random_device rd;
         static std::mt19937_64 gen(rd());
@@ -568,103 +563,120 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         test_utils::safe_test_cluster_start(cluster.get());
     }
 
-    for (uint32_t channel = 0; channel < channels_to_test; channel++) {
-        uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(mmio_chip_id, 0, channel));
+    // Exercise every MMIO chip's sysmem, not just chip 0. On a multi-MMIO simulator (e.g. P300 / bh_x2)
+    // this is what actually validates the host-DMA routing model: each chip's DMA must land in *its own*
+    // host window. Each chip fills its host buffer with a chip-distinct pattern, so a misrouted DMA
+    // (landing in another chip's window, or aliasing host_base 0) would surface as a readback mismatch.
+    const auto mmio_chips = cluster->get_target_mmio_device_ids();
+    for (const ChipId mmio_chip_id : mmio_chips) {
+        const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
+        const auto pcie_core = pci_cores.at(0);
+        const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
 
-        ASSERT_NE(sysmem, nullptr);
+        // Distinct per-chip sentinel so a misrouted DMA (landing in another chip's window, or aliasing
+        // host_base 0) surfaces as a readback mismatch instead of coincidentally matching.
+        const uint32_t chip_pattern = 0xDEAD'BEEFu + static_cast<uint32_t>(mmio_chip_id);
 
-        if (is_simulation_test()) {
-            // The simulation path only exercises offset 0x0. Fill just one (first) page for that case.
-            constexpr size_t SIM_FILL_SIZE = 0x1000;
-            for (size_t i = 0; i < SIM_FILL_SIZE; i++) {
-                sysmem[i] = i % 256;
-            }
-        } else {
-            test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
-        }
+        for (uint32_t channel = 0; channel < channels_to_test; channel++) {
+            uint8_t* sysmem = static_cast<uint8_t*>(cluster->host_dma_address(/*offset=*/0, mmio_chip_id, channel));
 
-        std::vector<uint64_t> test_offsets;
-        if (is_simulation_test()) {
-            test_offsets = {0x0};
-        } else {
-            test_offsets = {
-                0x0,
-                (ONE_GIG / 4) - 0x1000,
-                (ONE_GIG / 4) - 0x0004,
-                (ONE_GIG / 4),
-                (ONE_GIG / 4) + 0x0004,
-                (ONE_GIG / 4) + 0x1000,
-                (ONE_GIG / 2) - 0x1000,
-                (ONE_GIG / 2) - 0x0004,
-                (ONE_GIG / 2),
-                (ONE_GIG / 2) + 0x0004,
-                (ONE_GIG / 2) + 0x1000,
-                (ONE_GIG - 0x1000),
-                (ONE_GIG - 0x0004),
-            };
-            for (size_t i = 0; i < 8192; ++i) {
-                uint64_t address = random_address_between(0, ONE_GIG);
-                test_offsets.push_back(address);
-            }
-        }
+            ASSERT_NE(sysmem, nullptr);
 
-        // Read test - read the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
-            uint32_t expected = 0;
-            uint32_t value = 0;
-
-            std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
-
-            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-
-            if (!is_simulation_test() && value != expected) {
-                std::stringstream error_msg;
-                const bool is_vm = test_utils::is_virtual_machine();
-                const bool has_iommu = test_utils::is_iommu_available();
-                error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
-                          << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")"
-                          << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
-                          << ", IOMMU: " << (has_iommu ? "Enabled" : "Disabled") << ", Channels: " << channels
-                          << "\n  Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
-
-                if (is_vm && has_iommu) {
-                    error_msg << "\n"
-                              << "\n  - VM with IOMMU detected: This is likely a DMA mapping limit issue"
-                              << "\n  - FIX: On the HOST machine, add this kernel boot parameter:"
-                              << "\n      vfio_iommu_type1.dma_entry_limit=4294967295"
-                              << "\n  - After adding the parameter, reboot the HOST (not just the VM)"
-                              << "\n  - Check host dmesg for IO page faults"
-                              << "\n  - Failure at offset >= 255MB strongly indicates dma_entry_limit issue";
+            if (is_simulation_test()) {
+                // Sim only reads offset 0x0 (test_offsets == {0x0}); fill just the first page rather than a
+                // byte-at-a-time 1 GiB loop, which is slow and can time out CI.
+                for (size_t i = 0; i + sizeof(chip_pattern) <= 0x1000; i += sizeof(chip_pattern)) {
+                    std::memcpy(&sysmem[i], &chip_pattern, sizeof(chip_pattern));
                 }
-
-                FAIL() << error_msg.str();
             } else {
-                EXPECT_EQ(value, expected)
-                    << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex << aligned_offset
-                    << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")\n"
-                    << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+                test_utils::fill_with_random_bytes(sysmem, ONE_GIG);
             }
-        }
 
-        // Write test - zero out the sysmem at the various offsets.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint64_t device_offset = aligned_offset + channel * ONE_GIG;
-            uint64_t noc_addr = base_address + device_offset;
-            uint32_t value = 0;
-            cluster->write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
-            cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
-        }
+            std::vector<uint64_t> test_offsets;
+            if (is_simulation_test()) {
+                test_offsets = {0x0};
+            } else {
+                test_offsets = {
+                    0x0,
+                    (ONE_GIG / 4) - 0x1000,
+                    (ONE_GIG / 4) - 0x0004,
+                    (ONE_GIG / 4),
+                    (ONE_GIG / 4) + 0x0004,
+                    (ONE_GIG / 4) + 0x1000,
+                    (ONE_GIG / 2) - 0x1000,
+                    (ONE_GIG / 2) - 0x0004,
+                    (ONE_GIG / 2),
+                    (ONE_GIG / 2) + 0x0004,
+                    (ONE_GIG / 2) + 0x1000,
+                    (ONE_GIG - 0x1000),
+                    (ONE_GIG - 0x0004),
+                };
+                for (size_t i = 0; i < 8192; ++i) {
+                    // Upper bound is inclusive; cap so an aligned 4-byte read stays inside the 1 GiB channel.
+                    uint64_t address = random_address_between(0, ONE_GIG - sizeof(uint32_t));
+                    test_offsets.push_back(address);
+                }
+            }
 
-        // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
-        for (uint64_t test_offset : test_offsets) {
-            uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
-            uint32_t value = 0xffffffff;
-            std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
-            EXPECT_EQ(value, 0);
+            // Read test - read the sysmem at the various offsets.
+            for (uint64_t test_offset : test_offsets) {
+                uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+                uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+                uint64_t noc_addr = base_address + device_offset;
+                uint32_t expected = 0;
+                uint32_t value = 0;
+
+                std::memcpy(&expected, &sysmem[aligned_offset], sizeof(uint32_t));
+
+                cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+
+                if (!is_simulation_test() && value != expected) {
+                    std::stringstream error_msg;
+                    const bool is_vm = test_utils::is_virtual_machine();
+                    const bool has_iommu = test_utils::is_iommu_available();
+                    error_msg << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex
+                              << aligned_offset << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec
+                              << ")"
+                              << "\n  Configuration: " << (is_vm ? "VM" : "Bare Metal")
+                              << ", IOMMU: " << (has_iommu ? "Enabled" : "Disabled") << ", Channels: " << channels
+                              << "\n  Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+
+                    if (is_vm && has_iommu) {
+                        error_msg << "\n"
+                                  << "\n  - VM with IOMMU detected: This is likely a DMA mapping limit issue"
+                                  << "\n  - FIX: On the HOST machine, add this kernel boot parameter:"
+                                  << "\n      vfio_iommu_type1.dma_entry_limit=4294967295"
+                                  << "\n  - After adding the parameter, reboot the HOST (not just the VM)"
+                                  << "\n  - Check host dmesg for IO page faults"
+                                  << "\n  - Failure at offset >= 255MB strongly indicates dma_entry_limit issue";
+                    }
+
+                    FAIL() << error_msg.str();
+                } else {
+                    EXPECT_EQ(value, expected)
+                        << "Sysmem read mismatch at channel " << channel << ", offset 0x" << std::hex << aligned_offset
+                        << std::dec << " (NOC addr 0x" << std::hex << noc_addr << std::dec << ")\n"
+                        << "Expected: 0x" << std::hex << expected << ", Got: 0x" << value << std::dec;
+                }
+            }
+
+            // Write test - zero out the sysmem at the various offsets.
+            for (uint64_t test_offset : test_offsets) {
+                uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+                uint64_t device_offset = aligned_offset + channel * ONE_GIG;
+                uint64_t noc_addr = base_address + device_offset;
+                uint32_t value = 0;
+                cluster->write_to_device(&value, sizeof(uint32_t), mmio_chip_id, pcie_core, noc_addr);
+                cluster->read_from_device(&value, mmio_chip_id, pcie_core, noc_addr, sizeof(uint32_t));
+            }
+
+            // Write test verification - read the sysmem at the various offsets and verify that each has been zeroed.
+            for (uint64_t test_offset : test_offsets) {
+                uint64_t aligned_offset = (test_offset / ALIGNMENT) * ALIGNMENT;
+                uint32_t value = 0xffffffff;
+                std::memcpy(&value, &sysmem[aligned_offset], sizeof(uint32_t));
+                EXPECT_EQ(value, 0);
+            }
         }
     }
 }

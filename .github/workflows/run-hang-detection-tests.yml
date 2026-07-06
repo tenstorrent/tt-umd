@@ -15,6 +15,8 @@ on:
           - tt-ubuntu-2204-n300-stable
           - tt-ubuntu-2204-p150b-stable
           - bh-gh-07
+          - tt-ubuntu-2204-wh-glx-6u-stable
+          - 6u
       build-type:
         description: 'CMake build type'
         required: true

@@ -1,4 +1,7 @@
-set(HANG_DETECTION_TESTS_SRCS test_hang_detection.cpp)
+set(HANG_DETECTION_TESTS_SRCS
+    test_hang_detection.cpp
+    test_warm_reset_after_noc_hang.cpp
+)
 
 add_executable(hang_detection_tests ${HANG_DETECTION_TESTS_SRCS})
 target_link_libraries(hang_detection_tests PRIVATE test_common)

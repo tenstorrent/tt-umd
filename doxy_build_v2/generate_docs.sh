@@ -4,6 +4,7 @@ set -euo pipefail
 VERSION=""
 SAVE_ARTIFACTS=false
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+OUT_DIR="$SCRIPT_DIR/base_api_docs"
 cd "$SCRIPT_DIR"
 
 version_suffix() {
@@ -14,27 +15,30 @@ version_suffix() {
 
 build_base_components() {
     echo "=== Base Components PDF ==="
+    mkdir -p "$OUT_DIR"
     doxygen Doxyfile
     make -C latex
-    cp latex/refman.pdf "base_components_umd$(version_suffix).pdf"
+    cp latex/refman.pdf "$OUT_DIR/base_components_umd$(version_suffix).pdf"
 }
 
 build_ttdevice_reference() {
     echo "=== TTDevice Reference PDF ==="
+    mkdir -p "$OUT_DIR"
     doxygen Doxyfile_ttdevice
     make -C latex_ttdevice
-    cp latex_ttdevice/refman.pdf "base_tt_device_reference$(version_suffix).pdf"
+    cp latex_ttdevice/refman.pdf "$OUT_DIR/base_tt_device_reference$(version_suffix).pdf"
 }
 
 build_mapping_table() {
     local src="$1"
     local out="$2"
     echo "=== ${out} ==="
+    mkdir -p "$OUT_DIR"
     pandoc "$src" \
         -f markdown+raw_html -t html5 --standalone --self-contained \
         --shift-heading-level-by=-1 \
         --css pandoc_table.css \
-        -o "$out"
+        -o "$OUT_DIR/$out"
 }
 
 build_chip_mapping() {
@@ -49,12 +53,23 @@ build_exalens_mapping() {
     build_mapping_table exalens_umd.md "tt_exalens_tt_umd_mapping$(version_suffix).html"
 }
 
+build_readme() {
+    echo "=== README ==="
+    mkdir -p "$OUT_DIR"
+    pandoc README.md \
+        -f markdown -t html5 --standalone --self-contained \
+        --shift-heading-level-by=-1 \
+        --css pandoc_table.css \
+        -o "$OUT_DIR/README.html"
+}
+
 build_all() {
     build_base_components
     build_ttdevice_reference
     build_chip_mapping
     build_cluster_mapping
     build_exalens_mapping
+    build_readme
 }
 
 cleanup_artifacts() {
@@ -66,8 +81,7 @@ cleanup_artifacts() {
 clean() {
     echo "=== Cleaning ==="
     rm -rf latex/ latex_ttdevice/
-    rm -f base_components_umd*.pdf base_tt_device_reference*.pdf
-    rm -f chip_tt_device_mapping*.html cluster_tt_device_mapping*.html tt_exalens_tt_umd_mapping*.html
+    rm -rf "$OUT_DIR"
 }
 
 usage() {
@@ -82,6 +96,7 @@ Options:
   --chip-mapping      Chip mapping HTML only
   --cluster-mapping   Cluster mapping HTML only
   --exalens-mapping   Exalens mapping HTML only
+  --readme            README HTML only
   --save-artifacts    Keep intermediate latex/ and latex_ttdevice/ directories
   --clean             Remove all generated files
   --help, -h          Show this help
@@ -108,6 +123,7 @@ for arg in "$@"; do
         --chip-mapping)     TARGETS+=(chip_mapping) ;;
         --cluster-mapping)  TARGETS+=(cluster_mapping) ;;
         --exalens-mapping)  TARGETS+=(exalens_mapping) ;;
+        --readme)           TARGETS+=(readme) ;;
         --clean)            clean; exit 0 ;;
         --help|-h)          usage; exit 0 ;;
         *)                  echo "Unknown option: $arg"; usage; exit 1 ;;
@@ -126,6 +142,7 @@ for target in "${TARGETS[@]}"; do
         chip_mapping)     build_chip_mapping ;;
         cluster_mapping)  build_cluster_mapping ;;
         exalens_mapping)  build_exalens_mapping ;;
+        readme)           build_readme ;;
     esac
 done
 

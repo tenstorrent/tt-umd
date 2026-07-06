@@ -59,3 +59,13 @@ pandoc exalens_umd.md \
   --css pandoc_table.css \
   -o tt_exalens_tt_umd_mapping_1.0.html
 ```
+
+## 6. README (`README.html`)
+
+```bash
+pandoc README.md \
+  -f markdown -t html5 --standalone --self-contained \
+  --shift-heading-level-by=-1 \
+  --css pandoc_table.css \
+  -o README.html
+```

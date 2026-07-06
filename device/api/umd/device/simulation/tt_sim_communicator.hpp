@@ -6,6 +6,7 @@
 
 #include <sys/types.h>
 
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
@@ -126,7 +127,9 @@ public:
      */
     void set_pcie_dma_mem_callbacks(
         std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes);
+        std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+        uint64_t host_base = 0,
+        uint64_t host_size = 0);
 
     void start_sim();
 
@@ -238,14 +241,31 @@ private:
     std::function<void(uint64_t, void *, uint32_t)> pci_dma_mem_rd_bytes_callback_;
     std::function<void(uint64_t, const void *, uint32_t)> pci_dma_mem_wr_bytes_callback_;
 
-    // Known limitation: callback_instance_ is process-global; in multichip mode,
-    // only the last chip to call set_pcie_dma_mem_callbacks receives correct DMA
-    // callbacks.  Fix requires libttsim ABI change to support per-chip context pointer.
+    // Host-side DMA routing by address range. Each MMIO chip's outbound iATU (programmed by UMD via
+    // BAR2, honored by the sim) maps the chip's NOC sysmem window onto that chip's distinct host base.
+    // So a sysmem DMA arrives here carrying a real host address; we find the owning chip by which
+    // registered window [host_base, host_base+size) contains it -- exactly as a host/OS routes a DMA by
+    // which pinned region the address falls in. No chip id crosses the bus; the address alone targets.
+    // callback_instance_ stays as the single-device / unregistered fallback.
+    struct DmaHostRange {
+        uint64_t host_base = 0;
+        uint64_t host_size = 0;
+        TTSimCommunicator *inst = nullptr;
+    };
+
+    static constexpr std::size_t MAX_DMA_DEVICES = 32;
     static TTSimCommunicator *callback_instance_;
+    static std::array<DmaHostRange, MAX_DMA_DEVICES> dma_ranges_;
+    static std::size_t dma_range_count_;
+    static std::mutex dma_ranges_mutex_;
 
     // Static wrapper functions for C-style callbacks.
-    static void pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size);
-    static void pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size);
+    static void pci_dma_mem_rd_bytes_wrapper(uint64_t physical_address, void *p, uint32_t size);
+    static void pci_dma_mem_wr_bytes_wrapper(uint64_t physical_address, const void *p, uint32_t size);
+    // Find the chip whose registered host window contains physical_address, rebase physical_address to
+    // the within-window offset, and return its communicator. Falls back to callback_instance_ if no
+    // window matches.
+    static TTSimCommunicator *dma_route(uint64_t &physical_address);
 
     // Thread safety. In multichip shared-dlopen mode, libttsim_select_device_by_id()
     // and the following libttsim I/O call must be serialized across all

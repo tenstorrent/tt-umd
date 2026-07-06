@@ -68,6 +68,7 @@ target_sources(
         chip/mock_chip.cpp
         chip/remote_chip.cpp
         $<$<BOOL:${TT_UMD_BUILD_EMULE}>:chip/sw_emule_chip.cpp>
+        $<$<BOOL:${TT_UMD_BUILD_EMULE}>:chip_helpers/emule_tlb.cpp>
         chip_helpers/sysmem_manager.cpp
         chip_helpers/simulation_sysmem_manager.cpp
         chip_helpers/silicon_sysmem_manager.cpp

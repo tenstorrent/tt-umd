@@ -116,6 +116,15 @@ private:
     uint64_t dram_bank_size_;
 
     SocDescriptor soc_descriptor_;
+
+    // Host-visible system memory model. emule reuses SimulationSysmemManager
+    // (mmap-backed, no PCIe/IOMMU) so PinnedMemory / H2D-D2H sockets can map a
+    // host buffer to a device IO / NOC address (pcie_base_ + arena offset).
+    std::unique_ptr<SysmemManager> sysmem_manager_;
+
+    // Static per-core TLB windows for the host→device-L1 writer path (sockets).
+    // Routes write_block/read_block to this chip's tt_emule::Core storage.
+    std::unique_ptr<TLBManager> tlb_manager_;
 };
 
 }  // namespace tt::umd

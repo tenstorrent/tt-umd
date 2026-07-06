@@ -58,6 +58,11 @@ public:
 
     static uint64_t get_pcie_base_for_arch(tt::ARCH arch);
 
+    // Resolve a device IO address to a host pointer for managers that back sysmem
+    // with host memory (e.g. SimulationSysmemManager under emule). Returns nullptr
+    // by default (silicon managers map to real device IO, not a host pointer).
+    virtual uint8_t* resolve_host_ptr(uint64_t /*device_io_addr*/, uint32_t /*size*/) { return nullptr; }
+
 protected:
     virtual bool init_sysmem(uint32_t num_host_mem_channels) = 0;
 

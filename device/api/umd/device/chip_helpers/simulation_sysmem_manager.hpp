@@ -50,6 +50,12 @@ public:
     bool write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size);
     bool read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size);
 
+    // Resolve a device IO address (pcie_base_ + arena offset) to the host pointer
+    // of the buffer that covers it, or nullptr on a miss. Used by the emule kernel
+    // runner to route NOC reads/writes that target host sysmem (PinnedMemory /
+    // H2D-D2H sockets) to the mapped host buffer.
+    uint8_t* resolve_host_ptr(uint64_t device_io_addr, uint32_t size) override;
+
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 

@@ -45,6 +45,9 @@ protected:
     std::unique_ptr<TTDevice> tt_device_;
     std::unique_ptr<SocDescriptor> soc_desc_;
 
+    // Set when a test deliberately hangs a NOC, so TearDown knows the device must be recovered.
+    bool noc_hung_ = false;
+
     void SetUp() override {
         if (utils::is_arm_platform()) {
             GTEST_SKIP() << "Skipping on ARM64 – NOC hang can lock up the system.";
@@ -54,6 +57,12 @@ protected:
             GTEST_SKIP() << "No PCI devices found.";
         }
         init_device(pci_device_ids.at(0));
+    }
+
+    void TearDown() override {
+        if (noc_hung_) {
+            recover_device();
+        }
     }
 
     void init_device(int pci_device_id) {
@@ -69,6 +78,7 @@ protected:
     // value is meaningless here (and with the per-op MMIO timeout active the read aborts before it can
     // return one) — the NOC is hung regardless. Callers verify the hang via is_noc_hung() / the timeout.
     void hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
+        noc_hung_ = true;
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
             tt_device_->set_risc_reset_state(
@@ -85,11 +95,16 @@ protected:
         }
     }
 
-    void warm_reset_and_reinit() {
-        int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+    void recover_device() {
         tt_device_.reset();
         soc_desc_.reset();
         WarmResetWithRecovery::warm_reset();
+        noc_hung_ = false;
+    }
+
+    void warm_reset_and_reinit() {
+        int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+        recover_device();
 
         auto cluster = test_utils::make_default_test_cluster();
         EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after warm reset.";
@@ -209,8 +224,6 @@ TEST_P(NocHangDetectionTest, PerOpTimeoutThrowsOnHungNoc) {
 
     // Restore the process-global default so the change doesn't leak into other tests.
     MmioTimeoutConfig::set_op_timeout(original_budget);
-
-    warm_reset_and_reinit();
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -227,8 +240,6 @@ TEST_F(HangDetectionTest, TopologyDiscoveryRecordsNocHangHealthError) {
         GTEST_SKIP()
             << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
     }
-
-    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
 
     // NOC0 is the NOC that init_tt_device() probes during discovery, so hang that one.
     tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
@@ -257,11 +268,4 @@ TEST_F(HangDetectionTest, TopologyDiscoveryRecordsNocHangHealthError) {
         }
     }
     EXPECT_TRUE(found_noc_hang) << "Expected a NocHangError in cluster descriptor health errors.";
-
-    // Release discovery's device handles, then warm reset to recover the hung device so the host
-    // and subsequent tests are left in a good state.
-    cluster_desc.reset();
-    devices.clear();
-    WarmResetWithRecovery::warm_reset();
-    init_device(pci_device_id);
 }

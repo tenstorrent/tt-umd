@@ -91,14 +91,19 @@ public:
         bool use_safe_api = false,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
 
-    // A remote TTDevice is normally initialized over ARC (init_tt_device), which constructs its SocDescriptor.
-    // Simulated remote chips have no ARC to probe, so the caller may supply the full descriptor via soc_descriptor.
-    // TODO: temporary - the soc_descriptor parameter should be removed once ttsim provides a mocked ARC that can
-    // serve the SocDescriptor the same way silicon does.
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr,
-        std::optional<SocDescriptor> soc_descriptor = std::nullopt);
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+
+#ifdef TT_UMD_BUILD_SIMULATION
+    // A remote TTDevice is normally initialized over ARC (init_tt_device), which constructs its SocDescriptor.
+    // Simulated remote chips have no ARC to probe, so the caller supplies the full descriptor directly. This is a
+    // dedicated factory (compiled in only for simulation builds) rather than an overload of the silicon create()
+    // above, so the simulation-only flow stays fully separated from the silicon path.
+    // TODO: temporary - remove once ttsim provides a mocked ARC that can serve the SocDescriptor like silicon does.
+    static std::unique_ptr<TTDevice> create_simulation_remote(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+#endif  // TT_UMD_BUILD_SIMULATION
 
     virtual ~TTDevice() = default;
 

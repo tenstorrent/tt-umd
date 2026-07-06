@@ -193,19 +193,41 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
 std::unique_ptr<TTDevice> TTDevice::create(
     std::unique_ptr<RemoteCommunication> remote_communication,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-    std::optional<SocDescriptor> soc_descriptor) {
+    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
     tt::ARCH arch = remote_communication->get_local_device()->get_arch();
     switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return std::unique_ptr<WormholeTTDevice>(
+                new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
+        default:
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("Remote TTDevice creation is not supported for {} architecture.", arch_to_str(arch)));
+    }
+}
+
+#ifdef TT_UMD_BUILD_SIMULATION
+std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
+    std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    UMD_ASSERT(remote_communication != nullptr, error::RuntimeError, "RemoteCommunication pointer cannot be null.");
+    tt::ARCH arch = remote_communication->get_local_device()->get_arch();
+    UMD_ASSERT(
+        soc_descriptor.arch == arch,
+        error::RuntimeError,
+        fmt::format(
+            "Supplied SocDescriptor arch ({}) does not match the remote device arch ({}).",
+            arch_to_str(soc_descriptor.arch),
+            arch_to_str(arch)));
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             auto device = std::unique_ptr<WormholeTTDevice>(
-                new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
-            if (soc_descriptor.has_value()) {
-                // set_soc_descriptor takes a const ref and copies internally, so no std::move here.
-                device->set_soc_descriptor(*soc_descriptor);
-            }
+                new WormholeTTDevice(std::move(remote_communication), /*soc_arch_descriptor=*/nullptr));
+            // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
+            // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
+            device->set_soc_descriptor(soc_descriptor);
             return device;
         }
         default:
@@ -214,6 +236,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
                 fmt::format("Remote TTDevice creation is not supported for {} architecture.", arch_to_str(arch)));
     }
 }
+#endif  // TT_UMD_BUILD_SIMULATION
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 

@@ -93,13 +93,13 @@ public:
 
     /*
      * Get targetted fan speed as a percentage (0-100), if fans are present and controllable by firmware.
-     * @returns Targetted fan speeds [percent]
+     * @returns Targetted fan speeds [percent], nullopt if not available.
      */
     std::vector<std::optional<uint32_t>> get_fan_speed() const;
 
     /*
      * Get actual fan speeds in RPM, if fans are present and controllable by firmware.
-     * @returns Actual fan speed [RPM]
+     * @returns Actual fan speed [RPM], nullopt if not available.
      */
     std::vector<std::optional<uint32_t>> get_fan_rpm() const;
 
@@ -229,6 +229,12 @@ private:
 
     template <typename T>
     std::optional<T> read_scalar(FirmwareFeature feature) const;
+
+    /**
+     * @brief Maximum number of fans supported by the device.
+     * TODO: SysEng should provide a proper way of querying the number of fans on the device.
+     */
+    static constexpr size_t MAX_NUMBER_OF_FANS = 2U;
 };
 
 }  // namespace tt::umd

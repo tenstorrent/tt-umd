@@ -430,7 +430,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
 }
 
 std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speed() const {
-    std::vector<std::optional<uint32_t>> fan_speeds(2, std::nullopt);
+    std::vector<std::optional<uint32_t>> fan_speeds(MAX_NUMBER_OF_FANS, std::nullopt);
 
     auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
     // No fan speed information available.
@@ -445,7 +445,7 @@ std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speed() const
 std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
 
 std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpm() const {
-    std::vector<std::optional<uint32_t>> fan_rpms(2, std::nullopt);
+    std::vector<std::optional<uint32_t>> fan_rpms(MAX_NUMBER_OF_FANS, std::nullopt);
     auto fan_rpm = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
     // No fan speed information available.
     if (!fan_rpm.has_value()) {

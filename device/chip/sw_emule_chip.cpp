@@ -14,6 +14,8 @@
 
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
+#include "umd/device/chip_helpers/emule_tlb.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
@@ -39,6 +41,16 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     size_t num_tensix = soc.get_cores(tt::CoreType::TENSIX).size();
     size_t pool_size = (num_tensix > 0 ? num_tensix : 128);  // 128 = WH/BH fallback if SOC reports 0
     worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
+
+    // A single 1 GB host-memory channel is ample — PinnedMemory / socket buffers
+    // are KB-MB and the mmap is overcommitted (only touched pages use RAM). Gives
+    // PinnedMemory / H2D-D2H sockets a working map_sysmem_buffer on emule.
+    sysmem_manager_ = std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/1, soc.arch);
+
+    // Static per-core TLB windows (host→device-L1 writer path). Blackhole
+    // statically maps the whole device address space, so get_tlb_window(core)
+    // must already return a window for any TENSIX core the host writes.
+    tlb_manager_ = std::make_unique<EmuleTlbManager>(this);
 }
 
 // One physical backing per DRAM CHANNEL. A channel is fronted by several NOC endpoint
@@ -141,9 +153,9 @@ void SWEmuleChip::close_device() {}
 
 TTDevice* SWEmuleChip::get_tt_device() { return nullptr; }
 
-SysmemManager* SWEmuleChip::get_sysmem_manager() { return nullptr; }
+SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
-TLBManager* SWEmuleChip::get_tlb_manager() { return nullptr; }
+TLBManager* SWEmuleChip::get_tlb_manager() { return tlb_manager_.get(); }
 
 // --- Host memory (no-ops) ---
 

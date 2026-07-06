@@ -132,6 +132,15 @@ bool SimulationSysmemManager::read_mapped_buffer(uint64_t device_io_addr, void* 
     return true;
 }
 
+uint8_t* SimulationSysmemManager::resolve_host_ptr(uint64_t device_io_addr, uint32_t size) {
+    std::lock_guard<std::mutex> lock(registry_->mutex);
+    auto b = find_mapped_buffer_locked(device_io_addr, size);
+    if (!b.has_value()) {
+        return nullptr;
+    }
+    return static_cast<uint8_t*>(b->buffer) + (device_io_addr - b->device_io_addr);
+}
+
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     void* mapping =

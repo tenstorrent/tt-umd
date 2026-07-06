@@ -64,11 +64,11 @@ protected:
     // (core, addr) for their hang-check register and route the actual read through here.
     uint32_t read_noc_reg(tt_xy_pair core, uint64_t addr, NocId noc);
 
-private:
     // Arch-specific implementations.
     virtual uint32_t read_hang_check_reg_via_bar() = 0;
     virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
 
+private:
     DeviceProtocol* protocol_;
     PcieInterface* pcie_interface_;
     bool is_mmio_protocol_;

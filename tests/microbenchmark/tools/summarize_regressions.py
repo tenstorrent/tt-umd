@@ -322,7 +322,8 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
     for title in test_titles:
         for case_entry in baselines[title].values():
             archs.update(case_entry.keys())
-    arch_order = sorted(archs)
+    # Only archs present in this run; the benchmark and ttsim workflows each cover a different subset.
+    arch_order = sorted(a for a in archs if a in current)
 
     # Per-(test, arch): collect (counts, breached_rows, stable_rows).
     cell_state: dict = {}

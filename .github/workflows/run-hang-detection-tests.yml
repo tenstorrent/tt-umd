@@ -43,60 +43,19 @@ on:
         type: number
 
 env:
-  BUILD_OUTPUT_DIR: ./build
   TEST_OUTPUT_DIR: ./build/test
-  LIB_OUTPUT_DIR: ./build/lib
-  DEPS_OUTPUT_DIR: ./build/_deps
-  CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
-  SOC_DESCRIPTORS_DIR: ./tests/soc_descs
-  ARTIFACT_NAME: hang-detection-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  ARTIFACT_NAME: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
 
 jobs:
   build:
-    name: Build hang_detection_tests (${{ inputs.build-type }}, ${{ inputs.ubuntu-docker-version }})
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
-
-    env:
-      CC: clang-20
-      CXX: clang++-20
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-
-      - name: Build hang_detection_tests
-        run: |
-          echo "Compiling the code..."
-          cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
-            -DTT_UMD_BUILD_TESTS=ON \
-            -DTT_UMD_BUILD_SIMULATION=OFF \
-            -DTT_UMD_BUILD_PYTHON=OFF \
-            -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=OFF \
-            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
-            -DTT_UMD_ENABLE_TRACY=OFF \
-            -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target hang_detection_tests
-          echo "Compile complete."
-
-      - name: Tar build artifacts
-        shell: bash
-        run: |
-          tar cvf artifact.tar ${{ env.TEST_OUTPUT_DIR }} \
-          ${{ env.LIB_OUTPUT_DIR }} \
-          ${{ env.DEPS_OUTPUT_DIR }} \
-          ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
-          ${{ env.SOC_DESCRIPTORS_DIR }}
-
-      - name: Upload build artifacts archive
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: artifact.tar
+    secrets: inherit
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+      build-type: ${{ inputs.build-type }}
+      timeout: ${{ fromJSON(inputs.timeout) }}
+      build-targets: hang_detection_tests
+      build-wheel: false
 
   run:
     name: Run hang_detection_tests (${{ inputs.card }})

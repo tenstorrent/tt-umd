@@ -2,6 +2,7 @@
 set -euo pipefail
 
 VERSION=""
+SAVE_ARTIFACTS=false
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
@@ -56,6 +57,12 @@ build_all() {
     build_exalens_mapping
 }
 
+cleanup_artifacts() {
+    if [[ "$SAVE_ARTIFACTS" == false ]]; then
+        rm -rf latex/ latex_ttdevice/
+    fi
+}
+
 clean() {
     echo "=== Cleaning ==="
     rm -rf latex/ latex_ttdevice/
@@ -64,18 +71,29 @@ clean() {
 }
 
 usage() {
-    echo "Usage: $0 [OPTIONS]"
-    echo ""
-    echo "Options:"
-    echo "  --version=X.Y.Z     Append version to output filenames (omit for no version suffix)"
-    echo "  --all               Generate all documents (default when no target specified)"
-    echo "  --base-components   Base components PDF only"
-    echo "  --ttdevice-ref      TTDevice reference PDF only"
-    echo "  --chip-mapping      Chip mapping HTML only"
-    echo "  --cluster-mapping   Cluster mapping HTML only"
-    echo "  --exalens-mapping   Exalens mapping HTML only"
-    echo "  --clean             Remove all generated files"
-    echo "  --help, -h          Show this help"
+    cat <<'EOF'
+Usage: generate_docs.sh [OPTIONS]
+
+Options:
+  --version=X.Y.Z     Append version to output filenames (omit for no version suffix)
+  --all               Generate all documents (default when no target specified)
+  --base-components   Base components PDF only
+  --ttdevice-ref      TTDevice reference PDF only
+  --chip-mapping      Chip mapping HTML only
+  --cluster-mapping   Cluster mapping HTML only
+  --exalens-mapping   Exalens mapping HTML only
+  --save-artifacts    Keep intermediate latex/ and latex_ttdevice/ directories
+  --clean             Remove all generated files
+  --help, -h          Show this help
+
+Examples:
+  ./generate_docs.sh                                    # Generate all docs, no version suffix
+  ./generate_docs.sh --version=1.0                      # Generate all docs with _1.0 suffix
+  ./generate_docs.sh --version=2.0 --chip-mapping       # Single doc with version
+  ./generate_docs.sh --base-components --ttdevice-ref    # Two specific docs
+  ./generate_docs.sh --version=1.0 --save-artifacts     # Keep latex build artifacts
+  ./generate_docs.sh --clean                             # Remove all generated files
+EOF
 }
 
 TARGETS=()
@@ -83,6 +101,7 @@ TARGETS=()
 for arg in "$@"; do
     case "$arg" in
         --version=*)        VERSION="${arg#--version=}" ;;
+        --save-artifacts)   SAVE_ARTIFACTS=true ;;
         --all)              TARGETS+=(all) ;;
         --base-components)  TARGETS+=(base_components) ;;
         --ttdevice-ref)     TARGETS+=(ttdevice_ref) ;;
@@ -110,4 +129,5 @@ for target in "${TARGETS[@]}"; do
     esac
 done
 
+cleanup_artifacts
 echo "=== Done ==="

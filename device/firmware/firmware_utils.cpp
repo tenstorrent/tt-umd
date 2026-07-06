@@ -4,15 +4,19 @@
 
 #include "umd/device/firmware/firmware_utils.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <unordered_set>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -26,25 +30,9 @@ namespace tt::umd {
 
 FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
-            std::make_unique<SmBusArcTelemetryReader>(tt_device);
-
-        // Poll for a valid firmware version. If no valid version is found within 250ms,
-        // log a warning and return the last read value.
-        auto start = std::chrono::steady_clock::now();
-        auto timeout_duration = std::chrono::milliseconds(250);
-        while (std::chrono::steady_clock::now() - start < timeout_duration) {
-            auto fw_bundle_version =
-                smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION);
-            if (fw_bundle_version != 0) {
-                return FirmwareBundleVersion::from_firmware_bundle_tag(fw_bundle_version);
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-        log_warning(
-            tt::LogUMD, "Timeout reading firmware bundle version (250ms), returning potentially invalid version");
+        SmBusArcTelemetryReader smbus_reader(tt_device);
         return FirmwareBundleVersion::from_firmware_bundle_tag(
-            smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+            smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     }
     ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
@@ -109,6 +97,19 @@ SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
         default:
             UMD_THROW(error::RuntimeError, "Getting ETH FW version is not supported for this device.");
     }
+}
+
+std::vector<std::pair<CoreCoord, bool>> filter_harvested_eth_status(
+    const std::vector<std::pair<CoreCoord, bool>>& statuses, const SocDescriptor& soc_desc) {
+    auto harvested_cores = soc_desc.get_harvested_cores(CoreType::ETH, CoordSystem::NOC0);
+    std::unordered_set<CoreCoord> harvested(harvested_cores.begin(), harvested_cores.end());
+
+    std::vector<std::pair<CoreCoord, bool>> filtered;
+    filtered.reserve(statuses.size());
+    std::copy_if(statuses.begin(), statuses.end(), std::back_inserter(filtered), [&](const auto& entry) {
+        return harvested.count(entry.first) == 0;
+    });
+    return filtered;
 }
 
 }  // namespace tt::umd

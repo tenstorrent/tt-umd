@@ -233,10 +233,16 @@ uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_
 void BlackholeTTDevice::set_clock_state(DevicePowerState state) {
     ZoneScoped;
     int exit_code = 0;
-    if (state == DevicePowerState::BUSY) {
-        exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
-    } else {
-        exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+    switch (state) {
+        case DevicePowerState::BUSY:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            break;
+        case DevicePowerState::LONG_IDLE:
+        case DevicePowerState::SHORT_IDLE:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            break;
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
     }
     UMD_ASSERT(
         exit_code == 0,

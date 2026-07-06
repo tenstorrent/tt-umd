@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include <chrono>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <numeric>
@@ -25,11 +26,13 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
+#include "umd/device/topology/topology_discovery_error.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -207,8 +210,6 @@ void TopologyDiscovery::get_connected_devices() {
             continue;
         }
 
-        verify_fw_bundle_version(tt_device.get());
-
         // Check some things on first discovered MMIO device.
         if (devices_to_discover.empty()) {
             init_first_device(tt_device.get());
@@ -266,7 +267,7 @@ void TopologyDiscovery::discover_remote_devices() {
 
         TTDevice* tt_device = devices.at(current_device_asic_id).get();
 
-        verify_fw_bundle_version(tt_device);
+        verify_fw_bundle_version(tt_device, current_device_asic_id);
 
         if (!options.discover_remote_devices) {
             continue;
@@ -300,7 +301,8 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             // TODO: Temporary - heartbeat check disabled for Blackhole.
-            if (tt_device->get_arch() != ARCH::BLACKHOLE && !eth_heartbeat_running(tt_device, eth_core)) {
+            if (tt_device->get_arch() != ARCH::BLACKHOLE &&
+                !eth_heartbeat_running(tt_device, current_device_asic_id, eth_core)) {
                 auto err = UMD_THROW_OR_RETURN(
                     options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
                     error::RuntimeError,
@@ -313,7 +315,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            if (!verify_eth_core_fw_version(tt_device, eth_core)) {
+            if (!verify_eth_core_fw_version(tt_device, current_device_asic_id, eth_core)) {
                 log_warning(
                     LogUMD,
                     "Skipping discovery from device ASIC ID: {} ETH core {}",
@@ -339,7 +341,7 @@ void TopologyDiscovery::discover_remote_devices() {
                 continue;
             }
 
-            verify_routing_firmware_state(tt_device, eth_core);
+            verify_routing_firmware_state(tt_device, current_device_asic_id, eth_core);
 
             log_debug(
                 LogUMD,
@@ -549,22 +551,20 @@ uint64_t TopologyDiscovery::get_asic_id(TTDevice* tt_device) {
 
 void TopologyDiscovery::patch_eth_connections() {}
 
-void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
+void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t asic_id) {
     FirmwareBundleVersion fw_bundle_version = tt_device->get_firmware_version();
 
     if (first_fw_bundle_version.has_value()) {
         if (fw_bundle_version != first_fw_bundle_version.value()) {
-            const std::string mismatch_msg = fmt::format(
-                "Firmware bundle version mismatch for device {}: expected {}, got {}",
-                get_asic_id(tt_device),
-                first_fw_bundle_version->to_string(),
-                fw_bundle_version.to_string());
-            if (options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW) {
-                UMD_THROW(error::RuntimeError, mismatch_msg);
-            } else {
-                log_warning(LogUMD, mismatch_msg);
-                return;
-            }
+            auto err = UMD_THROW_OR_RETURN(
+                options.cmfw_mismatch_action == TopologyDiscoveryOptions::Action::THROW,
+                error::CMFWMismatchError,
+                *tt_device,
+                asic_id,
+                first_fw_bundle_version.value(),
+                fw_bundle_version);
+            log_warning(LogUMD, err.message());
+            health_errors[asic_id].push_back(std::move(err));
         }
         return;
     }
@@ -578,32 +578,28 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device) {
         FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
-        "UMD supported firmware bundle versions: {} - {}",
+        "System firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",
+        fw_bundle_version.to_string(),
         minimum_compatible_fw_bundle_version.to_string(),
-        latest_supported_fw_bundle_version.to_string());
+        latest_supported_fw_bundle_version.to_string(),
+        fw_bundle_version > latest_supported_fw_bundle_version
+            ? fmt::format(
+                  " Firmware bundle version is newer than the latest fully tested version for {} architecture. Newest "
+                  "features may not be supported.",
+                  arch_to_str(arch))
+            : "");
 
     if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
-        const std::string cmfw_unsupported_msg = fmt::format(
-            "Firmware bundle version {} on the system is older than the minimum compatible version {} for {} "
-            "architecture.",
-            fw_bundle_version.to_string(),
-            minimum_compatible_fw_bundle_version.to_string(),
-            arch_to_str(arch));
-        if (options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW) {
-            UMD_THROW(error::RuntimeError, cmfw_unsupported_msg);
-        } else {
-            return;
-        }
-    }
-
-    if (fw_bundle_version > latest_supported_fw_bundle_version) {
-        log_info(
-            LogUMD,
-            "Firmware bundle version {} on the system is newer than the latest fully tested version {} for {} "
-            "architecture. Newest features may not be supported.",
-            fw_bundle_version.to_string(),
-            latest_supported_fw_bundle_version.to_string(),
-            arch_to_str(arch));
+        auto err = UMD_THROW_OR_RETURN(
+            options.cmfw_unsupported_action == TopologyDiscoveryOptions::Action::THROW,
+            error::UnsupportedCMFWError,
+            *tt_device,
+            asic_id,
+            fw_bundle_version,
+            minimum_compatible_fw_bundle_version);
+        log_warning(LogUMD, err.message());
+        health_errors[asic_id].push_back(std::move(err));
+        return;
     }
 }
 
@@ -628,7 +624,45 @@ bool TopologyDiscovery::is_board_id_included(uint64_t board_id) const {
     return board_ids.find(board_id) != board_ids.end();
 }
 
-bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth_core) {
+bool TopologyDiscovery::verify_eth_core_fw_version(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
+    SemVer eth_fw_version = get_eth_fw_version(tt_device, eth_core);
+
+    bool eth_fw_problem = false;
+    if (!expected_eth_fw_version.has_value()) {
+        expected_eth_fw_version = tt_device->get_firmware_info_provider()->get_eth_fw_version_semver();
+        if (expected_eth_fw_version.has_value()) {
+            log_debug(LogUMD, "Expected ETH FW version from telemetry: {}", expected_eth_fw_version->to_string());
+        } else {
+            expected_eth_fw_version = eth_fw_version;
+            log_debug(
+                LogUMD, "Established ETH FW version from first discovered ETH core: {}", eth_fw_version.to_string());
+        }
+
+        SemVer minimum_supported = (get_topology_arch() == ARCH::BLACKHOLE)
+                                       ? erisc_firmware::BH_MIN_ERISC_FW_SUPPORTED_VERSION
+                                       : erisc_firmware::WH_MIN_ERISC_FW_SUPPORTED_VERSION;
+        if (*expected_eth_fw_version < minimum_supported) {
+            log_warning(
+                LogUMD,
+                "The expected ETH firmware version {} is older than the minimum supported version {}",
+                expected_eth_fw_version->str(),
+                minimum_supported.str());
+            eth_fw_problem = true;
+        }
+    }
+
+    if (eth_fw_version != *expected_eth_fw_version) {
+        auto err = error::EthFirmwareMismatchError(
+            *tt_device, asic_id, expected_eth_fw_version.value(), eth_fw_version, eth_core);
+        log_warning(LogUMD, err.message());
+        health_errors[asic_id].push_back(std::move(err));
+        eth_fw_problem = true;
+    }
+
+    return (options.eth_fw_mismatch_action == TopologyDiscoveryOptions::Action::IGNORE) || !eth_fw_problem;
+}
+
+bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, uint64_t asic_id, CoreCoord eth_core) {
     const auto start = std::chrono::steady_clock::now();
     uint32_t previous_reading = 0;
     // First loop: Wait until heartbeat changes from 0 (post reset).
@@ -640,14 +674,16 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
             break;
         }
 
-        if (utils::check_timeout(
-                start,
-                timeout::ETH_STARTUP_TIMEOUT,
-                fmt::format(
-                    "Timed out waiting for ETH heartbeat on core {} to start. Stuck at {:#x}.",
-                    eth_core.str(),
-                    current_reading),
-                utils::TimeoutAction::Return)) {
+        if (utils::check_timeout(start, timeout::ETH_STARTUP_TIMEOUT)) {
+            auto err = UMD_THROW_OR_RETURN(
+                options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
+                error::EthFirmwareHeartbeatError,
+                *tt_device,
+                asic_id,
+                current_reading,
+                eth_core);
+            log_warning(LogUMD, err.message());
+            health_errors[asic_id].push_back(std::move(err));
             return false;
         }
 
@@ -664,7 +700,7 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
             signature != erisc_firmware::FABRIC_HEARTBEAT_SIGNATURE) {
             log_warning(
                 LogUMD,
-                "Read invalid heartbeat value: {:#x} from ETH core: {}, FW possibly corrupted.",
+                "Read invalid heartbeat signature: {:#x} from ETH core: {}, FW possibly corrupted.",
                 current_reading,
                 eth_core.str());
             return false;
@@ -674,15 +710,16 @@ bool TopologyDiscovery::eth_heartbeat_running(TTDevice* tt_device, CoreCoord eth
             return true;
         }
 
-        if (utils::check_timeout(
-                second_start,
-                timeout::ETH_HEARTBEAT_TIMEOUT,
-                fmt::format(
-                    "Timed out waiting for ETH heartbeat on core {} to advance. Stuck at {:#x} -> {:#x}.",
-                    eth_core.str(),
-                    previous_reading,
-                    current_reading),
-                utils::TimeoutAction::Return)) {
+        if (utils::check_timeout(second_start, timeout::ETH_HEARTBEAT_TIMEOUT)) {
+            auto err = UMD_THROW_OR_RETURN(
+                options.eth_fw_heartbeat_failure == TopologyDiscoveryOptions::Action::THROW,
+                error::EthFirmwareHeartbeatError,
+                *tt_device,
+                asic_id,
+                current_reading,
+                eth_core);
+            log_warning(LogUMD, err.message());
+            health_errors[asic_id].push_back(std::move(err));
             return false;
         }
 

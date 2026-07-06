@@ -175,7 +175,6 @@ jobs:
     uses: ./.github/workflows/build-tests.yml
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-      timeout: 15
       build-type: ${{ inputs.build-type }}
       build-tracy: true
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
@@ -252,7 +251,8 @@ jobs:
         test-group: [
           {runs-on: tt-ubuntu-2204-p150b-stable},
           {runs-on: tt-ubuntu-2204-n150-stable},
-          {runs-on: tt-ubuntu-2204-n300-stable},
+          # TODO(#2981): Re-enable once exalens tests NOC0 hang bug is resolved.
+          # {runs-on: tt-ubuntu-2204-n300-stable},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',

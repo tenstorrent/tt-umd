@@ -191,14 +191,10 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
-    virtual void write_to_device(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
     virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
-    virtual void read_from_device_reg(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device_reg(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
     virtual void write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
 
     /**
@@ -366,11 +362,8 @@ public:
     virtual void set_power_state(bool busy);
 
     /**
-     * Set the device clock (AICLK) state by sending the corresponding power-state request to ARC
+     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
      * and waiting for the clock to settle at the expected frequency.
-     *
-     * The default implementation is a no-op for backends without a controllable clock (e.g.
-     * simulation); supported silicon backends override it.
      *
      * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
      */
@@ -528,13 +521,13 @@ protected:
         const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
 
     // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
-    // returns on timeout. Shared by silicon backends that drive the clock via ARC in set_clock_state.
+    // returns on timeout.
     void wait_for_aiclk_value(
         DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
-    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector) { hang_detector_ = std::move(hang_detector); }
+    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
     bool is_remote_tt_device = false;
 
@@ -549,7 +542,11 @@ protected:
 private:
     void probe_arc();
 
+    void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
+
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
+    xy_pair resolve_coordinate(CoreCoord core) const;
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;

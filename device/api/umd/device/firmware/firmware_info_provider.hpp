@@ -7,11 +7,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -154,26 +156,26 @@ public:
     /*
      * Get per-link ethernet heartbeat status.
      * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
-     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
-     * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
+     * Each entry pairs an ETH core's NOC0 coordinate with its status (16 entries on WH, 14 on BH).
+     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status() const;
 
     /*
      * Get per-link ethernet retrain status.
      * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
-     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
-     * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
+     * Each entry pairs an ETH core's NOC0 coordinate with its status.
+     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_retrain_status() const;
+    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status() const;
 
     /*
      * Get per-link ethernet link status.
      * Available on firmware 19.9+ for both Wormhole and Blackhole; returns std::nullopt otherwise.
-     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
-     * @returns Vector of bools (true = link is up), or std::nullopt if unavailable.
+     * Each entry pairs an ETH core's NOC0 coordinate with its status.
+     * @returns Per-core link status (true = up), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_link_status() const;
+    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status() const;
 
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
@@ -199,10 +201,9 @@ public:
 
 private:
     /**
-     * Parse a 16-bit bitmask into a per-link boolean vector.
-     * Bit indices align with ETH channels (i.e. logical coordinates).
+     * Parse a 16-bit bitmask into per-core status using the arch-specific bit-to-NOC0 mapping.
      */
-    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
+    std::vector<std::pair<CoreCoord, bool>> parse_eth_status_bitmask(uint16_t bitmask) const;
 
     TTDevice* tt_device = nullptr;
 

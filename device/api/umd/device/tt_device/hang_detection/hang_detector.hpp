@@ -44,7 +44,7 @@ public:
 
     // Public API. Returns std::nullopt when the underlying protocol
     // does not support the check.
-    std::optional<bool> is_pcie_hung(uint32_t data_read = HANG_READ_VALUE);
+    std::optional<bool> is_bus_hung(uint32_t data_read = HANG_READ_VALUE);
     std::optional<bool> is_noc_hung(NocId noc);
 
     // Overrides the NOC liveness register reader (see NocRegReader). An empty function is ignored,

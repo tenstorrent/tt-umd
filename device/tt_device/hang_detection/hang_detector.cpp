@@ -35,7 +35,7 @@ uint32_t HangDetector::read_noc_reg(tt_xy_pair core, uint64_t addr, NocId noc) {
     return noc_reg_reader_(core, addr, noc);
 }
 
-std::optional<bool> HangDetector::is_pcie_hung(uint32_t data_read) {
+std::optional<bool> HangDetector::is_bus_hung(uint32_t data_read) {
     if (data_read != HANG_READ_VALUE) {
         return false;
     }

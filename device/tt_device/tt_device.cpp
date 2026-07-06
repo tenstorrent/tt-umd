@@ -357,9 +357,9 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     if (!hang_detector_) {
         UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
-    auto result = hang_detector_->is_pcie_hung(data_read);
+    auto result = hang_detector_->is_bus_hung(data_read);
     if (!result.has_value()) {
-        log_warning(LogUMD, "PCIe hang detection is not supported for this device.");
+        log_warning(LogUMD, "Bus hang detection is not supported for this device.");
         return false;
     }
     if (result.value()) {

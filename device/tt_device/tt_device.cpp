@@ -423,6 +423,7 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
             window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
         } catch (const error::UmdException<error::DeviceTimeoutError> &) {
             // The probe read carries its own per-op budget; an overrun means the NOC is hung.
+            throw;
             return HANG_READ_VALUE;
         }
         return value;

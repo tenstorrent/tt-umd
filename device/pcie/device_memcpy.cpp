@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -21,20 +22,45 @@ namespace tt::umd {
 
 namespace {
 
+// Debug aid for the NOC-hang investigation: dump the last complete DWORD that had landed in the
+// destination host buffer at the moment a read timed out, together with the device source address it
+// was read from. A stalled/hung NOC read returns a recognizable garbage value (e.g. all-0xff), so
+// surfacing the last 4 bytes on the timeout/throw path makes that visible without attaching a
+// debugger. `dest`/`src` are the read's base pointers and `bytes_read` how many bytes had completed;
+// a null `dest` (the write and scalar paths) or a sub-DWORD read is skipped.
+void log_last_read_word(const void* dest, std::size_t bytes_read, const volatile void* src) {
+    if (dest == nullptr || bytes_read < sizeof(std::uint32_t)) {
+        return;
+    }
+    std::uint32_t last_word;
+    std::memcpy(&last_word, static_cast<const std::uint8_t*>(dest) + bytes_read - sizeof(last_word), sizeof(last_word));
+    log_debug(
+        LogUMD,
+        "memcpy_from_device: last 4B read from device 0x{:x} = 0x{:08x}",
+        reinterpret_cast<std::uintptr_t>(src),
+        last_word);
+}
+
 // Builds the per-op timeout guard for the MMIO transfer routines: the configured budget, the on_timeout
 // callback, and an overrun action that throws DeviceTimeoutError. `bytes_remaining` is captured by
 // reference so the error reflects how much was left when the stall fired. on_timeout must not re-enter
-// the stalled op (see the on_timeout docs in the header).
+// the stalled op (see the on_timeout docs in the header). `read_dest`/`read_src` are supplied only by the
+// read path so the throw site can dump the last DWORD already read (see log_last_read_word); the write
+// and scalar paths leave them null.
 auto make_mmio_timeout_guard(
     const char* op_verb,
     std::size_t total_bytes,
     const std::size_t& bytes_remaining,
-    const std::function<bool()>& on_timeout) {
+    const std::function<bool()>& on_timeout,
+    const void* read_dest = nullptr,
+    const volatile void* read_src = nullptr) {
     const auto budget = MmioTimeoutConfig::get_op_timeout();
     return OpTimeoutGuard(
         budget,
         on_timeout,
-        [op_verb, budget, total_bytes, &bytes_remaining](std::chrono::nanoseconds delta, std::uint32_t op_bytes) {
+        [op_verb, budget, total_bytes, &bytes_remaining, read_dest, read_src](
+            std::chrono::nanoseconds delta, std::uint32_t op_bytes) {
+            log_last_read_word(read_dest, total_bytes - bytes_remaining, read_src);
             UMD_THROW(error::DeviceTimeoutError, op_verb, op_bytes, delta, budget, bytes_remaining, total_bytes);
         });
 }
@@ -276,7 +302,7 @@ void memcpy_from_device(
     auto* d = static_cast<std::uint8_t*>(dest);
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
-    auto timer = make_mmio_timeout_guard("load", original_size, size, on_timeout);
+    auto timer = make_mmio_timeout_guard("load", original_size, size, on_timeout, dest, src);
 
     // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(s) % 4) != 0) {

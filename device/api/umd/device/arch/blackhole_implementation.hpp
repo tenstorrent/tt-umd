@@ -262,6 +262,8 @@ inline constexpr uint32_t SCRATCH_RAM_5 = ARC_RESET_UNIT_OFFSET + 0x418;   // ER
 inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
+inline constexpr uint32_t SCRATCH_RAM_22 = ARC_RESET_UNIT_OFFSET + 0x458;
+inline constexpr uint32_t SCRATCH_RAM_23 = ARC_RESET_UNIT_OFFSET + 0x45C;
 
 inline constexpr uint32_t NIU_CFG_NOC0_BAR_PCIE_ADDR = 0x1FD04000;
 inline constexpr uint32_t NIU_CFG_NOC1_BAR_PCIE_ADDR = 0x1FD14000;
@@ -506,6 +508,24 @@ public:
             return std::nullopt;
         }
         return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
+    }
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address_offset(
+        const FirmwareBundleVersion& firmware_version) const override {
+        constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
+        if (firmware_version < min_firmware_version) {
+            return std::nullopt;
+        }
+        return blackhole::SCRATCH_RAM_22;
+    }
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size_offset(
+        const FirmwareBundleVersion& firmware_version) const override {
+        constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
+        if (firmware_version < min_firmware_version) {
+            return std::nullopt;
+        }
+        return blackhole::SCRATCH_RAM_23;
     }
 };
 

@@ -199,6 +199,10 @@ public:
 
     std::optional<double> get_current_max_dram_temperature() const;
 
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address() const;
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size() const;
+
 private:
     /**
      * Parse a 16-bit bitmask into per-core status using the arch-specific bit-to-NOC0 mapping.

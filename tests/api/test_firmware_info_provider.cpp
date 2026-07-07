@@ -726,3 +726,32 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
         }
     }
 }
+
+TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
+        const auto size = fw_info->get_runtime_telemetry_buffer_size();
+        const auto address = fw_info->get_runtime_telemetry_buffer_address();
+
+        const auto firmware_version = tt_device->get_firmware_version();
+        const auto size_offset =
+            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
+        const auto address_offset =
+            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+
+        if (!size_offset.has_value() || !address_offset.has_value()) {
+            EXPECT_FALSE(size.has_value());
+            EXPECT_FALSE(address.has_value());
+        } else {
+            EXPECT_TRUE(size.has_value());
+            EXPECT_TRUE(address.has_value());
+        }
+        tt_device->set_power_state(false);
+    }
+}

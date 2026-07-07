@@ -560,28 +560,6 @@ FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
 
-std::optional<uint32_t> TTDevice::get_runtime_telemetry_buffer_address() {
-    auto address_offset = architecture_impl_->get_runtime_telemetry_buffer_address_offset(get_firmware_version());
-    if (!address_offset.has_value()) {
-        return std::nullopt;
-    }
-
-    uint32_t address = 0;
-    read_from_arc_apb(&address, address_offset.value(), sizeof(address));
-    return address;
-}
-
-std::optional<uint32_t> TTDevice::get_runtime_telemetry_buffer_size() {
-    auto size_offset = architecture_impl_->get_runtime_telemetry_buffer_size_offset(get_firmware_version());
-    if (!size_offset.has_value()) {
-        return std::nullopt;
-    }
-
-    uint32_t size = 0;
-    read_from_arc_apb(&size, size_offset.value(), sizeof(size));
-    return size;
-}
-
 void TTDevice::wait_for_non_mmio_flush() {
     if (!remote_capabilities_) {
         return;

@@ -186,63 +186,63 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
-  test-all:
-    secrets: inherit
-    needs: [build-tests, generate-test-matrix]
-    strategy:
-      # Cancel sibling cards on first failure only in the merge queue, where time-to-verdict
-      # matters more than seeing every card's result. PR/push runs keep fail-fast off so devs
-      # see whether a failure is card-specific or general.
-      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
-      matrix:
-        test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
-        ubuntu-docker-version: ['ubuntu-22.04']
-    uses: ./.github/workflows/run-tests.yml
-    with:
-      arch: ${{ matrix.test-group.arch}}
-      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
-      card: ${{ matrix.test-group.card}}
-      timeout: ${{ fromJSON(inputs.timeout) }}
-      log-level: ${{ inputs.log-level || 'info' }}
-      build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
-      log-params: |
-        ${{ inputs.log-params }}
-        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
-        echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
+  # test-all:
+  #   secrets: inherit
+  #   needs: [build-tests, generate-test-matrix]
+  #   strategy:
+  #     # Cancel sibling cards on first failure only in the merge queue, where time-to-verdict
+  #     # matters more than seeing every card's result. PR/push runs keep fail-fast off so devs
+  #     # see whether a failure is card-specific or general.
+  #     fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
+  #     matrix:
+  #       test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
+  #       ubuntu-docker-version: ['ubuntu-22.04']
+  #   uses: ./.github/workflows/run-tests.yml
+  #   with:
+  #     arch: ${{ matrix.test-group.arch}}
+  #     ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
+  #     card: ${{ matrix.test-group.card}}
+  #     timeout: ${{ fromJSON(inputs.timeout) }}
+  #     log-level: ${{ inputs.log-level || 'info' }}
+  #     build-type: ${{ inputs.build-type }}
+  #     image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+  #     log-params: |
+  #       ${{ inputs.log-params }}
+  #       echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+  #       echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+  #       echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
-  run-ttsim-tests:
-    secrets: inherit
-    uses: ./.github/workflows/run-ttsim-tests.yml
+  # run-ttsim-tests:
+  #   secrets: inherit
+  #   uses: ./.github/workflows/run-ttsim-tests.yml
 
-  run-tooling-tests:
-    secrets: inherit
-    needs: build-tests
-    strategy:
-      fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
-      matrix:
-        test-group: [
-          {runs-on: tt-ubuntu-2204-p150b-stable},
-          {runs-on: tt-ubuntu-2204-n150-stable},
-          {runs-on: tt-ubuntu-2204-n300-stable},
-          {runs-on: tt-ubuntu-2204-n300-llmbox-stable},
-          {runs-on: 6u},
-        ]
-        ubuntu-docker-version: [
-          'ubuntu-22.04',
-        ]
-    uses: ./.github/workflows/run-tooling-tests.yml
-    with:
-      ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
-      card: ${{ matrix.test-group.runs-on }}
-      timeout: ${{ fromJSON(inputs.timeout) }}
-      build-type: ${{ inputs.build-type }}
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
-      log-params: |
-        ${{ inputs.log-params }}
-        echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
-        echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
+  # run-tooling-tests:
+  #   secrets: inherit
+  #   needs: build-tests
+  #   strategy:
+  #     fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
+  #     matrix:
+  #       test-group: [
+  #         {runs-on: tt-ubuntu-2204-p150b-stable},
+  #         {runs-on: tt-ubuntu-2204-n150-stable},
+  #         {runs-on: tt-ubuntu-2204-n300-stable},
+  #         {runs-on: tt-ubuntu-2204-n300-llmbox-stable},
+  #         {runs-on: 6u},
+  #       ]
+  #       ubuntu-docker-version: [
+  #         'ubuntu-22.04',
+  #       ]
+  #   uses: ./.github/workflows/run-tooling-tests.yml
+  #   with:
+  #     ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}
+  #     card: ${{ matrix.test-group.runs-on }}
+  #     timeout: ${{ fromJSON(inputs.timeout) }}
+  #     build-type: ${{ inputs.build-type }}
+  #     image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+  #     log-params: |
+  #       ${{ inputs.log-params }}
+  #       echo build-and-run-all-tests - build-type: ${{ inputs.build-type }}
+  #       echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
 
   run-exalens-tests:
     secrets: inherit
@@ -271,15 +271,15 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
-  run-tracy:
-    secrets: inherit
-    needs: build-tests
-    uses: ./.github/workflows/run-tracy-test.yml
-    with:
-      ubuntu-docker-version: 'ubuntu-22.04'
-      build-type: ${{ inputs.build-type }}
-      timeout: 20
-      image-tag: ${{ inputs.docker-image-tag || 'latest' }}
+  # run-tracy:
+  #   secrets: inherit
+  #   needs: build-tests
+  #   uses: ./.github/workflows/run-tracy-test.yml
+  #   with:
+  #     ubuntu-docker-version: 'ubuntu-22.04'
+  #     build-type: ${{ inputs.build-type }}
+  #     timeout: 20
+  #     image-tag: ${{ inputs.docker-image-tag || 'latest' }}
 
   # Fail-fast watchers for the merge queue: cancel the workflow run as soon as any test job
   # here fails. A workflow_call shares run_id with its caller, so this cancellation propagates

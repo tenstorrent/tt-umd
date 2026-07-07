@@ -66,7 +66,6 @@ jobs:
         id: define
         run: |
           # TODO: tt-ubuntu-2204-p100a-stable to be added when available
-          # P300-viommu is a P300 runner
           CARDS=$(cat <<'EOF'
           [
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-stable"},
@@ -122,7 +121,6 @@ jobs:
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            'pull_request|*|P300-viommu' \
             'merge_group|ASan|P300-viommu' \
             'merge_group|TSan|P300-viommu' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \

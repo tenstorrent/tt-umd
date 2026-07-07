@@ -18,6 +18,12 @@ on:
         required: true
         type: string
         default: Release
+      build-targets:
+        required: false
+        type: string
+        default: "umd_tests umd_microbenchmark umd_tools"
+        description: >-
+          Space-separated list of CMake targets to build.
       log-params:
         required: false
         type: string
@@ -120,7 +126,7 @@ jobs:
           submodules: recursive
 
       # Only perform build with necessary components to run tests.
-      - name: Build ${{ env.BUILD_TARGETS }}
+      - name: Build ${{ inputs.build-targets || env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
@@ -133,7 +139,7 @@ jobs:
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."
 
       # This is needed to preserve file permissions

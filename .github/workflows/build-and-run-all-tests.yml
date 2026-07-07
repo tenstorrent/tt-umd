@@ -107,7 +107,7 @@ jobs:
         # Note on the machines:
         # To avoid contention on single machines, we blacklist PR runs, and merge queue runs on Asan and Tsan,
         # as these are unlikely to be the only failures. We also don't need both hugepage and viommu runs.
-        # - P300-viommu is a dedicated P300 single machine.
+        # - P300-viommu is a shared pool of 3 P300 machines.
         # - bh-loudbox is a single machine in CIv2. It also has an additional problem where
         #   it actually has a ~20min startup time for viommu variant, so this one can be really slow.
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.

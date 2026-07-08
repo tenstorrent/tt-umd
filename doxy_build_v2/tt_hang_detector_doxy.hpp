@@ -51,6 +51,12 @@ public:
     std::optional<bool> is_noc_hung(NocId noc);
 
 protected:
+    /// Returns whether the host bus path is available for hang detection.
+    virtual bool is_bus_available() const = 0;
+
+    /// Returns whether the NOC path is available for hang detection.
+    virtual bool is_noc_available() const = 0;
+
     /// Reads the hang-check register via the host bus.
     virtual uint32_t read_hang_check_reg_via_bus() = 0;
 

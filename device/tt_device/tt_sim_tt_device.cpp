@@ -158,32 +158,8 @@ void TTSimTTDevice::initialize_backend() {
         }
     }
 
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
-
-    // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
-    // all I/O underneath. The 4GB size for Quasar is a dummy value -- it just needs to be large
-    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
-    // division by zero in TLB handle configure).
-    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
-    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
-    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    switch (arch) {
-        case tt::ARCH::BLACKHOLE:
-            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
-            break;
-        case tt::ARCH::WORMHOLE_B0:
-            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
-            break;
-        case tt::ARCH::QUASAR:
-            cached_tlb_window_ = TTSimTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
-            break;
-        default:
-            log_debug(
-                LogUMD,
-                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
-                tt::arch_to_str(arch));
-            break;
-    }
+    init_tlb_allocator(bar0_base);
+    setup_cached_tlb_window();
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -201,20 +177,9 @@ TTSimTTDevice::TTSimTTDevice(
     setup_();
 }
 
-std::unique_ptr<TlbWindow> TTSimTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    if (client_) {
-        // Client mode runs no backend, so tlb_allocator_/communicator_ are never constructed. Fail
-        // loudly instead of dereferencing them; client-mode device I/O is not available yet.
-        UMD_THROW(error::RuntimeError, "Client-mode TTSimTTDevice does not support TLB windows yet.");
-    }
-    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
-    if (tlb_index == -1) {
-        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
-    }
-    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested
-    // size through, since get_tlb_size_from_index has no pool to look up for the bypass index.
-    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
-    auto handle = TTSimTlbHandle::create(tlb_allocator_, communicator_.get(), tlb_index, actual_size, mapping);
+std::unique_ptr<TlbWindow> TTSimTTDevice::create_tlb_window(
+    int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
+    auto handle = TTSimTlbHandle::create(tlb_allocator_, communicator_.get(), tlb_index, size, mapping);
     return std::make_unique<TTSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 

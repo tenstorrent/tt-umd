@@ -88,7 +88,8 @@ public:
      * @param soc_descriptor_path Optional path to a specific SoC descriptor file. If empty,
      * the descriptor is dynamically generated or read from the default hardware configuration.
      */
-    void init_device(std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT);
+    void init_device(
+        std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Reads a block of data from a device core into a host buffer, suited for bulk data transfers.
@@ -285,7 +286,8 @@ public:
      *
      * @param timeout_ms Maximum duration to wait for the firmware startup sequence.
      */
-    void init_firmware(const std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT);
+    void init_firmware(
+        const std::chrono::milliseconds timeout_ms = timeout::FIRMWARE_STARTUP_TIMEOUT, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Waits for the specified Ethernet core to complete its link training sequence.
@@ -295,7 +297,9 @@ public:
      * @return std::chrono::milliseconds Elapsed time taken for the training to complete.
      */
     bool wait_eth_core_training(
-        const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT);
+        const CoreCoord eth_core,
+        const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT,
+        NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Waits for the specified DRAM channel to complete its hardware training and calibration.
@@ -304,7 +308,9 @@ public:
      * Defaults to @ref timeout::DRAM_TRAINING_TIMEOUT.
      */
     void wait_dram_channel_training(
-        const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
+        const uint32_t dram_channel,
+        const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT,
+        NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Blocks until all in-flight, non-MMIO data writes have reached their destination.
@@ -312,7 +318,7 @@ public:
      * Guarantees that all transactions sent via remote communication have completed
      * before proceeding.
      */
-    void wait_for_non_mmio_flush();
+    void wait_for_non_mmio_flush(NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Check if the bus communication (usually PCIe) is hung.
@@ -400,7 +406,8 @@ public:
     DeviceCommandResult send_device_command(
         uint32_t msg_code,
         const std::vector<uint32_t> &args = {},
-        std::chrono::milliseconds timeout = timeout::FIRMWARE_STARTUP_TIMEOUT);
+        std::chrono::milliseconds timeout = timeout::FIRMWARE_STARTUP_TIMEOUT,
+        NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Retrieves the base device protocol interface.
@@ -487,7 +494,7 @@ public:
      *
      * @return ChipInfo Struct containing the chip's physical state and identity.
      */
-    ChipInfo get_chip_info();
+    ChipInfo get_chip_info(NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Retrieves the System-on-Chip (SoC) descriptor for the device.
@@ -509,7 +516,7 @@ public:
      *
      * @return @ref FirmwareBundleVersion The semantic version of the active firmware.
      */
-    FirmwareBundleVersion get_firmware_version();
+    FirmwareBundleVersion get_firmware_version(NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Checks if NOC coordinate translation is currently active on the device.
@@ -560,25 +567,25 @@ public:
      * @brief Retrieves the current operating temperature of the ASIC.
      * @return double Temperature in degrees Celsius.
      */
-    double get_asic_temperature() const;
+    double get_asic_temperature(NocId noc = NocId::DEFAULT) const;
 
     /**
      * @brief Retrieves the current operating clock frequency of the device.
      * @return uint32_t Current clock frequency (typically in MHz).
      */
-    uint32_t get_clock_freq() const;
+    uint32_t get_clock_freq(NocId noc = NocId::DEFAULT) const;
 
     /**
      * @brief Retrieves the maximum supported clock frequency of the device.
      * @return uint32_t Maximum clock frequency (typically in MHz).
      */
-    uint32_t get_max_clock_freq() const;
+    uint32_t get_max_clock_freq(NocId noc = NocId::DEFAULT) const;
 
     /**
      * @brief Retrieves the minimum supported clock frequency of the device.
      * @return uint32_t Minimum clock frequency (typically in MHz).
      */
-    uint32_t get_min_clock_freq() const;
+    uint32_t get_min_clock_freq(NocId noc = NocId::DEFAULT) const;
 
     /**
      * @brief Retrieves the current value of the hardware's free-running reference clock counter.
@@ -618,7 +625,7 @@ public:
      * @param eth_core The target Ethernet core coordinates.
      * @return @ref EthTrainingStatus The current training status of the specified core.
      */
-    EthTrainingStatus get_eth_core_training_status(CoreCoord eth_core);
+    EthTrainingStatus get_eth_core_training_status(CoreCoord eth_core, NocId noc = NocId::DEFAULT);
 
     /** @} */
 
@@ -629,7 +636,7 @@ public:
      *
      * @param state The requested power state (BUSY or IDLE).
      */
-    void set_power_state(PowerState state);
+    void set_power_state(PowerState state, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Sets the device clock frequency.
@@ -639,7 +646,7 @@ public:
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */
-    void set_clock_state(PowerState state);
+    void set_clock_state(PowerState state, NocId noc = NocId::DEFAULT);
 
     /**
      * @brief Installs or removes a safe SIGBUS signal handler.

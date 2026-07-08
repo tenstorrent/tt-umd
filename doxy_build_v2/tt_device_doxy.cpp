@@ -29,14 +29,15 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
 
 TTDevice::~TTDevice() = default;
 
-void TTDevice::init_device(std::chrono::milliseconds timeout_ms) {
-    device_firmware_->init_firmware(timeout_ms);
+void TTDevice::init_device(std::chrono::milliseconds timeout_ms, NocId noc) {
+    device_firmware_->init_firmware(timeout_ms, noc);
 
     firmware_telemetry_reader_ = model_->get_firmware_telemetry_reader();
     firmware_info_provider_ = model_->get_firmware_info_provider();
 
     soc_descriptor_.emplace(
-        std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture()), device_firmware_->get_chip_info());
+        std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture()),
+        device_firmware_->get_chip_info(noc));
 }
 
 tt_xy_pair TTDevice::translate(CoreCoord core) const {
@@ -131,32 +132,37 @@ void TTDevice::dma_write_to_core_range_zero_copy(
 
 // --- DeviceFirmware ---
 
-void TTDevice::init_firmware(const std::chrono::milliseconds timeout_ms) {
-    device_firmware_->init_firmware(timeout_ms);
+void TTDevice::init_firmware(const std::chrono::milliseconds timeout_ms, NocId noc) {
+    device_firmware_->init_firmware(timeout_ms, noc);
 }
 
-bool TTDevice::wait_eth_core_training(const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    return device_firmware_->wait_eth_core_training(translate(eth_core), timeout_ms);
+bool TTDevice::wait_eth_core_training(const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms, NocId noc) {
+    return device_firmware_->wait_eth_core_training(translate(eth_core), timeout_ms, noc);
 }
 
-void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
-    device_firmware_->wait_dram_channel_training(dram_channel, timeout_ms);
+void TTDevice::wait_dram_channel_training(
+    const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms, NocId noc) {
+    device_firmware_->wait_dram_channel_training(dram_channel, timeout_ms, noc);
 }
 
-void TTDevice::wait_for_non_mmio_flush() { remote_interface_->wait_for_non_mmio_flush(); }
+void TTDevice::wait_for_non_mmio_flush(NocId noc) { remote_interface_->wait_for_non_mmio_flush(); }
 
 DeviceCommandResult TTDevice::send_device_command(
-    uint32_t msg_code, const std::vector<uint32_t> &args, std::chrono::milliseconds timeout) {
-    return device_firmware_->send_device_command(msg_code, args, timeout);
+    uint32_t msg_code, const std::vector<uint32_t> &args, std::chrono::milliseconds timeout, NocId noc) {
+    return device_firmware_->send_device_command(msg_code, args, timeout, noc);
 }
 
-EthTrainingStatus TTDevice::get_eth_core_training_status(CoreCoord eth_core) {
-    return device_firmware_->get_eth_core_training_status(translate(eth_core));
+EthTrainingStatus TTDevice::get_eth_core_training_status(CoreCoord eth_core, NocId noc) {
+    return device_firmware_->get_eth_core_training_status(translate(eth_core), noc);
 }
 
-void TTDevice::set_power_state(PowerState state) { device_firmware_->set_power_state(static_cast<uint32_t>(state)); }
+void TTDevice::set_power_state(PowerState state, NocId noc) {
+    device_firmware_->set_power_state(static_cast<uint32_t>(state), noc);
+}
 
-void TTDevice::set_clock_state(PowerState state) { device_firmware_->set_clock_state(static_cast<uint32_t>(state)); }
+void TTDevice::set_clock_state(PowerState state, NocId noc) {
+    device_firmware_->set_clock_state(static_cast<uint32_t>(state), noc);
+}
 
 bool TTDevice::is_bus_hung(uint32_t data_read, HangAction action) {
     if (!hang_detector_) {
@@ -252,9 +258,11 @@ IODeviceType TTDevice::get_communication_device_type() const {
     return IODeviceType::UNDEFINED;
 }
 
-ChipInfo TTDevice::get_chip_info() { return device_firmware_->get_chip_info(); }
+ChipInfo TTDevice::get_chip_info(NocId noc) { return device_firmware_->get_chip_info(noc); }
 
-FirmwareBundleVersion TTDevice::get_firmware_version() { return firmware_info_provider_->get_firmware_version(); }
+FirmwareBundleVersion TTDevice::get_firmware_version(NocId noc) {
+    return firmware_info_provider_->get_firmware_version(noc);
+}
 
 bool TTDevice::get_noc_translation_enabled() const { return device_firmware_->get_noc_translation_enabled(); }
 
@@ -268,22 +276,24 @@ uint8_t TTDevice::get_asic_location() const {
 
 BoardType TTDevice::get_board_type() const { return get_board_type_from_board_id(get_board_id()); }
 
-double TTDevice::get_asic_temperature() const {
-    return firmware_info_provider_ ? firmware_info_provider_->get_asic_temperature().value_or(0.0) : 0.0;
+double TTDevice::get_asic_temperature(NocId noc) const {
+    return firmware_info_provider_ ? firmware_info_provider_->get_asic_temperature(noc).value_or(0.0) : 0.0;
 }
 
-uint32_t TTDevice::get_clock_freq() const {
-    if (firmware_info_provider_->get_clock_freq().has_value()) {
-        return firmware_info_provider_->get_clock_freq().value();
+uint32_t TTDevice::get_clock_freq(NocId noc) const {
+    if (firmware_info_provider_->get_clock_freq(noc).has_value()) {
+        return firmware_info_provider_->get_clock_freq(noc).value();
     }
     return 0;
 }
 
-uint32_t TTDevice::get_max_clock_freq() const {
-    return firmware_info_provider_ ? firmware_info_provider_->get_max_clock_freq().value_or(0) : 0;
+uint32_t TTDevice::get_max_clock_freq(NocId noc) const {
+    return firmware_info_provider_ ? firmware_info_provider_->get_max_clock_freq(noc).value_or(0) : 0;
 }
 
-uint32_t TTDevice::get_min_clock_freq() const { return architecture_impl_->get_min_clock_freq(); }
+uint32_t TTDevice::get_min_clock_freq([[maybe_unused]] NocId noc) const {
+    return architecture_impl_->get_min_clock_freq();
+}
 
 uint64_t TTDevice::get_refclk_counter(NocId noc) const {
     uint32_t high = 0;

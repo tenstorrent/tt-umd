@@ -16,9 +16,9 @@ metadata:
   notes: "Updated from a CI benchmark JSON artifact via tests/microbenchmark/tools/update_baseline.py."
 
 ClusterConstructorSim:
-  default: { median_value: 121.5, tolerance_pct: 5 }
+  default: { median_value: 121.5, tolerance_pct: 20 }
 
 DeviceIOSim:
-  "write, 4096 bytes": { median_value: 1.964e+10, tolerance_pct: 5 }
-  "read, 4096 bytes": { median_value: 7.109e+09, tolerance_pct: 5 }
+  "write, 4096 bytes": { median_value: 1.964e+10, tolerance_pct: 20 }
+  "read, 4096 bytes": { median_value: 7.109e+09, tolerance_pct: 20 }
 

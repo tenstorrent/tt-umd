@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Microbenchmarks that run against the TTSim functional simulator (see tenstorrent/ttsim).
+//
+// TEMPORARY: this file currently contains INTENTIONAL performance regressions (a sleep in the
+// cluster constructor and duplicated write/read calls) to validate that the perf regression
+// pipeline flags DOWN in CI. REVERT before merging -- search for "intentional regression".
 
 #include <fmt/base.h>
 #include <gtest/gtest.h>
@@ -14,6 +18,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <thread>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
@@ -64,6 +69,8 @@ TEST_F(MicrobenchmarkSim, ClusterConstructor) {
                      .unit("cluster");
     bench.name("default").run([&] {
         std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(options);
+        // TEMP intentional regression (perf-pipeline validation) -- REVERT before merge.
+        std::this_thread::sleep_for(std::chrono::milliseconds(3));
         ankerl::nanobench::doNotOptimizeAway(cluster);
     });
     test::utils::export_results(bench);
@@ -78,8 +85,12 @@ TEST_F(MicrobenchmarkSim, DeviceIO) {
     auto bench = ankerl::nanobench::Bench().title("DeviceIOSim").unit("byte").epochs(50);
     bench.batch(TRANSFER_SIZE).name(fmt::format("write, {} bytes", TRANSFER_SIZE)).run([&] {
         cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
+        // TEMP intentional regression (perf-pipeline validation) -- REVERT before merge.
+        cluster->write_to_device(pattern.data(), pattern.size(), CHIP_ID, tensix_core, ADDRESS);
     });
     bench.batch(TRANSFER_SIZE).name(fmt::format("read, {} bytes", TRANSFER_SIZE)).run([&] {
+        cluster->read_from_device(readback.data(), CHIP_ID, tensix_core, ADDRESS, TRANSFER_SIZE);
+        // TEMP intentional regression (perf-pipeline validation) -- REVERT before merge.
         cluster->read_from_device(readback.data(), CHIP_ID, tensix_core, ADDRESS, TRANSFER_SIZE);
     });
     test::utils::export_results(bench);

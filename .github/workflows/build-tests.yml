@@ -184,11 +184,6 @@ jobs:
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
           ${{ env.SOC_DESCRIPTORS_DIR }}
 
-      - name: Run sccache stat for check
-        if: ${{ inputs.use-sccache }}
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
-
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v7
         with:

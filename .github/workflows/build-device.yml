@@ -364,11 +364,6 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
-      - name: Run sccache stat for check
-        if: ${{ env.USE_SCCACHE == 'true' }}
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
-
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.

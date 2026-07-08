@@ -83,12 +83,7 @@ void SiliconTlbWindow::configure(const tlb_data &new_config) {
 
 void SiliconTlbWindow::update_io_timeout_callback() {
     if (!hang_check_) {
-        // No hang check wired: default to treating every overrun as a false alarm so a bare per-op
-        // timeout never aborts on time alone. Without a detector there is nothing to distinguish a slow
-        // op from a hung one, and aborting on time alone produces false-positive NOC hangs (see #2981).
-        // The probe window relies on this: it reads the value out and lets is_noc_hung() judge it against
-        // HANG_READ_VALUE, rather than inferring a hang from a probe-read timeout.
-        io_timeout_callback_ = []() -> bool { return true; };
+        io_timeout_callback_ = {};
         return;
     }
     // The live TLB config's noc_sel is whatever the last (re)configure selected, so it identifies the

@@ -418,12 +418,13 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
     auto window_lock = std::make_shared<std::mutex>();
     hang_detector_->set_noc_reg_reader([window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
         std::lock_guard<std::mutex> lock(*window_lock);
-        // The probe window has no hang check wired, so an overrun is treated as a false alarm and the read
-        // completes rather than throwing; a hung NOC surfaces as HANG_READ_VALUE in `value`. A
-        // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
-        // rather than silently masking it as a hang.
         uint32_t value = 0;
-        window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+        try {
+            window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+        } catch (const error::UmdException<error::DeviceTimeoutError> &) {
+            // The probe read carries its own per-op budget; an overrun means the NOC is hung.
+            return HANG_READ_VALUE;
+        }
         return value;
     });
 }

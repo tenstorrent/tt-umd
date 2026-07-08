@@ -66,7 +66,7 @@ jobs:
         id: define
         run: |
           # TODO: tt-ubuntu-2204-p100a-stable to be added when available
-          # bh-gh-07 is a P300 runner
+          # P300-viommu is a P300 runner
           CARDS=$(cat <<'EOF'
           [
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-stable"},
@@ -81,7 +81,7 @@ jobs:
             {"arch": "wormhole_b0", "card": "6u"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
-            {"arch": "blackhole",   "card": "bh-gh-07"},
+            {"arch": "blackhole",   "card": "P300-viommu"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
@@ -107,8 +107,7 @@ jobs:
         # Note on the machines:
         # To avoid contention on single machines, we blacklist PR runs, and merge queue runs on Asan and Tsan,
         # as these are unlikely to be the only failures. We also don't need both hugepage and viommu runs.
-        # - bh-gh-07 is a dedicated P300 single machine. TEMPORARILY DISABLED via the
-        #   '*|*|bh-gh-07' entry below; offline/flaky, see #2991. Remove to re-enable.
+        # - P300-viommu is a shared pool of 3 P300 machines.
         # - bh-loudbox is a single machine in CIv2. It also has an additional problem where
         #   it actually has a ~20min startup time for viommu variant, so this one can be really slow.
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
@@ -123,10 +122,9 @@ jobs:
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            'pull_request|*|bh-gh-07' \
-            'merge_group|ASan|bh-gh-07' \
-            'merge_group|TSan|bh-gh-07' \
-            '*|*|bh-gh-07' \
+            'pull_request|*|P300-viommu' \
+            'merge_group|ASan|P300-viommu' \
+            'merge_group|TSan|P300-viommu' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
           )

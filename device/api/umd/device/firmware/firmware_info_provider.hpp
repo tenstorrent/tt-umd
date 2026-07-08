@@ -94,16 +94,18 @@ public:
     std::optional<uint32_t> get_arcclk() const;
 
     /*
-     * Get fan speed as a percentage (0-100), if fans are present and controllable by firmware.
-     * @returns Fan speed [percent]
+     * Get targeted speed per fan as a percentage (0-100). Individual entries
+     * can be nullopt if fan speed is not available.
+     * @returns Targeted fan speeds [percent]
      */
-    std::optional<uint32_t> get_fan_speed() const;
+    std::vector<std::optional<uint32_t>> get_fan_speed() const;
 
     /*
-     * Get fan speed in RPM, if fans are present and controllable by firmware.
-     * @returns Fan speed [RPM]
+     * Get actual speed per fan in RPM. Individual entries
+     * can be nullopt if fan RPM is not available.
+     * @returns Actual fan RPM [percent]
      */
-    std::optional<uint32_t> get_fan_rpm() const;
+    std::vector<std::optional<uint32_t>> get_fan_rpm() const;
 
     /*
      * Get TDP in watts.
@@ -234,6 +236,12 @@ private:
 
     template <typename T>
     std::optional<T> read_scalar(FirmwareFeature feature) const;
+
+    /**
+     * @brief Maximum number of fans supported by the device.
+     * TODO: SysEng should provide a proper way of querying the number of fans on the device.
+     */
+    static constexpr size_t MAX_NUMBER_OF_FANS = 2U;
 };
 
 }  // namespace tt::umd

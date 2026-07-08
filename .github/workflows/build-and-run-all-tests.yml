@@ -67,28 +67,36 @@ jobs:
         run: |
           # TODO: tt-ubuntu-2204-p100a-stable to be added when available
           # P300-viommu is a P300 runner
+          # NOTE(#2981 experiment): only n150/n300/p100a/p150b run for the 50x flaky-repro.
+          # Lines beginning with '#' below are stripped before jq — re-enable a card by
+          # deleting its leading '#'. Restore the original set by reverting this file.
           CARDS=$(cat <<'EOF'
           [
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-stable"},
-            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-viommu-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-stable"},
-            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-viommu-stable"},
-            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-llmbox-stable"},
-            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-llmbox-viommu-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p100a-viommu-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-stable"},
-            {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
-            {"arch": "wormhole_b0", "card": "6u"},
-            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
-            {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
-            {"arch": "blackhole",   "card": "P300-viommu"},
-            {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
-            {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
-            {"arch": "baremetal",   "card": "ubuntu-22.04"}
+            # One card per family: 4 cards x 50 repeats = 200 jobs, under the 256 matrix cap.
+            # viommu variants disabled to stay under the cap; re-enable them only if you
+            # lower the repeat count in the test-all matrix (cards x repeats must be <= 256).
+            # {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n150-viommu-stable"},
+            # {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-viommu-stable"},
+            # {"arch": "blackhole",   "card": "tt-ubuntu-2204-p150b-viommu-stable"},
+            # {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-llmbox-stable"},
+            # {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-n300-llmbox-viommu-stable"},
+            # {"arch": "wormhole_b0", "card": "6u"},
+            # {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
+            # {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
+            # {"arch": "blackhole",   "card": "P300-viommu"},
+            # {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
+            # {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
+            # {"arch": "baremetal",   "card": "ubuntu-22.04"},
           ]
           EOF
           )
-          echo "entries=$(echo "$CARDS" | jq -c .)" >> $GITHUB_OUTPUT
+          # Strip '#'-comment lines and any trailing comma before ']' so the remaining JSON parses.
+          CARDS_JSON=$(echo "$CARDS" | grep -vE '^[[:space:]]*#' | sed -z 's/,[[:space:]]*]/\n]/' | jq -c .)
+          echo "entries=$CARDS_JSON" >> $GITHUB_OUTPUT
 
   # Central blacklist for matrix entries that should not run under certain conditions.
   # Each entry is a pipe-delimited "triggering-event|build-type|card" triple.
@@ -115,6 +123,8 @@ jobs:
         #   PR/merge queue runtime down.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
+          # NOTE(#2981 experiment): p100a blacklist entries removed below so p100a runs on
+          # pull_request/merge_group too (otherwise it is filtered out on PRs).
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
             'pull_request|*|tt-ubuntu-2204-bh-loudbox-*' \
             'merge_group|*|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
@@ -125,8 +135,6 @@ jobs:
             'pull_request|*|P300-viommu' \
             'merge_group|ASan|P300-viommu' \
             'merge_group|TSan|P300-viommu' \
-            'pull_request|*|tt-ubuntu-2204-p100a-*' \
-            'merge_group|*|tt-ubuntu-2204-p100a-*' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 
@@ -195,6 +203,11 @@ jobs:
       matrix:
         test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
         ubuntu-docker-version: ['ubuntu-22.04']
+        # NOTE(#2981 experiment): run every card 50x, each iteration its own job.
+        # cards x repeat must stay <= 256 (GitHub matrix cap): 4 cards x 50 = 200.
+        repeat: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
@@ -249,13 +262,18 @@ jobs:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
-          {runs-on: tt-ubuntu-2204-p150b-stable},
-          {runs-on: tt-ubuntu-2204-n150-stable},
+          # NOTE(#2981 experiment): exalens focused on n300 (the #2981 reproducer). Others disabled.
+          # {runs-on: tt-ubuntu-2204-p150b-stable},
+          # {runs-on: tt-ubuntu-2204-n150-stable},
           {runs-on: tt-ubuntu-2204-n300-stable},
         ]
         ubuntu-docker-version: [
           'ubuntu-22.04',
         ]
+        # NOTE(#2981 experiment): run exalens-on-n300 50x, each iteration its own job (1 card x 50 = 50).
+        repeat: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+                 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+                 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
     uses: ./.github/workflows/run-exalens-tests.yml
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version }}

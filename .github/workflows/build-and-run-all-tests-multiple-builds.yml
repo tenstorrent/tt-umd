@@ -21,7 +21,8 @@ on:
       build-types:
         description: 'Comma-separated list of build types'
         required: true
-        default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
+        # NOTE(#2981 experiment): default to Release-only so a workflow_dispatch run is Release-only.
+        default: '["Release"]'
         type: string
   pull_request:
   merge_group:

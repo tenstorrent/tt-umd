@@ -48,39 +48,35 @@ auto make_mmio_timeout_guard(
 // preempt a CPU already stalled mid-access; SIGBUS covers only mapping invalidation (e.g. on reset),
 // not a stall.
 void write16_to_device(volatile void* dest, std::uint16_t value, const std::function<bool()>& on_timeout) {
-    std::size_t remaining = sizeof(value);
+    std::size_t remaining = 0;
     auto timer = make_mmio_timeout_guard("store", sizeof(value), remaining, on_timeout);
     auto t = std::chrono::steady_clock::now();
     *reinterpret_cast<volatile std::uint16_t*>(dest) = value;
-    remaining = 0;
     timer.record_and_check(t, sizeof(value));
 }
 
 void write32_to_device(volatile void* dest, std::uint32_t value, const std::function<bool()>& on_timeout) {
-    std::size_t remaining = sizeof(value);
+    std::size_t remaining = 0;
     auto timer = make_mmio_timeout_guard("store", sizeof(value), remaining, on_timeout);
     auto t = std::chrono::steady_clock::now();
     *reinterpret_cast<volatile std::uint32_t*>(dest) = value;
-    remaining = 0;
     timer.record_and_check(t, sizeof(value));
 }
 
 std::uint16_t read16_from_device(const volatile void* src, const std::function<bool()>& on_timeout) {
-    std::size_t remaining = sizeof(std::uint16_t);
+    std::size_t remaining = 0;
     auto timer = make_mmio_timeout_guard("load", sizeof(std::uint16_t), remaining, on_timeout);
     auto t = std::chrono::steady_clock::now();
     std::uint16_t value = *reinterpret_cast<const volatile std::uint16_t*>(src);
-    remaining = 0;
     timer.record_and_check(t, sizeof(value));
     return value;
 }
 
 std::uint32_t read32_from_device(const volatile void* src, const std::function<bool()>& on_timeout) {
-    std::size_t remaining = sizeof(std::uint32_t);
+    std::size_t remaining = 0;
     auto timer = make_mmio_timeout_guard("load", sizeof(std::uint32_t), remaining, on_timeout);
     auto t = std::chrono::steady_clock::now();
     std::uint32_t value = *reinterpret_cast<const volatile std::uint32_t*>(src);
-    remaining = 0;
     timer.record_and_check(t, sizeof(value));
     return value;
 }

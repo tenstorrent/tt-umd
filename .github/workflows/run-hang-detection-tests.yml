@@ -1,0 +1,96 @@
+# Destructive NOC hang / MMIO-timeout tests, run ON DEMAND only.
+# Trigger manually from the Actions tab ("Run workflow"), picking the card to run on.
+name: Run hang detection tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      card:
+        description: 'Card/runner to run the destructive hang tests on'
+        required: true
+        type: choice
+        default: tt-ubuntu-2204-n150-stable
+        options:
+          - tt-ubuntu-2204-n150-stable
+          - tt-ubuntu-2204-n300-stable
+          - tt-ubuntu-2204-p150b-stable
+          - bh-gh-07
+          - tt-ubuntu-2204-wh-glx-6u-stable
+          - 6u
+      build-type:
+        description: 'CMake build type'
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
+      ubuntu-docker-version:
+        description: 'Ubuntu docker image version to build and run in'
+        required: true
+        default: ubuntu-22.04
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
+      timeout:
+        description: 'Per-job timeout in minutes'
+        required: true
+        default: 30
+        type: number
+
+env:
+  TEST_OUTPUT_DIR: ./build/test
+  ARTIFACT_NAME: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+
+jobs:
+  build:
+    secrets: inherit
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+      build-type: ${{ inputs.build-type }}
+      timeout: ${{ fromJSON(inputs.timeout) }}
+      build-targets: hang_detection_tests
+      build-wheel: false
+
+  run:
+    name: Run hang_detection_tests (${{ inputs.card }})
+    needs: build
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - ${{ inputs.card }}
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      options: --device /dev/tenstorrent
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+        - /etc/udev/rules.d:/etc/udev/rules.d
+        - /lib/modules:/lib/modules
+        - /opt/tt_metal_infra/provisioning/provisioning_env:/opt/tt_metal_infra/provisioning/provisioning_env
+
+    env:
+      LD_LIBRARY_PATH: ./build/lib
+
+    steps:
+      - name: Cleanup workspace directory from previous runs
+        run: |
+          echo "Cleaning up working directory from previous runs: $(pwd)"
+          rm -rf *
+
+      - name: Use build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+
+      - name: Untar build artifacts
+        shell: bash
+        run: tar xvf artifact.tar
+
+      - name: Run hang detection tests
+        run: |
+          ${{ env.TEST_OUTPUT_DIR }}/umd/hang_detection/hang_detection_tests

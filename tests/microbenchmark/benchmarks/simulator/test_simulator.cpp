@@ -12,11 +12,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <filesystem>
 #include <memory>
 #include <vector>
 
 #include "common/microbenchmark_utils.hpp"
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -41,22 +41,14 @@ protected:
         }
     }
 
-    ClusterOptions sim_options() const {
-        ClusterOptions options;
-        options.chip_type = ChipType::SIMULATION;
-        options.target_devices = {CHIP_ID};
-        options.simulator_directory = std::filesystem::path(sim_path_);
-        options.num_host_mem_ch_per_mmio_device = 0;
-        return options;
-    }
-
     const char* sim_path_ = nullptr;
 };
 
 }  // namespace
 
 TEST_F(MicrobenchmarkSim, ClusterConstructor) {
-    ClusterOptions options = sim_options();
+    ClusterOptions options =
+        test_utils::get_default_sim_cluster_options(sim_path_, /*num_host_mem_ch_per_mmio_device=*/0);
     auto bench = ankerl::nanobench::Bench()
                      .epochs(100)
                      .maxEpochTime(std::chrono::seconds(30))
@@ -70,7 +62,8 @@ TEST_F(MicrobenchmarkSim, ClusterConstructor) {
 }
 
 TEST_F(MicrobenchmarkSim, DeviceIO) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(sim_options());
+    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>(
+        test_utils::get_default_sim_cluster_options(sim_path_, /*num_host_mem_ch_per_mmio_device=*/0));
     const CoreCoord tensix_core = cluster->get_soc_descriptor(CHIP_ID).get_cores(CoreType::TENSIX).at(0);
 
     std::vector<uint8_t> pattern(TRANSFER_SIZE, 0xAB);

@@ -577,7 +577,9 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         ASSERT_NE(sysmem, nullptr);
 
         if (is_simulation_test()) {
-            for (size_t i = 0; i < ONE_GIG; i++) {
+            // The simulation path only exercises offset 0x0. Fill just one (first) page for that case.
+            constexpr size_t SIM_FILL_SIZE = 0x1000;
+            for (size_t i = 0; i < SIM_FILL_SIZE; i++) {
                 sysmem[i] = i % 256;
             }
         } else {

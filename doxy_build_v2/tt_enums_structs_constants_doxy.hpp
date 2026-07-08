@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 #include "types/tt_xy_pair_doxy.hpp"
@@ -114,6 +115,41 @@ enum class CoordSystem : uint8_t {
     NOC1,
     LITERAL,  ///< Bypasses translation — coordinates used as-is.
 };
+
+/**
+ * @brief Transaction attributes for @ref IoWindow mappings.
+ *
+ * Modifies the type of transaction issued through an @ref IoWindow.
+ */
+enum class WindowFlags : std::uint32_t {
+    None = 0,
+    Atomic = 1 << 0,  ///< Issue transaction as atomic on the target interconnect.
+    Snoop = 1 << 1,   ///< Mark transaction as snoopable for cache coherency.
+};
+
+constexpr WindowFlags operator|(WindowFlags lhs, WindowFlags rhs) noexcept {
+    return static_cast<WindowFlags>(
+        static_cast<std::underlying_type_t<WindowFlags>>(lhs) | static_cast<std::underlying_type_t<WindowFlags>>(rhs));
+}
+
+constexpr WindowFlags operator&(WindowFlags lhs, WindowFlags rhs) noexcept {
+    return static_cast<WindowFlags>(
+        static_cast<std::underlying_type_t<WindowFlags>>(lhs) & static_cast<std::underlying_type_t<WindowFlags>>(rhs));
+}
+
+constexpr WindowFlags operator~(WindowFlags val) noexcept {
+    return static_cast<WindowFlags>(~static_cast<std::underlying_type_t<WindowFlags>>(val));
+}
+
+constexpr WindowFlags& operator|=(WindowFlags& lhs, WindowFlags rhs) noexcept {
+    lhs = lhs | rhs;
+    return lhs;
+}
+
+constexpr WindowFlags& operator&=(WindowFlags& lhs, WindowFlags rhs) noexcept {
+    lhs = lhs & rhs;
+    return lhs;
+}
 
 /**
  * @brief DRAM channel training result.
@@ -249,6 +285,7 @@ struct TargetIoWindowConfig {
         std::nullopt;                         ///< Lower-right corner of a multicast grid, or nullopt for unicast.
     uint64_t addr;                            ///< Destination address on the target core(s).
     std::optional<NocId> noc = std::nullopt;  ///< Optional routing selection.
+    WindowFlags flags = WindowFlags::None;    ///< Transaction attributes.
 };
 
 /**

@@ -34,9 +34,10 @@ namespace tt::umd {
  *
  * | Type | Description |
  * |------|-------------|
- * | @ref TargetIoWindowConfig | Device-side target: core, address, and optional NOC |
+ * | @ref TargetIoWindowConfig | Device-side target: core, address, optional NOC, and transaction flags |
  * | @ref HostIoWindowConfig | Host-side properties: caching strategy and requested size |
  * | @ref HostMemoryCaching | Caching strategy (WC or UC) |
+ * | @ref WindowFlags | Type-safe transaction attributes (Atomic, Snoop, etc.) |
  *
  */
 

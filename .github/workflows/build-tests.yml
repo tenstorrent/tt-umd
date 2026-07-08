@@ -120,7 +120,6 @@ jobs:
       SCCACHE_GHA_VERSION: 1
       # Only the main branch may write to the sccache; all other branches read only.
       SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
-      SCCACHE_BASEDIRS: ${{ github.workspace }}
 
     steps:
       - name: Print all params
@@ -146,6 +145,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      # In container jobs the runtime $GITHUB_WORKSPACE is the container mount path
+      # (/__w/<repo>/<repo>), which is where the build runs.
+      - name: Export SCCACHE_BASEDIRS
+        if: ${{ inputs.use-sccache }}
+        shell: bash
+        run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
 
       # Only perform build with necessary components to run tests.
       - name: Build ${{ inputs.build-targets || env.BUILD_TARGETS }}

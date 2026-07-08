@@ -418,6 +418,10 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
     auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
     auto window_lock = std::make_shared<std::mutex>();
     HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector_.get());
+    UMD_ASSERT(
+        hang_detector_impl != nullptr,
+        error::RuntimeError,
+        "HangDetectorImplementation is required to wire the NOC register reader for hang detection.");
     hang_detector_impl->set_noc_reg_reader(
         [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
             std::lock_guard<std::mutex> lock(*window_lock);

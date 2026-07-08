@@ -6,9 +6,11 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 
 #include "hang_detector.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -21,7 +23,7 @@ enum class NocId : uint8_t;
  * Injection point for the HangDetector NOC liveness read; defaults to a DeviceProtocol-based
  * reader and can be overridden via set_noc_reg_reader().
  */
-using NocRegReader = std::function<uint32_t(tt_xy_pair core, uint64_t addr, NocId noc)>;
+using NocRegReader = std::function<uint32_t(xy_pair core, uint64_t addr, NocId noc)>;
 
 /**
  * HangDetector checks whether the device hardware is hung.
@@ -37,11 +39,6 @@ using NocRegReader = std::function<uint32_t(tt_xy_pair core, uint64_t addr, NocI
  */
 class HangDetectorImplementation : public HangDetector {
 public:
-    // Public API. Returns std::nullopt when the underlying protocol
-    // does not support the check.
-    std::optional<bool> is_bus_hung(uint32_t data_read = HANG_READ_VALUE);
-    std::optional<bool> is_noc_hung(NocId noc);
-
     // Overrides the NOC liveness register reader (see NocRegReader). An empty function is ignored,
     // so the default protocol-based reader stays in place.
     void set_noc_reg_reader(NocRegReader reader);
@@ -57,7 +54,7 @@ protected:
 
     // Reads a 32-bit NOC register through the configured NocRegReader. Arch-specific variants compute the
     // (core, addr) for their hang-check register and route the actual read through here.
-    uint32_t read_noc_reg(tt_xy_pair core, uint64_t addr, NocId noc);
+    uint32_t read_noc_reg(xy_pair core, uint64_t addr, NocId noc);
 
     virtual bool is_bus_available() override { return pcie_interface_ != nullptr; }
 

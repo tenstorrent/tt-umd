@@ -367,6 +367,30 @@ Cluster::Cluster(ClusterOptions options) {
         case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
             if (options.cluster_descriptor == nullptr) {
+#ifdef TT_UMD_BUILD_SIMULATION
+                // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
+                // topology, mirroring the soc_descriptor.yaml convention. When present, use it; otherwise fall
+                // through to the mock single-chip descriptor below (unchanged behaviour).
+                const bool is_ttsim_build =
+                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+                const std::string cluster_desc_path =
+                    is_ttsim_build
+                        ? SimulationChip::get_cluster_descriptor_path_from_simulator_path(options.simulator_directory)
+                        : "";
+
+                if (is_ttsim_build && std::filesystem::exists(cluster_desc_path)) {
+                    // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
+                    // below are populated from the simulator-provided data instead of a default arch descriptor
+                    // (matches the fallback path's sdesc_path resolution).
+                    if (options.sdesc_path.empty()) {
+                        options.sdesc_path =
+                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    }
+                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                        ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
+                    break;
+                }
+#endif
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;

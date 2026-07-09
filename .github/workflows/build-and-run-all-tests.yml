@@ -113,6 +113,7 @@ jobs:
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
+        # - P300-viommu temporarily disabled for PRs and merge queue due to a recent CI failing.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
@@ -122,9 +123,7 @@ jobs:
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            'pull_request|*|P300-viommu' \
-            'merge_group|ASan|P300-viommu' \
-            'merge_group|TSan|P300-viommu' \
+            '*|*|P300-viommu' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
           )

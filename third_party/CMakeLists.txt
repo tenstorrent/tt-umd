@@ -229,6 +229,7 @@ if(TT_UMD_ENABLE_TRACY)
         SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+            "TRACY_ENABLE ON"
     )
 endif()
 

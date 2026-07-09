@@ -181,7 +181,7 @@ public:
             cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
 
         uint32_t noc_translated_id_val;
-        cluster_->get_tt_device(chip)->read_from_device(
+        cluster_->get_tt_device(chip)->read_from_device_reg(
             &noc_translated_id_val, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
         return extract_coords_from_reg(noc_translated_id_val);

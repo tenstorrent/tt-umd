@@ -211,61 +211,62 @@ void TTSimTTDevice::close_device() {
     communicator_->shutdown();
 }
 
-void TTSimTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    if (client_) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Client-mode TTSimTTDevice device I/O is not available yet (SimulationClient has no read/write).");
-    }
-    if (communicator_->is_closed()) {
-        return;
-    }
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
-    if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (communicator_->dram_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
-                return;
-            }
-            communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-            return;
-        }
-    }
-    if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
-    } else {
-        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-    }
+void TTSimTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
-void TTSimTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    if (client_) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Client-mode TTSimTTDevice device I/O is not available yet (SimulationClient has no read/write).");
-    }
-    if (communicator_->is_closed()) {
-        return;
-    }
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
-    if (sim_dram_teleport_enabled()) {
-        if (get_soc_descriptor().is_core_of_type(translated_core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
-            if (!communicator_->dram_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size)) {
-                communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-            }
-            communicator_->advance_clock(10);
-            return;
-        }
-    }
-    if (get_arch() != tt::ARCH::QUASAR && cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
-    } else {
-        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-    }
+void TTSimTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+}
+
+bool TTSimTTDevice::is_device_closed() { return communicator_->is_closed(); }
+
+bool TTSimTTDevice::should_use_cached_tlb_window() {
+    return get_arch() != tt::ARCH::QUASAR && cached_tlb_window_ != nullptr;
+}
+
+void TTSimTTDevice::after_read() {
     // Ideally we would not auto-clock on reads at all, but some clocking is required to avoid hangs
-    // in the absence of an API reliably called from all spin loops polling the device
+    // in the absence of an API reliably called from all spin loops polling the device.
     communicator_->advance_clock(1);
+}
+
+bool TTSimTTDevice::handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    return special_dram_write(mem_ptr, core, addr, size);
+}
+
+bool TTSimTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    return special_dram_read(mem_ptr, core, addr, size);
+}
+
+bool TTSimTTDevice::special_dram_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    if (!sim_dram_teleport_enabled()) {
+        return false;
+    }
+    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+        return false;
+    }
+    if (communicator_->dram_write_bytes(core.x, core.y, addr, mem_ptr, size)) {
+        return true;
+    }
+    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+    return true;
+}
+
+bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    if (!sim_dram_teleport_enabled()) {
+        return false;
+    }
+    if (!get_soc_descriptor().is_core_of_type(core, CoreType::DRAM, CoordSystem::TRANSLATED)) {
+        return false;
+    }
+    if (!communicator_->dram_read_bytes(core.x, core.y, addr, mem_ptr, size)) {
+        communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+    }
+    // Side effect: this path advances the simulation clock by 10 cycles (rather than the single
+    // cycle after_read() applies), and it returns before after_read() would otherwise run.
+    communicator_->advance_clock(10);
+    return true;
 }
 
 void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

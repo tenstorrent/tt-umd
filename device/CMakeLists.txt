@@ -346,7 +346,7 @@ endif()
 
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
-    target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
+    target_compile_definitions(tt-umd PRIVATE TRACY_ENABLE)
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support

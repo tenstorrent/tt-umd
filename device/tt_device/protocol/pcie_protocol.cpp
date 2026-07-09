@@ -56,6 +56,8 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
 PcieProtocol::~PcieProtocol() = default;
 
 void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) {
+    // Guard against a concurrent IO op: the IO paths read hang_check_ and the cached windows under io_lock_.
+    std::lock_guard<std::mutex> lock(io_lock_);
     hang_check_ = hang_check;
     // The cached windows may already exist if I/O ran before the hang detector was wired; keep them in sync.
     if (cached_wc_tlb_window_ != nullptr) {

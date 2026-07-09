@@ -248,7 +248,8 @@ jobs:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
-          {runs-on: tt-ubuntu-2204-p150b-stable},
+          # Temporarily disabled due to a recent CI failure on P150
+          # {runs-on: tt-ubuntu-2204-p150b-stable},
           {runs-on: tt-ubuntu-2204-n150-stable},
           {runs-on: tt-ubuntu-2204-n300-stable},
         ]

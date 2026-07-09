@@ -117,7 +117,7 @@ jobs:
       TRACY_NO_INVARIANT_CHECK: 1
       # Env. vars related to SCCache:
       SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
-      SCCACHE_GHA_VERSION: 1
+      SCCACHE_GHA_VERSION: 2
       # Only the main branch may write to the sccache; all other branches read only.
       SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 

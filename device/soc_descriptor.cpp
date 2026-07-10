@@ -548,4 +548,28 @@ uint32_t SocDescriptor::get_num_harvested_eth_channels() const {
     return coordinate_manager->get_num_harvested_eth_channels();
 }
 
+std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
+    CoordSystem coord_system, CoreType core_type) const {
+    const std::vector<CoreCoord> cores = get_cores(core_type, coord_system);
+    if (cores.empty()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Cannot compute bounding rectangle: no cores of type {} found.", to_str(core_type)));
+    }
+
+    CoreCoord upper_left = cores.front();
+    CoreCoord lower_right = cores.front();
+    for (const CoreCoord &core : cores) {
+        // Upper-left: smallest x, then smallest y. Lower-right: largest x, then largest y.
+        if (core.x < upper_left.x || (core.x == upper_left.x && core.y < upper_left.y)) {
+            upper_left = core;
+        }
+        if (core.x > lower_right.x || (core.x == lower_right.x && core.y > lower_right.y)) {
+            lower_right = core;
+        }
+    }
+
+    return {upper_left, lower_right};
+}
+
 }  // namespace tt::umd

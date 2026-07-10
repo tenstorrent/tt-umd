@@ -140,7 +140,6 @@ void WormholeTTDevice::set_clock_state(DevicePowerState state) {
         exit_code == 0,
         error::RuntimeError,
         fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
-
     wait_for_aiclk_value(state);
 }
 

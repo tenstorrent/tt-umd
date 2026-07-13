@@ -164,10 +164,7 @@ void TTSimTTDevice::initialize_backend() {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    chip_id_(chip_id) {
-    // client_ is a base member (SimulationTTDevice), so it is set in the body rather than the
-    // init list.
-    client_ = std::move(client);
+    SimulationTTDevice(std::move(client)), chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
@@ -175,8 +172,8 @@ TTSimTTDevice::TTSimTTDevice(
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
     // create_client() has already validated that client_ is non-null.
-    setup_ = [this] { client_->attach(); };
-    teardown_ = [this] { client_->detach(); };
+    setup_ = [this] { attach_client(); };
+    teardown_ = [this] { detach_client(); };
     setup_();
 }
 

@@ -17,6 +17,12 @@ on:
       baseline-run-id:
         required: false
         type: string
+  schedule:
+    # Nightly Superset upload cadence (02:00 UTC). Scheduled runs only fire on
+    # the default branch (main). The upload-superset job below is gated to this
+    # event (and manual dispatch), so per-commit main pushes still run the
+    # benchmarks + regression-check but don't write to the shared DB.
+    - cron: '0 2 * * *'
   push:
     branches: ["main"]
   pull_request:
@@ -100,3 +106,18 @@ jobs:
       packages: read
       actions: read
     uses: ./.github/workflows/regression-check.yml
+
+  # Publish this run's results to Superset (via the Data team's perf SFTP
+  # ingest). Runs on the nightly schedule and manual dispatch only, so
+  # per-commit main pushes still regression-check but don't write to the shared
+  # sw_test.benchmark_run table. See tests/microbenchmark/tools/SUPERSET.md.
+  upload-superset:
+    secrets: inherit
+    needs: run-benchmarks
+    if: ${{ needs.run-benchmarks.result == 'success' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    permissions:
+      contents: read
+      packages: read
+      actions: read
+    uses: ./.github/workflows/upload-benchmark-superset.yml

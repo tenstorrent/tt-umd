@@ -12,6 +12,7 @@ The three scripts you'll touch:
 | [`update_baseline.py`](update_baseline.py) | Update a per-arch baseline YAML from a CI artifact. Run when you want to (re)calibrate. |
 | [`summarize_regressions.py`](summarize_regressions.py) | What CI's `regression-check` job runs. Compares all archs in one pass and writes the markdown summary. You rarely run this by hand. |
 | [`compare_to_baseline.py`](compare_to_baseline.py) | Local smoke test: compares a hand-run against an arch's CI baseline. Expect larger drift than CI-to-CI — good for catching big regressions, not precise checks. See caveat below. |
+| [`emit_benchmark_report.py`](emit_benchmark_report.py) | Convert a run's nanobench results into the Tenstorrent perf-data JSON schema for Superset. What CI's `upload-superset` job runs; see [SUPERSET.md](SUPERSET.md). |
 
 ## `update_baseline.py` — re-calibrate one arch from a CI artifact
 
@@ -127,9 +128,12 @@ build-and-run-all-benchmarks.yml         (orchestrator, matrix per arch)
    │                          (bgd-lab-06 for n150, etc.)
    │                          uploads benchmark-json-<arch>-... artifact
    ├─ analyze-results       → per-arch drift-vs-latest-main (existing)
-   └─ regression-check      → downloads all benchmark-json-*,
-                              runs summarize_regressions.py,
-                              writes markdown to Step Summary
+   ├─ regression-check      → downloads all benchmark-json-*,
+   │                          runs summarize_regressions.py,
+   │                          writes markdown to Step Summary
+   └─ upload-superset       → (nightly cron / manual only) emit_benchmark_report.py
+                              → benchmark_*.json → perf SFTP → Superset
+                              (see SUPERSET.md)
 
 (separately, occasionally)
 update_baseline.py  ←  benchmark-json-* artifact  →  baselines/<arch>.yaml

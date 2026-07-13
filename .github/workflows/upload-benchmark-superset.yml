@@ -1,0 +1,106 @@
+# Convert this run's nanobench results into the Tenstorrent perf-data schema and
+# upload them to the Data team's perf SFTP ingest, from where the `benchmark`
+# data_airflow pipeline loads them into sw_test.benchmark_run /
+# benchmark_measurement and Superset renders them. See tests/microbenchmark/tools/SUPERSET.md.
+#
+# Safe to merge before the SFTP secrets exist: if SFTP_PERF_WRITER_HOSTNAME is
+# unset the job still emits + uploads the JSON as a workflow artifact for
+# inspection, and skips the SFTP step instead of failing.
+name: Upload benchmark results to Superset
+
+on:
+  workflow_call:
+  # No inputs — downloads benchmark-json-* artifacts from the parent run and
+  # reads git/pipeline metadata from the github context.
+
+env:
+  RESULTS_DIR: /tmp/all-arch-results
+  OUTPUT_DIR: /tmp/superset-json
+
+jobs:
+  upload-benchmark-superset:
+    name: Emit perf JSON and upload to perf SFTP
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read   # actions/checkout
+      packages: read   # pull ghcr.io container image
+      actions: read    # actions/download-artifact API access
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04:latest
+
+    steps:
+      - name: Checkout perf-reporting tooling
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            tests/microbenchmark/tools/emit_benchmark_report.py
+            tests/microbenchmark/tools/utils.py
+          sparse-checkout-cone-mode: false
+
+      - name: Download all benchmark JSON artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: benchmark-json-*
+          path: ${{ env.RESULTS_DIR }}
+          merge-multiple: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Emit perf-data JSON (CompleteBenchmarkRun schema)
+        run: |
+          python3 tests/microbenchmark/tools/emit_benchmark_report.py \
+            --current "${RESULTS_DIR}" \
+            --output-dir "${OUTPUT_DIR}" \
+            --git-commit-hash "${{ github.sha }}" \
+            --git-branch-name "${{ github.ref_name }}" \
+            --git-commit-ts "${{ github.event.head_commit.timestamp }}" \
+            --git-author "${{ github.actor }}" \
+            --github-pipeline-id "${{ github.run_id }}" \
+            --github-pipeline-link "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Upload perf JSON as workflow artifact (inspection)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-superset-json
+          path: ${{ env.OUTPUT_DIR }}/benchmark_*.json
+          if-no-files-found: warn
+
+      # The `secrets` context can't be used in a step `if:`, so map it to an env
+      # var and expose a plain boolean output the later steps gate on.
+      - name: Detect SFTP configuration
+        id: sftpcfg
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_PERF_WRITER_HOSTNAME }}
+        run: |
+          if [ -n "${SFTP_HOST}" ]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Upload to perf SFTP ingest
+        if: ${{ steps.sftpcfg.outputs.configured == 'true' }}
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_PERF_WRITER_HOSTNAME }}
+          SFTP_USER: ${{ secrets.SFTP_PERF_WRITER_USERNAME }}
+          SFTP_KEY: ${{ secrets.SFTP_PERF_WRITER_KEY }}
+        run: |
+          command -v sftp >/dev/null 2>&1 || { apt-get update && apt-get install -y openssh-client; }
+          cd "${OUTPUT_DIR}"
+          if ! compgen -G "benchmark_*.json" > /dev/null; then
+            echo "No benchmark_*.json files to upload."; exit 0
+          fi
+          echo "${SFTP_KEY}" > id_key
+          chmod go-rwx id_key
+          printf 'put -r benchmark_*.json\nls -hal\n' > sftp-perf.txt
+          sftp -oStrictHostKeyChecking=no -i id_key -b sftp-perf.txt "${SFTP_USER}@${SFTP_HOST}"
+          rm -f id_key
+
+      - name: Note when SFTP secrets are not configured
+        if: ${{ steps.sftpcfg.outputs.configured != 'true' }}
+        run: |
+          echo "SFTP_PERF_WRITER_HOSTNAME is not set — skipping upload." >> "${GITHUB_STEP_SUMMARY}"
+          echo "Perf JSON was emitted and attached as the benchmark-superset-json artifact." >> "${GITHUB_STEP_SUMMARY}"
+          echo "See tests/microbenchmark/tools/SUPERSET.md for the Data-team request that provisions these secrets." \
+            >> "${GITHUB_STEP_SUMMARY}"

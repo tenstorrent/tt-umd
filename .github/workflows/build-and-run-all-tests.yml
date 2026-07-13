@@ -28,6 +28,21 @@ on:
         description: >-
           github.event_name from the top-level workflow. Used to evaluate the
           per-matrix blacklist. Leave empty for direct workflow_dispatch.
+      repeat-count:
+        required: false
+        type: number
+        default: 1
+        description: >-
+          Repeat every test-all card this many times, each iteration its own job
+          (for flaky-repro or A/B runs). Default 1 = normal single run. cards x repeat-count
+          must stay <= 256 (GitHub matrix cap) or matrix generation fails with a clear error.
+      cards-filter:
+        required: false
+        type: string
+        default: ""
+        description: >-
+          Comma-separated substrings; when set, only test-all cards whose name contains one
+          of them run (e.g. "n150,n300,p100a,p150b"). Empty = all cards.
   workflow_dispatch:
     inputs:
       build-type:
@@ -53,6 +68,16 @@ on:
         description: 'The timeout for the test run in minutes'
         type: number
         default: 30
+      repeat-count:
+        required: false
+        description: 'Repeat each card this many times (flaky-repro). Default 1. cards x count must be <= 256.'
+        type: number
+        default: 1
+      cards-filter:
+        required: false
+        description: 'Comma-separated card-name substrings to include, e.g. n150,n300,p100a,p150b. Empty = all.'
+        type: string
+        default: ""
 
 jobs:
   # Define all available cards which will be used for testing.
@@ -135,6 +160,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test-groups: ${{ steps.filter.outputs.test-groups }}
+      repeat: ${{ steps.filter.outputs.repeat }}
     steps:
       - name: Filter cards against blacklist
         id: filter
@@ -143,6 +169,8 @@ jobs:
           BLACKLIST: ${{ needs.blacklist.outputs.entries }}
           TRIGGERING_EVENT: ${{ inputs.triggering-event }}
           BUILD_TYPE: ${{ inputs.build-type }}
+          CARDS_FILTER: ${{ inputs.cards-filter }}
+          REPEAT_COUNT: ${{ inputs.repeat-count }}
         run: |
           FILTERED=$(echo "$CARDS" | jq -c \
             --argjson blacklist "$BLACKLIST" \
@@ -157,8 +185,26 @@ jobs:
                   matchP($event; $p[0]) and matchP($buildType; $p[1]) and matchP($c.card; $p[2])
                 )) | not
              )]')
+          # Optional card subset: keep only cards whose name contains one of the comma-separated
+          # substrings in cards-filter (empty = keep all).
+          if [ -n "$CARDS_FILTER" ]; then
+            FILTERED=$(echo "$FILTERED" | jq -c --arg f "$CARDS_FILTER" \
+              '($f | split(",") | map(select(length > 0))) as $tokens
+               | [ .[] | select(.card as $c | $tokens | any(. as $t | $c | contains($t))) ]')
+          fi
+          # Repeat dimension: each value becomes an independent job. Default 1 = normal single run.
+          N="${REPEAT_COUNT:-1}"
+          COUNT=$(echo "$FILTERED" | jq 'length')
+          TOTAL=$((COUNT * N))
+          if [ "$TOTAL" -gt 256 ]; then
+            MSG="test-all would generate $COUNT cards x $N = $TOTAL jobs, over the 256 matrix cap"
+            echo "::error::$MSG. Lower repeat-count or narrow cards-filter."
+            exit 1
+          fi
+          REPEAT=$(jq -cn --argjson n "$N" '[range(1; $n + 1)]')
           echo "test-groups=$FILTERED" >> $GITHUB_OUTPUT
-          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT) build-type ($BUILD_TYPE):"
+          echo "repeat=$REPEAT" >> $GITHUB_OUTPUT
+          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT) build-type ($BUILD_TYPE), repeat x$N:"
           echo "$FILTERED" | jq -r '.[] | "  \(.arch) | \(.card)"'
 
   build-tests:
@@ -192,6 +238,8 @@ jobs:
       matrix:
         test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
         ubuntu-docker-version: ['ubuntu-22.04']
+        # Repeat each card N times (N = repeat-count input, default 1). Each iteration is its own job.
+        repeat: ${{ fromJson(needs.generate-test-matrix.outputs.repeat) }}
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}

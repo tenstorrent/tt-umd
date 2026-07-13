@@ -826,13 +826,15 @@ TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
         // Release this process's stale FDs; the destructor touches just-reset devices, so guard it.
         try {
             cluster.reset();
-        } catch (...) {
+        } catch (const std::exception& e) {
+            std::cerr << "P2 teardown threw: " << e.what() << std::endl;  // endl flushes before _exit
             _exit(EXIT_TEARDOWN_CODE);
         }
 
         try {
             cluster = std::make_unique<Cluster>();
-        } catch (...) {
+        } catch (const std::exception& e) {
+            std::cerr << "P2 rebuild threw: " << e.what() << std::endl;
             _exit(EXIT_FAILURE_CODE);
         }
         _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);

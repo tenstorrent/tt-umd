@@ -95,8 +95,11 @@ jobs:
           context: .github
           file: .github/${{ inputs.docker-version }}.Dockerfile
           push: true
-          # Emulated riscv64 image is built for linux/riscv64; everything else
-          # uses the builder's native platform (empty = default).
+          # Emulated riscv64 image is built for linux/riscv64. Everything else
+          # uses an empty value, which build-push-action treats as "the builder's
+          # native platform" -- correct here since the ensure job runs on x86 or
+          # arm runners depending on the variant. Hardcoding a platform would
+          # break the native aarch64 image build.
           platforms: ${{ inputs.docker-version == 'ubuntu-24.04-riscv' && 'linux/riscv64' || '' }}
           build-args: |
             GIT_SHA=${{ github.sha }}

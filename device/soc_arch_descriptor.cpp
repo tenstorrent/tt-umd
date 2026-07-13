@@ -23,14 +23,39 @@
 namespace tt::umd {
 
 SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
-    switch (arch_enum) {
+    arch_ = arch_enum;
+    init();
+}
+
+SocArchDescriptor::SocArchDescriptor(const std::string& soc_descriptor_path) {
+    device_descriptor_file_path_ = soc_descriptor_path;
+    init();
+}
+
+void SocArchDescriptor::init() {
+    // When constructed from a YAML descriptor the file path is set; otherwise populate from the
+    // hardcoded architecture constants selected by arch_.
+    if (!device_descriptor_file_path_.empty()) {
+        std::ifstream soc_descriptor_file(device_descriptor_file_path_);
+        if (soc_descriptor_file.fail()) {
+            UMD_THROW(
+                error::RuntimeError, "SocDescriptor file does not exist at path: " + device_descriptor_file_path_);
+        }
+        soc_descriptor_file.close();
+        YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_file_path_);
+        load_from_yaml(device_descriptor_yaml);
+        build_derived_data();
+        return;
+    }
+
+    switch (arch_) {
         case tt::ARCH::WORMHOLE_B0:
             arch_ = tt::ARCH::WORMHOLE_B0;
             grid_size_ = wormhole::GRID_SIZE;
             tensix_cores_ = wormhole::TENSIX_CORES_NOC0;
             dram_cores_ = wormhole::DRAM_CORES_NOC0;
             eth_cores_ = wormhole::ETH_CORES_NOC0;
-            arc_cores_ = wormhole::ARC_CORES_NOC0;
+            firmware_cores_ = wormhole::ARC_CORES_NOC0;
             pcie_cores_ = wormhole::PCIE_CORES_NOC0;
             router_cores_ = wormhole::ROUTER_CORES_NOC0;
             security_cores_ = wormhole::SECURITY_CORES_NOC0;
@@ -47,7 +72,7 @@ SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
             tensix_cores_ = blackhole::TENSIX_CORES_NOC0;
             dram_cores_ = blackhole::DRAM_CORES_NOC0;
             eth_cores_ = blackhole::ETH_CORES_NOC0;
-            arc_cores_ = blackhole::ARC_CORES_NOC0;
+            firmware_cores_ = blackhole::ARC_CORES_NOC0;
             pcie_cores_ = blackhole::PCIE_CORES_NOC0;
             router_cores_ = blackhole::ROUTER_CORES_NOC0;
             security_cores_ = blackhole::SECURITY_CORES_NOC0;
@@ -64,7 +89,7 @@ SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
             tensix_cores_ = grendel::TENSIX_CORES_NOC0;
             dram_cores_ = grendel::DRAM_CORES_NOC0;
             eth_cores_ = grendel::ETH_CORES_NOC0;
-            arc_cores_ = grendel::ARC_CORES_NOC0;
+            firmware_cores_ = grendel::ARC_CORES_NOC0;
             pcie_cores_ = grendel::PCIE_CORES_NOC0;
             router_cores_ = grendel::ROUTER_CORES_NOC0;
             security_cores_ = grendel::SECURITY_CORES_NOC0;
@@ -80,19 +105,6 @@ SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
             UMD_THROW(error::RuntimeError, "Invalid architecture for creating SocArchDescriptor.");
     }
 
-    build_derived_data();
-}
-
-SocArchDescriptor::SocArchDescriptor(const std::string& soc_descriptor_path) {
-    std::ifstream soc_descriptor_file(soc_descriptor_path);
-    if (soc_descriptor_file.fail()) {
-        UMD_THROW(error::RuntimeError, "SocDescriptor file does not exist at path: " + soc_descriptor_path);
-    }
-    soc_descriptor_file.close();
-    YAML::Node device_descriptor_yaml = YAML::LoadFile(soc_descriptor_path);
-
-    device_descriptor_file_path_ = soc_descriptor_path;
-    load_from_yaml(device_descriptor_yaml);
     build_derived_data();
 }
 
@@ -124,9 +136,9 @@ void SocArchDescriptor::build_derived_data() {
     ethernet_core_channel_map_.clear();
 
     // Build core descriptor map.
-    for (const auto& arc_core : arc_cores_) {
+    for (const auto& firmware_core : firmware_cores_) {
         CoreDescriptor core_descriptor;
-        core_descriptor.coord = arc_core;
+        core_descriptor.coord = firmware_core;
         core_descriptor.type = CoreType::ARC;
         cores_.insert({core_descriptor.coord, core_descriptor});
     }
@@ -262,7 +274,8 @@ void SocArchDescriptor::load_from_yaml(YAML::Node& device_descriptor_yaml) {
     pcie_cores_ =
         SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["pcie"].as<std::vector<std::string>>());
     eth_cores_ = SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["eth"].as<std::vector<std::string>>());
-    arc_cores_ = SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
+    firmware_cores_ =
+        SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["arc"].as<std::vector<std::string>>());
     router_cores_ =
         SocArchDescriptor::convert_to_tt_xy_pair(device_descriptor_yaml["router_only"].as<std::vector<std::string>>());
 

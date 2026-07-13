@@ -86,8 +86,14 @@ protected:
     void retrain_dram_core(const uint32_t dram_channel) override;
 
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
-    // directory or sysmem manager -- those live on the remote host reached over the socket.
-    SimulationTTDevice() = default;
+    // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
+    // the client here so client_ is initialized through the base, not written by each derived ctor.
+    explicit SimulationTTDevice(std::unique_ptr<SimulationClient> client);
+
+    // Attach to / detach from the remote host in client mode. Both derived devices drive their
+    // client-mode lifecycle (setup_/teardown_) through these rather than touching client_ directly.
+    void attach_client();
+    void detach_client();
 
     // Build tlb_allocator_ once the backend knows its BAR0 base (0 for RTL, PCI-probed for TTSim).
     void init_tlb_allocator(uint64_t bar0_base);
@@ -137,7 +143,7 @@ protected:
     std::unique_ptr<SimulationServerSocket> socket_;
 
     // Set only in client mode: the remote host this device talks to, instead of owning a local
-    // backend. Hoisted here from the derived devices (both held an identical member) since it is
+    // backend. Pulled up here from the derived devices (both held an identical member) since it is
     // the client-mode counterpart of the shared lifecycle; a follow-up wires read_from_device /
     // write_to_device to dispatch through it. Null in host/local mode.
     std::unique_ptr<SimulationClient> client_;
@@ -150,6 +156,22 @@ private:
     // access is serialized. The socket layer stays protocol-agnostic; this is where the protocol
     // is (de)serialized.
     std::vector<uint8_t> handle_request(const std::vector<uint8_t>& request_bytes);
+
+    // The device serves one of two disjoint roles; read_from_device/write_to_device dispatch on
+    // this rather than a bare client_ null-check so the intent is named at the call site.
+    bool client_mode() const { return client_ != nullptr; }
+
+    // Host-mode device memory access: run the transfer against the local backend (cached TLB
+    // window or direct tile access), guarded by is_device_closed() and device_lock.
+    void host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size);
+    void host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size);
+
+    // Client-mode device memory access: translate the coordinate (client-side, stateless), send
+    // the encoded request to the host over client_, and apply the decoded reply. The host runs
+    // the access against the real backend and answers (see handle_request). Serialized by
+    // device_lock so concurrent callers don't interleave request/response on the one socket.
+    void client_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size);
+    void client_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size);
 };
 
 }  // namespace tt::umd

@@ -86,8 +86,8 @@ private:
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process RTL backend (communicator_), client mode
-    // drives the remote host (client_->attach()/detach()). Note client_ is owned by the
-    // SimulationTTDevice base (hoisted there), not declared in this class.
+    // drives the remote host (attach_client()/detach_client()). Note client_ is owned by the
+    // SimulationTTDevice base (pulled up there), not declared in this class.
     std::function<void()> setup_;
     std::function<void()> teardown_;
 

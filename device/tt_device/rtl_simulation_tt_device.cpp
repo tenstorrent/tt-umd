@@ -101,8 +101,10 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    client_(std::move(client)) {
+    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    // client_ is a base member (SimulationTTDevice), so it is set in the body rather than the
+    // init list.
+    client_ = std::move(client);
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);

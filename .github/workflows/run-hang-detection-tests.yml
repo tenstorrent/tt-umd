@@ -46,29 +46,29 @@ on:
         default: 30
         type: number
 
-# Defaults below (via `inputs.* || '...'`) are used for the nightly scheduled run.
+# Defaults below (via `github.event.inputs.* || '...'`) are used for the nightly scheduled run.
 # Manual dispatch overrides them with the chosen values.
 env:
   TEST_OUTPUT_DIR: ./build/test
   ARTIFACT_NAME: >-
-    build-artifacts-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04'
-    }}-${{ inputs.build-type || 'Release' }}
+    build-artifacts-${{ github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04'
+    }}-${{ github.event.inputs.build-type || 'Release' }}
 
 jobs:
   build:
     secrets: inherit
     uses: ./.github/workflows/build-tests.yml
     with:
-      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
-      build-type: ${{ inputs.build-type || 'Release' }}
-      timeout: ${{ fromJSON(inputs.timeout || '30') }}
+      ubuntu-docker-version: ${{ github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
+      build-type: ${{ github.event.inputs.build-type || 'Release' }}
+      timeout: ${{ fromJSON(github.event.inputs.timeout || '30') }}
       build-targets: hang_detection_tests
       build-wheel: false
 
   run:
     name: Run hang_detection_tests (${{ matrix.card }})
     needs: build
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout || '30') }}
     strategy:
       fail-fast: false
       # Manual dispatch runs on the single chosen card; the nightly schedule fans out
@@ -81,11 +81,13 @@ jobs:
           "tt-ubuntu-2204-p150b-stable",
           "P300-viommu",
           "tt-ubuntu-2204-wh-glx-6u-stable"
-          ]' || format('["{0}"]', inputs.card)) }}
+          ]' || format('["{0}"]', github.event.inputs.card)) }}
     runs-on:
       - ${{ matrix.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version || 'ubuntu-22.04' }}:latest
+      image: >-
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04' }}:latest
       options: --device /dev/tenstorrent
       volumes:
         - /dev/hugepages:/dev/hugepages

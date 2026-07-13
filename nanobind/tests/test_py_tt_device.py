@@ -293,8 +293,15 @@ class TestTTDevice(unittest.TestCase):
                     f"Remote device {chip} should be remote",
                 )
 
-            val = umd_tt_devices[chip].noc_read32(9, 0, 0)
-            print(f"Read value from device, core 9,0 addr 0x0: {val}")
+            tt_device = umd_tt_devices[chip]
+            soc_descriptor = tt_umd.SocDescriptor(tt_device)
+            tensix_core = soc_descriptor.get_cores(
+                tt_umd.CoreType.TENSIX, tt_umd.CoordSystem.TRANSLATED
+            )[0]
+            val = tt_device.noc_read32(tensix_core.x, tensix_core.y, 0)
+            print(
+                f"Read value from device {chip}, core {tensix_core.x},{tensix_core.y} addr 0x0: {val}"
+            )
 
     def test_read_kmd_version(self):
         # Test reading KMD version
@@ -464,6 +471,19 @@ class TestTTDevice(unittest.TestCase):
 
         # Verify the message passed through
         self.assertIn("This is a test exception from C++", str(cm.exception))
+
+    def test_device_timeout_exception_type_binding(self):
+        """
+        Verifies that the C++ DeviceTimeoutError maps to a Python type that can be caught
+        specifically, and is also catchable as the base UmdBaseException.
+        """
+        # It can be caught as its own specific type.
+        with self.assertRaises(tt_umd.error.DeviceTimeoutError):
+            tt_umd.error.raise_device_timeout_error_for_testing()
+
+        # It is a subclass of the base UMD exception, so the base catches it too.
+        with self.assertRaises(tt_umd.error.UmdBaseException):
+            tt_umd.error.raise_device_timeout_error_for_testing()
 
     def test_hang_detection_api(self):
         """Verify HangAction enum and hang detection methods on a healthy device."""

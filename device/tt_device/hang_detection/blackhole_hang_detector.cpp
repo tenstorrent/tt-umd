@@ -10,7 +10,6 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -19,7 +18,7 @@ namespace tt::umd {
 
 BlackholeHangDetector::BlackholeHangDetector(
     DeviceProtocol* protocol, architecture_implementation* arch_impl, bool noc_translation_enabled) :
-    HangDetector(protocol, arch_impl), noc_translation_enabled_(noc_translation_enabled) {}
+    HangDetectorImplementation(protocol, arch_impl), noc_translation_enabled_(noc_translation_enabled) {}
 
 uint32_t BlackholeHangDetector::read_hang_check_reg_via_bar() {
     return get_pcie_interface()->bar_read32(get_arch_impl()->get_read_checking_offset());
@@ -29,9 +28,7 @@ uint32_t BlackholeHangDetector::read_hang_check_reg_via_noc(NocId noc) {
     tt_xy_pair core = get_hang_check_core(noc);
     uint64_t addr = get_arch_impl()->get_noc_reg_base(CoreType::PCIE, static_cast<uint32_t>(noc)) +
                     get_arch_impl()->get_noc_node_id_offset();
-    uint32_t value = 0;
-    get_protocol()->read_from_device(&value, core, addr, sizeof(value), noc);
-    return value;
+    return read_noc_reg(core, addr, noc);
 }
 
 tt_xy_pair BlackholeHangDetector::get_hang_check_core(NocId noc) const {

@@ -19,6 +19,7 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -48,6 +49,20 @@ static std::string opt_str(const std::optional<SemVer>& v) { return v.has_value(
 
 static std::string opt_str(const std::optional<double>& v, const std::string& fmt_spec = "{:.2f}") {
     return v.has_value() ? fmt::format(fmt::runtime(fmt_spec), v.value()) : "nullopt";
+}
+
+static std::string opt_str(const std::vector<std::optional<uint32_t>>& vs) {
+    if (vs.empty()) {
+        return "-";
+    }
+    std::string result;
+    for (size_t i = 0; i < vs.size(); ++i) {
+        if (i > 0) {
+            result += ", ";
+        }
+        result += vs[i].has_value() ? std::to_string(vs[i].value()) : "nullopt";
+    }
+    return result;
 }
 
 static std::string fw_range_label(const FirmwareBundleVersion& fw_version) {
@@ -293,7 +308,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        std::optional<uint32_t> fan_speed = fw_info->get_fan_speed();
+        auto fan_speed = fw_info->get_fan_speed();
         std::optional<uint32_t> tdp = fw_info->get_tdp();
         std::optional<uint32_t> tdc = fw_info->get_tdc();
         std::optional<uint32_t> vcore = fw_info->get_vcore();
@@ -486,8 +501,7 @@ TEST_F(TestFirmwareInfoProvider, GddrTelemetry) {
     }
 }
 
-// Disabled until fan speed updates from CMFW 19.10 are implemented. (#2778).
-TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
+TEST_F(TestFirmwareInfoProvider, FanSpeed) {
     for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
@@ -498,6 +512,10 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
         auto speed_percentage = fw_info->get_fan_speed();
         auto speed_rpm = fw_info->get_fan_rpm();
 
+        // Always report information about 2 fans.
+        EXPECT_EQ(speed_percentage.size(), 2);
+        EXPECT_EQ(speed_rpm.size(), 2);
+
         log_info(
             tt::LogUMD,
             "Device {}: arch={}, fw_range={}, fan_speed={} %, fan_rpm={} rpm",
@@ -507,24 +525,29 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_FanSpeed) {
             opt_str(speed_percentage),
             opt_str(speed_rpm));
 
-        if (speed_percentage.has_value()) {
-            EXPECT_GE(speed_percentage.value(), 0u);
-            EXPECT_LE(speed_percentage.value(), 100u);
+        for (auto percentage : speed_percentage) {
+            if (percentage.has_value()) {
+                EXPECT_GE(percentage, 0u);
+                EXPECT_LE(percentage, 100u);
+            }
         }
 
-        if (speed_rpm.has_value()) {
-            EXPECT_LT(speed_rpm.value(), 20000u);
+        for (auto rpm : speed_rpm) {
+            if (rpm.has_value()) {
+                EXPECT_LT(rpm, 20000u);
+            }
         }
 
         // FAN_RPM is not available in legacy Wormhole (<= 18.3) SMBus telemetry;
         // only FAN_SPEED (percentage) is reported.
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FirmwareBundleVersion(18, 3, 0)) {
-            EXPECT_FALSE(speed_rpm.has_value());
-        } else {
+            EXPECT_EQ(speed_rpm.at(0), std::nullopt);
+        } else if (fw_version < FirmwareBundleVersion(19, 10, 0)) {
             // On modern firmware, both should be available or both absent
             // (nullopt when fans are not present on board or not controlled by FW).
-            EXPECT_EQ(speed_percentage.has_value(), speed_rpm.has_value());
-        }
+            EXPECT_EQ(speed_percentage.at(0).has_value(), speed_rpm.at(0).has_value());
+            EXPECT_EQ(speed_percentage.at(1).has_value(), speed_rpm.at(1).has_value());
+        }  // 19.10 and later do not have this expectation.
     }
 }
 
@@ -600,17 +623,24 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
         tt::ARCH arch = tt_device->get_arch();
+        auto fw_version = fw_info->get_firmware_version();
         auto heartbeats = fw_info->get_eth_heartbeat_status();
 
-        // Only available on Wormhole; Blackhole returns nullopt.
-        if (arch == tt::ARCH::BLACKHOLE) {
+        // Available on Wormhole (all versions) and Blackhole >= 19.9.
+        if (arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(heartbeats.has_value());
         }
 
-        if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (arch == tt::ARCH::WORMHOLE_B0 ||
+            (arch == tt::ARCH::BLACKHOLE && fw_version >= FirmwareBundleVersion(19, 9, 0))) {
             EXPECT_TRUE(heartbeats.has_value());
             if (heartbeats.has_value()) {
-                EXPECT_EQ(heartbeats.value().size(), 16u);
+                size_t expected_size = (arch == tt::ARCH::BLACKHOLE) ? 14u : 16u;
+                EXPECT_EQ(heartbeats.value().size(), expected_size);
+                for (const auto& [coord, status] : heartbeats.value()) {
+                    EXPECT_EQ(coord.core_type, CoreType::ETH);
+                    EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
+                }
             }
         }
     }
@@ -621,18 +651,129 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
         tt::ARCH arch = tt_device->get_arch();
+        auto fw_version = fw_info->get_firmware_version();
         auto retrains = fw_info->get_eth_retrain_status();
 
-        // Only available on Wormhole; Blackhole returns nullopt.
-        if (arch == tt::ARCH::BLACKHOLE) {
+        // Only available on Wormhole prior to 19.9.
+        if (arch == tt::ARCH::BLACKHOLE || fw_version >= FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_FALSE(retrains.has_value());
         }
 
-        if (arch == tt::ARCH::WORMHOLE_B0) {
+        if (arch == tt::ARCH::WORMHOLE_B0 && fw_version < FirmwareBundleVersion(19, 9, 0)) {
             EXPECT_TRUE(retrains.has_value());
             if (retrains.has_value()) {
                 EXPECT_EQ(retrains.value().size(), 16u);
+                for (const auto& [coord, status] : retrains.value()) {
+                    EXPECT_EQ(coord.core_type, CoreType::ETH);
+                    EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
+                }
             }
         }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        tt::ARCH arch = tt_device->get_arch();
+        auto fw_version = fw_info->get_firmware_version();
+        auto links = fw_info->get_eth_link_status();
+
+        // Available on firmware >= 19.9 for both Wormhole and Blackhole.
+        if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
+            EXPECT_FALSE(links.has_value());
+        }
+
+        if (fw_version >= FirmwareBundleVersion(19, 9, 0)) {
+            EXPECT_TRUE(links.has_value());
+            if (links.has_value()) {
+                size_t expected_size = (arch == tt::ARCH::BLACKHOLE) ? 14u : 16u;
+                EXPECT_EQ(links.value().size(), expected_size);
+                for (const auto& [coord, status] : links.value()) {
+                    EXPECT_EQ(coord.core_type, CoreType::ETH);
+                    EXPECT_EQ(coord.coord_system, CoordSystem::NOC0);
+                }
+            }
+        }
+    }
+}
+
+// Diagnostic-only: logs ETH status and the harvesting filter for manual inspection. Disabled by default (no
+// assertions); run explicitly with --gtest_also_run_disabled_tests.
+TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+        tt::ARCH arch = tt_device->get_arch();
+        const auto& soc_desc = tt_device->get_soc_descriptor();
+
+        log_info(tt::LogUMD, "=== ETH Status for {} ===", (arch == tt::ARCH::BLACKHOLE) ? "Blackhole" : "Wormhole");
+        log_info(
+            tt::LogUMD,
+            "Harvested ETH channels: {} / {}",
+            soc_desc.get_num_harvested_eth_channels(),
+            soc_desc.get_num_eth_channels());
+
+        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        if (heartbeats.has_value()) {
+            log_info(tt::LogUMD, "--- Heartbeat (all channels) ---");
+            for (const auto& [coord, status] : heartbeats.value()) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "active" : "inactive");
+            }
+
+            auto filtered = filter_harvested_eth_status(heartbeats.value(), soc_desc);
+            log_info(
+                tt::LogUMD, "--- Heartbeat (non-harvested: {}/{}) ---", filtered.size(), heartbeats.value().size());
+            for (const auto& [coord, status] : filtered) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "active" : "inactive");
+            }
+        } else {
+            log_info(tt::LogUMD, "Heartbeat: unavailable");
+        }
+
+        auto links = fw_info->get_eth_link_status();
+        if (links.has_value()) {
+            log_info(tt::LogUMD, "--- Link status (all channels) ---");
+            for (const auto& [coord, status] : links.value()) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "up" : "down");
+            }
+
+            auto filtered = filter_harvested_eth_status(links.value(), soc_desc);
+            log_info(tt::LogUMD, "--- Link status (non-harvested: {}/{}) ---", filtered.size(), links.value().size());
+            for (const auto& [coord, status] : filtered) {
+                log_info(tt::LogUMD, "  ({},{}) = {}", coord.x, coord.y, status ? "up" : "down");
+            }
+        } else {
+            log_info(tt::LogUMD, "Link status: unavailable");
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
+        const auto size = fw_info->get_runtime_telemetry_buffer_size();
+        const auto address = fw_info->get_runtime_telemetry_buffer_address();
+
+        const auto firmware_version = tt_device->get_firmware_version();
+        const auto size_offset =
+            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
+        const auto address_offset =
+            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+
+        if (!size_offset.has_value() || !address_offset.has_value()) {
+            EXPECT_FALSE(size.has_value());
+            EXPECT_FALSE(address.has_value());
+        } else {
+            EXPECT_TRUE(size.has_value());
+            EXPECT_TRUE(address.has_value());
+        }
+        tt_device->set_power_state(false);
     }
 }

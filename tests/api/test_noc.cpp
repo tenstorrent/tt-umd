@@ -21,6 +21,7 @@
 #include <variant>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -38,7 +39,7 @@ using namespace tt::umd;
 
 class TestNoc : public ::testing::Test {
 public:
-    void SetUp() override { cluster_ = std::make_unique<Cluster>(); }
+    void SetUp() override { cluster_ = test_utils::make_default_test_cluster(); }
 
     void verify_noc_id_cores_via_other_noc(
         ChipId chip, CoreType core_type, CoordSystem this_noc, bool use_harvested_cores) {
@@ -416,11 +417,9 @@ TEST_P(TestNocValidity, VerifyNocTranslationHostSide) {
         GTEST_SKIP() << "NOC_ID_LOGICAL register reports incorrect translated coordinates for ROUTER_ONLY";
     }
 
-    // Skip ETH (NOC1) and PCIe (both NOCs) on Blackhole for harvested cores - well known problem:
+    // Skip PCIe (both NOCs) on Blackhole for harvested cores - well known problem:
     // - PCIe: https://github.com/tenstorrent/tt-umd/issues/826
-    // - ETH: https://github.com/tenstorrent/tt-umd/issues/825
-    if (arch == ARCH::BLACKHOLE && use_harvested_cores &&
-        ((core_type == CoreType::ETH && noc == CoordSystem::NOC1) || core_type == CoreType::PCIE)) {
+    if (arch == ARCH::BLACKHOLE && use_harvested_cores && core_type == CoreType::PCIE) {
         GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
     }
 

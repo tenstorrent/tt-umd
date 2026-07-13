@@ -13,10 +13,6 @@
 
 namespace tt::umd {
 
-class DeviceProtocol;
-class PcieInterface;
-enum class NocId : uint8_t;
-
 /**
  * HangDetector checks whether the device hardware is hung.
  *
@@ -35,27 +31,15 @@ public:
 
     // Public API. Returns std::nullopt when the underlying protocol
     // does not support the check.
-    std::optional<bool> is_pcie_hung(uint32_t data_read = HANG_READ_VALUE);
+    std::optional<bool> is_bus_hung(uint32_t data_read = HANG_READ_VALUE);
     std::optional<bool> is_noc_hung(NocId noc);
 
 protected:
-    HangDetector(DeviceProtocol* protocol, architecture_implementation* arch_impl);
-
-    DeviceProtocol* get_protocol() const { return protocol_; }
-
-    PcieInterface* get_pcie_interface() const { return pcie_interface_; }
-
-    architecture_implementation* get_arch_impl() const { return arch_impl_; }
-
-private:
     // Arch-specific implementations.
     virtual uint32_t read_hang_check_reg_via_bar() = 0;
     virtual uint32_t read_hang_check_reg_via_noc(NocId noc) = 0;
-
-    DeviceProtocol* protocol_;
-    PcieInterface* pcie_interface_;
-    bool is_mmio_protocol_;
-    architecture_implementation* arch_impl_;
+    virtual bool is_bus_available() = 0;
+    virtual bool is_noc_available() = 0;
 };
 
 }  // namespace tt::umd

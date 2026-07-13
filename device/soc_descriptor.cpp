@@ -81,7 +81,7 @@ void SocDescriptor::serialize_dram_cores(void *out, const std::vector<std::vecto
         bool serialize_cores = true;
 
         for (const auto &dram_core : dram_cores) {
-            if ((dram_core.x > grid_size.x) || (dram_core.y > grid_size.y)) {
+            if ((dram_core.x >= grid_size.x) || (dram_core.y >= grid_size.y)) {
                 serialize_cores = false;
             }
         }
@@ -225,17 +225,31 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
         return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
-    // For ROUTER_ONLY cores, the translated coordinate space differs depending on
-    // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
-    // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
-    // network resolve to the correct tile.
-    if ((arch == tt::ARCH::BLACKHOLE) && (core.core_type == CoreType::ROUTER_ONLY) && is_selected_noc1()) {
-        CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
-        CoreCoord translated_noc1_core = CoreCoord(
-            ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(static_cast<tt_xy_pair>(noc1_core)),
-            CoreType::ROUTER_ONLY,
-            CoordSystem::TRANSLATED);
-        return translated_noc1_core;
+    // Blackhole-specific workaround: ROUTER_ONLY and harvested ETH cores need
+    // special translation when using NOC1.
+    if ((arch == tt::ARCH::BLACKHOLE) && is_selected_noc1()) {
+        // For ROUTER_ONLY cores, the translated coordinate space differs depending on
+        // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
+        // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
+        // network resolve to the correct tile.
+        if (core.core_type == CoreType::ROUTER_ONLY) {
+            CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
+            return CoreCoord(
+                ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(static_cast<tt_xy_pair>(noc1_core)),
+                CoreType::ROUTER_ONLY,
+                CoordSystem::TRANSLATED);
+        }
+
+        // Harvested ETH cores on Blackhole use identity mapping (TRANSLATED = NOC0), which is wrong
+        // on NOC1 because the translation table routes identity coordinates to the wrong tile.
+        // Fix: flip x only, keep y as-is, so the NOC1 translation resolves to the correct ETH core.
+        if (core.core_type == CoreType::ETH) {
+            CoreCoord noc0_core = translate_coord_to(core, CoordSystem::NOC0);
+            const auto harvested_eth = get_harvested_cores(CoreType::ETH, CoordSystem::NOC0);
+            if (std::find(harvested_eth.begin(), harvested_eth.end(), noc0_core) != harvested_eth.end()) {
+                return CoreCoord(grid_size.x - 1 - noc0_core.x, noc0_core.y, CoreType::ETH, CoordSystem::TRANSLATED);
+            }
+        }
     }
 
     // Wormhole-specific workaround: For DRAM, ARC, and PCIe cores, the translated coordinate system
@@ -532,6 +546,30 @@ uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager
 
 uint32_t SocDescriptor::get_num_harvested_eth_channels() const {
     return coordinate_manager->get_num_harvested_eth_channels();
+}
+
+std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
+    CoordSystem coord_system, CoreType core_type) const {
+    const std::vector<CoreCoord> cores = get_cores(core_type, coord_system);
+    if (cores.empty()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Cannot compute bounding rectangle: no cores of type {} found.", to_str(core_type)));
+    }
+
+    CoreCoord upper_left = cores.front();
+    CoreCoord lower_right = cores.front();
+    for (const CoreCoord &core : cores) {
+        // Upper-left: smallest x, then smallest y. Lower-right: largest x, then largest y.
+        if (core.x < upper_left.x || (core.x == upper_left.x && core.y < upper_left.y)) {
+            upper_left = core;
+        }
+        if (core.x > lower_right.x || (core.x == lower_right.x && core.y > lower_right.y)) {
+            lower_right = core;
+        }
+    }
+
+    return {upper_left, lower_right};
 }
 
 }  // namespace tt::umd

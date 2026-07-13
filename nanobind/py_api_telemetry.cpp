@@ -5,6 +5,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/map.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/unique_ptr.h>
 #include <nanobind/stl/unordered_map.h>
 #include <nanobind/stl/vector.h>
@@ -238,6 +239,7 @@ void bind_telemetry(nb::module_& m) {
         .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())
         .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status, release_gil())
         .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status, release_gil())
+        .def("get_eth_link_status", &FirmwareInfoProvider::get_eth_link_status, release_gil())
         .def_static(
             "get_minimum_compatible_firmware_version",
             &FirmwareInfoProvider::get_minimum_compatible_firmware_version,

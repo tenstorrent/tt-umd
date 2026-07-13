@@ -17,8 +17,11 @@ target_include_directories(
     INTERFACE
         ${PROJECT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}
-        "$<TARGET_PROPERTY:umd::tt-umd,INCLUDE_DIRECTORIES>"
 )
+# tt-umd's INCLUDE_DIRECTORIES carries its private third-party deps (e.g. asio), which are
+# system includes on the library itself. Re-expose them as SYSTEM so clang-tidy keeps skipping
+# third-party headers; without SYSTEM the copy lands as plain -I and trips warnings-as-errors.
+target_include_directories(test_common SYSTEM INTERFACE "$<TARGET_PROPERTY:umd::tt-umd,INCLUDE_DIRECTORIES>")
 target_compile_definitions(test_common INTERFACE UMD_TESTS_ROOT_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
 if(MASTER_PROJECT)
@@ -26,6 +29,7 @@ if(MASTER_PROJECT)
 endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/api)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/baremetal)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/hang_detection)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
@@ -42,6 +46,7 @@ add_custom_target(
         unit_tests_glx
         test_pcie_device
         api_tests
+        hang_detection_tests
         baremetal_tests
         umd_misc_tests
         unified_tests

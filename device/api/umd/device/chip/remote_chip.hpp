@@ -25,7 +25,7 @@ struct EthCoord;
 }  // namespace tt
 
 namespace tt::umd {
-class LocalChip;
+class Chip;
 class RemoteCommunication;
 class SocDescriptor;
 
@@ -37,7 +37,7 @@ public:
      * @param local_chip The local chip to be used for communication to this remote chip.
      * @return A unique pointer to the created RemoteChip instance.
      */
-    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip);
+    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
 
     bool is_mmio_capable() const override;
 
@@ -78,9 +78,9 @@ public:
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
 
-    LocalChip* local_chip_;
+    Chip* local_chip_;
     RemoteCommunication* remote_communication_;
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;

@@ -8,12 +8,22 @@ on:
         required: true
         type: string
       timeout:
-        required: true
+        required: false
         type: number
+        default: 30
+        description: >-
+          Build job timeout in minutes. Defaults to 30, sized for the
+          github-hosted runners. Callers only set this to override.
       build-type:
         required: true
         type: string
         default: Release
+      build-targets:
+        required: false
+        type: string
+        default: "umd_tests umd_microbenchmark umd_tools"
+        description: >-
+          Space-separated list of CMake targets to build.
       log-params:
         required: false
         type: string
@@ -29,6 +39,10 @@ on:
         description: >-
           When true, the build job runs an additional matrix entry with
           TT_UMD_ENABLE_TRACY=ON. The Tracy artifact uses a -tracy suffix.
+      use-sccache:
+        required: false
+        type: boolean
+        default: true
       image-tag:
         required: false
         type: string
@@ -93,7 +107,7 @@ jobs:
       matrix:
         use_tracy: ${{ fromJSON(inputs.build-tracy && '[false, true]' || '[false]') }}
 
-    runs-on: tt-ubuntu-2204-large-stable
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
@@ -101,6 +115,11 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check; harmless when Tracy is disabled.
       TRACY_NO_INVARIANT_CHECK: 1
+      # Env. vars related to SCCache:
+      SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
+      SCCACHE_GHA_VERSION: 1
+      # Only the main branch may write to the sccache; all other branches read only.
+      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 
     steps:
       - name: Print all params
@@ -111,12 +130,31 @@ jobs:
           echo build-tests - build-type: ${{ inputs.build-type }}
           echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
+      - name: Run sccache-cache
+        if: ${{ inputs.use-sccache }}
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Configure sccache to access GHA cache
+        if: ${{ inputs.use-sccache }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
+      # In container jobs the runtime $GITHUB_WORKSPACE is the container mount path
+      # (/__w/<repo>/<repo>), which is where the build runs.
+      - name: Export SCCACHE_BASEDIRS
+        if: ${{ inputs.use-sccache }}
+        shell: bash
+        run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
+
       # Only perform build with necessary components to run tests.
-      - name: Build ${{ env.BUILD_TARGETS }}
+      - name: Build ${{ inputs.build-targets || env.BUILD_TARGETS }}
         run: |
           echo "Compiling the code..."
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
@@ -128,8 +166,10 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
+            ${{ inputs.use-sccache && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
+            ${{ inputs.use-sccache && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
-          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ env.BUILD_TARGETS }}
+          cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."
 
       # This is needed to preserve file permissions
@@ -143,6 +183,11 @@ jobs:
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
           ${{ env.SOC_DESCRIPTORS_DIR }}
+
+      - name: Run sccache stat for check
+        if: ${{ inputs.use-sccache }}
+        shell: bash
+        run: ${SCCACHE_PATH} --show-stats
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v7
@@ -158,7 +203,7 @@ jobs:
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
 
     name: Build umd wheel on ${{ inputs.ubuntu-docker-version }}
-    runs-on: tt-ubuntu-2204-large-stable
+    runs-on: ubuntu-22.04
     container:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 

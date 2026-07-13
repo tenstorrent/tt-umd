@@ -22,7 +22,7 @@
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -55,10 +55,19 @@ PcieProtocol::PcieProtocol(std::unique_ptr<PCIDevice> pci_device, bool use_safe_
 
 PcieProtocol::~PcieProtocol() = default;
 
+void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) {
+    hang_check_ = hang_check;
+    // The cached window may already exist if I/O ran before the hang detector was wired; keep it in sync.
+    if (cached_tlb_window_ != nullptr) {
+        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
+    }
+}
+
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
         cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
             pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
     }
     return cached_tlb_window_.get();
 }
@@ -84,6 +93,8 @@ void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t add
 template <bool safe>
 void PcieProtocol::write_to_device_impl(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    // The cached window carries the per-op MMIO timeout veto (built from its configured NOC + the wired
+    // hang check); see SiliconTlbWindow. The reconfigure call sets the NOC before the transfer runs.
     if constexpr (safe) {
         get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
@@ -100,7 +111,31 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
     }
 }
 
-bool PcieProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint64_t, uint32_t, NocId) { return false; }
+void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    std::lock_guard<std::mutex> lock(io_lock_);
+    if (use_safe_api_) {
+        get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    } else {
+        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+    }
+}
+
+bool PcieProtocol::write_to_core_range(
+    const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id) {
+    noc_multicast_write(mem_ptr, size, core_start, core_end, addr, noc_id);
+    return true;
+}
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
 
@@ -113,12 +148,6 @@ void PcieProtocol::noc_multicast_write(
     } else {
         get_cached_tlb_window()->noc_multicast_write_reconfigure(
             src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
-    }
-}
-
-void PcieProtocol::write_regs(volatile uint32_t* dest, const uint32_t* src, uint32_t word_len) {
-    while (word_len-- != 0) {
-        *dest++ = *src++;
     }
 }
 

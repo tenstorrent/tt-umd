@@ -6,7 +6,11 @@
 #include <fmt/ranges.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <filesystem>
 #include <fstream>
+#include <memory>
+#include <optional>
 #include <random>
 #include <string>
 #include <vector>
@@ -17,7 +21,61 @@
 using namespace tt;
 using namespace tt::umd;
 
-namespace test_utils {
+namespace tt::umd::test_utils {
+
+// Returns true if the system has remote (Ethernet-connected) chips, i.e. an N300 board.
+inline bool has_remote_chips() {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        return false;
+    }
+    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids[0]);
+    tt_device->init_tt_device();
+
+    auto board_type = tt_device->get_board_type();
+    return board_type == tt::BoardType::N300;
+}
+
+// Number of host memory channels a test needs to also reach remote chips: 1 when remote chips are
+// present, 0 for local-only configurations.
+inline uint32_t get_num_host_ch_for_test() { return has_remote_chips() ? 1UL : 0UL; }
+
+inline ClusterOptions get_default_sim_cluster_options(
+    const std::filesystem::path& simulator_directory,
+    std::optional<uint32_t> num_host_mem_ch_per_mmio_device = std::nullopt,
+    ClusterOptions options = {}) {
+    options.chip_type = ChipType::SIMULATION;
+    options.target_devices = {0};
+    options.simulator_directory = simulator_directory;
+    if (num_host_mem_ch_per_mmio_device.has_value()) {
+        options.num_host_mem_ch_per_mmio_device = num_host_mem_ch_per_mmio_device;
+    }
+    return options;
+}
+
+// Canonical way to create a Cluster in tests.
+//
+// The ClusterOptions default for num_host_mem_ch_per_mmio_device is std::nullopt, which makes the
+// Cluster auto-determine the number of host memory channels. That value is often larger than 0 and
+// allocating those channels noticeably slows tests down. Tests that don't care about host memory
+// channels should go through this helper, which defaults them when the caller didn't set them:
+//   - needs_sysmem == false (default): 0 channels (fastest).
+//   - needs_sysmem == true: get_num_host_ch_for_test(), i.e. 0 for local-only configs and 1 when
+//     remote chips are present (so the test can reach them).
+// Tests that need a specific number can pass it via `options.num_host_mem_ch_per_mmio_device` and
+// it is honored as-is.
+//
+// If TT_UMD_SIMULATOR is set, the chip type, target devices, and simulator directory are overridden
+// to target the simulator.
+inline std::unique_ptr<Cluster> make_default_test_cluster(ClusterOptions options = {}, bool needs_sysmem = false) {
+    if (!options.num_host_mem_ch_per_mmio_device.has_value()) {
+        options.num_host_mem_ch_per_mmio_device = needs_sysmem ? get_num_host_ch_for_test() : 0UL;
+    }
+    if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
+        options = get_default_sim_cluster_options(sim_path, std::nullopt, std::move(options));
+    }
+    return std::make_unique<Cluster>(options);
+}
 
 template <typename T>
 static inline void size_buffer_to_capacity(std::vector<T>& data_buf, std::size_t size_in_bytes) {
@@ -51,7 +109,9 @@ inline std::string convert_to_comma_separated_string(const std::unordered_set<in
     return fmt::format("{}", fmt::join(devices, ","));
 }
 
-inline bool is_iommu_available() { return Cluster().get_tt_device(0)->get_pci_device()->is_iommu_enabled(); }
+inline bool is_iommu_available() {
+    return make_default_test_cluster()->get_tt_device(0)->get_pci_device()->is_iommu_enabled();
+}
 
 inline bool is_virtual_machine() {
     std::ifstream cpuinfo("/proc/cpuinfo");
@@ -64,4 +124,4 @@ inline bool is_virtual_machine() {
     return false;
 }
 
-}  // namespace test_utils
+}  // namespace tt::umd::test_utils

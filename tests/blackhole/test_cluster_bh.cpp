@@ -39,18 +39,20 @@ static void set_barrier_params(Cluster& cluster) {
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-TEST(SiliconDriverBH, CreateDestroy) {
+TEST(ClusterBH, CreateDestroy) {
     DeviceParams default_params;
     for (int i = 0; i < 50; i++) {
-        Cluster cluster;
+        auto cluster_ptr = test_utils::make_default_test_cluster();
+        Cluster& cluster = *cluster_ptr;
         set_barrier_params(cluster);
         test_utils::safe_test_cluster_start(&cluster);
         cluster.close_device();
     }
 }
 
-TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+TEST(ClusterBH, UnalignedStaticTLB_RW) {
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     // Do this only for a single chip to speed up the test.
@@ -89,8 +91,9 @@ TEST(SiliconDriverBH, UnalignedStaticTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, StaticTLB_RW) {
-    Cluster cluster;
+TEST(ClusterBH, StaticTLB_RW) {
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     // Do this only for a single chip to speed up the test.
@@ -132,10 +135,11 @@ TEST(SiliconDriverBH, StaticTLB_RW) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, DynamicTLB_RW) {
+TEST(ClusterBH, DynamicTLB_RW) {
     // Don't use any static TLBs in this test. All writes go through a dynamic TLB that needs to be reconfigured for
     // each transaction
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
 
     auto chip_id = *cluster.get_target_mmio_device_ids().begin();
@@ -193,10 +197,11 @@ TEST(SiliconDriverBH, DynamicTLB_RW) {
 
 // TODO(#2485): Re-enable. Writes and reads are not synchronized so they can land on the device out of order; broke
 // after PR #2455.
-TEST(SiliconDriverBH, DISABLED_MultiThreadedDevice) {
+TEST(ClusterBH, DISABLED_MultiThreadedDevice) {
     // Have 2 threads read and write from a single device concurrently
     // All transactions go through a single Dynamic TLB. We want to make sure this is thread/process safe.
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
 
     set_barrier_params(cluster);
 
@@ -241,14 +246,15 @@ TEST(SiliconDriverBH, DISABLED_MultiThreadedDevice) {
     cluster.close_device();
 }
 
-TEST(SiliconDriverBH, MultiThreadedMemBar) {
+TEST(ClusterBH, MultiThreadedMemBar) {
     // Have 2 threads read and write from a single device concurrently
     // All (fairly large) transactions go through a static TLB.
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
     uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     for (auto chip_id : cluster.get_target_device_ids()) {
         // Iterate over devices and only setup static TLBs for functional worker cores.
@@ -358,12 +364,13 @@ TEST(SiliconDriverBH, MultiThreadedMemBar) {
 // Assumes single-writer single-process: nothing else on the host or device is writing
 // to this chip while the test runs. Compares the NIU counter delta against a
 // host-side counter, so any concurrent writer invalidates the assertion.
-TEST(SiliconDriverBH, WriteCountMatchesPostedWrites) {
+TEST(ClusterBH, WriteCountMatchesPostedWrites) {
     // NOC register that counts the number of posted write requests received by a core.
     constexpr uint64_t NIU_SLV_POSTED_WR_REQ_RECEIVED = 0xffb202e0;
     constexpr uint32_t kNumWrites = 100000;
 
-    Cluster cluster;
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     test_utils::safe_test_cluster_start(&cluster);
 
@@ -400,7 +407,7 @@ TEST(SiliconDriverBH, WriteCountMatchesPostedWrites) {
 
 // Verifies that all ETH channels are classified as either active/idle.
 TEST(ClusterBH, TotalNumberOfEthCores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const uint32_t num_eth_cores = cluster->get_soc_descriptor(0).get_cores(CoreType::ETH).size();
 
@@ -412,7 +419,7 @@ TEST(ClusterBH, TotalNumberOfEthCores) {
 }
 
 TEST(ClusterBH, PCIECores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (ChipId chip : cluster->get_target_device_ids()) {
         const auto& pcie_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::PCIE);
@@ -428,7 +435,7 @@ TEST(ClusterBH, PCIECores) {
 }
 
 TEST(ClusterBH, L2CPUCores) {
-    std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     for (ChipId chip : cluster->get_target_device_ids()) {
         const auto& l2cpu_cores = cluster->get_soc_descriptor(chip).get_cores(CoreType::L2CPU);
@@ -440,11 +447,12 @@ TEST(ClusterBH, L2CPUCores) {
 }
 
 // Unlike WH, which can support both untranslated and translated coordinate spaces, on BH these spaces are overlapping.
-TEST(SiliconDriverBH, VirtualCoordinateBroadcast) {
+TEST(ClusterBH, VirtualCoordinateBroadcast) {
     // Broadcast multiple vectors to tensix and dram grid. Verify broadcasted data is read back correctly, and that
     // a broadcast targeting one core type does not leak writes to the other.
     // Blackhole has no ERISC firmware broadcast, so this exercises the SW fallback in broadcast_write_to_cluster.
-    Cluster cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    auto cluster_ptr = test_utils::make_default_test_cluster(ClusterOptions{.num_host_mem_ch_per_mmio_device = 1});
+    Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
     auto mmio_devices = cluster.get_target_mmio_device_ids();
 

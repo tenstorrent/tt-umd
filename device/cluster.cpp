@@ -250,7 +250,20 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         return chip;
     } else {
         ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
-        return RemoteChip::create(std::move(tt_device), get_local_chip(gateway_id));
+        LocalChip* gateway_chip = get_local_chip(gateway_id);
+        if (tt_device != nullptr) {
+            if (RemoteCommunication* remote_communication = tt_device->get_remote_communication()) {
+                SysmemManager* sysmem_ptr = gateway_chip->get_sysmem_manager();
+                if (sysmem_ptr != nullptr && sysmem_ptr->get_num_host_mem_channels() == 0) {
+                    sysmem_ptr = nullptr;
+                }
+                // Remote communications created during topology discovery start without one, since sysmem
+                // managers don't exist yet at that point; the owning Cluster wires in the gateway's sysmem manager
+                // afterwards.
+                remote_communication->set_sysmem_manager(sysmem_ptr);
+            }
+        }
+        return RemoteChip::create(std::move(tt_device), gateway_chip);
     }
 }
 
@@ -354,6 +367,30 @@ Cluster::Cluster(ClusterOptions options) {
         case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
             if (options.cluster_descriptor == nullptr) {
+#ifdef TT_UMD_BUILD_SIMULATION
+                // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
+                // topology, mirroring the soc_descriptor.yaml convention. When present, use it; otherwise fall
+                // through to the mock single-chip descriptor below (unchanged behaviour).
+                const bool is_ttsim_build =
+                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+                const std::string cluster_desc_path =
+                    is_ttsim_build
+                        ? SimulationChip::get_cluster_descriptor_path_from_simulator_path(options.simulator_directory)
+                        : "";
+
+                if (is_ttsim_build && std::filesystem::exists(cluster_desc_path)) {
+                    // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
+                    // below are populated from the simulator-provided data instead of a default arch descriptor
+                    // (matches the fallback path's sdesc_path resolution).
+                    if (options.sdesc_path.empty()) {
+                        options.sdesc_path =
+                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    }
+                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                        ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
+                    break;
+                }
+#endif
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;
@@ -576,6 +613,12 @@ std::set<ChipId> Cluster::get_target_mmio_device_ids() { return local_chip_ids_;
 std::set<ChipId> Cluster::get_target_remote_device_ids() { return remote_chip_ids_; }
 
 void Cluster::assert_risc_reset() {
+    // SW-emule cores have no register backing, so the soft-reset register broadcast would
+    // land out of L1; reset is a no-op for emule.
+    if (options_.chip_type == ChipType::SWEMULE) {
+        return;
+    }
+
     // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
     // loop all chips and issues the reset separately.
     if (arch_name == tt::ARCH::QUASAR) {
@@ -591,6 +634,12 @@ void Cluster::assert_risc_reset() {
 }
 
 void Cluster::deassert_risc_reset() {
+    // SW-emule cores have no register backing, so the soft-reset register broadcast would
+    // land out of L1; reset is a no-op for emule.
+    if (options_.chip_type == ChipType::SWEMULE) {
+        return;
+    }
+
     // Workaround for quasar. Broadcast reset is not supported for quasar so we need to
     // loop all chips and issues the reset separately.
     if (arch_name == tt::ARCH::QUASAR) {
@@ -968,13 +1017,13 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     wait_for_non_mmio_flush();
 }
 
-void Cluster::set_power_state(DevicePowerState device_state) {
+void Cluster::set_clock_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
-        chip->set_power_state(device_state);
+        chip->set_clock_state(device_state);
     }
 }
 
-void Cluster::deassert_resets_and_set_power_state() {
+void Cluster::deassert_resets_and_set_clock_state() {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
     assert_risc_reset();
@@ -990,8 +1039,8 @@ void Cluster::deassert_resets_and_set_power_state() {
         }
     }
 
-    // Set power state to busy.
-    set_power_state(DevicePowerState::BUSY);
+    // Set clock state to busy.
+    set_clock_state(DevicePowerState::BUSY);
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
@@ -1002,7 +1051,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
 
-        deassert_resets_and_set_power_state();
+        deassert_resets_and_set_clock_state();
     }
     log_info(LogUMD, "Starting devices in cluster completed.");
 }

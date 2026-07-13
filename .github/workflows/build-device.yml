@@ -104,6 +104,7 @@ jobs:
 
   ensure-riscv-image:
     name: Ensure ubuntu-24.04-riscv Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -587,7 +588,9 @@ jobs:
       - ensure-fedora-39-image
       - ensure-manylinux-image
       - ensure-manylinux-aarch64-image
+      - ensure-riscv-image
       - build
+      - build-riscv-emulated
       - build-manylinux-wheels
       - test-packages
     if: always()

@@ -3,8 +3,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <unistd.h>
 
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <string>
 
 #include "tests/test_utils/fetch_local_files.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
@@ -43,4 +47,36 @@ TEST(SimulationDeviceIdentity, DescribeThenRebuildMatches) {
     EXPECT_EQ(rebuilt.harvesting_masks.eth_harvesting_mask, original.harvesting_masks.eth_harvesting_mask);
     EXPECT_EQ(rebuilt.harvesting_masks.l2cpu_harvesting_mask, original.harvesting_masks.l2cpu_harvesting_mask);
     EXPECT_EQ(rebuilt.harvesting_masks.pcie_harvesting_mask, original.harvesting_masks.pcie_harvesting_mask);
+}
+
+// describe_cluster reads the build's cluster_descriptor.yaml text (dir/cluster_descriptor.yaml for a
+// directory simulator path) so a client can reconstruct the topology.
+TEST(SimulationDeviceIdentity, DescribeClusterReadsYamlWhenPresent) {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("tt-umd-sim-clusterdesc-" + std::to_string(::getpid()));
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    const std::string yaml = "chips:\n  0: [0, 0, 0, 0]\nethernet_connections: []\n";
+    { std::ofstream(dir / "cluster_descriptor.yaml") << yaml; }
+
+    const SimulationServerClusterDescriptor described = describe_cluster(dir);
+    EXPECT_EQ(described.status, 0);
+    EXPECT_EQ(described.yaml, yaml);
+
+    fs::remove_all(dir);
+}
+
+// When the build ships no cluster_descriptor.yaml, describe_cluster returns an empty yaml (status 0),
+// the signal for a client to fall back to a mock descriptor.
+TEST(SimulationDeviceIdentity, DescribeClusterEmptyWhenNoYaml) {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("tt-umd-sim-noclusterdesc-" + std::to_string(::getpid()));
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+
+    const SimulationServerClusterDescriptor described = describe_cluster(dir);
+    EXPECT_EQ(described.status, 0);
+    EXPECT_TRUE(described.yaml.empty());
+
+    fs::remove_all(dir);
 }

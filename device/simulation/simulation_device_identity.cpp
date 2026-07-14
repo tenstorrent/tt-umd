@@ -16,6 +16,7 @@
 #include <sstream>
 #include <vector>
 
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/utils/error.hpp"
@@ -123,6 +124,47 @@ SimulationServerDeviceInfo fetch_device_info_from_host(SimulationClient& client)
         error::RuntimeError,
         fmt::format("Remote simulation host failed to serve device info (status {})", info.status));
     return info;
+}
+
+SimulationServerClusterDescriptor describe_cluster(const std::filesystem::path& simulator_directory) {
+    SimulationServerClusterDescriptor cluster_descriptor;
+    cluster_descriptor.status = 0;
+
+    const std::string yaml_path = SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory);
+    // A simulator build need not ship a cluster_descriptor.yaml; an empty yaml tells the client to
+    // fall back to a mock built from the device info, mirroring the host's own mock fallback.
+    // Distinguish "definitely absent" from "couldn't tell": if exists() itself errors (permission/
+    // IO), surface it rather than silently serving an empty descriptor as if the file were absent.
+    std::error_code ec;
+    const bool yaml_exists = std::filesystem::exists(yaml_path, ec);
+    UMD_ASSERT(
+        !ec,
+        error::RuntimeError,
+        fmt::format("Failed to check for cluster descriptor at {}: {}", yaml_path, ec.message()));
+    if (!yaml_exists) {
+        return cluster_descriptor;
+    }
+
+    std::ifstream in(yaml_path);
+    UMD_ASSERT(in.good(), error::RuntimeError, fmt::format("Failed to open cluster descriptor YAML at {}", yaml_path));
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+    cluster_descriptor.yaml = buffer.str();
+    return cluster_descriptor;
+}
+
+std::string fetch_cluster_descriptor_yaml(SimulationClient& client) {
+    client.attach();  // idempotent; safe if already attached
+    SimulationServerRequest request;
+    request.command = SimulationServerCommand::GetClusterDescriptor;
+    const SimulationServerClusterDescriptor cluster_descriptor =
+        decode_cluster_descriptor(client.transact(encode(request)));
+    UMD_ASSERT(
+        cluster_descriptor.status == 0,
+        error::RuntimeError,
+        fmt::format(
+            "Remote simulation host failed to serve cluster descriptor (status {})", cluster_descriptor.status));
+    return cluster_descriptor.yaml;
 }
 
 }  // namespace tt::umd

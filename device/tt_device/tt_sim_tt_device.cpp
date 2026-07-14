@@ -75,13 +75,17 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
+    ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info) {
     UMD_ASSERT(
         client != nullptr, error::RuntimeError, "Client-mode TTSimTTDevice requires a non-null SimulationClient.");
-    // Source the device identity from the host over the socket -- a client does not read a local
-    // simulator build.
-    const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
-    SocDescriptor soc_descriptor = build_soc_descriptor(info);
+    UMD_ASSERT(
+        device_info.status == 0,
+        error::RuntimeError,
+        fmt::format("Cannot build a client device from failed device info (status {}).", device_info.status));
+    // The connector already fetched the device identity over the socket (it needed the backend type
+    // to pick this class); build the SoC descriptor from it -- a client does not read a local build.
+    SocDescriptor soc_descriptor = build_soc_descriptor(device_info);
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
     return std::unique_ptr<TTSimTTDevice>(new TTSimTTDevice(soc_descriptor, chip_id, std::move(client)));
 }

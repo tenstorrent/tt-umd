@@ -24,14 +24,22 @@ on:
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
       repeat-count:
-        description: 'Repeat each card this many times (flaky-repro). Default 1. cards x count must be <= 256.'
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
         required: false
         default: 1
         type: number
       cards-filter:
-        description: 'Comma-separated card-name substrings to include, e.g. n150,n300,p100a,p150b. Empty = all.'
+        description: 'Cards to run (JSON list of exact names; delete to drop). Empty = all.'
         required: false
-        default: ""
+        default: >-
+          ["tt-ubuntu-2204-n150-stable", "tt-ubuntu-2204-n150-viommu-stable",
+          "tt-ubuntu-2204-n300-stable", "tt-ubuntu-2204-n300-viommu-stable",
+          "tt-ubuntu-2204-n300-llmbox-stable", "tt-ubuntu-2204-n300-llmbox-viommu-stable",
+          "tt-ubuntu-2204-p100a-viommu-stable", "tt-ubuntu-2204-p150b-stable",
+          "tt-ubuntu-2204-p150b-viommu-stable", "6u", "tt-ubuntu-2204-wh-glx-6u-stable",
+          "tt-ubuntu-2204-wh-glx-6u-viommu-stable", "P300-viommu",
+          "tt-ubuntu-2204-bh-loudbox-stable", "tt-ubuntu-2204-bh-loudbox-viommu-stable",
+          "ubuntu-22.04"]
         type: string
   pull_request:
   merge_group:

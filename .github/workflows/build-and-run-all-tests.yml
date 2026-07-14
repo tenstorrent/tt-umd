@@ -41,8 +41,8 @@ on:
         type: string
         default: ""
         description: >-
-          Comma-separated substrings; when set, only test-all cards whose name contains one
-          of them run (e.g. "n150,n300,p100a,p150b"). Empty = all cards.
+          JSON array of exact card names to run (a subset of the cards job list). When set, only
+          those run in test-all. Empty = all cards.
   workflow_dispatch:
     inputs:
       build-type:
@@ -70,14 +70,22 @@ on:
         default: 30
       repeat-count:
         required: false
-        description: 'Repeat each card this many times (flaky-repro). Default 1. cards x count must be <= 256.'
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
         type: number
         default: 1
       cards-filter:
         required: false
-        description: 'Comma-separated card-name substrings to include, e.g. n150,n300,p100a,p150b. Empty = all.'
+        description: 'Cards to run (JSON list of exact names; delete to drop). Empty = all.'
         type: string
-        default: ""
+        default: >-
+          ["tt-ubuntu-2204-n150-stable", "tt-ubuntu-2204-n150-viommu-stable",
+          "tt-ubuntu-2204-n300-stable", "tt-ubuntu-2204-n300-viommu-stable",
+          "tt-ubuntu-2204-n300-llmbox-stable", "tt-ubuntu-2204-n300-llmbox-viommu-stable",
+          "tt-ubuntu-2204-p100a-viommu-stable", "tt-ubuntu-2204-p150b-stable",
+          "tt-ubuntu-2204-p150b-viommu-stable", "6u", "tt-ubuntu-2204-wh-glx-6u-stable",
+          "tt-ubuntu-2204-wh-glx-6u-viommu-stable", "P300-viommu",
+          "tt-ubuntu-2204-bh-loudbox-stable", "tt-ubuntu-2204-bh-loudbox-viommu-stable",
+          "ubuntu-22.04"]
 
 jobs:
   # Define all available cards which will be used for testing.
@@ -185,16 +193,23 @@ jobs:
                   matchP($event; $p[0]) and matchP($buildType; $p[1]) and matchP($c.card; $p[2])
                 )) | not
              )]')
-          # Optional card subset: keep only cards whose name contains one of the comma-separated
-          # substrings in cards-filter (empty = keep all).
+          # Optional card subset: cards-filter is a JSON array of exact card names (a subset of the
+          # cards job). When set, keep only those; empty = keep all.
           if [ -n "$CARDS_FILTER" ]; then
-            FILTERED=$(echo "$FILTERED" | jq -c --arg f "$CARDS_FILTER" \
-              '($f | split(",") | map(select(length > 0))) as $tokens
-               | [ .[] | select(.card as $c | $tokens | any(. as $t | $c | contains($t))) ]')
+            if ! echo "$CARDS_FILTER" | jq empty 2>/dev/null; then
+              echo "::error::cards-filter is not valid JSON (trailing comma?): $CARDS_FILTER"
+              exit 1
+            fi
+            FILTERED=$(echo "$FILTERED" | jq -c --argjson sel "$CARDS_FILTER" \
+              '[ .[] | select(.card | IN($sel[])) ]')
           fi
           # Repeat dimension: each value becomes an independent job. Default 1 = normal single run.
           N="${REPEAT_COUNT:-1}"
           COUNT=$(echo "$FILTERED" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No cards matched cards-filter='$CARDS_FILTER'. Check names against the cards job."
+            exit 1
+          fi
           TOTAL=$((COUNT * N))
           if [ "$TOTAL" -gt 256 ]; then
             MSG="test-all would generate $COUNT cards x $N = $TOTAL jobs, over the 256 matrix cap"
@@ -204,7 +219,7 @@ jobs:
           REPEAT=$(jq -cn --argjson n "$N" '[range(1; $n + 1)]')
           echo "test-groups=$FILTERED" >> $GITHUB_OUTPUT
           echo "repeat=$REPEAT" >> $GITHUB_OUTPUT
-          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT) build-type ($BUILD_TYPE), repeat x$N:"
+          echo "Running $COUNT card(s) x $N repeat = $TOTAL job(s) [trigger=$TRIGGERING_EVENT build=$BUILD_TYPE]:"
           echo "$FILTERED" | jq -r '.[] | "  \(.arch) | \(.card)"'
 
   build-tests:

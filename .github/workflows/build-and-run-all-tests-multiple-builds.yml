@@ -26,8 +26,8 @@ on:
       repeat-count:
         description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
         required: false
-        default: 1
-        type: number
+        default: "1"
+        type: string
       cards-filter:
         description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
         required: false
@@ -113,7 +113,7 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      repeat-count: ${{ inputs.repeat-count || 1 }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
@@ -137,7 +137,7 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      repeat-count: ${{ inputs.repeat-count || 1 }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
@@ -161,7 +161,7 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      repeat-count: ${{ inputs.repeat-count || 1 }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
@@ -184,7 +184,7 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      repeat-count: ${{ inputs.repeat-count || 1 }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
@@ -207,7 +207,7 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      repeat-count: ${{ inputs.repeat-count || 1 }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}

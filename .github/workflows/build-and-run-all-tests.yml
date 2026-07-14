@@ -30,8 +30,8 @@ on:
           per-matrix blacklist. Leave empty for direct workflow_dispatch.
       repeat-count:
         required: false
-        type: number
-        default: 1
+        type: string
+        default: "1"
         description: >-
           Repeat every test-all card this many times, each iteration its own job
           (for flaky-repro or A/B runs). Default 1 = normal single run. cards x repeat-count
@@ -71,8 +71,8 @@ on:
       repeat-count:
         required: false
         description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
-        type: number
-        default: 1
+        type: string
+        default: "1"
       cards-filter:
         required: false
         description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'

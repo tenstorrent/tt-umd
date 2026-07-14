@@ -142,7 +142,7 @@ def main():
     branch = args.branch or current_branch()
     if not branch:
         sys.exit("error: --branch is required (not inside a git repo)")
-    if args.repeat is not None and not args.repeat.isdigit():
+    if args.repeat is not None and (not args.repeat.isdigit() or int(args.repeat) < 1):
         sys.exit("error: --repeat must be a positive integer")
 
     def check_known(kind, values, known):

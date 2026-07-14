@@ -192,11 +192,24 @@ jobs:
               echo "::error::cards-filter is not valid JSON (trailing comma?): $CARDS_FILTER"
               exit 1
             fi
+            if [ "$(echo "$CARDS_FILTER" | jq -r 'type')" != "array" ]; then
+              echo "::error::cards-filter must be a JSON array of card names, e.g. [\"card-a\"]: $CARDS_FILTER"
+              exit 1
+            fi
             FILTERED=$(echo "$FILTERED" | jq -c --argjson sel "$CARDS_FILTER" \
               '[ .[] | select(.card | IN($sel[])) ]')
           fi
           # Repeat dimension: each value becomes an independent job. Default 1 = normal single run.
           N="${REPEAT_COUNT:-1}"
+          # Must be a positive integer: 0 would generate an empty matrix (silently runs nothing)
+          # and a non-integer breaks the arithmetic / jq --argjson below with a cryptic error.
+          case "$N" in
+            ''|*[!0-9]*) echo "::error::repeat-count must be a positive integer, got '$N'"; exit 1 ;;
+          esac
+          if [ "$N" -lt 1 ]; then
+            echo "::error::repeat-count must be >= 1, got '$N'"
+            exit 1
+          fi
           COUNT=$(echo "$FILTERED" | jq 'length')
           if [ "$COUNT" -eq 0 ]; then
             echo "::error::No cards matched cards-filter='$CARDS_FILTER'. Check names against the cards job."

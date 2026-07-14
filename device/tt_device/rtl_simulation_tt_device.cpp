@@ -144,48 +144,13 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
 
     communicator_->initialize();
 
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(/*bar0_base=*/0, architecture_impl_.get());
-
-    // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
-    // all I/O underneath. The 4GB size for Quasar is a dummy value — it just needs to be large
-    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
-    // division by zero in RtlSimTlbHandle::configure).
-    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
-    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
-    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    switch (arch) {
-        case tt::ARCH::BLACKHOLE:
-            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
-            break;
-        case tt::ARCH::WORMHOLE_B0:
-            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
-            break;
-        case tt::ARCH::QUASAR:
-            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
-            break;
-        default:
-            log_debug(
-                LogUMD,
-                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
-                tt::arch_to_str(arch));
-            break;
-    }
+    init_tlb_allocator(/*bar0_base=*/0);
+    setup_cached_tlb_window();
 }
 
-std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    if (client_) {
-        // Client mode runs no backend, so tlb_allocator_/communicator_ are never constructed. Fail
-        // loudly instead of dereferencing them; client-mode device I/O is not available yet.
-        UMD_THROW(error::RuntimeError, "Client-mode RtlSimulationTTDevice does not support TLB windows yet.");
-    }
-    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
-    if (tlb_index == -1) {
-        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
-    }
-    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested
-    // size through, since get_tlb_size_from_index has no pool to look up for the bypass index.
-    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
-    auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, actual_size, mapping);
+std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
+    int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
+    auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, size, mapping);
     return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
@@ -203,57 +168,41 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     }
 }
 
-void RtlSimulationTTDevice::write_to_device(
-    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    if (client_) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
-            "read/write).");
-    }
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
-    log_debug(
-        tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, translated_core.str());
-
-    NocId selected_noc_id = get_selected_noc_id();
-    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
-
-    if (selected_noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-        return;
-    }
-
-    if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, selected_noc_id);
-    } else {
-        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-    }
+void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    if (client_) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
-            "read/write).");
-    }
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+}
 
-    NocId selected_noc_id = get_selected_noc_id();
-    validate_noc_for_arch(selected_noc_id, get_soc_descriptor().arch);
+bool RtlSimulationTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    return smn_read(mem_ptr, core, addr, size);
+}
 
-    if (selected_noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-        return;
-    }
+bool RtlSimulationTTDevice::handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    return smn_write(mem_ptr, core, addr, size);
+}
 
-    if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, selected_noc_id);
-    } else {
-        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
+bool RtlSimulationTTDevice::smn_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        return true;
     }
+    return false;
+}
+
+bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return true;
+    }
+    return false;
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {

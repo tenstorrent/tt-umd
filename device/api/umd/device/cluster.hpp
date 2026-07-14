@@ -301,10 +301,10 @@ public:
     void close_device();
 
     /**
-     * Explicitly set the power state of the device.
+     * Explicitly set the clock state of the device.
      * Note that start/close the device already do this implicitly.
      */
-    void set_power_state(DevicePowerState state);
+    void set_clock_state(DevicePowerState state);
 
     /**
      * Broadcast deassert BRISC soft Tensix Reset to the entire device.
@@ -706,7 +706,7 @@ private:
     // Helper functions
     // Broadcast.
     void broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value);
-    void deassert_resets_and_set_power_state();
+    void deassert_resets_and_set_clock_state();
 
     // Test functions.
     void log_device_summary();

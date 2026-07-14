@@ -79,6 +79,9 @@ public:
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
 
+    std::pair<CoreCoord, CoreCoord> get_bounding_rectangle(
+        CoordSystem coord_system = CoordSystem::TRANSLATED, CoreType core_type = CoreType::TENSIX) const;
+
     std::vector<std::vector<CoreCoord>> get_dram_cores() const;
 
     int get_num_dram_channels() const;

@@ -52,11 +52,8 @@ std::vector<ClusterOptions> get_cluster_options_for_param_test() {
     constexpr const char* TT_UMD_SIMULATOR_ENV = "TT_UMD_SIMULATOR";
     std::vector<ClusterOptions> options;
     options.push_back(ClusterOptions{.chip_type = ChipType::SILICON});
-    if (std::getenv(TT_UMD_SIMULATOR_ENV)) {
-        options.push_back(ClusterOptions{
-            .chip_type = ChipType::SIMULATION,
-            .target_devices = {0},
-            .simulator_directory = std::filesystem::path(std::getenv(TT_UMD_SIMULATOR_ENV))});
+    if (const char* sim_path = std::getenv(TT_UMD_SIMULATOR_ENV)) {
+        options.push_back(test_utils::get_default_sim_cluster_options(sim_path));
     }
     return options;
 }
@@ -577,7 +574,9 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
         ASSERT_NE(sysmem, nullptr);
 
         if (is_simulation_test()) {
-            for (size_t i = 0; i < ONE_GIG; i++) {
+            // The simulation path only exercises offset 0x0. Fill just one (first) page for that case.
+            constexpr size_t SIM_FILL_SIZE = 0x1000;
+            for (size_t i = 0; i < SIM_FILL_SIZE; i++) {
                 sysmem[i] = i % 256;
             }
         } else {

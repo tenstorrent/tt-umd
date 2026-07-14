@@ -87,12 +87,27 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
-
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
 
+protected:
+    std::unique_ptr<TlbWindow> create_tlb_window(
+        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
+    void tile_read_bytes(tt_xy_pair core, uint64_t addr, void *mem_ptr, size_t size) override;
+    void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void *mem_ptr, size_t size) override;
+    bool is_device_closed() override;
+    bool handle_special_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool handle_special_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
+    void after_read() override;
+
 private:
+    // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
+    // coordinate; returns true when the access was serviced against the backend DRAM model. These
+    // back handle_special_read/write and can grow to dispatch additional special cases later.
+    bool special_dram_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    bool special_dram_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+
     // Client-mode constructor: this device does not own a simulator (.so); it forwards device
     // operations to a remote host through client. Reached only via create_client(), which
     // validates the arguments before construction.

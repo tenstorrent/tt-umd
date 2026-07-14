@@ -42,21 +42,19 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
     uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
     uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);
     uint32_t arcclk = firmware_info_provider->get_arcclk().value_or(0);
-    uint32_t fs = firmware_info_provider->get_fan_speed().value_or(0);
     uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
     uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
     uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
 
     return fmt::format(
         "Chip ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
-        "Fan {} rpm, TDP {} W, TDC {} A, VCORE {} mV",
+        "TDP {} W, TDC {} A, VCORE {} mV",
         chip_id,
         asic_temperature,
         board_temperature,
         aiclk,
         axiclk,
         arcclk,
-        fs,
         tdp,
         tdc,
         vcore);

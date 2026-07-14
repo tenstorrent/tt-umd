@@ -98,7 +98,7 @@ jobs:
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
 
-      - name: Build UMD api_tests with simulation support
+      - name: Build UMD api_tests and microbenchmark with simulation support
         run: |
           cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
             -S tt-metal/tt_metal/third_party/umd \
@@ -110,7 +110,7 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=OFF \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests
+          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
@@ -168,6 +168,68 @@ jobs:
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
+      - name: Install microbenchmark python deps
+        run: |
+          python3 -m ensurepip --upgrade
+          python3 -m pip install --no-cache-dir pandas psutil
+
+      - name: Run UMD simulator microbenchmarks (wormhole)
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_bench_sim_wh
+        run: |
+          mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
+            --gtest_filter='MicrobenchmarkSim*'
+          python3 tt-metal/tt_metal/third_party/umd/tests/microbenchmark/tools/gather_host_specs.py \
+            --board-type sim-wh --json --output "$UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec"
+
+      - name: Upload wormhole simulator benchmark JSON
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-json-sim-wh
+          path: /tmp/umd_bench_sim_wh/*.json
+          if-no-files-found: error
+
+      - name: Run UMD simulator microbenchmarks (blackhole)
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_bench_sim_bh
+        run: |
+          mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
+            --gtest_filter='MicrobenchmarkSim*'
+          python3 tt-metal/tt_metal/third_party/umd/tests/microbenchmark/tools/gather_host_specs.py \
+            --board-type sim-bh --json --output "$UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec"
+
+      - name: Upload blackhole simulator benchmark JSON
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-json-sim-bh
+          path: /tmp/umd_bench_sim_bh/*.json
+          if-no-files-found: error
+
+      - name: Run UMD simulator microbenchmarks (quasar)
+        timeout-minutes: 2
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+          UMD_MICROBENCHMARK_RESULTS_PATH: /tmp/umd_bench_sim_qsr
+        run: |
+          mkdir -p "$UMD_MICROBENCHMARK_RESULTS_PATH"
+          tt-metal/tt_metal/third_party/umd/build/test/umd/microbenchmark/umd_microbenchmark \
+            --gtest_filter='MicrobenchmarkSim*'
+          python3 tt-metal/tt_metal/third_party/umd/tests/microbenchmark/tools/gather_host_specs.py \
+            --board-type sim-qsr --json --output "$UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec"
+
+      - name: Upload quasar simulator benchmark JSON
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-json-sim-qsr
+          path: /tmp/umd_bench_sim_qsr/*.json
+          if-no-files-found: error
+
       # Galaxy tests can be a bit longer, should run on the order of minutes.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         timeout-minutes: 5
@@ -198,3 +260,15 @@ jobs:
           echo "Running C++ unit tests for blackhole..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+
+  # Compare the simulator microbenchmark results against the per-arch baselines in
+  # tests/microbenchmark/baselines/sim-*.yaml.
+  regression-check:
+    secrets: inherit
+    needs: build-and-run-ttsim
+    if: ${{ needs.build-and-run-ttsim.result == 'success' }}
+    permissions:
+      contents: read
+      packages: read
+      actions: read
+    uses: ./.github/workflows/regression-check.yml

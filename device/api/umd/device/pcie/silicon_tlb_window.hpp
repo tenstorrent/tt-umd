@@ -88,7 +88,7 @@ public:
     // Wires the per-op MMIO timeout: on a single-op overrun hang_check is consulted for the window's
     // currently configured NOC. Returning true means that NOC is hung (the transfer aborts with
     // DeviceTimeoutError); false means it is healthy (a slow-but-completing op is not a false positive).
-    // When empty (the default), an overrun aborts outright.
+    // When empty (the default), overruns are treated as false alarms and never abort on time alone.
     void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) override;
 
     // Reconfigures the window and refreshes the cached timeout callback, since the NOC may have changed.
@@ -100,8 +100,9 @@ private:
     // Rebuilds io_timeout_callback_ (an OpTimeoutGuard is_false_alarm callback) for the window's currently
     // configured NOC: true means "healthy, false positive" so the overrun is ignored, false confirms it.
     // The NOC is read from the live TLB config, so this must be called whenever the config or hang check
-    // changes (construction, configure(), set_io_timeout_hang_check()). Leaves an empty callback when no
-    // hang check is wired, which makes an overrun abort.
+    // changes (construction, configure(), set_io_timeout_hang_check()). When no hang check is wired it
+    // installs a callback that always reports a false alarm, so a bare per-op timeout never aborts on
+    // time alone (avoids false-positive NOC hangs; see #2981).
     void update_io_timeout_callback();
 
     // Custom device memcpy. This is only safe for memory-like regions on the device (Tensix L1, DRAM, ARC CSM).

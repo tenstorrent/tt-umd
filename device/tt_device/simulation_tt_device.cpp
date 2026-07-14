@@ -30,7 +30,8 @@ SimulationTTDevice::~SimulationTTDevice() = default;
 
 void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
 
-void SimulationTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void SimulationTTDevice::write_to_device(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
     // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
     UMD_ASSERT(
@@ -50,7 +51,7 @@ void SimulationTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, ui
     }
 }
 
-void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
     // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
     UMD_ASSERT(
@@ -125,11 +126,11 @@ bool SimulationTTDevice::get_noc_translation_enabled() {
 }
 
 void SimulationTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
-void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
+void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported for simulation devices.");
 }
 
@@ -150,7 +151,7 @@ void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t
 }
 
 void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 

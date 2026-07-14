@@ -487,25 +487,25 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
     device_protocol_->read_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
     device_protocol_->write_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
-void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
     device_protocol_->read_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
-void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
     device_protocol_->write_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
@@ -692,7 +692,7 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
     bool multicast_success =
         device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
@@ -763,12 +763,13 @@ void TTDevice::noc_multicast_write(
 }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    noc_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    noc_multicast_write(
+        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
 }
 
 void TTDevice::multicast_write_via_unicast(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     // No hardware multicast on simulation backends; fall back to per-core unicast.
     // TODO: investigate proper multicast support for simulations so we can remove this workaround.
     for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
@@ -782,7 +783,7 @@ void TTDevice::multicast_write_via_unicast(
     }
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
@@ -801,11 +802,11 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     write_to_device(src, core, addr, size);
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr) {
+void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     dma_write_to_device(src, size, resolve_coordinate(core), addr);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
@@ -824,11 +825,12 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
     read_from_device(dst, core, addr, size);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr) {
+void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     dma_read_from_device(dst, size, resolve_coordinate(core), addr);
 }
 
-void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+void TTDevice::dma_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
@@ -848,7 +850,8 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void TTDevice::dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void TTDevice::dma_multicast_write(
+    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
 }
 

@@ -28,6 +28,15 @@ on:
         description: >-
           github.event_name from the top-level workflow. Used to evaluate the
           per-matrix blacklist. Leave empty for direct workflow_dispatch.
+      build-exalens-kernels:
+        required: false
+        type: boolean
+        default: true
+        description: >-
+          When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
+          tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
+          one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
+          pass false, since the artifact name is shared per run and would otherwise collide.
   workflow_dispatch:
     inputs:
       build-type:
@@ -183,6 +192,14 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
+  # Build the tt-exalens kernels + source artifact consumed by run-exalens-tests. Skipped when a
+  # caller already built it once and passed build-exalens-kernels: false (see the multiple-builds
+  # workflow); on a standalone run this defaults to true so the artifact always exists.
+  build-exalens-kernels:
+    if: inputs.build-exalens-kernels
+    secrets: inherit
+    uses: ./.github/workflows/build-exalens-kernels.yml
+
   test-all:
     secrets: inherit
     needs: [build-tests, generate-test-matrix]
@@ -243,7 +260,12 @@ jobs:
 
   run-exalens-tests:
     secrets: inherit
-    needs: build-tests
+    # needs build-tests for the UMD wheel, and build-exalens-kernels for ordering (the artifact
+    # must be uploaded before the tests download it). When build-exalens-kernels is skipped
+    # (a caller built it once and provided it), always() lets this run anyway; it still requires
+    # build-tests to have succeeded for the wheel.
+    needs: [build-tests, build-exalens-kernels]
+    if: always() && needs.build-tests.result == 'success'
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:

@@ -133,6 +133,50 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     EXPECT_EQ(readback, pattern2);
 }
 
+// The host serves its full device identity over the socket; a client reads it back and it matches
+// the host's live SoC descriptor field for field (serialization/deserialization through the socket).
+// Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
+    {
+        auto probe = SimulationServerSocket::try_create(socket);
+        if (probe == nullptr) {
+            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
+        }
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    auto devices = SimulationConnector::discover(options);
+    ASSERT_EQ(devices.size(), 1u);
+    TTDevice* host = devices.at(0).get();
+    ASSERT_NE(host, nullptr);
+    const SocDescriptor& soc = host->get_soc_descriptor();
+
+    SimulationClient client(socket);
+    client.attach();
+    SimulationServerRequest info_request;
+    info_request.command = SimulationServerCommand::GetDeviceInfo;
+    const SimulationServerDeviceInfo info = decode_device_info(client.transact(encode(info_request)));
+
+    EXPECT_EQ(info.status, 0);
+    EXPECT_EQ(info.arch, static_cast<int32_t>(soc.arch));
+    const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
+    EXPECT_EQ(info.backend_type, is_ttsim ? SimulationBackendType::TTSim : SimulationBackendType::Rtl);
+    EXPECT_FALSE(info.soc_descriptor_yaml.empty());
+    EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
+    EXPECT_EQ(info.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);
+    EXPECT_EQ(info.dram_harvesting_mask, soc.harvesting_masks.dram_harvesting_mask);
+    EXPECT_EQ(info.eth_harvesting_mask, soc.harvesting_masks.eth_harvesting_mask);
+    EXPECT_EQ(info.l2cpu_harvesting_mask, soc.harvesting_masks.l2cpu_harvesting_mask);
+    EXPECT_EQ(info.pcie_harvesting_mask, soc.harvesting_masks.pcie_harvesting_mask);
+}
+
 // End to end through the client device: a second open() against a live host yields a client-mode
 // device whose read_from_device/write_to_device marshal over the socket. What the client writes
 // the host sees, and what the host writes the client reads back. Requires TT_UMD_SIMULATOR.

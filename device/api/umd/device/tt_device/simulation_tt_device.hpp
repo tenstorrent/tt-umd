@@ -14,6 +14,7 @@
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -111,6 +112,10 @@ protected:
     // read_from_device/write_to_device translate the CoreCoord once (via
     // translate_chip_coord_to_translated) before dispatching, so the `core` handed to every hook
     // below is already a TRANSLATED coordinate -- do not translate it again.
+
+    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
+    // remote client can build the matching device class.
+    virtual SimulationBackendType backend_type() const = 0;
 
     // Direct tile (NOC unicast) access through the backend communicator.
     virtual void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) = 0;

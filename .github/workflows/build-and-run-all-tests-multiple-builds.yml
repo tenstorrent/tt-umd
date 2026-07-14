@@ -29,17 +29,9 @@ on:
         default: 1
         type: number
       cards-filter:
-        description: 'Cards to run (JSON list of exact names; delete to drop). Empty = all.'
+        description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
         required: false
-        default: >-
-          ["tt-ubuntu-2204-n150-stable", "tt-ubuntu-2204-n150-viommu-stable",
-          "tt-ubuntu-2204-n300-stable", "tt-ubuntu-2204-n300-viommu-stable",
-          "tt-ubuntu-2204-n300-llmbox-stable", "tt-ubuntu-2204-n300-llmbox-viommu-stable",
-          "tt-ubuntu-2204-p100a-viommu-stable", "tt-ubuntu-2204-p150b-stable",
-          "tt-ubuntu-2204-p150b-viommu-stable", "6u", "tt-ubuntu-2204-wh-glx-6u-stable",
-          "tt-ubuntu-2204-wh-glx-6u-viommu-stable", "P300-viommu",
-          "tt-ubuntu-2204-bh-loudbox-stable", "tt-ubuntu-2204-bh-loudbox-viommu-stable",
-          "ubuntu-22.04"]
+        default: ""
         type: string
   pull_request:
   merge_group:

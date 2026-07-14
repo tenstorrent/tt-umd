@@ -57,10 +57,12 @@ public:
         int num_host_mem_channels = 0,
         bool copy_sim_binary = false);
 
-    // Builds a client-mode device that attaches to a live host and sources its SoC descriptor from
-    // the host over the socket (see the .cpp); discovery uses this when a host already owns the
-    // socket.
-    static std::unique_ptr<TTSimTTDevice> create_client(ChipId chip_id, std::unique_ptr<SimulationClient> client);
+    // Builds a client-mode device from device identity the connector already fetched over the
+    // socket (build_soc_descriptor(device_info)); discovery uses this for a client that talks to a
+    // live host. The connector owns the single GET_DEVICE_INFO fetch (it needs the backend kind to
+    // pick this class), so it passes the result in rather than having this re-fetch it.
+    static std::unique_ptr<TTSimTTDevice> create_client(
+        ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo &device_info);
 
     // Configure this chip's outbound iATU (NOC->host) the silicon way: iATU register writes via BAR2.
     // The simulator decodes these into its iATU model and honors them at DMA egress, so the chip's DMA

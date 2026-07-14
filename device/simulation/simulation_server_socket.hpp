@@ -7,7 +7,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -72,6 +74,18 @@ public:
     // <temp_dir>/tt-umd-sim-<chip_id>.sock, under the system temp directory. No uid in the
     // name: one shared socket per chip that any user may attach to.
     static std::filesystem::path default_socket_path(ChipId chip_id = 0);
+
+    // Inverse of default_socket_path()'s naming: pulls the chip id out of a socket file *name*
+    // (tt-umd-sim-<chip_id>.sock). Returns nullopt when the name doesn't match the convention, so a
+    // client enumerating a directory can pick out exactly the per-chip simulation sockets.
+    static std::optional<ChipId> chip_id_from_socket_path(const std::filesystem::path& socket_path);
+
+    // The per-chip simulation sockets present in a directory: {chip_id -> socket file}, keyed and
+    // ordered by chip id. Only AF_UNIX sockets whose names match the default_socket_path()
+    // convention are included; everything else in the directory is ignored. Empty if the path is
+    // not a directory or holds no such sockets. This is how a client turns a socket directory into
+    // the set of hosts to attach to.
+    static std::map<ChipId, std::filesystem::path> sockets_in_directory(const std::filesystem::path& directory);
 
 private:
     // Non-throwing; only initializes members. Binding happens in bind_and_listen(), driven by

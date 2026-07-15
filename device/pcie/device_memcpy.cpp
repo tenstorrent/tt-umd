@@ -5,6 +5,7 @@
 #include "device_memcpy.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -57,6 +58,10 @@ struct MemcpyOpTiming {
 // thread.
 thread_local std::vector<MemcpyOpTiming> g_memcpy_op_timings;
 
+// Reused across calls on the same thread so dump() reallocates at most once (after warmup) instead of
+// building a fresh string every call. Same non-nesting safety argument as g_memcpy_op_timings.
+thread_local std::string g_memcpy_dump_buffer;
+
 // RAII per-call timing recorder. Clears the thread-local buffer on construction, appends one entry per
 // instrumented op via record(), and dumps the aggregate summary on destruction. Dumping from the
 // destructor means a transfer that aborts via a timeout throw still reports its ops, including the
@@ -102,30 +107,37 @@ private:
         const std::size_t count = g_memcpy_op_timings.size();
         const std::int64_t mean_ns = count == 0 ? 0 : total_ns / static_cast<std::int64_t>(count);
 
-        std::string out;
+        // Build into the reused thread-local buffer with std::to_chars.
+        std::string& out = g_memcpy_dump_buffer;
+        out.clear();
         out.reserve(96 + count * 12);
+        char num[24];
+        auto append_int = [&out, &num](auto value) {
+            const auto result = std::to_chars(num, num + sizeof(num), value);
+            out.append(num, result.ptr - num);
+        };
         out += '[';
         out += fn_name_;
         out += "] size=";
-        out += std::to_string(total_size_);
+        append_int(total_size_);
         out += " ops=";
-        out += std::to_string(count);
+        append_int(count);
         out += " min=";
-        out += std::to_string(min_ns);
+        append_int(min_ns);
         out += "ns max=";
-        out += std::to_string(max_ns);
+        append_int(max_ns);
         out += "ns mean=";
-        out += std::to_string(mean_ns);
+        append_int(mean_ns);
         out += "ns total=";
-        out += std::to_string(total_ns);
+        append_int(total_ns);
         out += "ns ops_ns:bytes=";
         for (std::size_t i = 0; i < count; ++i) {
             if (i != 0) {
                 out += ',';
             }
-            out += std::to_string(g_memcpy_op_timings[i].ns);
+            append_int(g_memcpy_op_timings[i].ns);
             out += ':';
-            out += std::to_string(g_memcpy_op_timings[i].bytes);
+            append_int(g_memcpy_op_timings[i].bytes);
         }
         out += '\n';
         std::fwrite(out.data(), 1, out.size(), stderr);

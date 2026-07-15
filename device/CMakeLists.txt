@@ -4,36 +4,41 @@ set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
 
 if(TT_UMD_BUILD_SIMULATION)
-    set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs)
-    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
-    set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    set(FBS_FILES
+        ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs
+        ${PROJECT_SOURCE_DIR}/device/simulation/simulation_server_protocol.fbs
+    )
     set(FBS_DEPENDS "")
     if(TARGET flatc)
         set(FBS_DEPENDS flatc)
     endif()
-    add_custom_command(
-        OUTPUT
-            ${FBS_GENERATED_HEADER}
-        COMMAND
-            flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
-        DEPENDS
-            ${FBS_DEPENDS}
-            ${FBS_FILE}
-        COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
-        VERBATIM
-    )
+    set(FBS_GENERATED_HEADERS "")
+    foreach(FBS_FILE ${FBS_FILES})
+        get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
+        set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+        add_custom_command(
+            OUTPUT
+                ${FBS_GENERATED_HEADER}
+            COMMAND
+                flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
+            DEPENDS
+                ${FBS_DEPENDS}
+                ${FBS_FILE}
+            COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+            VERBATIM
+        )
+        list(APPEND FBS_GENERATED_HEADERS ${FBS_GENERATED_HEADER})
+    endforeach()
 
-    # Add FlatBuffers header to the code analysis target
-    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    # Add FlatBuffers headers to the code analysis target
+    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADERS})
     add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
 
 if(TT_UMD_BUILD_STATIC)
     add_library(tt-umd STATIC)
-    message(STATUS "Building tt-umd library as STATIC")
 else()
     add_library(tt-umd SHARED)
-    message(STATUS "Building tt-umd library as SHARED")
 endif()
 add_library(${PROJECT_NAME}::tt-umd ALIAS tt-umd)
 
@@ -96,6 +101,7 @@ target_sources(
         tt_device/tt_device_error.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/hang_detector_implementation.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
         tt_device/hang_detection/blackhole_hang_detector.cpp
         tt_device/protocol/pcie_protocol.cpp
@@ -126,6 +132,7 @@ target_sources(
         types/xy_pair.cpp
         utils/lock_manager.cpp
         utils/robust_mutex.cpp
+        utils/kmd_mutex.cpp
         topology/topology_discovery.cpp
         topology/topology_discovery_blackhole.cpp
         topology/topology_discovery_wormhole.cpp
@@ -141,6 +148,7 @@ target_sources(
         # so always built. This lets its unit tests run in the no-card baremetal CI lane
         # (TT_UMD_BUILD_SIMULATION=OFF).
         simulation/simulation_server_socket.cpp
+        simulation/simulation_client.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -149,9 +157,11 @@ if(TT_UMD_BUILD_SIMULATION)
         PRIVATE
             simulation/simulation_chip.cpp
             simulation/simulation_connector.cpp
+            simulation/simulation_server_protocol.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
+            tt_device/simulation_tt_device.cpp
             tt_device/rtl_simulation_tt_device.cpp
             tt_device/tt_sim_tt_device.cpp
             chip_helpers/simulation_tlb_allocator.cpp
@@ -160,7 +170,7 @@ if(TT_UMD_BUILD_SIMULATION)
             pcie/tt_sim_tlb_handle.cpp
             pcie/rtl_sim_tlb_window.cpp
             pcie/rtl_sim_tlb_handle.cpp
-            ${FBS_GENERATED_HEADER}
+            ${FBS_GENERATED_HEADERS}
     )
     target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
@@ -220,12 +230,14 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
                 api/umd/device/utils/robust_mutex.hpp
+                api/umd/device/utils/kmd_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp
                 api/umd/device/types/core_coordinates.hpp
                 api/umd/device/tt_device/blackhole_tt_device.hpp
                 api/umd/device/tt_device/tt_device.hpp
                 api/umd/device/tt_device/tt_device_error.hpp
                 api/umd/device/tt_device/wormhole_tt_device.hpp
+                api/umd/device/tt_device/simulation_tt_device.hpp
                 api/umd/device/tt_device/rtl_simulation_tt_device.hpp
                 api/umd/device/tt_device/tt_sim_tt_device.hpp
                 api/umd/device/tt_device/simulation_device_factory.hpp
@@ -240,6 +252,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
                 api/umd/device/tt_device/hang_detection/hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/hang_detector_implementation.hpp
                 api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp
@@ -252,6 +265,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/simulation_connector.hpp
+                api/umd/device/simulation/simulation_client.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp
@@ -266,6 +280,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/common.hpp
                 api/umd/device/utils/error_detail.hpp
                 api/umd/device/utils/error.hpp
+                api/umd/device/utils/mmio_timeout_config.hpp
+                api/umd/device/utils/op_timeout_guard.hpp
                 api/umd/device/utils/timeouts.hpp
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
@@ -340,8 +356,7 @@ endif()
 
 if(TT_UMD_ENABLE_TRACY)
     target_link_libraries(tt-umd PRIVATE TracyClient)
-    target_compile_definitions(tt-umd PUBLIC TRACY_ENABLE)
-    message(STATUS "Tracy profiling enabled for tt-umd library")
+    target_compile_definitions(tt-umd PRIVATE TRACY_ENABLE)
 endif()
 
 # Install functionality requires CMake 3.23+ for FILE_SET support

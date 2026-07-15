@@ -32,6 +32,7 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
@@ -230,6 +231,27 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
+void BlackholeTTDevice::set_clock_state(DevicePowerState state) {
+    ZoneScoped;
+    int exit_code = 0;
+    switch (state) {
+        case DevicePowerState::BUSY:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            break;
+        case DevicePowerState::LONG_IDLE:
+        case DevicePowerState::SHORT_IDLE:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            break;
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
+    }
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
+    wait_for_aiclk_value(state);
+}
+
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
@@ -332,27 +354,14 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     }
 }
 
-void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
-    // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
-    //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
-    //   Translation enabled:  hardware broadcast is avoided; use a software multicast with
-    //                         wraparound coordinates that differ per NOC:
-    //                           NOC0: start=(2,3), end=(1,2)
-    //                           NOC1: start=(1,2), end=(2,3).
-    xy_pair start_coord;
-    xy_pair end_coord;
+void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
         get_chip_info().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for BH devices without NOC translation enabled.");
-    if (is_selected_noc1()) {
-        start_coord = xy_pair{1, 2};
-        end_coord = xy_pair{2, 3};
-    } else {
-        start_coord = xy_pair{2, 3};
-        end_coord = xy_pair{1, 2};
-    }
-    noc_multicast_write(src, size, start_coord, end_coord, addr);
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr);
 }
 
 void BlackholeTTDevice::set_arc_coordinate() {

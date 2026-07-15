@@ -18,13 +18,13 @@ set(API_TESTS_SRCS
     test_arc_telemetry.cpp
     test_firmware_info_provider.cpp
     test_warm_reset.cpp
-    test_hang_detection.cpp
     test_tt_visible_devices.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
     list(APPEND API_TESTS_SRCS test_ttsim_device_io.cpp)
     list(APPEND API_TESTS_SRCS test_simulation_connector.cpp)
+    list(APPEND API_TESTS_SRCS test_simulation_server_protocol.cpp)
 endif()
 
 add_executable(api_tests ${API_TESTS_SRCS})

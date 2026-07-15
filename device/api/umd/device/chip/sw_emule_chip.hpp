@@ -62,13 +62,12 @@ public:
     void noc_multicast_write(
         const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
-    // Barriers, resets, power — no-ops.
+    // Barriers and resets — no-ops.
     void wait_for_non_mmio_flush() override;
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
     void deassert_risc_resets() override;
-    void set_power_state(DevicePowerState state) override;
     int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,

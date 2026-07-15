@@ -38,6 +38,9 @@ class SocDescriptor;
 class SimulationChip : public Chip {
 public:
     static std::string get_soc_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
+    // An optional cluster_descriptor.yaml beside the simulator describes a (possibly multichip) topology.
+    // Returns the path where it would live; the file is not required to exist.
+    static std::string get_cluster_descriptor_path_from_simulator_path(const std::filesystem::path& simulator_path);
 
     static std::unique_ptr<SimulationChip> create(
         const std::filesystem::path& simulator_directory,
@@ -85,7 +88,6 @@ public:
 
     void deassert_risc_resets() override;
 
-    void set_power_state(DevicePowerState state) override;
     int get_clock() override;
     int get_numa_node() override;
 

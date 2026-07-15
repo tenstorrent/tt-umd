@@ -41,4 +41,11 @@ inline constexpr SemVer KMD_TLBS = SemVer(1, 34, 0);
  * while application connections remain active.
  */
 inline constexpr SemVer KMD_POWER_STATE = SemVer(2, 6, 0);
+
+/**
+ * KMD version 1.26.0 introduced the TENSTORRENT_IOCTL_LOCK_CTL IOCTL, a generic per-device resource
+ * locking primitive (acquire/release/test of one of TENSTORRENT_RESOURCE_LOCK_COUNT named locks).
+ * KmdMutex requires at least this version.
+ */
+inline constexpr SemVer KMD_RESOURCE_LOCKS = SemVer(1, 26, 0);
 }  // namespace tt::umd

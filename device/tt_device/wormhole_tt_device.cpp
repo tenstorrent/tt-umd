@@ -111,6 +111,38 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
+uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
+    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
+    switch (state) {
+        case BUSY: {
+            msg |= get_architecture_implementation()->get_arc_message_arc_go_busy();
+            break;
+        }
+        case LONG_IDLE: {
+            msg |= get_architecture_implementation()->get_arc_message_arc_go_long_idle();
+            break;
+        }
+        case SHORT_IDLE: {
+            msg |= get_architecture_implementation()->get_arc_message_arc_go_short_idle();
+            break;
+        }
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
+    }
+    return msg;
+}
+
+void WormholeTTDevice::set_clock_state(DevicePowerState state) {
+    ZoneScoped;
+    uint32_t msg = get_power_state_arc_msg(state);
+    int exit_code = get_arc_messenger()->send_message(msg, {0, 0});
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
+    wait_for_aiclk_value(state);
+}
+
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;
@@ -416,12 +448,14 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
 }
 
-void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
+void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     // Same range is used for NOC0 and NOC1.
     // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
 
-    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr);
 }
 
 void WormholeTTDevice::set_arc_coordinate() {

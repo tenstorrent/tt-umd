@@ -31,6 +31,8 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
+    void set_clock_state(DevicePowerState state) override;
+
     bool get_noc_translation_enabled() override;
 
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -49,7 +51,7 @@ public:
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
 
     using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void *src, size_t size, uint64_t addr) override;
+    void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     ~WormholeTTDevice() override = default;
 
@@ -71,6 +73,9 @@ protected:
     void set_arc_coordinate() override;
 
 private:
+    // Builds the ARC message (with the common prefix) that requests the given clock state.
+    uint32_t get_power_state_arc_msg(DevicePowerState state);
+
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,
         IODeviceType device_type,
@@ -79,5 +84,9 @@ private:
     friend std::unique_ptr<TTDevice> TTDevice::create(
         std::unique_ptr<RemoteCommunication> remote_communication,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+#ifdef TT_UMD_BUILD_SIMULATION
+    friend std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+#endif  // TT_UMD_BUILD_SIMULATION
 };
 }  // namespace tt::umd

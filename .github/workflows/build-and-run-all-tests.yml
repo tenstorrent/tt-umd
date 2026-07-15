@@ -31,7 +31,7 @@ on:
       build-exalens-kernels:
         required: false
         type: boolean
-        default: true
+        default: false
         description: >-
           When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
           tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
@@ -77,6 +77,15 @@ on:
         description: 'The timeout for the test run in minutes'
         type: number
         default: 30
+      build-exalens-kernels:
+        required: false
+        type: boolean
+        default: true
+        description: >-
+          When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
+          tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
+          one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
+          pass false, since the artifact name is shared per run and would otherwise collide.
       repeat-count:
         required: false
         description: 'Times to repeat each card. Default 1 (cards x count <= 256).'

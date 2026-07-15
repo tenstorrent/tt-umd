@@ -126,9 +126,6 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      # Kernels are built once by the build-exalens-kernels job above and shared across all
-      # build-types; building them here too would collide on the artifact name.
-      build-exalens-kernels: false
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
@@ -153,9 +150,6 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      # Kernels are built once by the build-exalens-kernels job above and shared across all
-      # build-types; building them here too would collide on the artifact name.
-      build-exalens-kernels: false
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
@@ -180,9 +174,6 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      # Kernels are built once by the build-exalens-kernels job above and shared across all
-      # build-types; building them here too would collide on the artifact name.
-      build-exalens-kernels: false
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
@@ -208,7 +199,6 @@ jobs:
       triggering-event: ${{ github.event_name }}
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
-      build-exalens-kernels: false
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
@@ -232,9 +222,6 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
-      # Kernels are built once by the build-exalens-kernels job above and shared across all
-      # build-types; building them here too would collide on the artifact name.
-      build-exalens-kernels: false
       repeat-count: ${{ inputs.repeat-count || '1' }}
       cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |

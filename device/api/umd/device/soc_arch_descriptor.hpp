@@ -47,8 +47,11 @@ public:
     SocArchDescriptor(const std::string& soc_descriptor_path);
 
     // Populates the descriptor with the topology data selected at construction (architecture
-    // constants or the YAML file) and rebuilds the derived data. Called by the constructors;
-    // exposed as a virtual hook so future TTDeviceModel compositions can override population.
+    // constants or the YAML file) and rebuilds the derived data. The constructors invoke it
+    // non-virtually (virtual dispatch does not reach derived overrides during base construction),
+    // so it always runs this class' population. It is virtual to reserve an override point for
+    // future TTDeviceModel compositions, which would invoke init() explicitly on a fully
+    // constructed object rather than rely on the base constructor.
     virtual void init();
 
     // Helpers for extracting info from a YAML descriptor file without fully constructing.

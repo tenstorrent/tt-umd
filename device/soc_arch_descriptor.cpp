@@ -24,12 +24,14 @@ namespace tt::umd {
 
 SocArchDescriptor::SocArchDescriptor(tt::ARCH arch_enum) {
     arch_ = arch_enum;
-    init();
+    // Explicit non-virtual call: dispatch during construction always resolves to this class, and
+    // qualifying makes that intent clear (see the init() declaration).
+    SocArchDescriptor::init();
 }
 
 SocArchDescriptor::SocArchDescriptor(const std::string& soc_descriptor_path) {
     device_descriptor_file_path_ = soc_descriptor_path;
-    init();
+    SocArchDescriptor::init();
 }
 
 void SocArchDescriptor::init() {
@@ -39,7 +41,7 @@ void SocArchDescriptor::init() {
         std::ifstream soc_descriptor_file(device_descriptor_file_path_);
         if (soc_descriptor_file.fail()) {
             UMD_THROW(
-                error::RuntimeError, "SocDescriptor file does not exist at path: " + device_descriptor_file_path_);
+                error::RuntimeError, "SoC descriptor file does not exist at path: " + device_descriptor_file_path_);
         }
         soc_descriptor_file.close();
         YAML::Node device_descriptor_yaml = YAML::LoadFile(device_descriptor_file_path_);
@@ -50,7 +52,6 @@ void SocArchDescriptor::init() {
 
     switch (arch_) {
         case tt::ARCH::WORMHOLE_B0:
-            arch_ = tt::ARCH::WORMHOLE_B0;
             grid_size_ = wormhole::GRID_SIZE;
             tensix_cores_ = wormhole::TENSIX_CORES_NOC0;
             dram_cores_ = wormhole::DRAM_CORES_NOC0;
@@ -67,7 +68,6 @@ void SocArchDescriptor::init() {
             noc0_y_to_noc1_y_ = wormhole::NOC0_Y_TO_NOC1_Y;
             break;
         case tt::ARCH::BLACKHOLE:
-            arch_ = tt::ARCH::BLACKHOLE;
             grid_size_ = blackhole::GRID_SIZE;
             tensix_cores_ = blackhole::TENSIX_CORES_NOC0;
             dram_cores_ = blackhole::DRAM_CORES_NOC0;
@@ -84,7 +84,6 @@ void SocArchDescriptor::init() {
             noc0_y_to_noc1_y_ = blackhole::NOC0_Y_TO_NOC1_Y;
             break;
         case tt::ARCH::QUASAR:
-            arch_ = tt::ARCH::QUASAR;
             grid_size_ = grendel::GRID_SIZE;
             tensix_cores_ = grendel::TENSIX_CORES_NOC0;
             dram_cores_ = grendel::DRAM_CORES_NOC0;

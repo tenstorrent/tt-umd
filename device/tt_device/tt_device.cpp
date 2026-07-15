@@ -739,17 +739,16 @@ void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, 
 
 void TTDevice::multicast_write_via_unicast(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    const SocDescriptor &soc_descriptor = get_soc_descriptor();
-
-    // Compute the enclosing rectangle in the TRANSLATED coordinate space.
-    CoreCoord translated_start = soc_descriptor.translate_coord_to(core_start, CoordSystem::TRANSLATED);
-    CoreCoord translated_end = soc_descriptor.translate_coord_to(core_end, CoordSystem::TRANSLATED);
+    CoreCoord translated_start = resolve_coordinate(core_start);
+    CoreCoord translated_end = resolve_coordinate(core_end);
     size_t x_min = std::min(translated_start.x, translated_end.x);
     size_t x_max = std::max(translated_start.x, translated_end.x);
     size_t y_min = std::min(translated_start.y, translated_end.y);
     size_t y_max = std::max(translated_start.y, translated_end.y);
 
     // Iterate over all non-harvested tensix cores and unicast to those falling inside the rectangle.
+    // We use the TRANSLATED coord space as NOC multicast is not available without NOC translation.
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
     for (const CoreCoord &core : soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
         if (core.x >= x_min && core.x <= x_max && core.y >= y_min && core.y <= y_max) {
             write_to_device(src, core, addr, size, noc_id);

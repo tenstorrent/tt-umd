@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -39,6 +40,16 @@ public:
 
     // Takes ownership of the serving socket that exposes this device (created by discovery).
     void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
+
+    // Opt into remote shutdown: a client's SHUTDOWN request will invoke this callback (see
+    // handle_request). A dedicated server (e.g. the sim_server tool) sets it to signal its main
+    // thread to exit and tear this device down; a host that never sets one acks SHUTDOWN as a no-op,
+    // so a simulation embedded in another program can't be torn down by a stray client.
+    //
+    // The callback runs on a serving thread and MUST be non-blocking -- it must only signal (set a
+    // flag / notify a condition variable / write a self-pipe). Tearing down from within it would
+    // join the serving threads from one of those threads and deadlock.
+    void set_shutdown_handler(std::function<void()> handler);
 
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
     void read_from_device(
@@ -152,6 +163,13 @@ protected:
     // the client-mode counterpart of the shared lifecycle; a follow-up wires read_from_device /
     // write_to_device to dispatch through it. Null in host/local mode.
     std::unique_ptr<SimulationClient> client_;
+
+    // Optional handler invoked when a client sends SHUTDOWN (see set_shutdown_handler). Empty by
+    // default -> SHUTDOWN is a no-op ack. Set on the owning thread and read on serving threads, so
+    // access is guarded by shutdown_handler_mutex_ (the handler is copied under the lock and invoked
+    // outside it).
+    std::function<void()> shutdown_handler_;
+    std::mutex shutdown_handler_mutex_;
 
 private:
     // Serves one socket request against this host device: decodes the wire request, runs it

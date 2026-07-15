@@ -24,6 +24,7 @@ enum SimulationServerCommand : byte {
     WRITE = 1,
     GET_DEVICE_INFO = 2,
     GET_CLUSTER_DESCRIPTOR = 3,
+    SHUTDOWN = 4,
 }
 
 // Which simulator the host runs; served in the device identity so a client can build the matching

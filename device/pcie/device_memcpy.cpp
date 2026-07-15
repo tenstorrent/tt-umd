@@ -4,10 +4,15 @@
 
 #include "device_memcpy.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <string>
+#include <vector>
 
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -38,6 +43,97 @@ auto make_mmio_timeout_guard(
             UMD_THROW(error::DeviceTimeoutError, op_verb, op_bytes, delta, budget, bytes_remaining, total_bytes);
         });
 }
+
+// Opt-in per-op MMIO timing instrumentation, toggled by TT_UMD_MEMCPY_TIMING.
+const bool MEMCPY_TIMING_ENABLED = std::getenv("TT_UMD_MEMCPY_TIMING") != nullptr;
+
+struct MemcpyOpTiming {
+    std::int64_t ns;
+    std::uint32_t bytes;
+};
+
+// Reused across calls on the same thread so steady-state recording never allocates. A single shared
+// buffer is safe because the two instrumented entry points (memcpy_to_device / memcpy_from_device) never nest on one
+// thread.
+thread_local std::vector<MemcpyOpTiming> g_memcpy_op_timings;
+
+// RAII per-call timing recorder. Clears the thread-local buffer on construction, appends one entry per
+// instrumented op via record(), and dumps the aggregate summary on destruction. Dumping from the
+// destructor means a transfer that aborts via a timeout throw still reports its ops, including the
+// stalling one.
+class MemcpyTimingRecorder {
+public:
+    MemcpyTimingRecorder(const char* fn_name, std::size_t total_size) : fn_name_(fn_name), total_size_(total_size) {
+        if (MEMCPY_TIMING_ENABLED) {
+            g_memcpy_op_timings.clear();
+        }
+    }
+
+    MemcpyTimingRecorder(const MemcpyTimingRecorder&) = delete;
+    MemcpyTimingRecorder& operator=(const MemcpyTimingRecorder&) = delete;
+
+    ~MemcpyTimingRecorder() {
+        if (MEMCPY_TIMING_ENABLED) {
+            dump();
+        }
+    }
+
+    void record(std::chrono::steady_clock::time_point start, std::uint32_t bytes) {
+        if (!MEMCPY_TIMING_ENABLED) {
+            return;
+        }
+        const auto delta =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start);
+        g_memcpy_op_timings.push_back({delta.count(), bytes});
+    }
+
+private:
+    // Emits one line to stderr: function name, total size, op count, min/max/mean/total ns, and the full
+    // per-op ns:bytes list in recording order.
+    void dump() const {
+        std::int64_t total_ns = 0;
+        std::int64_t min_ns = g_memcpy_op_timings.empty() ? 0 : g_memcpy_op_timings.front().ns;
+        std::int64_t max_ns = 0;
+        for (const auto& op : g_memcpy_op_timings) {
+            total_ns += op.ns;
+            min_ns = std::min(min_ns, op.ns);
+            max_ns = std::max(max_ns, op.ns);
+        }
+        const std::size_t count = g_memcpy_op_timings.size();
+        const std::int64_t mean_ns = count == 0 ? 0 : total_ns / static_cast<std::int64_t>(count);
+
+        std::string out;
+        out.reserve(96 + count * 12);
+        out += '[';
+        out += fn_name_;
+        out += "] size=";
+        out += std::to_string(total_size_);
+        out += " ops=";
+        out += std::to_string(count);
+        out += " min=";
+        out += std::to_string(min_ns);
+        out += "ns max=";
+        out += std::to_string(max_ns);
+        out += "ns mean=";
+        out += std::to_string(mean_ns);
+        out += "ns total=";
+        out += std::to_string(total_ns);
+        out += "ns ops_ns:bytes=";
+        for (std::size_t i = 0; i < count; ++i) {
+            if (i != 0) {
+                out += ',';
+            }
+            out += std::to_string(g_memcpy_op_timings[i].ns);
+            out += ':';
+            out += std::to_string(g_memcpy_op_timings[i].bytes);
+        }
+        out += '\n';
+        std::fwrite(out.data(), 1, out.size(), stderr);
+    }
+
+    const char* fn_name_;
+    std::size_t total_size_;
+};
 
 }  // namespace
 
@@ -87,12 +183,14 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     auto* s = static_cast<const std::uint8_t*>(src);
 
     auto timer = make_mmio_timeout_guard("store", original_size, size, on_timeout);
+    MemcpyTimingRecorder timing("memcpy_to_device", original_size);
 
     // Phase 0: Align device destination to 4 bytes using byte-wide volatile stores.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(d) % 4) != 0) {
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timing.record(t, 1);
         timer.record_and_check(t, 1);
     }
 
@@ -132,6 +230,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 160), v5);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 192), v6);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd + 224), v7);
+        timing.record(t, 256);
         timer.record_and_check(t, 256);
 
         d_simd += 256;
@@ -144,6 +243,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s));
         auto t = std::chrono::steady_clock::now();
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d_simd), v);
+        timing.record(t, 32);
         timer.record_and_check(t, 32);
         d_simd += 32;
         s += 32;
@@ -155,6 +255,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s));
         auto t = std::chrono::steady_clock::now();
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d_simd), v);
+        timing.record(t, 16);
         timer.record_and_check(t, 16);
         d_simd += 16;
         s += 16;
@@ -255,6 +356,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         std::memcpy(&tmp, s, sizeof(tmp));
         auto t = std::chrono::steady_clock::now();
         *reinterpret_cast<volatile std::uint32_t*>(d) = tmp;
+        timing.record(t, 4);
         timer.record_and_check(t, 4);
         d += 4;
         s += 4;
@@ -266,6 +368,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timing.record(t, 1);
         timer.record_and_check(t, 1);
     }
 }
@@ -277,12 +380,14 @@ void memcpy_from_device(
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
     auto timer = make_mmio_timeout_guard("load", original_size, size, on_timeout);
+    MemcpyTimingRecorder timing("memcpy_from_device", original_size);
 
     // Phase 0: Align device source to 4 bytes using byte-wide volatile loads.
     while (size > 0 && (reinterpret_cast<std::uintptr_t>(s) % 4) != 0) {
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timing.record(t, 1);
         timer.record_and_check(t, 1);
     }
 
@@ -310,6 +415,7 @@ void memcpy_from_device(
         __m256i v5 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 160));
         __m256i v6 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 192));
         __m256i v7 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd + 224));
+        timing.record(t, 256);
         timer.record_and_check(t, 256);
 
         // Stores go to host memory (d) — no TLB access, not instrumented.
@@ -331,6 +437,7 @@ void memcpy_from_device(
     while (size >= 32) {
         auto t = std::chrono::steady_clock::now();
         __m256i v = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(s_simd));
+        timing.record(t, 32);
         timer.record_and_check(t, 32);
         _mm256_storeu_si256(reinterpret_cast<__m256i*>(d), v);
         d += 32;
@@ -342,6 +449,7 @@ void memcpy_from_device(
     if (size >= 16) {
         auto t = std::chrono::steady_clock::now();
         __m128i v = _mm_loadu_si128(reinterpret_cast<const __m128i*>(s_simd));
+        timing.record(t, 16);
         timer.record_and_check(t, 16);
         _mm_storeu_si128(reinterpret_cast<__m128i*>(d), v);
         d += 16;
@@ -413,6 +521,7 @@ void memcpy_from_device(
     while (size >= 4) {
         auto t = std::chrono::steady_clock::now();
         std::uint32_t tmp = *reinterpret_cast<const volatile std::uint32_t*>(s);
+        timing.record(t, 4);
         timer.record_and_check(t, 4);
         std::memcpy(d, &tmp, sizeof(tmp));
         d += 4;
@@ -425,6 +534,7 @@ void memcpy_from_device(
         auto t = std::chrono::steady_clock::now();
         *d++ = *s++;
         size--;
+        timing.record(t, 1);
         timer.record_and_check(t, 1);
     }
 }

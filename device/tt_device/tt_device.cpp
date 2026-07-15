@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -693,21 +694,23 @@ tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    UMD_ASSERT(
+        get_chip_info().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
     xy_pair translated_start = resolve_coordinate(core_start);
     xy_pair translated_end = resolve_coordinate(core_end);
     bool multicast_success =
         device_protocol_->write_to_core_range(src, translated_start, translated_end, addr, size, get_selected_noc_id());
 
-    log_debug(
+    log_trace(
         LogUMD,
-        "Multicast on {} chip write to cores ({}, {}) - ({}, {}) {}",
+        "Multicast on {} chip write to cores {} - {} {}",
         is_remote_tt_device ? "remote" : "local",
-        translated_start.x,
-        translated_start.y,
-        translated_end.x,
-        translated_end.y,
-        multicast_success ? "succeeded" : "fell back to unicast");
+        translated_start.str(),
+        translated_end.str(),
+        multicast_success ? "succeeded" : "failed, running unicast fallback.");
 
     // We need to flush the writes in case of remote communication.
     if (multicast_success && is_remote_tt_device) {
@@ -736,7 +739,22 @@ void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, 
 
 void TTDevice::multicast_write_via_unicast(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    // TODO REWRITE
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
+
+    // Compute the enclosing rectangle in the TRANSLATED coordinate space.
+    CoreCoord translated_start = soc_descriptor.translate_coord_to(core_start, CoordSystem::TRANSLATED);
+    CoreCoord translated_end = soc_descriptor.translate_coord_to(core_end, CoordSystem::TRANSLATED);
+    size_t x_min = std::min(translated_start.x, translated_end.x);
+    size_t x_max = std::max(translated_start.x, translated_end.x);
+    size_t y_min = std::min(translated_start.y, translated_end.y);
+    size_t y_max = std::max(translated_start.y, translated_end.y);
+
+    // Iterate over all non-harvested tensix cores and unicast to those falling inside the rectangle.
+    for (const CoreCoord &core : soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        if (core.x >= x_min && core.x <= x_max && core.y >= y_min && core.y <= y_max) {
+            write_to_device(src, core, addr, size, noc_id);
+        }
+    }
 }
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {

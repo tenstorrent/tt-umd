@@ -182,7 +182,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     if (is_remote_tt_device) {
-        read_from_device(
+        read_from_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -205,7 +205,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     if (is_remote_tt_device) {
-        write_to_device(
+        write_to_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -304,7 +304,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
 
 EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
     uint32_t retrain_status;
-    read_from_device(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
+    read_from_device_reg(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
     // If core is in retrain state, then training status is not valid as the training is ongoing.
     // If the core is put in retrain state, we have to wait for the retrain state to clear before making sense out of
     // the training status.
@@ -313,14 +313,14 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth
         return EthTrainingStatus::IN_PROGRESS;
     }
     uint32_t training_status;
-    read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
+    read_from_device_reg(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
     log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
 
     if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
         // Training can fail due to various reasons, but what we mostly care about is to detect whether this is
         // unconnected eth link or if the training truly failed on a connected eth link.
         uint32_t link_err_status;
-        read_from_device(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
+        read_from_device_reg(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
         log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
         if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
             return EthTrainingStatus::NOT_CONNECTED;

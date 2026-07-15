@@ -25,3 +25,7 @@ set_target_properties(
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/test/umd/microbenchmark
 )
+
+# Host-side one-off benchmarks (e.g. locking backends) live in their own subdirectory with a
+# dedicated CMakeLists, separate from the regular device microbenchmarks above.
+add_subdirectory(host_benchmark)

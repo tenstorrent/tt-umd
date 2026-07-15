@@ -11,8 +11,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <functional>
 #include <string>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "umd/device/utils/error.hpp"
@@ -77,19 +79,34 @@ public:
     MemcpyTimingRecorder(const MemcpyTimingRecorder&) = delete;
     MemcpyTimingRecorder& operator=(const MemcpyTimingRecorder&) = delete;
 
-    ~MemcpyTimingRecorder() {
-        if (MEMCPY_TIMING_ENABLED) {
+    ~MemcpyTimingRecorder() noexcept {
+        if (!MEMCPY_TIMING_ENABLED) {
+            return;
+        }
+
+        try {
             dump();
+        } catch (const std::exception& e) {
+            log_warning(LogUMD, "MemcpyTimingRecorder::dump() failed, timing summary dropped: {}", e.what());
+        } catch (...) {
+            log_warning(LogUMD, "MemcpyTimingRecorder::dump() failed, timing summary dropped");
         }
     }
 
-    void record(std::chrono::steady_clock::time_point start, std::uint32_t bytes) {
+    void record(std::chrono::steady_clock::time_point start, std::uint32_t bytes) noexcept {
         if (!MEMCPY_TIMING_ENABLED) {
             return;
         }
         const auto delta =
             std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start);
-        g_memcpy_op_timings.push_back({delta.count(), bytes});
+        try {
+            g_memcpy_op_timings.push_back({delta.count(), bytes});
+        } catch (...) {
+            if (!record_warn_emitted_) {
+                record_warn_emitted_ = true;
+                log_warning(LogUMD, "MemcpyTimingRecorder::record() dropped op timing on allocation failure");
+            }
+        }
     }
 
 private:
@@ -145,6 +162,7 @@ private:
 
     const char* fn_name_;
     std::size_t total_size_;
+    bool record_warn_emitted_ = false;
 };
 
 }  // namespace

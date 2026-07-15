@@ -354,16 +354,6 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     }
 }
 
-void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for BH devices without NOC translation enabled.");
-    auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    noc_multicast_write(src, size, start, end, addr);
-}
-
 void BlackholeTTDevice::set_arc_coordinate() {
     arc_core_noc0 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/false);
     arc_core_noc1 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/true);

@@ -448,16 +448,6 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
 }
 
-void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    // Same range is used for NOC0 and NOC1.
-    // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
-    // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
-
-    auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    noc_multicast_write(src, size, start, end, addr);
-}
-
 void WormholeTTDevice::set_arc_coordinate() {
     arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
     arc_core_noc1 = tt_xy_pair(

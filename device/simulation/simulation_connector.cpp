@@ -88,6 +88,12 @@ SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::p
     return classify(simulator_directory) == PathKind::Client ? Role::Client : Role::Host;
 }
 
+std::map<ChipId, std::filesystem::path> SimulationConnector::list_servers() {
+    // Per-chip sockets live directly under the system temp dir (see default_socket_path); scanning
+    // it yields every open server without connecting to any.
+    return SimulationServerSocket::sockets_in_directory(std::filesystem::temp_directory_path());
+}
+
 std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     const std::filesystem::path& simulator_path = options.simulator_directory;

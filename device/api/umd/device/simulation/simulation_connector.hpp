@@ -40,6 +40,11 @@ public:
     static Role role_for(const std::filesystem::path& simulator_directory);
 
     static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationConnectorOptions& options);
+
+    // The simulation servers currently open on this machine: {chip_id -> socket path}, discovered by
+    // scanning the well-known per-chip socket directory (the same paths a client attaches to). Does
+    // not connect to them. Exposed for management tooling (list / kill) without opening devices.
+    static std::map<ChipId, std::filesystem::path> list_servers();
 };
 
 }  // namespace tt::umd

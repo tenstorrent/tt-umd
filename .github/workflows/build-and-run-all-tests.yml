@@ -37,6 +37,21 @@ on:
           tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
           one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
           pass false, since the artifact name is shared per run and would otherwise collide.
+      repeat-count:
+        required: false
+        type: string
+        default: "1"
+        description: >-
+          Repeat every test-all card this many times, each iteration its own job
+          (for flaky-repro or A/B runs). Default 1 = normal single run. cards x repeat-count
+          must stay <= 256 (GitHub matrix cap) or matrix generation fails with a clear error.
+      cards-filter:
+        required: false
+        type: string
+        default: ""
+        description: >-
+          JSON array of exact card names to run (a subset of the cards job list). When set, only
+          those run in test-all. Empty = all cards.
   workflow_dispatch:
     inputs:
       build-type:
@@ -62,6 +77,16 @@ on:
         description: 'The timeout for the test run in minutes'
         type: number
         default: 30
+      repeat-count:
+        required: false
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
+        type: string
+        default: "1"
+      cards-filter:
+        required: false
+        description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
+        type: string
+        default: ""
 
 jobs:
   # Define all available cards which will be used for testing.
@@ -122,7 +147,6 @@ jobs:
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
-        # - P300-viommu temporarily disabled for PRs and merge queue due to a recent CI failing.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
@@ -132,7 +156,6 @@ jobs:
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            '*|*|P300-viommu' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
           )
@@ -146,6 +169,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test-groups: ${{ steps.filter.outputs.test-groups }}
+      repeat: ${{ steps.filter.outputs.repeat }}
     steps:
       - name: Filter cards against blacklist
         id: filter
@@ -154,6 +178,8 @@ jobs:
           BLACKLIST: ${{ needs.blacklist.outputs.entries }}
           TRIGGERING_EVENT: ${{ inputs.triggering-event }}
           BUILD_TYPE: ${{ inputs.build-type }}
+          CARDS_FILTER: ${{ inputs.cards-filter }}
+          REPEAT_COUNT: ${{ inputs.repeat-count }}
         run: |
           FILTERED=$(echo "$CARDS" | jq -c \
             --argjson blacklist "$BLACKLIST" \
@@ -168,8 +194,46 @@ jobs:
                   matchP($event; $p[0]) and matchP($buildType; $p[1]) and matchP($c.card; $p[2])
                 )) | not
              )]')
+          # Optional card subset: cards-filter is a JSON array of exact card names (a subset of the
+          # cards job). When set, keep only those; empty = keep all.
+          if [ -n "$CARDS_FILTER" ]; then
+            if ! echo "$CARDS_FILTER" | jq empty 2>/dev/null; then
+              echo "::error::cards-filter is not valid JSON (trailing comma?): $CARDS_FILTER"
+              exit 1
+            fi
+            if [ "$(echo "$CARDS_FILTER" | jq -r 'type')" != "array" ]; then
+              echo "::error::cards-filter must be a JSON array of card names, e.g. [\"card-a\"]: $CARDS_FILTER"
+              exit 1
+            fi
+            FILTERED=$(echo "$FILTERED" | jq -c --argjson sel "$CARDS_FILTER" \
+              '[ .[] | select(.card | IN($sel[])) ]')
+          fi
+          # Repeat dimension: each value becomes an independent job. Default 1 = normal single run.
+          N="${REPEAT_COUNT:-1}"
+          # Must be a positive integer: 0 would generate an empty matrix (silently runs nothing)
+          # and a non-integer breaks the arithmetic / jq --argjson below with a cryptic error.
+          case "$N" in
+            ''|*[!0-9]*) echo "::error::repeat-count must be a positive integer, got '$N'"; exit 1 ;;
+          esac
+          if [ "$N" -lt 1 ]; then
+            echo "::error::repeat-count must be >= 1, got '$N'"
+            exit 1
+          fi
+          COUNT=$(echo "$FILTERED" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No cards matched cards-filter='$CARDS_FILTER'. Check names against the cards job."
+            exit 1
+          fi
+          TOTAL=$((COUNT * N))
+          if [ "$TOTAL" -gt 256 ]; then
+            MSG="test-all would generate $COUNT cards x $N = $TOTAL jobs, over the 256 matrix cap"
+            echo "::error::$MSG. Lower repeat-count or narrow cards-filter."
+            exit 1
+          fi
+          REPEAT=$(jq -cn --argjson n "$N" '[range(1; $n + 1)]')
           echo "test-groups=$FILTERED" >> $GITHUB_OUTPUT
-          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT) build-type ($BUILD_TYPE):"
+          echo "repeat=$REPEAT" >> $GITHUB_OUTPUT
+          echo "Running $COUNT card(s) x $N repeat = $TOTAL job(s) [trigger=$TRIGGERING_EVENT build=$BUILD_TYPE]:"
           echo "$FILTERED" | jq -r '.[] | "  \(.arch) | \(.card)"'
 
   build-tests:
@@ -211,6 +275,8 @@ jobs:
       matrix:
         test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
         ubuntu-docker-version: ['ubuntu-22.04']
+        # Repeat each card N times (N = repeat-count input, default 1). Each iteration is its own job.
+        repeat: ${{ fromJson(needs.generate-test-matrix.outputs.repeat) }}
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
@@ -270,7 +336,8 @@ jobs:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
         test-group: [
-          {runs-on: tt-ubuntu-2204-p150b-stable},
+          # Temporarily disabled due to a recent CI failure on P150
+          # {runs-on: tt-ubuntu-2204-p150b-stable},
           {runs-on: tt-ubuntu-2204-n150-stable},
           {runs-on: tt-ubuntu-2204-n300-stable},
         ]

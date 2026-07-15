@@ -14,6 +14,7 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -37,6 +38,11 @@ public:
     void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
 
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
+    void read_from_device(
+        void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void write_to_device(
+        const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     void dma_d2h(void* dst, uint32_t src, size_t size) override;
     void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) override;
     void dma_h2d(uint32_t dst, const void* src, size_t size) override;
@@ -49,12 +55,22 @@ public:
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
     void dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        void* src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void noc_multicast_write(
-        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
+        const void* src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
     using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void* src, size_t size, uint64_t addr) override;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
@@ -82,6 +98,32 @@ protected:
     // Construct the backend-specific TlbHandle + TlbWindow for an already-allocated TLB index.
     virtual std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) = 0;
+
+    // --- read/write_from_device hooks ---
+    //
+    // read_from_device/write_to_device translate the CoreCoord once (via
+    // translate_chip_coord_to_translated) before dispatching, so the `core` handed to every hook
+    // below is already a TRANSLATED coordinate -- do not translate it again.
+
+    // Direct tile (NOC unicast) access through the backend communicator.
+    virtual void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) = 0;
+    virtual void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) = 0;
+
+    virtual bool is_device_closed() { return false; }
+
+    // Backend-specific fast paths handled entirely outside the cached-TLB / tile path. Return true if
+    // the access was fully handled (and nothing further should run).
+    virtual bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) { return false; }
+
+    virtual bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+        return false;
+    }
+
+    // Whether read/write should route through cached_tlb_window_.
+    virtual bool should_use_cached_tlb_window() { return cached_tlb_window_ != nullptr; }
+
+    // Post-read clocking hook.
+    virtual void after_read() {}
 
     std::recursive_mutex device_lock;
     std::filesystem::path simulator_directory_;

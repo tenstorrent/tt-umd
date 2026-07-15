@@ -201,11 +201,15 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void read_from_device(
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void write_to_device(
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void read_from_device_reg(
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void write_to_device_reg(
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -219,9 +223,19 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
     virtual void noc_multicast_write(
-        const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to all TENSIX cores in the grid.
@@ -230,7 +244,8 @@ public:
      * @param size number of bytes
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr) = 0;
+    virtual void noc_multicast_write(
+        const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -466,11 +481,14 @@ public:
     virtual std::unique_ptr<TlbWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
-    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
-    void dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr);
+    virtual void dma_write_to_device(
+        const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+    void dma_write_to_device(
+        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
-    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr);
+    virtual void dma_read_from_device(
+        void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -485,8 +503,20 @@ public:
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    void dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void dma_multicast_write(
+        void *src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
+    void dma_multicast_write(
+        void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Read the training status of the given ETH core.
@@ -528,7 +558,12 @@ protected:
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
     void multicast_write_via_unicast(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
     // returns on timeout.

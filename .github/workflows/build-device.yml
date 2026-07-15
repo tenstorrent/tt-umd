@@ -102,6 +102,16 @@ jobs:
     with:
       docker-version: manylinux-aarch64
 
+  ensure-riscv-image:
+    name: Ensure ubuntu-24.04-riscv Docker image
+    needs: pr-gate
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-riscv
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
@@ -329,6 +339,63 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
+  build-riscv-emulated:
+    # Emulated riscv64 build. A riscv64 image can't be used as a job `container:`
+    # on an x86 runner (GitHub pulls it as linux/amd64 and fails), so this runs on
+    # a plain x86 runner, registers QEMU/binfmt, and builds inside the image via
+    # `docker run --platform linux/riscv64`. Build-only.
+    #
+    # We deliberately chose emulation over x86 cross-compilation. Cross-compiling
+    # is faster (~3min vs ~12min here) but needs toolchain files, tool-specific
+    # cmake plumbing, and can't run the resulting artifacts. Emulation keeps the
+    # build "native" (plain apt + cmake) and ports trivially to real riscv64
+    # hardware once available. If the emulation cost ever becomes a problem, the
+    # cross-compile path is the faster alternative.
+    timeout-minutes: 60
+    needs: ensure-riscv-image
+    permissions:
+      packages: read
+    name: Build device (release flags) on ubuntu-24.04-riscv with gcc
+    runs-on: tt-ubuntu-2204-large-stable
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ${{ env.TT_UMD_DIR }}
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build All
+        shell: bash
+        run: |
+          IMAGE_TAG="${{ needs.ensure-riscv-image.outputs.image-tag }}"
+          IMAGE="harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv:${IMAGE_TAG}"
+          echo "Building inside $IMAGE under QEMU (linux/riscv64)..."
+          # Release flags (tests off -> no gtest), executed natively inside the
+          # emulated riscv64 image. clang-tidy is intentionally left off: its
+          # findings are architecture-independent and already covered by the
+          # native x86 builds, and running it under QEMU would be far slower for
+          # no added coverage.
+          docker run --rm --platform linux/riscv64 \
+            -v "$GITHUB_WORKSPACE/${{ env.TT_UMD_DIR }}:/work" -w /work \
+            "$IMAGE" \
+            bash -c '
+              set -euo pipefail
+              git config --global --add safe.directory /work
+              cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+                -DTT_UMD_BUILD_TESTS=OFF \
+                -DTT_UMD_BUILD_SIMULATION=OFF \
+                -DTT_UMD_BUILD_PIP=OFF \
+                -DTT_UMD_BUILD_PYTHON=ON \
+                -DTT_UMD_BUILD_EXAMPLES=OFF \
+                -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+                -DCMAKE_BUILD_TYPE=Release
+              cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+              echo "Compile complete."
+            '
+
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
@@ -521,7 +588,9 @@ jobs:
       - ensure-fedora-39-image
       - ensure-manylinux-image
       - ensure-manylinux-aarch64-image
+      - ensure-riscv-image
       - build
+      - build-riscv-emulated
       - build-manylinux-wheels
       - test-packages
     if: always()

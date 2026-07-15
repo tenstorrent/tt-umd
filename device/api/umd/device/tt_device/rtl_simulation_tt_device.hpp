@@ -49,9 +49,6 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
         const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
 
-    void read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-    void write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
@@ -65,8 +62,18 @@ public:
 protected:
     std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
+    void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) override;
+    void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) override;
+    bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
 
 private:
+    // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
+    // the access was routed over the system NOC. These back handle_special_read/write and can grow to
+    // dispatch additional special cases later.
+    bool smn_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    bool smn_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+
     // Client-mode constructor: this device does not own a simulator; it forwards device operations
     // to a remote host through client. Reached only via create_client(), which validates the
     // arguments before construction.

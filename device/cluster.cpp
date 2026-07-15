@@ -1017,13 +1017,13 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     wait_for_non_mmio_flush();
 }
 
-void Cluster::set_power_state(DevicePowerState device_state) {
+void Cluster::set_clock_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
         chip->set_clock_state(device_state);
     }
 }
 
-void Cluster::deassert_resets_and_set_power_state() {
+void Cluster::deassert_resets_and_set_clock_state() {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
     assert_risc_reset();
@@ -1039,8 +1039,8 @@ void Cluster::deassert_resets_and_set_power_state() {
         }
     }
 
-    // Set power state to busy.
-    set_power_state(DevicePowerState::BUSY);
+    // Set clock state to busy.
+    set_clock_state(DevicePowerState::BUSY);
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
@@ -1051,7 +1051,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
 
-        deassert_resets_and_set_power_state();
+        deassert_resets_and_set_clock_state();
     }
     log_info(LogUMD, "Starting devices in cluster completed.");
 }

@@ -23,6 +23,16 @@ on:
         required: true
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
+      repeat-count:
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
+        required: false
+        default: "1"
+        type: string
+      cards-filter:
+        description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
+        required: false
+        default: ""
+        type: string
   pull_request:
   merge_group:
   push:
@@ -119,6 +129,8 @@ jobs:
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
       build-exalens-kernels: false
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -144,6 +156,8 @@ jobs:
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
       build-exalens-kernels: false
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -169,6 +183,8 @@ jobs:
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
       build-exalens-kernels: false
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -193,6 +209,8 @@ jobs:
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
       build-exalens-kernels: false
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -217,6 +235,8 @@ jobs:
       # Kernels are built once by the build-exalens-kernels job above and shared across all
       # build-types; building them here too would collide on the artifact name.
       build-exalens-kernels: false
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 

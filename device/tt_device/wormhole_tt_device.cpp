@@ -140,7 +140,6 @@ void WormholeTTDevice::set_clock_state(DevicePowerState state) {
         exit_code == 0,
         error::RuntimeError,
         fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
-
     wait_for_aiclk_value(state);
 }
 
@@ -449,12 +448,14 @@ void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
 }
 
-void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
+void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     // Same range is used for NOC0 and NOC1.
     // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
     // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
 
-    noc_multicast_write(src, size, xy_pair{1, 1}, xy_pair{9, 11}, addr);
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr);
 }
 
 void WormholeTTDevice::set_arc_coordinate() {

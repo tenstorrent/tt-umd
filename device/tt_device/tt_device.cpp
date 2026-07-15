@@ -29,6 +29,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -386,9 +387,9 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     if (!hang_detector_) {
         UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
-    auto result = hang_detector_->is_pcie_hung(data_read);
+    auto result = hang_detector_->is_bus_hung(data_read);
     if (!result.has_value()) {
-        log_warning(LogUMD, "PCIe hang detection is not supported for this device.");
+        log_warning(LogUMD, "Bus hang detection is not supported for this device.");
         return false;
     }
     if (result.value()) {
@@ -445,16 +446,22 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
     // in the lambda's capture; HangDetector only sees the std::function and stays unaware of either.
     auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
     auto window_lock = std::make_shared<std::mutex>();
-    hang_detector_->set_noc_reg_reader([window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
-        std::lock_guard<std::mutex> lock(*window_lock);
-        // The probe window has no hang check wired, so an overrun is treated as a false alarm and the read
-        // completes rather than throwing; a hung NOC surfaces as HANG_READ_VALUE in `value`. A
-        // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
-        // rather than silently masking it as a hang.
-        uint32_t value = 0;
-        window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
-        return value;
-    });
+    HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector_.get());
+    UMD_ASSERT(
+        hang_detector_impl != nullptr,
+        error::RuntimeError,
+        "HangDetectorImplementation is required to wire the NOC register reader for hang detection.");
+    hang_detector_impl->set_noc_reg_reader(
+        [window, window_lock](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
+            std::lock_guard<std::mutex> lock(*window_lock);
+            // The probe window has no hang check wired, so an overrun is treated as a false alarm and the read
+            // completes rather than throwing; a hung NOC surfaces as HANG_READ_VALUE in `value`. A
+            // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
+            // rather than silently masking it as a hang.
+            uint32_t value = 0;
+            window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+            return value;
+        });
 }
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
@@ -480,28 +487,28 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
-void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->read_from_device(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
-void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->write_to_device(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
-void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->read_from_device_reg(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
-void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
+void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
 
-    device_protocol_->write_to_device_reg(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -685,7 +692,7 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
     bool multicast_success =
         device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
@@ -756,12 +763,13 @@ void TTDevice::noc_multicast_write(
 }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    noc_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    noc_multicast_write(
+        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
 }
 
 void TTDevice::multicast_write_via_unicast(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     // No hardware multicast on simulation backends; fall back to per-core unicast.
     // TODO: investigate proper multicast support for simulations so we can remove this workaround.
     for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
@@ -775,7 +783,7 @@ void TTDevice::multicast_write_via_unicast(
     }
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr) {
+void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
@@ -794,11 +802,11 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     write_to_device(src, core, addr, size);
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr) {
+void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     dma_write_to_device(src, size, resolve_coordinate(core), addr);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr) {
+void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
@@ -817,11 +825,12 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
     read_from_device(dst, core, addr, size);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr) {
+void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     dma_read_from_device(dst, size, resolve_coordinate(core), addr);
 }
 
-void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+void TTDevice::dma_multicast_write(
+    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
@@ -841,7 +850,8 @@ void TTDevice::dma_multicast_write(void *src, size_t size, tt_xy_pair core_start
     noc_multicast_write(src, size, core_start, core_end, addr);
 }
 
-void TTDevice::dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
+void TTDevice::dma_multicast_write(
+    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
 }
 

@@ -6,11 +6,14 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -26,6 +29,48 @@ SimulationTTDevice::SimulationTTDevice(
 SimulationTTDevice::~SimulationTTDevice() = default;
 
 void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
+
+void SimulationTTDevice::write_to_device(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
+    // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
+    UMD_ASSERT(
+        tlb_allocator_ != nullptr, error::RuntimeError, "Client-mode simulation device I/O is not available yet.");
+    if (is_device_closed()) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    if (handle_special_write(mem_ptr, translated_core, addr, size)) {
+        return;
+    }
+    if (should_use_cached_tlb_window()) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+    } else {
+        tile_write_bytes(translated_core, addr, mem_ptr, size);
+    }
+}
+
+void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
+    // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
+    UMD_ASSERT(
+        tlb_allocator_ != nullptr, error::RuntimeError, "Client-mode simulation device I/O is not available yet.");
+    if (is_device_closed()) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    if (handle_special_read(mem_ptr, translated_core, addr, size)) {
+        return;
+    }
+    if (should_use_cached_tlb_window()) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+    } else {
+        tile_read_bytes(translated_core, addr, mem_ptr, size);
+    }
+    after_read();
+}
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
     tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
@@ -81,11 +126,11 @@ bool SimulationTTDevice::get_noc_translation_enabled() {
 }
 
 void SimulationTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     multicast_write_via_unicast(src, size, core_start, core_end, addr);
 }
 
-void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
+void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "NOC multicast write is not supported for simulation devices.");
 }
 
@@ -106,7 +151,7 @@ void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t
 }
 
 void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 

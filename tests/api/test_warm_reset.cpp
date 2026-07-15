@@ -734,7 +734,12 @@ static void terminate_processes(std::initializer_list<pid_t> pids) {
     for (pid_t p : pids) {
         if (p > 0) {
             kill(p, SIGKILL);
-            waitpid(p, nullptr, 0);
+            // Bounded reap: a child wedged in uninterruptible (D) state ignores SIGKILL until it
+            // leaves the kernel, so a blocking waitpid here would re-hang the parent. Give up after
+            // ~5s and let the OS reap the orphan on exit rather than defeating the watchdog.
+            for (int i = 0; i < 100 && waitpid(p, nullptr, WNOHANG) == 0; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
         }
     }
 }

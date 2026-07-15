@@ -21,7 +21,7 @@ HangDetectorImplementation::HangDetectorImplementation(
     // Default reader: plain protocol read. A higher layer may override it via set_noc_reg_reader().
     noc_reg_reader_([this](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
         uint32_t value = 0;
-        protocol_->read_from_device(&value, core, addr, sizeof(value), noc);
+        protocol_->read_data(&value, core, addr, sizeof(value), noc);
         return value;
     }) {}
 

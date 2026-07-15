@@ -354,7 +354,7 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     }
 }
 
-void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
+void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
         get_chip_info().noc_translation_enabled,
         error::RuntimeError,

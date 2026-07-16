@@ -125,6 +125,7 @@ jobs:
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "P300-viommu"},
+            {"arch": "blackhole",   "card": "g13blx01"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}

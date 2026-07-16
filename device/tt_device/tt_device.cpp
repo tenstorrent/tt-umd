@@ -734,7 +734,7 @@ void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, 
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
         get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    noc_multicast_write(src, size, start, end, addr);
+    noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
 void TTDevice::multicast_write_via_unicast(

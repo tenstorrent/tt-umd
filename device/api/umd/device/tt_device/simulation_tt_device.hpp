@@ -69,6 +69,7 @@ public:
         CoreCoord core_end,
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC) override;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) override;
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 

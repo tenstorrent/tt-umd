@@ -648,46 +648,32 @@ uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->g
 
 void TTDevice::advance_device_execution() {}
 
-uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
+uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
     uint32_t tensix_risc_state;
     read_from_device_reg(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
 
-uint32_t TTDevice::get_risc_reset_state(CoreCoord core) { return get_risc_reset_state(resolve_coordinate(core)); }
-
-void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
+void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
     write_to_device_reg(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
-    set_risc_reset_state(resolve_coordinate(core), risc_flags);
-}
-
-void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     set_risc_reset_state(core, soft_reset_new);
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    assert_risc_reset(resolve_coordinate(core), selected_riscs);
-}
-
-void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
         soft_reset_new | (staggered_start ? architecture_impl_->get_soft_reset_staggered_start() : 0);
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
-}
-
-void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    deassert_risc_reset(resolve_coordinate(core), selected_riscs, staggered_start);
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }

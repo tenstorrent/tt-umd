@@ -15,7 +15,6 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/core_coordinates.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {

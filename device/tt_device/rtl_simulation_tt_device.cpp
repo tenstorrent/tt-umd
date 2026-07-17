@@ -206,19 +206,20 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
     return false;
 }
 
-void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL) {
-            communicator_->all_tensix_reset_assert(core.x, core.y);
-            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
+            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
             communicator_->all_neo_dms_uncore_reset_assert();
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
@@ -226,13 +227,13 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
             return;
         }
         if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_assert(core.x, core.y);
+            communicator_->neo_dm_uncore_reset_assert(translated_core.x, translated_core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_assert(core.x, core.y, i);
+                communicator_->neo_dm_reset_assert(translated_core.x, translated_core.y, i);
             }
         }
     }
@@ -244,23 +245,24 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
         // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
         // always call this command as if reset for all was requested.
-        communicator_->all_tensix_reset_assert(core.x, core.y);
+        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
     }
 }
 
-void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL) {
             communicator_->all_neo_dms_uncore_reset_deassert();
-            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
-            communicator_->all_tensix_reset_deassert(core.x, core.y);
+            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
+            communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
@@ -268,13 +270,13 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
             return;
         }
         if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_deassert(core.x, core.y);
+            communicator_->neo_dm_uncore_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_deassert(core.x, core.y, i);
+                communicator_->neo_dm_reset_deassert(translated_core.x, translated_core.y, i);
             }
         }
     }
@@ -282,7 +284,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
         (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
-        communicator_->all_tensix_reset_deassert(core.x, core.y);
+        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
     }
 }
 

@@ -126,12 +126,14 @@ bool SimulationTTDevice::get_noc_translation_enabled() {
 }
 
 void SimulationTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    multicast_write_via_unicast(src, size, core_start, core_end, addr);
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
 }
 
 void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported for simulation devices.");
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
 void SimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {

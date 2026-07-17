@@ -225,13 +225,6 @@ public:
     virtual void noc_multicast_write(
         const void *src,
         size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id = NocId::DEFAULT_NOC);
-    virtual void noc_multicast_write(
-        const void *src,
-        size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
         uint64_t addr,
@@ -244,8 +237,7 @@ public:
      * @param size number of bytes
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(
-        const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) = 0;
+    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -560,8 +552,8 @@ protected:
     void multicast_write_via_unicast(
         const void *src,
         size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
+        CoreCoord core_start,
+        CoreCoord core_end,
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC);
 

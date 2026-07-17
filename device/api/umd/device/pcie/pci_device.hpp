@@ -149,11 +149,11 @@ public:
     static std::optional<int> get_pci_device_id(int umd_logical_id);
 
     /**
-     * Read device information from sysfs.
-     * @param fd Integer corresponding to the character device descriptor of the PCI device.
+     * Read device information for the given device.
+     * @param device_path Path to the character device (e.g. "/dev/tenstorrent/0").
      * @return PciDeviceInfo struct containing the device information.
      */
-    static PciDeviceInfo read_device_info(int fd);
+    static PciDeviceInfo read_device_info(const std::string &device_path);
 
     /**
      * PCI device constructor.

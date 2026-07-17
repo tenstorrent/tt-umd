@@ -79,7 +79,7 @@ jobs:
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
           repository: tenstorrent/ttsim
-          tag: ${{ steps.get-ttsim-version.outputs.ttsim-version }}
+          latest: true
           fileName: "libttsim_wh_x2.so"
           out-file-path: /tmp/ttsim-wh-x2
 

@@ -50,7 +50,7 @@ public:
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(
-        const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 

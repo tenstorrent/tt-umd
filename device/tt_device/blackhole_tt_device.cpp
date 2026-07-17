@@ -307,7 +307,7 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    const CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     auto time_taken = std::chrono::milliseconds(0);
 

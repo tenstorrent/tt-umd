@@ -513,7 +513,7 @@ public:
     /**
      * Read the training status of the given ETH core.
      *
-     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
     virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;

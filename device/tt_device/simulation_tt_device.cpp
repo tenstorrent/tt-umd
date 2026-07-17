@@ -153,7 +153,7 @@ void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t
 }
 
 void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 

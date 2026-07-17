@@ -742,7 +742,7 @@ void TTDevice::multicast_write_via_unicast(
     }
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
@@ -751,7 +751,8 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr, get_selected_noc_id());
+    bool dma_success =
+        get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core), addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -761,11 +762,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     write_to_device(src, core, addr, size);
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
-    dma_write_to_device(src, size, resolve_coordinate(core), addr);
-}
-
-void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
@@ -774,7 +771,8 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
+    bool dma_success =
+        get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core), addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -784,12 +782,8 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
     read_from_device(dst, core, addr, size);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
-    dma_read_from_device(dst, size, resolve_coordinate(core), addr);
-}
-
 void TTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
@@ -798,8 +792,8 @@ void TTDevice::dma_multicast_write(
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_multicast_write(
+        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -807,11 +801,6 @@ void TTDevice::dma_multicast_write(
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
     noc_multicast_write(src, size, core_start, core_end, addr);
-}
-
-void TTDevice::dma_multicast_write(
-    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }

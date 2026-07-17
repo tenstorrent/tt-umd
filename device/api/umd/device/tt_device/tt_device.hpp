@@ -470,13 +470,10 @@ public:
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     virtual void dma_write_to_device(
-        const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-    void dma_write_to_device(
         const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual void dma_read_from_device(
-        void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -492,13 +489,6 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void dma_multicast_write(
-        void *src,
-        size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id = NocId::DEFAULT_NOC);
-    void dma_multicast_write(
         void *src,
         size_t size,
         CoreCoord core_start,

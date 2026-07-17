@@ -631,9 +631,17 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
 
 bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
 
-std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
+bool PCIDevice::is_read_only_page_pinning_supported() const {
+    return is_iommu_enabled() && PCIDevice::read_kmd_version() >= KMD_READ_ONLY_PAGE_PINNING;
+}
+
+std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size, DeviceBufferAccess access) {
     if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
+    }
+    if (access == DeviceBufferAccess::ReadOnly && !is_read_only_page_pinning_supported()) {
+        UMD_THROW(
+            error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
@@ -654,6 +662,9 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 
     pin.in.output_size_bytes = sizeof(pin.out);
     pin.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+    if (access == DeviceBufferAccess::ReadOnly) {
+        pin.in.flags |= TENSTORRENT_PIN_PAGES_READ_ONLY;
+    }
     pin.in.virtual_address = vaddr;
     pin.in.size = size;
 
@@ -734,11 +745,18 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     return {pin.out.noc_address, pin.out.physical_address};
 }
 
-uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
+uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess access) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
     const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
-    const uint32_t flags = is_iommu_enabled() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    uint32_t flags = is_iommu_enabled() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    if (access == DeviceBufferAccess::ReadOnly) {
+        if (!is_read_only_page_pinning_supported()) {
+            UMD_THROW(
+                error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
+        }
+        flags |= TENSTORRENT_PIN_PAGES_READ_ONLY;
+    }
 
     if (vaddr % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");

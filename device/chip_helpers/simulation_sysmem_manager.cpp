@@ -145,7 +145,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess access) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
@@ -164,7 +164,11 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     // has already been destroyed (unpin_or_unmap_sysmem clears the registry).
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     return std::make_unique<SysmemBuffer>(
-        buffer, sysmem_buffer_size, device_io_addr, noc_addr, [weak_reg, device_io_addr]() {
+        buffer,
+        sysmem_buffer_size,
+        device_io_addr,
+        noc_addr,
+        [weak_reg, device_io_addr]() {
             if (auto reg = weak_reg.lock()) {
                 std::lock_guard<std::mutex> lock(reg->mutex);
                 reg->buffers.erase(
@@ -176,7 +180,8 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
                         }),
                     reg->buffers.end());
             }
-        });
+        },
+        access);
 }
 
 }  // namespace tt::umd

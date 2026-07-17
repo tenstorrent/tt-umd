@@ -465,9 +465,9 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess access) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc, access);
 }
 
 }  // namespace tt::umd

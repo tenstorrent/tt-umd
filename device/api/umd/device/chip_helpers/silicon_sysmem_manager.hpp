@@ -32,7 +32,10 @@ public:
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
     std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
-        void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) override;
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc = false,
+        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite) override;
 
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;

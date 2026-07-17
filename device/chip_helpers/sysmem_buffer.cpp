@@ -29,18 +29,21 @@
 
 namespace tt::umd {
 
-SysmemBuffer::SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc) :
+SysmemBuffer::SysmemBuffer(
+    TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc, DeviceBufferAccess access) :
     pci_device_(tt_device->get_pci_device()),
     tt_device_(tt_device),
     buffer_va_(buffer_va),
     mapped_buffer_size_(buffer_size),
-    buffer_size_(buffer_size) {
+    buffer_size_(buffer_size),
+    device_access_(access) {
     UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
     align_address_and_size();
     if (map_to_noc) {
-        std::tie(noc_addr_, device_io_addr_) = pci_device_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_);
+        std::tie(noc_addr_, device_io_addr_) =
+            pci_device_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_, device_access_);
     } else {
-        device_io_addr_ = pci_device_->map_for_dma(buffer_va_, mapped_buffer_size_);
+        device_io_addr_ = pci_device_->map_for_dma(buffer_va_, mapped_buffer_size_, device_access_);
         noc_addr_ = std::nullopt;
     }
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
@@ -51,7 +54,8 @@ SysmemBuffer::SysmemBuffer(
     size_t buffer_size,
     uint64_t device_io_addr,
     std::optional<uint64_t> noc_addr,
-    std::function<void()> unmap_callback) :
+    std::function<void()> unmap_callback,
+    DeviceBufferAccess access) :
     pci_device_(nullptr),
     tt_device_(nullptr),
     buffer_va_(buffer_va),
@@ -59,7 +63,8 @@ SysmemBuffer::SysmemBuffer(
     buffer_size_(buffer_size),
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
-    unmap_callback_(std::move(unmap_callback)) {
+    unmap_callback_(std::move(unmap_callback)),
+    device_access_(access) {
     align_address_and_size();
     // Pair with TracyFreeN in the destructor so Tracy sees balanced alloc/free.
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
@@ -124,6 +129,10 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::Yellow);
+
+    if (device_access_ == DeviceBufferAccess::ReadOnly) {
+        UMD_THROW(error::RuntimeError, "Cannot DMA from the device into a device-read-only host mapping.");
+    }
 
     if (pci_device_->get_dma_buffer().buffer == nullptr) {
         UMD_THROW(

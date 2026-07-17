@@ -251,6 +251,14 @@ enum tt_dma_map_flags {
      * given Blackhole's larger address space.
      */
     TT_DMA_FLAG_NOC_TOP_DOWN = 1 << 1,
+
+    /**
+     * @brief Restricts the mapping to device reads.
+     *
+     * Requires KMD 2.9.0 or newer and an active IOMMU. Device writes to this
+     * mapping fault. This flag may be combined with either NOC mapping flag.
+     */
+    TT_DMA_FLAG_READ_ONLY = 1 << 2,
 };
 
 /**

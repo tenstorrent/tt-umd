@@ -11,6 +11,7 @@
 #include <optional>
 
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/host_memory.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -53,13 +54,19 @@ public:
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
-    SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(
+        TTDevice* tt_device,
+        void* buffer_va,
+        size_t buffer_size,
+        bool map_to_noc = false,
+        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite);
     SysmemBuffer(
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
         std::optional<uint64_t> noc_addr = std::nullopt,
-        std::function<void()> unmap_callback = {});
+        std::function<void()> unmap_callback = {},
+        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite);
     ~SysmemBuffer();
 
     /**
@@ -84,6 +91,8 @@ public:
     uint64_t get_device_io_addr(const size_t offset = 0) const;
 
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
+
+    DeviceBufferAccess get_device_access() const { return device_access_; }
 
     /**
      * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
@@ -152,6 +161,7 @@ private:
     std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     std::function<void()> unmap_callback_;
+    DeviceBufferAccess device_access_ = DeviceBufferAccess::ReadWrite;
 };
 
 }  // namespace tt::umd

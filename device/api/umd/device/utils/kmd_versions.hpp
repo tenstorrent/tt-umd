@@ -43,6 +43,12 @@ inline constexpr SemVer KMD_TLBS = SemVer(1, 34, 0);
 inline constexpr SemVer KMD_POWER_STATE = SemVer(2, 6, 0);
 
 /**
+ * KMD version 2.9.0 introduced read-only page pinning. The IOMMU mapping permits device reads while faulting device
+ * writes, and allows device-readable mappings of read-only and shared file-backed memory.
+ */
+inline constexpr SemVer KMD_READ_ONLY_PAGE_PINNING = SemVer(2, 9, 0);
+
+/**
  * KMD version 2.10.0 introduced the TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF IOCTL, which exports an
  * allocated and configured TLB window as a Linux dma-buf fd for peer-to-peer PCIe DMA (e.g. RDMA
  * NIC import via ibv_reg_dmabuf_mr()).

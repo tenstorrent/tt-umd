@@ -52,7 +52,10 @@ public:
         size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
     virtual std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
-        void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc = false,
+        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite) = 0;
 
     uint64_t get_pcie_base() const { return pcie_base_; }
 

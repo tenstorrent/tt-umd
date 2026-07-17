@@ -2,8 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -27,6 +29,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -277,6 +280,54 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
     EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
     EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+}
+
+TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+
+    PCIDevice pci_device(pci_device_ids[0]);
+    if (!pci_device.is_iommu_enabled()) {
+        GTEST_SKIP() << "Device-read-only page pinning requires an active IOMMU.";
+    }
+    if (PCIDevice::read_kmd_version() < KMD_READ_ONLY_PAGE_PINNING) {
+        GTEST_SKIP() << "Device-read-only page pinning requires KMD " << KMD_READ_ONLY_PAGE_PINNING.str()
+                     << " or newer.";
+    }
+    if (!pci_device.is_mapping_buffer_to_noc_supported()) {
+        GTEST_SKIP() << "KMD does not support mapping host buffers to NOC.";
+    }
+
+    const size_t mapping_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    char file_name[] = "./tt_umd_read_only_pin_XXXXXX";
+    int writable_fd = mkstemp(file_name);
+    ASSERT_NE(writable_fd, -1);
+    ASSERT_EQ(ftruncate(writable_fd, mapping_size), 0);
+    ASSERT_EQ(close(writable_fd), 0);
+
+    int read_only_fd = open(file_name, O_RDONLY | O_CLOEXEC);
+    ASSERT_NE(read_only_fd, -1);
+    ASSERT_EQ(unlink(file_name), 0);
+
+    void* mapping = mmap(nullptr, mapping_size, PROT_READ, MAP_SHARED, read_only_fd, 0);
+    ASSERT_NE(mapping, MAP_FAILED);
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    auto sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, mapping_size, true, DeviceBufferAccess::ReadOnly);
+
+    ASSERT_NE(sysmem_buffer, nullptr);
+    EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapping);
+    EXPECT_EQ(sysmem_buffer->get_buffer_size(), mapping_size);
+    EXPECT_EQ(sysmem_buffer->get_device_access(), DeviceBufferAccess::ReadOnly);
+    EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+
+    sysmem_buffer.reset();
+    EXPECT_EQ(munmap(mapping, mapping_size), 0);
+    EXPECT_EQ(close(read_only_fd), 0);
 }
 
 TEST(ApiSysmemManager, AutoNumChannels) {

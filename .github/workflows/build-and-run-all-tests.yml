@@ -168,6 +168,7 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
+            '*|TSan|g13blx01' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 

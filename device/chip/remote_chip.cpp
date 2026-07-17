@@ -35,17 +35,25 @@ std::unique_ptr<RemoteChip> RemoteChip::create(std::unique_ptr<TTDevice> remote_
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device)));
 }
 
+#ifdef TT_UMD_BUILD_SIMULATION
 std::unique_ptr<RemoteChip> RemoteChip::create_for_simulation(
     std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info) {
     ZoneScopedC(tracy::Color::DarkGreen);
     UMD_ASSERT(
         remote_tt_device != nullptr, error::RuntimeError, "RemoteTTDevice passed to RemoteChip must not be null.");
     UMD_ASSERT(local_chip != nullptr, error::RuntimeError, "Local chip passed to RemoteChip must not be null.");
+    // RemoteChip methods dereference remote_communication_ (e.g. wait_for_non_mmio_flush), so the remote TTDevice
+    // must carry a RemoteCommunication; otherwise the constructed chip would crash on first use.
+    UMD_ASSERT(
+        remote_tt_device->get_remote_communication() != nullptr,
+        error::RuntimeError,
+        "RemoteTTDevice passed to RemoteChip::create_for_simulation must have a RemoteCommunication.");
     // The remote TTDevice for a simulated chip is never run through init_tt_device() (it has no ARC to probe), so
     // its SocDescriptor is supplied to TTDevice::create() instead. get_soc_descriptor() can then keep delegating
     // to the TTDevice like every other chip.
     return std::unique_ptr<RemoteChip>(new RemoteChip(local_chip, std::move(remote_tt_device), chip_info));
 }
+#endif  // TT_UMD_BUILD_SIMULATION
 
 RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
     Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {

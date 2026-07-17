@@ -425,7 +425,6 @@ public:
      *
      * @param core Core to get soft reset for, in translated coordinates
      */
-    uint32_t get_risc_reset_state(tt_xy_pair core);
     uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
@@ -434,7 +433,6 @@ public:
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
      */
-    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
@@ -443,8 +441,7 @@ public:
      * @param core Core to assert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to assert reset for
      */
-    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
      * Deassert risc reset for a specific core.
@@ -453,8 +450,7 @@ public:
      * @param selected_riscs Bitmask of riscs to deassert reset for
      * @param staggered_start Whether to use staggered start
      */
-    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 

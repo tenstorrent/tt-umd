@@ -14,41 +14,7 @@
 namespace tt::umd {
 
 void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
-    initialize_mutex_internal(mutex_name);
-}
-
-void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
-    clear_mutex_internal(mutex_name);
-}
-
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(
-    MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
-    return acquire_mutex_internal(mutex_name);
-}
-
-void LockManager::initialize_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    initialize_mutex_internal(mutex_name);
-}
-
-void LockManager::clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    clear_mutex_internal(mutex_name);
-}
-
-std::unique_lock<RobustMutex> LockManager::acquire_mutex(
-    const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    return acquire_mutex_internal(mutex_name);
-}
-
-void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
+    std::string mutex_name = generate_mutex_name(mutex_type, device_id, device_type);
     if (mutexes.find(mutex_name) != mutexes.end()) {
         log_warning(LogUMD, "Mutex already initialized: {}", mutex_name);
         return;
@@ -58,7 +24,8 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
     mutexes.at(mutex_name).initialize();
 }
 
-void LockManager::clear_mutex_internal(const std::string& mutex_name) {
+void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
+    std::string mutex_name = generate_mutex_name(mutex_type, device_id, device_type);
     if (mutexes.find(mutex_name) == mutexes.end()) {
         log_warning(LogUMD, "Mutex not initialized or already cleared: {}", mutex_name);
         return;
@@ -67,11 +34,18 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     mutexes.erase(mutex_name);
 }
 
-std::unique_lock<RobustMutex> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
+std::unique_lock<RobustMutex> LockManager::acquire_mutex(
+    MutexType mutex_type, int device_id, IODeviceType device_type) {
+    std::string mutex_name = generate_mutex_name(mutex_type, device_id, device_type);
     if (mutexes.find(mutex_name) == mutexes.end()) {
         UMD_THROW(error::RuntimeError, "Mutex not initialized: " + mutex_name);
     }
     return std::unique_lock(mutexes.at(mutex_name));
+}
+
+std::string LockManager::generate_mutex_name(MutexType mutex_type, int device_id, IODeviceType device_type) {
+    return MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
+           DeviceTypeToString.at(device_type);
 }
 
 }  // namespace tt::umd

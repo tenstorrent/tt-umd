@@ -63,20 +63,11 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(
         MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
-    // This set of functions is used to manage mutexes which are chip specific. This variant accepts custom mutex name.
-    void initialize_mutex(
-        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    void clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-    std::unique_lock<RobustMutex> acquire_mutex(
-        const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
-
 private:
-    void initialize_mutex_internal(const std::string& mutex_name);
-    void clear_mutex_internal(const std::string& mutex_name);
-    std::unique_lock<RobustMutex> acquire_mutex_internal(const std::string& mutex_name);
+    std::string generate_mutex_name(MutexType mutex_type, int device_id, IODeviceType device_type);
 
     // Maps from mutex name to an initialized mutex.
-    // Mutex names are made from mutex type name or directly mutex name combined with device number.
+    // Mutex names are made from mutex type name combined with device number.
     // Note that once LockManager is out of scope, all the mutexes will be cleared up automatically.
     std::unordered_map<std::string, RobustMutex> mutexes;
 };

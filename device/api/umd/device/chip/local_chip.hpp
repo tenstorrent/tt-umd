@@ -75,9 +75,6 @@ public:
     int get_clock() override;
     int get_numa_node() override;
 
-    std::unique_lock<RobustMutex> acquire_mutex(const std::string& mutex_name, int pci_device_id);
-    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
-
 private:
     LocalChip(
         std::unique_ptr<TTDevice> tt_device,

@@ -143,7 +143,8 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(
+        lock_manager_.acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
     sysmem_manager_->pin_or_map_sysmem_to_device();
     if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
@@ -373,14 +374,6 @@ void LocalChip::wait_for_non_mmio_flush() {}
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>&) {}
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>&) {}
-
-std::unique_lock<RobustMutex> LocalChip::acquire_mutex(const std::string& mutex_name, int pci_device_id) {
-    return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
-}
-
-std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
-    return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
-}
 
 void LocalChip::init_pcie_iatus() {
     ZoneScopedC(tracy::Color::DarkGreen);

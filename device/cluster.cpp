@@ -635,7 +635,8 @@ Cluster::Cluster(ClusterOptions options) {
 
 #ifdef TT_UMD_BUILD_SIMULATION
     if (options.chip_type == ChipType::SIMULATION) {
-        serve_simulation_devices_over_sockets(options.simulator_directory, options.simulation_shutdown_handler);
+        serve_simulation_devices_over_sockets(
+            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -648,7 +649,9 @@ Cluster::Cluster(ClusterOptions options) {
 
 #ifdef TT_UMD_BUILD_SIMULATION
 void Cluster::serve_simulation_devices_over_sockets(
-    const std::filesystem::path& simulator_directory, const std::function<void()>& shutdown_handler) {
+    const std::filesystem::path& simulator_directory,
+    const std::filesystem::path& simulator_server_directory,
+    const std::function<void()>& shutdown_handler) {
     // A client Cluster skips this: its simulator_directory is a socket directory (not a .so/RTL
     // build), so role_for returns Client. On the host, expose each simulation chip's device on its
     // per-chip socket so a separate client process (a Cluster pointed at the socket directory) can
@@ -659,10 +662,17 @@ void Cluster::serve_simulation_devices_over_sockets(
     if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
         return;
     }
+    // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
+    // machine never collide even when they serve the same chip id.
+    const std::filesystem::path server_directory = simulator_server_directory.empty()
+                                                       ? SimulationServerSocket::allocate_server_directory()
+                                                       : simulator_server_directory;
+    log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
             sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id)), shutdown_handler);
+                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
+                shutdown_handler);
         }
     }
 }

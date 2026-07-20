@@ -29,20 +29,13 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
-    // discover() resolves this well-known machine-wide path internally, so the test can't point
-    // it at a private one. Rather than blindly unlink it (which would clobber a host from a
-    // concurrent run), probe with try_create: a live owner -> skip; otherwise we hold a fresh or
-    // reclaimed socket, released here so discover() can bind it itself.
-    {
-        auto probe = SimulationServerSocket::try_create(socket);
-        if (probe == nullptr) {
-            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping to avoid clobbering it.";
-        }
-    }
+    // Each server gets its own directory, so a fresh one never collides with a concurrent run.
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
+    options.server_directory = server_directory;
 
     {
         auto devices = SimulationConnector::discover(options);
@@ -51,7 +44,8 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
         EXPECT_TRUE(std::filesystem::exists(socket));  // host exposed it
     }
 
-    EXPECT_FALSE(std::filesystem::exists(socket));  // torn down with the device
+    EXPECT_FALSE(std::filesystem::exists(socket));                  // torn down with the device
+    EXPECT_FALSE(std::filesystem::is_directory(server_directory));  // and its now-empty directory removed
 }
 
 // discover() decides the role from what simulator_directory points at (a .so file hosts TTSim, a
@@ -74,16 +68,12 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
-    {
-        auto probe = SimulationServerSocket::try_create(socket);
-        if (probe == nullptr) {
-            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
-        }
-    }
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
+    options.server_directory = server_directory;
     auto devices = SimulationConnector::discover(options);
     ASSERT_EQ(devices.size(), 1u);
     TTDevice* host = devices.at(0).get();
@@ -138,16 +128,12 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
-    {
-        auto probe = SimulationServerSocket::try_create(socket);
-        if (probe == nullptr) {
-            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
-        }
-    }
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
+    options.server_directory = server_directory;
     auto devices = SimulationConnector::discover(options);
     ASSERT_EQ(devices.size(), 1u);
     TTDevice* host = devices.at(0).get();
@@ -183,18 +169,13 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
-    {
-        auto probe = SimulationServerSocket::try_create(socket);
-        if (probe == nullptr) {
-            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
-        }
-    }
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
 
     SimulationConnectorOptions host_options;
     host_options.simulator_directory = simulator_path;
+    host_options.server_directory = server_directory;
 
-    // The .so path hosts and publishes its per-chip socket; pointing discovery at that socket's
+    // The .so path hosts and publishes its per-chip socket; pointing discovery at that server's
     // directory takes the client path, attaching one client device per socket.
     auto host_devices = SimulationConnector::discover(host_options);
     ASSERT_EQ(host_devices.size(), 1u);
@@ -202,7 +183,7 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
     ASSERT_NE(host, nullptr);
 
     SimulationConnectorOptions client_options;
-    client_options.simulator_directory = socket.parent_path();
+    client_options.simulator_directory = server_directory;
     auto client_devices = SimulationConnector::discover(client_options);
     ASSERT_EQ(client_devices.count(0), 1u);
     TTDevice* client = client_devices.at(0).get();
@@ -236,22 +217,17 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
         GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
     }
 
-    const std::filesystem::path socket0 = SimulationServerSocket::default_socket_path(0);
-    {
-        auto probe = SimulationServerSocket::try_create(socket0);
-        if (probe == nullptr) {
-            GTEST_SKIP() << "A live simulation host already holds " << socket0 << "; skipping.";
-        }
-    }
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
 
     ClusterOptions host_options;
     host_options.chip_type = ChipType::SIMULATION;
     host_options.simulator_directory = simulator_path;
+    host_options.simulator_server_directory = server_directory;
     Cluster host_cluster(host_options);
 
     ClusterOptions client_options;
     client_options.chip_type = ChipType::SIMULATION;
-    client_options.simulator_directory = socket0.parent_path();  // the socket directory => client role
+    client_options.simulator_directory = server_directory;  // the server directory => client role
     Cluster client_cluster(client_options);
 
     // The client reconstructed the same chips the host serves.

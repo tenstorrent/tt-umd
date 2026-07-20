@@ -223,11 +223,49 @@ TEST_F(SimulationServerSocketTest, ServesAfterDeferredServe) {
 }
 
 TEST(SimulationServerSocket, DefaultSocketPathIsPerChip) {
-    EXPECT_NE(SimulationServerSocket::default_socket_path(0), SimulationServerSocket::default_socket_path(1));
+    const std::filesystem::path dir = "/tmp/tt-umd-sim-server-0";
+    EXPECT_NE(SimulationServerSocket::default_socket_path(dir, 0), SimulationServerSocket::default_socket_path(dir, 1));
 }
 
-TEST(SimulationServerSocket, DefaultSocketPathIsAbsolute) {
-    EXPECT_TRUE(SimulationServerSocket::default_socket_path(0).is_absolute());
+TEST(SimulationServerSocket, DefaultSocketPathIsInServerDirectory) {
+    const std::filesystem::path dir = "/tmp/tt-umd-sim-server-3";
+    EXPECT_EQ(SimulationServerSocket::default_socket_path(dir, 0).parent_path(), dir);
+}
+
+// allocate_server_directory hands each caller a distinct, freshly created directory, and each shows
+// up in list_server_directories keyed by the index parsed out of its name.
+TEST(SimulationServerSocket, AllocateServerDirectoryClaimsDistinctDirs) {
+    namespace fs = std::filesystem;
+    const fs::path a = SimulationServerSocket::allocate_server_directory();
+    const fs::path b = SimulationServerSocket::allocate_server_directory();
+    EXPECT_NE(a, b);
+    EXPECT_TRUE(fs::is_directory(a));
+    EXPECT_TRUE(fs::is_directory(b));
+
+    const auto index_a = SimulationServerSocket::server_index_from_directory_path(a);
+    ASSERT_TRUE(index_a.has_value());
+    EXPECT_EQ(SimulationServerSocket::list_server_directories().count(*index_a), 1u);
+
+    fs::remove(a);
+    fs::remove(b);
+}
+
+// server_index_from_directory_path is the inverse of allocate_server_directory's naming; it must
+// accept exactly the tt-umd-sim-server-<index> convention and reject anything else.
+TEST(SimulationServerSocket, ServerIndexFromDirectoryPathParsesConvention) {
+    auto i0 = SimulationServerSocket::server_index_from_directory_path("tt-umd-sim-server-0");
+    ASSERT_TRUE(i0.has_value());
+    EXPECT_EQ(*i0, 0);
+
+    auto i7 = SimulationServerSocket::server_index_from_directory_path("/some/dir/tt-umd-sim-server-7");
+    ASSERT_TRUE(i7.has_value());
+    EXPECT_EQ(*i7, 7);
+
+    // Non-matching names yield nullopt.
+    EXPECT_FALSE(SimulationServerSocket::server_index_from_directory_path("tt-umd-sim-server-").has_value());
+    EXPECT_FALSE(SimulationServerSocket::server_index_from_directory_path("tt-umd-sim-server-x").has_value());
+    EXPECT_FALSE(SimulationServerSocket::server_index_from_directory_path("tt-umd-sim-0.sock").has_value());
+    EXPECT_FALSE(SimulationServerSocket::server_index_from_directory_path("foo").has_value());
 }
 
 // chip_id_from_socket_path is the inverse of default_socket_path's naming; it must accept exactly
@@ -242,7 +280,8 @@ TEST(SimulationServerSocket, ChipIdFromSocketPathParsesConvention) {
     EXPECT_EQ(*id7, 7);
 
     // Round-trips default_socket_path().
-    auto id3 = SimulationServerSocket::chip_id_from_socket_path(SimulationServerSocket::default_socket_path(3));
+    auto id3 = SimulationServerSocket::chip_id_from_socket_path(
+        SimulationServerSocket::default_socket_path("/tmp/tt-umd-sim-server-0", 3));
     ASSERT_TRUE(id3.has_value());
     EXPECT_EQ(*id3, 3);
 

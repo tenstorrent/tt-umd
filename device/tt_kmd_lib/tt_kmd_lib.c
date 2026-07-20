@@ -207,6 +207,56 @@ int tt_driver_get_attr(tt_device_t* dev, enum tt_driver_attr attr, uint64_t* out
     return 0;
 }
 
+int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappings) {
+    struct {
+        struct tenstorrent_query_mappings query_mappings;
+        struct tenstorrent_mapping mapping_array[8];
+    } mappings;
+
+    memset(&mappings, 0, sizeof(mappings));
+    mappings.query_mappings.in.output_mapping_count = 8;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) != 0) {
+        return -errno;
+    }
+
+    memset(out_mappings, 0, sizeof(*out_mappings));
+
+    for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
+        struct tenstorrent_mapping* m = &mappings.mapping_array[i];
+        tt_bar_mapping_t* dst = NULL;
+
+        switch (m->mapping_id) {
+            case TENSTORRENT_MAPPING_RESOURCE0_UC:
+                dst = &out_mappings->resource0_uc;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE0_WC:
+                dst = &out_mappings->resource0_wc;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE1_UC:
+                dst = &out_mappings->resource1_uc;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE1_WC:
+                dst = &out_mappings->resource1_wc;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE2_UC:
+                dst = &out_mappings->resource2_uc;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE2_WC:
+                dst = &out_mappings->resource2_wc;
+                break;
+            default:
+                continue;
+        }
+
+        dst->id = m->mapping_id;
+        dst->base = m->mapping_base;
+        dst->size = m->mapping_size;
+    }
+
+    return 0;
+}
+
 int tt_noc_read32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_t* value) {
     if (addr % 4 != 0) {
         return -EINVAL;

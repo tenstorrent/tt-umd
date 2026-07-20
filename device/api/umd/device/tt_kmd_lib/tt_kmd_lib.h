@@ -182,6 +182,61 @@ int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs);
 int tt_driver_get_attr(tt_device_t* dev, enum tt_driver_attr attr, uint64_t* out_value);
 
 /**
+ * @brief Identifiers for a device's memory-mapped BAR resources.
+ *
+ * Each identifies one BAR resource exposed by the device in a specific caching
+ * mode (UC = uncached, WC = write-combined).
+ */
+enum tt_bar_mapping_id {
+    TT_BAR_MAPPING_UNUSED = 0,
+    TT_BAR_MAPPING_RESOURCE0_UC = 1,
+    TT_BAR_MAPPING_RESOURCE0_WC = 2,
+    TT_BAR_MAPPING_RESOURCE1_UC = 3,
+    TT_BAR_MAPPING_RESOURCE1_WC = 4,
+    TT_BAR_MAPPING_RESOURCE2_UC = 5,
+    TT_BAR_MAPPING_RESOURCE2_WC = 6,
+};
+
+/**
+ * @brief A single BAR resource mapping.
+ *
+ * `id` is `TT_BAR_MAPPING_UNUSED` when the device did not report this mapping.
+ */
+typedef struct tt_bar_mapping_t {
+    uint32_t id;   /**< Mapping identifier; see `enum tt_bar_mapping_id` */
+    uint64_t base; /**< Offset to pass to mmap() on the device file descriptor */
+    uint64_t size; /**< Size of the mapping in bytes */
+} tt_bar_mapping_t;
+
+/**
+ * @brief The set of BAR resource mappings exposed by a device.
+ *
+ * Retrieved via `tt_device_query_bar_mappings()`. Any mapping the device does
+ * not report is left zeroed, with its `id` equal to `TT_BAR_MAPPING_UNUSED`.
+ */
+typedef struct tt_bar_mappings_t {
+    tt_bar_mapping_t resource0_uc;
+    tt_bar_mapping_t resource0_wc;
+    tt_bar_mapping_t resource1_uc;
+    tt_bar_mapping_t resource1_wc;
+    tt_bar_mapping_t resource2_uc;
+    tt_bar_mapping_t resource2_wc;
+} tt_bar_mappings_t;
+
+/**
+ * @brief Query the device's BAR resource mappings.
+ *
+ * Retrieves the base offsets and sizes of the device's memory-mapped BAR
+ * resources. The returned `base` values are suitable as offsets to mmap() on
+ * the device file descriptor.
+ *
+ * @param dev Device handle
+ * @param out_mappings Populated with the device's BAR mappings on success
+ * @return 0 on success, error code on failure
+ */
+int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappings);
+
+/**
  * @brief Convenience function to read a 32-bit value from a device NOC address.
  *
  * Appropriate for reading device registers or memory.

@@ -59,8 +59,8 @@ public:
     void dma_multicast_write(
         void* src,
         size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
+        CoreCoord core_start,
+        CoreCoord core_end,
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 

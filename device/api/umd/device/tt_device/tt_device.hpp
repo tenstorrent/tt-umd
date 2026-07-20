@@ -353,7 +353,7 @@ public:
      * @return Time taken in ms.
      */
     virtual std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
 
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
@@ -513,11 +513,10 @@ public:
     /**
      * Read the training status of the given ETH core.
      *
-     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
-    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
+    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
 
     const SocDescriptor &get_soc_descriptor() const;
 

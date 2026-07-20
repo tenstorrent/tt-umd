@@ -24,6 +24,7 @@
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -290,12 +291,12 @@ void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds 
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't require Ethernet training.
     return std::chrono::milliseconds(0);
 }
 
-EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     // RTL simulation doesn't require Ethernet training.
     return EthTrainingStatus::SUCCESS;
 }

@@ -324,11 +324,11 @@ void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_
 }
 
 std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     UMD_THROW(error::RuntimeError, "Waiting for ETH core training is not supported in TTSim simulation device.");
 }
 
-EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
 }
 

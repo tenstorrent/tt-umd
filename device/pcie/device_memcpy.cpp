@@ -56,6 +56,26 @@ struct MemcpyOpTiming {
     std::uint32_t bytes;
 };
 
+// Aggregate summary of a run's per-op timings.
+struct MemcpyOpStats {
+    std::size_t count;
+    std::int64_t min_ns;
+    std::int64_t max_ns;
+    std::int64_t mean_ns;
+    std::int64_t total_ns;
+};
+
+MemcpyOpStats compute_stats(const std::vector<MemcpyOpTiming>& ops) {
+    const auto [min_it, max_it] = std::minmax_element(
+        ops.begin(), ops.end(), [](const MemcpyOpTiming& a, const MemcpyOpTiming& b) { return a.ns < b.ns; });
+    const std::int64_t total_ns =
+        std::accumulate(ops.begin(), ops.end(), std::int64_t{0}, [](std::int64_t acc, const MemcpyOpTiming& op) {
+            return acc + op.ns;
+        });
+    const std::size_t count = ops.size();
+    return {count, min_it->ns, max_it->ns, total_ns / static_cast<std::int64_t>(count), total_ns};
+}
+
 // Reused across calls on the same thread so steady-state recording never allocates. A single shared
 // buffer is safe because the two instrumented entry points (memcpy_to_device / memcpy_from_device) never nest on one
 // thread.
@@ -118,68 +138,70 @@ private:
             return;
         }
 
-        const auto [min_it, max_it] = std::minmax_element(
-            g_memcpy_op_timings.begin(),
-            g_memcpy_op_timings.end(),
-            [](const MemcpyOpTiming& a, const MemcpyOpTiming& b) { return a.ns < b.ns; });
-        const std::int64_t min_ns = min_it->ns;
-        const std::int64_t max_ns = max_it->ns;
-        const std::int64_t total_ns = std::accumulate(
-            g_memcpy_op_timings.begin(),
-            g_memcpy_op_timings.end(),
-            std::int64_t{0},
-            [](std::int64_t acc, const MemcpyOpTiming& op) { return acc + op.ns; });
-        const std::size_t count = g_memcpy_op_timings.size();
-        const std::int64_t mean_ns = total_ns / static_cast<std::int64_t>(count);
+        const MemcpyOpStats stats = compute_stats(g_memcpy_op_timings);
 
-        // Used to compare if any individual op exceeded the configured budget.
-        // Ops that exceed the budget are marked with a trailing '!' in the per-op list.
-        const std::int64_t budget_ns =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(MmioTimeoutConfig::get_op_timeout()).count();
-
-        // Build into the reused thread-local buffer with std::to_chars.
+        // Build into the reused thread-local buffer, then emit as a single line.
         std::string& out = g_memcpy_dump_buffer;
         out.clear();
         // Reserve up front to avoid reallocations while appending. 96 bytes covers the fixed
         // header (labels + the handful of summary integers); each op contributes an "ns:bytes,"
         // entry, budgeted at ~12 bytes. These are rough over-estimates: a short reserve only
         // costs a later reallocation, so exactness does not matter.
-        out.reserve(96 + count * 12);
-        // Scratch for std::to_chars. A 64-bit integer is at most 20 digits, plus a sign; 24
-        // rounds that up with margin so no formatted value can overflow the buffer.
+        out.reserve(96 + stats.count * 12);
+
+        append_summary(out, stats);
+        append_op_list(out);
+        out += '\n';
+
+        std::fwrite(out.data(), 1, out.size(), stderr);
+    }
+
+    // Appends one formatted integer to `out` via std::to_chars (no allocation, no locale).
+    static void append_int(std::string& out, std::int64_t value) {
+        // A 64-bit integer is at most 20 digits, plus a sign; 24 rounds that up with margin so
+        // no formatted value can overflow the buffer.
         char num[24];
-        auto append_int = [&out, &num](auto value) {
-            const auto result = std::to_chars(num, num + sizeof(num), value);
-            out.append(num, result.ptr - num);
-        };
+        const auto result = std::to_chars(num, num + sizeof(num), value);
+        out.append(num, result.ptr - num);
+    }
+
+    // Appends the header + aggregate summary: "[fn] size=.. ops=.. min=..ns .. total=..ns".
+    void append_summary(std::string& out, const MemcpyOpStats& stats) const {
         out += '[';
         out += fn_name_;
         out += "] size=";
-        append_int(total_size_);
+        append_int(out, static_cast<std::int64_t>(total_size_));
         out += " ops=";
-        append_int(count);
+        append_int(out, static_cast<std::int64_t>(stats.count));
         out += " min=";
-        append_int(min_ns);
+        append_int(out, stats.min_ns);
         out += "ns max=";
-        append_int(max_ns);
+        append_int(out, stats.max_ns);
         out += "ns mean=";
-        append_int(mean_ns);
+        append_int(out, stats.mean_ns);
         out += "ns total=";
-        append_int(total_ns);
-        out += "ns ops_ns:bytes=";
-        for (std::size_t i = 0; i < count; ++i) {
+        append_int(out, stats.total_ns);
+        out += "ns";
+    }
+
+    // Appends " ops_ns:bytes=" followed by the comma-separated per-op list in recording order.
+    // Ops slower than the per-op budget (when non-zero) get a trailing '!'.
+    static void append_op_list(std::string& out) {
+        const std::int64_t budget_ns =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(MmioTimeoutConfig::get_op_timeout()).count();
+        out += " ops_ns:bytes=";
+        for (std::size_t i = 0; i < g_memcpy_op_timings.size(); ++i) {
+            const MemcpyOpTiming& op = g_memcpy_op_timings[i];
             if (i != 0) {
                 out += ',';
             }
-            append_int(g_memcpy_op_timings[i].ns);
+            append_int(out, op.ns);
             out += ':';
-            append_int(g_memcpy_op_timings[i].bytes);
-            if (budget_ns != 0 && g_memcpy_op_timings[i].ns > budget_ns) {
+            append_int(out, op.bytes);
+            if (budget_ns != 0 && op.ns > budget_ns) {
                 out += '!';
             }
         }
-        out += '\n';
-        std::fwrite(out.data(), 1, out.size(), stderr);
     }
 
     const char* fn_name_;

@@ -13,6 +13,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"

@@ -24,6 +24,7 @@ namespace tt::umd {
 class SimulationSysmemManager;
 class SimulationTlbAllocator;
 class SimulationServerSocket;
+class SimulationClient;
 class TlbWindow;
 
 // Common base class for the simulation TTDevice backends. It sits as an intermediary in the class
@@ -134,6 +135,12 @@ protected:
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
     // The host keeps its own direct in-process fast path; the socket is for remote clients.
     std::unique_ptr<SimulationServerSocket> socket_;
+
+    // Set only in client mode: the remote host this device talks to, instead of owning a local
+    // backend. Hoisted here from the derived devices (both held an identical member) since it is
+    // the client-mode counterpart of the shared lifecycle; a follow-up wires read_from_device /
+    // write_to_device to dispatch through it. Null in host/local mode.
+    std::unique_ptr<SimulationClient> client_;
 
 private:
     // Serves one socket request against this host device: decodes the wire request, runs it

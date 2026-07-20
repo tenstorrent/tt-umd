@@ -151,17 +151,20 @@ The sim server tool manages long-running simulation host processes, so one proce
 simulation while other UMD processes attach to it as clients over its per-chip socket. It is only
 built when the simulation backend is enabled (`-DTT_UMD_BUILD_SIMULATION=ON`).
 
-It has three subcommands:
+Each host gets its own server directory (`<temp>/tt-umd-sim-server-<index>`), so two hosts on the
+same machine never collide — even when they serve the same chip id — and a client attaches by
+pointing at a specific server's directory. It has three subcommands:
 
-- `start <simulator.so | rtl-dir>` — daemonizes a simulation host that serves the simulation over
-  its socket(s) and returns immediately, printing the host pid. Other UMD processes then attach to
-  it as clients (e.g. a `Cluster` pointed at the socket directory).
-- `list` — lists the currently-open simulation servers found under the well-known socket directory,
-  showing each server's chip id, liveness, arch/backend, and socket path.
-- `kill <chip_id>` — asks a server to shut down in-band over its socket (a `SHUTDOWN` request),
-  which tears the host down gracefully; attached clients then fail their next request with a clear
-  "server stopped" error. Shutdown goes over the socket rather than by PID/signal because the socket
-  is world-writable and cross-user, while a signal would be same-uid only.
+- `start <simulator.so | rtl-dir>` — daemonizes a simulation host that serves the simulation in a
+  fresh server directory and returns immediately, printing the host pid and that directory. Other
+  UMD processes then attach to it as clients (e.g. a `Cluster` pointed at that directory).
+- `list` — lists the currently-open simulation servers, showing each server's index, and for each
+  of its chips the chip id, liveness, arch/backend, and socket path.
+- `kill <server>` — asks a server (by its index from `list`) to shut down in-band over its socket
+  (a `SHUTDOWN` request), which tears the host down gracefully; attached clients then fail their
+  next request with a clear "server stopped" error. Shutdown goes over the socket rather than by
+  PID/signal because the socket is world-writable and cross-user, while a signal would be same-uid
+  only.
 
 You can run the following for more information:
 ```
@@ -171,12 +174,16 @@ You can run the following for more information:
 Example:
 ```
 $ ./build/tools/umd/sim_server start /path/to/simulator.so
-started simulation host pid 12345 (serving /path/to/simulator.so)
+started simulation host pid 12345 (serving /path/to/simulator.so in /tmp/tt-umd-sim-server-0)
+
+$ ./build/tools/umd/sim_server start /path/to/other_simulator.so
+started simulation host pid 12346 (serving /path/to/other_simulator.so in /tmp/tt-umd-sim-server-1)
 
 $ ./build/tools/umd/sim_server list
-CHIP   STATE        ARCH             SOCKET
-0      live         blackhole/ttsim  /tmp/tt-umd-sim-0.sock
+SERVER   CHIP   STATE        ARCH             SOCKET
+0        0      live         blackhole/ttsim  /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock
+1        0      live         blackhole/ttsim  /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock
 
 $ ./build/tools/umd/sim_server kill 0
-Requested shutdown of simulation server for chip 0.
+Requested shutdown of simulation server 0.
 ```

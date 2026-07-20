@@ -29,13 +29,14 @@ class TestWarmReset(unittest.TestCase):
         # Check if the first device is UBB and execute warm reset with secondary bus reset disabled
         print(f"First device subsystem ID: 0x{pci_devices_info[0].subsystem_id:04X}")
 
-        is_ubb = (
-            pci_devices_info[0].subsystem_id == 0x0035
-            or pci_devices_info[0].subsystem_id == 0x0047
-        )
+        is_wh_ubb = pci_devices_info[0].subsystem_id == 0x0035
+        is_bh_ubb = pci_devices_info[0].subsystem_id == 0x0047
         kmd_supports_reset = tt_umd.PCIDevice.is_arch_agnostic_reset_supported()
         print(f"KMD supports arch agnostic reset: {kmd_supports_reset}")
-        print(f"Is UBB: {is_ubb}")
+        print(f"Is WH UBB: {is_wh_ubb}, Is BH UBB: {is_bh_ubb}")
+
+        if is_bh_ubb:
+            self.skipTest("Skipping warm reset test on BH UBB.")
 
         # In case KMD still doesn't support arch agnostic reset, and in case of UBB, we have to call special UBB warm reset
         if is_ubb and not kmd_supports_reset:

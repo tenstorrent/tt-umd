@@ -132,6 +132,11 @@ private:
         const std::size_t count = g_memcpy_op_timings.size();
         const std::int64_t mean_ns = total_ns / static_cast<std::int64_t>(count);
 
+        // Used to compare if any individual op exceeded the configured budget.
+        // Ops that exceed the budget are marked with a trailing '!' in the per-op list.
+        const std::int64_t budget_ns =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(MmioTimeoutConfig::get_op_timeout()).count();
+
         // Build into the reused thread-local buffer with std::to_chars.
         std::string& out = g_memcpy_dump_buffer;
         out.clear();
@@ -169,6 +174,9 @@ private:
             append_int(g_memcpy_op_timings[i].ns);
             out += ':';
             append_int(g_memcpy_op_timings[i].bytes);
+            if (budget_ns != 0 && g_memcpy_op_timings[i].ns > budget_ns) {
+                out += '!';
+            }
         }
         out += '\n';
         std::fwrite(out.data(), 1, out.size(), stderr);

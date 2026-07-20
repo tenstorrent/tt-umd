@@ -4,20 +4,18 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <vector>
 
 namespace tt::umd {
 
-// The client-facing handle to a simulation host ("the card"), reached over its per-chip UNIX
-// socket. Deliberately slim for now: just the session handshake -- attach() connects, detach()
-// closes. It grows operation-by-operation as the server work lands (device description, memory
-// access, TLB, sysmem, run/reset, ...), at which point TTSimTTDevice's client-mode dispatch is
-// rebound from its throwing stubs onto these calls. No simulation build needed (asio is a core
-// dependency), mirroring SimulationSocket on the host side.
+// Client-facing handle to a simulation host ("the card") over its per-chip UNIX socket. transact()
+// moves opaque request/reply payloads; encoding lives in the simulation device that owns this
+// handle, so this always-built transport carries no protocol/FlatBuffers dependency.
 //
-// The asio transport is held behind a pImpl so this header stays free of asio (a private
-// dependency of the library) -- see Impl in the .cpp.
+// asio is held behind a pImpl so this header stays asio-free (see Impl in the .cpp).
 class SimulationClient {
 public:
     explicit SimulationClient(std::filesystem::path socket_path);
@@ -31,6 +29,11 @@ public:
     void attach();
     // Closes the connection; idempotent.
     void detach();
+
+    // Sends one length-prefixed request to the host and blocks for the length-prefixed reply,
+    // returning its opaque payload. Payloads are encoded/decoded by the caller (the protocol
+    // layer). Throws if not attached, or if the host disconnects or errors mid-exchange.
+    std::vector<uint8_t> transact(const std::vector<uint8_t>& request);
 
 private:
     std::filesystem::path socket_path_;

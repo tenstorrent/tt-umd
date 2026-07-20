@@ -33,6 +33,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -94,6 +95,16 @@ public:
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+
+#ifdef TT_UMD_BUILD_SIMULATION
+    // A remote TTDevice is normally initialized over ARC (init_tt_device), which constructs its SocDescriptor.
+    // Simulated remote chips have no ARC to probe, so the caller supplies the full descriptor directly. This is a
+    // dedicated factory (compiled in only for simulation builds) rather than an overload of the silicon create()
+    // above, so the simulation-only flow stays fully separated from the silicon path.
+    // TODO: temporary - remove once ttsim provides a mocked ARC that can serve the SocDescriptor like silicon does.
+    static std::unique_ptr<TTDevice> create_simulation_remote(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+#endif  // TT_UMD_BUILD_SIMULATION
 
     virtual ~TTDevice() = default;
 
@@ -190,11 +201,15 @@ public:
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void read_from_device(
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void write_to_device(
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void read_from_device_reg(
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void write_to_device_reg(
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -208,9 +223,12 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    virtual void noc_multicast_write(
-        const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to all TENSIX cores in the grid.
@@ -219,7 +237,7 @@ public:
      * @param size number of bytes
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr) = 0;
+    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -360,6 +378,14 @@ public:
      */
     virtual void set_power_state(bool busy);
 
+    /**
+     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
+     * and waiting for the clock to settle at the expected frequency.
+     *
+     * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
+     */
+    virtual void set_clock_state(DevicePowerState state);
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();
@@ -447,11 +473,14 @@ public:
     virtual std::unique_ptr<TlbWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
-    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
-    void dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr);
+    virtual void dma_write_to_device(
+        const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+    void dma_write_to_device(
+        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
-    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr);
+    virtual void dma_read_from_device(
+        void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -466,8 +495,20 @@ public:
      * @param core_end ending core coordinates (x,y) of the multicast write
      * @param addr address on the device where data will be written
      */
-    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    void dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+    virtual void dma_multicast_write(
+        void *src,
+        size_t size,
+        tt_xy_pair core_start,
+        tt_xy_pair core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
+    void dma_multicast_write(
+        void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Read the training status of the given ETH core.
@@ -509,7 +550,17 @@ protected:
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
     void multicast_write_via_unicast(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
+
+    // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
+    // returns on timeout.
+    void wait_for_aiclk_value(
+        DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
@@ -527,6 +578,8 @@ protected:
 
 private:
     void probe_arc();
+
+    void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 

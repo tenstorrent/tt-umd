@@ -34,6 +34,8 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
+    void set_clock_state(DevicePowerState state) override;
+
     bool get_noc_translation_enabled() override;
 
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -50,9 +52,6 @@ public:
         const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
     EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-
-    using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void *src, size_t size, uint64_t addr) override;
 
 protected:
     BlackholeTTDevice(

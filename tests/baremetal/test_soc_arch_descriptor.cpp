@@ -36,8 +36,8 @@ TEST(SocArchDescriptor, WormholeFromArch) {
     EXPECT_EQ(desc.get_dram_cores().size(), wormhole::DRAM_CORES_NOC0.size());
     EXPECT_EQ(desc.get_eth_cores().size(), wormhole::ETH_CORES_NOC0.size());
     EXPECT_EQ(desc.get_eth_cores(), wormhole::ETH_CORES_NOC0);
-    EXPECT_EQ(desc.get_arc_cores().size(), wormhole::ARC_CORES_NOC0.size());
-    EXPECT_EQ(desc.get_arc_cores(), wormhole::ARC_CORES_NOC0);
+    EXPECT_EQ(desc.get_firmware_cores().size(), wormhole::ARC_CORES_NOC0.size());
+    EXPECT_EQ(desc.get_firmware_cores(), wormhole::ARC_CORES_NOC0);
     EXPECT_EQ(desc.get_pcie_cores().size(), wormhole::PCIE_CORES_NOC0.size());
     EXPECT_EQ(desc.get_pcie_cores(), wormhole::PCIE_CORES_NOC0);
     EXPECT_EQ(desc.get_router_cores().size(), wormhole::ROUTER_CORES_NOC0.size());
@@ -60,7 +60,7 @@ TEST(SocArchDescriptor, BlackholeFromArch) {
     EXPECT_EQ(desc.get_dram_cores().size(), blackhole::DRAM_CORES_NOC0.size());
     EXPECT_EQ(desc.get_eth_cores().size(), blackhole::ETH_CORES_NOC0.size());
     EXPECT_EQ(desc.get_eth_cores(), blackhole::ETH_CORES_NOC0);
-    EXPECT_EQ(desc.get_arc_cores().size(), blackhole::ARC_CORES_NOC0.size());
+    EXPECT_EQ(desc.get_firmware_cores().size(), blackhole::ARC_CORES_NOC0.size());
     EXPECT_EQ(desc.get_pcie_cores().size(), blackhole::PCIE_CORES_NOC0.size());
     EXPECT_EQ(desc.get_worker_l1_size(), blackhole::TENSIX_L1_SIZE);
     EXPECT_EQ(desc.get_eth_l1_size(), blackhole::ETH_L1_SIZE);
@@ -92,7 +92,7 @@ TEST(SocArchDescriptor, WormholeFromYaml) {
     EXPECT_EQ(desc.get_tensix_cores().size(), wormhole::TENSIX_CORES_NOC0.size());
     EXPECT_EQ(desc.get_dram_cores().size(), wormhole::DRAM_CORES_NOC0.size());
     EXPECT_EQ(desc.get_eth_cores().size(), wormhole::ETH_CORES_NOC0.size());
-    EXPECT_EQ(desc.get_arc_cores().size(), wormhole::ARC_CORES_NOC0.size());
+    EXPECT_EQ(desc.get_firmware_cores().size(), wormhole::ARC_CORES_NOC0.size());
     EXPECT_EQ(desc.get_pcie_cores().size(), wormhole::PCIE_CORES_NOC0.size());
     EXPECT_FALSE(desc.get_device_descriptor_file_path().empty());
 }
@@ -116,7 +116,7 @@ TEST(SocArchDescriptor, WormholeArchAndYamlConsistency) {
     EXPECT_EQ(from_arch.get_grid_size(), from_yaml.get_grid_size());
     EXPECT_EQ(from_arch.get_tensix_cores(), from_yaml.get_tensix_cores());
     EXPECT_EQ(from_arch.get_eth_cores(), from_yaml.get_eth_cores());
-    EXPECT_EQ(from_arch.get_arc_cores(), from_yaml.get_arc_cores());
+    EXPECT_EQ(from_arch.get_firmware_cores(), from_yaml.get_firmware_cores());
     EXPECT_EQ(from_arch.get_pcie_cores(), from_yaml.get_pcie_cores());
     EXPECT_EQ(from_arch.get_router_cores(), from_yaml.get_router_cores());
     EXPECT_EQ(from_arch.get_worker_l1_size(), from_yaml.get_worker_l1_size());
@@ -138,7 +138,7 @@ TEST(SocArchDescriptor, BlackholeArchAndYamlConsistency) {
     EXPECT_EQ(from_arch.get_arch(), from_yaml.get_arch());
     EXPECT_EQ(from_arch.get_grid_size(), from_yaml.get_grid_size());
     EXPECT_EQ(from_arch.get_tensix_cores(), from_yaml.get_tensix_cores());
-    EXPECT_EQ(from_arch.get_arc_cores(), from_yaml.get_arc_cores());
+    EXPECT_EQ(from_arch.get_firmware_cores(), from_yaml.get_firmware_cores());
     EXPECT_EQ(from_arch.get_pcie_cores(), from_yaml.get_pcie_cores());
     EXPECT_EQ(from_arch.get_worker_l1_size(), from_yaml.get_worker_l1_size());
     EXPECT_EQ(from_arch.get_eth_l1_size(), from_yaml.get_eth_l1_size());
@@ -155,9 +155,10 @@ TEST(SocArchDescriptor, WormholeDerivedCoresMap) {
     auto desc = SocArchDescriptor(tt::ARCH::WORMHOLE_B0);
 
     // Total cores in the map should equal sum of all core type vectors.
-    size_t expected_total = desc.get_tensix_cores().size() + desc.get_eth_cores().size() + desc.get_arc_cores().size() +
-                            desc.get_pcie_cores().size() + desc.get_router_cores().size() +
-                            desc.get_security_cores().size() + desc.get_l2cpu_cores().size();
+    size_t expected_total = desc.get_tensix_cores().size() + desc.get_eth_cores().size() +
+                            desc.get_firmware_cores().size() + desc.get_pcie_cores().size() +
+                            desc.get_router_cores().size() + desc.get_security_cores().size() +
+                            desc.get_l2cpu_cores().size();
     for (const auto& channel : desc.get_dram_cores()) {
         expected_total += channel.size();
     }
@@ -180,7 +181,7 @@ TEST(SocArchDescriptor, WormholeDerivedCoresMap) {
     }
 
     // Verify ARC cores.
-    for (const auto& core : desc.get_arc_cores()) {
+    for (const auto& core : desc.get_firmware_cores()) {
         auto it = desc.get_cores().find(core);
         ASSERT_NE(it, desc.get_cores().end());
         EXPECT_EQ(it->second.type, CoreType::ARC);
@@ -328,7 +329,7 @@ TEST(SocArchDescriptor, BlackholeSimulation1x2) {
     EXPECT_EQ(desc.get_router_cores()[0], tt_xy_pair(0, 0));
 
     // No ARC, PCIe, ETH cores.
-    EXPECT_TRUE(desc.get_arc_cores().empty());
+    EXPECT_TRUE(desc.get_firmware_cores().empty());
     EXPECT_TRUE(desc.get_pcie_cores().empty());
     EXPECT_TRUE(desc.get_eth_cores().empty());
 
@@ -370,7 +371,7 @@ TEST(SocArchDescriptor, QuasarSimulation1x1) {
     EXPECT_EQ(desc.get_router_cores()[0], tt_xy_pair(0, 2));
 
     // No ARC, PCIe, ETH cores.
-    EXPECT_TRUE(desc.get_arc_cores().empty());
+    EXPECT_TRUE(desc.get_firmware_cores().empty());
     EXPECT_TRUE(desc.get_pcie_cores().empty());
     EXPECT_TRUE(desc.get_eth_cores().empty());
 
@@ -404,8 +405,8 @@ TEST(SocArchDescriptor, WormholeB01x1) {
     EXPECT_EQ(desc.get_eth_cores().size(), 16);
 
     // 1 ARC core: (0,10).
-    ASSERT_EQ(desc.get_arc_cores().size(), 1);
-    EXPECT_EQ(desc.get_arc_cores()[0], tt_xy_pair(0, 10));
+    ASSERT_EQ(desc.get_firmware_cores().size(), 1);
+    EXPECT_EQ(desc.get_firmware_cores()[0], tt_xy_pair(0, 10));
 
     // 1 PCIe core: (0,3).
     ASSERT_EQ(desc.get_pcie_cores().size(), 1);

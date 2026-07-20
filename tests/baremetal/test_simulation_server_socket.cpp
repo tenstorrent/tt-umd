@@ -7,14 +7,19 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <asio.hpp>
+#include <cstdint>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
+#include "simulation/simulation_server_transport.hpp"
 
 using namespace tt::umd;
+using stream_protocol = asio::local::stream_protocol;
 
 namespace {
 
@@ -36,6 +41,15 @@ bool can_connect(const std::filesystem::path& path) {
     bool ok = ::connect(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
     ::close(fd);
     return ok;
+}
+
+// Connects an asio UNIX socket (blocking) to the server at path, for framed transport I/O. Shares
+// the caller's io_context; the socket closes on destruction.
+stream_protocol::socket connect_client(asio::io_context& io, const std::filesystem::path& path) {
+    stream_protocol::socket socket(io);
+    socket.connect(stream_protocol::endpoint(path.string()));
+    socket.native_non_blocking(false);
+    return socket;
 }
 
 // Binds a UNIX socket to path then closes it without listening, leaving a stale
@@ -124,6 +138,88 @@ TEST_F(SimulationServerSocketTest, RefusesToReclaimNonSocketFile) {
 
     EXPECT_THROW(SimulationServerSocket::try_create(path_), std::exception);
     EXPECT_TRUE(std::filesystem::exists(path_));  // the regular file was left untouched
+}
+
+// Inverts every byte, so a served reply is distinguishable from the request that produced it.
+std::vector<uint8_t> invert(const std::vector<uint8_t>& request) {
+    std::vector<uint8_t> reply = request;
+    for (uint8_t& byte : reply) {
+        byte = static_cast<uint8_t>(~byte);
+    }
+    return reply;
+}
+
+// With a handler, a framed request is served and the framed reply comes back transformed.
+TEST_F(SimulationServerSocketTest, ServesRequestsThroughHandler) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve(invert);
+    asio::io_context io;
+    stream_protocol::socket client = connect_client(io, path_);
+
+    const std::vector<uint8_t> request = {0x01, 0x02, 0x03};
+    send_framed(client, request);
+
+    EXPECT_EQ(recv_framed(client), invert(request));
+}
+
+// One connection carries many request/reply turns in sequence.
+TEST_F(SimulationServerSocketTest, HandlesSequentialRequestsOnOneConnection) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve([](const std::vector<uint8_t>& request) { return request; });
+    asio::io_context io;
+    stream_protocol::socket client = connect_client(io, path_);
+
+    for (uint8_t i = 0; i < 5; ++i) {
+        const std::vector<uint8_t> request = {i, static_cast<uint8_t>(i + 1)};
+        send_framed(client, request);
+        EXPECT_EQ(recv_framed(client), request);
+    }
+}
+
+// Two clients are served concurrently (a thread per connection); neither sees the other's data.
+TEST_F(SimulationServerSocketTest, SupportsMultipleClients) {
+    auto server = SimulationServerSocket::create(path_);
+    server->serve([](const std::vector<uint8_t>& request) { return request; });
+    asio::io_context io;
+    stream_protocol::socket first = connect_client(io, path_);
+    stream_protocol::socket second = connect_client(io, path_);
+
+    send_framed(first, {0xAA});
+    send_framed(second, {0xBB});
+    EXPECT_EQ(recv_framed(first), (std::vector<uint8_t>{0xAA}));
+    EXPECT_EQ(recv_framed(second), (std::vector<uint8_t>{0xBB}));
+}
+
+// Destroying the server while a client is still connected must not hang: the serving thread,
+// blocked in recv_framed, is unblocked and joined during teardown. The client then sees EOF.
+TEST_F(SimulationServerSocketTest, TearsDownCleanlyWithClientConnected) {
+    asio::io_context io;
+    stream_protocol::socket client(io);
+    {
+        auto server = SimulationServerSocket::create(path_);
+        server->serve([](const std::vector<uint8_t>& request) { return request; });
+        client = connect_client(io, path_);
+        // One round-trip so the serving thread is up and then blocked awaiting the next request.
+        send_framed(client, {0x42});
+        EXPECT_EQ(recv_framed(client), (std::vector<uint8_t>{0x42}));
+    }  // server destroyed here -- must join the blocked serving thread without hanging.
+
+    EXPECT_THROW(recv_framed(client), std::exception);  // the host shut the connection down
+}
+
+// A socket bound without a handler is presence-only -- connectable (liveness) but not accepting.
+// serve() installs the handler and starts accepting, so serving can begin after the backend is
+// ready. This is the path the host device uses (create the socket, then serve once up).
+TEST_F(SimulationServerSocketTest, ServesAfterDeferredServe) {
+    auto server = SimulationServerSocket::create(path_);  // presence-only: no handler yet
+    EXPECT_TRUE(can_connect(path_));                      // bound + connectable
+
+    server->serve([](const std::vector<uint8_t>& request) { return request; });  // echo
+
+    asio::io_context io;
+    stream_protocol::socket client = connect_client(io, path_);
+    send_framed(client, {0x07, 0x08});
+    EXPECT_EQ(recv_framed(client), (std::vector<uint8_t>{0x07, 0x08}));
 }
 
 TEST(SimulationServerSocket, DefaultSocketPathIsPerChip) {

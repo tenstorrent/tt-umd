@@ -39,11 +39,11 @@ class TestWarmReset(unittest.TestCase):
             self.skipTest("Skipping warm reset test on BH UBB.")
 
         # In case KMD still doesn't support arch agnostic reset, and in case of UBB, we have to call special UBB warm reset
-        if is_ubb and not kmd_supports_reset:
+        if is_wh_ubb and not kmd_supports_reset:
             print("Executing UBB warm reset with recovery...")
             tt_umd.WarmResetWithRecovery.ubb_warm_reset()
         else:
-            should_perform_secondary_bus_reset = not is_ubb
+            should_perform_secondary_bus_reset = not is_wh_ubb
             print(
                 f"Executing standard warm reset with recovery, with secondary bus reset: {should_perform_secondary_bus_reset}"
             )

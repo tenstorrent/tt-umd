@@ -287,6 +287,16 @@ enum tt_dma_map_flags {
      * given Blackhole's larger address space.
      */
     TT_DMA_FLAG_NOC_TOP_DOWN = 1 << 1,
+
+    /**
+     * @brief Attests that the pages backing the buffer are physically
+     * contiguous.
+     *
+     * When the system IOMMU is not active, the driver requires this attestation
+     * to expose the buffer as a single contiguous physical (or NOC) address
+     * range, e.g. for hugepages. It has no effect when an IOMMU is active.
+     */
+    TT_DMA_FLAG_CONTIGUOUS = 1 << 2,
 };
 
 /**
@@ -350,6 +360,44 @@ int tt_dma_get_dma_addr(tt_dma_t* dma, uint64_t* out_dma_addr);
  * @return 0 on success, error code on failure
  */
 int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr);
+
+/**
+ * @brief Pins a host memory buffer and maps it for device access.
+ *
+ * This is a lower-level counterpart to `tt_dma_map()`. Unlike `tt_dma_map()`,
+ * it does not allocate a `tt_dma_t` handle: the caller identifies the mapping
+ * by its virtual address and size, and releases it via `tt_unpin_pages()` using
+ * the same virtual address and size. This mirrors the driver's pin/unpin
+ * interface directly and is intended for callers that track the buffer's
+ * lifetime themselves.
+ *
+ * The caller is responsible for validating that `addr` is page-aligned and
+ * `len` is a multiple of the page size before calling.
+ *
+ * @param dev Device handle
+ * @param addr Virtual address of memory to pin; must be page-aligned
+ * @param len Number of bytes; must be a multiple of the page size
+ * @param flags Bitmask of flags from `enum tt_dma_map_flags`
+ * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
+ * @param out_noc_addr On success, the NOC address. Only valid when a
+ *                     `TT_DMA_FLAG_NOC*` flag is set. May be NULL.
+ * @return 0 on success, error code on failure
+ */
+int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr);
+
+/**
+ * @brief Unpins a previously pinned memory region.
+ *
+ * Releases the mapping created by `tt_pin_pages()`. The virtual address and
+ * size must match those passed to `tt_pin_pages()`. Unpinning a subset of a
+ * pinned buffer is not supported.
+ *
+ * @param dev Device handle
+ * @param addr Virtual address originally passed to `tt_pin_pages()`
+ * @param len Size originally passed to `tt_pin_pages()`
+ * @return 0 on success, error code on failure
+ */
+int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
 
 /**
  * @brief Allocates a TLB window.

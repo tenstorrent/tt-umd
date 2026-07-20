@@ -6,9 +6,8 @@
 
 #include <fcntl.h>  // for ::open
 #include <fmt/format.h>
-#include <sys/ioctl.h>  // for ioctl
-#include <sys/mman.h>   // for mmap, munmap
-#include <unistd.h>     // for ::close
+#include <sys/mman.h>  // for mmap, munmap
+#include <unistd.h>    // for ::close
 
 #include <cerrno>
 #include <cstdint>
@@ -29,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "ioctl.h"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_ids.h"
@@ -440,63 +438,41 @@ PCIDevice::PCIDevice(int pci_device_number) :
     UMD_ASSERT(
         arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, error::RuntimeError, "Wormhole B0 must have revision 0x01");
 
-    struct {
-        tenstorrent_query_mappings query_mappings;
-        tenstorrent_mapping mapping_array[8];
-    } mappings;
-
-    memset(&mappings, 0, sizeof(mappings));
-    mappings.query_mappings.in.output_mapping_count = 8;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        UMD_THROW(error::RuntimeError, fmt::format("Query mappings failed on device {}.", pci_device_num));
-    }
-
     // Mapping resource to BAR
     // Resource 0 -> BAR0
     // Resource 1 -> BAR2
     // Resource 2 -> BAR4.
-    tenstorrent_mapping bar0_uc_mapping{};
-    tenstorrent_mapping bar0_wc_mapping{};
-    tenstorrent_mapping bar2_uc_mapping{};
-    tenstorrent_mapping bar2_wc_mapping{};
-    tenstorrent_mapping bar4_uc_mapping{};
-    tenstorrent_mapping bar4_wc_mapping{};
+    tt_bar_mappings_t bar_mappings{};
+    int mappings_ret = tt_device_query_bar_mappings(tt_device_handle, &bar_mappings);
+    if (mappings_ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Query mappings failed on device {}: {}", pci_device_num, strerror(-mappings_ret)));
+    }
 
-    for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
-            bar0_uc_mapping = mappings.mapping_array[i];
+    const tt_bar_mapping_t &bar0_uc_mapping = bar_mappings.resource0_uc;
+    const tt_bar_mapping_t &bar2_uc_mapping = bar_mappings.resource1_uc;
+    const tt_bar_mapping_t &bar4_uc_mapping = bar_mappings.resource2_uc;
+
+    for (const tt_bar_mapping_t &mapping :
+         {bar_mappings.resource0_uc,
+          bar_mappings.resource0_wc,
+          bar_mappings.resource1_uc,
+          bar_mappings.resource1_wc,
+          bar_mappings.resource2_uc,
+          bar_mappings.resource2_wc}) {
+        if (mapping.id == TT_BAR_MAPPING_UNUSED) {
+            continue;
         }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
-            bar0_wc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
-            bar2_uc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
-            bar2_wc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            bar4_uc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            bar4_wc_mapping = mappings.mapping_array[i];
-        }
-
         log_trace(
             LogUMD,
             "BAR mapping id {} base {} size {}",
-            mappings.mapping_array[i].mapping_id,
-            reinterpret_cast<void *>(mappings.mapping_array[i].mapping_base),
-            mappings.mapping_array[i].mapping_size);
+            mapping.id,
+            reinterpret_cast<void *>(mapping.base),
+            mapping.size);
     }
 
-    if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
+    if (bar0_uc_mapping.id != TT_BAR_MAPPING_RESOURCE0_UC) {
         UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
     }
 
@@ -506,7 +482,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
+        bar0_uc_mapping.base + PCIDevice::bar0_mapping_offset);
 
     if (bar0 == MAP_FAILED) {
         UMD_THROW(error::RuntimeError, fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
@@ -521,7 +497,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + arch_impl_->get_static_tlb_cfg_addr());
+        bar0_uc_mapping.base + arch_impl_->get_static_tlb_cfg_addr());
 
     if (tlb_config_space == MAP_FAILED) {
         UMD_THROW(
@@ -530,36 +506,36 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
+        if (bar4_uc_mapping.id != TT_BAR_MAPPING_RESOURCE2_UC) {
             UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
         }
 
-        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
-            bar2_uc_mapping.mapping_size,
+            bar2_uc_mapping.size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             pci_device_file_desc,
-            bar2_uc_mapping.mapping_base);
+            bar2_uc_mapping.base);
 
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
-        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
+        if (bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
             UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
         }
 
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
-        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
-            bar2_uc_mapping.mapping_size,
+            bar2_uc_mapping.size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             pci_device_file_desc,
-            bar2_uc_mapping.mapping_base);
+            bar2_uc_mapping.base);
 
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));

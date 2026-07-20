@@ -931,45 +931,29 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
 }
 
 bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
-    tenstorrent_allocate_dma_buf dma_buf{};
-
     const uint64_t page_size = static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
     const uint64_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
-    dma_buf.in.requested_size = dma_buf_alloc_size;
-    dma_buf.in.buf_index = 0;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-        log_debug(LogUMD, "Failed to allocate DMA buffer: {}", strerror(errno));
-    } else {
-        // OK - we have a buffer.  Map it.
-        void *buffer = mmap(
-            nullptr,
-            dma_buf_alloc_size,
-            PROT_READ | PROT_WRITE,
-            MAP_SHARED,
-            pci_device_file_desc,
-            dma_buf.out.mapping_offset);
-
-        if (buffer == MAP_FAILED) {
-            // Similar rationale to above, although this is worse because we
-            // can't deallocate it.  That only happens when we close the fd.
-            log_error(LogUMD, "Failed to map DMA buffer: {}", strerror(errno));
-            return false;
-        } else {
-            log_debug(
-                LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
-            dma_buffer.buffer = static_cast<uint8_t *>(buffer);
-            dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
-            dma_buffer.buffer_pa = dma_buf.out.physical_address;
-            dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
-            dma_buffer.size = dma_buf_size;
-            TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
-            return true;
-        }
+    void *buffer = nullptr;
+    uint64_t physical_address = 0;
+    int ret = tt_allocate_dma_buf(
+        tt_device_handle, 0, dma_buf_alloc_size, TT_DMA_FLAG_NONE, &buffer, &physical_address, nullptr);
+    if (ret != 0) {
+        // Buffers allocated but not mapped can't be deallocated until the fd is
+        // closed, but since this is a temporary hack we just retry with a
+        // smaller size.
+        log_debug(LogUMD, "Failed to allocate DMA buffer of size {}: {}", dma_buf_alloc_size, strerror(-ret));
+        return false;
     }
 
-    return false;
+    log_debug(LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
+    dma_buffer.buffer = static_cast<uint8_t *>(buffer);
+    dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
+    dma_buffer.buffer_pa = physical_address;
+    dma_buffer.completion_pa = physical_address + dma_buf_size;
+    dma_buffer.size = dma_buf_size;
+    TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
+    return true;
 }
 
 void PCIDevice::allocate_pcie_dma_buffer() {

@@ -269,7 +269,7 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     return true;
 }
 
-void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -288,7 +288,7 @@ void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_r
     }
 }
 
-void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();

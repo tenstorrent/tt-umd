@@ -51,11 +51,11 @@ public:
 
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 
-    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
@@ -86,12 +86,10 @@ private:
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process RTL backend (communicator_), client mode
-    // drives the remote host (client_->attach()/detach()).
+    // drives the remote host (client_->attach()/detach()). Note client_ is owned by the
+    // SimulationTTDevice base (hoisted there), not declared in this class.
     std::function<void()> setup_;
     std::function<void()> teardown_;
-
-    // Set only in client mode; the remote host this device talks to. Null in host/local mode.
-    std::unique_ptr<SimulationClient> client_;
 
     std::unique_ptr<RtlSimCommunicator> communicator_;
 };

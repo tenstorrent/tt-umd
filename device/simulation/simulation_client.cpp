@@ -10,6 +10,7 @@
 #include <asio.hpp>
 #include <system_error>
 
+#include "simulation/simulation_server_transport.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -61,6 +62,19 @@ void SimulationClient::attach() {
             error::RuntimeError,
             fmt::format("Failed to connect to simulation host socket at {}: {}", socket_path_.string(), ec.message()));
     }
+    // Ensure blocking mode (the transport uses blocking reads/writes); if that fails, fail loudly
+    // rather than report a half-attached client as connected.
+    impl_->socket.native_non_blocking(false, ec);
+    if (ec) {
+        std::error_code close_ec;
+        impl_->socket.close(close_ec);  // drop the half-open socket; is_open() -> false, so not "attached"
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to set blocking mode on simulation host socket at {}: {}",
+                socket_path_.string(),
+                ec.message()));
+    }
 }
 
 void SimulationClient::detach() {
@@ -72,6 +86,16 @@ void SimulationClient::detach() {
     std::error_code ec;
     impl_->socket.shutdown(stream_protocol::socket::shutdown_both, ec);
     impl_->socket.close(ec);
+}
+
+std::vector<uint8_t> SimulationClient::transact(const std::vector<uint8_t>& request) {
+    if (!impl_->socket.is_open()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Cannot transact with simulation host at {}: not attached", socket_path_.string()));
+    }
+    send_framed(impl_->socket, request);
+    return recv_framed(impl_->socket);
 }
 
 }  // namespace tt::umd

@@ -28,6 +28,30 @@ on:
         description: >-
           github.event_name from the top-level workflow. Used to evaluate the
           per-matrix blacklist. Leave empty for direct workflow_dispatch.
+      build-exalens-kernels:
+        required: false
+        type: boolean
+        default: false
+        description: >-
+          When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
+          tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
+          one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
+          pass false, since the artifact name is shared per run and would otherwise collide.
+      repeat-count:
+        required: false
+        type: string
+        default: "1"
+        description: >-
+          Repeat every test-all card this many times, each iteration its own job
+          (for flaky-repro or A/B runs). Default 1 = normal single run. cards x repeat-count
+          must stay <= 256 (GitHub matrix cap) or matrix generation fails with a clear error.
+      cards-filter:
+        required: false
+        type: string
+        default: ""
+        description: >-
+          JSON array of exact card names to run (a subset of the cards job list). When set, only
+          those run in test-all. Empty = all cards.
   workflow_dispatch:
     inputs:
       build-type:
@@ -53,6 +77,25 @@ on:
         description: 'The timeout for the test run in minutes'
         type: number
         default: 30
+      build-exalens-kernels:
+        required: false
+        type: boolean
+        default: true
+        description: >-
+          When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
+          tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
+          one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
+          pass false, since the artifact name is shared per run and would otherwise collide.
+      repeat-count:
+        required: false
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
+        type: string
+        default: "1"
+      cards-filter:
+        required: false
+        description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
+        type: string
+        default: ""
 
 jobs:
   # Define all available cards which will be used for testing.
@@ -82,6 +125,7 @@ jobs:
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "P300-viommu"},
+            {"arch": "blackhole",   "card": "g13blx01"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
@@ -124,6 +168,7 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
+            '*|TSan|g13blx01' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 
@@ -135,6 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test-groups: ${{ steps.filter.outputs.test-groups }}
+      repeat: ${{ steps.filter.outputs.repeat }}
     steps:
       - name: Filter cards against blacklist
         id: filter
@@ -143,6 +189,8 @@ jobs:
           BLACKLIST: ${{ needs.blacklist.outputs.entries }}
           TRIGGERING_EVENT: ${{ inputs.triggering-event }}
           BUILD_TYPE: ${{ inputs.build-type }}
+          CARDS_FILTER: ${{ inputs.cards-filter }}
+          REPEAT_COUNT: ${{ inputs.repeat-count }}
         run: |
           FILTERED=$(echo "$CARDS" | jq -c \
             --argjson blacklist "$BLACKLIST" \
@@ -157,8 +205,46 @@ jobs:
                   matchP($event; $p[0]) and matchP($buildType; $p[1]) and matchP($c.card; $p[2])
                 )) | not
              )]')
+          # Optional card subset: cards-filter is a JSON array of exact card names (a subset of the
+          # cards job). When set, keep only those; empty = keep all.
+          if [ -n "$CARDS_FILTER" ]; then
+            if ! echo "$CARDS_FILTER" | jq empty 2>/dev/null; then
+              echo "::error::cards-filter is not valid JSON (trailing comma?): $CARDS_FILTER"
+              exit 1
+            fi
+            if [ "$(echo "$CARDS_FILTER" | jq -r 'type')" != "array" ]; then
+              echo "::error::cards-filter must be a JSON array of card names, e.g. [\"card-a\"]: $CARDS_FILTER"
+              exit 1
+            fi
+            FILTERED=$(echo "$FILTERED" | jq -c --argjson sel "$CARDS_FILTER" \
+              '[ .[] | select(.card | IN($sel[])) ]')
+          fi
+          # Repeat dimension: each value becomes an independent job. Default 1 = normal single run.
+          N="${REPEAT_COUNT:-1}"
+          # Must be a positive integer: 0 would generate an empty matrix (silently runs nothing)
+          # and a non-integer breaks the arithmetic / jq --argjson below with a cryptic error.
+          case "$N" in
+            ''|*[!0-9]*) echo "::error::repeat-count must be a positive integer, got '$N'"; exit 1 ;;
+          esac
+          if [ "$N" -lt 1 ]; then
+            echo "::error::repeat-count must be >= 1, got '$N'"
+            exit 1
+          fi
+          COUNT=$(echo "$FILTERED" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::No cards matched cards-filter='$CARDS_FILTER'. Check names against the cards job."
+            exit 1
+          fi
+          TOTAL=$((COUNT * N))
+          if [ "$TOTAL" -gt 256 ]; then
+            MSG="test-all would generate $COUNT cards x $N = $TOTAL jobs, over the 256 matrix cap"
+            echo "::error::$MSG. Lower repeat-count or narrow cards-filter."
+            exit 1
+          fi
+          REPEAT=$(jq -cn --argjson n "$N" '[range(1; $n + 1)]')
           echo "test-groups=$FILTERED" >> $GITHUB_OUTPUT
-          echo "Filtered test matrix for trigger ($TRIGGERING_EVENT) build-type ($BUILD_TYPE):"
+          echo "repeat=$REPEAT" >> $GITHUB_OUTPUT
+          echo "Running $COUNT card(s) x $N repeat = $TOTAL job(s) [trigger=$TRIGGERING_EVENT build=$BUILD_TYPE]:"
           echo "$FILTERED" | jq -r '.[] | "  \(.arch) | \(.card)"'
 
   build-tests:
@@ -181,6 +267,14 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
+  # Build the tt-exalens kernels + source artifact consumed by run-exalens-tests. Skipped when a
+  # caller already built it once and passed build-exalens-kernels: false (see the multiple-builds
+  # workflow); on a standalone run this defaults to true so the artifact always exists.
+  build-exalens-kernels:
+    if: inputs.build-exalens-kernels
+    secrets: inherit
+    uses: ./.github/workflows/build-exalens-kernels.yml
+
   test-all:
     secrets: inherit
     needs: [build-tests, generate-test-matrix]
@@ -192,6 +286,8 @@ jobs:
       matrix:
         test-group: ${{ fromJson(needs.generate-test-matrix.outputs.test-groups) }}
         ubuntu-docker-version: ['ubuntu-22.04']
+        # Repeat each card N times (N = repeat-count input, default 1). Each iteration is its own job.
+        repeat: ${{ fromJson(needs.generate-test-matrix.outputs.repeat) }}
     uses: ./.github/workflows/run-tests.yml
     with:
       arch: ${{ matrix.test-group.arch}}
@@ -241,7 +337,12 @@ jobs:
 
   run-exalens-tests:
     secrets: inherit
-    needs: build-tests
+    # needs build-tests for the UMD wheel, and build-exalens-kernels for ordering (the artifact
+    # must be uploaded before the tests download it). When build-exalens-kernels is skipped
+    # (a caller built it once and provided it), always() lets this run anyway; it still requires
+    # build-tests to have succeeded for the wheel.
+    needs: [build-tests, build-exalens-kernels]
+    if: always() && needs.build-tests.result == 'success'
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:

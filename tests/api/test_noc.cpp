@@ -181,7 +181,7 @@ public:
             cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
 
         uint32_t noc_translated_id_val;
-        cluster_->get_tt_device(chip)->read_from_device(
+        cluster_->get_tt_device(chip)->read_from_device_reg(
             &noc_translated_id_val,
             core,
             noc_translated_id_reg_addr,
@@ -702,12 +702,12 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
         const tt_xy_pair& translated = it->second;
 
         uint32_t noc_node_id_val;
-        device->read_from_device(
+        device->read_from_device_reg(
             &noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val), get_selected_noc_id());
         const auto [x, y] = extract_coords_from_reg(noc_node_id_val);
 
         uint32_t noc_translated_id_val;
-        device->read_from_device(
+        device->read_from_device_reg(
             &noc_translated_id_val,
             translated,
             noc_translated_id_reg_addr,

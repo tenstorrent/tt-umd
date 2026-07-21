@@ -163,7 +163,10 @@ void TTSimTTDevice::initialize_backend() {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    client_(std::move(client)), chip_id_(chip_id) {
+    chip_id_(chip_id) {
+    // client_ is a base member (SimulationTTDevice), so it is set in the body rather than the
+    // init list.
+    client_ = std::move(client);
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
@@ -268,7 +271,7 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     return true;
 }
 
-void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -287,7 +290,7 @@ void TTSimTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_r
     }
 }
 
-void TTSimTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint32_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -323,11 +326,11 @@ void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_
 }
 
 std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     UMD_THROW(error::RuntimeError, "Waiting for ETH core training is not supported in TTSim simulation device.");
 }
 
-EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
 }
 

@@ -128,7 +128,7 @@ void SocDescriptor::init_from_arch_descriptor(const ChipInfo &chip_info) {
 void SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
     const auto &dram_cores = arch_desc_->get_dram_cores();
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
-    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_arc_cores());
+    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_firmware_cores());
     tt_xy_pair pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_pcie_cores());
 
     std::vector<tt_xy_pair> dram_cores_unpacked;
@@ -169,7 +169,7 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         dram_cores_unpacked,
         arch_desc_->get_eth_cores(),
         arc_grid_size,
-        arch_desc_->get_arc_cores(),
+        arch_desc_->get_firmware_cores(),
         pcie_grid_size,
         arch_desc_->get_pcie_cores(),
         arch_desc_->get_router_cores(),

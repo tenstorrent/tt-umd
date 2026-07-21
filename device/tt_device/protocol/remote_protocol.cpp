@@ -21,23 +21,22 @@ namespace tt::umd {
 RemoteProtocol::RemoteProtocol(std::unique_ptr<RemoteCommunication> remote_communication) :
     remote_communication_(std::move(remote_communication)) {}
 
-void RemoteProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RemoteProtocol::write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     remote_communication_->write_to_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RemoteProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     remote_communication_->read_non_mmio(core, mem_ptr, addr, size);
 }
 
-void RemoteProtocol::write_to_device_reg(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RemoteProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     validate_register_access(addr, size);
-    write_to_device(mem_ptr, core, addr, size, noc_id);
+    write_data(mem_ptr, core, addr, size, noc_id);
 }
 
-void RemoteProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void RemoteProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     validate_register_access(addr, size);
-    read_from_device(mem_ptr, core, addr, size, noc_id);
+    read_data(mem_ptr, core, addr, size, noc_id);
 }
 
 bool RemoteProtocol::write_to_core_range(
@@ -45,7 +44,7 @@ bool RemoteProtocol::write_to_core_range(
     tt_xy_pair core_start,
     tt_xy_pair core_end,
     uint64_t address,
-    uint32_t size_in_bytes,
+    size_t size_in_bytes,
     NocId noc_id) {
     // Construct EthernetBroadcast lazily on the first use. During the constructor the sysmem might not be set yet.
     if (ethernet_broadcast_ == nullptr && remote_communication_->has_sysmem_manager() &&

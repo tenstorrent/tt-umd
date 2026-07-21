@@ -75,77 +75,6 @@ bool is_ipmitool_ready() {
     return true;
 }
 
-TEST(WarmResetTest, DISABLED_TTDeviceWarmResetAfterNocHang) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-
-    auto arch = PCIDevice(pci_device_ids[0]).get_arch();
-    if (arch == tt::ARCH::WORMHOLE_B0) {
-        GTEST_SKIP()
-            << "This test intentionally hangs the NOC. On Wormhole, this can cause a severe failure where even a warm "
-               "reset does not recover the device, requiring a watchdog-triggered reset for recovery.";
-    }
-
-    if (utils::is_arm_platform()) {
-        // Reset isn't supported in this situation (ARM64 host), and it turns out that this doesn't just hang the NOC.
-        // It hangs my whole system (Blackhole p100, ALTRAD8UD-1L2T) and requires a reboot to recover.
-        GTEST_SKIP() << "Skipping test on ARM64 due to instability.";
-    }
-
-    auto cluster = test_utils::make_default_test_cluster();
-    if (is_galaxy_configuration(cluster.get())) {
-        GTEST_SKIP() << "Skipping test calling warm_reset() on Galaxy configurations.";
-    }
-
-    uint64_t address = 0x0;
-    std::vector<uint8_t> data{1, 2, 3, 4, 5, 6, 7, 8};
-    std::vector<uint8_t> zero_data(data.size(), 0);
-    std::vector<uint8_t> readback_data(data.size(), 0);
-
-    std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->set_power_state(true);
-    tt_device->init_tt_device();
-
-    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-
-    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
-
-    // send to core 15, 15 which will hang the NOC
-    tt_device->write_to_device(data.data(), xy_pair{15, 15}, address, data.size());
-
-    // TODO: Remove this check when it is figured out why there is no hang detected on Blackhole.
-    if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        EXPECT_THROW(tt_device->is_pcie_hung(), std::runtime_error);
-    }
-
-    WarmResetWithRecovery::warm_reset();
-
-    // After a warm reset, topology discovery must be performed to detect available chips.
-    // Creating a Cluster triggers this discovery process, which is why a Cluster is instantiated here,
-    // even though this is a TTDevice test.
-    cluster = test_utils::make_default_test_cluster();
-
-    EXPECT_FALSE(cluster->get_target_device_ids().empty()) << "No chips present after reset.";
-
-    // TODO: Comment this out after finding out how to detect hang reads on BH.
-    // EXPECT_NO_THROW(cluster->get_chip(0)->get_tt_device()->is_pcie_hung());.
-
-    tt_device.reset();
-
-    tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->set_power_state(true);
-    tt_device->init_tt_device();
-
-    tt_device->write_to_device(zero_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, zero_data.size());
-
-    tt_device->write_to_device(data.data(), tensix_core, SAFE_IO_L1_ADDRESS, data.size());
-
-    tt_device->read_from_device(readback_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, readback_data.size());
-
-    ASSERT_EQ(data, readback_data);
-
-    tt_device->set_power_state(false);
-}
-
 bool verify_data(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, int device_id) {
     if (expected.size() != actual.size()) {
         std::cerr << "Device " << device_id << ": Size mismatch! Expected " << expected.size() << " but got "
@@ -805,13 +734,34 @@ static void terminate_processes(std::initializer_list<pid_t> pids) {
     for (pid_t p : pids) {
         if (p > 0) {
             kill(p, SIGKILL);
-            waitpid(p, nullptr, 0);
+            // Bounded reap: a child wedged in uninterruptible (D) state ignores SIGKILL until it
+            // leaves the kernel, so a blocking waitpid here would re-hang the parent. Give up after
+            // ~5s and let the OS reap the orphan on exit rather than defeating the watchdog.
+            for (int i = 0; i < 100 && waitpid(p, nullptr, WNOHANG) == 0; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
         }
     }
 }
 
-// Flaky test, warm reset has a probability of failure.
-TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
+// Reap pid within timeout_seconds, polling with WNOHANG so a stuck child can't wedge the parent.
+static bool wait_for_child(pid_t pid, int* status, int timeout_seconds) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds);
+    while (std::chrono::steady_clock::now() < deadline) {
+        pid_t r = waitpid(pid, status, WNOHANG);
+        if (r == pid) {
+            return true;
+        }
+        if (r == -1) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return false;
+}
+
+// After a warm reset, P2 must tear down and recreate its Cluster while P1 still holds pre-reset FDs.
+TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
@@ -836,8 +786,19 @@ TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
     static constexpr int P2_SLOT = 1;
     static constexpr int RESET_DONE_SLOT = 0;
     static constexpr int SYNC_TIMEOUT_S = 180;
+
     static constexpr int EXIT_SUCCESS_CODE = 0;
-    static constexpr int EXIT_FAILURE_CODE = 1;
+    static constexpr int EXIT_FAILURE_CODE = 1;   // rebuild never produced a usable Cluster
+    static constexpr int EXIT_TIMEOUT_CODE = 2;   // never received the reset-done signal
+    static constexpr int EXIT_TEARDOWN_CODE = 3;  // destroying the pre-reset Cluster threw
+
+    // Each reset+discovery attempt is empirically ~70s; derive P2's wait from the full retry budget so
+    // it never times out mid-reset and misreports the reset as a rebuild failure.
+    static constexpr int WARM_RESET_MAX_ATTEMPTS = 3;
+    static constexpr int RESET_ATTEMPT_BUDGET_S = 120;
+    static constexpr int P2_RESET_WAIT_S = (WARM_RESET_MAX_ATTEMPTS + 1) * RESET_ATTEMPT_BUDGET_S;
+
+    static constexpr int P2_REBUILD_WATCHDOG_S = 300;
 
     test_utils::MultiProcessEvent children_ready(NUM_CHILDREN);
     test_utils::MultiProcessEvent reset_done(1);
@@ -863,14 +824,22 @@ TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
         auto cluster = std::make_unique<Cluster>();
         children_ready.notify(P2_SLOT);
 
-        if (!reset_done.wait_for(RESET_DONE_SLOT, SYNC_TIMEOUT_S)) {
-            _exit(EXIT_FAILURE_CODE);
+        if (!reset_done.wait_for(RESET_DONE_SLOT, P2_RESET_WAIT_S)) {
+            _exit(EXIT_TIMEOUT_CODE);
         }
 
-        cluster.reset();
+        // Release this process's stale FDs; the destructor touches just-reset devices, so guard it.
+        try {
+            cluster.reset();
+        } catch (const std::exception& e) {
+            std::cerr << "P2 teardown threw: " << e.what() << std::endl;  // endl flushes before _exit
+            _exit(EXIT_TEARDOWN_CODE);
+        }
+
         try {
             cluster = std::make_unique<Cluster>();
-        } catch (...) {
+        } catch (const std::exception& e) {
+            std::cerr << "P2 rebuild threw: " << e.what() << std::endl;
             _exit(EXIT_FAILURE_CODE);
         }
         _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);
@@ -881,15 +850,31 @@ TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
         FAIL() << "Timed out waiting for child processes to create Cluster.";
     }
 
-    WarmResetWithRecovery::warm_reset();
+    // Only signal P2 once the board actually recovered, so a reset failure isn't blamed on the rebuild.
+    if (!WarmResetWithRecovery::warm_reset(WARM_RESET_MAX_ATTEMPTS)) {
+        terminate_processes({p1, p2});
+        FAIL() << "Warm reset with recovery failed to bring the board back; P2 rebuild not exercised.";
+    }
 
     reset_done.notify(RESET_DONE_SLOT);
 
-    int status;
-    waitpid(p2, &status, 0);
-    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally.";
-    EXPECT_EQ(WEXITSTATUS(status), EXIT_SUCCESS_CODE)
-        << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
+    // Bounded reap so a stuck P2 can't hang the test.
+    int status = 0;
+    if (!wait_for_child(p2, &status, P2_REBUILD_WATCHDOG_S)) {
+        terminate_processes({p1, p2});
+        FAIL() << "P2 did not finish teardown+rebuild within " << P2_REBUILD_WATCHDOG_S << "s; treating as a hang.";
+    }
+
+    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally (killed by signal or crashed).";
+    if (WIFEXITED(status)) {
+        const int rc = WEXITSTATUS(status);
+        EXPECT_EQ(rc, EXIT_SUCCESS_CODE) << "P2 did not recover after warm reset (exit code " << rc << "): "
+                                         << (rc == EXIT_TIMEOUT_CODE    ? "never received the reset-done signal"
+                                             : rc == EXIT_TEARDOWN_CODE ? "destroying the pre-reset Cluster threw"
+                                             : rc == EXIT_FAILURE_CODE
+                                                 ? "failed to recreate Cluster while P1 held stale FDs"
+                                                 : "unknown failure");
+    }
 
     terminate_processes({p1});
 }

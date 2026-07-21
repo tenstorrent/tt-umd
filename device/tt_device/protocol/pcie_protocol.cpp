@@ -72,27 +72,26 @@ TlbWindow* PcieProtocol::get_cached_tlb_window() {
     return cached_tlb_window_.get();
 }
 
-void PcieProtocol::write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::write_data(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        write_to_device_impl<true>(mem_ptr, core, addr, size, noc_id);
+        write_data_impl<true>(mem_ptr, core, addr, size, noc_id);
     } else {
-        write_to_device_impl<false>(mem_ptr, core, addr, size, noc_id);
+        write_data_impl<false>(mem_ptr, core, addr, size, noc_id);
     }
 }
 
-void PcieProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::read_data(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
-        read_from_device_impl<true>(mem_ptr, core, addr, size, noc_id);
+        read_data_impl<true>(mem_ptr, core, addr, size, noc_id);
     } else {
-        read_from_device_impl<false>(mem_ptr, core, addr, size, noc_id);
+        read_data_impl<false>(mem_ptr, core, addr, size, noc_id);
     }
 }
 
 template <bool safe>
-void PcieProtocol::write_to_device_impl(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::write_data_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     // The cached window carries the per-op MMIO timeout veto (built from its configured NOC + the wired
     // hang check); see SiliconTlbWindow. The reconfigure call sets the NOC before the transfer runs.
     if constexpr (safe) {
@@ -103,7 +102,7 @@ void PcieProtocol::write_to_device_impl(
 }
 
 template <bool safe>
-void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::read_data_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if constexpr (safe) {
         get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
@@ -111,7 +110,7 @@ void PcieProtocol::read_from_device_impl(void* mem_ptr, tt_xy_pair core, uint64_
     }
 }
 
-void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
@@ -121,7 +120,7 @@ void PcieProtocol::write_to_device_reg(const void* mem_ptr, tt_xy_pair core, uin
     }
 }
 
-void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
+void PcieProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     validate_register_access(addr, size);
     std::lock_guard<std::mutex> lock(io_lock_);
     if (use_safe_api_) {
@@ -132,7 +131,7 @@ void PcieProtocol::read_from_device_reg(void* mem_ptr, tt_xy_pair core, uint64_t
 }
 
 bool PcieProtocol::write_to_core_range(
-    const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id) {
+    const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id) {
     noc_multicast_write(mem_ptr, size, core_start, core_end, addr, noc_id);
     return true;
 }

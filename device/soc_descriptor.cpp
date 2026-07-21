@@ -128,7 +128,7 @@ void SocDescriptor::init_from_arch_descriptor(const ChipInfo &chip_info) {
 void SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
     const auto &dram_cores = arch_desc_->get_dram_cores();
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
-    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_arc_cores());
+    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_firmware_cores());
     tt_xy_pair pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_pcie_cores());
 
     std::vector<tt_xy_pair> dram_cores_unpacked;
@@ -169,7 +169,7 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         dram_cores_unpacked,
         arch_desc_->get_eth_cores(),
         arc_grid_size,
-        arch_desc_->get_arc_cores(),
+        arch_desc_->get_firmware_cores(),
         pcie_grid_size,
         arch_desc_->get_pcie_cores(),
         arch_desc_->get_router_cores(),
@@ -546,6 +546,30 @@ uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager
 
 uint32_t SocDescriptor::get_num_harvested_eth_channels() const {
     return coordinate_manager->get_num_harvested_eth_channels();
+}
+
+std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
+    CoordSystem coord_system, CoreType core_type) const {
+    const std::vector<CoreCoord> cores = get_cores(core_type, coord_system);
+    if (cores.empty()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Cannot compute bounding rectangle: no cores of type {} found.", to_str(core_type)));
+    }
+
+    CoreCoord upper_left = cores.front();
+    CoreCoord lower_right = cores.front();
+    for (const CoreCoord &core : cores) {
+        // Upper-left: smallest x, then smallest y. Lower-right: largest x, then largest y.
+        if (core.x < upper_left.x || (core.x == upper_left.x && core.y < upper_left.y)) {
+            upper_left = core;
+        }
+        if (core.x > lower_right.x || (core.x == lower_right.x && core.y > lower_right.y)) {
+            lower_right = core;
+        }
+    }
+
+    return {upper_left, lower_right};
 }
 
 }  // namespace tt::umd

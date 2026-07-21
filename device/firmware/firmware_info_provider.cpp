@@ -16,6 +16,8 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -429,24 +431,39 @@ std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
     return read_scalar<uint32_t>(FirmwareFeature::ARCCLK);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
+std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speed() const {
+    std::vector<std::optional<uint32_t>> fan_speeds(MAX_NUMBER_OF_FANS, std::nullopt);
+
     auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
-    // All ones mean fans not present on board, or not under control of firmware.
-    if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
-        return std::nullopt;
+    // No fan speed information available.
+    if (!fan_speed.has_value()) {
+        return fan_speeds;
     }
-    return fan_speed;
+
+    fan_speeds.at(0) = (fan_speed == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_speed);
+    return fan_speeds;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const {
-    auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
-    // All ones mean fans not present on board, or not under control of firmware.
-    if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
-        return std::nullopt;
+std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpm() const {
+    std::vector<std::optional<uint32_t>> fan_rpms(MAX_NUMBER_OF_FANS, std::nullopt);
+    auto fan_rpm = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
+    // No fan RPM information available.
+    if (!fan_rpm.has_value()) {
+        return fan_rpms;
     }
-    return fan_speed;
+    // Since 19.10, values for two fans are packed into one telemetry entry.
+    if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version >= FirmwareBundleVersion(19, 10, 0)) {
+        uint32_t left_fan = fan_rpm.value() >> 16;
+        uint32_t right_fan = fan_rpm.value() & 0xFFFF;
+        fan_rpms.at(0) = (left_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(left_fan);
+        fan_rpms.at(1) = (right_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(right_fan);
+        return fan_rpms;
+    }
+
+    fan_rpms.at(0) = (fan_rpm == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_rpm);
+    return fan_rpms;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const { return read_scalar<uint32_t>(FirmwareFeature::TDC); }
@@ -671,16 +688,35 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
     return read_scalar<uint32_t>(FirmwareFeature::THERM_TRIP_COUNT);
 }
 
-/* static */ std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
-    static constexpr uint32_t max_eth_links = 16;
-    std::vector<bool> statuses(max_eth_links);
-    for (uint32_t link = 0; link < max_eth_links; ++link) {
-        statuses[link] = static_cast<bool>(bitmask & (1u << link));
+// The firmware bitmask is indexed by physical channel, and ETH_CORES_NOC0 holds the physical coords in that same
+// channel order. So bit N maps directly to core N; harvested channels report 0 here and are dropped later by
+// filter_harvested_eth_status.
+// NOTE: This mapping depends on the ordering of ETH_CORES_NOC0 matching the firmware's physical channel indexing.
+// That array is expected to remain stable; reordering it would silently break the bit-to-core mapping.
+std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) const {
+    const std::vector<tt_xy_pair>& eth_cores_noc0 = [this]() -> const std::vector<tt_xy_pair>& {
+        switch (tt_device->get_arch()) {
+            case tt::ARCH::WORMHOLE_B0:
+                return wormhole::ETH_CORES_NOC0;
+            case tt::ARCH::BLACKHOLE:
+                return blackhole::ETH_CORES_NOC0;
+            case tt::ARCH::QUASAR:
+                return grendel::ETH_CORES_NOC0;
+            default:
+                UMD_THROW(error::RuntimeError, "ETH status parsing not supported for this architecture.");
+        }
+    }();
+
+    std::vector<std::pair<CoreCoord, bool>> statuses;
+    statuses.reserve(eth_cores_noc0.size());
+    for (uint32_t channel = 0; channel < eth_cores_noc0.size(); ++channel) {
+        CoreCoord noc0_coord(eth_cores_noc0[channel], CoreType::ETH, CoordSystem::NOC0);
+        statuses.emplace_back(noc0_coord, static_cast<bool>(bitmask & (1u << channel)));
     }
     return statuses;
 }
 
-std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_HEARTBEAT_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -688,7 +724,7 @@ std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status(
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_link_status() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_LINK_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -696,12 +732,34 @@ std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() con
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_retrain_status() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_RETRAIN_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
     }
     return parse_eth_status_bitmask(data.value());
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address() const {
+    auto address_offset =
+        tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+    if (!address_offset.has_value()) {
+        return std::nullopt;
+    }
+    uint32_t address = 0;
+    tt_device->read_from_arc_apb(&address, address_offset.value(), sizeof(address));
+    return address;
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size() const {
+    auto size_offset =
+        tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
+    if (!size_offset.has_value()) {
+        return std::nullopt;
+    }
+    uint32_t size = 0;
+    tt_device->read_from_arc_apb(&size, size_offset.value(), sizeof(size));
+    return size;
 }
 
 }  // namespace tt::umd

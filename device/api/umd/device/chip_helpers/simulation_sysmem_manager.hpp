@@ -50,6 +50,11 @@ public:
     bool write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size);
     bool read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size);
 
+    // Same lookup as write/read_mapped_buffer, but returns the host pointer directly instead of
+    // performing the copy — for callers (e.g. tt-emule's NOC address resolver) whose contract is
+    // to resolve an address to a pointer once and let the caller memcpy. Returns nullptr on a miss.
+    void* get_mapped_host_ptr(uint64_t device_io_addr, uint32_t size);
+
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
 

@@ -22,6 +22,8 @@ class L1Pool;
 
 namespace tt::umd {
 
+class SimulationSysmemManager;
+
 /// SWEmuleChip extends Chip with real memory-backed I/O.
 ///
 /// Worker L1 regions are allocated from a single contiguous L1Pool
@@ -116,6 +118,11 @@ private:
     uint64_t dram_bank_size_;
 
     SocDescriptor soc_descriptor_;
+
+    // Host-facing (PCIe) address resolution — an existing, already-upstream UMD class (also used
+    // by TTSimTTDevice), not emule-specific. No host-memory channels to pre-reserve (SWEmuleChip
+    // has no hugepage concept), so 0.
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 };
 
 }  // namespace tt::umd

@@ -104,10 +104,12 @@ jobs:
   # Upload the per-arch export JSONs to the perf SFTP ingest -> Superset. Only on
   # push to main and manual dispatch (never PRs), to keep experimental data out of
   # the DB.
+  # TEMP: allow PR runs to verify data lands in Superset before merging this
+  # pipeline. REVERT to `github.event_name != 'pull_request'` before merge.
   upload-superset:
     secrets: inherit
     needs: run-benchmarks
-    if: ${{ github.event_name != 'pull_request' && needs.run-benchmarks.result == 'success' }}
+    if: ${{ needs.run-benchmarks.result == 'success' }}
     permissions:
       contents: read
       actions: read

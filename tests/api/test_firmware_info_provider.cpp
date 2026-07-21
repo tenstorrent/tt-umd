@@ -761,18 +761,16 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
         const auto size = fw_info->get_runtime_telemetry_buffer_size();
         const auto address = fw_info->get_runtime_telemetry_buffer_address();
 
-        const auto firmware_version = tt_device->get_firmware_version();
-        const auto size_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
-        const auto address_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+        // Address and size are published together behind the same firmware-version gate, so they must
+        // be both present or both absent regardless of arch or firmware version.
+        EXPECT_EQ(address.has_value(), size.has_value());
 
-        if (!size_offset.has_value() || !address_offset.has_value()) {
-            EXPECT_FALSE(size.has_value());
-            EXPECT_FALSE(address.has_value());
-        } else {
-            EXPECT_TRUE(size.has_value());
-            EXPECT_TRUE(address.has_value());
+        // When the buffer is published, the locator must point somewhere and describe a non-empty,
+        // word-aligned region.
+        if (address.has_value()) {
+            EXPECT_NE(address.value(), 0u);
+            EXPECT_NE(size.value(), 0u);
+            EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
         }
         tt_device->set_power_state(false);
     }

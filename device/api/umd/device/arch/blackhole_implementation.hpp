@@ -510,23 +510,11 @@ public:
         return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
     }
 
-    std::optional<uint32_t> get_runtime_telemetry_buffer_address_offset(
-        const FirmwareBundleVersion& firmware_version) const override {
-        constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
-        if (firmware_version < min_firmware_version) {
-            return std::nullopt;
-        }
-        return blackhole::SCRATCH_RAM_22;
-    }
+    std::optional<uint32_t> read_runtime_telemetry_buffer_address(
+        TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const override;
 
-    std::optional<uint32_t> get_runtime_telemetry_buffer_size_offset(
-        const FirmwareBundleVersion& firmware_version) const override {
-        constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
-        if (firmware_version < min_firmware_version) {
-            return std::nullopt;
-        }
-        return blackhole::SCRATCH_RAM_23;
-    }
+    std::optional<uint32_t> read_runtime_telemetry_buffer_size(
+        TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const override;
 };
 
 }  // namespace tt::umd

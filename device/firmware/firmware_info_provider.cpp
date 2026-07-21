@@ -741,25 +741,13 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address() const {
-    auto address_offset =
-        tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
-    if (!address_offset.has_value()) {
-        return std::nullopt;
-    }
-    uint32_t address = 0;
-    tt_device->read_from_arc_apb(&address, address_offset.value(), sizeof(address));
-    return address;
+    return tt_device->get_architecture_implementation()->read_runtime_telemetry_buffer_address(
+        tt_device, firmware_version);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size() const {
-    auto size_offset =
-        tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
-    if (!size_offset.has_value()) {
-        return std::nullopt;
-    }
-    uint32_t size = 0;
-    tt_device->read_from_arc_apb(&size, size_offset.value(), sizeof(size));
-    return size;
+    return tt_device->get_architecture_implementation()->read_runtime_telemetry_buffer_size(
+        tt_device, firmware_version);
 }
 
 }  // namespace tt::umd

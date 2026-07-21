@@ -22,15 +22,19 @@ class TestWarmReset(unittest.TestCase):
             print(f"  Subsystem ID: 0x{device_info.subsystem_id:04X}")
             print(f"  PCI BDF: {device_info.pci_bdf}")
 
+        # Use the first attached device (lowest PCI id); device ids are not guaranteed
+        # to start at 0 (e.g. when only a subset of cards on the host is exposed).
+        first_device_info = pci_devices_info[min(pci_devices_info)]
+
         # Get board type and architecture
-        arch = pci_devices_info[0].get_arch()
+        arch = first_device_info.get_arch()
         print(f"Device architecture: {arch}")
 
         # Check if the first device is UBB and execute warm reset with secondary bus reset disabled
-        print(f"First device subsystem ID: 0x{pci_devices_info[0].subsystem_id:04X}")
+        print(f"First device subsystem ID: 0x{first_device_info.subsystem_id:04X}")
 
-        is_wh_ubb = pci_devices_info[0].subsystem_id == 0x0035
-        is_bh_ubb = pci_devices_info[0].subsystem_id == 0x0047
+        is_wh_ubb = first_device_info.subsystem_id == 0x0035
+        is_bh_ubb = first_device_info.subsystem_id == 0x0047
         kmd_supports_reset = tt_umd.PCIDevice.is_arch_agnostic_reset_supported()
         print(f"KMD supports arch agnostic reset: {kmd_supports_reset}")
         print(f"Is WH UBB: {is_wh_ubb}, Is BH UBB: {is_bh_ubb}")

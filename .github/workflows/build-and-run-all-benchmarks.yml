@@ -22,6 +22,9 @@ on:
   pull_request:
     paths:
       - 'tests/microbenchmark/**'
+      # TEMP: widen so this PR's workflow-only changes trigger a run for
+      # Superset ingest verification. REVERT before merge.
+      - '.github/workflows/**'
 
 jobs:
   build-tests:

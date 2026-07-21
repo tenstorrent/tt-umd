@@ -84,7 +84,7 @@ jobs:
           path: tt-umd
 
       - name: Install python dependencies
-        run: python3 -m pip install --no-cache-dir pandas psutil tabulate
+        run: python3 -m pip install --no-cache-dir pandas psutil tabulate pydantic
 
       - name: Create benchmark results directory
         run: mkdir -p /tmp/umd_microbenchmark_results
@@ -126,17 +126,6 @@ jobs:
             python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/gather_host_specs.py \
             --json --output $UMD_MICROBENCHMARK_RESULTS_PATH/machine_host_spec
 
-      # Fold the nanobench results + host spec into a single {run, results[]} JSON
-      # matching the schema consumed by Superset (uploaded to SFTP downstream).
-      - name: Emit Superset export JSON
-        if: ${{ inputs.arch != 'baremetal' }}
-        run: |
-            EXPORT_FILE="benchmark_export_${{ github.run_id }}_${{ inputs.arch }}_${{ inputs.card }}.json"
-            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/emit_benchmark_export.py \
-            --results-dir $UMD_MICROBENCHMARK_RESULTS_PATH \
-            --arch ${{ inputs.arch }} \
-            --output $UMD_MICROBENCHMARK_EXPORT_PATH/$EXPORT_FILE
-
       - name: Upload JSON benchmark results
         uses: actions/upload-artifact@v7
         with:
@@ -150,6 +139,19 @@ jobs:
           name: benchmark-html-${{ inputs.arch }}-${{ inputs.card }}-${{ inputs.ubuntu-docker-version }}
           path: /tmp/umd_microbenchmark_results/*.html
           if-no-files-found: warn
+
+      # Fold the nanobench results + host spec into a single {context, results[]}
+      # JSON matching the Data team's ingest contract, validating it before it is
+      # uploaded.
+      - name: Emit Superset export JSON
+        if: ${{ inputs.arch != 'baremetal' }}
+        run: |
+            EXPORT_FILE="benchmark_export_${{ github.run_id }}_${{ inputs.arch }}_${{ inputs.card }}.json"
+            python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/emit_benchmark_export.py \
+            --results-dir $UMD_MICROBENCHMARK_RESULTS_PATH \
+            --arch ${{ inputs.arch }} \
+            --output $UMD_MICROBENCHMARK_EXPORT_PATH/$EXPORT_FILE \
+            --validate
 
       - name: Upload Superset export JSON
         if: ${{ inputs.arch != 'baremetal' }}

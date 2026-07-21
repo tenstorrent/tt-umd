@@ -1,0 +1,88 @@
+# Collect this run's per-arch Superset export JSONs (the benchmark-export-*
+# artifacts, already validated against the Data team's UmdMicrobenchData contract
+# at emit time) and upload them to the perf SFTP ingest. The umd-microbench writer
+# account's home directory IS the data_airflow umd_microbench ingest bucket
+# (AWS Transfer Family), so a plain `put` lands files where the DAG polls them.
+# See Jira DATA-1567.
+#
+# Safe to merge before the SFTP key secret exists: if SFTP_UMD_MICROBENCH_KEY is
+# unset the SFTP step is skipped (the per-arch benchmark-export-* artifacts remain
+# attached to the run) instead of failing.
+name: Upload benchmark results to Superset
+
+on:
+  workflow_call:
+  # No inputs — downloads this run's benchmark-export-* artifacts.
+
+env:
+  EXPORT_DIR: /tmp/superset-export
+  # AWS Transfer login = "<name>-<permission>" (data_iac aws_sftp module builds
+  # user_name as "${block.name}-${block.permission}"), i.e. umd-microbench + writer.
+  SFTP_USER: umd-microbench-writer
+  # The single shared Tenstorrent AWS Transfer Family endpoint — not secret; it is
+  # public in tt-metal's workflows and the data_iac README. The only secret needed
+  # is the private key (SFTP_UMD_MICROBENCH_KEY).
+  SFTP_HOST: s-dbd4b8a190fa40a4b.server.transfer.us-east-2.amazonaws.com
+
+jobs:
+  upload-benchmark-superset:
+    name: Upload perf JSON to SFTP ingest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Download all Superset export artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: benchmark-export-*
+          path: ${{ env.EXPORT_DIR }}
+          # Flatten every artifact into one dir; the filenames already carry
+          # run id + arch + card, so there are no collisions.
+          merge-multiple: true
+
+      # The `secrets` context can't be used in a step `if:`, so map the key's
+      # presence to a plain boolean output the upload step gates on.
+      - name: Detect SFTP configuration
+        id: sftpcfg
+        env:
+          SFTP_KEY: ${{ secrets.SFTP_UMD_MICROBENCH_KEY }}
+        run: |
+          if [ -n "${SFTP_KEY}" ]; then
+            echo "configured=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "configured=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Upload to perf SFTP ingest
+        if: ${{ steps.sftpcfg.outputs.configured == 'true' }}
+        env:
+          SFTP_KEY: ${{ secrets.SFTP_UMD_MICROBENCH_KEY }}
+        run: |
+          command -v sftp >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y openssh-client; }
+          if ! compgen -G "${EXPORT_DIR}/*.json" > /dev/null; then
+            echo "No benchmark-export JSON files found to upload." >> "${GITHUB_STEP_SUMMARY}"
+            exit 0
+          fi
+          KEY_FILE="$(mktemp)"
+          BATCH="$(mktemp)"
+          trap 'rm -f "${KEY_FILE}" "${BATCH}"' EXIT
+          printf '%s\n' "${SFTP_KEY}" > "${KEY_FILE}"
+          chmod 600 "${KEY_FILE}"
+          # Upload into the login (home) directory, which maps to the ingest bucket.
+          for f in "${EXPORT_DIR}"/*.json; do
+            printf 'put "%s"\n' "${f}" >> "${BATCH}"
+          done
+          printf 'ls -l\n' >> "${BATCH}"
+          sftp -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null \
+            -i "${KEY_FILE}" -b "${BATCH}" "${SFTP_USER}@${SFTP_HOST}"
+          echo "Uploaded $(ls -1 "${EXPORT_DIR}"/*.json | wc -l) file(s) to ${SFTP_USER}@${SFTP_HOST}." \
+            >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Note when SFTP secret is not configured
+        if: ${{ steps.sftpcfg.outputs.configured != 'true' }}
+        run: |
+          echo "SFTP_UMD_MICROBENCH_KEY is not set — skipping SFTP upload." >> "${GITHUB_STEP_SUMMARY}"
+          echo "The per-arch benchmark-export-* artifacts are still attached to this run." >> "${GITHUB_STEP_SUMMARY}"

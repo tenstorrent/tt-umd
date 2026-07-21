@@ -4,16 +4,22 @@
 """Emit one Superset-bound export JSON per arch run.
 
 Reads the nanobench ``<title>.json`` files and ``machine_host_spec.json`` from a
-benchmark results directory and folds them into a single ``{run, results[]}``
-document matching the schema the Data team ingests over SFTP.
+benchmark results directory and folds them into a single ``{context, results[]}``
+document matching the schema the Data team ingests over SFTP (the
+``UmdMicrobenchData`` contract in data_airflow's ``umd_microbench`` pipeline).
 
-The document is intentionally normalized: the run/context block appears once and
+The document is intentionally normalized: the context block appears once and
 every per-case result links to it implicitly by living in the same file. The
-DB-side primary keys (``id``) and the run<->result foreign key are assigned on
-ingest, so they are not emitted here. ``host_spec_json`` is left null for now.
+DB-side primary keys and the run<->result foreign key are assigned on ingest, so
+they are not emitted here. ``host_spec_json`` is left null for now.
 
-Standalone by design (only depends on ``utils.load_nanobench_json``) so it can be
-sparse-checked-out in CI without pulling in pandas/psutil.
+With ``--validate`` the produced document is checked against a pydantic model
+mirroring that contract before it is written, so malformed data fails in CI
+rather than being silently rejected by the ingest pipeline.
+
+Standalone by design (only depends on ``utils.load_nanobench_json``, plus
+``pydantic`` when ``--validate`` is used) so it can be sparse-checked-out in CI
+without pulling in pandas/psutil.
 """
 
 import argparse
@@ -137,12 +143,27 @@ def build_result(nb_result):
         "median_total_time_s": _num(nb_result.get("totalTime")),
         # median per-op elapsed time (seconds).
         "median_result": median_elapsed,
-        # nanobench reports the error as a fraction; export it as a percentage.
-        "error_pct": mape * 100 if mape is not None else None,
+        # nanobench reports the error as a fraction; export it as a percentage. A
+        # single-epoch case has no run-to-run spread (MAPE is NaN) -> report 0.0,
+        # since the contract requires a concrete float here.
+        "error_pct": mape * 100 if mape is not None else 0.0,
         "throughput": throughput,
-        # Baseline/target throughput is not consumed here yet.
+        # Baseline/target throughput and bounds are not consumed here yet.
         "target": None,
+        "lower_limit": None,
+        "upper_limit": None,
     }
+
+
+# Fields the ingest contract requires to be concrete numbers; a case missing any
+# of them is a degenerate measurement and is dropped (with a warning) rather than
+# sinking the whole file's validation.
+_REQUIRED_RESULT_NUMERICS = (
+    "batch_size",
+    "median_total_time_s",
+    "median_result",
+    "throughput",
+)
 
 
 def collect_results(results_dir):
@@ -157,8 +178,61 @@ def collect_results(results_dir):
             print(f"WARN: skipping {path.name}: {e}", file=sys.stderr)
             continue
         for nb_result in data.get("results", []):
-            results.append(build_result(nb_result))
+            record = build_result(nb_result)
+            missing = [k for k in _REQUIRED_RESULT_NUMERICS if record[k] is None]
+            if missing:
+                print(
+                    f"WARN: dropping case {record['test_title']!r}/{record['case_name']!r} "
+                    f"from {path.name}: missing {', '.join(missing)}.",
+                    file=sys.stderr,
+                )
+                continue
+            results.append(record)
     return results
+
+
+def validate_document(document):
+    """Validate the document against the Data team's UmdMicrobenchData contract.
+
+    Raises pydantic.ValidationError on mismatch. pydantic is imported lazily so
+    the script only needs it when --validate is used.
+    """
+    from typing import List, Optional  # noqa: E402
+
+    from pydantic import BaseModel  # noqa: E402
+
+    class RunContext(BaseModel):
+        run_ts: datetime
+        github_pipeline_id: int
+        commit_sha: str
+        commit_timedate: Optional[datetime] = None
+        branch_name: str
+        card: str
+        arch: Optional[str] = None
+        os: str
+        hostname: str
+        host_spec_json: Optional[dict] = None
+
+    class CaseResult(BaseModel):
+        test_title: str
+        case_name: str
+        unit: str
+        batch_size: float
+        epochs: int
+        iterations: int
+        median_total_time_s: float
+        median_result: float
+        error_pct: float
+        throughput: float
+        target: Optional[float] = None
+        lower_limit: Optional[float] = None
+        upper_limit: Optional[float] = None
+
+    class Document(BaseModel):
+        context: RunContext
+        results: List[CaseResult]
+
+    Document(**document)
 
 
 def main():
@@ -189,6 +263,11 @@ def main():
         default=None,
         help="Silicon arch (e.g. wormhole_b0). When omitted, derived from the board type.",
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate the document against the ingest contract (requires pydantic) before writing.",
+    )
     args = parser.parse_args()
 
     host_spec_path = args.host_spec or (args.results_dir / HOST_SPEC_FILENAME)
@@ -206,9 +285,13 @@ def main():
 
     repo_dir = Path(__file__).resolve().parent
     document = {
-        "run": build_run_context(host_spec, args.arch, repo_dir),
+        "context": build_run_context(host_spec, args.arch, repo_dir),
         "results": collect_results(args.results_dir),
     }
+
+    if args.validate:
+        validate_document(document)
+        print("Validated document against the UmdMicrobenchData contract.")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w") as f:
@@ -216,7 +299,7 @@ def main():
 
     print(
         f"Wrote {args.output} ({len(document['results'])} results, "
-        f"card={document['run']['card']}, arch={document['run']['arch']})."
+        f"card={document['context']['card']}, arch={document['context']['arch']})."
     )
 
 

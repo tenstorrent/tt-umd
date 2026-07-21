@@ -9,7 +9,7 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 15
+        default: 30
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
@@ -30,8 +30,21 @@ env:
   WHEEL_OUTPUT_DIR: ./build/wheel
 
 jobs:
+  # Skips the heavy sweep on PRs (a build already runs as part of the tests) but
+  # runs it on merge. Skipped on pull_request, and since the root jobs need it,
+  # the skip propagates to every job that (directly or transitively) depends on
+  # them. The build-device-complete leaf is the required check (always() reports
+  # it).
+  pr-gate:
+    name: PR gate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'
+
   ensure-ubuntu-2204-image:
     name: Ensure ubuntu-22.04 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -41,6 +54,7 @@ jobs:
 
   ensure-ubuntu-2404-image:
     name: Ensure ubuntu-24.04 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -50,6 +64,7 @@ jobs:
 
   ensure-ubuntu-2404-arm-image:
     name: Ensure ubuntu-24.04-arm Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -59,6 +74,7 @@ jobs:
 
   ensure-fedora-39-image:
     name: Ensure fedora-39 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -68,6 +84,7 @@ jobs:
 
   ensure-manylinux-image:
     name: Ensure manylinux Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -77,6 +94,7 @@ jobs:
 
   ensure-manylinux-aarch64-image:
     name: Ensure manylinux-aarch64 Docker image
+    needs: pr-gate
     permissions:
       packages: write
     secrets: inherit
@@ -84,11 +102,26 @@ jobs:
     with:
       docker-version: manylinux-aarch64
 
+  ensure-riscv-image:
+    name: Ensure ubuntu-24.04-riscv Docker image
+    needs: pr-gate
+    permissions:
+      packages: write
+    secrets: inherit
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ubuntu-24.04-riscv
+
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-ubuntu-2404-arm-image, ensure-fedora-39-image]
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    needs:
+      - pr-gate
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
     strategy:
       fail-fast: false
       matrix:
@@ -117,21 +150,15 @@ jobs:
       Build device${{ matrix.image.use_release_flags && ' (release flags)' || '' }}
       on ${{ matrix.image.distro }} with ${{ matrix.image.compiler-c }}
     # Arm variants must build natively on an arm runner; everything else uses the standard x86 runner.
-    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
+    runs-on: ${{ matrix.image.distro == 'ubuntu-24.04-arm' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
     env:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
     container:
-      # Arm jobs run on GitHub-hosted runners, which can't resolve the internal
-      # Harbor mirror, so they pull directly from ghcr.io (same as test-packages).
-      # x86 jobs run on self-hosted runners and use the Harbor pull-through cache.
+      # All jobs run on GitHub-hosted runners and pull images directly from ghcr.io.
       image: >-
-        ${{
-        matrix.image.distro == 'ubuntu-24.04-arm'
-        && 'ghcr.io'
-        || 'harbor.ci.tenstorrent.net/ghcr.io'
-        }}/${{ github.repository }}/tt-umd-ci-${{
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{
         matrix.image.distro }}:${{
         matrix.image.distro == 'ubuntu-22.04' && needs.ensure-ubuntu-2204-image.outputs.image-tag ||
         matrix.image.distro == 'ubuntu-24.04' && needs.ensure-ubuntu-2404-image.outputs.image-tag ||
@@ -312,11 +339,68 @@ jobs:
             ${{ env.TT_UMD_DIR }}/build/*umd-python*.${{ matrix.image.package }}
           if-no-files-found: error
 
+  build-riscv-emulated:
+    # Emulated riscv64 build. A riscv64 image can't be used as a job `container:`
+    # on an x86 runner (GitHub pulls it as linux/amd64 and fails), so this runs on
+    # a plain x86 runner, registers QEMU/binfmt, and builds inside the image via
+    # `docker run --platform linux/riscv64`. Build-only.
+    #
+    # We deliberately chose emulation over x86 cross-compilation. Cross-compiling
+    # is faster (~3min vs ~12min here) but needs toolchain files, tool-specific
+    # cmake plumbing, and can't run the resulting artifacts. Emulation keeps the
+    # build "native" (plain apt + cmake) and ports trivially to real riscv64
+    # hardware once available. If the emulation cost ever becomes a problem, the
+    # cross-compile path is the faster alternative.
+    timeout-minutes: 60
+    needs: ensure-riscv-image
+    permissions:
+      packages: read
+    name: Build device (release flags) on ubuntu-24.04-riscv with gcc
+    runs-on: tt-ubuntu-2204-large-stable
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          path: ${{ env.TT_UMD_DIR }}
+          submodules: recursive
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build All
+        shell: bash
+        run: |
+          IMAGE_TAG="${{ needs.ensure-riscv-image.outputs.image-tag }}"
+          IMAGE="harbor.ci.tenstorrent.net/ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-riscv:${IMAGE_TAG}"
+          echo "Building inside $IMAGE under QEMU (linux/riscv64)..."
+          # Release flags (tests off -> no gtest), executed natively inside the
+          # emulated riscv64 image. clang-tidy is intentionally left off: its
+          # findings are architecture-independent and already covered by the
+          # native x86 builds, and running it under QEMU would be far slower for
+          # no added coverage.
+          docker run --rm --platform linux/riscv64 \
+            -v "$GITHUB_WORKSPACE/${{ env.TT_UMD_DIR }}:/work" -w /work \
+            "$IMAGE" \
+            bash -c '
+              set -euo pipefail
+              git config --global --add safe.directory /work
+              cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
+                -DTT_UMD_BUILD_TESTS=OFF \
+                -DTT_UMD_BUILD_SIMULATION=OFF \
+                -DTT_UMD_BUILD_PIP=OFF \
+                -DTT_UMD_BUILD_PYTHON=ON \
+                -DTT_UMD_BUILD_EXAMPLES=OFF \
+                -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+                -DCMAKE_BUILD_TYPE=Release
+              cmake --build ${{ env.BUILD_OUTPUT_DIR }}
+              echo "Compile complete."
+            '
+
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
-    needs: [ensure-manylinux-image, ensure-manylinux-aarch64-image]
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    needs: [pr-gate, ensure-manylinux-image, ensure-manylinux-aarch64-image]
     strategy:
       fail-fast: false
       matrix:
@@ -324,7 +408,7 @@ jobs:
 
     name: Build umd manylinux wheel (${{ matrix.arch }})
     # aarch64 wheels build natively on an arm runner (no QEMU emulation needed).
-    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'tt-ubuntu-2204-large-stable' }}
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-22.04' }}
 
     steps:
       - uses: actions/checkout@v6
@@ -370,8 +454,8 @@ jobs:
             ${{ env.WHEEL_OUTPUT_DIR }}
 
   test-packages:
-    needs: [build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '15') }}
+    needs: [pr-gate, build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
     strategy:
       fail-fast: false
       matrix:
@@ -489,3 +573,35 @@ jobs:
             echo "ERROR: Python package not found! Test skipped improperly."
             exit 1  # Force CI failure
           fi
+
+  # Single leaf check to require in branch protection. Treats skipped jobs as
+  # passing (expected on pull_request), fails on any failure or cancellation.
+  # All jobs are listed so a failure can't hide behind a skipped dependent.
+  build-device-complete:
+    name: All builds passed
+    runs-on: ubuntu-latest
+    needs:
+      - pr-gate
+      - ensure-ubuntu-2204-image
+      - ensure-ubuntu-2404-image
+      - ensure-ubuntu-2404-arm-image
+      - ensure-fedora-39-image
+      - ensure-manylinux-image
+      - ensure-manylinux-aarch64-image
+      - ensure-riscv-image
+      - build
+      - build-riscv-emulated
+      - build-manylinux-wheels
+      - test-packages
+    if: always()
+    steps:
+      - name: Check no job failed or was cancelled
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Results: ${results}"
+          for r in $results; do
+            if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then
+              echo "A required job failed or was cancelled."
+              exit 1
+            fi
+          done

@@ -225,10 +225,11 @@ if(TT_UMD_ENABLE_TRACY)
     CPMAddPackage(
         NAME tracy
         GITHUB_REPOSITORY tenstorrent/tracy
-        GIT_TAG 0aaefbb689b4c60694edc905545fc4709fd13f6a
+        GIT_TAG v0.13.3-tt.0
         SYSTEM YES
         OPTIONS
             "CMAKE_MESSAGE_LOG_LEVEL NOTICE"
+            "TRACY_ENABLE ON"
     )
 endif()
 

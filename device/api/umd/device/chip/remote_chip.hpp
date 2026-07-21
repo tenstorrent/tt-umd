@@ -25,7 +25,7 @@ struct EthCoord;
 }  // namespace tt
 
 namespace tt::umd {
-class LocalChip;
+class Chip;
 class RemoteCommunication;
 class SocDescriptor;
 
@@ -37,7 +37,14 @@ public:
      * @param local_chip The local chip to be used for communication to this remote chip.
      * @return A unique pointer to the created RemoteChip instance.
      */
-    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, LocalChip* local_chip);
+    static std::unique_ptr<RemoteChip> create(std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip);
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Simulation-only factory for a simulated remote chip (no ARC to probe), matching
+    // TTDevice::create_simulation_remote. Compiled in only for simulation builds so the simulation-specific
+    // construction path is not exposed in silicon builds.
+    static std::unique_ptr<RemoteChip> create_for_simulation(
+        std::unique_ptr<TTDevice> remote_tt_device, Chip* local_chip, ChipInfo chip_info);
+#endif  // TT_UMD_BUILD_SIMULATION
 
     bool is_mmio_capable() const override;
 
@@ -78,10 +85,15 @@ public:
     RemoteCommunication* get_remote_communication();
 
 private:
-    RemoteChip(LocalChip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+    RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info);
 
-    LocalChip* local_chip_;
+    Chip* local_chip_;
     RemoteCommunication* remote_communication_;
+
+    // True when this remote chip is simulated (constructed via create_for_simulation). A simulated remote chip has
+    // no ARC, so ARC-dependent steps (reset/power) are skipped.
+    bool is_simulation_ = false;
 
     std::unique_ptr<TTDevice> tt_device_ = nullptr;
 };

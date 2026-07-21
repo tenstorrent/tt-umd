@@ -2,16 +2,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "simulation/simulation_socket.hpp"
+#include "simulation/simulation_server_socket.hpp"
 
 #include <fmt/format.h>
 #include <sys/un.h>  // sockaddr_un::sun_path, for the path-length guard
 
 #include <asio.hpp>
+#include <atomic>
 #include <memory>
+#include <mutex>
 #include <system_error>
 #include <thread>
+#include <vector>
 
+#include "simulation/simulation_server_transport.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -37,25 +41,41 @@ stream_protocol::endpoint make_endpoint(const std::filesystem::path& path) {
 
 }  // namespace
 
-// The asio transport, kept out of the header (see SimulationSocket::Impl forward declaration).
-struct SimulationSocket::Impl {
+// The asio transport, kept out of the header (see SimulationServerSocket::Impl forward declaration).
+struct SimulationServerSocket::Impl {
     asio::io_context io;
     stream_protocol::acceptor acceptor{io};
     std::thread io_thread;
+
+    // Per-connection serving state, held only while a handler is set. Finished connections (peer
+    // disconnected, flagged by the serving thread) are reaped so this doesn't grow unbounded across
+    // connect/disconnect cycles. Guarded: registered/reaped on the io_thread, torn down on the
+    // destructor thread.
+    struct Connection {
+        std::shared_ptr<stream_protocol::socket> socket;
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> finished;
+    };
+
+    std::mutex connections_mutex;
+    std::vector<Connection> connections;
+    bool stopping = false;
 };
 
-SimulationSocket::SimulationSocket(const std::filesystem::path& socket_path) :
+SimulationServerSocket::SimulationServerSocket(const std::filesystem::path& socket_path) :
     socket_path_(socket_path), impl_(std::make_unique<Impl>()) {}
 
-std::unique_ptr<SimulationSocket> SimulationSocket::try_create(const std::filesystem::path& socket_path) {
-    std::unique_ptr<SimulationSocket> socket(new SimulationSocket(socket_path));
+std::unique_ptr<SimulationServerSocket> SimulationServerSocket::try_create(const std::filesystem::path& socket_path) {
+    std::unique_ptr<SimulationServerSocket> socket(new SimulationServerSocket(socket_path));
     if (!socket->bind_and_listen()) {
         return nullptr;
     }
+    // Bound and connectable now (presence/liveness); serving begins when serve() is called with a
+    // handler bound to the owner's backend.
     return socket;
 }
 
-std::unique_ptr<SimulationSocket> SimulationSocket::create(const std::filesystem::path& socket_path) {
+std::unique_ptr<SimulationServerSocket> SimulationServerSocket::create(const std::filesystem::path& socket_path) {
     auto socket = try_create(socket_path);
     if (!socket) {
         UMD_THROW(
@@ -64,19 +84,84 @@ std::unique_ptr<SimulationSocket> SimulationSocket::create(const std::filesystem
     return socket;
 }
 
-void SimulationSocket::do_accept() {
+void SimulationServerSocket::serve(RequestHandler request_handler) {
+    UMD_ASSERT(bound_, error::RuntimeError, "serve() called on a simulation server socket that is not bound.");
+    UMD_ASSERT(
+        static_cast<bool>(request_handler), error::RuntimeError, "serve() requires a non-empty request handler.");
+    UMD_ASSERT(
+        !impl_->io_thread.joinable(),
+        error::RuntimeError,
+        "serve() called on a simulation server socket already serving.");
+
+    // Install the handler before the accept loop starts, so it is set before any connection
+    // thread reads it -- no mutation of request_handler_ once the io_thread is running.
+    request_handler_ = std::move(request_handler);
+    do_accept();
+    impl_->io_thread = std::thread([this] { impl_->io.run(); });
+}
+
+void SimulationServerSocket::do_accept() {
     auto sock = std::make_shared<stream_protocol::socket>(impl_->io);
     impl_->acceptor.async_accept(*sock, [this, sock](const std::error_code& ec) {
-        // A non-aborted error or io_context::stop() (teardown) ends the loop; otherwise
-        // drop this connection (liveness only) and re-arm.
+        // A non-aborted error or io_context::stop() (teardown) ends the loop.
         if (ec) {
             return;
         }
+
+        // Serve the connection on its own thread until the peer disconnects. do_accept only runs
+        // while serving, so request_handler_ is always set here.
+        // asio leaves accepted sockets non-blocking (for async I/O); the serving thread does
+        // synchronous, blocking transport reads/writes on it, so clear that flag first. If that
+        // fails, the blocking reads/writes would error immediately -- drop this connection cleanly
+        // and keep accepting rather than spawn a thread that can't serve.
+        std::error_code block_ec;
+        sock->native_non_blocking(false, block_ec);
+        if (block_ec) {
+            do_accept();
+            return;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(impl_->connections_mutex);
+            // A connection accepted during teardown is simply dropped (sock released here).
+            if (!impl_->stopping) {
+                // Reap connections whose serving thread has already exited (peer disconnected), so
+                // the bookkeeping doesn't grow without bound across connect/disconnect cycles.
+                for (auto it = impl_->connections.begin(); it != impl_->connections.end();) {
+                    if (it->finished->load()) {
+                        if (it->thread.joinable()) {
+                            it->thread.join();
+                        }
+                        it = impl_->connections.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+
+                // Capture the handler by copy so the thread never touches `this`; keep `sock`
+                // alive so the socket stays open for the whole session; set `finished` on exit so
+                // this connection can be reaped above.
+                auto finished = std::make_shared<std::atomic<bool>>(false);
+                std::thread thread([handler = request_handler_, sock, finished] {
+                    try {
+                        while (true) {
+                            send_framed(*sock, handler(recv_framed(*sock)));
+                        }
+                    } catch (const std::exception&) {
+                        // Peer disconnected (recv_framed threw on EOF) or a socket error: the
+                        // session ends. Teardown joins this thread; the socket closes with `sock`.
+                    }
+                    finished->store(true);
+                });
+                impl_->connections.push_back({sock, std::move(thread), finished});
+            }
+        }
+
         do_accept();
     });
 }
 
-bool SimulationSocket::is_live() {
+bool SimulationServerSocket::is_live() {
     // is_live() is a predicate; a path too long to name a reachable listener can't have one,
     // so report not-live rather than letting make_endpoint() throw.
     if (socket_path_.string().size() >= sizeof(sockaddr_un::sun_path)) {
@@ -90,7 +175,7 @@ bool SimulationSocket::is_live() {
     return !ec;
 }
 
-bool SimulationSocket::bind_and_listen() {
+bool SimulationServerSocket::bind_and_listen() {
     if (socket_path_.has_parent_path()) {
         // A socket is only reachable cross-user if the directory holding it is too, so a
         // directory we create for it gets /tmp's semantics: 0777 + sticky bit. World rwx lets
@@ -199,13 +284,12 @@ bool SimulationSocket::bind_and_listen() {
             fmt::format("Failed to listen on simulation server socket at {}: {}", socket_path_.string(), ec.message()));
     }
 
-    do_accept();
-    impl_->io_thread = std::thread([this] { impl_->io.run(); });
+    // Bound and connectable (liveness) now; the accept loop and io_thread start in serve().
     bound_ = true;
     return true;
 }
 
-SimulationSocket::~SimulationSocket() {
+SimulationServerSocket::~SimulationServerSocket() {
     // Only a successfully-bound owner tears down and removes the file. A never-bound object
     // (try_create() lost to a live owner and returned nullptr) must not delete the live
     // owner's socket. The throwing ctor is safe either way: if bind_and_listen() throws,
@@ -213,6 +297,23 @@ SimulationSocket::~SimulationSocket() {
     if (!bound_) {
         return;
     }
+
+    // Stop serving: mark stopping (so a racing accept won't start a new session) and shut down
+    // every live connection so its serving thread, blocked in recv_framed, sees EOF and exits.
+    {
+        std::lock_guard<std::mutex> lock(impl_->connections_mutex);
+        impl_->stopping = true;
+        for (const auto& connection : impl_->connections) {
+            std::error_code ec;
+            connection.socket->shutdown(stream_protocol::socket::shutdown_both, ec);
+        }
+    }
+    for (auto& connection : impl_->connections) {
+        if (connection.thread.joinable()) {
+            connection.thread.join();
+        }
+    }
+
     // Wake the accept loop and let impl_->io.run() return; the acceptor fd is closed by the
     // acceptor's destructor (RAII) when impl_ is destroyed.
     impl_->io.stop();
@@ -225,7 +326,7 @@ SimulationSocket::~SimulationSocket() {
     std::filesystem::remove(socket_path_, ec);
 }
 
-std::filesystem::path SimulationSocket::default_socket_path(ChipId chip_id) {
+std::filesystem::path SimulationServerSocket::default_socket_path(ChipId chip_id) {
     // One shared socket per chip per machine, under the system temp directory: the name
     // carries no uid, so every process (any user) resolves the same path and attaches to the
     // single host. The socket dir is assumed trusted: the path is predictable and the socket

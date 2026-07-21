@@ -199,7 +199,8 @@ int main(int argc, char* argv[]) {
 
             read_vec.resize(1);
             static constexpr std::uint32_t RETRAIN_COUNT_ADDR = 0x1EDC;  // wormhole
-            cluster->read_from_device(read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
+            cluster->read_from_device_reg(
+                read_vec.data(), chip_id, translated_coord, RETRAIN_COUNT_ADDR, sizeof(uint32_t));
             eth_ss << " eth channel " << std::dec << (uint32_t)chan << " " << logical_coord.at(chan).str();
 
             std::string connection_type = get_connector_str(cluster.get(), chip_id, unique_chip_id, chan, board_type);

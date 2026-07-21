@@ -26,7 +26,7 @@ public:
 
     constexpr SemVer() : major(0), minor(0), patch(0), pre_release(0) {}
 
-    constexpr SemVer(uint64_t major, uint64_t minor, uint64_t patch, uint64_t pre_release = 00) :
+    constexpr SemVer(uint64_t major, uint64_t minor = 0, uint64_t patch = 0, uint64_t pre_release = 0) :
         major(major), minor(minor), patch(patch), pre_release(pre_release) {}
 
     /*

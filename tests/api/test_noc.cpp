@@ -181,7 +181,7 @@ public:
             cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
 
         uint32_t noc_translated_id_val;
-        cluster_->get_tt_device(chip)->read_from_device(
+        cluster_->get_tt_device(chip)->read_from_device_reg(
             &noc_translated_id_val, core, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
 
         return extract_coords_from_reg(noc_translated_id_val);
@@ -417,11 +417,9 @@ TEST_P(TestNocValidity, VerifyNocTranslationHostSide) {
         GTEST_SKIP() << "NOC_ID_LOGICAL register reports incorrect translated coordinates for ROUTER_ONLY";
     }
 
-    // Skip ETH (NOC1) and PCIe (both NOCs) on Blackhole for harvested cores - well known problem:
+    // Skip PCIe (both NOCs) on Blackhole for harvested cores - well known problem:
     // - PCIe: https://github.com/tenstorrent/tt-umd/issues/826
-    // - ETH: https://github.com/tenstorrent/tt-umd/issues/825
-    if (arch == ARCH::BLACKHOLE && use_harvested_cores &&
-        ((core_type == CoreType::ETH && noc == CoordSystem::NOC1) || core_type == CoreType::PCIE)) {
+    if (arch == ARCH::BLACKHOLE && use_harvested_cores && core_type == CoreType::PCIE) {
         GTEST_SKIP() << "Mapping on device side does not correlate correctly to the mapping on host side";
     }
 
@@ -700,11 +698,11 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
         const tt_xy_pair& translated = it->second;
 
         uint32_t noc_node_id_val;
-        device->read_from_device(&noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val));
+        device->read_from_device_reg(&noc_node_id_val, translated, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         const auto [x, y] = extract_coords_from_reg(noc_node_id_val);
 
         uint32_t noc_translated_id_val;
-        device->read_from_device(
+        device->read_from_device_reg(
             &noc_translated_id_val, translated, noc_translated_id_reg_addr, sizeof(noc_translated_id_val));
         const auto [translated_x, translated_y] = extract_coords_from_reg(noc_translated_id_val);
 

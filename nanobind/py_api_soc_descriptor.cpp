@@ -94,7 +94,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def_prop_ro("tensix_cores", &SocArchDescriptor::get_tensix_cores, release_gil())
         .def_prop_ro("dram_cores", &SocArchDescriptor::get_dram_cores, release_gil())
         .def_prop_ro("eth_cores", &SocArchDescriptor::get_eth_cores, release_gil())
-        .def_prop_ro("arc_cores", &SocArchDescriptor::get_arc_cores, release_gil())
+        .def_prop_ro("firmware_cores", &SocArchDescriptor::get_firmware_cores, release_gil())
         .def_prop_ro("pcie_cores", &SocArchDescriptor::get_pcie_cores, release_gil())
         .def_prop_ro("router_cores", &SocArchDescriptor::get_router_cores, release_gil())
         .def_prop_ro("security_cores", &SocArchDescriptor::get_security_cores, release_gil())

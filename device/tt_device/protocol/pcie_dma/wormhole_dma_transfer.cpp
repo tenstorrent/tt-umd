@@ -11,8 +11,32 @@
 
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Wait until the DesignWare eDMA channel leaves the Running state before the shared channel is handed to
+// the next agent, so it is not reprogrammed while a transfer is still draining. CH_CONTROL1[6:5] is the
+// channel status: 0b01 Running, else retired (0b10 Halted / 0b11 Stopped). Encoding per the DW eDMA
+// databook; confirm against the WH-integrated version.
+void wait_for_dma_channel_idle(volatile const uint8_t* bar2, uint64_t ch_control1_off, std::chrono::milliseconds timeout) {
+    static constexpr uint32_t CS_SHIFT = 5;
+    static constexpr uint32_t CS_MASK = 0x3;
+    static constexpr uint32_t CS_RUNNING = 0x1;
+
+    auto channel_idle = [&]() -> bool {
+        volatile const uint32_t* ch_control1 = reinterpret_cast<volatile const uint32_t*>(bar2 + ch_control1_off);
+        uint32_t channel_status = (*ch_control1 >> CS_SHIFT) & CS_MASK;
+        return channel_status != CS_RUNNING;
+    };
+    if (!utils::poll_until(channel_idle, timeout, std::chrono::microseconds(100), std::chrono::microseconds(10))) {
+        UMD_THROW(error::RuntimeError, "DMA channel-idle timeout (CS stuck Running).");
+    }
+}
+
+}  // namespace
 
 // TODO: This is a temporary implementation, and ought to be replaced with a
 // driver-based technique that can take advantage of multiple channels and
@@ -76,6 +100,11 @@ void WormholeDmaTransfer::d2h_transfer(
             UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
+
+    // The completion flag above only signals that the payload write landed, not that the channel state
+    // machine has retired. Wait for the channel to leave Running before returning, so the caller's lock
+    // is not released until it is safe for the next agent to reprogram this shared channel.
+    wait_for_dma_channel_idle(bar2, DMA_CH_CONTROL1_OFF_WRCH_0, std::chrono::milliseconds(DMA_TIMEOUT_MS));
 }
 
 void WormholeDmaTransfer::h2d_transfer(
@@ -134,6 +163,11 @@ void WormholeDmaTransfer::h2d_transfer(
             UMD_THROW(error::RuntimeError, "DMA timeout.");
         }
     }
+
+    // The completion flag above only signals that the payload write landed, not that the channel state
+    // machine has retired. Wait for the read channel to leave Running before returning, so the caller's
+    // lock is not released until it is safe for the next agent to reprogram this shared channel.
+    wait_for_dma_channel_idle(bar2, DMA_CH_CONTROL1_OFF_RDCH_0, std::chrono::milliseconds(DMA_TIMEOUT_MS));
 }
 
 }  // namespace tt::umd

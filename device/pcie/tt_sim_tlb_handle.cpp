@@ -66,9 +66,11 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_ = new_config;
     tlb_config_.local_offset = new_config.local_offset / tlb_size_;
 
-    // These fields are not supported for TTSim, so we set it to 0.
+    // These fields are not supported for TTSim, so we set them to 0.
     tlb_config_.ordering = 0;
     tlb_config_.static_vc = 0;
+    tlb_config_.static_vc_buddy = 0;
+    tlb_config_.static_vc_class = 0;
 
     // Get architecture from allocator to determine correct offsets.
     tt::ARCH architecture = get_arch();

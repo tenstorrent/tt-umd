@@ -166,8 +166,7 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
-            ${{ inputs.use-sccache && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
-            ${{ inputs.use-sccache && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -228,7 +227,10 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+          python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} \
+            --config-settings=cmake.build-type="$WHEEL_BUILD_TYPE" \
+            --config-settings=cmake.define.TT_UMD_ENABLE_SCCACHE=ON \
+            -v
 
           # This is done so that all the necessary libraries are included in the wheel.
           # Specifically, this will make the wheel runnable on exalens ci image.

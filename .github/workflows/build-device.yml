@@ -10,6 +10,12 @@ on:
         description: 'The timeout for the job in minutes'
         type: number
         default: 30
+      use-sccache:
+        required: false
+        description: >-
+          Enable sccache compiler caching.
+        type: boolean
+        default: true
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
@@ -155,10 +161,8 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
-      # Toggle to easily gate sccache in situations where we need to disable it.
-      USE_SCCACHE: "true"
       # Env. vars related to SCCache:
-      SCCACHE_GHA_ENABLED: "true"
+      SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
       SCCACHE_GHA_VERSION: 1
       # Only the main branch may write to the sccache; all other branches read only.
       SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
@@ -175,11 +179,11 @@ jobs:
 
     steps:
       - name: Run sccache-cache
-        if: ${{ env.USE_SCCACHE == 'true' }}
+        if: ${{ inputs.use-sccache }}
         uses: mozilla-actions/sccache-action@v0.0.10
 
       - name: Configure sccache to access GHA cache
-        if: ${{ env.USE_SCCACHE == 'true' }}
+        if: ${{ inputs.use-sccache }}
         uses: actions/github-script@v7
         with:
           script: |
@@ -198,7 +202,7 @@ jobs:
       # with build-tests and other environments (e.g. /localdev) that place tt-umd
       # at a different absolute path.
       - name: Export SCCACHE_BASEDIRS
-        if: ${{ env.USE_SCCACHE == 'true' }}
+        if: ${{ inputs.use-sccache }}
         shell: bash
         run: echo "SCCACHE_BASEDIRS=${TT_UMD_DIR_SHELL}" >> "$GITHUB_ENV"
 
@@ -231,16 +235,14 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              ${{ env.USE_SCCACHE == 'true' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
-              ${{ env.USE_SCCACHE == 'true' && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
+              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
               -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              ${{ env.USE_SCCACHE == 'true' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
-              ${{ env.USE_SCCACHE == 'true' && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
+              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
               -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -352,8 +354,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
-            ${{ env.USE_SCCACHE == 'true' && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
-            ${{ env.USE_SCCACHE == 'true' && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."

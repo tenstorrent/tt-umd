@@ -206,6 +206,25 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Run sccache-cache
+        if: ${{ inputs.use-sccache }}
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Configure sccache to access GHA cache
+        if: ${{ inputs.use-sccache }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      # In container jobs the runtime $GITHUB_WORKSPACE is the container mount path
+      # (/__w/<repo>/<repo>), which is where the build runs.
+      - name: Export SCCACHE_BASEDIRS
+        if: ${{ inputs.use-sccache }}
+        shell: bash
+        run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
+
       - name: Build wheel
         shell: bash
         run: |

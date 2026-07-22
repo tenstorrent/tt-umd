@@ -78,8 +78,6 @@ jobs:
           printf 'ls -l\n' >> "${BATCH}"
           sftp -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null \
             -i "${KEY_FILE}" -b "${BATCH}" "${SFTP_USER}@${SFTP_HOST}"
-          echo "Uploaded $(ls -1 "${EXPORT_DIR}"/*.json | wc -l) file(s) to ${SFTP_USER}@${SFTP_HOST}." \
-            >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Note when SFTP secret is not configured
         if: ${{ steps.sftpcfg.outputs.configured != 'true' }}

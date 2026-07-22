@@ -46,7 +46,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
 
         tt_device->write_to_device(
             data_write.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_write.size() * sizeof(uint32_t));
@@ -77,7 +77,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
 
         tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
         tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -102,7 +102,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
         tt_device->init_tt_device();
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
 
         uint32_t buf = 0;
 
@@ -149,7 +149,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         tt_device->init_tt_device();
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
 
         std::thread thread0([&]() {
             std::vector<uint32_t> data_read(data_write.size(), 0);

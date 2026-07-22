@@ -226,11 +226,11 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core, ADDRESS);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, dram_core.to_pair(), ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core, ADDRESS);
+            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, dram_core.to_pair(), ADDRESS);
         });
     }
     test::utils::export_results(bench);
@@ -261,11 +261,11 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
         });
     }
     test::utils::export_results(bench);
@@ -297,12 +297,12 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
         std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+        sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
             std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
-            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core, ADDRESS);
+            sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
         });
     }
     munmap(mapping, BUFFER_SIZE);

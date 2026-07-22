@@ -253,7 +253,7 @@ TEST(CoordinateManager, CoordinateManagerWormholeETHTranslated) {
     for (auto& [input_pair, output_pair] : input_output_eth_pairs) {
         const CoreCoord eth_noc0 = CoreCoord(input_pair, CoreType::ETH, CoordSystem::NOC0);
         const CoreCoord eth_translated = coordinate_manager->translate_coord_to(eth_noc0, CoordSystem::TRANSLATED);
-        EXPECT_EQ((tt_xy_pair)eth_translated, output_pair);
+        EXPECT_EQ(eth_translated.to_pair(), output_pair);
     }
 }
 

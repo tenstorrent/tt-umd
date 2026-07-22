@@ -73,7 +73,7 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
 
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
 
     // send to core 15, 15 which will hang the NOC
     noc_hung_ = true;

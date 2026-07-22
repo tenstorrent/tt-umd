@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"

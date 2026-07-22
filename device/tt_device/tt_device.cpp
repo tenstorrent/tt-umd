@@ -490,26 +490,22 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->read_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_data(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->write_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_data(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->read_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_ctrl(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->write_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_ctrl(mem_ptr, resolve_coordinate(core), addr, size, noc_id);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -692,7 +688,7 @@ void TTDevice::noc_multicast_write(
     xy_pair translated_start = resolve_coordinate(core_start);
     xy_pair translated_end = resolve_coordinate(core_end);
     bool multicast_success =
-        device_protocol_->write_to_core_range(src, translated_start, translated_end, addr, size, get_selected_noc_id());
+        device_protocol_->write_to_core_range(src, translated_start, translated_end, addr, size, noc_id);
 
     log_trace(
         LogUMD,
@@ -723,7 +719,7 @@ void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, 
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        get_soc_descriptor().get_bounding_rectangle((noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
     noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
@@ -755,15 +751,14 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core,
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core), addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core), addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular write.
     pcie_dma_lock.unlock();
-    write_to_device(src, core, addr, size);
+    write_to_device(src, core, addr, size, noc_id);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
@@ -775,15 +770,14 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core), addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core), addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular read.
     pcie_dma_lock.unlock();
-    read_from_device(dst, core, addr, size);
+    read_from_device(dst, core, addr, size, noc_id);
 }
 
 void TTDevice::dma_multicast_write(
@@ -797,14 +791,15 @@ void TTDevice::dma_multicast_write(
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_pcie_interface()->dma_multicast_write(
-        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
+        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, noc_id);
+
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
-    noc_multicast_write(src, size, core_start, core_end, addr);
+    noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }

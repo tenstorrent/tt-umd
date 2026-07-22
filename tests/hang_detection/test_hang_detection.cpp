@@ -88,7 +88,7 @@ protected:
         NocIdSwitcher switcher(noc);
         try {
             tt_device_->read_from_device(
-                &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value));
+                &hang_read_value, tensix_core, noc_hang_addr(tt_device_->get_arch()), sizeof(hang_read_value), noc);
         } catch (const error::UmdException<error::DeviceTimeoutError>&) {
             // Once the per-op MMIO timeout is active, the hang-inducing read stalls past the
             // default 100 ms budget and aborts before returning. The NOC is hung regardless.

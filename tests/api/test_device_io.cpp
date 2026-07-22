@@ -777,10 +777,10 @@ TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
 
     // Selecting SYSTEM_NOC routes write_to_device/read_from_device through the SMN path.
     NocIdSwitcher noc_switcher(NocId::SYSTEM_NOC);
-    tt_device->write_to_device(write_data.data(), core, addr, data_size);
+    tt_device->write_to_device(write_data.data(), core, addr, data_size, NocId::SYSTEM_NOC);
 
     std::vector<uint8_t> read_data(data_size, 0);
-    tt_device->read_from_device(read_data.data(), core, addr, data_size);
+    tt_device->read_from_device(read_data.data(), core, addr, data_size, NocId::SYSTEM_NOC);
 
     EXPECT_EQ(write_data, read_data);
 }

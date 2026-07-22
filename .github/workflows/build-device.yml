@@ -235,14 +235,14 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
+              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
               -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
+              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
               -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -354,7 +354,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
-            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."

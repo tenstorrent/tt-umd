@@ -91,6 +91,11 @@ env:
   CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./nanobind/tests
+  # Env. vars related to SCCache:
+  SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
+  SCCACHE_GHA_VERSION: 1
+  # Only the main branch may write to the sccache; all other branches read only.
+  SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 
 jobs:
   build:
@@ -115,11 +120,6 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check; harmless when Tracy is disabled.
       TRACY_NO_INVARIANT_CHECK: 1
-      # Env. vars related to SCCache:
-      SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
-      SCCACHE_GHA_VERSION: 1
-      # Only the main branch may write to the sccache; all other branches read only.
-      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 
     steps:
       - name: Print all params
@@ -166,7 +166,7 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
-            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache == 'true' && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."

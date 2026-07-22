@@ -515,6 +515,22 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
     return 0;
 }
 
+int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd) {
+    struct tenstorrent_export_tlb_dmabuf export_dmabuf = {0};
+    export_dmabuf.argsz = sizeof(export_dmabuf);
+    export_dmabuf.tlb_id = tlb->id;
+    export_dmabuf.offset = offset;
+    export_dmabuf.size = size;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF, &export_dmabuf) != 0) {
+        return -errno;
+    }
+
+    *out_fd = export_dmabuf.fd;
+
+    return 0;
+}
+
 int tt_device_set_power_state(tt_device_t* dev, uint16_t power_flags) {
     struct tenstorrent_power_state ps = {0};
     ps.argsz = sizeof(ps);

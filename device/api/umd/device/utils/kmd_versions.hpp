@@ -41,4 +41,11 @@ inline constexpr SemVer KMD_TLBS = SemVer(1, 34, 0);
  * while application connections remain active.
  */
 inline constexpr SemVer KMD_POWER_STATE = SemVer(2, 6, 0);
+
+/**
+ * KMD version 2.10.0 introduced the TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF IOCTL, which exports an
+ * allocated and configured TLB window as a Linux dma-buf fd for peer-to-peer PCIe DMA (e.g. RDMA
+ * NIC import via ibv_reg_dmabuf_mr()).
+ */
+inline constexpr SemVer KMD_TLB_DMABUF_EXPORT = SemVer(2, 10, 0);
 }  // namespace tt::umd

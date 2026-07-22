@@ -493,6 +493,24 @@ public:
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
+    /**
+     * Allocate a dedicated TLB window aimed at (chip, core, addr), export it as a dma-buf for
+     * peer-to-peer PCIe DMA, and return an fd the caller owns.
+     * - The caller must close() the returned fd when done; this releases the kmd-side pin and,
+     *   once the last export on the window is released, returns the window to the allocation pool.
+     * - A dedicated window is always allocated (never a shared/static one), so there is no
+     *   reconfigure hazard with other TLB users.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address within the core the window should map to.
+     * @param size Size of the window/export, in bytes.
+     * @param ordering Ordering mode for the TLB.
+     * @return dma-buf file descriptor; the caller owns it and must close() it when done.
+     */
+    int export_dmabuf(
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
+
     //---------- Functions for synchronization and memory barriers.
 
     /**

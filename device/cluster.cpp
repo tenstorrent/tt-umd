@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "hugepage.hpp"
+#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -794,6 +795,24 @@ void Cluster::refresh_cluster_description() {
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
+}
+
+int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+
+    tlb_data config{};
+    config.local_offset = addr;
+    config.x_end = translated_core.x;
+    config.y_end = translated_core.y;
+    config.noc_sel = is_selected_noc1() ? 1 : 0;
+    config.ordering = ordering;
+    config.static_vc = get_tt_device(chip)->get_architecture_implementation()->get_static_vc();
+
+    // A dedicated window (not tracked in TLBManager's maps) is allocated here on purpose: it is
+    // exported and then dropped immediately below, so it must not alias a shared/static window
+    // that other TLB users could later reconfigure out from under the live export.
+    std::unique_ptr<TlbWindow> tlb_window = get_tlb_manager(chip)->allocate_tlb_window(config, TlbMapping::WC, size);
+    return tlb_window->export_dmabuf(0, 0);
 }
 
 std::map<int, int> Cluster::get_clocks() {

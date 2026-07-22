@@ -129,6 +129,15 @@ public:
     virtual void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
 
+    /**
+     * Exports this TLB window as a dma-buf file descriptor for peer-to-peer PCIe DMA. See
+     * TlbHandle::export_dmabuf() for ownership and alignment requirements.
+     *
+     * @param offset Byte offset within the window at which the export begins.
+     * @param size Number of bytes to export; 0 means to the end of the window.
+     */
+    int export_dmabuf(uint64_t offset = 0, uint64_t size = 0) const;
+
 protected:
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;

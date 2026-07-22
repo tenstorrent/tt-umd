@@ -327,6 +327,12 @@ public:
     static bool is_arch_agnostic_reset_supported();
 
     /**
+     * Checks if exporting a TLB window as a dma-buf (TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF) is
+     * supported by the device by checking the KMD version which enables this feature.
+     */
+    static bool is_tlb_dmabuf_export_supported();
+
+    /**
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).
      * When busy is true, all power domains are requested (max AI clock, PHY wakeup, Tensix and L2CPU enabled).
      * When busy is false, all power flags are released, allowing the device to enter a low-power idle state.

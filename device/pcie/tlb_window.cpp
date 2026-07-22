@@ -127,6 +127,8 @@ uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
 }
 
+int TlbWindow::export_dmabuf(uint64_t offset, uint64_t size) const { return tlb_handle->export_dmabuf(offset, size); }
+
 void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
 
 uint32_t TlbWindow::safe_read32(uint64_t offset) { return read32(offset); }

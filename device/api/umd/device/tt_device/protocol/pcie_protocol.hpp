@@ -28,6 +28,7 @@ namespace tt::umd {
 class PCIDevice;
 class TlbWindow;
 struct tlb_data;
+enum class TlbVcDirection;
 
 /**
  * PcieProtocol implements DeviceProtocol, PcieInterface, and DmaInterface for PCIe-connected
@@ -93,7 +94,11 @@ private:
 
     enum class DmaDirection { H2D, D2H };
     tlb_data create_dma_tlb_config(
-        uint64_t addr, tt_xy_pair core_end, NocId noc_id, std::optional<tt_xy_pair> core_start = std::nullopt);
+        uint64_t addr,
+        tt_xy_pair core_end,
+        NocId noc_id,
+        TlbVcDirection direction,
+        std::optional<tt_xy_pair> core_start = std::nullopt);
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 

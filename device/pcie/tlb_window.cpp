@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/io_window_config.hpp"
@@ -38,14 +39,20 @@ TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
 }
 
 tlb_data TlbWindow::make_tlb_config(
-    uint64_t addr, tt_xy_pair core_end, NocId noc_id, uint64_t ordering, bool mcast, tt_xy_pair core_start) const {
+    uint64_t addr,
+    tt_xy_pair core_end,
+    NocId noc_id,
+    uint64_t ordering,
+    TlbVcDirection direction,
+    bool mcast,
+    tt_xy_pair core_start) const {
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core_end.x;
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.static_vc = handle_ref().get_arch() != tt::ARCH::BLACKHOLE;
+    config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(direction));
     if (mcast) {
         config.mcast = true;
         config.x_start = core_start.x;
@@ -69,7 +76,7 @@ void TlbWindow::transfer_and_reconfigure(tlb_data config, buffer_pointer buffer,
 void TlbWindow::read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
+        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_READ),
         static_cast<uint8_t*>(mem_ptr),
         size,
         [this](uint8_t* buf, size_t sz) { read_block(0, buf, sz); });
@@ -78,7 +85,7 @@ void TlbWindow::read_block_reconfigure(
 void TlbWindow::read_register_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
+        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_READ),
         static_cast<uint8_t*>(mem_ptr),
         size,
         [this](uint8_t* buf, size_t sz) { read_register(0, buf, sz); });
@@ -87,7 +94,7 @@ void TlbWindow::read_register_reconfigure(
 void TlbWindow::write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
+        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_WRITE),
         static_cast<const uint8_t*>(mem_ptr),
         size,
         [this](const uint8_t* buf, size_t sz) { write_block(0, buf, sz); });
@@ -96,7 +103,7 @@ void TlbWindow::write_block_reconfigure(
 void TlbWindow::write_register_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
     transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
+        make_tlb_config(addr, core, noc_id, ordering, TlbVcDirection::UNICAST_WRITE),
         static_cast<const uint8_t*>(mem_ptr),
         size,
         [this](const uint8_t* buf, size_t sz) { write_register(0, buf, sz); });
@@ -111,7 +118,7 @@ void TlbWindow::noc_multicast_write_reconfigure(
     NocId noc_id,
     uint64_t ordering) {
     transfer_and_reconfigure(
-        make_tlb_config(addr, core_end, noc_id, ordering, true, core_start),
+        make_tlb_config(addr, core_end, noc_id, ordering, TlbVcDirection::MULTICAST_WRITE, true, core_start),
         static_cast<const uint8_t*>(src),
         size,
         [this](const uint8_t* buf, size_t sz) { write_block(0, buf, sz); });
@@ -167,6 +174,7 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
         mcast ? config.core_end.value() : config.core_start,
         config.noc.value(),
         static_cast<uint64_t>(ordering),
+        TlbVcDirection::BIDIRECTIONAL,
         mcast,
         config.core_start));
 }

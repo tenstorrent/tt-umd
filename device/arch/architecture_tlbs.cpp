@@ -39,6 +39,22 @@ tlb_configuration ArchitectureTlbs::get_configuration(const uint32_t tlb_index) 
     UMD_THROW(error::RuntimeError, fmt::format("No TLB window with index {}.", tlb_index));
 }
 
+tlb_static_vc ArchitectureTlbs::get_static_vc(const TlbVcDirection direction) const {
+    if (!static_vc_is_configurable || direction == TlbVcDirection::BIDIRECTIONAL) {
+        // Nothing left to choose: either the architecture wires the channel up itself, or the window
+        // carries both directions and so cannot be given one of its own.
+        return {.static_vc = use_static_vc};
+    }
+
+    // Reads and writes go to different buddies so that neither can be reordered behind the other,
+    // and multicast writes get a class of their own.
+    return {
+        .static_vc = 1,
+        .static_vc_buddy = direction == TlbVcDirection::UNICAST_READ ? 1ULL : 0ULL,
+        .static_vc_class = direction == TlbVcDirection::MULTICAST_WRITE ? 0b10ULL : 0b00ULL,
+    };
+}
+
 const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     static const ArchitectureTlbs wormhole_tlbs = {
         .size_classes =
@@ -68,6 +84,9 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
              }},
         .cached_window_size = wormhole::STATIC_TLB_SIZE,
         .use_static_vc = true,
+        // The Wormhole PCIe tile hardwires the virtual channels, keeping reads and writes apart
+        // without a window having to ask for it.
+        .static_vc_is_configurable = false,
         .static_cfg_addr = wormhole::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = wormhole::TLB_CFG_REG_SIZE_BYTES,
     };
@@ -91,8 +110,10 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
                  .register_layout = blackhole::TLB_4G_OFFSET,
              }},
         .cached_window_size = blackhole::STATIC_TLB_SIZE,
-        // False due to a known HW issue.
+        // A window that carries both reads and writes on one static VC crashes the host, so windows
+        // that cannot pick a direction stay on a dynamic VC.
         .use_static_vc = false,
+        .static_vc_is_configurable = true,
         .static_cfg_addr = blackhole::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = blackhole::TLB_CFG_REG_SIZE_BYTES,
     };
@@ -117,6 +138,7 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
              }},
         .cached_window_size = grendel::STATIC_TLB_SIZE,
         .use_static_vc = true,
+        .static_vc_is_configurable = true,
         .static_cfg_addr = grendel::STATIC_TLB_CFG_ADDR,
         .cfg_reg_size_bytes = grendel::TLB_CFG_REG_SIZE_BYTES,
     };

@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <initializer_list>
@@ -23,10 +25,16 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/driver_atomics.hpp"
+#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/semver.hpp"
 
 using namespace tt::umd;
@@ -37,6 +45,12 @@ static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
         {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
+}
+
+// Raw TLB-window allocation (TENSTORRENT_IOCTL_ALLOCATE_TLB) needs KMD 1.34 or newer.
+static bool kmd_supports_tlb_alloc() {
+    SemVer kmd_ver = PCIDevice::read_kmd_version();
+    return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }
 
 TEST(ClusterBH, CreateDestroy) {
@@ -352,6 +366,123 @@ TEST(ClusterBH, MultiThreadedMemBar) {
             187);  // Ensure that memory barriers end up in the correct sate for ethernet cores
         readback_membar_vec = {};
     }
+    cluster.close_device();
+}
+
+// Detection probe for issue #2735: Write->Write NoC ordering on Blackhole.
+//
+// On Blackhole the cached data-path TLBs run with dynamic VC (static_vc = 0) and
+// Default/Relaxed ordering. Per the ISA, in this mode two writes to the same
+// destination can reorder on the NoC once they leave the PCIe-tile NIU; ordering is
+// only guaranteed when static_vc is set. This test tries to *observe* such a reorder
+// from the host with a message-passing pattern on a single Tensix core:
+//
+//   Writer (window W): fill DATA[..] = k ; sfence ; FLAG = k   (k monotonically ++)
+//   Reader (window R): f = read(FLAG) ; tail = read(DATA_last_word)
+//
+// If ordering holds, DATA(k) lands before FLAG=k, so any observed FLAG value f
+// implies the DATA tail is already >= f. A sample with tail < f means FLAG overtook
+// DATA -> a Write->Write reorder was observed.
+//
+// Writer and reader MUST use separate windows (different AXI ids). A shared window is
+// one AXI id, and the tile then enforces Default-mode Write->Read ordering, which
+// would make the reader's DATA read wait for the writer's DATA write and mask the
+// reorder. Blocking MMIO reads already order the reader's own two reads (FLAG then
+// tail), so tail reflects state at-or-after the FLAG observation -> no false positives.
+//
+// One-sided: an observed inversion proves the ordering is broken today; zero
+// inversions does NOT prove it is safe (the HW may keep same-src/same-dst writes
+// ordered in practice). Run on silicon with today's dynamic-VC config to see whether
+// it fires; after the direction-split static_vc fix it must report zero.
+TEST(ClusterBH, WriteWriteOrderingProbe) {
+    if (!kmd_supports_tlb_alloc()) {
+        GTEST_SKIP() << "Requires KMD >= 1.34 for TLB allocation ioctls.";
+    }
+
+    constexpr uint32_t kDataWords = 8 * 1024;  // 32 KiB payload -> multi-packet write, tail lands last
+    constexpr uint32_t kDataBytes = kDataWords * sizeof(uint32_t);
+    constexpr uint32_t kIterations = 100000;
+    constexpr uint64_t kTwoMb = 1ull << 21;
+
+    const uint32_t data_off = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    const uint32_t flag_off = data_off + kDataBytes;                 // FLAG immediately after DATA
+    const uint32_t tail_off = flag_off - sizeof(uint32_t);           // last word of DATA
+    ASSERT_LT(flag_off + sizeof(uint32_t), l1_mem::address_map::MAX_SIZE) << "DATA + FLAG must fit within L1.";
+
+    auto cluster_ptr = test_utils::make_default_test_cluster();
+    Cluster& cluster = *cluster_ptr;
+    set_barrier_params(cluster);
+
+    const ChipId chip = *cluster.get_target_mmio_device_ids().begin();
+    PCIDevice* pci = cluster.get_tt_device(chip)->get_pci_device();
+    const CoreCoord core =
+        cluster.get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED).front();
+
+    auto make_window = [&](uint64_t ordering) {
+        tlb_data config{};
+        config.local_offset = 0;  // window base at tile address 0; offsets below are raw L1 addresses
+        config.x_end = core.x;
+        config.y_end = core.y;
+        config.noc_sel = 0;
+        config.mcast = 0;
+        config.ordering = ordering;
+        config.linked = 0;
+        config.static_vc = 0;  // dynamic VC == today's Blackhole data-path behavior (the thing under test)
+        return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(kTwoMb, TlbMapping::WC), config);
+    };
+
+    // Separate windows => separate AXI ids => no Write->Read ordering between writer and reader.
+    std::unique_ptr<TlbWindow> writer_win = make_window(tlb_data::Relaxed);
+    std::unique_ptr<TlbWindow> reader_win = make_window(tlb_data::Relaxed);
+
+    std::atomic<bool> writer_done{false};
+
+    std::thread writer([&] {
+        std::vector<uint32_t> data(kDataWords);
+        for (uint32_t k = 1; k <= kIterations; ++k) {
+            std::fill(data.begin(), data.end(), k);
+            writer_win->write_block(data_off, data.data(), kDataBytes);
+            tt_driver_atomics::sfence();  // push all of DATA before FLAG (host side)
+            writer_win->write32(flag_off, k);
+            tt_driver_atomics::sfence();  // make FLAG promptly visible to the reader
+        }
+        writer_done.store(true, std::memory_order_release);
+    });
+
+    uint64_t samples = 0;
+    uint64_t inversions = 0;
+    uint32_t first_bad_flag = 0;
+    uint32_t first_bad_tail = 0;
+    std::thread reader([&] {
+        while (!writer_done.load(std::memory_order_acquire)) {
+            const uint32_t f = reader_win->read32(flag_off);  // blocking MMIO read
+            if (f == 0) {
+                continue;
+            }
+            const uint32_t tail = reader_win->read32(tail_off);  // issued only after f returned
+            ++samples;
+            if (tail < f) {  // FLAG=f visible but DATA(f) tail not yet -> Write->Write reorder
+                ++inversions;
+                if (inversions == 1) {
+                    first_bad_flag = f;
+                    first_bad_tail = tail;
+                }
+            }
+        }
+    });
+
+    writer.join();
+    reader.join();
+
+    RecordProperty("iterations", std::to_string(kIterations));
+    RecordProperty("reader_samples", std::to_string(samples));
+    RecordProperty("inversions", std::to_string(inversions));
+
+    EXPECT_EQ(inversions, 0u) << "Observed " << inversions << " Write->Write reorderings out of " << samples
+                              << " reader samples (dynamic VC). First: FLAG=" << first_bad_flag
+                              << " but DATA tail=" << first_bad_tail << ". Reproduces issue #2735; enabling "
+                              << "direction-split static_vc should drive this to zero.";
+
     cluster.close_device();
 }
 

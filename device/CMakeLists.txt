@@ -4,27 +4,34 @@ set(POSITION_INDEPENDENT_CODE ON)
 include(CheckFunctionExists)
 
 if(TT_UMD_BUILD_SIMULATION)
-    set(FBS_FILE ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs)
-    get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
-    set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+    set(FBS_FILES
+        ${PROJECT_SOURCE_DIR}/device/simulation/simulation_device.fbs
+        ${PROJECT_SOURCE_DIR}/device/simulation/simulation_server_protocol.fbs
+    )
     set(FBS_DEPENDS "")
     if(TARGET flatc)
         set(FBS_DEPENDS flatc)
     endif()
-    add_custom_command(
-        OUTPUT
-            ${FBS_GENERATED_HEADER}
-        COMMAND
-            flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
-        DEPENDS
-            ${FBS_DEPENDS}
-            ${FBS_FILE}
-        COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
-        VERBATIM
-    )
+    set(FBS_GENERATED_HEADERS "")
+    foreach(FBS_FILE ${FBS_FILES})
+        get_filename_component(FBS_FILE_NAME ${FBS_FILE} NAME_WLE)
+        set(FBS_GENERATED_HEADER "${CMAKE_CURRENT_BINARY_DIR}/${FBS_FILE_NAME}_generated.h")
+        add_custom_command(
+            OUTPUT
+                ${FBS_GENERATED_HEADER}
+            COMMAND
+                flatc --cpp -o "${CMAKE_CURRENT_BINARY_DIR}" ${FBS_FILE}
+            DEPENDS
+                ${FBS_DEPENDS}
+                ${FBS_FILE}
+            COMMENT "Generating FlatBuffers header ${FBS_GENERATED_HEADER}"
+            VERBATIM
+        )
+        list(APPEND FBS_GENERATED_HEADERS ${FBS_GENERATED_HEADER})
+    endforeach()
 
-    # Add FlatBuffers header to the code analysis target
-    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADER})
+    # Add FlatBuffers headers to the code analysis target
+    add_custom_target(umd_device_generated_files DEPENDS ${FBS_GENERATED_HEADERS})
     add_dependencies(umd_all_generated_files umd_device_generated_files)
 endif()
 
@@ -94,6 +101,7 @@ target_sources(
         tt_device/tt_device_error.cpp
         tt_device/wormhole_tt_device.cpp
         tt_device/hang_detection/hang_detector.cpp
+        tt_device/hang_detection/hang_detector_implementation.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
         tt_device/hang_detection/blackhole_hang_detector.cpp
         tt_device/protocol/pcie_protocol.cpp
@@ -140,6 +148,9 @@ target_sources(
         # (TT_UMD_BUILD_SIMULATION=OFF).
         simulation/simulation_server_socket.cpp
         simulation/simulation_client.cpp
+        # Length-prefixed message framing over the socket (uses asio, a core dependency; no
+        # FlatBuffers), so it is always built and unit-tested in the same no-card baremetal lane.
+        simulation/simulation_server_transport.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)
@@ -148,6 +159,7 @@ if(TT_UMD_BUILD_SIMULATION)
         PRIVATE
             simulation/simulation_chip.cpp
             simulation/simulation_connector.cpp
+            simulation/simulation_server_protocol.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
@@ -160,7 +172,7 @@ if(TT_UMD_BUILD_SIMULATION)
             pcie/tt_sim_tlb_handle.cpp
             pcie/rtl_sim_tlb_window.cpp
             pcie/rtl_sim_tlb_handle.cpp
-            ${FBS_GENERATED_HEADER}
+            ${FBS_GENERATED_HEADERS}
     )
     target_compile_definitions(tt-umd PUBLIC TT_UMD_BUILD_SIMULATION)
 endif()
@@ -241,6 +253,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp
                 api/umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp
                 api/umd/device/tt_device/hang_detection/hang_detector.hpp
+                api/umd/device/tt_device/hang_detection/hang_detector_implementation.hpp
                 api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/remote_communication.hpp

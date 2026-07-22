@@ -12,7 +12,7 @@
 
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -46,12 +46,9 @@ public:
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-
-    using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void *src, size_t size, uint64_t addr) override;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 
     ~WormholeTTDevice() override = default;
 
@@ -84,5 +81,9 @@ private:
     friend std::unique_ptr<TTDevice> TTDevice::create(
         std::unique_ptr<RemoteCommunication> remote_communication,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+#ifdef TT_UMD_BUILD_SIMULATION
+    friend std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
+        std::unique_ptr<RemoteCommunication> remote_communication, const SocDescriptor &soc_descriptor);
+#endif  // TT_UMD_BUILD_SIMULATION
 };
 }  // namespace tt::umd

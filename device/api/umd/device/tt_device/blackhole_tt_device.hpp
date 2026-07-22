@@ -14,7 +14,7 @@
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
-#include "umd/device/types/xy_pair.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -49,12 +49,9 @@ public:
     ChipInfo get_chip_info() override;
 
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
-    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-
-    using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void *src, size_t size, uint64_t addr) override;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 
 protected:
     BlackholeTTDevice(

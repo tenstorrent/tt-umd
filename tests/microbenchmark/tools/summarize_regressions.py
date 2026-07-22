@@ -315,14 +315,20 @@ def render_summary(current: dict, baselines: dict) -> tuple[str, list, list]:
     meta = baselines.get("metadata") or {}
     archs_meta: dict = meta.get("archs") or {}
 
-    # Tests come from baselines (so a missing-from-baseline test is visible but
-    # never alerts).
-    test_titles = [k for k in baselines if k != "metadata"]
+    all_titles = [k for k in baselines if k != "metadata"]
     archs = set()
-    for title in test_titles:
+    for title in all_titles:
         for case_entry in baselines[title].values():
             archs.update(case_entry.keys())
-    arch_order = sorted(archs)
+    # Only archs present in this run; the benchmark and ttsim workflows each cover a different subset.
+    arch_order = sorted(a for a in archs if a in current)
+    # Filtering out test titles to show proper titles for simulator and silicon paths.
+    arch_set = set(arch_order)
+    test_titles = [
+        t
+        for t in all_titles
+        if any(a in arch_set for case in baselines[t].values() for a in case)
+    ]
 
     # Per-(test, arch): collect (counts, breached_rows, stable_rows).
     cell_state: dict = {}

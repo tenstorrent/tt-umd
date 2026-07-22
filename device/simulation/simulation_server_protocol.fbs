@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+//
+// SPDX-License-Identifier: Apache-2.0
+
+// Wire schema for the UMD <-> simulation host protocol: the request/response messages a UMD
+// client exchanges with a simulation host ("the card") over its per-chip UNIX socket.
+//
+// This first step covers device-memory access -- the bulk of the traffic. A single request/
+// response pair carries a read or a write, selected by `command`. The op set grows one message
+// at a time as the server work lands (session/attach, TLB windows, sysmem, run/reset, ...).
+//
+// FlatBuffers is an implementation detail: only simulation_server_protocol.cpp includes the
+// generated header. Callers use the plain C++ structs and encode()/decode_*() in
+// simulation_server_protocol.hpp.
+//
+// Generated types live in the `wire` namespace so they never collide with the hand-written
+// tt::umd structs of the same name. A single-level namespace keeps the generated header clean
+// under clang-tidy (nested namespaces would trip modernize-concat-nested-namespaces).
+namespace wire;
+
+// Direction of a device-memory access.
+enum SimulationServerCommand : byte {
+    READ = 0,
+    WRITE = 1,
+}
+
+// A device-memory access addressed by (core x/y, address, size). For WRITE, `data` carries the
+// bytes to write (length == size); for READ it is empty (the size field states how many bytes to
+// read back).
+table SimulationServerRequest {
+    command : SimulationServerCommand;
+    x : uint32;
+    y : uint32;
+    address : uint64;
+    size : uint32;
+    data : [ubyte];
+}
+
+// The matching response. `status` is 0 on success and nonzero on a host-side failure. For READ,
+// `data` carries the bytes read (length == size on success); for WRITE it is empty.
+table SimulationServerResponse {
+    status : int32;
+    data : [ubyte];
+}
+
+// flatc requires a single root_type; the codec reads both messages uniformly via GetRoot<T>, so
+// the choice of which one is "root" is immaterial.
+root_type SimulationServerRequest;

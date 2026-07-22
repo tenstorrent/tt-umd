@@ -24,6 +24,7 @@
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -100,8 +101,10 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    client_(std::move(client)) {
+    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    // client_ is a base member (SimulationTTDevice), so it is set in the body rather than the
+    // init list.
+    client_ = std::move(client);
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
@@ -144,48 +147,13 @@ void RtlSimulationTTDevice::initialize_backend(int num_host_mem_channels) {
 
     communicator_->initialize();
 
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(/*bar0_base=*/0, architecture_impl_.get());
-
-    // Allocate the cached default TLB window. Quasar has no real TLBs; the communicator handles
-    // all I/O underneath. The 4GB size for Quasar is a dummy value — it just needs to be large
-    // enough so that TlbWindow::validate doesn't reject any valid access (size 0 would cause
-    // division by zero in RtlSimTlbHandle::configure).
-    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
-    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
-    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    switch (arch) {
-        case tt::ARCH::BLACKHOLE:
-            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_2MB);
-            break;
-        case tt::ARCH::WORMHOLE_B0:
-            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_16MB);
-            break;
-        case tt::ARCH::QUASAR:
-            cached_tlb_window_ = RtlSimulationTTDevice::get_io_window({}, TlbMapping::WC, SIZE_4GB);
-            break;
-        default:
-            log_debug(
-                LogUMD,
-                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
-                tt::arch_to_str(arch));
-            break;
-    }
+    init_tlb_allocator(/*bar0_base=*/0);
+    setup_cached_tlb_window();
 }
 
-std::unique_ptr<TlbWindow> RtlSimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    if (client_) {
-        // Client mode runs no backend, so tlb_allocator_/communicator_ are never constructed. Fail
-        // loudly instead of dereferencing them; client-mode device I/O is not available yet.
-        UMD_THROW(error::RuntimeError, "Client-mode RtlSimulationTTDevice does not support TLB windows yet.");
-    }
-    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
-    if (tlb_index == -1) {
-        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
-    }
-    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested
-    // size through, since get_tlb_size_from_index has no pool to look up for the bypass index.
-    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
-    auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, actual_size, mapping);
+std::unique_ptr<TlbWindow> RtlSimulationTTDevice::create_tlb_window(
+    int tlb_index, size_t size, TlbMapping mapping, tlb_data config) {
+    auto handle = RtlSimTlbHandle::create(tlb_allocator_, tlb_index, size, mapping);
     return std::make_unique<RtlSimTlbWindow>(std::move(handle), communicator_.get(), config);
 }
 
@@ -203,71 +171,57 @@ RtlSimulationTTDevice::~RtlSimulationTTDevice() {
     }
 }
 
-void RtlSimulationTTDevice::write_to_device(const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    if (client_) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
-            "read/write).");
-    }
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
-    log_debug(
-        tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, translated_core.str());
-
-    NocId noc_id = get_selected_noc_id();
-    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
-
-    if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-        return;
-    }
-
-    if (cached_tlb_window_) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
-    } else {
-        communicator_->tile_write_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-    }
+void RtlSimulationTTDevice::tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) {
+    communicator_->tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
-void RtlSimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size) {
-    if (client_) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Client-mode RtlSimulationTTDevice device I/O is not available yet (SimulationClient has no "
-            "read/write).");
-    }
-    std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
-
-    NocId noc_id = get_selected_noc_id();
-    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
-
-    if (noc_id == NocId::SYSTEM_NOC) {
-        communicator_->smn_tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-        return;
-    }
-
-    if (cached_tlb_window_) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
-    } else {
-        communicator_->tile_read_bytes(translated_core.x, translated_core.y, addr, mem_ptr, size);
-    }
+void RtlSimulationTTDevice::tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) {
+    communicator_->tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
 }
 
-void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+bool RtlSimulationTTDevice::handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    return smn_read(mem_ptr, core, addr, size);
+}
+
+bool RtlSimulationTTDevice::handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    return smn_write(mem_ptr, core, addr, size);
+}
+
+bool RtlSimulationTTDevice::smn_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_read_bytes(core.x, core.y, addr, mem_ptr, size);
+        return true;
+    }
+    return false;
+}
+
+bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) {
+    log_debug(tt::LogEmulationDriver, "Device writing {} bytes to l1_dest {} in core {}", size, addr, core.str());
+    NocId noc_id = get_selected_noc_id();
+    validate_noc_for_arch(noc_id, get_soc_descriptor().arch);
+    if (noc_id == NocId::SYSTEM_NOC) {
+        communicator_->smn_tile_write_bytes(core.x, core.y, addr, mem_ptr, size);
+        return true;
+    }
+    return false;
+}
+
+void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL) {
-            communicator_->all_tensix_reset_assert(core.x, core.y);
-            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
+            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
             communicator_->all_neo_dms_uncore_reset_assert();
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
@@ -275,13 +229,13 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
             return;
         }
         if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_assert(core.x, core.y);
+            communicator_->neo_dm_uncore_reset_assert(translated_core.x, translated_core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_assert(core.x, core.y, i);
+                communicator_->neo_dm_reset_assert(translated_core.x, translated_core.y, i);
             }
         }
     }
@@ -293,23 +247,24 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
         // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
         // always call this command as if reset for all was requested.
-        communicator_->all_tensix_reset_assert(core.x, core.y);
+        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
     }
 }
 
-void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL) {
             communicator_->all_neo_dms_uncore_reset_deassert();
-            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
-            communicator_->all_tensix_reset_deassert(core.x, core.y);
+            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
+            communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
@@ -317,13 +272,13 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
             return;
         }
         if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_deassert(core.x, core.y);
+            communicator_->neo_dm_uncore_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_deassert(core.x, core.y, i);
+                communicator_->neo_dm_reset_deassert(translated_core.x, translated_core.y, i);
             }
         }
     }
@@ -331,7 +286,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
         (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
-        communicator_->all_tensix_reset_deassert(core.x, core.y);
+        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
     }
 }
 
@@ -340,12 +295,12 @@ void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds 
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't require Ethernet training.
     return std::chrono::milliseconds(0);
 }
 
-EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     // RTL simulation doesn't require Ethernet training.
     return EthTrainingStatus::SUCCESS;
 }

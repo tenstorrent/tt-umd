@@ -62,20 +62,17 @@ public:
     static std::unique_ptr<TTSimTTDevice> create_client(
         const std::filesystem::path &simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
 
-    void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-    void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
     ChipInfo get_chip_info() override;
 
     void close_device();
     void start_device();
 
-    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
     void advance_device_execution() override;
 
@@ -85,12 +82,27 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
-
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
 
+protected:
+    std::unique_ptr<TlbWindow> create_tlb_window(
+        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
+    void tile_read_bytes(tt_xy_pair core, uint64_t addr, void *mem_ptr, size_t size) override;
+    void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void *mem_ptr, size_t size) override;
+    bool is_device_closed() override;
+    bool handle_special_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool handle_special_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
+    void after_read() override;
+
 private:
+    // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
+    // coordinate; returns true when the access was serviced against the backend DRAM model. These
+    // back handle_special_read/write and can grow to dispatch additional special cases later.
+    bool special_dram_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    bool special_dram_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+
     // Client-mode constructor: this device does not own a simulator (.so); it forwards device
     // operations to a remote host through client. Reached only via create_client(), which
     // validates the arguments before construction.
@@ -105,12 +117,10 @@ private:
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process .so backend (communicator_), client mode
-    // drives the remote host (client_->attach()/detach()).
+    // drives the remote host (client_->attach()/detach()). Note client_ is owned by the
+    // SimulationTTDevice base (hoisted there), not declared in this class.
     std::function<void()> setup_;
     std::function<void()> teardown_;
-
-    // Set only in client mode; the remote host this device talks to. Null in host/local mode.
-    std::unique_ptr<SimulationClient> client_;
 
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;

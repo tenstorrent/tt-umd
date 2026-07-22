@@ -36,6 +36,12 @@ std::string SimulationChip::get_soc_descriptor_path_from_simulator_path(const st
                                                  : (simulator_path / "soc_descriptor.yaml");
 }
 
+std::string SimulationChip::get_cluster_descriptor_path_from_simulator_path(
+    const std::filesystem::path& simulator_path) {
+    return (simulator_path.extension() == ".so") ? (simulator_path.parent_path() / "cluster_descriptor.yaml")
+                                                 : (simulator_path / "cluster_descriptor.yaml");
+}
+
 SimulationChip::SimulationChip(
     const std::filesystem::path& simulator_directory,
     const SocDescriptor& soc_descriptor,

@@ -4,7 +4,21 @@
 
 #include "umd/device/tt_device/simulation_tt_device.hpp"
 
+#include <fmt/format.h>
+
+#include <tt-logger/tt-logger.hpp>
+
+#include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_server_protocol.hpp"
+#include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -18,7 +32,140 @@ SimulationTTDevice::SimulationTTDevice(
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
-void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
+void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+    socket_ = std::move(socket);
+    // Begin serving remote clients now that the backend is up.
+    socket_->serve([this](const std::vector<uint8_t>& request_bytes) { return handle_request(request_bytes); });
+}
+
+std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
+    const SimulationServerRequest request = decode_request(request_bytes);
+
+    // The client already translated the coordinate (translation is stateless and client-side), so
+    // pass it through verbatim as LITERAL -- the shared read/write skeleton must not translate
+    // again. CoreCoord defaults to CoreType::UNSPECIFIED + CoordSystem::LITERAL.
+    const CoreCoord core{request.x, request.y};
+
+    SimulationServerResponse response;
+    try {
+        switch (request.command) {
+            case SimulationServerCommand::Read:
+                response.data.resize(request.size);
+                read_from_device(response.data.data(), core, request.address, request.size);
+                break;
+            case SimulationServerCommand::Write:
+                UMD_ASSERT(
+                    request.data.size() >= request.size,
+                    error::RuntimeError,
+                    fmt::format(
+                        "Write request payload ({} bytes) is smaller than its size field ({})",
+                        request.data.size(),
+                        request.size));
+                write_to_device(request.data.data(), core, request.address, request.size);
+                break;
+            default:
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Unknown simulation server command {}", static_cast<int>(request.command)));
+        }
+    } catch (const std::exception& e) {
+        // A failed op surfaces to the client as a nonzero status rather than dropping the
+        // connection, mirroring how a silicon access error is reported rather than fatal.
+        log_warning(tt::LogUMD, "Simulation host failed to serve a client request: {}", e.what());
+        response.status = -1;
+        response.data.clear();
+    }
+    return encode(response);
+}
+
+void SimulationTTDevice::write_to_device(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
+    // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
+    UMD_ASSERT(
+        tlb_allocator_ != nullptr, error::RuntimeError, "Client-mode simulation device I/O is not available yet.");
+    if (is_device_closed()) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    if (handle_special_write(mem_ptr, translated_core, addr, size)) {
+        return;
+    }
+    if (should_use_cached_tlb_window()) {
+        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+    } else {
+        tile_write_bytes(translated_core, addr, mem_ptr, size);
+    }
+}
+
+void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
+    // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
+    UMD_ASSERT(
+        tlb_allocator_ != nullptr, error::RuntimeError, "Client-mode simulation device I/O is not available yet.");
+    if (is_device_closed()) {
+        return;
+    }
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    if (handle_special_read(mem_ptr, translated_core, addr, size)) {
+        return;
+    }
+    if (should_use_cached_tlb_window()) {
+        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+    } else {
+        tile_read_bytes(translated_core, addr, mem_ptr, size);
+    }
+    after_read();
+}
+
+void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
+}
+
+void SimulationTTDevice::setup_cached_tlb_window() {
+    // Quasar has no real TLBs; the communicator handles all I/O underneath. The 4GB size for Quasar is
+    // a dummy value -- it just needs to be large enough so that TlbWindow::validate doesn't reject any
+    // valid access (size 0 would cause division by zero in the TLB handle configure).
+    static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
+    static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
+    static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
+            break;
+        case tt::ARCH::WORMHOLE_B0:
+            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_16MB);
+            break;
+        case tt::ARCH::QUASAR:
+            cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_4GB);
+            break;
+        default:
+            log_debug(
+                LogUMD,
+                "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
+                tt::arch_to_str(arch));
+            break;
+    }
+}
+
+std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
+    // tlb_allocator_ is only built by init_tlb_allocator(), which the client-mode path never calls
+    // (it runs no local backend). Fail loudly instead of dereferencing a null allocator.
+    UMD_ASSERT(
+        tlb_allocator_ != nullptr,
+        error::RuntimeError,
+        "TLB allocator is not initialized; get_io_window is unavailable (e.g. in client mode).");
+    int tlb_index = tlb_allocator_->allocate_tlb_index(size);
+    if (tlb_index == -1) {
+        UMD_THROW(error::RuntimeError, "No available TLB of requested size.");
+    }
+    // QUASAR bypasses the bitmap allocator (pools are empty by design); pass the requested size
+    // through, since get_tlb_size_from_index has no pool to look up for the bypass index.
+    size_t actual_size = (get_arch() == tt::ARCH::QUASAR) ? size : tlb_allocator_->get_tlb_size_from_index(tlb_index);
+    return create_tlb_window(tlb_index, actual_size, mapping, config);
+}
 
 bool SimulationTTDevice::get_noc_translation_enabled() {
     // Simulation backends operate on logical/virtual coordinates end-to-end; NOC translation is never
@@ -27,12 +174,14 @@ bool SimulationTTDevice::get_noc_translation_enabled() {
 }
 
 void SimulationTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
-    multicast_write_via_unicast(src, size, core_start, core_end, addr);
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
 }
 
-void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
-    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported for simulation devices.");
+void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
 void SimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
@@ -52,7 +201,7 @@ void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t
 }
 
 void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) {
+    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 

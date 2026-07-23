@@ -294,12 +294,16 @@ def main():
         validate_document(document)
         print("Validated document against the UmdMicrobenchData contract.")
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with open(args.output, "w") as f:
+    BASE_DIRECTORY = Path("/tmp")
+    output_path = args.output.resolve()
+    if not output_path.is_relative_to(BASE_DIRECTORY):
+        parser.error(f"--output must resolve to a path under {BASE_DIRECTORY}")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump(document, f, indent=2, allow_nan=False)
 
     print(
-        f"Wrote {args.output} ({len(document['results'])} results, "
+        f"Wrote {output_path} ({len(document['results'])} results, "
         f"card={document['context']['card']}, arch={document['context']['arch']})."
     )
 

@@ -160,6 +160,8 @@ def build_result(nb_result):
 # sinking the whole file's validation.
 _REQUIRED_RESULT_NUMERICS = (
     "batch_size",
+    "epochs",
+    "iterations",
     "median_total_time_s",
     "median_result",
     "throughput",

@@ -13,10 +13,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <exception>
 #include <functional>
 #include <limits>
-#include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -79,13 +77,7 @@ public:
             return;
         }
 
-        try {
-            dump();
-        } catch (const std::exception& e) {
-            log_warning(LogUMD, "MemcpyTimingRecorder::dump() failed, timing summary dropped: {}", e.what());
-        } catch (...) {
-            log_warning(LogUMD, "MemcpyTimingRecorder::dump() failed, timing summary dropped");
-        }
+        dump();
     }
 
     void record(std::chrono::steady_clock::time_point start, std::uint32_t bytes) noexcept {
@@ -113,7 +105,7 @@ public:
 private:
     // Emits one line to stderr: function name, total size, op count, min/max/mean/total ns, and the
     // list of anomalous (over-budget) ops.
-    void dump() const {
+    void dump() const noexcept {
         if (op_count_ == 0) {
             return;
         }

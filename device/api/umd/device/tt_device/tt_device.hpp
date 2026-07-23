@@ -353,7 +353,7 @@ public:
      * @return Time taken in ms.
      */
     virtual std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
 
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
@@ -425,7 +425,6 @@ public:
      *
      * @param core Core to get soft reset for, in translated coordinates
      */
-    uint32_t get_risc_reset_state(tt_xy_pair core);
     uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
@@ -434,7 +433,6 @@ public:
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
      */
-    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
@@ -443,8 +441,7 @@ public:
      * @param core Core to assert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to assert reset for
      */
-    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
      * Deassert risc reset for a specific core.
@@ -453,8 +450,7 @@ public:
      * @param selected_riscs Bitmask of riscs to deassert reset for
      * @param staggered_start Whether to use staggered start
      */
-    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -474,13 +470,10 @@ public:
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
     virtual void dma_write_to_device(
-        const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-    void dma_write_to_device(
         const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual void dma_read_from_device(
-        void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
@@ -498,13 +491,6 @@ public:
     virtual void dma_multicast_write(
         void *src,
         size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id = NocId::DEFAULT_NOC);
-    void dma_multicast_write(
-        void *src,
-        size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
         uint64_t addr,
@@ -513,11 +499,10 @@ public:
     /**
      * Read the training status of the given ETH core.
      *
-     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
-    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
+    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
 
     const SocDescriptor &get_soc_descriptor() const;
 

@@ -91,6 +91,11 @@ env:
   CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./nanobind/tests
+  # Env. vars related to SCCache:
+  SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
+  SCCACHE_GHA_VERSION: 1
+  # Only the main branch may write to the sccache; all other branches read only.
+  SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 
 jobs:
   build:
@@ -115,11 +120,6 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check; harmless when Tracy is disabled.
       TRACY_NO_INVARIANT_CHECK: 1
-      # Env. vars related to SCCache:
-      SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
-      SCCACHE_GHA_VERSION: 1
-      # Only the main branch may write to the sccache; all other branches read only.
-      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 
     steps:
       - name: Print all params
@@ -166,8 +166,7 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
-            ${{ inputs.use-sccache && '-DCMAKE_C_COMPILER_LAUNCHER=sccache' || '' }} \
-            ${{ inputs.use-sccache && '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache' || '' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -183,11 +182,6 @@ jobs:
           ${{ env.DEPS_OUTPUT_DIR }} \
           ${{ env.CLUSTER_DESCRIPTORS_DIR }} \
           ${{ env.SOC_DESCRIPTORS_DIR }}
-
-      - name: Run sccache stat for check
-        if: ${{ inputs.use-sccache }}
-        shell: bash
-        run: ${SCCACHE_PATH} --show-stats
 
       - name: Upload build artifacts archive
         uses: actions/upload-artifact@v7
@@ -212,6 +206,25 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Run sccache-cache
+        if: ${{ inputs.use-sccache }}
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Configure sccache to access GHA cache
+        if: ${{ inputs.use-sccache }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      # In container jobs the runtime $GITHUB_WORKSPACE is the container mount path
+      # (/__w/<repo>/<repo>), which is where the build runs.
+      - name: Export SCCACHE_BASEDIRS
+        if: ${{ inputs.use-sccache }}
+        shell: bash
+        run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
+
       - name: Build wheel
         shell: bash
         run: |
@@ -233,7 +246,10 @@ jobs:
             echo "Using CMAKE_BUILD_TYPE=$BUILD_TYPE for Python wheel"
             WHEEL_BUILD_TYPE="$BUILD_TYPE"
           fi
-          CMAKE_BUILD_TYPE="$WHEEL_BUILD_TYPE" python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} -v
+          python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} \
+            --config-settings=cmake.build-type="$WHEEL_BUILD_TYPE" \
+            --config-settings=cmake.define.TT_UMD_ENABLE_SCCACHE=ON \
+            -v
 
           # This is done so that all the necessary libraries are included in the wheel.
           # Specifically, this will make the wheel runnable on exalens ci image.

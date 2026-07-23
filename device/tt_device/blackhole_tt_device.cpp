@@ -307,7 +307,7 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     auto time_taken = std::chrono::milliseconds(0);
 
@@ -328,7 +328,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     return time_taken;
 }
 
-EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));

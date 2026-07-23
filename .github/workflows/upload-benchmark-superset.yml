@@ -21,7 +21,9 @@ env:
   SFTP_USER: umd-microbench-writer
   # The single shared Tenstorrent AWS Transfer Family endpoint — not secret; it is
   # public in tt-metal's workflows and the data_iac README. The only secret needed
-  # is the private key (SFTP_UMD_MICROBENCH_KEY).
+  # is the private key (SFTP_UMD_MICROBENCH_KEY). Its host key is pinned in
+  # umd-microbench-sftp-known-hosts (verified against the AWS Transfer Family
+  # console fingerprint) so the upload step can enforce strict host checking.
   SFTP_HOST: s-dbd4b8a190fa40a4b.server.transfer.us-east-2.amazonaws.com
 
 jobs:
@@ -76,7 +78,8 @@ jobs:
             printf 'put "%s"\n' "${f}" >> "${BATCH}"
           done
           printf 'ls -l\n' >> "${BATCH}"
-          sftp -oStrictHostKeyChecking=no -oUserKnownHostsFile=/dev/null \
+          sftp -oStrictHostKeyChecking=yes \
+            -oUserKnownHostsFile="${GITHUB_WORKSPACE}/.github/public_keys/umd-microbench-sftp-known-hosts" \
             -i "${KEY_FILE}" -b "${BATCH}" "${SFTP_USER}@${SFTP_HOST}"
 
       - name: Note when SFTP secret is not configured

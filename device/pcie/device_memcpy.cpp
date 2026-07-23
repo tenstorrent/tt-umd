@@ -4,9 +4,10 @@
 
 #include "device_memcpy.hpp"
 
+#include <fmt/format.h>
+
 #include <algorithm>
 #include <array>
-#include <charconv>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -15,7 +16,6 @@
 #include <exception>
 #include <functional>
 #include <limits>
-#include <string>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/utils/error.hpp"
@@ -59,11 +59,6 @@ struct SlowOp {
 };
 
 constexpr std::size_t MAX_SLOW_OPS = 16;
-
-// Reused across calls on the same thread so dump() reallocates at most once (after warmup) instead of
-// building a fresh string every call. Safe to share because the two instrumented entry points
-// (memcpy_to_device / memcpy_from_device) never nest on one thread.
-thread_local std::string g_memcpy_dump_buffer;
 
 // RAII per-call timing recorder. Tracks running min/max/mean/total over every op via record(), plus
 // a small fixed-size buffer of anomalous (over-budget) ops, and dumps the aggregate summary on
@@ -123,74 +118,41 @@ private:
             return;
         }
 
-        // Build into the reused thread-local buffer, then emit as a single line.
-        std::string& out = g_memcpy_dump_buffer;
-        out.clear();
-        // Reserve up front to avoid reallocations while appending. 96 bytes covers the fixed
-        // header (labels + the handful of summary integers); each slow op contributes an
-        // "op#N:ns," entry, budgeted at ~24 bytes. These are rough over-estimates: a short
-        // reserve only costs a later reallocation, so exactness does not matter.
-        out.reserve(96 + slow_op_count_ * 24);
+        std::array<char, 512> buf;
+        char* const limit =
+            buf.data() + buf.size() -
+            1;  // The last byte is reserved so the trailing '\n' can always be appended without a bounds check.
+        auto remaining = [&](char* end) { return static_cast<std::size_t>(limit - end); };
 
-        append_summary(out);
-        append_slow_ops(out);
-        out += '\n';
+        char* end = fmt::format_to_n(
+                        buf.data(),
+                        remaining(buf.data()),
+                        "[{}] size={} ops={} min={}ns max={}ns mean={}ns total={}ns",
+                        fn_name_,
+                        total_size_,
+                        op_count_,
+                        min_ns_,
+                        max_ns_,
+                        total_ns_ / static_cast<std::int64_t>(op_count_),
+                        total_ns_)
+                        .out;
 
-        std::fwrite(out.data(), 1, out.size(), stderr);
-    }
-
-    // Appends one formatted integer to `out` via std::to_chars (no allocation, no locale).
-    static void append_int(std::string& out, std::int64_t value) {
-        // A 64-bit integer is at most 20 digits, plus a sign; 24 rounds that up with margin so
-        // no formatted value can overflow the buffer.
-        char num[24];
-        const auto result = std::to_chars(num, num + sizeof(num), value);
-        out.append(num, result.ptr - num);
-    }
-
-    // Appends the header + aggregate summary: "[fn] size=.. ops=.. min=..ns .. total=..ns".
-    void append_summary(std::string& out) const {
-        out += '[';
-        out += fn_name_;
-        out += "] size=";
-        append_int(out, static_cast<std::int64_t>(total_size_));
-        out += " ops=";
-        append_int(out, static_cast<std::int64_t>(op_count_));
-        out += " min=";
-        append_int(out, min_ns_);
-        out += "ns max=";
-        append_int(out, max_ns_);
-        out += "ns mean=";
-        append_int(out, total_ns_ / static_cast<std::int64_t>(op_count_));
-        out += "ns total=";
-        append_int(out, total_ns_);
-        out += "ns";
-    }
-
-    // Appends " slow_ops=[op#N:ns, ...]" for ops that exceeded the per-op budget. If more
-    // anomalies occurred than kMaxSlowOps could hold, appends a trailing "+N dropped" note
-    // rather than silently truncating.
-    void append_slow_ops(std::string& out) const {
-        if (slow_op_count_ == 0) {
-            return;
-        }
-        out += " slow_ops=[";
-        for (std::size_t i = 0; i < slow_op_count_; ++i) {
-            if (i != 0) {
-                out += ',';
+        if (slow_op_count_ > 0) {
+            end = fmt::format_to_n(end, remaining(end), " slow_ops=[").out;
+            for (std::size_t i = 0; i < slow_op_count_; ++i) {
+                end =
+                    fmt::format_to_n(
+                        end, remaining(end), "{}op#{}:{}ns", i == 0 ? "" : ",", slow_ops_[i].op_index, slow_ops_[i].ns)
+                        .out;
             }
-            out += "op#";
-            append_int(out, static_cast<std::int64_t>(slow_ops_[i].op_index));
-            out += ':';
-            append_int(out, slow_ops_[i].ns);
-            out += "ns";
+            if (slow_ops_dropped_ > 0) {
+                end = fmt::format_to_n(end, remaining(end), ",+{} dropped", slow_ops_dropped_).out;
+            }
+            end = fmt::format_to_n(end, remaining(end), "]").out;
         }
-        if (slow_ops_dropped_ > 0) {
-            out += ",+";
-            append_int(out, static_cast<std::int64_t>(slow_ops_dropped_));
-            out += " dropped";
-        }
-        out += ']';
+        *end++ = '\n';
+
+        std::fwrite(buf.data(), 1, end - buf.data(), stderr);
     }
 
     const char* fn_name_;

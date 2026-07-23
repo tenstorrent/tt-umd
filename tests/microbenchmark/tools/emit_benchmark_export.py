@@ -31,8 +31,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from utils import load_nanobench_json  # noqa: E402
+from utils import load_nanobench_json
 
 # Written by gather_host_specs.py; excluded when harvesting nanobench results.
 HOST_SPEC_FILENAME = "machine_host_spec.json"

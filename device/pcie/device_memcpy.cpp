@@ -5,6 +5,7 @@
 #include "device_memcpy.hpp"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -13,10 +14,9 @@
 #include <cstring>
 #include <exception>
 #include <functional>
-#include <numeric>
+#include <limits>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
-#include <vector>
 
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -51,51 +51,30 @@ auto make_mmio_timeout_guard(
 // Opt-in per-op MMIO timing instrumentation, toggled by TT_UMD_MEMCPY_TIMING.
 const bool MEMCPY_TIMING_ENABLED = std::getenv("TT_UMD_MEMCPY_TIMING") != nullptr;
 
-struct MemcpyOpTiming {
+// An anomalous op: one that exceeded the per-op budget but was vetoed as a false alarm by
+// on_timeout, so the transfer continued instead of throwing.
+struct SlowOp {
+    std::size_t op_index;
     std::int64_t ns;
-    std::uint32_t bytes;
 };
 
-// Aggregate summary of a run's per-op timings.
-struct MemcpyOpStats {
-    std::size_t count;
-    std::int64_t min_ns;
-    std::int64_t max_ns;
-    std::int64_t mean_ns;
-    std::int64_t total_ns;
-};
-
-MemcpyOpStats compute_stats(const std::vector<MemcpyOpTiming>& ops) {
-    const auto [min_it, max_it] = std::minmax_element(
-        ops.begin(), ops.end(), [](const MemcpyOpTiming& a, const MemcpyOpTiming& b) { return a.ns < b.ns; });
-    const std::int64_t total_ns =
-        std::accumulate(ops.begin(), ops.end(), std::int64_t{0}, [](std::int64_t acc, const MemcpyOpTiming& op) {
-            return acc + op.ns;
-        });
-    const std::size_t count = ops.size();
-    return {count, min_it->ns, max_it->ns, total_ns / static_cast<std::int64_t>(count), total_ns};
-}
-
-// Reused across calls on the same thread so steady-state recording never allocates. A single shared
-// buffer is safe because the two instrumented entry points (memcpy_to_device / memcpy_from_device) never nest on one
-// thread.
-thread_local std::vector<MemcpyOpTiming> g_memcpy_op_timings;
+constexpr std::size_t MAX_SLOW_OPS = 16;
 
 // Reused across calls on the same thread so dump() reallocates at most once (after warmup) instead of
-// building a fresh string every call. Same non-nesting safety argument as g_memcpy_op_timings.
+// building a fresh string every call. Safe to share because the two instrumented entry points
+// (memcpy_to_device / memcpy_from_device) never nest on one thread.
 thread_local std::string g_memcpy_dump_buffer;
 
-// RAII per-call timing recorder. Clears the thread-local buffer on construction, appends one entry per
-// instrumented op via record(), and dumps the aggregate summary on destruction. Dumping from the
-// destructor means a transfer that aborts via a timeout throw still reports its ops, including the
-// stalling one.
+// RAII per-call timing recorder. Tracks running min/max/mean/total over every op via record(), plus
+// a small fixed-size buffer of anomalous (over-budget) ops, and dumps the aggregate summary on
+// destruction. Dumping from the destructor means a transfer that aborts via a timeout throw still
+// reports its summary, including the stalling op if it was vetoed rather than thrown.
 class MemcpyTimingRecorder {
 public:
-    MemcpyTimingRecorder(const char* fn_name, std::size_t total_size) : fn_name_(fn_name), total_size_(total_size) {
-        if (MEMCPY_TIMING_ENABLED) {
-            g_memcpy_op_timings.clear();
-        }
-    }
+    MemcpyTimingRecorder(const char* fn_name, std::size_t total_size) :
+        fn_name_(fn_name),
+        total_size_(total_size),
+        budget_ns_(std::chrono::duration_cast<std::chrono::nanoseconds>(MmioTimeoutConfig::get_op_timeout()).count()) {}
 
     MemcpyTimingRecorder(const MemcpyTimingRecorder&) = delete;
     MemcpyTimingRecorder& operator=(const MemcpyTimingRecorder&) = delete;
@@ -120,37 +99,41 @@ public:
         }
         const auto delta =
             std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start);
-        try {
-            g_memcpy_op_timings.push_back({delta.count(), bytes});
-        } catch (...) {
-            if (!record_warn_emitted_) {
-                record_warn_emitted_ = true;
-                log_warning(LogUMD, "MemcpyTimingRecorder::record() dropped op timing on allocation failure");
+        const std::int64_t ns = delta.count();
+
+        const std::size_t op_index = op_count_++;
+        min_ns_ = std::min(min_ns_, ns);
+        max_ns_ = std::max(max_ns_, ns);
+        total_ns_ += ns;
+
+        if (budget_ns_ != 0 && ns > budget_ns_) {
+            if (slow_op_count_ < slow_ops_.size()) {
+                slow_ops_[slow_op_count_++] = {op_index, ns};
+            } else {
+                ++slow_ops_dropped_;
             }
         }
     }
 
 private:
-    // Emits one line to stderr: function name, total size, op count, min/max/mean/total ns, and the full
-    // per-op ns:bytes list in recording order.
+    // Emits one line to stderr: function name, total size, op count, min/max/mean/total ns, and the
+    // list of anomalous (over-budget) ops.
     void dump() const {
-        if (g_memcpy_op_timings.empty()) {
+        if (op_count_ == 0) {
             return;
         }
-
-        const MemcpyOpStats stats = compute_stats(g_memcpy_op_timings);
 
         // Build into the reused thread-local buffer, then emit as a single line.
         std::string& out = g_memcpy_dump_buffer;
         out.clear();
         // Reserve up front to avoid reallocations while appending. 96 bytes covers the fixed
-        // header (labels + the handful of summary integers); each op contributes an "ns:bytes,"
-        // entry, budgeted at ~12 bytes. These are rough over-estimates: a short reserve only
-        // costs a later reallocation, so exactness does not matter.
-        out.reserve(96 + stats.count * 12);
+        // header (labels + the handful of summary integers); each slow op contributes an
+        // "op#N:ns," entry, budgeted at ~24 bytes. These are rough over-estimates: a short
+        // reserve only costs a later reallocation, so exactness does not matter.
+        out.reserve(96 + slow_op_count_ * 24);
 
-        append_summary(out, stats);
-        append_op_list(out);
+        append_summary(out);
+        append_slow_ops(out);
         out += '\n';
 
         std::fwrite(out.data(), 1, out.size(), stderr);
@@ -166,47 +149,62 @@ private:
     }
 
     // Appends the header + aggregate summary: "[fn] size=.. ops=.. min=..ns .. total=..ns".
-    void append_summary(std::string& out, const MemcpyOpStats& stats) const {
+    void append_summary(std::string& out) const {
         out += '[';
         out += fn_name_;
         out += "] size=";
         append_int(out, static_cast<std::int64_t>(total_size_));
         out += " ops=";
-        append_int(out, static_cast<std::int64_t>(stats.count));
+        append_int(out, static_cast<std::int64_t>(op_count_));
         out += " min=";
-        append_int(out, stats.min_ns);
+        append_int(out, min_ns_);
         out += "ns max=";
-        append_int(out, stats.max_ns);
+        append_int(out, max_ns_);
         out += "ns mean=";
-        append_int(out, stats.mean_ns);
+        append_int(out, total_ns_ / static_cast<std::int64_t>(op_count_));
         out += "ns total=";
-        append_int(out, stats.total_ns);
+        append_int(out, total_ns_);
         out += "ns";
     }
 
-    // Appends " ops_ns:bytes=" followed by the comma-separated per-op list in recording order.
-    // Ops slower than the per-op budget (when non-zero) get a trailing '!'.
-    static void append_op_list(std::string& out) {
-        const std::int64_t budget_ns =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(MmioTimeoutConfig::get_op_timeout()).count();
-        out += " ops_ns:bytes=";
-        for (std::size_t i = 0; i < g_memcpy_op_timings.size(); ++i) {
-            const MemcpyOpTiming& op = g_memcpy_op_timings[i];
+    // Appends " slow_ops=[op#N:ns, ...]" for ops that exceeded the per-op budget. If more
+    // anomalies occurred than kMaxSlowOps could hold, appends a trailing "+N dropped" note
+    // rather than silently truncating.
+    void append_slow_ops(std::string& out) const {
+        if (slow_op_count_ == 0) {
+            return;
+        }
+        out += " slow_ops=[";
+        for (std::size_t i = 0; i < slow_op_count_; ++i) {
             if (i != 0) {
                 out += ',';
             }
-            append_int(out, op.ns);
+            out += "op#";
+            append_int(out, static_cast<std::int64_t>(slow_ops_[i].op_index));
             out += ':';
-            append_int(out, op.bytes);
-            if (budget_ns != 0 && op.ns > budget_ns) {
-                out += '!';
-            }
+            append_int(out, slow_ops_[i].ns);
+            out += "ns";
         }
+        if (slow_ops_dropped_ > 0) {
+            out += ",+";
+            append_int(out, static_cast<std::int64_t>(slow_ops_dropped_));
+            out += " dropped";
+        }
+        out += ']';
     }
 
     const char* fn_name_;
     std::size_t total_size_;
-    bool record_warn_emitted_ = false;
+    std::int64_t budget_ns_;
+
+    std::size_t op_count_ = 0;
+    std::int64_t min_ns_ = std::numeric_limits<std::int64_t>::max();
+    std::int64_t max_ns_ = std::numeric_limits<std::int64_t>::min();
+    std::int64_t total_ns_ = 0;
+
+    std::array<SlowOp, MAX_SLOW_OPS> slow_ops_{};
+    std::size_t slow_op_count_ = 0;
+    std::size_t slow_ops_dropped_ = 0;
 };
 
 }  // namespace

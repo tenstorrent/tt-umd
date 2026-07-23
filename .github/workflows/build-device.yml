@@ -357,7 +357,7 @@ jobs:
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
             -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
-            -DENABLE_CLANG_TIDY=ON
+            -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."
 

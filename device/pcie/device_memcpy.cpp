@@ -4,18 +4,13 @@
 
 #include "device_memcpy.hpp"
 
-#include <fmt/format.h>
-
-#include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
-#include <limits>
 
+#include "pcie/memcpy_timing_recorder.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/op_timeout_guard.hpp"
@@ -48,118 +43,6 @@ auto make_mmio_timeout_guard(
 
 // Opt-in per-op MMIO timing instrumentation, toggled by TT_UMD_MEMCPY_TIMING.
 const bool MEMCPY_TIMING_ENABLED = std::getenv("TT_UMD_MEMCPY_TIMING") != nullptr;
-
-// An anomalous op: one that exceeded the per-op budget but was vetoed as a false alarm by
-// on_timeout, so the transfer continued instead of throwing.
-struct SlowOp {
-    std::size_t op_index;
-    std::int64_t ns;
-};
-
-constexpr std::size_t MAX_SLOW_OPS = 16;
-
-// RAII per-call timing recorder. Tracks running min/max/mean/total over every op via record(), plus
-// a small fixed-size buffer of anomalous (over-budget) ops, and dumps the aggregate summary on
-// destruction. Dumping from the destructor means a transfer that aborts via a timeout throw still
-// reports its summary, including the stalling op if it was vetoed rather than thrown.
-class MemcpyTimingRecorder {
-public:
-    MemcpyTimingRecorder(const char* fn_name, std::size_t total_size) :
-        fn_name_(fn_name),
-        total_size_(total_size),
-        budget_ns_(std::chrono::duration_cast<std::chrono::nanoseconds>(MmioTimeoutConfig::get_op_timeout()).count()) {}
-
-    MemcpyTimingRecorder(const MemcpyTimingRecorder&) = delete;
-    MemcpyTimingRecorder& operator=(const MemcpyTimingRecorder&) = delete;
-
-    ~MemcpyTimingRecorder() noexcept {
-        if (!MEMCPY_TIMING_ENABLED) {
-            return;
-        }
-
-        dump();
-    }
-
-    void record(std::chrono::steady_clock::time_point start, std::uint32_t bytes) noexcept {
-        if (!MEMCPY_TIMING_ENABLED) {
-            return;
-        }
-        const auto delta =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start);
-        const std::int64_t ns = delta.count();
-
-        const std::size_t op_index = op_count_++;
-        min_ns_ = std::min(min_ns_, ns);
-        max_ns_ = std::max(max_ns_, ns);
-        total_ns_ += ns;
-
-        if (budget_ns_ != 0 && ns > budget_ns_) {
-            if (slow_op_count_ < slow_ops_.size()) {
-                slow_ops_[slow_op_count_++] = {op_index, ns};
-            } else {
-                ++slow_ops_dropped_;
-            }
-        }
-    }
-
-private:
-    // Emits one line to stderr: function name, total size, op count, min/max/mean/total ns, and the
-    // list of anomalous (over-budget) ops.
-    void dump() const noexcept {
-        if (op_count_ == 0) {
-            return;
-        }
-
-        std::array<char, 512> buf;
-        char* const limit =
-            buf.data() + buf.size() -
-            1;  // The last byte is reserved so the trailing '\n' can always be appended without a bounds check.
-        auto remaining = [&](char* end) { return static_cast<std::size_t>(limit - end); };
-
-        char* end = fmt::format_to_n(
-                        buf.data(),
-                        remaining(buf.data()),
-                        "[{}] size={} ops={} min={}ns max={}ns mean={}ns total={}ns",
-                        fn_name_,
-                        total_size_,
-                        op_count_,
-                        min_ns_,
-                        max_ns_,
-                        total_ns_ / static_cast<std::int64_t>(op_count_),
-                        total_ns_)
-                        .out;
-
-        if (slow_op_count_ > 0) {
-            end = fmt::format_to_n(end, remaining(end), " slow_ops=[").out;
-            for (std::size_t i = 0; i < slow_op_count_; ++i) {
-                end =
-                    fmt::format_to_n(
-                        end, remaining(end), "{}op#{}:{}ns", i == 0 ? "" : ",", slow_ops_[i].op_index, slow_ops_[i].ns)
-                        .out;
-            }
-            if (slow_ops_dropped_ > 0) {
-                end = fmt::format_to_n(end, remaining(end), ",+{} dropped", slow_ops_dropped_).out;
-            }
-            end = fmt::format_to_n(end, remaining(end), "]").out;
-        }
-        *end++ = '\n';
-
-        std::fwrite(buf.data(), 1, end - buf.data(), stderr);
-    }
-
-    const char* fn_name_;
-    std::size_t total_size_;
-    std::int64_t budget_ns_;
-
-    std::size_t op_count_ = 0;
-    std::int64_t min_ns_ = std::numeric_limits<std::int64_t>::max();
-    std::int64_t max_ns_ = std::numeric_limits<std::int64_t>::min();
-    std::int64_t total_ns_ = 0;
-
-    std::array<SlowOp, MAX_SLOW_OPS> slow_ops_{};
-    std::size_t slow_op_count_ = 0;
-    std::size_t slow_ops_dropped_ = 0;
-};
 
 }  // namespace
 
@@ -209,7 +92,7 @@ void memcpy_to_device(volatile void* dest, const void* src, std::size_t size, co
     auto* s = static_cast<const std::uint8_t*>(src);
 
     auto timer = make_mmio_timeout_guard("store", original_size, size, on_timeout);
-    MemcpyTimingRecorder recorder("memcpy_to_device", original_size);
+    MemcpyTimingRecorder recorder("memcpy_to_device", original_size, MEMCPY_TIMING_ENABLED);
     auto check = [&recorder, &timer](std::chrono::steady_clock::time_point t, std::uint32_t bytes) {
         recorder.record(t, bytes);
         timer.record_and_check(t, bytes);
@@ -404,7 +287,7 @@ void memcpy_from_device(
     auto* s = static_cast<const volatile std::uint8_t*>(src);
 
     auto timer = make_mmio_timeout_guard("load", original_size, size, on_timeout);
-    MemcpyTimingRecorder recorder("memcpy_from_device", original_size);
+    MemcpyTimingRecorder recorder("memcpy_from_device", original_size, MEMCPY_TIMING_ENABLED);
     auto check = [&recorder, &timer](std::chrono::steady_clock::time_point t, std::uint32_t bytes) {
         recorder.record(t, bytes);
         timer.record_and_check(t, bytes);

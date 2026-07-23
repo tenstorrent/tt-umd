@@ -146,7 +146,8 @@ jobs:
       - name: Emit Superset export JSON
         if: ${{ inputs.arch != 'baremetal' }}
         run: |
-            EXPORT_FILE="benchmark_export_${{ github.run_id }}_${{ inputs.arch }}_${{ inputs.card }}.json"
+            EXPORT_FILE="benchmark_export_${{ github.run_id }}_${{ inputs.arch }}_${{ inputs.card }}"
+            EXPORT_FILE="${EXPORT_FILE}_${{ inputs.ubuntu-docker-version }}.json"
             python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/emit_benchmark_export.py \
             --results-dir $UMD_MICROBENCHMARK_RESULTS_PATH \
             --arch ${{ inputs.arch }} \

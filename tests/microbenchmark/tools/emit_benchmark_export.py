@@ -129,7 +129,7 @@ def build_result(nb_result):
         iterations = sum(int(m.get("iterations", 0)) for m in measurements)
 
     throughput = None
-    if batch is not None and median_elapsed:
+    if batch is not None and median_elapsed is not None and median_elapsed > 0:
         throughput = batch / median_elapsed
 
     return {

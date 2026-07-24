@@ -229,3 +229,60 @@ TEST(SimulationServerSocket, DefaultSocketPathIsPerChip) {
 TEST(SimulationServerSocket, DefaultSocketPathIsAbsolute) {
     EXPECT_TRUE(SimulationServerSocket::default_socket_path(0).is_absolute());
 }
+
+// chip_id_from_socket_path is the inverse of default_socket_path's naming; it must accept exactly
+// the tt-umd-sim-<id>.sock convention and reject anything else.
+TEST(SimulationServerSocket, ChipIdFromSocketPathParsesConvention) {
+    auto id0 = SimulationServerSocket::chip_id_from_socket_path("tt-umd-sim-0.sock");
+    ASSERT_TRUE(id0.has_value());
+    EXPECT_EQ(*id0, 0);
+
+    auto id7 = SimulationServerSocket::chip_id_from_socket_path("/some/dir/tt-umd-sim-7.sock");
+    ASSERT_TRUE(id7.has_value());
+    EXPECT_EQ(*id7, 7);
+
+    // Round-trips default_socket_path().
+    auto id3 = SimulationServerSocket::chip_id_from_socket_path(SimulationServerSocket::default_socket_path(3));
+    ASSERT_TRUE(id3.has_value());
+    EXPECT_EQ(*id3, 3);
+
+    // Non-matching names yield nullopt (not a wrong id).
+    EXPECT_FALSE(SimulationServerSocket::chip_id_from_socket_path("foo.sock").has_value());
+    EXPECT_FALSE(SimulationServerSocket::chip_id_from_socket_path("tt-umd-sim-.sock").has_value());
+    EXPECT_FALSE(SimulationServerSocket::chip_id_from_socket_path("tt-umd-sim-x.sock").has_value());
+    EXPECT_FALSE(SimulationServerSocket::chip_id_from_socket_path("tt-umd-sim-1.txt").has_value());
+}
+
+// sockets_in_directory returns exactly the per-chip AF_UNIX sockets, keyed by chip id, ignoring
+// non-sockets and sockets that don't match the naming convention.
+TEST(SimulationServerSocket, SocketsInDirectoryPicksPerChipSockets) {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::temp_directory_path() / ("tt-umd-sim-dir-" + std::to_string(::getpid()));
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+
+    leave_stale_socket(dir / "tt-umd-sim-0.sock");                   // per-chip socket -> included
+    leave_stale_socket(dir / "tt-umd-sim-2.sock");                   // per-chip socket -> included
+    leave_stale_socket(dir / "unrelated.sock");                      // socket, wrong name -> excluded
+    { std::ofstream(dir / "tt-umd-sim-9.sock") << "not a socket"; }  // right name, not a socket -> excluded
+
+    const auto sockets = SimulationServerSocket::sockets_in_directory(dir);
+    EXPECT_EQ(sockets.size(), 2u);
+    ASSERT_EQ(sockets.count(0), 1u);
+    ASSERT_EQ(sockets.count(2), 1u);
+    EXPECT_EQ(sockets.at(0), dir / "tt-umd-sim-0.sock");
+    EXPECT_EQ(sockets.at(2), dir / "tt-umd-sim-2.sock");
+
+    fs::remove_all(dir);
+}
+
+TEST(SimulationServerSocket, SocketsInDirectoryEmptyWhenNoneOrNotADir) {
+    namespace fs = std::filesystem;
+    EXPECT_TRUE(SimulationServerSocket::sockets_in_directory("/nonexistent/tt-umd-xyz").empty());
+
+    const fs::path dir = fs::temp_directory_path() / ("tt-umd-sim-empty-" + std::to_string(::getpid()));
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    EXPECT_TRUE(SimulationServerSocket::sockets_in_directory(dir).empty());
+    fs::remove_all(dir);
+}

@@ -48,18 +48,6 @@ def _num(value):
     return f if math.isfinite(f) else None
 
 
-def derive_arch(card):
-    """Silicon arch from the board/card label (n*/sim-wh -> wormhole_b0, p*/sim-bh -> blackhole)."""
-    if not card:
-        return None
-    c = card.lower()
-    if "wh" in c or c.startswith("n"):
-        return "wormhole_b0"
-    if "bh" in c or c.startswith("p"):
-        return "blackhole"
-    return None
-
-
 def _git(repo_dir, *args):
     """Run a git command in repo_dir, returning stripped stdout or None on any failure."""
     try:
@@ -79,7 +67,9 @@ def build_run_context(host_spec, arch_override, repo_dir):
     card = host_info.get("BoardType") or None
     if card == "unknown":
         card = None
-    arch = arch_override or derive_arch(card)
+    arch = arch_override or host_info.get("Arch") or None
+    if arch == "unknown":
+        arch = None
 
     commit_sha = os.environ.get("GITHUB_SHA") or _git(repo_dir, "rev-parse", "HEAD")
     branch_name = os.environ.get("GITHUB_REF_NAME") or _git(
@@ -262,7 +252,7 @@ def main():
         "--arch",
         type=str,
         default=None,
-        help="Silicon arch (e.g. wormhole_b0). When omitted, derived from the board type.",
+        help="Silicon arch (e.g. wormhole_b0). When omitted, read from the host spec's Arch field.",
     )
     parser.add_argument(
         "--validate",

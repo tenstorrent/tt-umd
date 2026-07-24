@@ -144,6 +144,19 @@ def build_result(nb_result):
     }
 
 
+# Fields the ingest contract requires to be concrete numbers; a case missing any
+# of them is a degenerate measurement and is dropped (with a warning) rather than
+# sinking the whole file's validation.
+_REQUIRED_RESULT_NUMERICS = (
+    "batch_size",
+    "epochs",
+    "iterations",
+    "median_total_time_s",
+    "median_result",
+    "throughput",
+)
+
+
 def collect_results(results_dir):
     """Load every nanobench <title>.json in results_dir (skipping the host spec)."""
     results = []
@@ -156,7 +169,16 @@ def collect_results(results_dir):
             print(f"WARN: skipping {path.name}: {e}", file=sys.stderr)
             continue
         for nb_result in data.get("results", []):
-            results.append(build_result(nb_result))
+            record = build_result(nb_result)
+            missing = [k for k in _REQUIRED_RESULT_NUMERICS if record[k] is None]
+            if missing:
+                print(
+                    f"WARN: dropping case {record['test_title']!r}/{record['case_name']!r} "
+                    f"from {path.name}: missing {', '.join(missing)}.",
+                    file=sys.stderr,
+                )
+                continue
+            results.append(record)
     return results
 
 

@@ -135,12 +135,17 @@ void TTSimCommunicator::initialize() {
             dlsym(libttsim_handle_, "libttsim_dram_core_rd_bytes_by_id"));
         pfn_libttsim_dram_core_wr_bytes_by_id_ = reinterpret_cast<decltype(pfn_libttsim_dram_core_wr_bytes_by_id_)>(
             dlsym(libttsim_handle_, "libttsim_dram_core_wr_bytes_by_id"));
+        pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_ =
+            reinterpret_cast<decltype(pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_)>(
+                dlsym(libttsim_handle_, "libttsim_set_pci_dma_mem_callbacks_by_chip"));
         pfn_libttsim_switch_register_fabric_node_id_ =
             reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_node_id_)>(
                 dlsym(libttsim_handle_, "libttsim_switch_register_fabric_node_id"));
         pfn_libttsim_switch_register_fabric_endpoint_direction_ =
             reinterpret_cast<decltype(pfn_libttsim_switch_register_fabric_endpoint_direction_)>(
                 dlsym(libttsim_handle_, "libttsim_switch_register_fabric_endpoint_direction"));
+        pfn_libttsim_configure_eth_link_fd_ = reinterpret_cast<decltype(pfn_libttsim_configure_eth_link_fd_)>(
+            dlsym(libttsim_handle_, "libttsim_configure_eth_link_fd"));
 
         // Only commit to multichip mode and bump refcount after ALL symbol resolution
         // has succeeded.  If a DLSYM_FUNCTION above throws, the destructor will
@@ -273,6 +278,15 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
 }
 
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+std::array<std::atomic<TTSimCommunicator *>, TTSimCommunicator::kMaxCallbackChipIds>
+    TTSimCommunicator::callback_instances_by_chip_{};
+
+TTSimCommunicator *TTSimCommunicator::get_callback_instance(uint32_t chip_id) {
+    if (chip_id >= kMaxCallbackChipIds) {
+        return nullptr;
+    }
+    return callback_instances_by_chip_[chip_id].load(std::memory_order_acquire);
+}
 
 void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
     if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
@@ -286,12 +300,35 @@ void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void 
     }
 }
 
+void TTSimCommunicator::pci_dma_mem_rd_bytes_by_chip_wrapper(
+    uint32_t chip_id, uint64_t paddr, void *p, uint32_t size) {
+    auto *instance = get_callback_instance(chip_id);
+    if (instance && instance->pci_dma_mem_rd_bytes_callback_) {
+        instance->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+    }
+}
+
+void TTSimCommunicator::pci_dma_mem_wr_bytes_by_chip_wrapper(
+    uint32_t chip_id, uint64_t paddr, const void *p, uint32_t size) {
+    auto *instance = get_callback_instance(chip_id);
+    if (instance && instance->pci_dma_mem_wr_bytes_callback_) {
+        instance->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+    }
+}
+
 void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
     std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
     std::lock_guard<std::mutex> lock(device_lock_);
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
+    if (multichip_mode_ && pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_ != nullptr &&
+        chip_id_ < kMaxCallbackChipIds) {
+        callback_instances_by_chip_[chip_id_].store(this, std::memory_order_release);
+        pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_(
+            pci_dma_mem_rd_bytes_by_chip_wrapper, pci_dma_mem_wr_bytes_by_chip_wrapper);
+        return;
+    }
     callback_instance_ = this;
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
@@ -370,6 +407,9 @@ void TTSimCommunicator::load_simulator_library(const std::filesystem::path &path
     DLSYM_FUNCTION(libttsim_tile_wr_bytes)
     DLSYM_FUNCTION(libttsim_clock)
     DLSYM_FUNCTION(libttsim_set_pci_dma_mem_callbacks)
+    pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_ =
+        reinterpret_cast<decltype(pfn_libttsim_set_pci_dma_mem_callbacks_by_chip_)>(
+            dlsym(libttsim_handle_, "libttsim_set_pci_dma_mem_callbacks_by_chip"));
 }
 
 // Multichip eth-MAC wiring methods. All no-ops in legacy single-chip mode.
@@ -402,6 +442,14 @@ void TTSimCommunicator::register_peer(uint32_t eth_tile_id, void *peer_dev, uint
         return;
     }
     pfn_libttsim_switch_register_peer_(dev_handle_, eth_tile_id, peer_dev, peer_tile_id);
+}
+
+void TTSimCommunicator::configure_eth_link_fd(uint32_t eth_tile_id, int write_fd, int read_fd) {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    if (!multichip_mode_ || !dev_handle_ || !pfn_libttsim_configure_eth_link_fd_) {
+        return;
+    }
+    pfn_libttsim_configure_eth_link_fd_(dev_handle_, eth_tile_id, write_fd, read_fd);
 }
 
 void TTSimCommunicator::register_fabric_node_id(uint32_t mesh_id, uint32_t chip_id) {

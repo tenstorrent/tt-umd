@@ -55,7 +55,7 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
         std::int32_t c_zero_address = SAFE_IO_L1_ADDRESS;
 
         for (CoreCoord translated_core : soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
-            tlb_manager->configure_tlb(translated_core, tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
+            tlb_manager->configure_tlb(translated_core.to_pair(), tlb_tensix_size, c_zero_address, tlb_data::Relaxed);
         }
 
         // So now that we have configured TLBs we can use it to interface with the TTDevice.
@@ -63,7 +63,7 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
 
         // TODO: Maybe accept tlb_index only?
         std::vector<uint8_t> buffer_to_write = {0x01, 0x02, 0x03, 0x04};
-        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core);
+        TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core.to_pair());
         window->write_register(SAFE_IO_L1_ADDRESS, buffer_to_write.data(), buffer_to_write.size());
 
         tt_device->set_power_state(false);

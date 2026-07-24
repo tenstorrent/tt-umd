@@ -117,7 +117,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
         const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
-        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
     }
 
     std::thread background_reset_thread([&]() {
@@ -191,7 +191,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
         const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
-        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+        tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
     }
 
     std::atomic<int> caught_sigbus{0};
@@ -251,7 +251,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
                 const SocDescriptor& soc_desc = tt_devices[pci_device_id]->get_soc_descriptor();
 
-                tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+                tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
             }
 
             pipes.signal_ready_from_child(i);

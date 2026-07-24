@@ -137,7 +137,7 @@ static inline std::string to_str(const CoordSystem coord_system) {
 // TODO: There is a conflicting declaration in tt_metal for CoreCoord. We need to remove that one before we can move
 // this CoreCoord to tt namespace.
 namespace umd {
-struct CoreCoord : public xy_pair {
+struct CoreCoord {
     CoreCoord() = default;
 
     constexpr CoreCoord(
@@ -145,16 +145,20 @@ struct CoreCoord : public xy_pair {
         const size_t y,
         const CoreType type = CoreType::UNSPECIFIED,
         const CoordSystem coord_system = CoordSystem::LITERAL) :
-        xy_pair(x, y), core_type(type), coord_system(coord_system) {}
+        x(x), y(y), core_type(type), coord_system(coord_system) {}
 
     constexpr CoreCoord(
         const xy_pair core,
         const CoreType type = CoreType::UNSPECIFIED,
         const CoordSystem coord_system = CoordSystem::LITERAL) :
-        xy_pair(core), core_type(type), coord_system(coord_system) {}
+        x(core.x), y(core.y), core_type(type), coord_system(coord_system) {}
 
+    size_t x = 0;
+    size_t y = 0;
     CoreType core_type = CoreType::UNSPECIFIED;
     CoordSystem coord_system = CoordSystem::LITERAL;
+
+    xy_pair to_pair() const { return xy_pair{x, y}; }
 
     bool operator==(const CoreCoord& other) const {
         return this->x == other.x && this->y == other.y && this->core_type == other.core_type &&
@@ -176,7 +180,7 @@ struct CoreCoord : public xy_pair {
 
     std::string str() const {
         if (coord_system == CoordSystem::LITERAL) {
-            return tt_xy_pair::str();
+            return xy_pair{x, y}.str();
         }
         std::stringstream ss;
         char shorthand = type_shorthand(core_type);

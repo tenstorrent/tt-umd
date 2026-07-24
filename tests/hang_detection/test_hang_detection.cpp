@@ -178,7 +178,7 @@ TEST_P(NocHangDetectionTest, TestIsNocHungAPI) {
     ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
         << "is_noc_hung() returned true before any hang.";
 
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
     hang_noc(tensix_core, noc_to_hang);
 
     EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
@@ -202,7 +202,7 @@ TEST_P(NocHangDetectionTest, PerOpTimeoutThrowsOnHungNoc) {
             << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
     }
 
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
     hang_noc(tensix_core, noc_to_hang);
 
     const auto original_budget = MmioTimeoutConfig::get_op_timeout();
@@ -242,7 +242,7 @@ TEST_F(HangDetectionTest, TopologyDiscoveryRecordsNocHangHealthError) {
     }
 
     // NOC0 is the NOC that init_tt_device() probes during discovery, so hang that one.
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
     hang_noc(tensix_core, NocId::NOC0);
     ASSERT_TRUE(tt_device_->is_noc_hung(NocId::NOC0, TTDevice::HangAction::RETURN))
         << "Failed to hang NOC0 before running topology discovery.";

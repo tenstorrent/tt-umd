@@ -451,7 +451,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_to_sync = {};
 
         for (const auto& core : cores) {
-            auto core_from_soc = get_soc_descriptor().get_coord_at(core, core.coord_system);
+            auto core_from_soc = get_soc_descriptor().get_coord_at(core.to_pair(), core.coord_system);
             if (core_from_soc.core_type == CoreType::TENSIX) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
@@ -487,7 +487,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (!cores.empty()) {
         for (const auto& core : cores) {
             UMD_ASSERT(
-                get_soc_descriptor().get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                get_soc_descriptor().get_coord_at(core.to_pair(), core.coord_system).core_type == CoreType::DRAM,
                 error::RuntimeError,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }

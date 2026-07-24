@@ -104,7 +104,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core.to_pair(), 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -122,7 +122,7 @@ TEST(ApiSysmemManager, SysmemBuffers) {
     }
 
     // Read data back from Tensix L1 to sysmem_data_readback.
-    sysmem_buffer->dma_read_from_device(one_mb, one_mb, tensix_core, 0);
+    sysmem_buffer->dma_read_from_device(one_mb, one_mb, tensix_core.to_pair(), 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], sysmem_data_readback[i]);
@@ -171,7 +171,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Write pattern to first 1MB of Tensix L1.
-    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core, 0);
+    sysmem_buffer->dma_write_to_device(0, one_mb, tensix_core.to_pair(), 0);
 
     // Read regularly to check Tensix L1 matches the pattern.
     std::vector<uint8_t> readback(one_mb, 0);
@@ -187,7 +187,7 @@ TEST(ApiSysmemManager, SysmemBufferUnaligned) {
     }
 
     // Read data back from Tensix L1 to sysmem_data.
-    sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core, 0);
+    sysmem_buffer->dma_read_from_device(0, one_mb, tensix_core.to_pair(), 0);
 
     for (uint32_t i = 0; i < one_mb; ++i) {
         ASSERT_EQ(sysmem_data[i], readback[i]);

@@ -765,7 +765,7 @@ TEST(TestDeviceIO, SmnReadWriteRoundTrip) {
     TTDevice* tt_device = cluster->get_tt_device(0);
     const SocDescriptor& soc_desc = cluster->get_soc_descriptor(0);
     const tt_xy_pair core =
-        soc_desc.translate_coord_to(soc_desc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED);
+        soc_desc.translate_coord_to(soc_desc.get_cores(CoreType::TENSIX).at(0), CoordSystem::TRANSLATED).to_pair();
 
     // SMN writes require the size to be a multiple of 4 bytes.
     constexpr size_t data_size = 256;

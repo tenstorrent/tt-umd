@@ -22,6 +22,14 @@ namespace wire;
 enum SimulationServerCommand : byte {
     READ = 0,
     WRITE = 1,
+    GET_DEVICE_INFO = 2,
+}
+
+// Which simulator the host runs; served in the device identity so a client can build the matching
+// device class without a local simulator build.
+enum SimulationBackendType : byte {
+    TTSIM = 0,
+    RTL = 1,
 }
 
 // A device-memory access addressed by (core x/y, address, size). For WRITE, `data` carries the
@@ -41,6 +49,22 @@ table SimulationServerRequest {
 table SimulationServerResponse {
     status : int32;
     data : [ubyte];
+}
+
+// Device identity served in response to a GET_DEVICE_INFO request. Carries everything a client
+// needs to build a SocDescriptor matching the host's without reading a local simulator build:
+// the arch, the full SoC-descriptor YAML text, and the per-chip harvesting masks.
+table SimulationServerDeviceInfo {
+    status : int32;
+    arch : int32;
+    backend_type : SimulationBackendType;
+    soc_descriptor_yaml : string;
+    noc_translation_enabled : bool;
+    tensix_harvesting_mask : uint32;
+    dram_harvesting_mask : uint32;
+    eth_harvesting_mask : uint32;
+    l2cpu_harvesting_mask : uint32;
+    pcie_harvesting_mask : uint32;
 }
 
 // flatc requires a single root_type; the codec reads both messages uniformly via GetRoot<T>, so

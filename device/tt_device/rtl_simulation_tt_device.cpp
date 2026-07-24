@@ -22,6 +22,7 @@
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -67,15 +68,15 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
 }
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create_client(
-    const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    ChipId chip_id, std::unique_ptr<SimulationClient> client) {
     UMD_ASSERT(
         client != nullptr,
         error::RuntimeError,
         "Client-mode RtlSimulationTTDevice requires a non-null SimulationClient.");
-    // The SoC descriptor is read straight from the local simulator build -- the same files the
-    // host used -- so the client can describe the device without loading or running a simulator.
-    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
+    // Source the device identity from the host over the socket -- a client does not read a local
+    // simulator build.
+    const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
+    SocDescriptor soc_descriptor = build_soc_descriptor(info);
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
     return std::unique_ptr<RtlSimulationTTDevice>(
         new RtlSimulationTTDevice(soc_descriptor, chip_id, std::move(client)));
@@ -101,10 +102,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 }
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
-    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
-    // client_ is a base member (SimulationTTDevice), so it is set in the body rather than the
-    // init list.
-    client_ = std::move(client);
+    const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
+    SimulationTTDevice(std::move(client)) {
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
@@ -112,8 +111,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
     // create_client() has already validated that client_ is non-null.
-    setup_ = [this] { client_->attach(); };
-    teardown_ = [this] { client_->detach(); };
+    setup_ = [this] { attach_client(); };
+    teardown_ = [this] { detach_client(); };
     setup_();
 }
 

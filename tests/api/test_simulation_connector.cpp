@@ -52,10 +52,11 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
     EXPECT_FALSE(std::filesystem::exists(socket));  // torn down with the device
 }
 
-// When a live host already holds the socket, discovery must report the not-yet-implemented
-// client/attach path as an error rather than trying to host. This exercises the host-vs-client
-// arbiter's throw branch without a simulator: discover() bails before TTSimTTDevice::create().
-TEST(SimulationConnector, ThrowsWhenLiveHostAlreadyExists) {
+// When a live host already holds the socket, discovery takes the client/attach path. Here it must
+// still surface an error rather than hosting, because the client device reads its SoC descriptor
+// from the (invalid) simulator directory and fails. This exercises the host-vs-client arbiter's
+// client branch without a simulator.
+TEST(SimulationConnector, ThrowsWhenClientCreationFailsAgainstLiveHost) {
     const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
     auto host = SimulationServerSocket::try_create(socket);
     if (host == nullptr) {
@@ -63,7 +64,7 @@ TEST(SimulationConnector, ThrowsWhenLiveHostAlreadyExists) {
     }
 
     SimulationConnectorOptions options;
-    options.simulator_directory = "unused";  // discover() throws before it is touched.
+    options.simulator_directory = "unused";  // client creation reads the SoC descriptor from here and throws.
     EXPECT_THROW(SimulationConnector::discover(options), std::exception);
 }
 
@@ -130,4 +131,98 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     std::vector<uint8_t> readback(pattern2.size());
     host->read_from_device(readback.data(), tensix, addr2, pattern2.size());
     EXPECT_EQ(readback, pattern2);
+}
+
+// The host serves its full device identity over the socket; a client reads it back and it matches
+// the host's live SoC descriptor field for field (serialization/deserialization through the socket).
+// Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
+    {
+        auto probe = SimulationServerSocket::try_create(socket);
+        if (probe == nullptr) {
+            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
+        }
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    auto devices = SimulationConnector::discover(options);
+    ASSERT_EQ(devices.size(), 1u);
+    TTDevice* host = devices.at(0).get();
+    ASSERT_NE(host, nullptr);
+    const SocDescriptor& soc = host->get_soc_descriptor();
+
+    SimulationClient client(socket);
+    client.attach();
+    SimulationServerRequest info_request;
+    info_request.command = SimulationServerCommand::GetDeviceInfo;
+    const SimulationServerDeviceInfo info = decode_device_info(client.transact(encode(info_request)));
+
+    EXPECT_EQ(info.status, 0);
+    EXPECT_EQ(info.arch, static_cast<int32_t>(soc.arch));
+    const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
+    EXPECT_EQ(info.backend_type, is_ttsim ? SimulationBackendType::TTSim : SimulationBackendType::Rtl);
+    EXPECT_FALSE(info.soc_descriptor_yaml.empty());
+    EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
+    EXPECT_EQ(info.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);
+    EXPECT_EQ(info.dram_harvesting_mask, soc.harvesting_masks.dram_harvesting_mask);
+    EXPECT_EQ(info.eth_harvesting_mask, soc.harvesting_masks.eth_harvesting_mask);
+    EXPECT_EQ(info.l2cpu_harvesting_mask, soc.harvesting_masks.l2cpu_harvesting_mask);
+    EXPECT_EQ(info.pcie_harvesting_mask, soc.harvesting_masks.pcie_harvesting_mask);
+}
+
+// End to end through the client device: a second open() against a live host yields a client-mode
+// device whose read_from_device/write_to_device marshal over the socket. What the client writes
+// the host sees, and what the host writes the client reads back. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
+    {
+        auto probe = SimulationServerSocket::try_create(socket);
+        if (probe == nullptr) {
+            GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
+        }
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+
+    // First open becomes the host; the second sees the live host and attaches as a client device.
+    auto host_devices = SimulationConnector::discover(options);
+    ASSERT_EQ(host_devices.size(), 1u);
+    TTDevice* host = host_devices.at(0).get();
+    ASSERT_NE(host, nullptr);
+
+    auto client_devices = SimulationConnector::discover(options);
+    ASSERT_EQ(client_devices.size(), 1u);
+    TTDevice* client = client_devices.at(0).get();
+    ASSERT_NE(client, nullptr);
+
+    const CoreCoord tensix = host->get_soc_descriptor().get_cores(tt::CoreType::TENSIX).at(0);
+
+    // Client writes over the socket; the host sees it on the real backend.
+    const std::vector<uint8_t> from_client = {0xDE, 0xAD, 0xBE, 0xEF};
+    constexpr uint64_t addr = 0x1000;
+    client->write_to_device(from_client.data(), tensix, addr, from_client.size());
+    std::vector<uint8_t> host_readback(from_client.size());
+    host->read_from_device(host_readback.data(), tensix, addr, from_client.size());
+    EXPECT_EQ(host_readback, from_client);
+
+    // Host writes; the client reads it back over the socket.
+    const std::vector<uint8_t> from_host = {0x55, 0x66, 0x77, 0x88, 0x99};
+    constexpr uint64_t addr2 = 0x2000;
+    host->write_to_device(from_host.data(), tensix, addr2, from_host.size());
+    std::vector<uint8_t> client_readback(from_host.size());
+    client->read_from_device(client_readback.data(), tensix, addr2, from_host.size());
+    EXPECT_EQ(client_readback, from_host);
 }

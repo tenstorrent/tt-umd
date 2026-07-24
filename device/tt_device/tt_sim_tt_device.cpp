@@ -16,10 +16,10 @@
 
 #include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
+#include "tt-kmd-lib/pci_ids.h"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
-#include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"

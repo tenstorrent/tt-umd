@@ -75,6 +75,14 @@ jobs:
           fileName: "libttsim_qsr.so"
           out-file-path: /tmp/ttsim-qsr
 
+      - name: Download ttsim binary (wh_x2)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_wh_x2.so"
+          out-file-path: /tmp/ttsim-wh-x2
+
       - name: Build tt-metal
         run: |
           cd tt-metal
@@ -90,13 +98,20 @@ jobs:
       - name: Prepare sim paths
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh sim_qsr
+          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2
           mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
           mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
           mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
+          mv /tmp/ttsim-wh-x2/libttsim_wh_x2.so sim_wh_x2/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
+          # wh_x2 is two Wormhole chips; reuse the per-chip Wormhole soc descriptor.
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x2/soc_descriptor.yaml
+          # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
+          # and enumerates both the MMIO gateway and the remote chip. Without it, the sim is a single MMIO chip.
+          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/wormhole_N300.yaml \
+            sim_wh_x2/cluster_descriptor.yaml
 
       - name: Build UMD api_tests and microbenchmark with simulation support
         run: |
@@ -165,6 +180,24 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
+      # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
+      # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
+      # makes UMD enumerate both chips, so the standard device-IO fixtures run across the gateway and
+      # the remote chip.
+      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
@@ -260,6 +293,155 @@ jobs:
           echo "Running C++ unit tests for blackhole..."
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*StreamRegWrite*"
           ./build/test/tt_metal/unit_tests_api --gtest_filter="*InlineWrite*"
+
+  # UMD-only ttsim coverage on aarch64. tt-metal is intentionally NOT built here:
+  # tt-metal does not publish an arm64 dev image, so instead of the full
+  # tt-metal-on-arm coverage we get on x86_64, this leg exercises UMD's own
+  # simulator device-IO fixtures against the aarch64 ttsim binaries. It runs
+  # natively on an arm64 runner inside UMD's arm64 CI image (published by
+  # build-device.yml's ensure-ubuntu-2404-arm-image job) and sources SoC
+  # descriptors from UMD's own tree instead of a tt-metal checkout.
+  build-and-run-ttsim-aarch64:
+    # Due to parsing bug, fromJSON is used to convert string to number.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+
+    name: Build UMD and run ttsim tests (aarch64)
+    runs-on: ubuntu-24.04-arm
+    container:
+      image: ghcr.io/${{ github.repository }}/tt-umd-ci-ubuntu-24.04-arm:latest
+
+    steps:
+      - name: Checkout UMD
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Download ttsim binary (wh)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_wh_aarch64.so"
+          out-file-path: /tmp/ttsim-wh
+
+      - name: Download ttsim binary (bh)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_bh_aarch64.so"
+          out-file-path: /tmp/ttsim-bh
+
+      - name: Download ttsim binary (qsr)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_qsr_aarch64.so"
+          out-file-path: /tmp/ttsim-qsr
+
+      - name: Download ttsim binary (wh_x2)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_wh_x2_aarch64.so"
+          out-file-path: /tmp/ttsim-wh-x2
+
+      - name: Prepare sim paths
+        run: |
+          echo "Preparing sim paths"
+          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2
+          mv /tmp/ttsim-wh/libttsim_wh_aarch64.so sim_wh/libttsim.so
+          mv /tmp/ttsim-bh/libttsim_bh_aarch64.so sim_bh/libttsim.so
+          mv /tmp/ttsim-qsr/libttsim_qsr_aarch64.so sim_qsr/libttsim.so
+          mv /tmp/ttsim-wh-x2/libttsim_wh_x2_aarch64.so sim_wh_x2/libttsim.so
+          # No tt-metal checkout on aarch64, so source the SoC descriptors from UMD's
+          # own tree. wormhole_b0_8x10 is the full-grid descriptor equivalent to
+          # tt-metal's wormhole_b0_80_arch; blackhole_140_arch and quasar_32_arch are
+          # the same files used on x86_64.
+          cp tests/soc_descs/wormhole_b0_8x10.yaml sim_wh/soc_descriptor.yaml
+          cp tests/soc_descs/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
+          cp tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
+          # wh_x2 is two Wormhole chips; reuse the per-chip Wormhole soc descriptor.
+          cp tests/soc_descs/wormhole_b0_8x10.yaml sim_wh_x2/soc_descriptor.yaml
+          # Place the N300 cluster descriptor beside the simulator; UMD auto-discovers it (like
+          # soc_descriptor.yaml) and enumerates both the MMIO gateway and the remote chip.
+          cp tests/cluster_descriptor_examples/wormhole_N300.yaml sim_wh_x2/cluster_descriptor.yaml
+
+      - name: Build UMD api_tests with simulation support
+        run: |
+          cmake -B build -G Ninja \
+            -S . \
+            -DTT_UMD_BUILD_TESTS=ON \
+            -DTT_UMD_BUILD_SIMULATION=ON \
+            -DTT_UMD_BUILD_PYTHON=OFF \
+            -DTT_UMD_BUILD_EXAMPLES=OFF \
+            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
+            -DTT_UMD_ENABLE_TRACY=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target api_tests
+
+      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
+      - name: Run UMD TestDeviceIOFixture on tt-sim quasar
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim quasar
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_qsr/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
+      # wh_x2 is the N300 multichip simulator (chip 0 MMIO gateway + chip 1 remote over
+      # simulated eth). The cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths")
+      # makes UMD enumerate both chips, so the standard device-IO fixtures run across the gateway and
+      # the remote chip.
+      - name: Run UMD TestDeviceIOFixture on tt-sim wormhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim wormhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_wh_x2/libttsim.so
+        run: |
+          build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 
   # Compare the simulator microbenchmark results against the per-arch baselines in
   # tests/microbenchmark/baselines/sim-*.yaml.

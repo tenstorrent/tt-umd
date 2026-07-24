@@ -270,7 +270,7 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 }
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     auto duration = std::chrono::milliseconds(0);
 
@@ -302,7 +302,7 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     return duration;
 }
 
-EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     uint32_t retrain_status;
     read_from_device_reg(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
     // If core is in retrain state, then training status is not valid as the training is ongoing.

@@ -125,6 +125,7 @@ jobs:
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "P300-viommu"},
+            {"arch": "blackhole",   "card": "g13blx01"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
@@ -156,6 +157,8 @@ jobs:
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
+        # - g13blx01 is the Blackhole Galaxy machine. It is fully disabled on all events for now as
+        #   it has been causing CI problems; re-enable once the machine is stable (see #3070).
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
@@ -167,6 +170,7 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
+            '*|*|g13blx01' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 

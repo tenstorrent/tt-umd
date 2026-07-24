@@ -73,6 +73,13 @@ std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info) {
     return to_bytes(builder);
 }
 
+std::vector<uint8_t> encode(const SimulationServerClusterDescriptor& cluster_descriptor) {
+    flatbuffers::FlatBufferBuilder builder;
+    auto yaml = builder.CreateString(cluster_descriptor.yaml);
+    builder.Finish(wire::CreateSimulationServerClusterDescriptor(builder, cluster_descriptor.status, yaml));
+    return to_bytes(builder);
+}
+
 SimulationServerRequest decode_request(const uint8_t* data, size_t size) {
     const auto* fb = verify_and_get_root<wire::SimulationServerRequest>(data, size, "request");
     SimulationServerRequest request;
@@ -115,6 +122,16 @@ SimulationServerDeviceInfo decode_device_info(const uint8_t* data, size_t size) 
     return info;
 }
 
+SimulationServerClusterDescriptor decode_cluster_descriptor(const uint8_t* data, size_t size) {
+    const auto* fb = verify_and_get_root<wire::SimulationServerClusterDescriptor>(data, size, "cluster descriptor");
+    SimulationServerClusterDescriptor cluster_descriptor;
+    cluster_descriptor.status = fb->status();
+    if (fb->yaml() != nullptr) {
+        cluster_descriptor.yaml = fb->yaml()->str();
+    }
+    return cluster_descriptor;
+}
+
 SimulationServerRequest decode_request(const std::vector<uint8_t>& bytes) {
     return decode_request(bytes.data(), bytes.size());
 }
@@ -125,6 +142,10 @@ SimulationServerResponse decode_response(const std::vector<uint8_t>& bytes) {
 
 SimulationServerDeviceInfo decode_device_info(const std::vector<uint8_t>& bytes) {
     return decode_device_info(bytes.data(), bytes.size());
+}
+
+SimulationServerClusterDescriptor decode_cluster_descriptor(const std::vector<uint8_t>& bytes) {
+    return decode_cluster_descriptor(bytes.data(), bytes.size());
 }
 
 }  // namespace tt::umd

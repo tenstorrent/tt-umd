@@ -113,7 +113,7 @@ jobs:
           cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/wormhole_N300.yaml \
             sim_wh_x2/cluster_descriptor.yaml
 
-      - name: Build UMD api_tests and microbenchmark with simulation support
+      - name: Build UMD api_tests, microbenchmark and sim_server with simulation support
         run: |
           cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
             -S tt-metal/tt_metal/third_party/umd \
@@ -121,11 +121,13 @@ jobs:
             -DTT_UMD_BUILD_SIMULATION=ON \
             -DTT_UMD_BUILD_PYTHON=OFF \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=OFF \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark
+          # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
+          # builds the tools with simulation OFF, which excludes it).
+          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark sim_server
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.

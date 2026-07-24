@@ -350,6 +350,11 @@ int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const vo
 }
 
 int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr) {
+    int page_size = getpagesize();
+    if ((uint64_t)addr % page_size != 0 || len % page_size != 0) {
+        return -EINVAL;
+    }
+
     struct {
         struct tenstorrent_pin_pages_in in;
         struct tenstorrent_pin_pages_out_extended out;

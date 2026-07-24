@@ -371,8 +371,8 @@ int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr);
  * interface directly and is intended for callers that track the buffer's
  * lifetime themselves.
  *
- * The caller is responsible for validating that `addr` is page-aligned and
- * `len` is a multiple of the page size before calling.
+ * The function validates that `addr` is page-aligned and `len` is a multiple of
+ * the page size, returning `-EINVAL` if not.
  *
  * @param dev Device handle
  * @param addr Virtual address of memory to pin; must be page-aligned
@@ -381,7 +381,7 @@ int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr);
  * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
  * @param out_noc_addr On success, the NOC address. Only valid when a
  *                     `TT_DMA_FLAG_NOC*` flag is set. May be NULL.
- * @return 0 on success, error code on failure
+ * @return 0 on success, -errno code on failure.
  */
 int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr);
 
@@ -395,7 +395,7 @@ int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* 
  * @param dev Device handle
  * @param addr Virtual address originally passed to `tt_pin_pages()`
  * @param len Size originally passed to `tt_pin_pages()`
- * @return 0 on success, error code on failure
+ * @return 0 on success, -errno code on failure.
  */
 int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
 

@@ -349,16 +349,10 @@ int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const vo
     return 0;
 }
 
-int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** out_dma) {
+int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr) {
     int page_size = getpagesize();
-    if (len == 0 || len % page_size != 0 || addr == NULL || (uint64_t)addr % page_size != 0) {
+    if ((uint64_t)addr % page_size != 0 || len % page_size != 0) {
         return -EINVAL;
-    }
-
-    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
-
-    if (!dma) {
-        return -ENOMEM;
     }
 
     struct {
@@ -371,30 +365,66 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
     pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
     pin_pages.in.virtual_address = (uint64_t)addr;
     pin_pages.in.size = len;
+    pin_pages.in.flags = 0;
 
+    if (flags & TT_DMA_FLAG_CONTIGUOUS) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    }
     if (flags & TT_DMA_FLAG_NOC) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_DMA;
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
-    } else {
-        pin_pages.in.flags = 0;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
     }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {
-        int e = errno;
+        return -errno;
+    }
+
+    if (out_dma_addr) {
+        *out_dma_addr = pin_pages.out.physical_address;
+    }
+
+    if (out_noc_addr && (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN))) {
+        *out_noc_addr = pin_pages.out.noc_address;
+    }
+
+    return 0;
+}
+
+int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len) {
+    struct tenstorrent_unpin_pages unpin = {0};
+    unpin.in.virtual_address = (uint64_t)addr;
+    unpin.in.size = len;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin) != 0) {
+        return -errno;
+    }
+
+    return 0;
+}
+
+int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** out_dma) {
+    int page_size = getpagesize();
+    if (len == 0 || len % page_size != 0 || addr == NULL || (uint64_t)addr % page_size != 0) {
+        return -EINVAL;
+    }
+
+    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
+
+    if (!dma) {
+        return -ENOMEM;
+    }
+
+    uint64_t noc = ~0ULL;
+    int ret = tt_pin_pages(dev, addr, len, flags, &dma->iova, &noc);
+    if (ret != 0) {
         free(dma);
-        return -e;
+        return ret;
     }
 
     dma->addr = addr;
     dma->len = len;
-    dma->iova = pin_pages.out.physical_address;
-
-    if (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN)) {
-        dma->noc = pin_pages.out.noc_address;
-    } else {
-        dma->noc = ~0ULL;
-    }
+    dma->noc = noc;
 
     *out_dma = dma;
 
@@ -402,12 +432,9 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
 }
 
 int tt_dma_unmap(tt_device_t* dev, tt_dma_t* dma) {
-    struct tenstorrent_unpin_pages unpin = {0};
-    unpin.in.virtual_address = (uint64_t)dma->addr;
-    unpin.in.size = dma->len;
-
-    if (ioctl(dev->fd, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin) != 0) {
-        return -errno;
+    int ret = tt_unpin_pages(dev, dma->addr, dma->len);
+    if (ret != 0) {
+        return ret;
     }
 
     free(dma);

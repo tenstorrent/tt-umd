@@ -601,32 +601,30 @@ PCIDevice::~PCIDevice() {
 }
 
 uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
-    tenstorrent_pin_pages pin_pages;
-    memset(&pin_pages, 0, sizeof(pin_pages));
-    pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
-    pin_pages.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS;
-    pin_pages.in.virtual_address = reinterpret_cast<std::uintptr_t>(buffer);
-    pin_pages.in.size = size;
+    const uint64_t virtual_address = reinterpret_cast<std::uintptr_t>(buffer);
+    const int flags = TT_DMA_FLAG_CONTIGUOUS;
 
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+    uint64_t physical_address = 0;
+    int ret = tt_pin_pages(tt_device_handle, buffer, size, flags, &physical_address, nullptr);
+    if (ret != 0) {
         log_warning(
             LogUMD,
             "Failed to pin pages for hugepage at virtual address {} with size {} and flags {}: {}",
-            fmt::format("{:#x}", pin_pages.in.virtual_address),
-            fmt::format("{:#x}", pin_pages.in.size),
-            fmt::format("{:#x}", pin_pages.in.flags),
-            strerror(errno));
+            fmt::format("{:#x}", virtual_address),
+            fmt::format("{:#x}", size),
+            fmt::format("{:#x}", flags),
+            strerror(-ret));
         return 0;
     }
 
     log_debug(
         LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x}",
-        pin_pages.in.virtual_address,
-        pin_pages.in.size,
-        pin_pages.out.physical_address);
+        virtual_address,
+        size,
+        physical_address);
 
-    return pin_pages.out.physical_address;
+    return physical_address;
 }
 
 bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
@@ -637,9 +635,9 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
-    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+    const uint64_t virtual_address = reinterpret_cast<uint64_t>(buffer);
 
-    if (vaddr % page_size != 0 || size % page_size != 0) {
+    if (virtual_address % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
@@ -647,37 +645,32 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
         UMD_THROW(error::RuntimeError, fmt::format("Cannot map buffer of size {} to NOC with IOMMU disabled.", size));
     }
 
-    struct {
-        tenstorrent_pin_pages_in in;
-        tenstorrent_pin_pages_out_extended out;
-    } pin{};
+    const int flags = TT_DMA_FLAG_NOC;
 
-    pin.in.output_size_bytes = sizeof(pin.out);
-    pin.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
-    pin.in.virtual_address = vaddr;
-    pin.in.size = size;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
+    uint64_t physical_address = 0;
+    uint64_t noc_address = 0;
+    int ret = tt_pin_pages(tt_device_handle, buffer, size, flags, &physical_address, &noc_address);
+    if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to pin pages for DMA buffer at virtual address {:#x} with size {:#x} and flags {:#x}: {}",
-                pin.in.virtual_address,
-                pin.in.size,
-                pin.in.flags,
-                strerror(errno)));
+                virtual_address,
+                size,
+                flags,
+                strerror(-ret)));
     }
 
     log_debug(
         LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped to "
         "noc address {:#x}",
-        pin.in.virtual_address,
-        pin.in.size,
-        pin.out.physical_address,
-        pin.out.noc_address);
+        virtual_address,
+        size,
+        physical_address,
+        noc_address);
 
-    return {pin.out.noc_address, pin.out.physical_address};
+    return {noc_address, physical_address};
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
@@ -686,13 +679,13 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
-    const uint64_t vaddr = reinterpret_cast<uint64_t>(hugepage);
+    const uint64_t virtual_address = reinterpret_cast<uint64_t>(hugepage);
 
     if (size > (1 << 30)) {
         UMD_THROW(error::RuntimeError, "Not a hugepage.");
     }
 
-    if (vaddr % page_size != 0 || size % page_size != 0) {
+    if (virtual_address % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
@@ -701,105 +694,89 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
         log_warning(LogUMD, "Mapping a hugepage with IOMMU enabled.");
     }
 
-    struct {
-        tenstorrent_pin_pages_in in;
-        tenstorrent_pin_pages_out_extended out;
-    } pin{};
+    const int flags = TT_DMA_FLAG_CONTIGUOUS | TT_DMA_FLAG_NOC;
 
-    pin.in.output_size_bytes = sizeof(pin.out);
-    pin.in.flags = TENSTORRENT_PIN_PAGES_CONTIGUOUS | TENSTORRENT_PIN_PAGES_NOC_DMA;
-    pin.in.virtual_address = reinterpret_cast<std::uintptr_t>(hugepage);
-    pin.in.size = size;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin) == -1) {
+    uint64_t physical_address = 0;
+    uint64_t noc_address = 0;
+    int ret = tt_pin_pages(tt_device_handle, hugepage, size, flags, &physical_address, &noc_address);
+    if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to pin pages for hugepage at virtual address {:#x} with size {:#x} and flags {:#x}: {}",
-                pin.in.virtual_address,
-                pin.in.size,
-                pin.in.flags,
-                strerror(errno)));
+                virtual_address,
+                size,
+                flags,
+                strerror(-ret)));
     }
 
     log_debug(
         LogUMD,
         "Pinning pages for Hugepage: virtual address {:#x} and size {:#x} pinned to physical address {:#x} and mapped "
         "to noc address {:#x}",
-        pin.in.virtual_address,
-        pin.in.size,
-        pin.out.physical_address,
-        pin.out.noc_address);
+        virtual_address,
+        size,
+        physical_address,
+        noc_address);
 
-    return {pin.out.noc_address, pin.out.physical_address};
+    return {noc_address, physical_address};
 }
 
 uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
-    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
-    const uint32_t flags = is_iommu_enabled() ? 0 : TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    const uint64_t virtual_address = reinterpret_cast<uint64_t>(buffer);
+    const int flags = is_iommu_enabled() ? TT_DMA_FLAG_NONE : TT_DMA_FLAG_CONTIGUOUS;
 
-    if (vaddr % page_size != 0 || size % page_size != 0) {
+    if (virtual_address % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
-    tenstorrent_pin_pages pin_pages{};
-    pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
-    pin_pages.in.flags = flags;
-    pin_pages.in.virtual_address = vaddr;
-    pin_pages.in.size = size;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) == -1) {
+    uint64_t physical_address = 0;
+    int ret = tt_pin_pages(tt_device_handle, buffer, size, flags, &physical_address, nullptr);
+    if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to pin pages for DMA buffer at virtual address {:#x} with size {:#x} and flags {:#x}: {}",
-                pin_pages.in.virtual_address,
-                pin_pages.in.size,
-                pin_pages.in.flags,
-                strerror(errno)));
+                virtual_address,
+                size,
+                flags,
+                strerror(-ret)));
     }
 
     log_debug(
         LogUMD,
         "Pinning pages for DMA: virtual address {:#x} and size {:#x} pinned to physical address {:#x} without mapping "
         "to noc",
-        pin_pages.in.virtual_address,
-        pin_pages.in.size,
-        pin_pages.out.physical_address);
+        virtual_address,
+        size,
+        physical_address);
 
-    return pin_pages.out.physical_address;
+    return physical_address;
 }
 
 void PCIDevice::unmap_for_dma(void *buffer, size_t size) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
-    const uint64_t vaddr = reinterpret_cast<uint64_t>(buffer);
+    const uint64_t virtual_address = reinterpret_cast<uint64_t>(buffer);
 
-    if (vaddr % page_size != 0 || size % page_size != 0) {
+    if (virtual_address % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
     }
 
-    tenstorrent_unpin_pages unpin_pages{};
-    unpin_pages.in.virtual_address = vaddr;
-    unpin_pages.in.size = size;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin_pages) < 0) {
+    int ret = tt_unpin_pages(tt_device_handle, buffer, size);
+    if (ret != 0) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Failed to unpin pages for DMA buffer at virtual address {:#x} and size {:#x}: {}",
-                vaddr,
+                virtual_address,
                 size,
-                strerror(errno)));
+                strerror(-ret)));
     }
 
-    log_debug(
-        LogUMD,
-        "Unpinning pages for DMA: virtual address {:#x} and size {:#x}",
-        unpin_pages.in.virtual_address,
-        unpin_pages.in.size);
+    log_debug(LogUMD, "Unpinning pages for DMA: virtual address {:#x} and size {:#x}", virtual_address, size);
 }
 
 SemVer PCIDevice::read_kmd_version() {

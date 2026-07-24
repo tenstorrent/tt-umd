@@ -154,8 +154,7 @@ jobs:
             python3 $GITHUB_WORKSPACE/tt-umd/tests/microbenchmark/tools/emit_benchmark_export.py \
             --results-dir $UMD_MICROBENCHMARK_RESULTS_PATH \
             --arch ${{ inputs.arch }} \
-            --output $UMD_MICROBENCHMARK_EXPORT_PATH/$EXPORT_FILE \
-            --validate
+            --output $UMD_MICROBENCHMARK_EXPORT_PATH/$EXPORT_FILE
 
       - name: Upload Superset export JSON
         if: ${{ inputs.arch != 'baremetal' }}

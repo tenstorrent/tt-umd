@@ -13,13 +13,13 @@ every per-case result links to it implicitly by living in the same file. The
 DB-side primary keys and the run<->result foreign key are assigned on ingest, so
 they are not emitted here. ``host_spec_json`` is left null for now.
 
-With ``--validate`` the produced document is checked against a pydantic model
-mirroring that contract before it is written, so malformed data fails in CI
-rather than being silently rejected by the ingest pipeline.
+The produced document is always checked against a pydantic model mirroring that
+contract before it is written, so malformed data fails in CI rather than being
+silently rejected by the ingest pipeline.
 
-Standalone by design (only depends on ``utils.load_nanobench_json``, plus
-``pydantic`` when ``--validate`` is used) so it can be sparse-checked-out in CI
-without pulling in pandas/psutil.
+Standalone by design (only depends on ``utils.load_nanobench_json`` and
+``pydantic``) so it can be sparse-checked-out in CI without pulling in
+pandas/psutil.
 """
 
 import argparse
@@ -144,19 +144,6 @@ def build_result(nb_result):
     }
 
 
-# Fields the ingest contract requires to be concrete numbers; a case missing any
-# of them is a degenerate measurement and is dropped (with a warning) rather than
-# sinking the whole file's validation.
-_REQUIRED_RESULT_NUMERICS = (
-    "batch_size",
-    "epochs",
-    "iterations",
-    "median_total_time_s",
-    "median_result",
-    "throughput",
-)
-
-
 def collect_results(results_dir):
     """Load every nanobench <title>.json in results_dir (skipping the host spec)."""
     results = []
@@ -169,24 +156,14 @@ def collect_results(results_dir):
             print(f"WARN: skipping {path.name}: {e}", file=sys.stderr)
             continue
         for nb_result in data.get("results", []):
-            record = build_result(nb_result)
-            missing = [k for k in _REQUIRED_RESULT_NUMERICS if record[k] is None]
-            if missing:
-                print(
-                    f"WARN: dropping case {record['test_title']!r}/{record['case_name']!r} "
-                    f"from {path.name}: missing {', '.join(missing)}.",
-                    file=sys.stderr,
-                )
-                continue
-            results.append(record)
+            results.append(build_result(nb_result))
     return results
 
 
 def validate_document(document):
     """Validate the document against the Data team's UmdMicrobenchData contract.
 
-    Raises pydantic.ValidationError on mismatch. pydantic is imported lazily so
-    the script only needs it when --validate is used.
+    Raises pydantic.ValidationError on mismatch.
     """
     from typing import List, Optional  # noqa: E402
 
@@ -254,11 +231,6 @@ def main():
         default=None,
         help="Silicon arch (e.g. wormhole_b0). When omitted, read from the host spec's Arch field.",
     )
-    parser.add_argument(
-        "--validate",
-        action="store_true",
-        help="Validate the document against the ingest contract (requires pydantic) before writing.",
-    )
     args = parser.parse_args()
 
     host_spec_path = args.host_spec or (args.results_dir / HOST_SPEC_FILENAME)
@@ -280,9 +252,8 @@ def main():
         "results": collect_results(args.results_dir),
     }
 
-    if args.validate:
-        validate_document(document)
-        print("Validated document against the UmdMicrobenchData contract.")
+    validate_document(document)
+    print("Validated document against the UmdMicrobenchData contract.")
 
     BASE_DIRECTORY = Path("/tmp")
     output_path = args.output.resolve()

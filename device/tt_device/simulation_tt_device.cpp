@@ -52,6 +52,11 @@ void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> so
     socket_->serve([this](const std::vector<uint8_t>& request_bytes) { return handle_request(request_bytes); });
 }
 
+void SimulationTTDevice::set_shutdown_handler(std::function<void()> handler) {
+    std::lock_guard<std::mutex> lock(shutdown_handler_mutex_);
+    shutdown_handler_ = std::move(handler);
+}
+
 std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
     const SimulationServerRequest request = decode_request(request_bytes);
 
@@ -79,6 +84,25 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_
             cluster_descriptor.status = -1;
             return encode(cluster_descriptor);
         }
+    }
+
+    // Shutdown: invoke the opt-in handler (a dedicated server sets it to signal its main thread to
+    // exit and tear down; an embedded host leaves it empty, making this a no-op) and ack. The
+    // handler must only signal -- it must not tear down from this serving thread. The ack is sent
+    // before any teardown, and this serving thread hits EOF and is joined during that teardown.
+    if (request.command == SimulationServerCommand::Shutdown) {
+        // Copy the handler under the lock, then invoke the copy outside it: the handler only signals
+        // the owner to stop (it must not tear down from this serving thread), and holding the lock
+        // across the call is both unnecessary and a deadlock risk if it ever re-entered.
+        std::function<void()> handler;
+        {
+            std::lock_guard<std::mutex> lock(shutdown_handler_mutex_);
+            handler = shutdown_handler_;
+        }
+        if (handler) {
+            handler();
+        }
+        return encode(SimulationServerResponse{});  // status 0
     }
 
     // The client already translated the coordinate (translation is stateless and client-side), so

@@ -17,6 +17,7 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
@@ -53,6 +54,19 @@ void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> so
 
 std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
     const SimulationServerRequest request = decode_request(request_bytes);
+
+    // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
+    // read/write skeleton below (SimulationServerResponse), so it is handled up front.
+    if (request.command == SimulationServerCommand::GetDeviceInfo) {
+        try {
+            return encode(describe_device(get_soc_descriptor(), backend_type()));
+        } catch (const std::exception& e) {
+            log_warning(tt::LogUMD, "Simulation host failed to serve device info: {}", e.what());
+            SimulationServerDeviceInfo info;
+            info.status = -1;
+            return encode(info);
+        }
+    }
 
     // The client already translated the coordinate (translation is stateless and client-side), so
     // pass it through verbatim as LITERAL -- the shared read/write skeleton must not translate

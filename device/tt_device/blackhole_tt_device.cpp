@@ -267,7 +267,7 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(
+        read_from_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -290,7 +290,7 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(
+        write_to_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -307,7 +307,7 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     auto time_taken = std::chrono::milliseconds(0);
 
@@ -328,7 +328,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     return time_taken;
 }
 
-EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
@@ -352,16 +352,6 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
             error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
-}
-
-void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for BH devices without NOC translation enabled.");
-    auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    noc_multicast_write(src, size, start, end, addr);
 }
 
 void BlackholeTTDevice::set_arc_coordinate() {

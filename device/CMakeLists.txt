@@ -148,6 +148,9 @@ target_sources(
         # (TT_UMD_BUILD_SIMULATION=OFF).
         simulation/simulation_server_socket.cpp
         simulation/simulation_client.cpp
+        # Length-prefixed message framing over the socket (uses asio, a core dependency; no
+        # FlatBuffers), so it is always built and unit-tested in the same no-card baremetal lane.
+        simulation/simulation_server_transport.cpp
 )
 
 if(TT_UMD_BUILD_SIMULATION)

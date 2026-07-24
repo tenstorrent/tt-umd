@@ -384,7 +384,7 @@ TEST_P(TestMulticastWriteFixture, TestMulticastWrite) {
                 v++;
             }
 
-            const tt_xy_pair multicast_coord =
+            const CoreCoord multicast_coord =
                 soc_desc.translate_coord_to(core, use_noc0 ? CoordSystem::NOC0 : CoordSystem::TRANSLATED);
             if (full_grid) {
                 log_info(LogUMD, "Multicast to full grid from coord {} on chip {}", multicast_coord.str(), chip_id);

@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <memory>
 #include <mutex>
+#include <vector>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -23,6 +24,7 @@ namespace tt::umd {
 class SimulationSysmemManager;
 class SimulationTlbAllocator;
 class SimulationServerSocket;
+class SimulationClient;
 class TlbWindow;
 
 // Common base class for the simulation TTDevice backends. It sits as an intermediary in the class
@@ -57,20 +59,19 @@ public:
     void dma_multicast_write(
         void* src,
         size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
+        CoreCoord core_start,
+        CoreCoord core_end,
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void noc_multicast_write(
         const void* src,
         size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
+        CoreCoord core_start,
+        CoreCoord core_end,
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC) override;
-    using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC) override;
+    void noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) override;
 
     SimulationSysmemManager* get_sysmem_manager() override { return sysmem_manager_.get(); }
 
@@ -134,6 +135,21 @@ protected:
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
     // The host keeps its own direct in-process fast path; the socket is for remote clients.
     std::unique_ptr<SimulationServerSocket> socket_;
+
+    // Set only in client mode: the remote host this device talks to, instead of owning a local
+    // backend. Hoisted here from the derived devices (both held an identical member) since it is
+    // the client-mode counterpart of the shared lifecycle; a follow-up wires read_from_device /
+    // write_to_device to dispatch through it. Null in host/local mode.
+    std::unique_ptr<SimulationClient> client_;
+
+private:
+    // Serves one socket request against this host device: decodes the wire request, runs it
+    // through read_from_device/write_to_device -- the client has already translated coordinates,
+    // so they are passed as LITERAL (no re-translation) -- and encodes the reply. Runs on the
+    // socket's connection threads; read/write take device_lock, so concurrent host + client
+    // access is serialized. The socket layer stays protocol-agnostic; this is where the protocol
+    // is (de)serialized.
+    std::vector<uint8_t> handle_request(const std::vector<uint8_t>& request_bytes);
 };
 
 }  // namespace tt::umd

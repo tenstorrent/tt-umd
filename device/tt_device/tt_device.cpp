@@ -6,6 +6,7 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -645,38 +646,32 @@ ChipInfo TTDevice::get_chip_info() {
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
 
-void TTDevice::advance_device_execution() {}
+void TTDevice::advance_device_execution() {
+    if (remote_capabilities_ != nullptr) {
+        remote_capabilities_->get_remote_communication()->get_local_device()->advance_device_execution();
+    }
+}
 
-uint32_t TTDevice::get_risc_reset_state(tt_xy_pair core) {
+uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
     uint32_t tensix_risc_state;
-    read_from_device(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    read_from_device_reg(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
 
-uint32_t TTDevice::get_risc_reset_state(CoreCoord core) { return get_risc_reset_state(resolve_coordinate(core)); }
-
-void TTDevice::set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags) {
-    write_to_device(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
+    write_to_device_reg(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 
-void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
-    set_risc_reset_state(resolve_coordinate(core), risc_flags);
-}
-
-void TTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     set_risc_reset_state(core, soft_reset_new);
 }
 
-void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    assert_risc_reset(resolve_coordinate(core), selected_riscs);
-}
-
-void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
@@ -685,27 +680,27 @@ void TTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_risc
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
-void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    deassert_risc_reset(resolve_coordinate(core), selected_riscs, staggered_start);
-}
-
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    UMD_ASSERT(
+        get_chip_info().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
+    xy_pair translated_start = resolve_coordinate(core_start);
+    xy_pair translated_end = resolve_coordinate(core_end);
     bool multicast_success =
-        device_protocol_->write_to_core_range(src, core_start, core_end, addr, size, get_selected_noc_id());
+        device_protocol_->write_to_core_range(src, translated_start, translated_end, addr, size, get_selected_noc_id());
 
-    log_debug(
+    log_trace(
         LogUMD,
-        "Multicast on {} chip write to cores ({}, {}) - ({}, {}) {}",
+        "Multicast on {} chip write to cores {} - {} {}",
         is_remote_tt_device ? "remote" : "local",
-        core_start.x,
-        core_start.y,
-        core_end.x,
-        core_end.y,
-        multicast_success ? "succeeded" : "fell back to unicast");
+        translated_start.str(),
+        translated_end.str(),
+        multicast_success ? "succeeded" : "failed, running unicast fallback.");
 
     // We need to flush the writes in case of remote communication.
     if (multicast_success && is_remote_tt_device) {
@@ -716,74 +711,42 @@ void TTDevice::noc_multicast_write(
         return;
     }
 
-    // Following is the fallback mechanism for multicast to a remote device.
-    // Coordinates may be in translated or NOC0 space; we check both since their ranges don't overlap.
-    // In translated space, non-harvested TENSIX rows occupy a prefix of the TENSIX translated rect.
-    // In NOC0 space, we look up the core in TENSIX_CORES_NOC0 and check its row against the mask.
-    const uint32_t tensix_harvesting_mask = get_chip_info().harvesting_masks.tensix_harvesting_mask;
-
-    uint32_t num_harvested = 0;
-    for (uint32_t mask = tensix_harvesting_mask; mask; mask >>= 1) {
-        num_harvested += mask & 1;
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+    if (is_remote_tt_device) {
+        get_remote_communication()->wait_for_non_mmio_flush();
     }
-    const uint32_t num_active_rows = wormhole::TENSIX_GRID_SIZE.y - num_harvested;
-
-    auto is_active_tensix = [&](uint32_t x, uint32_t y) -> bool {
-        // Translated space: non-harvested TENSIX rows are the first num_active_rows rows of the rect.
-        if (x >= wormhole::tensix_translated_coordinate_start_x &&
-            x < wormhole::tensix_translated_coordinate_start_x + wormhole::TENSIX_GRID_SIZE.x &&
-            y >= wormhole::tensix_translated_coordinate_start_y &&
-            y < wormhole::tensix_translated_coordinate_start_y + num_active_rows) {
-            return true;
-        }
-        // NOC0 space: find the core in TENSIX_CORES_NOC0 and check whether its row is harvested.
-        const tt_xy_pair coord{x, y};
-        auto it = std::find(wormhole::TENSIX_CORES_NOC0.begin(), wormhole::TENSIX_CORES_NOC0.end(), coord);
-        if (it == wormhole::TENSIX_CORES_NOC0.end()) {
-            return false;
-        }
-        const size_t row = (it - wormhole::TENSIX_CORES_NOC0.begin()) / wormhole::TENSIX_GRID_SIZE.x;
-        return (tensix_harvesting_mask & (1u << row)) == 0;
-    };
-
-    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
-        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            log_trace(
-                LogUMD,
-                "noc_multicast_write fallback unicast to core at ({}, {}) is_tensix {}",
-                x,
-                y,
-                is_active_tensix(x, y));
-            if (is_active_tensix(x, y)) {
-                write_to_device(src, xy_pair(x, y), addr, size);
-            }
-        }
-    }
-    get_remote_communication()->wait_for_non_mmio_flush();
 }
 
-void TTDevice::noc_multicast_write(
-    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    noc_multicast_write(
-        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
+void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
+    UMD_ASSERT(
+        get_chip_info().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for devices without NOC translation enabled.");
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
 void TTDevice::multicast_write_via_unicast(
-    const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    // No hardware multicast on simulation backends; fall back to per-core unicast.
-    // TODO: investigate proper multicast support for simulations so we can remove this workaround.
-    for (uint32_t x = core_start.x; x <= core_end.x; ++x) {
-        for (uint32_t y = core_start.y; y <= core_end.y; ++y) {
-            // BLACKHOLE: x==8 is ARC/L2CPU and x==9 is GDDR, not actual Tensix cores.
-            if (arch == tt::ARCH::BLACKHOLE && (x == 8 || x == 9)) {
-                continue;
-            }
-            write_to_device(src, tt_xy_pair{x, y}, addr, size);
+    const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    CoreCoord translated_start = resolve_coordinate(core_start);
+    CoreCoord translated_end = resolve_coordinate(core_end);
+    size_t x_min = std::min(translated_start.x, translated_end.x);
+    size_t x_max = std::max(translated_start.x, translated_end.x);
+    size_t y_min = std::min(translated_start.y, translated_end.y);
+    size_t y_max = std::max(translated_start.y, translated_end.y);
+
+    // Iterate over all non-harvested tensix cores and unicast to those falling inside the rectangle.
+    // We use the TRANSLATED coord space as NOC multicast is not available without NOC translation.
+    const SocDescriptor &soc_descriptor = get_soc_descriptor();
+    for (const CoreCoord &core : soc_descriptor.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)) {
+        if (core.x >= x_min && core.x <= x_max && core.y >= y_min && core.y <= y_max) {
+            write_to_device(src, core, addr, size, noc_id);
         }
     }
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
@@ -792,7 +755,8 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_write_to_device(src, size, core, addr, get_selected_noc_id());
+    bool dma_success =
+        get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core), addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -802,11 +766,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, tt_xy_pair core
     write_to_device(src, core, addr, size);
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
-    dma_write_to_device(src, size, resolve_coordinate(core), addr);
-}
-
-void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
@@ -815,7 +775,8 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
+    bool dma_success =
+        get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core), addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -825,12 +786,8 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uin
     read_from_device(dst, core, addr, size);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
-    dma_read_from_device(dst, size, resolve_coordinate(core), addr);
-}
-
 void TTDevice::dma_multicast_write(
-    void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
         UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
@@ -839,8 +796,8 @@ void TTDevice::dma_multicast_write(
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
+    bool dma_success = get_pcie_interface()->dma_multicast_write(
+        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
     if (dma_success) {
         return;
     }
@@ -848,11 +805,6 @@ void TTDevice::dma_multicast_write(
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
     noc_multicast_write(src, size, core_start, core_end, addr);
-}
-
-void TTDevice::dma_multicast_write(
-    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    dma_multicast_write(src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
@@ -887,11 +839,6 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
         UMD_THROW(error::RuntimeError, "SocDescriptor cannot be re-assgined to TTDevice.");
     }
     soc_descriptor_ = soc_descriptor;
-}
-
-EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    const SocDescriptor &soc_descriptor = get_soc_descriptor();
-    return read_eth_core_training_status(soc_descriptor.translate_chip_coord_to_translated(eth_core));
 }
 
 xy_pair TTDevice::resolve_coordinate(CoreCoord core) const {

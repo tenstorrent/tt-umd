@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/simulation_tt_device.hpp"
 
+#include <fmt/format.h>
+
 #include <tt-logger/tt-logger.hpp>
 
 #include "noc_access.hpp"
@@ -11,6 +13,8 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -28,7 +32,51 @@ SimulationTTDevice::SimulationTTDevice(
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
-void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) { socket_ = std::move(socket); }
+void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+    socket_ = std::move(socket);
+    // Begin serving remote clients now that the backend is up.
+    socket_->serve([this](const std::vector<uint8_t>& request_bytes) { return handle_request(request_bytes); });
+}
+
+std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
+    const SimulationServerRequest request = decode_request(request_bytes);
+
+    // The client already translated the coordinate (translation is stateless and client-side), so
+    // pass it through verbatim as LITERAL -- the shared read/write skeleton must not translate
+    // again. CoreCoord defaults to CoreType::UNSPECIFIED + CoordSystem::LITERAL.
+    const CoreCoord core{request.x, request.y};
+
+    SimulationServerResponse response;
+    try {
+        switch (request.command) {
+            case SimulationServerCommand::Read:
+                response.data.resize(request.size);
+                read_from_device(response.data.data(), core, request.address, request.size);
+                break;
+            case SimulationServerCommand::Write:
+                UMD_ASSERT(
+                    request.data.size() >= request.size,
+                    error::RuntimeError,
+                    fmt::format(
+                        "Write request payload ({} bytes) is smaller than its size field ({})",
+                        request.data.size(),
+                        request.size));
+                write_to_device(request.data.data(), core, request.address, request.size);
+                break;
+            default:
+                UMD_THROW(
+                    error::RuntimeError,
+                    fmt::format("Unknown simulation server command {}", static_cast<int>(request.command)));
+        }
+    } catch (const std::exception& e) {
+        // A failed op surfaces to the client as a nonzero status rather than dropping the
+        // connection, mirroring how a silicon access error is reported rather than fatal.
+        log_warning(tt::LogUMD, "Simulation host failed to serve a client request: {}", e.what());
+        response.status = -1;
+        response.data.clear();
+    }
+    return encode(response);
+}
 
 void SimulationTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
@@ -126,12 +174,14 @@ bool SimulationTTDevice::get_noc_translation_enabled() {
 }
 
 void SimulationTTDevice::noc_multicast_write(
-    const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    multicast_write_via_unicast(src, size, core_start, core_end, addr);
+    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+    multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
 }
 
 void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "NOC multicast write is not supported for simulation devices.");
+    auto [start, end] =
+        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+    noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
 void SimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
@@ -151,7 +201,7 @@ void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t
 }
 
 void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
+    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 

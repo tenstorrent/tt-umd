@@ -55,21 +55,21 @@ class TestNoEthMapReset(unittest.TestCase):
         arch = pci_devices_info[0].get_arch()
         print(f"Device architecture: {arch}")
 
-        # Check if the first device is a WH UBB (0x0035 subsystem id)
-        is_wormhole_ubb = (
-            arch == tt_umd.ARCH.WORMHOLE_B0
-            and pci_devices_info[0].subsystem_id == 0x0035
+        # Check if the first device is a UBB
+        is_ubb = (
+            pci_devices_info[0].subsystem_id == 0x0035
+            or pci_devices_info[0].subsystem_id == 0x0047
         )
         kmd_supports_reset = tt_umd.PCIDevice.is_arch_agnostic_reset_supported()
         print(f"KMD supports arch agnostic reset: {kmd_supports_reset}")
-        print(f"Is Wormhole UBB: {is_wormhole_ubb}")
+        print(f"Is Wormhole UBB: {is_ubb}")
 
         # Perform appropriate warm reset
-        if is_wormhole_ubb and not kmd_supports_reset:
+        if is_ubb and not kmd_supports_reset:
             print("Executing UBB warm reset with recovery...")
             tt_umd.WarmResetWithRecovery.ubb_warm_reset()
         else:
-            should_perform_secondary_bus_reset = not is_wormhole_ubb
+            should_perform_secondary_bus_reset = not is_ubb
             print(
                 f"Executing standard warm reset with recovery, with secondary bus reset: {should_perform_secondary_bus_reset}"
             )

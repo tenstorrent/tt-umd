@@ -182,7 +182,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     if (is_remote_tt_device) {
-        read_from_device(
+        read_from_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -205,7 +205,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     if (is_remote_tt_device) {
-        write_to_device(
+        write_to_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -270,7 +270,7 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
 }
 
 std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     auto duration = std::chrono::milliseconds(0);
 
@@ -302,9 +302,9 @@ std::chrono::milliseconds WormholeTTDevice::wait_eth_core_training(
     return duration;
 }
 
-EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     uint32_t retrain_status;
-    read_from_device(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
+    read_from_device_reg(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(uint32_t));
     // If core is in retrain state, then training status is not valid as the training is ongoing.
     // If the core is put in retrain state, we have to wait for the retrain state to clear before making sense out of
     // the training status.
@@ -313,14 +313,14 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(tt_xy_pair eth
         return EthTrainingStatus::IN_PROGRESS;
     }
     uint32_t training_status;
-    read_from_device(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
+    read_from_device_reg(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(uint32_t));
     log_trace(LogUMD, "Training status for core {} is {}", eth_core.str(), training_status);
 
     if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
         // Training can fail due to various reasons, but what we mostly care about is to detect whether this is
         // unconnected eth link or if the training truly failed on a connected eth link.
         uint32_t link_err_status;
-        read_from_device(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
+        read_from_device_reg(&link_err_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(uint32_t));
         log_trace(LogUMD, "Link error status for core {} is {}", eth_core.str(), link_err_status);
         if (link_err_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
             return EthTrainingStatus::NOT_CONNECTED;
@@ -446,16 +446,6 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
-}
-
-void WormholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    // Same range is used for NOC0 and NOC1.
-    // Note that when multicasting in translated space, you have to skip harvested rows. So we can just always use NOC0
-    // coords for broadcasting, since these are always the same and guaranteed to land at all TENSIX cores.
-
-    auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
-    noc_multicast_write(src, size, start, end, addr);
 }
 
 void WormholeTTDevice::set_arc_coordinate() {

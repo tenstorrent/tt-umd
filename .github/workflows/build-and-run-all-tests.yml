@@ -28,6 +28,15 @@ on:
         description: >-
           github.event_name from the top-level workflow. Used to evaluate the
           per-matrix blacklist. Leave empty for direct workflow_dispatch.
+      build-exalens-kernels:
+        required: false
+        type: boolean
+        default: false
+        description: >-
+          When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
+          tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
+          one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
+          pass false, since the artifact name is shared per run and would otherwise collide.
       repeat-count:
         required: false
         type: string
@@ -68,6 +77,15 @@ on:
         description: 'The timeout for the test run in minutes'
         type: number
         default: 30
+      build-exalens-kernels:
+        required: false
+        type: boolean
+        default: true
+        description: >-
+          When true (the default, e.g. a standalone workflow_dispatch), this workflow builds the
+          tt-exalens kernels artifact itself. Callers that invoke this workflow multiple times in
+          one run (build-and-run-all-tests-multiple-builds.yml) build it once at their level and
+          pass false, since the artifact name is shared per run and would otherwise collide.
       repeat-count:
         required: false
         description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
@@ -107,6 +125,7 @@ jobs:
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-stable"},
             {"arch": "wormhole_b0", "card": "tt-ubuntu-2204-wh-glx-6u-viommu-stable"},
             {"arch": "blackhole",   "card": "P300-viommu"},
+            {"arch": "blackhole",   "card": "g13blx01"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-stable"},
             {"arch": "blackhole",   "card": "tt-ubuntu-2204-bh-loudbox-viommu-stable"},
             {"arch": "baremetal",   "card": "ubuntu-22.04"}
@@ -138,6 +157,8 @@ jobs:
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
+        # - g13blx01 is the Blackhole Galaxy machine. It is fully disabled on all events for now as
+        #   it has been causing CI problems; re-enable once the machine is stable (see #3070).
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
@@ -149,6 +170,7 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
+            '*|*|g13blx01' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 
@@ -247,6 +269,14 @@ jobs:
         echo build-and-run-all-tests - timeout: ${{ inputs.timeout }}
         echo build-and-run-all-tests - log-level: ${{ inputs.log-level }}
 
+  # Build the tt-exalens kernels + source artifact consumed by run-exalens-tests. Skipped when a
+  # caller already built it once and passed build-exalens-kernels: false (see the multiple-builds
+  # workflow); on a standalone run this defaults to true so the artifact always exists.
+  build-exalens-kernels:
+    if: inputs.build-exalens-kernels
+    secrets: inherit
+    uses: ./.github/workflows/build-exalens-kernels.yml
+
   test-all:
     secrets: inherit
     needs: [build-tests, generate-test-matrix]
@@ -309,7 +339,12 @@ jobs:
 
   run-exalens-tests:
     secrets: inherit
-    needs: build-tests
+    # needs build-tests for the UMD wheel, and build-exalens-kernels for ordering (the artifact
+    # must be uploaded before the tests download it). When build-exalens-kernels is skipped
+    # (a caller built it once and provided it), always() lets this run anyway; it still requires
+    # build-tests to have succeeded for the wheel.
+    needs: [build-tests, build-exalens-kernels]
+    if: always() && needs.build-tests.result == 'success'
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:

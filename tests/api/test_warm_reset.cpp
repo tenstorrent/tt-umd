@@ -734,13 +734,34 @@ static void terminate_processes(std::initializer_list<pid_t> pids) {
     for (pid_t p : pids) {
         if (p > 0) {
             kill(p, SIGKILL);
-            waitpid(p, nullptr, 0);
+            // Bounded reap: a child wedged in uninterruptible (D) state ignores SIGKILL until it
+            // leaves the kernel, so a blocking waitpid here would re-hang the parent. Give up after
+            // ~5s and let the OS reap the orphan on exit rather than defeating the watchdog.
+            for (int i = 0; i < 100 && waitpid(p, nullptr, WNOHANG) == 0; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
         }
     }
 }
 
-// Flaky test, warm reset has a probability of failure.
-TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
+// Reap pid within timeout_seconds, polling with WNOHANG so a stuck child can't wedge the parent.
+static bool wait_for_child(pid_t pid, int* status, int timeout_seconds) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(timeout_seconds);
+    while (std::chrono::steady_clock::now() < deadline) {
+        pid_t r = waitpid(pid, status, WNOHANG);
+        if (r == pid) {
+            return true;
+        }
+        if (r == -1) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    return false;
+}
+
+// After a warm reset, P2 must tear down and recreate its Cluster while P1 still holds pre-reset FDs.
+TEST(WarmResetTest, StaleFileDescriptorClusterRecovery) {
     if constexpr (utils::is_arm_platform()) {
         GTEST_SKIP() << "Warm reset is disabled on ARM64 due to instability.";
     }
@@ -765,8 +786,19 @@ TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
     static constexpr int P2_SLOT = 1;
     static constexpr int RESET_DONE_SLOT = 0;
     static constexpr int SYNC_TIMEOUT_S = 180;
+
     static constexpr int EXIT_SUCCESS_CODE = 0;
-    static constexpr int EXIT_FAILURE_CODE = 1;
+    static constexpr int EXIT_FAILURE_CODE = 1;   // rebuild never produced a usable Cluster
+    static constexpr int EXIT_TIMEOUT_CODE = 2;   // never received the reset-done signal
+    static constexpr int EXIT_TEARDOWN_CODE = 3;  // destroying the pre-reset Cluster threw
+
+    // Each reset+discovery attempt is empirically ~70s; derive P2's wait from the full retry budget so
+    // it never times out mid-reset and misreports the reset as a rebuild failure.
+    static constexpr int WARM_RESET_MAX_ATTEMPTS = 3;
+    static constexpr int RESET_ATTEMPT_BUDGET_S = 120;
+    static constexpr int P2_RESET_WAIT_S = (WARM_RESET_MAX_ATTEMPTS + 1) * RESET_ATTEMPT_BUDGET_S;
+
+    static constexpr int P2_REBUILD_WATCHDOG_S = 300;
 
     test_utils::MultiProcessEvent children_ready(NUM_CHILDREN);
     test_utils::MultiProcessEvent reset_done(1);
@@ -792,14 +824,22 @@ TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
         auto cluster = std::make_unique<Cluster>();
         children_ready.notify(P2_SLOT);
 
-        if (!reset_done.wait_for(RESET_DONE_SLOT, SYNC_TIMEOUT_S)) {
-            _exit(EXIT_FAILURE_CODE);
+        if (!reset_done.wait_for(RESET_DONE_SLOT, P2_RESET_WAIT_S)) {
+            _exit(EXIT_TIMEOUT_CODE);
         }
 
-        cluster.reset();
+        // Release this process's stale FDs; the destructor touches just-reset devices, so guard it.
+        try {
+            cluster.reset();
+        } catch (const std::exception& e) {
+            std::cerr << "P2 teardown threw: " << e.what() << std::endl;  // endl flushes before _exit
+            _exit(EXIT_TEARDOWN_CODE);
+        }
+
         try {
             cluster = std::make_unique<Cluster>();
-        } catch (...) {
+        } catch (const std::exception& e) {
+            std::cerr << "P2 rebuild threw: " << e.what() << std::endl;
             _exit(EXIT_FAILURE_CODE);
         }
         _exit(cluster->get_target_device_ids().empty() ? EXIT_FAILURE_CODE : EXIT_SUCCESS_CODE);
@@ -810,15 +850,31 @@ TEST(WarmResetTest, DISABLED_StaleFileDescriptorClusterRecovery) {
         FAIL() << "Timed out waiting for child processes to create Cluster.";
     }
 
-    WarmResetWithRecovery::warm_reset();
+    // Only signal P2 once the board actually recovered, so a reset failure isn't blamed on the rebuild.
+    if (!WarmResetWithRecovery::warm_reset(WARM_RESET_MAX_ATTEMPTS)) {
+        terminate_processes({p1, p2});
+        FAIL() << "Warm reset with recovery failed to bring the board back; P2 rebuild not exercised.";
+    }
 
     reset_done.notify(RESET_DONE_SLOT);
 
-    int status;
-    waitpid(p2, &status, 0);
-    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally.";
-    EXPECT_EQ(WEXITSTATUS(status), EXIT_SUCCESS_CODE)
-        << "P2 failed to recreate Cluster after warm reset while P1 held stale FDs.";
+    // Bounded reap so a stuck P2 can't hang the test.
+    int status = 0;
+    if (!wait_for_child(p2, &status, P2_REBUILD_WATCHDOG_S)) {
+        terminate_processes({p1, p2});
+        FAIL() << "P2 did not finish teardown+rebuild within " << P2_REBUILD_WATCHDOG_S << "s; treating as a hang.";
+    }
+
+    EXPECT_TRUE(WIFEXITED(status)) << "P2 did not exit normally (killed by signal or crashed).";
+    if (WIFEXITED(status)) {
+        const int rc = WEXITSTATUS(status);
+        EXPECT_EQ(rc, EXIT_SUCCESS_CODE) << "P2 did not recover after warm reset (exit code " << rc << "): "
+                                         << (rc == EXIT_TIMEOUT_CODE    ? "never received the reset-done signal"
+                                             : rc == EXIT_TEARDOWN_CODE ? "destroying the pre-reset Cluster threw"
+                                             : rc == EXIT_FAILURE_CODE
+                                                 ? "failed to recreate Cluster while P1 held stale FDs"
+                                                 : "unknown failure");
+    }
 
     terminate_processes({p1});
 }

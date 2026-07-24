@@ -66,7 +66,7 @@ void SmBusArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::millis
     auto start = std::chrono::steady_clock::now();
     constexpr auto poll_interval = std::chrono::milliseconds(10);
 
-    while (read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION) == 0) {
+    while (SmBusArcTelemetryReader::read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION) == 0) {
         if (std::chrono::steady_clock::now() - start > timeout_ms) {
             log_warning(
                 tt::LogUMD, "Timeout waiting for SMBus telemetry initialization (FW_BUNDLE_VERSION not populated).");

@@ -89,7 +89,7 @@ int tt_device_close(tt_device_t* dev) {
     return 0;
 }
 
-int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value) {
+int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs) {
     struct tenstorrent_get_device_info get_device_info = {0};
 
     get_device_info.in.output_size_bytes = sizeof(get_device_info.out);
@@ -105,42 +105,69 @@ int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out
         arch = TT_DEVICE_ARCH_WORMHOLE;
     }
 
+    out_attrs->pci_domain = get_device_info.out.pci_domain;
+    out_attrs->pci_bus = get_device_info.out.bus_dev_fn >> 8;
+    out_attrs->pci_device = (get_device_info.out.bus_dev_fn >> 3) & 0x1F;
+    out_attrs->pci_function = get_device_info.out.bus_dev_fn & 0x07;
+    out_attrs->pci_vendor_id = get_device_info.out.vendor_id;
+    out_attrs->pci_device_id = get_device_info.out.device_id;
+    out_attrs->pci_subsystem_vendor_id = get_device_info.out.subsystem_vendor_id;
+    out_attrs->pci_subsystem_id = get_device_info.out.subsystem_id;
+    out_attrs->chip_arch = arch;
+    out_attrs->num_1m_tlbs = TLB_COUNT_1M[arch];
+    out_attrs->num_2m_tlbs = TLB_COUNT_2M[arch];
+    out_attrs->num_16m_tlbs = TLB_COUNT_16M[arch];
+    out_attrs->num_4g_tlbs = TLB_COUNT_4G[arch];
+
+    return 0;
+}
+
+int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value) {
+    tt_device_attrs_t attrs = {0};
+    int ret = tt_device_get_attrs(dev, &attrs);
+    if (ret != 0) {
+        return ret;
+    }
+
     switch (attr) {
         case TT_DEVICE_ATTR_PCI_DOMAIN:
-            *out_value = get_device_info.out.pci_domain;
+            *out_value = attrs.pci_domain;
             break;
         case TT_DEVICE_ATTR_PCI_BUS:
-            *out_value = get_device_info.out.bus_dev_fn >> 8;
+            *out_value = attrs.pci_bus;
             break;
         case TT_DEVICE_ATTR_PCI_DEVICE:
-            *out_value = (get_device_info.out.bus_dev_fn >> 3) & 0x1F;
+            *out_value = attrs.pci_device;
             break;
         case TT_DEVICE_ATTR_PCI_FUNCTION:
-            *out_value = get_device_info.out.bus_dev_fn & 0x07;
+            *out_value = attrs.pci_function;
             break;
         case TT_DEVICE_ATTR_PCI_VENDOR_ID:
-            *out_value = get_device_info.out.vendor_id;
+            *out_value = attrs.pci_vendor_id;
             break;
         case TT_DEVICE_ATTR_PCI_DEVICE_ID:
-            *out_value = get_device_info.out.device_id;
+            *out_value = attrs.pci_device_id;
+            break;
+        case TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID:
+            *out_value = attrs.pci_subsystem_vendor_id;
             break;
         case TT_DEVICE_ATTR_PCI_SUBSYSTEM_ID:
-            *out_value = get_device_info.out.subsystem_id;
+            *out_value = attrs.pci_subsystem_id;
             break;
         case TT_DEVICE_ATTR_CHIP_ARCH:
-            *out_value = arch;
+            *out_value = attrs.chip_arch;
             break;
         case TT_DEVICE_ATTR_NUM_1M_TLBS:
-            *out_value = TLB_COUNT_1M[arch];
+            *out_value = attrs.num_1m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_2M_TLBS:
-            *out_value = TLB_COUNT_2M[arch];
+            *out_value = attrs.num_2m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_16M_TLBS:
-            *out_value = TLB_COUNT_16M[arch];
+            *out_value = attrs.num_16m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_4G_TLBS:
-            *out_value = TLB_COUNT_4G[arch];
+            *out_value = attrs.num_4g_tlbs;
             break;
         default:
             return -EINVAL;

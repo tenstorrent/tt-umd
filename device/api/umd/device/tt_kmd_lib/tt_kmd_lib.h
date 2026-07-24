@@ -71,7 +71,30 @@ enum tt_device_attr {
     TT_DEVICE_ATTR_NUM_2M_TLBS = 9,
     TT_DEVICE_ATTR_NUM_16M_TLBS = 10,
     TT_DEVICE_ATTR_NUM_4G_TLBS = 11,
+    TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID = 12,
 };
+
+/**
+ * @brief All queryable attributes of a Tenstorrent device.
+ *
+ * Retrieved in a single call via `tt_device_get_attrs()`. Each field
+ * corresponds to a value of `enum tt_device_attr`.
+ */
+typedef struct tt_device_attrs_t {
+    uint64_t pci_domain;              /**< TT_DEVICE_ATTR_PCI_DOMAIN */
+    uint64_t pci_bus;                 /**< TT_DEVICE_ATTR_PCI_BUS */
+    uint64_t pci_device;              /**< TT_DEVICE_ATTR_PCI_DEVICE */
+    uint64_t pci_function;            /**< TT_DEVICE_ATTR_PCI_FUNCTION */
+    uint64_t pci_vendor_id;           /**< TT_DEVICE_ATTR_PCI_VENDOR_ID */
+    uint64_t pci_device_id;           /**< TT_DEVICE_ATTR_PCI_DEVICE_ID */
+    uint64_t pci_subsystem_vendor_id; /**< TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID */
+    uint64_t pci_subsystem_id;        /**< TT_DEVICE_ATTR_PCI_SUBSYSTEM_ID */
+    uint64_t chip_arch;               /**< TT_DEVICE_ATTR_CHIP_ARCH; see `enum tt_device_arch` */
+    uint64_t num_1m_tlbs;             /**< TT_DEVICE_ATTR_NUM_1M_TLBS */
+    uint64_t num_2m_tlbs;             /**< TT_DEVICE_ATTR_NUM_2M_TLBS */
+    uint64_t num_16m_tlbs;            /**< TT_DEVICE_ATTR_NUM_16M_TLBS */
+    uint64_t num_4g_tlbs;             /**< TT_DEVICE_ATTR_NUM_4G_TLBS */
+} tt_device_attrs_t;
 
 /**
  * @brief Queryable attributes of the Tenstorrent driver.
@@ -134,6 +157,19 @@ int tt_device_close(tt_device_t* dev);
  * @return 0 on success, error code on failure
  */
 int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value);
+
+/**
+ * @brief Query all device attributes at once.
+ *
+ * Retrieves every attribute in `enum tt_device_attr` with a single device
+ * query, filling out `out_attrs`. This is more efficient than issuing a
+ * separate `tt_device_get_attr()` call per attribute.
+ *
+ * @param dev Device handle
+ * @param out_attrs Populated with the device's attributes on success
+ * @return 0 on success, error code on failure
+ */
+int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs);
 
 /**
  * @brief Query driver attributes.

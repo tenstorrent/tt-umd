@@ -170,26 +170,33 @@ static std::optional<int> get_physical_slot_for_pcie_bdf(const std::string &targ
     return std::nullopt;
 }
 
-PciDeviceInfo PCIDevice::read_device_info(int fd) {
-    tenstorrent_get_device_info info{};
-    info.in.output_size_bytes = sizeof(info.out);
-
-    if (ioctl(fd, TENSTORRENT_IOCTL_GET_DEVICE_INFO, &info) < 0) {
-        UMD_THROW(error::RuntimeError, "TENSTORRENT_IOCTL_GET_DEVICE_INFO failed.");
+PciDeviceInfo PCIDevice::read_device_info(const std::string &device_path) {
+    tt_device_t *dev_handle = nullptr;
+    int err = tt_device_open(device_path.c_str(), &dev_handle, O_APPEND);
+    if (err != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to open device {}: {}", device_path, strerror(-err)));
     }
 
-    uint16_t bus = info.out.bus_dev_fn >> 8;
-    uint16_t dev = (info.out.bus_dev_fn >> 3) & 0x1F;
-    uint16_t fn = info.out.bus_dev_fn & 0x07;
+    tt_device_attrs_t attrs{};
+    err = tt_device_get_attrs(dev_handle, &attrs);
+    tt_device_close(dev_handle);
+    if (err != 0) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Failed to read device info for {}: {}", device_path, strerror(-err)));
+    }
 
-    std::string pci_bdf = get_pci_bdf(info.out.pci_domain, bus, dev, fn);
+    uint16_t bus = static_cast<uint16_t>(attrs.pci_bus);
+    uint16_t dev = static_cast<uint16_t>(attrs.pci_device);
+    uint16_t fn = static_cast<uint16_t>(attrs.pci_function);
+
+    std::string pci_bdf = get_pci_bdf(static_cast<uint16_t>(attrs.pci_domain), bus, dev, fn);
 
     return PciDeviceInfo{
-        info.out.vendor_id,
-        info.out.device_id,
-        info.out.subsystem_vendor_id,
-        info.out.subsystem_id,
-        info.out.pci_domain,
+        static_cast<uint16_t>(attrs.pci_vendor_id),
+        static_cast<uint16_t>(attrs.pci_device_id),
+        static_cast<uint16_t>(attrs.pci_subsystem_vendor_id),
+        static_cast<uint16_t>(attrs.pci_subsystem_id),
+        static_cast<uint16_t>(attrs.pci_domain),
         bus,
         dev,
         fn,
@@ -352,17 +359,10 @@ std::vector<int> PCIDevice::sort_ids_based_on_bdf(const std::vector<int> &pci_de
 std::map<int, PciDeviceInfo> PCIDevice::enumerate_devices_info() {
     std::map<int, PciDeviceInfo> infos;
     for (int n : PCIDevice::enumerate_devices()) {
-        int fd = open(fmt::format("/dev/tenstorrent/{}", n).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
-        if (fd == -1) {
-            continue;
-        }
-
         try {
-            infos[n] = read_device_info(fd);
+            infos[n] = read_device_info(fmt::format("/dev/tenstorrent/{}", n));
         } catch (...) {
         }
-
-        close(fd);
     }
     return infos;
 }
@@ -387,7 +387,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
     pci_device_file_desc(open_pci_device(device_path)),
-    info(read_device_info(pci_device_file_desc)),
+    info(read_device_info(device_path)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
@@ -913,13 +913,7 @@ void PCIDevice::send_reset_ioctl_to_devices(
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
-    int fd = open_pci_device(fmt::format("/dev/tenstorrent/{}", pci_device_num));
-    if (fd == -1) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Could not open file descriptor for PCI device number {}.", pci_device_num));
-    }
-    auto device_info = read_device_info(fd);
+    auto device_info = read_device_info(fmt::format("/dev/tenstorrent/{}", pci_device_num));
 
     auto command_byte = try_read_config_byte(device_info, 4);
     if (!command_byte) {
@@ -1098,19 +1092,12 @@ std::map<std::string, int> PCIDevice::get_bdf_to_device_id_map() {
     std::map<std::string, int> bdf_to_device_id;
 
     for (int device_id : get_all_device_ids()) {
-        int fd = open(fmt::format("/dev/tenstorrent/{}", device_id).c_str(), O_RDWR | O_CLOEXEC | O_APPEND);
-        if (fd == -1) {
-            continue;
-        }
-
         try {
-            PciDeviceInfo device_info = read_device_info(fd);
+            PciDeviceInfo device_info = read_device_info(fmt::format("/dev/tenstorrent/{}", device_id));
             bdf_to_device_id[device_info.pci_bdf] = device_id;
         } catch (...) {
             // Ignore failed reads and continue with next device.
         }
-
-        close(fd);
     }
 
     return bdf_to_device_id;

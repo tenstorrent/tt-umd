@@ -375,18 +375,52 @@ std::optional<int> PCIDevice::get_pci_device_id(int umd_logical_id) {
     return enumerated_ids[umd_logical_id];
 }
 
-static int open_pci_device(const std::string &device_path) {
+static int open_pci_device(const std::string &device_path, bool exclusive = false) {
     // O_APPEND is temporarily disabled to investigate NOC1 issues. See
     // https://github.com/tenstorrent/tt-umd/issues/2531.
-    int flags = O_RDWR | O_CLOEXEC;
+    //
+    // KMD (tt-kmd#241) exposes O_EXCL exclusive-open semantics on the chardev:
+    //   O_RDWR                       -> -EBUSY while another fd holds O_EXCL
+    //   O_RDWR | O_EXCL              -> blocks (interruptibly) until idle, then takes ownership
+    //   O_RDWR | O_EXCL | O_NONBLOCK -> -EAGAIN if not immediately acquirable
+    // We open non-blocking first and only fall back to a blocking wait when the
+    // device is actually in use, so the common case stays silent and fast.
+    int base_flags = O_RDWR | O_CLOEXEC;
+    if (exclusive) {
+        base_flags |= O_EXCL;
+    }
+
     log_debug(LogUMD, fmt::format("Opening device {} in legacy mode regarding device power.", device_path));
-    return open(device_path.c_str(), flags);
+
+    // Fast path: try non-blocking. Stay silent on success.
+    int fd = open(device_path.c_str(), base_flags | O_NONBLOCK);
+    if (fd == -1 && (errno == EAGAIN || errno == EBUSY)) {
+        // Held by another owner (or, when we requested O_EXCL, still busy). EAGAIN and
+        // EBUSY are handled identically: warn once, then block (interruptibly) until idle.
+        log_warning(LogUMD, "Device {} is in use by another process; waiting for it to become available.", device_path);
+        fd = open(device_path.c_str(), base_flags);  // blocking, interruptible (no O_NONBLOCK)
+    }
+
+    if (fd == -1) {
+        // Any other errno, or failure of the blocking re-open (including EINTR) -> fail fast.
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Failed to open device {}: {} (errno {}).", device_path, strerror(errno), errno));
+    }
+
+    // Normalize the descriptor: clear O_NONBLOCK so the fast path and the blocking path
+    // return fds with identical flag state (UMD only uses the fd for ioctl/mmap).
+    int fl = fcntl(fd, F_GETFL);
+    if (fl != -1) {
+        fcntl(fd, F_SETFL, fl & ~O_NONBLOCK);
+    }
+    return fd;
 }
 
-PCIDevice::PCIDevice(int pci_device_number) :
+PCIDevice::PCIDevice(int pci_device_number, bool exclusive) :
     device_path(fmt::format("/dev/tenstorrent/{}", pci_device_number)),
     pci_device_num(pci_device_number),
-    pci_device_file_desc(open_pci_device(device_path)),
+    pci_device_file_desc(open_pci_device(device_path, exclusive)),
     info(read_device_info(pci_device_file_desc)),
     numa_node(read_sysfs<int>(info, "numa_node", -1)),  // default to -1 if not found
     revision(read_sysfs<int>(info, "revision")),
@@ -913,11 +947,13 @@ void PCIDevice::send_reset_ioctl_to_devices(
 }
 
 uint8_t PCIDevice::read_command_byte(const int pci_device_num) {
-    int fd = open_pci_device(fmt::format("/dev/tenstorrent/{}", pci_device_num));
-    if (fd == -1) {
+    int fd;
+    try {
+        fd = open_pci_device(fmt::format("/dev/tenstorrent/{}", pci_device_num));
+    } catch (const std::exception &e) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Could not open file descriptor for PCI device number {}.", pci_device_num));
+            fmt::format("Could not open file descriptor for PCI device number {}: {}", pci_device_num, e.what()));
     }
     auto device_info = read_device_info(fd);
 

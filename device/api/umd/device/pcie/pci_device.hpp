@@ -162,8 +162,12 @@ public:
      * sysfs, and maps device memory region(s) into the process address space.
      *
      * @param pci_device_number     N in /dev/tenstorrent/N
+     * @param exclusive             When true, open the device with O_EXCL to take exclusive
+     *                              ownership (waiting, interruptibly, until the device is idle).
+     *                              When false (default), open shared but wait if another process
+     *                              currently holds the device exclusively.
      */
-    PCIDevice(int pci_device_number);
+    PCIDevice(int pci_device_number, bool exclusive = false);
 
     /**
      * PCIDevice destructor.

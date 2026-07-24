@@ -143,7 +143,8 @@ void bind_topology_discovery(nb::module_& m) {
         .def_rw("perform_6u_eth_retrain", &TopologyDiscoveryOptions::perform_6u_eth_retrain)
         // Low power mode is temporarily disabled. See https://github.com/tenstorrent/tt-umd/issues/2531.
         .def_rw("low_power", &TopologyDiscoveryOptions::low_power)
-        .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api);
+        .def_rw("use_safe_api", &TopologyDiscoveryOptions::use_safe_api)
+        .def_rw("open_devices_exclusively", &TopologyDiscoveryOptions::open_devices_exclusively);
 
     nb::class_<TopologyDiscovery>(m, "TopologyDiscovery")
         .def_static(

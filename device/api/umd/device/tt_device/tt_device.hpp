@@ -81,6 +81,8 @@ public:
      *                     Available only for PCIe I/O device type. (default: false)
      * @param soc_arch_descriptor Shared pointer to the SoC architecture descriptor.
      *                            If nullptr, a default descriptor will be used. (default: nullptr)
+     * @param exclusive    When true, open the underlying PCIe device with O_EXCL to take exclusive
+     *                     ownership. Available only for PCIe I/O device type. (default: false)
      *
      * @return std::unique_ptr<TTDevice> A unique pointer to the created TTDevice instance.
      *
@@ -90,7 +92,8 @@ public:
         int device_number,
         IODeviceType device_type = IODeviceType::PCIe,
         bool use_safe_api = false,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr);
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor = nullptr,
+        bool exclusive = false);
 
     static std::unique_ptr<TTDevice> create(
         std::unique_ptr<RemoteCommunication> remote_communication,

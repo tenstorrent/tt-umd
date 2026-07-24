@@ -95,5 +95,13 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    /**
+     * @brief If true, devices are opened exclusively (O_EXCL), taking exclusive ownership and
+     * waiting (interruptibly) until any current owner releases the device. Matches the KMD
+     * exclusive-open contract (tt-kmd#241) used by tools such as tt-flash for flash + reset.
+     * Defaults to false.
+     */
+    bool open_devices_exclusively = false;
 };
 }  // namespace tt::umd

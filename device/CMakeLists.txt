@@ -140,7 +140,6 @@ target_sources(
         tt_device/remote_communication_legacy_firmware.cpp
         jtag/jtag_device.cpp
         jtag/jtag.cpp
-        tt_kmd_lib/tt_kmd_lib.c
         arc/wormhole_spi_tt_device.cpp
         arc/blackhole_spi_tt_device.cpp
         # UNIX domain socket (asio, already a core dependency) + filesystem; no simulation deps,
@@ -219,7 +218,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/utils/lock_manager.hpp
                 api/umd/device/utils/kmd_versions.hpp
                 api/umd/device/pcie/pci_device.hpp
-                api/umd/device/pcie/pci_ids.h
                 api/umd/device/pcie/tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_handle.hpp
                 api/umd/device/pcie/silicon_tlb_window.hpp
@@ -302,7 +300,6 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/wormhole_implementation.hpp
                 api/umd/device/jtag/jtag_device.hpp
                 api/umd/device/jtag/jtag.hpp
-                api/umd/device/tt_kmd_lib/tt_kmd_lib.h
                 api/umd/device/arch/grendel_implementation.hpp
                 api/umd/device/arc/spi_tt_device.hpp
     )
@@ -332,6 +329,8 @@ target_link_libraries(
 )
 
 target_link_libraries(tt-umd PRIVATE umd_asio_lib)
+
+target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 check_function_exists(
     backtrace

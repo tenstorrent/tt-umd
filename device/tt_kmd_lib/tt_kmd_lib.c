@@ -456,6 +456,45 @@ int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr) {
     return 0;
 }
 
+int tt_allocate_dma_buf(
+    tt_device_t* dev,
+    uint8_t buf_index,
+    size_t size,
+    int flags,
+    void** out_mapping,
+    uint64_t* out_dma_addr,
+    uint64_t* out_noc_addr) {
+    struct tenstorrent_allocate_dma_buf dma_buf = {0};
+    dma_buf.in.requested_size = (uint32_t)size;
+    dma_buf.in.buf_index = buf_index;
+    dma_buf.in.flags = 0;
+
+    if (flags & TT_DMA_FLAG_NOC) {
+        dma_buf.in.flags |= TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA;
+    }
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
+        return -errno;
+    }
+
+    void* mapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, dma_buf.out.mapping_offset);
+    if (mapping == MAP_FAILED) {
+        return -errno;
+    }
+
+    *out_mapping = mapping;
+
+    if (out_dma_addr) {
+        *out_dma_addr = dma_buf.out.physical_address;
+    }
+
+    if (out_noc_addr && (flags & TT_DMA_FLAG_NOC)) {
+        *out_noc_addr = dma_buf.out.noc_address;
+    }
+
+    return 0;
+}
+
 int tt_tlb_alloc(tt_device_t* dev, size_t size, enum tt_tlb_cache_mode cache, tt_tlb_t** out_tlb) {
     struct tt_tlb_t* tlb = malloc(sizeof(struct tt_tlb_t));
 

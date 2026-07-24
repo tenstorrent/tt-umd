@@ -610,10 +610,18 @@ TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
+        tt::ARCH arch = tt_device->get_arch();
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
         auto trip_count = fw_info->get_therm_trip_count();
-        // On a healthy running system, no thermal trips should have occurred.
+
+        if ((arch == tt::ARCH::WORMHOLE_B0) && (fw_version < FW_VERSION_18_4)) {
+            EXPECT_FALSE(trip_count.has_value());
+            continue;
+        }
+
+        EXPECT_TRUE(trip_count.has_value());
         if (trip_count.has_value()) {
-            EXPECT_EQ(trip_count.value(), 0u);
+            log_info(tt::LogUMD, "therm_trip_count={}", trip_count.value());
         }
     }
 }

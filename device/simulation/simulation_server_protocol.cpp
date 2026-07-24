@@ -55,24 +55,6 @@ std::vector<uint8_t> encode(const SimulationServerResponse& response) {
     return to_bytes(builder);
 }
 
-std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info) {
-    flatbuffers::FlatBufferBuilder builder;
-    auto yaml = builder.CreateString(device_info.soc_descriptor_yaml);
-    builder.Finish(wire::CreateSimulationServerDeviceInfo(
-        builder,
-        device_info.status,
-        device_info.arch,
-        static_cast<wire::SimulationBackendType>(device_info.backend_type),
-        yaml,
-        device_info.noc_translation_enabled,
-        device_info.tensix_harvesting_mask,
-        device_info.dram_harvesting_mask,
-        device_info.eth_harvesting_mask,
-        device_info.l2cpu_harvesting_mask,
-        device_info.pcie_harvesting_mask));
-    return to_bytes(builder);
-}
-
 SimulationServerRequest decode_request(const uint8_t* data, size_t size) {
     const auto* fb = verify_and_get_root<wire::SimulationServerRequest>(data, size, "request");
     SimulationServerRequest request;
@@ -97,34 +79,12 @@ SimulationServerResponse decode_response(const uint8_t* data, size_t size) {
     return response;
 }
 
-SimulationServerDeviceInfo decode_device_info(const uint8_t* data, size_t size) {
-    const auto* fb = verify_and_get_root<wire::SimulationServerDeviceInfo>(data, size, "device info");
-    SimulationServerDeviceInfo info;
-    info.status = fb->status();
-    info.arch = fb->arch();
-    info.backend_type = static_cast<SimulationBackendType>(fb->backend_type());
-    if (fb->soc_descriptor_yaml() != nullptr) {
-        info.soc_descriptor_yaml = fb->soc_descriptor_yaml()->str();
-    }
-    info.noc_translation_enabled = fb->noc_translation_enabled();
-    info.tensix_harvesting_mask = fb->tensix_harvesting_mask();
-    info.dram_harvesting_mask = fb->dram_harvesting_mask();
-    info.eth_harvesting_mask = fb->eth_harvesting_mask();
-    info.l2cpu_harvesting_mask = fb->l2cpu_harvesting_mask();
-    info.pcie_harvesting_mask = fb->pcie_harvesting_mask();
-    return info;
-}
-
 SimulationServerRequest decode_request(const std::vector<uint8_t>& bytes) {
     return decode_request(bytes.data(), bytes.size());
 }
 
 SimulationServerResponse decode_response(const std::vector<uint8_t>& bytes) {
     return decode_response(bytes.data(), bytes.size());
-}
-
-SimulationServerDeviceInfo decode_device_info(const std::vector<uint8_t>& bytes) {
-    return decode_device_info(bytes.data(), bytes.size());
 }
 
 }  // namespace tt::umd

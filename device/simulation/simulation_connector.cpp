@@ -37,9 +37,9 @@ std::unique_ptr<TTDevice> create_simulation_device(
     if (socket == nullptr) {
         auto client = std::make_unique<SimulationClient>(socket_path);
         if (is_ttsim) {
-            return TTSimTTDevice::create_client(chip_id, std::move(client));
+            return TTSimTTDevice::create_client(simulator_directory, chip_id, std::move(client));
         }
-        return RtlSimulationTTDevice::create_client(chip_id, std::move(client));
+        return RtlSimulationTTDevice::create_client(simulator_directory, chip_id, std::move(client));
     }
 
     if (is_ttsim) {

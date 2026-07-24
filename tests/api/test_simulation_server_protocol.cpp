@@ -93,39 +93,3 @@ TEST(SimulationServerProtocol, DecodeTruncatedBufferThrows) {
 
     EXPECT_THROW(decode_request(encoded), std::exception);
 }
-
-// GET_DEVICE_INFO round-trips arch, YAML text, and harvesting masks.
-TEST(SimulationServerProtocol, DeviceInfoSerializationRoundTrip) {
-    SimulationServerDeviceInfo info;
-    info.status = 0;
-    info.arch = 2;  // arbitrary tt::ARCH value
-    info.backend_type = SimulationBackendType::Rtl;
-    info.soc_descriptor_yaml = "arch: wormhole_b0\ngrid: [10, 12]\n";
-    info.noc_translation_enabled = false;
-    info.tensix_harvesting_mask = 0x5;
-    info.dram_harvesting_mask = 0x0;
-    info.eth_harvesting_mask = 0x120;
-    info.l2cpu_harvesting_mask = 0x0;
-    info.pcie_harvesting_mask = 0x3;
-
-    const SimulationServerDeviceInfo decoded = decode_device_info(encode(info));
-
-    EXPECT_EQ(decoded.status, info.status);
-    EXPECT_EQ(decoded.arch, info.arch);
-    EXPECT_EQ(decoded.backend_type, info.backend_type);
-    EXPECT_EQ(decoded.soc_descriptor_yaml, info.soc_descriptor_yaml);
-    EXPECT_EQ(decoded.noc_translation_enabled, info.noc_translation_enabled);
-    EXPECT_EQ(decoded.tensix_harvesting_mask, info.tensix_harvesting_mask);
-    EXPECT_EQ(decoded.dram_harvesting_mask, info.dram_harvesting_mask);
-    EXPECT_EQ(decoded.eth_harvesting_mask, info.eth_harvesting_mask);
-    EXPECT_EQ(decoded.l2cpu_harvesting_mask, info.l2cpu_harvesting_mask);
-    EXPECT_EQ(decoded.pcie_harvesting_mask, info.pcie_harvesting_mask);
-}
-
-// The GetDeviceInfo command survives a request round-trip.
-TEST(SimulationServerProtocol, GetDeviceInfoRequestRoundTrip) {
-    SimulationServerRequest request;
-    request.command = SimulationServerCommand::GetDeviceInfo;
-    const SimulationServerRequest decoded = decode_request(encode(request));
-    EXPECT_EQ(decoded.command, SimulationServerCommand::GetDeviceInfo);
-}

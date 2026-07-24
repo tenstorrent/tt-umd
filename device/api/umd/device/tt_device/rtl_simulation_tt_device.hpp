@@ -44,11 +44,10 @@ public:
     static std::unique_ptr<RtlSimulationTTDevice> create(
         const std::filesystem::path& simulator_directory, int num_host_mem_channels = 0);
 
-    // Builds a client-mode device that attaches to a live host and sources its SoC descriptor from
-    // the host over the socket (see the .cpp); discovery uses this when a host already owns the
-    // socket.
+    // Builds a client-mode device that attaches to a live host (see the .cpp for how the SoC
+    // descriptor is sourced); discovery uses this when a host already owns the socket.
     static std::unique_ptr<RtlSimulationTTDevice> create_client(
-        ChipId chip_id, std::unique_ptr<SimulationClient> client);
+        const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client);
 
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
@@ -61,8 +60,6 @@ public:
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
 protected:
-    SimulationBackendType backend_type() const override { return SimulationBackendType::Rtl; }
-
     std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
     void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) override;

@@ -22,7 +22,6 @@
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
-#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -68,15 +67,15 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
 }
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create_client(
-    ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
     UMD_ASSERT(
         client != nullptr,
         error::RuntimeError,
         "Client-mode RtlSimulationTTDevice requires a non-null SimulationClient.");
-    // Source the device identity from the host over the socket -- a client does not read a local
-    // simulator build.
-    const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
-    SocDescriptor soc_descriptor = build_soc_descriptor(info);
+    // The SoC descriptor is read straight from the local simulator build -- the same files the
+    // host used -- so the client can describe the device without loading or running a simulator.
+    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
+    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
     return std::unique_ptr<RtlSimulationTTDevice>(
         new RtlSimulationTTDevice(soc_descriptor, chip_id, std::move(client)));

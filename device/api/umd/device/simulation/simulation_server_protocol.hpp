@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <string>
 #include <vector>
 
 namespace tt::umd {
@@ -27,14 +26,6 @@ namespace tt::umd {
 enum class SimulationServerCommand : int8_t {
     Read = 0,
     Write = 1,
-    GetDeviceInfo = 2,
-};
-
-// Which simulator the host runs; mirrors wire::SimulationBackendType. Served as part of the device
-// identity so a client can build the matching device class without a local simulator build.
-enum class SimulationBackendType : int8_t {
-    TTSim = 0,
-    Rtl = 1,
 };
 
 // A device-memory access request addressed by (core x/y, address, size).
@@ -56,40 +47,16 @@ struct SimulationServerResponse {
     std::vector<uint8_t> data;
 };
 
-// Device identity a host serves in reply to a GetDeviceInfo request; mirrors
-// wire::SimulationServerDeviceInfo. Everything a client needs to build a matching SocDescriptor.
-struct SimulationServerDeviceInfo {
-    // 0 on success; nonzero signals a host-side failure (e.g. the host had no YAML to serve).
-    int32_t status = 0;
-    // tt::ARCH value of the served device.
-    int32_t arch = 0;
-    // Which simulator the host runs, so the client instantiates the matching device class.
-    SimulationBackendType backend_type = SimulationBackendType::TTSim;
-    // Full text of the host's SoC descriptor YAML file, so the client can build a matching one.
-    std::string soc_descriptor_yaml;
-    // Whether the host applies NOC translation.
-    bool noc_translation_enabled = false;
-    // Per-chip harvesting masks (logical-coordinate bitmasks; see HarvestingMasks).
-    uint32_t tensix_harvesting_mask = 0;
-    uint32_t dram_harvesting_mask = 0;
-    uint32_t eth_harvesting_mask = 0;
-    uint32_t l2cpu_harvesting_mask = 0;
-    uint32_t pcie_harvesting_mask = 0;
-};
-
 // Serialize a message to a FlatBuffers payload.
 std::vector<uint8_t> encode(const SimulationServerRequest& request);
 std::vector<uint8_t> encode(const SimulationServerResponse& response);
-std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info);
 
 // Parse a message back from a FlatBuffers payload. The buffer is verified against the schema
 // before any field is read (it comes off a socket, so it may be malformed or truncated); a bad
 // or empty buffer throws error::RuntimeError rather than risking an out-of-bounds read.
 SimulationServerRequest decode_request(const uint8_t* data, size_t size);
 SimulationServerResponse decode_response(const uint8_t* data, size_t size);
-SimulationServerDeviceInfo decode_device_info(const uint8_t* data, size_t size);
 SimulationServerRequest decode_request(const std::vector<uint8_t>& bytes);
 SimulationServerResponse decode_response(const std::vector<uint8_t>& bytes);
-SimulationServerDeviceInfo decode_device_info(const std::vector<uint8_t>& bytes);
 
 }  // namespace tt::umd

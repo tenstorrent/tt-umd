@@ -1053,6 +1053,8 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
 
+bool PCIDevice::is_tlb_dmabuf_export_supported() { return PCIDevice::read_kmd_version() >= KMD_TLB_DMABUF_EXPORT; }
+
 void PCIDevice::set_power_state(bool busy) {
     if (arch != tt::ARCH::BLACKHOLE) {
         return;

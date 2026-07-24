@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -91,6 +93,68 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
 
         value_check++;
     }
+}
+
+TEST_F(TestTlb, TestTlbWindowExportDmabuf) {
+    static constexpr SemVer MIN_KMD_VERSION{2, 10, 0};
+    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << MIN_KMD_VERSION.str();
+    }
+
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    PCIDevice* pci_device = cluster->get_tt_device(chip)->get_pci_device();
+
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    ASSERT_FALSE(tensix_cores.empty());
+    CoreCoord core = tensix_cores.front();
+
+    tlb_data config;
+    config.local_offset = 0;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.x_start = 0;
+    config.y_start = 0;
+    config.noc_sel = 0;
+    config.mcast = 0;
+    config.ordering = tlb_data::Relaxed;
+    config.linked = 0;
+    config.static_vc = 1;
+
+    std::unique_ptr<TlbWindow> tlb_window =
+        std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(two_mb_size, TlbMapping::WC), config);
+
+    int fd = tlb_window->export_dmabuf(0, 0);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
+}
+
+TEST_F(TestTlb, TestClusterExportDmabuf) {
+    static constexpr SemVer MIN_KMD_VERSION{2, 10, 0};
+    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << MIN_KMD_VERSION.str();
+    }
+
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    ASSERT_FALSE(tensix_cores.empty());
+    CoreCoord core = tensix_cores.front();
+
+    int fd = cluster->export_dmabuf(chip, core, 0, two_mb_size);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
 }
 
 TEST_F(TestTlb, TestTlbWindowReuse) {

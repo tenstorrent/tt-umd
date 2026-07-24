@@ -387,6 +387,24 @@ int tt_tlb_map(tt_device_t* dev, tt_tlb_t* tlb, tt_noc_addr_config_t* config);
 int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, uint64_t addr);
 
 /**
+ * @brief Export a TLB window as a dma-buf file descriptor for peer-to-peer PCIe DMA.
+ *
+ * The window must already be configured via `tt_tlb_map()` or `tt_tlb_map_unicast()`. The
+ * returned fd is self-sufficient: it pins the window (and device) by refcount, so it survives
+ * `tt_tlb_free()`, closing the device handle, and even device removal. The caller owns the fd
+ * and must close() it when done; the window is returned to the allocation pool only once the
+ * last export on it is released. Requires tt-kmd >= 2.10.0-rc1 and Linux 5.8+.
+ *
+ * @param dev Device handle
+ * @param tlb TLB window handle from `tt_tlb_alloc()`
+ * @param offset Page-aligned byte offset within the window at which the export begins
+ * @param size Page-aligned byte count to export; 0 means to the end of the window
+ * @param out_fd On success, the dma-buf file descriptor
+ * @return 0 on success, error code on failure
+ */
+int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd);
+
+/**
  * @brief Power flags for use with tt_device_set_power_state().
  */
 enum tt_power_flags {

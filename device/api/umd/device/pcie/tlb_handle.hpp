@@ -54,6 +54,18 @@ public:
 
     virtual tt::ARCH get_arch() const = 0;
 
+    /**
+     * Exports this TLB window as a dma-buf file descriptor for peer-to-peer PCIe DMA
+     * (e.g. import via ibv_reg_dmabuf_mr()). The window must already be configured via
+     * configure(). The caller owns the returned fd and must close() it; closing it releases
+     * the kmd-side pin on this window. offset and size must be page-aligned; size == 0 exports
+     * to the end of the window.
+     *
+     * @param offset Byte offset within the window at which the export begins.
+     * @param size Number of bytes to export; 0 means to the end of the window.
+     */
+    virtual int export_dmabuf(uint64_t offset = 0, uint64_t size = 0) const = 0;
+
 protected:
     /**
      * Protected default constructor - only derived classes can construct.

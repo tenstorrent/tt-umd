@@ -31,12 +31,12 @@ namespace {
 //     simulation sockets               socket in it (one device per socket), sourcing device
 //                                      identity from the host over the wire;
 //   - any other directory          -> host running the RTL backend from that build directory.
-enum class Role { HostTTSim, HostRtl, Client };
+enum class PathKind { HostTTSim, HostRtl, Client };
 
-Role classify(const std::filesystem::path& simulator_path) {
+PathKind classify(const std::filesystem::path& simulator_path) {
     std::error_code ec;
     if (std::filesystem::is_regular_file(simulator_path, ec) && simulator_path.extension() == ".so") {
-        return Role::HostTTSim;
+        return PathKind::HostTTSim;
     }
     UMD_ASSERT(
         std::filesystem::is_directory(simulator_path, ec),
@@ -44,16 +44,16 @@ Role classify(const std::filesystem::path& simulator_path) {
         fmt::format("Simulator path is neither a .so file nor a directory: {}", simulator_path.string()));
     // A directory that holds per-chip simulation sockets means a host is already serving there, so
     // attach as a client; any other directory is an RTL build we host.
-    return SimulationServerSocket::sockets_in_directory(simulator_path).empty() ? Role::HostRtl : Role::Client;
+    return SimulationServerSocket::sockets_in_directory(simulator_path).empty() ? PathKind::HostRtl : PathKind::Client;
 }
 
 // Host path: bring up the in-process backend (the direct hot path) and hand it the socket to serve.
 std::unique_ptr<TTDevice> make_host_device(
-    Role role,
+    PathKind role,
     const std::filesystem::path& simulator_directory,
     int num_host_mem_channels,
     std::unique_ptr<SimulationServerSocket> socket) {
-    if (role == Role::HostTTSim) {
+    if (role == PathKind::HostTTSim) {
         auto device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
         device->adopt_socket(std::move(socket));
         return device;
@@ -83,13 +83,18 @@ std::unique_ptr<TTDevice> make_client_device(
 
 }  // namespace
 
+SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::path& simulator_directory) {
+    // The two host backends collapse to Host for callers that only care host-vs-client.
+    return classify(simulator_directory) == PathKind::Client ? Role::Client : Role::Host;
+}
+
 std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     const std::filesystem::path& simulator_path = options.simulator_directory;
 
-    const Role role = classify(simulator_path);
+    const PathKind role = classify(simulator_path);
 
-    if (role == Role::Client) {
+    if (role == PathKind::Client) {
         // Multi-chip: one client device per per-chip socket in the directory. Chip ids come from
         // the socket names, so they match the host's.
         for (const auto& [chip_id, socket_file] : SimulationServerSocket::sockets_in_directory(simulator_path)) {

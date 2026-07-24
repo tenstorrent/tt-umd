@@ -34,6 +34,11 @@ struct SimulationConnectorOptions {
 //   - any other directory     -> host running the RTL backend from that build directory.
 class SimulationConnector {
 public:
+    // Host vs client, decided from simulator_directory (the two host backends collapse to Host).
+    // Exposed so callers (e.g. Cluster) can branch on the role without duplicating the path logic.
+    enum class Role { Host, Client };
+    static Role role_for(const std::filesystem::path& simulator_directory);
+
     static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationConnectorOptions& options);
 };
 

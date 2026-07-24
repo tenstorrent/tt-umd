@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "hugepage.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -48,6 +49,9 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_connector.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -249,6 +253,12 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
+        if (tt_device != nullptr) {
+            // A device the connector already created (client mode): wrap it rather than building a
+            // new backend. Its SoC descriptor was sourced over the socket, so read it back.
+            SocDescriptor device_soc = tt_device->get_soc_descriptor();
+            return std::make_unique<SimulationChip>(simulator_directory, device_soc, chip_id, std::move(tt_device));
+        }
         if (simulator_directory.extension() == ".so" && cluster_desc->is_chip_remote(chip_id)) {
             return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
         }
@@ -396,6 +406,62 @@ Cluster::Cluster(ClusterOptions options) {
         case ChipType::MOCK:
         case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
+#ifdef TT_UMD_BUILD_SIMULATION
+            // Client simulation Cluster: simulator_directory is a directory of live host sockets, not
+            // a local build. Reconstruct the ClusterDescriptor from the host over the socket, then
+            // let the connector attach one client device per socket (populating tt_devices, which the
+            // chip loop wraps in SimulationChips).
+            if (options.chip_type == ChipType::SIMULATION &&
+                SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Client) {
+                const std::map<ChipId, std::filesystem::path> sockets =
+                    SimulationServerSocket::sockets_in_directory(options.simulator_directory);
+                UMD_ASSERT(
+                    !sockets.empty(),
+                    error::RuntimeError,
+                    fmt::format(
+                        "No simulation sockets found in {}; nothing to attach to.",
+                        options.simulator_directory.string()));
+
+                // Fetch the topology from one host. Empty YAML => the host has no cluster descriptor,
+                // so build a mock from the served device info (mirrors the host's own mock fallback).
+                SimulationClient probe(sockets.begin()->second);
+                const std::string yaml = fetch_cluster_descriptor_yaml(probe);
+                std::unique_ptr<ClusterDescriptor> served;
+                if (!yaml.empty()) {
+                    served = ClusterDescriptor::create_from_yaml_content(yaml);
+                } else {
+                    const SimulationServerDeviceInfo info = fetch_device_info_from_host(probe);
+                    std::unordered_set<ChipId> chip_ids;
+                    for (const auto& [id, socket_path] : sockets) {
+                        chip_ids.insert(id);
+                    }
+                    served = ClusterDescriptor::create_mock_cluster(
+                        chip_ids, static_cast<tt::ARCH>(info.arch), info.noc_translation_enabled);
+                }
+                cluster_desc =
+                    ClusterDescriptor::create_constrained_cluster_descriptor(served.get(), options.target_devices);
+
+                SimulationConnectorOptions connector_options;
+                connector_options.simulator_directory = options.simulator_directory;
+                connector_options.num_host_mem_channels =
+                    static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(0));
+                tt_devices = SimulationConnector::discover(connector_options);
+
+                // Every chip the topology names must have a socket-backed device (single-chip today;
+                // a multichip host will publish one socket per chip). Fail clearly rather than later
+                // trying to build a local backend for a chip that has no socket.
+                for (const ChipId reconciled_chip_id : cluster_desc->get_all_chips()) {
+                    UMD_ASSERT(
+                        tt_devices.count(reconciled_chip_id) != 0,
+                        error::RuntimeError,
+                        fmt::format(
+                            "Cluster descriptor names chip {} but no simulation socket for it was found in {}.",
+                            reconciled_chip_id,
+                            options.simulator_directory.string()));
+                }
+                break;
+            }
+#endif
             if (options.cluster_descriptor == nullptr) {
 #ifdef TT_UMD_BUILD_SIMULATION
                 // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
@@ -562,6 +628,24 @@ Cluster::Cluster(ClusterOptions options) {
                     chip_b,
                     chan_b,
                     mac_b);
+            }
+        }
+    }
+#endif  // TT_UMD_BUILD_SIMULATION
+
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Host simulation Cluster: expose each simulation chip's device on its per-chip socket so a
+    // separate client process (a Cluster pointed at the socket directory) can attach and drive it.
+    // A client Cluster skips this: its simulator_directory is a socket directory (not a .so/RTL
+    // build), so role_for returns Client. Each device serves device-memory I/O plus GET_DEVICE_INFO
+    // and GET_CLUSTER_DESCRIPTOR (handle_request); create() throws if a live host already holds a
+    // chip's socket.
+    if (options.chip_type == ChipType::SIMULATION &&
+        SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Host) {
+        for (const auto& [chip_id, chip] : chips_) {
+            if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
+                sim_device->adopt_socket(
+                    SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id)));
             }
         }
     }

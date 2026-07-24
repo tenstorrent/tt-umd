@@ -143,8 +143,10 @@ if(NOT DEFINED CMAKE_COMPILE_WARNING_AS_ERROR)
     set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 endif()
 
+set(TT_X86_MARCH "x86-64-v3" CACHE STRING "x86_64 architecture passed to -march")
+
 add_compile_options(
-    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
+    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=${TT_X86_MARCH}>"
     -Wall
     -Wno-sign-compare
 )

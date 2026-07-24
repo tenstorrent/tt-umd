@@ -92,8 +92,12 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels) :
+    // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
+    // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
-        simulator_directory, std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
+        simulator_directory,
+        std::make_unique<SimulationSysmemManager>(
+            num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
     // Pass chip_id to the communicator. If the loaded .so supports the multichip
     // multichip ABI (libttsim_create_device_by_id + libttsim_select_device_by_id),
     // the communicator will auto-detect at initialize() time and switch to
@@ -153,6 +157,26 @@ void TTSimTTDevice::initialize_backend() {
 
     init_tlb_allocator(bar0_base);
     setup_cached_tlb_window();
+
+    // Program this chip's outbound iATU exactly as UMD does on silicon (LocalChip::init_pcie_iatus):
+    // one region per host-mem channel, mapping the NOC sysmem window onto this chip's distinct host
+    // base. The simulator honors the iATU at DMA egress, so each chip's DMA lands in its own host
+    // window by address alone -- no per-chip tag. region_size is the channel's actual mapping size
+    // (WH channel 3 is 768 MiB, the rest 1 GiB); configure_iatu_region keeps the region base on the
+    // fixed 1 GiB channel grid (matching SimulationSysmemManager's placement) and uses region_size only
+    // to bound the limit, so a sub-1-GiB channel still starts at the right NOC offset.
+    //
+    // Programmed uniformly for single- and multi-chip: a single-chip sim simply has host_base 0, so
+    // the mapping is an identity and routing degenerates to a no-op -- the init path is identical
+    // regardless of num_chips. Requires a libttsim that models the BAR2 outbound iATU (WH, and BH as
+    // of the multichip work), which is the behaviour of the stable simulator release.
+    if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
+        size_t nch = sysmem_manager_->get_num_host_mem_channels();
+        for (size_t ch = 0; ch < nch; ch++) {
+            HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
+            configure_iatu_region(ch, m.physical_address, m.mapping_size);
+        }
+    }
 }
 
 TTSimTTDevice::TTSimTTDevice(
@@ -337,10 +361,56 @@ ChipInfo TTSimTTDevice::get_chip_info() {
     return chip_info;
 }
 
+void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
+    // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
+    // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
+    // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the
+    // modeled outbound iATU and honors it at DMA egress. `target` is this chip's host base for the
+    // region (per-chip distinct); `base` is the region's offset within the chip's NOC sysmem window.
+    const uint64_t iatu_bar2_off = (arch == tt::ARCH::BLACKHOLE) ? 0x1000 : 0x1200;
+    uint64_t bar2_base = communicator_->pci_config_read32(0, 0x18);
+    bar2_base |= uint64_t(communicator_->pci_config_read32(0, 0x1C)) << 32;
+    bar2_base &= ~15ull;  // strip BAR type/attribute bits, leaving the physical address
+    // Channels sit on a fixed 1 GiB NOC-window grid (matching SimulationSysmemManager's placement),
+    // independent of region_size. region_size is the channel's actual mapping size and only bounds the
+    // limit: keeping base on the grid means a sub-1-GiB channel (WH channel 3 = 768 MiB) still starts at
+    // the right NOC offset (region * 1 GiB) while mapping only its backed range.
+    constexpr uint64_t CHANNEL_STRIDE = 1ULL << 30;
+    const uint64_t base = uint64_t(region) * CHANNEL_STRIDE;  // region offset within the NOC sysmem window
+    const uint64_t limit = base + region_size - 1;
+    // limit and base are written as 32-bit registers (limit hi shares base hi). This holds only while the
+    // top of the region stays within 4 GiB; assert rather than silently truncate if stride/channel count
+    // ever grows past that.
+    UMD_ASSERT(
+        limit < (1ULL << 32),
+        error::RuntimeError,
+        "iATU region exceeds 32-bit base/limit; extend the iATU register writes to cover the high bits.");
+    const uint64_t iatu = bar2_base + iatu_bar2_off + uint64_t(region) * 0x200;
+    auto wr = [&](uint64_t off, uint32_t val) { communicator_->pci_mem_write_bytes(iatu + off, &val, sizeof(val)); };
+    wr(0x04, 0);                       // region_ctrl_2: disable while (re)programming the region
+    wr(0x00, 0);                       // region_ctrl_1
+    wr(0x08, uint32_t(base));          // base lo
+    wr(0x0c, uint32_t(base >> 32));    // base hi
+    wr(0x10, uint32_t(limit));         // limit (low 32b; upper bits share base hi)
+    wr(0x14, uint32_t(target));        // target lo
+    wr(0x18, uint32_t(target >> 32));  // target hi
+    // Note: unlike BlackholeTTDevice::configure_iatu_region we do NOT write limit_hi (0x1c) or
+    // region_ctrl_3 (0x20): the deployed ttsim iATU model does not implement those register offsets
+    // (a write throws UnimplementedFunctionality). It's safe to omit them here -- the region top is
+    // asserted to stay within 4 GiB (limit_hi is always 0) and regions are programmed once at init, not
+    // reprogrammed, so there is no stale-high-bits hazard.
+    wr(0x04, 1u << 31);  // region_ctrl_2 = REGION_EN, written last so the sim validates a complete region
+}
+
 void TTSimTTDevice::initialize_sysmem_functions() {
+    // Register this chip's distinct host window [host_base, host_base+size) so the simulator's host-side
+    // DMA router (dma_route) routes each chip's DMA by address range -- the chip emits a host address
+    // (via its outbound iATU), and the host finds the owning chip by which window contains it.
     communicator_->set_pcie_dma_mem_callbacks(
         [this](uint64_t a, void* p, uint32_t s) { pci_dma_read_bytes(a, p, s); },
-        [this](uint64_t a, const void* p, uint32_t s) { pci_dma_write_bytes(a, p, s); });
+        [this](uint64_t a, const void* p, uint32_t s) { pci_dma_write_bytes(a, p, s); },
+        sysmem_manager_->get_host_base(),
+        sysmem_manager_->get_host_region_size());
 }
 
 void TTSimTTDevice::pci_dma_read_bytes(uint64_t paddr, void* p, uint32_t size) {

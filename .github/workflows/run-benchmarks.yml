@@ -54,6 +54,9 @@ jobs:
       UMD_MICROBENCHMARK_EXPORT_PATH: /tmp/umd_microbenchmark_export
 
     steps:
+      - name: Record run start timestamp
+        run: echo "RUN_TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+
       - name: Cleanup tt-umd dir, and change directory as if we were in a github.repository
         run: |
           rm -rf tt-umd

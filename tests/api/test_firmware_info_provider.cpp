@@ -622,8 +622,6 @@ TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
         EXPECT_TRUE(trip_count.has_value());
         if (trip_count.has_value()) {
             log_info(tt::LogUMD, "therm_trip_count={}", trip_count.value());
-        } else {
-            log_warning(tt::LogUMD, "therm_trip_count not available");
         }
     }
 }

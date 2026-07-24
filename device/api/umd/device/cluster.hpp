@@ -112,6 +112,13 @@ struct ClusterOptions {
     std::filesystem::path simulator_directory = "";
 
     /**
+     * Host SIMULATION chip type only: the directory this host serves its per-chip sockets in.
+     * Empty means allocate a fresh one, so distinct hosts on the same machine never collide; set it
+     * to serve in a specific directory (e.g. one the caller pre-allocated to report to the user).
+     */
+    std::filesystem::path simulator_server_directory = "";
+
+    /**
      * I/O device type to use for the cluster.
      * This determines how the cluster will communicate with the underlying hardware.
      */

@@ -642,10 +642,16 @@ Cluster::Cluster(ClusterOptions options) {
     // chip's socket.
     if (options.chip_type == ChipType::SIMULATION &&
         SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Host) {
+        // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
+        // machine never collide even when they serve the same chip id.
+        const std::filesystem::path server_directory = options.simulator_server_directory.empty()
+                                                           ? SimulationServerSocket::allocate_server_directory()
+                                                           : options.simulator_server_directory;
+        log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
         for (const auto& [chip_id, chip] : chips_) {
             if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
-                sim_device->adopt_socket(
-                    SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id)));
+                sim_device->adopt_socket(SimulationServerSocket::create(
+                    SimulationServerSocket::default_socket_path(server_directory, chip_id)));
             }
         }
     }

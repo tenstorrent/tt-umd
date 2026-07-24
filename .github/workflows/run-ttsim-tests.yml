@@ -67,6 +67,14 @@ jobs:
           fileName: "libttsim_bh.so"
           out-file-path: /tmp/ttsim-bh
 
+      - name: Download ttsim binary (bh_x2)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_bh_x2.so"
+          out-file-path: /tmp/ttsim-bh-x2
+
       - name: Download ttsim binary (qsr)
         uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
         with:
@@ -98,11 +106,12 @@ jobs:
       - name: Prepare sim paths
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2
+          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2
           mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
           mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
           mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
           mv /tmp/ttsim-wh-x2/libttsim_wh_x2.so sim_wh_x2/libttsim.so
+          mv /tmp/ttsim-bh-x2/libttsim_bh_x2.so sim_bh_x2/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
@@ -112,6 +121,12 @@ jobs:
           # and enumerates both the MMIO gateway and the remote chip. Without it, the sim is a single MMIO chip.
           cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/wormhole_N300.yaml \
             sim_wh_x2/cluster_descriptor.yaml
+          # bh_x2 is two Blackhole chips; reuse the per-chip Blackhole soc descriptor.
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x2/soc_descriptor.yaml
+          # Place the P300 cluster descriptor beside the simulator; UMD auto-discovers it (like soc_descriptor.yaml)
+          # and enumerates both MMIO chips. Without it, the sim is a single MMIO chip.
+          cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/blackhole_P300_both_mmio.yaml \
+            sim_bh_x2/cluster_descriptor.yaml
 
       - name: Build UMD api_tests and microbenchmark with simulation support
         run: |
@@ -166,6 +181,25 @@ jobs:
         timeout-minutes: 1
         env:
           TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
+
+      # bh_x2 is the P300 multichip simulator (both Blackhole chips MMIO-capable). The
+      # cluster_descriptor.yaml placed beside the simulator (see "Prepare sim paths") makes UMD
+      # enumerate both chips, so the standard device-IO fixtures run across both MMIO chips and the
+      # simulated inter-chip eth links. The P300 host-DMA routing programs the outbound iATU via BAR2,
+      # which the stable ttsim release models.
+      - name: Run UMD TestDeviceIOFixture on tt-sim blackhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
+        run: |
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.*"
+
+      - name: Run UMD TTSimDeviceIOFixture on tt-sim blackhole x2
+        timeout-minutes: 1
+        env:
+          TT_UMD_SIMULATOR: ${{ github.workspace }}/sim_bh_x2/libttsim.so
         run: |
           tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="TTSimDeviceIOFixture.*"
 

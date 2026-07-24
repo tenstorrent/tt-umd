@@ -253,8 +253,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
         }
         log_info(LogUMD, "Creating Simulation device");
-        return SimulationChip::create(
-            simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
+        // A .so that ships its own cluster_descriptor.yaml is a self-describing multi-MMIO simulator
+        // (e.g. P300 bh_x2): one image hosts several PCIe-visible chips addressed by BDF, so all chips
+        // share one dlopen. Without one (e.g. a single-chip wh/bh .so used across a galaxy cluster), each
+        // chip is a separate simulator instance -- report a single hosted chip so it keeps the per-chip
+        // legacy path instead of being pulled into shared-dlopen BDF mode.
+        const bool sim_self_describes_topology = std::filesystem::exists(
+            SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory));
+        const size_t sim_hosted_chips = sim_self_describes_topology ? cluster_desc->get_number_of_chips() : 1;
+        return SimulationChip::create(simulator_directory, soc_desc, chip_id, sim_hosted_chips, num_host_mem_channels);
 #else
         UMD_THROW(
             error::RuntimeError,

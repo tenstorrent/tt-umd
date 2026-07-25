@@ -160,6 +160,7 @@ if(TT_UMD_BUILD_SIMULATION)
             simulation/simulation_chip.cpp
             simulation/simulation_connector.cpp
             simulation/simulation_server_protocol.cpp
+            simulation/simulation_device_identity.cpp
             simulation/simulation_host.cpp
             simulation/tt_sim_communicator.cpp
             simulation/rtl_sim_communicator.cpp
@@ -267,6 +268,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/simulation_connector.hpp
                 api/umd/device/simulation/simulation_client.hpp
+                api/umd/device/simulation/simulation_device_identity.hpp
+                api/umd/device/simulation/simulation_server_protocol.hpp
                 api/umd/device/simulation/simulation_host.hpp
                 api/umd/device/simulation/tt_sim_communicator.hpp
                 api/umd/device/simulation/rtl_sim_communicator.hpp

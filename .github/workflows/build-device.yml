@@ -10,6 +10,12 @@ on:
         description: 'The timeout for the job in minutes'
         type: number
         default: 30
+      use-sccache:
+        required: false
+        description: >-
+          Enable sccache compiler caching.
+        type: boolean
+        default: true
   # Runs on all standard code-review and integration events: PR, merge queue, and post-merge on main.
   pull_request:
   merge_group:
@@ -155,6 +161,11 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
+      # Env. vars related to SCCache:
+      SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
+      SCCACHE_GHA_VERSION: 1
+      # Only the main branch may write to the sccache; all other branches read only.
+      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
     container:
       # All jobs run on GitHub-hosted runners and pull images directly from ghcr.io.
       image: >-
@@ -167,11 +178,33 @@ jobs:
         'latest' }}
 
     steps:
+      - name: Run sccache-cache
+        if: ${{ inputs.use-sccache }}
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Configure sccache to access GHA cache
+        if: ${{ inputs.use-sccache }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
       - uses: actions/checkout@v6
         with:
           # Clone under tt-umd directory
           path: ${{ env.TT_UMD_DIR }}
           submodules: recursive
+
+      # Unlike build-tests, this workflow checks out (and builds) under
+      # $GITHUB_WORKSPACE/tt-umd, so the basedir must point at the repo root there.
+      # This cuts the absolute paths sccache records, making the cache shareable
+      # with build-tests and other environments (e.g. /localdev) that place tt-umd
+      # at a different absolute path.
+      - name: Export SCCACHE_BASEDIRS
+        if: ${{ inputs.use-sccache }}
+        shell: bash
+        run: echo "SCCACHE_BASEDIRS=${TT_UMD_DIR_SHELL}" >> "$GITHUB_ENV"
 
       - name: Select Compiler
         run: |
@@ -202,12 +235,14 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
               -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
+              -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
               -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -319,6 +354,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
+            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
             -DENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."

@@ -16,8 +16,8 @@ on:
 
 permissions:
   contents: read
+  actions: write
   packages: read
-
 jobs:
   # Ensure the Docker image for CI exists. If the Dockerfile (or its install scripts) changed on
   # this branch the image is rebuilt and pushed with a content-hash tag. Otherwise the existing

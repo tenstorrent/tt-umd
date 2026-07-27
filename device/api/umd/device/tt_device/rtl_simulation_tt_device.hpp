@@ -62,7 +62,7 @@ public:
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 
 protected:
-    SimulationBackendType backend_type() const override { return SimulationBackendType::Rtl; }
+    SimulationBackendType backend_type() const override { return SimulationBackendType::RTL; }
 
     std::unique_ptr<TlbWindow> create_tlb_window(
         int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;

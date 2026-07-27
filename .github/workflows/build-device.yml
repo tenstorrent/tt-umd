@@ -206,7 +206,10 @@ jobs:
       - name: Export SCCACHE_BASEDIRS
         if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
         shell: bash
-        run: echo "SCCACHE_BASEDIRS=${TT_UMD_DIR_SHELL}" >> "$GITHUB_ENV"
+        # Note: TT_UMD_DIR_SHELL can't be used here. It holds the literal string
+        # "$GITHUB_WORKSPACE/tt-umd" and bash does not re-expand the result of an
+        # expansion, so it must be composed from the real env vars instead.
+        run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}/${TT_UMD_DIR}" >> "$GITHUB_ENV"
 
       - name: Select Compiler
         run: |

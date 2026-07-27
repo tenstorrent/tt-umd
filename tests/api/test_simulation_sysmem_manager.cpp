@@ -181,6 +181,40 @@ TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
     EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), pattern.data(), pattern.size()));
 }
 
+// get_mapped_host_ptr resolves a device_io_addr to the in-place host pointer (zero-copy),
+// at the correct within-buffer offset, and returns nullptr for an unmapped address. This is
+// the accessor emule's NOC resolver uses to reach host sysmem in place.
+TEST_P(ApiSimulationSysmemManagerByArch, GetMappedHostPtrResolvesOffsetAndMiss) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
+
+    const size_t buffer_size = 4096;
+    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    ASSERT_NE(buffer, nullptr);
+    const uint64_t device_addr = buffer->get_device_io_addr();
+    ASSERT_GT(device_addr, 0u);
+
+    // Base address resolves to the buffer VA; an interior address to VA + offset.
+    void* base_ptr = sysmem->get_mapped_host_ptr(device_addr, 1);
+    ASSERT_NE(base_ptr, nullptr);
+    EXPECT_EQ(base_ptr, buffer->get_buffer_va());
+
+    const uint64_t kOffset = 128;
+    void* mid_ptr = sysmem->get_mapped_host_ptr(device_addr + kOffset, 1);
+    ASSERT_NE(mid_ptr, nullptr);
+    EXPECT_EQ(mid_ptr, static_cast<uint8_t*>(buffer->get_buffer_va()) + kOffset);
+
+    // The pointer aliases the backing (zero-copy): a write through it is visible via read_mapped_buffer.
+    std::vector<uint8_t> pattern = {0x11, 0x22, 0x33, 0x44};
+    std::memcpy(base_ptr, pattern.data(), pattern.size());
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    ASSERT_TRUE(sysmem->read_mapped_buffer(device_addr, readback.data(), readback.size()));
+    EXPECT_EQ(pattern, readback);
+
+    // A miss (address in no mapped buffer) returns nullptr.
+    EXPECT_EQ(sysmem->get_mapped_host_ptr(/*device_io_addr=*/1, 1), nullptr);
+    EXPECT_EQ(sysmem->get_mapped_host_ptr(device_addr + buffer_size, 1), nullptr);
+}
+
 TEST_P(ApiSimulationSysmemManagerByArch, MultipleMappedBuffersAreIndependent) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 

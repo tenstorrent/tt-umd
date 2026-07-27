@@ -127,23 +127,25 @@ jobs:
           cat /tmp/allocation_spec.yaml
 
 
-      - name: Fetch environment SSH setup script from tt-metal
-        # ttop-create-environment shells into GITHUB_WORKSPACE and runs
-        # .github/scripts/environment-ssh-setup.sh from this repo's tree.
+      - name: Fetch ttop helpers from tt-metal
+        # metal's ttop-*@main composites resolve ./.github/actions/ttop-await-resource
+        # and .github/scripts/environment-ssh-setup.sh against THIS workspace.
         uses: actions/checkout@v4
         with:
           repository: tenstorrent/tt-metal
           sparse-checkout: |
             .github/scripts/environment-ssh-setup.sh
+            .github/actions/ttop-await-resource
           sparse-checkout-cone-mode: false
           path: _tt-metal
           persist-credentials: false
 
-      - name: Install environment SSH setup script
+      - name: Install ttop helpers from tt-metal
         run: |
-          mkdir -p .github/scripts
+          mkdir -p .github/scripts .github/actions
           cp _tt-metal/.github/scripts/environment-ssh-setup.sh .github/scripts/
           chmod +x .github/scripts/environment-ssh-setup.sh
+          cp -R _tt-metal/.github/actions/ttop-await-resource .github/actions/
 
       - name: Create allocation
         id: allocation

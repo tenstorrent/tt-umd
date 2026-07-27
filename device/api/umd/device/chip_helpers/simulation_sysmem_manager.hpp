@@ -62,9 +62,14 @@ public:
     bool write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size);
     bool read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size);
 
-    // Same lookup as write/read_mapped_buffer, but returns the host pointer directly instead of
-    // performing the copy — for callers (e.g. tt-emule's NOC address resolver) whose contract is
-    // to resolve an address to a pointer once and let the caller memcpy. Returns nullptr on a miss.
+    // Zero-copy address→host-pointer lookup (nullptr on a miss). Unlike
+    // write/read_mapped_buffer, which copy, this returns the mapping directly for in-place
+    // access. emule needs it: its NOC address resolver (__emule_resolve_noc_addr) maps a
+    // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
+    // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
+    // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
+    // mapped: the caller must not retain it across an unpin_or_unmap_sysmem()/SysmemBuffer
+    // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
     void* get_mapped_host_ptr(uint64_t device_io_addr, uint32_t size);
 
 protected:

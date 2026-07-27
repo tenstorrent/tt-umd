@@ -100,3 +100,15 @@ jobs:
       packages: read
       actions: read
     uses: ./.github/workflows/regression-check.yml
+
+  # Upload the per-arch export JSONs to the perf SFTP ingest -> Superset. Only on
+  # push to main and manual dispatch (never PRs), to keep experimental data out of
+  # the DB.
+  upload-superset:
+    secrets: inherit
+    needs: run-benchmarks
+    if: ${{ github.event_name != 'pull_request' && needs.run-benchmarks.result == 'success' }}
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/upload-benchmark-superset.yml

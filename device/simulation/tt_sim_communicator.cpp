@@ -46,6 +46,22 @@ TTSimCommunicator::TTSimCommunicator(
     simulator_directory_(simulator_directory), copy_sim_binary_(copy_sim_binary), chip_id_(chip_id) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
+    // Unregister from the process-global DMA routing tables first. The shared simulator may still be
+    // alive (other chips not yet destructed) and could emit a DMA; leaving a stale entry/callback
+    // pointing at this freed communicator would route into freed memory (use-after-free).
+    {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        for (std::size_t i = 0; i < dma_range_count_; i++) {
+            if (dma_ranges_[i].inst == this) {
+                dma_ranges_[i] = dma_ranges_[dma_range_count_ - 1];  // compact: move last into the hole
+                dma_ranges_[--dma_range_count_] = {};
+                break;
+            }
+        }
+        if (callback_instance_ == this) {
+            callback_instance_ = nullptr;
+        }
+    }
     if (multichip_mode_) {
         // Shared dlopen -- decrement refcount. When last communicator
         // destructs, call libttsim_exit (which the deferred shutdown()
@@ -273,26 +289,112 @@ void TTSimCommunicator::advance_clock(uint32_t n_clocks) {
 }
 
 TTSimCommunicator *TTSimCommunicator::callback_instance_ = nullptr;
+std::array<TTSimCommunicator::DmaHostRange, TTSimCommunicator::MAX_DMA_DEVICES> TTSimCommunicator::dma_ranges_{};
+std::size_t TTSimCommunicator::dma_range_count_ = 0;
+std::mutex TTSimCommunicator::dma_ranges_mutex_;
 
-void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t paddr, void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_rd_bytes_callback_) {
-        callback_instance_->pci_dma_mem_rd_bytes_callback_(paddr, p, size);
+// Route a sysmem DMA to the owning MMIO chip by host address: the address the chip emits already went
+// through its outbound iATU (UMD-programmed target = that chip's distinct host base), so we just find
+// the registered host window [host_base, host_base+size) that contains it -- exactly as a host routes a
+// DMA by which pinned region the physical address falls in. Rebase physical_address to the within-window
+// offset (so the per-chip callback sees an offset relative to its own host base, like the single-device
+// case) and return the owning communicator.
+//
+// With 0 or 1 window registered (legacy / single-device, host_base 0), an unmatched address is harmless
+// -- the mapping is an identity, so we fall back to callback_instance_. With more than one window
+// (multichip), an address matching no window means the simulator emitted an out-of-region outbound
+// address that never went through the iATU (e.g. a mapped-buffer arena IOVA, which sits above the
+// channel grid that the iATU covers). We cannot rebase it to the right chip, and silently falling back
+// would deliver it un-rebased to the wrong chip's sysmem. Hard-fail instead; extending iATU coverage to
+// the arena (or routing it explicitly) is the real fix, tracked separately.
+TTSimCommunicator *TTSimCommunicator::dma_route(uint64_t &physical_address) {
+    std::lock_guard<std::mutex> lock(dma_ranges_mutex_);
+    for (std::size_t i = 0; i < dma_range_count_; i++) {
+        const DmaHostRange &range = dma_ranges_[i];
+        if (physical_address >= range.host_base && (physical_address - range.host_base) < range.host_size) {
+            physical_address -= range.host_base;
+            return range.inst;
+        }
+    }
+    UMD_ASSERT(
+        dma_range_count_ <= 1,
+        error::RuntimeError,
+        fmt::format(
+            "TTSim multichip DMA to host address 0x{:x} matches no registered chip window ({} windows registered). "
+            "The simulator passed through an out-of-region outbound address (e.g. a mapped-buffer arena IOVA) that "
+            "the outbound iATU does not cover, so it cannot be routed to the owning chip.",
+            physical_address,
+            dma_range_count_));
+    return callback_instance_;
+}
+
+// Thread-safety note: dma_route() returns a communicator under dma_ranges_mutex_, then the callback is
+// dereferenced here outside the lock. This is safe because DMA callbacks only fire synchronously from
+// the owning chip's own thread while it drives the simulator (advance_clock / pci_mem_* under
+// device_lock_) -- a chip cannot be issuing a DMA and running its own ~TTSimCommunicator (which
+// unregisters the range under the same mutex) at the same time. No other thread holds a reference to
+// the returned instance across the call.
+void TTSimCommunicator::pci_dma_mem_rd_bytes_wrapper(uint64_t physical_address, void *p, uint32_t size) {
+    TTSimCommunicator *dma_cb = dma_route(physical_address);
+    if (dma_cb && dma_cb->pci_dma_mem_rd_bytes_callback_) {
+        dma_cb->pci_dma_mem_rd_bytes_callback_(physical_address, p, size);
     }
 }
 
-void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t paddr, const void *p, uint32_t size) {
-    if (callback_instance_ && callback_instance_->pci_dma_mem_wr_bytes_callback_) {
-        callback_instance_->pci_dma_mem_wr_bytes_callback_(paddr, p, size);
+void TTSimCommunicator::pci_dma_mem_wr_bytes_wrapper(uint64_t physical_address, const void *p, uint32_t size) {
+    TTSimCommunicator *dma_cb = dma_route(physical_address);
+    if (dma_cb && dma_cb->pci_dma_mem_wr_bytes_callback_) {
+        dma_cb->pci_dma_mem_wr_bytes_callback_(physical_address, p, size);
     }
 }
 
 void TTSimCommunicator::set_pcie_dma_mem_callbacks(
     std::function<void(uint64_t, void *, uint32_t)> pfn_pci_dma_mem_rd_bytes,
-    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes) {
+    std::function<void(uint64_t, const void *, uint32_t)> pfn_pci_dma_mem_wr_bytes,
+    uint64_t host_base,
+    uint64_t host_size) {
     std::lock_guard<std::mutex> lock(device_lock_);
     pci_dma_mem_rd_bytes_callback_ = std::move(pfn_pci_dma_mem_rd_bytes);
     pci_dma_mem_wr_bytes_callback_ = std::move(pfn_pci_dma_mem_wr_bytes);
-    callback_instance_ = this;
+    // callback_instance_ and dma_ranges_ are both read by dma_route() under dma_ranges_mutex_, so they
+    // must be written under that same mutex (not device_lock_) to avoid a data race with DMA callbacks.
+    {
+        std::lock_guard<std::mutex> ranges_lock(dma_ranges_mutex_);
+        callback_instance_ = this;
+        // Register this chip's host window for address-range DMA routing (dma_route()). The chip's
+        // outbound iATU targets this window, so DMAs land here by address alone -- no per-chip tag.
+        // Locate any window already registered for this instance so we can update or drop it in place.
+        std::size_t existing = dma_range_count_;
+        for (std::size_t i = 0; i < dma_range_count_; i++) {
+            if (dma_ranges_[i].inst == this) {
+                existing = i;
+                break;
+            }
+        }
+        if (host_size == 0) {
+            // host_size==0 (legacy / single-device) registers no window and relies on the
+            // callback_instance_ fallback. Drop any stale window this instance had registered, so a
+            // re-register with host_size==0 doesn't leave a dangling range that misroutes DMAs.
+            if (existing != dma_range_count_) {
+                dma_ranges_[existing] = dma_ranges_[dma_range_count_ - 1];  // compact: move last into the hole
+                dma_ranges_[--dma_range_count_] = {};
+            }
+        } else if (existing != dma_range_count_) {
+            dma_ranges_[existing] = {host_base, host_size, this};  // re-registration: update in place
+        } else {
+            // New window. Overflowing the table would silently drop this chip's window and let dma_route
+            // fall back to callback_instance_, delivering un-rebased host addresses to the wrong chip's
+            // sysmem -- silent corruption. Make it a hard error instead.
+            UMD_ASSERT(
+                dma_range_count_ < MAX_DMA_DEVICES,
+                error::RuntimeError,
+                fmt::format(
+                    "TTSim DMA host-range table full (MAX_DMA_DEVICES={}); cannot register another chip's "
+                    "host window for DMA routing.",
+                    MAX_DMA_DEVICES));
+            dma_ranges_[dma_range_count_++] = {host_base, host_size, this};
+        }
+    }
     pfn_libttsim_set_pci_dma_mem_callbacks_(pci_dma_mem_rd_bytes_wrapper, pci_dma_mem_wr_bytes_wrapper);
 }
 

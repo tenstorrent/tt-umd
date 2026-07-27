@@ -721,6 +721,13 @@ private:
         int num_host_mem_channels,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<TTDevice> tt_device = nullptr);
+#ifdef TT_UMD_BUILD_SIMULATION
+    // Builds the RemoteChip for a non-MMIO chip in a multichip ttsim cluster. A simulated remote chip has no
+    // ARC/topology discovery, so its RemoteCommunication and TTDevice (carrying the cluster-derived SocDescriptor
+    // and ChipInfo) are constructed here against the MMIO gateway.
+    std::unique_ptr<RemoteChip> create_simulation_remote_chip(
+        ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc);
+#endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);
 

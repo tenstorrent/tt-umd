@@ -22,8 +22,10 @@
 #include "umd/device/simulation/rtl_sim_communicator.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -66,15 +68,15 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
 }
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create_client(
-    const std::filesystem::path& simulator_directory, ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    ChipId chip_id, std::unique_ptr<SimulationClient> client) {
     UMD_ASSERT(
         client != nullptr,
         error::RuntimeError,
         "Client-mode RtlSimulationTTDevice requires a non-null SimulationClient.");
-    // The SoC descriptor is read straight from the local simulator build -- the same files the
-    // host used -- so the client can describe the device without loading or running a simulator.
-    auto soc_desc_path = SimulationChip::get_soc_descriptor_path_from_simulator_path(simulator_directory);
-    SocDescriptor soc_descriptor = SocDescriptor(std::make_shared<SocArchDescriptor>(soc_desc_path));
+    // Source the device identity from the host over the socket -- a client does not read a local
+    // simulator build.
+    const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
+    SocDescriptor soc_descriptor = build_soc_descriptor(info);
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
     return std::unique_ptr<RtlSimulationTTDevice>(
         new RtlSimulationTTDevice(soc_descriptor, chip_id, std::move(client)));
@@ -101,7 +103,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    client_(std::move(client)) {
+    SimulationTTDevice(std::move(client)) {
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
@@ -109,8 +111,8 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
     // create_client() has already validated that client_ is non-null.
-    setup_ = [this] { client_->attach(); };
-    teardown_ = [this] { client_->detach(); };
+    setup_ = [this] { attach_client(); };
+    teardown_ = [this] { detach_client(); };
     setup_();
 }
 
@@ -205,19 +207,20 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
     return false;
 }
 
-void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) {
+void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL) {
-            communicator_->all_tensix_reset_assert(core.x, core.y);
-            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
+            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
             communicator_->all_neo_dms_uncore_reset_assert();
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_assert(core.x, core.y);
+            communicator_->all_neo_dms_reset_assert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
@@ -225,13 +228,13 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
             return;
         }
         if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_assert(core.x, core.y);
+            communicator_->neo_dm_uncore_reset_assert(translated_core.x, translated_core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_assert(core.x, core.y, i);
+                communicator_->neo_dm_reset_assert(translated_core.x, translated_core.y, i);
             }
         }
     }
@@ -243,23 +246,24 @@ void RtlSimulationTTDevice::assert_risc_reset(tt_xy_pair core, const RiscType se
         // In case of Quasar, this won't assert the NEO Data Movement cores, but will assert the Tensix cores.
         // For simplicity, we don't check and try to list all the combinations of selected_riscs arguments, we just
         // always call this command as if reset for all was requested.
-        communicator_->all_tensix_reset_assert(core.x, core.y);
+        communicator_->all_tensix_reset_assert(translated_core.x, translated_core.y);
     }
 }
 
-void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.
     if (get_soc_descriptor().arch == tt::ARCH::QUASAR) {
         if (selected_riscs == RiscType::ALL) {
             communicator_->all_neo_dms_uncore_reset_deassert();
-            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
-            communicator_->all_tensix_reset_deassert(core.x, core.y);
+            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
+            communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS) {
-            communicator_->all_neo_dms_reset_deassert(core.x, core.y);
+            communicator_->all_neo_dms_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         if (selected_riscs == RiscType::ALL_NEO_DMS_UNCORE) {
@@ -267,13 +271,13 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
             return;
         }
         if ((selected_riscs & RiscType::NEO_DM_UNCORE) != RiscType::NONE) {
-            communicator_->neo_dm_uncore_reset_deassert(core.x, core.y);
+            communicator_->neo_dm_uncore_reset_deassert(translated_core.x, translated_core.y);
             return;
         }
         // Check if this is a request per individual DM core reset.
         for (size_t i = 0; i < RISC_TYPES_DMS.size(); ++i) {
             if ((selected_riscs & RISC_TYPES_DMS[i]) != RiscType::NONE) {
-                communicator_->neo_dm_reset_deassert(core.x, core.y, i);
+                communicator_->neo_dm_reset_deassert(translated_core.x, translated_core.y, i);
             }
         }
     }
@@ -281,7 +285,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(tt_xy_pair core, const RiscType 
     if (get_soc_descriptor().arch != tt::ARCH::QUASAR ||
         (selected_riscs & RiscType::ALL_NEO_TRISCS) != RiscType::NONE) {
         // See the comment in assert_risc_reset for more details.
-        communicator_->all_tensix_reset_deassert(core.x, core.y);
+        communicator_->all_tensix_reset_deassert(translated_core.x, translated_core.y);
     }
 }
 
@@ -290,12 +294,12 @@ void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds 
 }
 
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't require Ethernet training.
     return std::chrono::milliseconds(0);
 }
 
-EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     // RTL simulation doesn't require Ethernet training.
     return EthTrainingStatus::SUCCESS;
 }

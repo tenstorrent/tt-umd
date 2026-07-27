@@ -280,23 +280,20 @@ void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
 }
 
-void TTDevice::set_clock_state(DevicePowerState /*state*/) {
+void TTDevice::set_clock_state(TTDevice::PowerState /*state*/, NocId /*noc_id*/) {
     // No-op by default. Backends with a controllable clock (Wormhole, Blackhole) override this to
     // drive AICLK via ARC; backends without one (e.g. simulation) keep the no-op.
 }
 
-void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
+void TTDevice::wait_for_aiclk_value(TTDevice::PowerState power_state, const std::chrono::milliseconds timeout_ms) {
     uint32_t target_aiclk = 0;
     switch (power_state) {
-        case DevicePowerState::BUSY:
+        case TTDevice::PowerState::BUSY:
             target_aiclk = get_max_clock_freq();
             break;
-        case DevicePowerState::LONG_IDLE:
+        case TTDevice::PowerState::IDLE:
             target_aiclk = get_min_clock_freq();
             break;
-        case DevicePowerState::SHORT_IDLE:
-            log_warning(LogUMD, "Skipping AICLK settle wait for SHORT_IDLE clock state.");
-            return;
         default:
             UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
     }

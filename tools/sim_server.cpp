@@ -198,7 +198,7 @@ int cmd_list() {
                 arch = fmt::format(
                     "{}/{}",
                     tt::arch_to_str(static_cast<tt::ARCH>(info.arch)),
-                    info.backend_type == SimulationBackendType::TTSim ? "ttsim" : "rtl");
+                    info.backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl");
             } catch (const std::exception&) {
                 // Socket file present but no live host answering -> stale/unreachable.
             }
@@ -229,7 +229,7 @@ int cmd_kill(int server_index) {
         SimulationClient client(socket_path);
         client.attach();
         SimulationServerRequest request;
-        request.command = SimulationServerCommand::Shutdown;
+        request.command = SimulationServerCommand::SHUTDOWN;
         const SimulationServerResponse response = decode_response(client.transact(encode(request)));
         if (response.status != 0) {
             log_error(tt::LogUMD, "Server {} did not acknowledge shutdown (status {}).", server_index, response.status);

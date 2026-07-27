@@ -82,3 +82,13 @@ echo 'user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/user
 chmod 0440 /etc/sudoers.d/user
 mkdir -p /run/sshd
 grep -q '^StrictModes no' /etc/ssh/sshd_config || echo "StrictModes no" >> /etc/ssh/sshd_config
+
+# OpenMPI with ULFM — must match the exabox runner's launch agent path
+# (/opt/openmpi-v5.0.7-ulfm/bin/prted). Same package metal installs for multihost.
+OMPI_DEB_URL="https://github.com/tenstorrent/ompi/releases/download/v5.0.7/openmpi-ulfm_5.0.7-1_amd64.deb"
+OMPI_DEB_FILE="$(basename "$OMPI_DEB_URL")"
+OMPI_TMP="$(mktemp -d)"
+wget -q -O "${OMPI_TMP}/${OMPI_DEB_FILE}" "${OMPI_DEB_URL}"
+apt-get install -y --no-install-recommends "${OMPI_TMP}/${OMPI_DEB_FILE}"
+rm -rf "${OMPI_TMP}"
+test -x /opt/openmpi-v5.0.7-ulfm/bin/prted

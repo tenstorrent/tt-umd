@@ -611,16 +611,18 @@ TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
         tt::ARCH arch = tt_device->get_arch();
-        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
         auto trip_count = fw_info->get_therm_trip_count();
 
-        if ((arch == tt::ARCH::WORMHOLE_B0) && (fw_version < FW_VERSION_18_4)) {
+        // Thermal trip count is Blackhole-only telemetry. Wormhole firmware never publishes the
+        // THERM_TRIP_COUNT tag, at any bundle version, so the value is always unavailable there.
+        if (arch == tt::ARCH::WORMHOLE_B0) {
             EXPECT_FALSE(trip_count.has_value());
             continue;
         }
 
         EXPECT_TRUE(trip_count.has_value());
         if (trip_count.has_value()) {
+            // The count itself is not asserted: a device may have legitimately tripped before this run.
             log_info(tt::LogUMD, "therm_trip_count={}", trip_count.value());
         }
     }

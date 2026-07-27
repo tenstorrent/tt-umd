@@ -1,0 +1,324 @@
+# Build UMD and run an arbitrary test command on exabox (sc1 / sc4 / sc16).
+# Trigger from the Actions tab: pick hardware, paste a test command, and run.
+name: Run tests on exabox
+
+on:
+  workflow_dispatch:
+    inputs:
+      hardware:
+        description: >-
+          Exabox hardware to allocate (sc1 = 1 Galaxy, sc4 = 4-Galaxy quad,
+          sc16 = 16-Galaxy SC16).
+        required: true
+        type: choice
+        default: sc1
+        options:
+          - sc1
+          - sc4
+          - sc16
+      test-command:
+        description: >-
+          Shell command to run after the cluster is up. The runner has mpirun
+          configured (hostfile /etc/ttop/hostfile). Artifacts live under
+          /home/user/tt-umd on every worker (and on the runner). Example:
+          mpirun --pernode bash -lc 'cd /home/user/tt-umd && ./build/test/umd/api/api_tests'
+        required: true
+        type: string
+      build-type:
+        description: CMake build type
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+          - ASan
+          - TSan
+      ubuntu-docker-version:
+        description: Ubuntu docker image version to build and use as worker image
+        required: true
+        default: ubuntu-22.04
+        type: choice
+        options:
+          - ubuntu-22.04
+          - ubuntu-24.04
+      timeout:
+        description: Per-job timeout in minutes (build and run)
+        required: true
+        default: 120
+        type: number
+      build-wheel:
+        description: Also build and install the Python wheel on workers
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+
+# Inline SKU allocation specs (mirrors tt-metal .github/sku_config.yaml bh_sc{1,4,16}).
+# Kept in-workflow so UMD does not need a full sku_config + extract script.
+env:
+  ARTIFACT_NAME: >-
+    build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  WHEEL_ARTIFACT_NAME: >-
+    wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  ALLOCATION_NAME: ci-umd-${{ github.run_id }}-${{ inputs.hardware }}
+
+jobs:
+  build:
+    secrets: inherit
+    uses: ./.github/workflows/build-tests.yml
+    with:
+      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
+      build-type: ${{ inputs.build-type }}
+      timeout: ${{ fromJSON(inputs.timeout) }}
+      build-wheel: ${{ inputs.build-wheel }}
+
+  run:
+    name: Run on exabox (${{ inputs.hardware }})
+    needs: build
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    runs-on:
+      - exabox-multihost-with-nfs
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Resolve allocation spec for ${{ inputs.hardware }}
+        id: sku
+        # Specs mirror tt-metal .github/sku_config.yaml entries bh_sc1 / bh_sc4 / bh_sc16.
+        # Heredoc bodies sit at the run-block indent so Actions' common-indent strip
+        # leaves a clean YAML document (including nested list indentation).
+        run: |
+          case "${{ inputs.hardware }}" in
+            sc1)
+              cat <<'EOF' > /tmp/allocation_spec.yaml
+          allocationType: Count
+          count: 1
+          EOF
+              ;;
+            sc4)
+              cat <<'EOF' > /tmp/allocation_spec.yaml
+          allocationType: Count
+          count: 4
+          topologyKeys:
+            - exabox.tenstorrent.com/quad
+          EOF
+              ;;
+            sc16)
+              cat <<'EOF' > /tmp/allocation_spec.yaml
+          allocationType: Count
+          count: 16
+          topologyKeys:
+            - exabox.tenstorrent.com/SC16
+          EOF
+              ;;
+            *)
+              echo "::error::Unknown hardware '${{ inputs.hardware }}'"
+              exit 1
+              ;;
+          esac
+          {
+            echo "allocation_spec<<EOF"
+            cat /tmp/allocation_spec.yaml
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Resolved allocation spec for ${{ inputs.hardware }}:"
+          cat /tmp/allocation_spec.yaml
+
+
+      - name: Fetch environment SSH setup script from tt-metal
+        # ttop-create-environment shells into GITHUB_WORKSPACE and runs
+        # .github/scripts/environment-ssh-setup.sh from this repo's tree.
+        uses: actions/checkout@v4
+        with:
+          repository: tenstorrent/tt-metal
+          sparse-checkout: |
+            .github/scripts/environment-ssh-setup.sh
+          sparse-checkout-cone-mode: false
+          path: _tt-metal
+          persist-credentials: false
+
+      - name: Install environment SSH setup script
+        run: |
+          mkdir -p .github/scripts
+          cp _tt-metal/.github/scripts/environment-ssh-setup.sh .github/scripts/
+          chmod +x .github/scripts/environment-ssh-setup.sh
+
+      - name: Create allocation
+        id: allocation
+        uses: tenstorrent/tt-metal/.github/actions/ttop-create-allocation@main
+        timeout-minutes: 120
+        with:
+          allocationName: ${{ env.ALLOCATION_NAME }}
+          namespace: ttop-ci
+          spec: ${{ steps.sku.outputs.allocation_spec }}
+
+      - name: Get allocation configs
+        uses: tenstorrent/tt-metal/.github/actions/ttop-get-allocation-data@main
+        with:
+          allocationName: ${{ env.ALLOCATION_NAME }}
+          allocationNamespace: ttop-ci
+
+      - name: Create test environment
+        uses: tenstorrent/tt-metal/.github/actions/ttop-create-environment@main
+        timeout-minutes: 30
+        with:
+          environmentName: ${{ env.ALLOCATION_NAME }}
+          allocationName: ${{ env.ALLOCATION_NAME }}
+          allocationNamespace: ttop-ci
+          workerRepository: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}
+          workerTag: latest
+          useDevHostMount: "true"
+          sharedVolumeEnabled: "true"
+          path: /etc/ttop
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: /ci/artifacts
+
+      - name: Download wheel artifact
+        if: ${{ inputs.build-wheel }}
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.WHEEL_ARTIFACT_NAME }}
+          path: /ci/artifacts
+
+      - name: Unpack artifacts onto workers
+        run: |
+          set -euo pipefail
+
+          rm -rf /ci/tt-umd
+          cp -r "$GITHUB_WORKSPACE" /ci/tt-umd
+
+          BUILD_ARCHIVE=/ci/artifacts/artifact.tar
+          if [ ! -f "$BUILD_ARCHIVE" ]; then
+            echo "ERROR: expected $BUILD_ARCHIVE"
+            ls -R /ci/artifacts
+            exit 1
+          fi
+
+          # Local copy on the runner (handy for commands that launch from here).
+          sudo rm -rf /home/user/tt-umd
+          sudo mkdir -p /home/user
+          sudo chown "$(id -u):$(id -g)" /home/user
+          cp -r /ci/tt-umd /home/user/
+          tar xf "$BUILD_ARCHIVE" -C /home/user/tt-umd
+
+          # Fan out source + build to every allocated host via NFS + mpirun.
+          mpirun --pernode bash -lc 'rm -rf /home/user/tt-umd && cp -r /ci/tt-umd /home/user/'
+          mpirun --pernode tar xf "$BUILD_ARCHIVE" -C /home/user/tt-umd
+
+          if [ "${{ inputs.build-wheel }}" = "true" ]; then
+            shopt -s nullglob globstar
+            wheels=(/ci/artifacts/tt_umd-*.whl /ci/artifacts/**/tt_umd-*.whl)
+            if [ ${#wheels[@]} -eq 0 ]; then
+              echo "ERROR: build-wheel requested but no tt_umd-*.whl under /ci/artifacts"
+              ls -R /ci/artifacts
+              exit 1
+            fi
+            echo "Installing wheel: ${wheels[0]}"
+            mpirun --pernode bash -lc "python3 -m pip install --force-reinstall '${wheels[0]}'"
+          fi
+
+      - name: Reset cards and validate cluster
+        working-directory: /tmp
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          MAX_RECOVERY_ATTEMPTS=10
+          SYSTEM_HEALTH=/home/user/tt-umd/build/tools/umd/system_health
+          export LD_LIBRARY_PATH=/home/user/tt-umd/build/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+          echo "--- Pre-check: tt-smi visibility on all hosts ---"
+          mpirun --pernode --tag-output \
+            bash -lc '
+              snapshot=$(tt-smi --snapshot_no_tty --snapshot)
+              driver=$(jq -r ".host_info.Driver // \"unknown\"" <<< "$snapshot")
+              tt_smi=$(jq -r ".host_sw_vers.tt_smi // \"unknown\"" <<< "$snapshot")
+              echo "$(hostname): Driver=${driver} tt_smi=${tt_smi}"
+            ' || true
+
+          run_system_health() {
+            mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
+              bash -lc "cd /home/user/tt-umd && '${SYSTEM_HEALTH}'"
+          }
+
+          for attempt in $(seq 1 "$MAX_RECOVERY_ATTEMPTS"); do
+            echo "=== Recovery attempt $attempt of $MAX_RECOVERY_ATTEMPTS ==="
+            reset_success=false
+            validation_success=false
+
+            echo "--- Resetting cards with tt-smi ---"
+            if mpirun --pernode tt-smi -glx_reset; then
+              reset_success=true
+            else
+              echo "WARNING: -glx_reset failed on attempt $attempt, trying tt-smi -r"
+              if mpirun --pernode tt-smi -r; then
+                reset_success=true
+              else
+                echo "WARNING: Reset failed on attempt $attempt"
+              fi
+            fi
+
+            if [ "$reset_success" = true ]; then
+              echo "--- Sleeping 5s after reset to allow links/services to settle ---"
+              sleep 5
+
+              echo "--- Running UMD system_health ---"
+              if run_system_health; then
+                validation_success=true
+              else
+                echo "WARNING: system_health failed on attempt $attempt"
+              fi
+            else
+              echo "WARNING: Skipping system_health because reset failed on attempt $attempt"
+            fi
+
+            if [ "$reset_success" = true ] && [ "$validation_success" = true ]; then
+              echo "SUCCESS: Reset and system_health passed on attempt $attempt"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt "$MAX_RECOVERY_ATTEMPTS" ]; then
+              echo "Sleeping 30s before retry..."
+              sleep 30
+            fi
+          done
+
+          echo "ERROR: Recovery failed after $MAX_RECOVERY_ATTEMPTS attempts"
+          exit 1
+
+      - name: Run test command
+        id: run-test
+        working-directory: /home/user/tt-umd
+        # Pass via env to avoid shell injection from workflow_dispatch input.
+        env:
+          TEST_COMMAND: ${{ inputs.test-command }}
+        run: |
+          set -euo pipefail
+          echo "Running test command:"
+          echo "$TEST_COMMAND"
+          eval "$TEST_COMMAND"
+
+      - name: Delete test environment
+        if: always()
+        uses: tenstorrent/tt-metal/.github/actions/ttop-delete-environment@main
+        with:
+          environmentName: ${{ env.ALLOCATION_NAME }}
+          namespace: ttop-ci
+
+      - name: Delete allocation
+        if: always()
+        uses: tenstorrent/tt-metal/.github/actions/ttop-delete-allocation@main
+        with:
+          allocationName: ${{ env.ALLOCATION_NAME }}
+          namespace: ttop-ci

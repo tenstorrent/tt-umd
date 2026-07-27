@@ -464,6 +464,20 @@ int tt_allocate_dma_buf(
     void** out_mapping,
     uint64_t* out_dma_addr,
     uint64_t* out_noc_addr) {
+    if (!dev || !out_mapping || size == 0) {
+        return -EINVAL;
+    }
+    if (size > UINT32_MAX) {
+        return -EINVAL;
+    }
+    *out_mapping = NULL;
+    if (out_dma_addr) {
+        *out_dma_addr = 0;
+    }
+    if (out_noc_addr) {
+        *out_noc_addr = 0;
+    }
+
     struct tenstorrent_allocate_dma_buf dma_buf = {0};
     dma_buf.in.requested_size = (uint32_t)size;
     dma_buf.in.buf_index = buf_index;
@@ -475,6 +489,9 @@ int tt_allocate_dma_buf(
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
         return -errno;
+    }
+    if (dma_buf.out.size != (uint32_t)size) {
+        return -EIO;
     }
 
     void* mapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, dma_buf.out.mapping_offset);

@@ -1,6 +1,6 @@
 # Build UMD and run an arbitrary test command on exabox (sc1 / sc4 / sc16).
 # Trigger from the Actions tab: pick hardware, paste a test command, and run.
-name: Run tests on exabox
+name: Run hang detection tests on exabox
 
 on:
   workflow_dispatch:

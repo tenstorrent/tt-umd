@@ -18,10 +18,9 @@ on:
           - sc16
       test-command:
         description: >-
-          Shell command to run after the cluster is up. The runner has mpirun
-          configured (hostfile /etc/ttop/hostfile). Artifacts live under
-          /home/user/tt-umd on every worker (and on the runner). Example:
-          mpirun --pernode bash -lc 'cd /home/user/tt-umd && ./build/test/umd/api/api_tests'
+          Shell command run on every allocated host via mpirun --pernode
+          (cwd /home/user/tt-umd, LD_LIBRARY_PATH includes build/lib). Example:
+          ./build/test/umd/galaxy/unit_tests_glx
         required: true
         type: string
       build-type:
@@ -294,15 +293,17 @@ jobs:
 
       - name: Run test command
         id: run-test
-        working-directory: /home/user/tt-umd
         # Pass via env to avoid shell injection from workflow_dispatch input.
+        # mpirun --pernode is applied here so callers only supply the per-host command.
         env:
           TEST_COMMAND: ${{ inputs.test-command }}
+          LD_LIBRARY_PATH: /home/user/tt-umd/build/lib
         run: |
           set -euo pipefail
-          echo "Running test command:"
+          echo "Running on every host via mpirun --pernode:"
           echo "$TEST_COMMAND"
-          eval "$TEST_COMMAND"
+          mpirun --pernode --tag-output -x LD_LIBRARY_PATH -x TEST_COMMAND \
+            bash -lc 'cd /home/user/tt-umd && eval "$TEST_COMMAND"'
 
       - name: Delete test environment
         if: always()

@@ -41,7 +41,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -58,7 +58,7 @@ TEST(ApiTTDeviceTest, BasicTTDeviceIO) {
 
         data_read = std::vector<uint32_t>(data_write.size(), 0);
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -71,7 +71,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
 
@@ -89,7 +89,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
         ASSERT_EQ(data_write1, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -98,7 +98,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -112,7 +112,7 @@ TEST(ApiTTDeviceTest, TTDeviceRegUnalignedThrows) {
         EXPECT_ANY_THROW(tt_device->write_to_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS, 5));
         EXPECT_ANY_THROW(tt_device->read_from_device_reg(&buf, tensix_core, SAFE_IO_L1_ADDRESS, 5));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -120,7 +120,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         BoardType board_type = tt_device->get_board_type();
@@ -130,7 +130,7 @@ TEST(ApiTTDeviceTest, TTDeviceGetBoardType) {
             board_type == BoardType::P150 || board_type == BoardType::P300 || board_type == BoardType::UBB ||
             board_type == BoardType::UBB_BLACKHOLE);
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -145,7 +145,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
@@ -184,7 +184,7 @@ TEST(ApiTTDeviceTest, TTDeviceMultipleThreadsIO) {
         thread0.join();
         thread1.join();
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -252,7 +252,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         for (uint32_t x = xy_start.x; x <= xy_end.x; x++) {
@@ -283,7 +283,7 @@ TEST(ApiTTDeviceTest, MulticastIO) {
             }
         }
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -294,7 +294,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
@@ -324,7 +324,7 @@ TEST(ApiTTDeviceTest, BroadcastIO) {
                                             << " should have received the broadcast write.";
         }
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -332,7 +332,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
         // These methods should work without initialization.
         EXPECT_NO_THROW(tt_device->get_arc_core());

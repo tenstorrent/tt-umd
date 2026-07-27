@@ -273,11 +273,11 @@ RemoteCommunication *TTDevice::get_remote_communication() {
     return get_remote_interface()->get_remote_communication();
 }
 
-void TTDevice::set_power_state(bool busy) {
+void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     if (is_remote_tt_device || !pcie_capabilities_) {
         return;
     }
-    get_pci_device()->set_power_state(busy);
+    get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
 }
 
 void TTDevice::set_clock_state(DevicePowerState /*state*/) {

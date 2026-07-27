@@ -72,6 +72,9 @@ inline std::unique_ptr<Cluster> make_default_test_cluster(ClusterOptions options
         options.num_host_mem_ch_per_mmio_device = needs_sysmem ? get_num_host_ch_for_test() : 0UL;
     }
     if (const char* sim_path = std::getenv("TT_UMD_SIMULATOR")) {
+        // A multichip simulator's topology is auto-discovered by the Cluster from a cluster_descriptor.yaml
+        // placed beside the .so (see SimulationChip::get_cluster_descriptor_path_from_simulator_path); no
+        // test-side env var is needed.
         options = get_default_sim_cluster_options(sim_path, std::nullopt, std::move(options));
     }
     return std::make_unique<Cluster>(options);

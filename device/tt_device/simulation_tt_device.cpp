@@ -6,6 +6,9 @@
 
 #include <fmt/format.h>
 
+#include <cstdint>
+#include <cstring>
+#include <limits>
 #include <tt-logger/tt-logger.hpp>
 
 #include "noc_access.hpp"
@@ -14,6 +17,7 @@
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
@@ -30,7 +34,17 @@ SimulationTTDevice::SimulationTTDevice(
     const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
     simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
 
+SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {}
+
 SimulationTTDevice::~SimulationTTDevice() = default;
+
+void SimulationTTDevice::attach_client() { client_->attach(); }
+
+void SimulationTTDevice::detach_client() {
+    if (client_) {
+        client_->detach();
+    }
+}
 
 void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
     socket_ = std::move(socket);
@@ -40,6 +54,19 @@ void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> so
 
 std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
     const SimulationServerRequest request = decode_request(request_bytes);
+
+    // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
+    // read/write skeleton below (SimulationServerResponse), so it is handled up front.
+    if (request.command == SimulationServerCommand::GetDeviceInfo) {
+        try {
+            return encode(describe_device(get_soc_descriptor(), backend_type()));
+        } catch (const std::exception& e) {
+            log_warning(tt::LogUMD, "Simulation host failed to serve device info: {}", e.what());
+            SimulationServerDeviceInfo info;
+            info.status = -1;
+            return encode(info);
+        }
+    }
 
     // The client already translated the coordinate (translation is stateless and client-side), so
     // pass it through verbatim as LITERAL -- the shared read/write skeleton must not translate
@@ -80,10 +107,25 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_
 
 void SimulationTTDevice::write_to_device(
     const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
-    // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
-    UMD_ASSERT(
-        tlb_allocator_ != nullptr, error::RuntimeError, "Client-mode simulation device I/O is not available yet.");
+    // Client and host are disjoint paths with nothing shared; dispatch on the named role rather
+    // than a bare client_ null-check. Each helper takes device_lock itself (the client path always;
+    // the host path after its is_device_closed() gate), so the lock is never dropped on either.
+    if (client_mode()) {
+        client_write(core, addr, mem_ptr, size);
+    } else {
+        host_write(core, addr, mem_ptr, size);
+    }
+}
+
+void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    if (client_mode()) {
+        client_read(core, addr, mem_ptr, size);
+    } else {
+        host_read(core, addr, mem_ptr, size);
+    }
+}
+
+void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
     }
@@ -99,11 +141,7 @@ void SimulationTTDevice::write_to_device(
     }
 }
 
-void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
-    // Client-mode devices run no local backend (tlb_allocator_/communicator_ are never built), so
-    // device I/O is unavailable. Fail loudly instead of dereferencing a null communicator_.
-    UMD_ASSERT(
-        tlb_allocator_ != nullptr, error::RuntimeError, "Client-mode simulation device I/O is not available yet.");
+void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size) {
     if (is_device_closed()) {
         return;
     }
@@ -118,6 +156,64 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
         tile_read_bytes(translated_core, addr, mem_ptr, size);
     }
     after_read();
+}
+
+void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
+    // Serialized against the host's own access and other clients sharing the one socket.
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    // Translation is client-side and stateless (same SoC descriptor the host used); the host
+    // receives an already-translated coordinate and passes it through verbatim.
+    // The wire protocol carries size as uint32; reject a transfer that would truncate rather than
+    // silently corrupt it. (Device transfers are far below this bound in practice.)
+    UMD_ASSERT(
+        size <= std::numeric_limits<uint32_t>::max(),
+        error::RuntimeError,
+        fmt::format("Remote write size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
+    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    SimulationServerRequest request;
+    request.command = SimulationServerCommand::Write;
+    request.x = static_cast<uint32_t>(translated_core.x);
+    request.y = static_cast<uint32_t>(translated_core.y);
+    request.address = addr;
+    request.size = static_cast<uint32_t>(size);
+    const auto* bytes = static_cast<const uint8_t*>(mem_ptr);
+    request.data.assign(bytes, bytes + size);
+
+    const SimulationServerResponse response = decode_response(client_->transact(encode(request)));
+    UMD_ASSERT(
+        response.status == 0,
+        error::RuntimeError,
+        fmt::format("Remote simulation host failed the write (status {})", response.status));
+}
+
+void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_ptr, size_t size) {
+    // Serialized against the host's own access and other clients sharing the one socket.
+    std::lock_guard<std::recursive_mutex> lock(device_lock);
+    // The wire protocol carries size as uint32; reject a read that would truncate it.
+    UMD_ASSERT(
+        size <= std::numeric_limits<uint32_t>::max(),
+        error::RuntimeError,
+        fmt::format("Remote read size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
+    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    SimulationServerRequest request;
+    request.command = SimulationServerCommand::Read;
+    request.x = static_cast<uint32_t>(translated_core.x);
+    request.y = static_cast<uint32_t>(translated_core.y);
+    request.address = addr;
+    request.size = static_cast<uint32_t>(size);
+
+    const SimulationServerResponse response = decode_response(client_->transact(encode(request)));
+    UMD_ASSERT(
+        response.status == 0,
+        error::RuntimeError,
+        fmt::format("Remote simulation host failed the read (status {})", response.status));
+    UMD_ASSERT(
+        response.data.size() == size,
+        error::RuntimeError,
+        fmt::format("Remote read returned {} bytes, expected {}", response.data.size(), size));
+    if (size > 0) {
+        std::memcpy(mem_ptr, response.data.data(), size);
+    }
 }
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {

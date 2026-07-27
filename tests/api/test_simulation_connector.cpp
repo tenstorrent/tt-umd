@@ -52,19 +52,13 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
     EXPECT_FALSE(std::filesystem::exists(socket));  // torn down with the device
 }
 
-// When a live host already holds the socket, discovery takes the client/attach path. Here it must
-// still surface an error rather than hosting, because the client device reads its SoC descriptor
-// from the (invalid) simulator directory and fails. This exercises the host-vs-client arbiter's
-// client branch without a simulator.
-TEST(SimulationConnector, ThrowsWhenClientCreationFailsAgainstLiveHost) {
-    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(0);
-    auto host = SimulationServerSocket::try_create(socket);
-    if (host == nullptr) {
-        GTEST_SKIP() << "A live simulation host already holds " << socket << "; skipping.";
-    }
-
+// discover() decides the role from what simulator_directory points at (a .so file hosts TTSim, a
+// directory of sockets is a client, any other directory hosts RTL). A path that is neither a .so
+// file nor a directory is unrecognized and must fail loudly rather than silently mis-hosting. No
+// simulator needed -- this exercises the path classifier's rejection branch.
+TEST(SimulationConnector, ThrowsOnUnrecognizedSimulatorPath) {
     SimulationConnectorOptions options;
-    options.simulator_directory = "unused";  // client creation reads the SoC descriptor from here and throws.
+    options.simulator_directory = "/nonexistent/neither-a-so-nor-a-directory";
     EXPECT_THROW(SimulationConnector::discover(options), std::exception);
 }
 
@@ -177,9 +171,10 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
     EXPECT_EQ(info.pcie_harvesting_mask, soc.harvesting_masks.pcie_harvesting_mask);
 }
 
-// End to end through the client device: a second open() against a live host yields a client-mode
-// device whose read_from_device/write_to_device marshal over the socket. What the client writes
-// the host sees, and what the host writes the client reads back. Requires TT_UMD_SIMULATOR.
+// End to end through the client device: hosting from the .so and then discovering the socket
+// *directory* yields a client-mode device whose read_from_device/write_to_device marshal over the
+// socket. What the client writes the host sees, and what the host writes the client reads back.
+// Requires TT_UMD_SIMULATOR.
 TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
     const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
     if (simulator_path == nullptr) {
@@ -194,17 +189,20 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
         }
     }
 
-    SimulationConnectorOptions options;
-    options.simulator_directory = simulator_path;
+    SimulationConnectorOptions host_options;
+    host_options.simulator_directory = simulator_path;
 
-    // First open becomes the host; the second sees the live host and attaches as a client device.
-    auto host_devices = SimulationConnector::discover(options);
+    // The .so path hosts and publishes its per-chip socket; pointing discovery at that socket's
+    // directory takes the client path, attaching one client device per socket.
+    auto host_devices = SimulationConnector::discover(host_options);
     ASSERT_EQ(host_devices.size(), 1u);
     TTDevice* host = host_devices.at(0).get();
     ASSERT_NE(host, nullptr);
 
-    auto client_devices = SimulationConnector::discover(options);
-    ASSERT_EQ(client_devices.size(), 1u);
+    SimulationConnectorOptions client_options;
+    client_options.simulator_directory = socket.parent_path();
+    auto client_devices = SimulationConnector::discover(client_options);
+    ASSERT_EQ(client_devices.count(0), 1u);
     TTDevice* client = client_devices.at(0).get();
     ASSERT_NE(client, nullptr);
 

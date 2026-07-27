@@ -25,15 +25,13 @@ struct SimulationConnectorOptions {
     int num_host_mem_channels = 0;
 };
 
-// Entry point for opening simulated devices, mirroring silicon TopologyDiscovery. It scans the
-// well-known socket folder and decides, per device, whether to be the host or a client:
-//   - no live socket  -> create a host device (the direct in-process backend / hot path) which
-//                        binds + serves its socket;
-//   - live socket     -> create a socket-backed client device that attaches to the host.
-//
-// Socket-first: binding the socket is the host-vs-client arbiter. A client device attaches to the
-// host over the socket via SimulationClient (slim today -- just connect/disconnect; device-op
-// forwarding lands as that API grows).
+// Entry point for opening simulated devices, mirroring silicon TopologyDiscovery. The role is
+// decided purely from what simulator_directory points at -- no socket bind-race:
+//   - a ".so" file            -> host running the TTSim backend; binds + serves its socket;
+//   - a directory of per-chip -> client: one socket-backed device per socket in the directory,
+//     simulation sockets          each attaching to a live host and sourcing its SoC descriptor
+//                                 (and backend kind) from that host over the wire;
+//   - any other directory     -> host running the RTL backend from that build directory.
 class SimulationConnector {
 public:
     static std::map<ChipId, std::unique_ptr<TTDevice>> discover(const SimulationConnectorOptions& options);

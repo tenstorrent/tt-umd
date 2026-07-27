@@ -70,3 +70,15 @@ apt install -y clang-format-20 && \
 
 # Install clang-tidy-20
 apt-get install -y clang-tidy-20
+
+# OpenSSH server for TTOP / multihost MPI workers (mpirun SSHes into this image).
+# Keep config tweaks after the apt install so openssh-server does not overwrite them.
+apt-get install -y --no-install-recommends openssh-server sudo
+if ! id -u user >/dev/null 2>&1; then
+    adduser --uid 1001 --shell /bin/bash --disabled-password --gecos "" user
+fi
+usermod -aG sudo user
+echo 'user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/user
+chmod 0440 /etc/sudoers.d/user
+mkdir -p /run/sshd
+grep -q '^StrictModes no' /etc/ssh/sshd_config || echo "StrictModes no" >> /etc/ssh/sshd_config

@@ -56,6 +56,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 env:
   ARTIFACT_NAME: >-
@@ -65,7 +66,17 @@ env:
   ALLOCATION_NAME: ci-umd-${{ github.run_id }}-${{ inputs.hardware }}
 
 jobs:
+  ensure-docker-image:
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      docker-version: ${{ inputs.ubuntu-docker-version }}
+
   build:
+    needs: ensure-docker-image
     secrets: inherit
     uses: ./.github/workflows/build-tests.yml
     with:
@@ -73,10 +84,11 @@ jobs:
       build-type: ${{ inputs.build-type }}
       timeout: ${{ fromJSON(inputs.timeout) }}
       build-wheel: ${{ inputs.build-wheel }}
+      image-tag: ${{ needs.ensure-docker-image.outputs.image-tag }}
 
   run:
     name: Run on exabox (${{ inputs.hardware }})
-    needs: build
+    needs: [ensure-docker-image, build]
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
     runs-on:
       - exabox-multihost-with-nfs
@@ -163,16 +175,14 @@ jobs:
           allocationNamespace: ttop-ci
 
       - name: Create test environment
-        # Worker must provide /usr/sbin/sshd. tt-umd-ci does not; use the
-        # orchestration SSH host image. Test binaries are still fanned out via NFS.
         uses: tenstorrent/tt-metal/.github/actions/ttop-create-environment@main
         timeout-minutes: 30
         with:
           environmentName: ${{ env.ALLOCATION_NAME }}
           allocationName: ${{ env.ALLOCATION_NAME }}
           allocationNamespace: ttop-ci
-          workerRepository: ghcr.io/tenstorrent/tt-orchestration/ttop-ssh-host
-          workerTag: latest
+          workerRepository: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}
+          workerTag: ${{ needs.ensure-docker-image.outputs.image-tag }}
           useDevHostMount: "true"
           sharedVolumeEnabled: "true"
           path: /etc/ttop

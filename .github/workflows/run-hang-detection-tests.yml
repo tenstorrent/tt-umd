@@ -163,13 +163,15 @@ jobs:
           allocationNamespace: ttop-ci
 
       - name: Create test environment
+        # Worker must provide /usr/sbin/sshd. tt-umd-ci does not; use the
+        # orchestration SSH host image. Test binaries are still fanned out via NFS.
         uses: tenstorrent/tt-metal/.github/actions/ttop-create-environment@main
         timeout-minutes: 30
         with:
           environmentName: ${{ env.ALLOCATION_NAME }}
           allocationName: ${{ env.ALLOCATION_NAME }}
           allocationNamespace: ttop-ci
-          workerRepository: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}
+          workerRepository: ghcr.io/tenstorrent/tt-orchestration/ttop-ssh-host
           workerTag: latest
           useDevHostMount: "true"
           sharedVolumeEnabled: "true"

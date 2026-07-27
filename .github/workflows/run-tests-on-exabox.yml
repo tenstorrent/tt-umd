@@ -58,8 +58,6 @@ permissions:
   id-token: write
   contents: read
 
-# Inline SKU allocation specs (mirrors tt-metal .github/sku_config.yaml bh_sc{1,4,16}).
-# Kept in-workflow so UMD does not need a full sku_config + extract script.
 env:
   ARTIFACT_NAME: >-
     build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
@@ -92,9 +90,6 @@ jobs:
 
       - name: Resolve allocation spec for ${{ inputs.hardware }}
         id: sku
-        # Specs mirror tt-metal .github/sku_config.yaml entries bh_sc1 / bh_sc4 / bh_sc16.
-        # Heredoc bodies sit at the run-block indent so Actions' common-indent strip
-        # leaves a clean YAML document (including nested list indentation).
         run: |
           case "${{ inputs.hardware }}" in
             sc1)

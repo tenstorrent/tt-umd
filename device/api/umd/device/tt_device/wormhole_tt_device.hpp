@@ -71,6 +71,8 @@ private:
     // Builds the ARC message (with the common prefix) that requests the given clock state.
     uint32_t get_power_state_arc_msg(DevicePowerState state);
 
+    void set_wh_arc_coordinates();
+
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,
         IODeviceType device_type,

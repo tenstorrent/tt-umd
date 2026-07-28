@@ -73,6 +73,8 @@ protected:
 private:
     int get_pcie_x_coordinate();
 
+    void set_bh_arc_coordinates();
+
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,
         IODeviceType device_type,

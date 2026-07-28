@@ -45,11 +45,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), soc_arch_descriptor, use_safe_api) {
-    set_arc_coordinates(
-        blackhole::get_arc_core(
-            BlackholeTTDevice::get_noc_translation_enabled(get_selected_noc_id()), /*use_noc1=*/false),
-        blackhole::get_arc_core(
-            BlackholeTTDevice::get_noc_translation_enabled(get_selected_noc_id()), /*use_noc1=*/true));
+    set_bh_arc_coordinates();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(),
         get_architecture_implementation(),
@@ -61,11 +57,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>(), soc_arch_descriptor) {
-    set_arc_coordinates(
-        blackhole::get_arc_core(
-            BlackholeTTDevice::get_noc_translation_enabled(get_selected_noc_id()), /*use_noc1=*/false),
-        blackhole::get_arc_core(
-            BlackholeTTDevice::get_noc_translation_enabled(get_selected_noc_id()), /*use_noc1=*/true));
+    set_bh_arc_coordinates();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(),
         get_architecture_implementation(),
@@ -365,6 +357,14 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
             error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
+}
+
+void BlackholeTTDevice::set_bh_arc_coordinates() {
+    set_arc_coordinates(
+        blackhole::get_arc_core(
+            BlackholeTTDevice::get_noc_translation_enabled(get_selected_noc_id()), /*use_noc1=*/false),
+        blackhole::get_arc_core(
+            BlackholeTTDevice::get_noc_translation_enabled(get_selected_noc_id()), /*use_noc1=*/true));
 }
 
 }  // namespace tt::umd

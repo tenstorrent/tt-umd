@@ -50,19 +50,23 @@ Binaries land at `build/rdma_testing/dmabuf_target` and `build/rdma_testing/dmab
 
 (`dmabuf_initiator` doesn't link UMD at all — it only speaks RDMA to a plain host buffer.)
 
-## 3. Pick a target address
+## 2. Pick a target address
 
-Any tensix L1 address works as a first smoke test. `addr = 0`, `size = 2 MiB` (one TLB window) is
-the simplest choice and matches what `tests/unified/test_tlb.cpp` already exercises. Use
-`tools/topology` (already in this repo, `tools/topology.cpp`) on the target host to confirm chip id
-0 and pick a real tensix core coordinate if you don't want to hardcode (0,0)-ish defaults — the
-example below defaults to the first tensix core in TRANSLATED coords, same as the new gtest does.
+Any tensix L1 address works as a first smoke test. `addr = 0`, `size = 1 MiB` is the simplest
+choice. Note this must stay under Blackhole's `TENSIX_L1_SIZE` (1.5 MiB,
+`device/api/umd/device/arch/blackhole_implementation.hpp`) — the 2 MiB window size used in
+`tests/unified/test_tlb.cpp`'s export-only gtests works there only because those tests never
+actually write data across the full window; this test does, so `addr + size` must fit inside L1
+or the RDMA WRITE will land outside valid tensix memory. Use `tools/topology` (already in this
+repo, `tools/topology.cpp`) on the target host to confirm chip id 0 and pick a real tensix core
+coordinate if you don't want to hardcode (0,0)-ish defaults — the example below defaults to the
+first tensix core in TRANSLATED coords, same as the new gtest does.
 
-## 4. Run
+## 3. Run
 
 On **bh-glx6u-08** (the target — owns the exported dma-buf):
 ```bash
-./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 2097152
+./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 1048576
 ```
 It prints its own QP/rkey info is exchanged automatically over the socket; you don't need to copy
 anything by hand. It blocks waiting for a TCP connection from the initiator, then waits for the
@@ -70,11 +74,11 @@ initiator's "done" signal, then verifies and prints PASS/FAIL.
 
 On **bh-glx6u-18** (the initiator):
 ```bash
-./build/rdma_testing/dmabuf_initiator --host bh-glx6u-08 --port 9999 --size 2097152
+./build/rdma_testing/dmabuf_initiator --host bh-glx6u-08 --port 9999 --size 1048576
 ```
 It connects, exchanges QP info, posts the RDMA WRITE, polls for local completion, and signals done.
 
-## 5. What "pass" looks like
+## 4. What "pass" looks like
 
 `dmabuf_target` reads back the same NOC address via `cluster->read_from_device()` (ordinary
 register/DMA readback, independent of the TLB window that was exported) and compares it against the

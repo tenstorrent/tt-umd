@@ -23,7 +23,7 @@ namespace {
 struct Args {
     std::string host;
     uint16_t port = 9999;
-    uint64_t size = 1ull << 21;
+    uint64_t size = 1ull << 20;  // 1 MiB — must match dmabuf_target's --size (Blackhole TENSIX_L1_SIZE is 1.5 MiB)
     int ib_port = 1;
     int gid_index = 0;
 };

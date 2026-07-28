@@ -32,7 +32,7 @@ struct Args {
     uint16_t port = 9999;
     tt::ChipId chip = 0;
     uint64_t addr = 0;
-    uint64_t size = 1ull << 21;  // 2 MiB, one TLB window
+    uint64_t size = 1ull << 20;  // 1 MiB — must stay under Blackhole TENSIX_L1_SIZE (1.5 MiB)
     int ib_port = 1;
     int gid_index = 0;
 };

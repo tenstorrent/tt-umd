@@ -28,6 +28,7 @@ enum class SimulationServerCommand : int8_t {
     Read = 0,
     Write = 1,
     GetDeviceInfo = 2,
+    GetClusterDescriptor = 3,
 };
 
 // Which simulator the host runs; mirrors wire::SimulationBackendType. Served as part of the device
@@ -77,10 +78,21 @@ struct SimulationServerDeviceInfo {
     uint32_t pcie_harvesting_mask = 0;
 };
 
+// Cluster topology a host serves in reply to a GetClusterDescriptor request; mirrors
+// wire::SimulationServerClusterDescriptor.
+struct SimulationServerClusterDescriptor {
+    // 0 on success; nonzero signals a host-side failure.
+    int32_t status = 0;
+    // The host's cluster-descriptor YAML text, so the client can rebuild the full ClusterDescriptor.
+    // Empty when the host has no cluster descriptor (client falls back to a mock from the device info).
+    std::string yaml;
+};
+
 // Serialize a message to a FlatBuffers payload.
 std::vector<uint8_t> encode(const SimulationServerRequest& request);
 std::vector<uint8_t> encode(const SimulationServerResponse& response);
 std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info);
+std::vector<uint8_t> encode(const SimulationServerClusterDescriptor& cluster_descriptor);
 
 // Parse a message back from a FlatBuffers payload. The buffer is verified against the schema
 // before any field is read (it comes off a socket, so it may be malformed or truncated); a bad
@@ -88,8 +100,10 @@ std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info);
 SimulationServerRequest decode_request(const uint8_t* data, size_t size);
 SimulationServerResponse decode_response(const uint8_t* data, size_t size);
 SimulationServerDeviceInfo decode_device_info(const uint8_t* data, size_t size);
+SimulationServerClusterDescriptor decode_cluster_descriptor(const uint8_t* data, size_t size);
 SimulationServerRequest decode_request(const std::vector<uint8_t>& bytes);
 SimulationServerResponse decode_response(const std::vector<uint8_t>& bytes);
 SimulationServerDeviceInfo decode_device_info(const std::vector<uint8_t>& bytes);
+SimulationServerClusterDescriptor decode_cluster_descriptor(const std::vector<uint8_t>& bytes);
 
 }  // namespace tt::umd

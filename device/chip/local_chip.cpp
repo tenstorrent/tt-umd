@@ -557,6 +557,6 @@ void LocalChip::noc_multicast_write(
     if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
         UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
     }
-    tt_device_->noc_multicast_write(src, size, core_start, core_end, addr);
+    tt_device_->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }
 }  // namespace tt::umd

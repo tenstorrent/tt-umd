@@ -88,7 +88,7 @@ void SimulationTTDevice::write_to_device(
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_write(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -108,7 +108,7 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_read(mem_ptr, translated_core, addr, size)) {
         return;
     }

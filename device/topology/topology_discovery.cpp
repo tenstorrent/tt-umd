@@ -40,6 +40,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -290,7 +291,7 @@ void TopologyDiscovery::discover_remote_devices() {
             }
 
             const RiscType risc_reset_state = tt_device->get_architecture_implementation()->get_soft_reset_risc_type(
-                tt_device->get_risc_reset_state(eth_core));
+                tt_device->get_risc_reset_state(eth_core, get_selected_noc_id()));
             if ((risc_reset_state & RiscType::ERISC0) != RiscType::NONE) {
                 log_debug(
                     LogUMD,

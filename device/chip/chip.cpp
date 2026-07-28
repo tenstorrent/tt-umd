@@ -21,6 +21,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -104,17 +105,21 @@ void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
 }
 
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
-    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core);
+    uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core, get_selected_noc_id());
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    get_tt_device()->assert_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs);
+    get_tt_device()->assert_risc_reset(
+        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, get_selected_noc_id());
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     get_tt_device()->deassert_risc_reset(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
+        get_soc_descriptor().translate_chip_coord_to_translated(core),
+        selected_riscs,
+        staggered_start,
+        get_selected_noc_id());
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {

@@ -83,7 +83,8 @@ protected:
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
             tt_device_->set_risc_reset_state(
                 tensix_core,
-                tt_device_->get_architecture_implementation()->get_soft_reset_reg_value(RiscType::ALL_TENSIX));
+                tt_device_->get_architecture_implementation()->get_soft_reset_reg_value(RiscType::ALL_TENSIX),
+                get_selected_noc_id());
         }
         NocIdSwitcher switcher(noc);
         try {

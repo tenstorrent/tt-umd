@@ -95,7 +95,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -140,11 +140,13 @@ jobs:
 
 
       - name: Fetch ttop helpers from tt-metal
-        # metal's ttop-*@main composites resolve ./.github/actions/ttop-await-resource
+        # metal's ttop-* composites resolve ./.github/actions/ttop-await-resource
         # and .github/scripts/environment-ssh-setup.sh against THIS workspace.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: tenstorrent/tt-metal
+          # Keep in sync with the pinned SHA on the ttop-* uses: lines below.
+          ref: 0b0d71bbee030c636a7fff7054de29f3a68e093e
           sparse-checkout: |
             .github/scripts/environment-ssh-setup.sh
             .github/actions/ttop-await-resource
@@ -161,7 +163,7 @@ jobs:
 
       - name: Create allocation
         id: allocation
-        uses: tenstorrent/tt-metal/.github/actions/ttop-create-allocation@main
+        uses: tenstorrent/tt-metal/.github/actions/ttop-create-allocation@0b0d71bbee030c636a7fff7054de29f3a68e093e
         timeout-minutes: 120
         with:
           allocationName: ${{ env.ALLOCATION_NAME }}
@@ -169,13 +171,13 @@ jobs:
           spec: ${{ steps.sku.outputs.allocation_spec }}
 
       - name: Get allocation configs
-        uses: tenstorrent/tt-metal/.github/actions/ttop-get-allocation-data@main
+        uses: tenstorrent/tt-metal/.github/actions/ttop-get-allocation-data@0b0d71bbee030c636a7fff7054de29f3a68e093e
         with:
           allocationName: ${{ env.ALLOCATION_NAME }}
           allocationNamespace: ttop-ci
 
       - name: Create test environment
-        uses: tenstorrent/tt-metal/.github/actions/ttop-create-environment@main
+        uses: tenstorrent/tt-metal/.github/actions/ttop-create-environment@0b0d71bbee030c636a7fff7054de29f3a68e093e
         timeout-minutes: 30
         with:
           environmentName: ${{ env.ALLOCATION_NAME }}
@@ -307,8 +309,9 @@ jobs:
 
       - name: Run test command
         id: run-test
-        # Pass via env to avoid shell injection from workflow_dispatch input.
-        # mpirun --pernode is applied here so callers only supply the per-host command.
+        # TEST_COMMAND is expanded by this job's shell into the remote bash -lc
+        # string (trusted workflow_dispatch). No eval — the remote shell runs the
+        # command text directly. mpirun --pernode wraps it for every host.
         env:
           TEST_COMMAND: ${{ inputs.test-command }}
           LD_LIBRARY_PATH: /home/user/tt-umd/build/lib
@@ -316,19 +319,19 @@ jobs:
           set -euo pipefail
           echo "Running on every host via mpirun --pernode:"
           echo "$TEST_COMMAND"
-          mpirun --pernode --tag-output -x LD_LIBRARY_PATH -x TEST_COMMAND \
-            bash -lc 'cd /home/user/tt-umd && eval "$TEST_COMMAND"'
+          mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
+            bash -lc "cd /home/user/tt-umd && $TEST_COMMAND"
 
       - name: Delete test environment
         if: always()
-        uses: tenstorrent/tt-metal/.github/actions/ttop-delete-environment@main
+        uses: tenstorrent/tt-metal/.github/actions/ttop-delete-environment@0b0d71bbee030c636a7fff7054de29f3a68e093e
         with:
           environmentName: ${{ env.ALLOCATION_NAME }}
           namespace: ttop-ci
 
       - name: Delete allocation
         if: always()
-        uses: tenstorrent/tt-metal/.github/actions/ttop-delete-allocation@main
+        uses: tenstorrent/tt-metal/.github/actions/ttop-delete-allocation@0b0d71bbee030c636a7fff7054de29f3a68e093e
         with:
           allocationName: ${{ env.ALLOCATION_NAME }}
           namespace: ttop-ci

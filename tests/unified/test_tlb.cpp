@@ -25,6 +25,7 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -96,10 +97,9 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
 }
 
 TEST_F(TestTlb, TestTlbWindowExportDmabuf) {
-    static constexpr SemVer MIN_KMD_VERSION{2, 10, 0};
-    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+    if (PCIDevice::read_kmd_version() < KMD_TLB_DMABUF_EXPORT) {
         GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
-                     << MIN_KMD_VERSION.str();
+                     << KMD_TLB_DMABUF_EXPORT.str();
     }
 
     const ChipId chip = 0;
@@ -135,10 +135,9 @@ TEST_F(TestTlb, TestTlbWindowExportDmabuf) {
 }
 
 TEST_F(TestTlb, TestClusterExportDmabuf) {
-    static constexpr SemVer MIN_KMD_VERSION{2, 10, 0};
-    if (PCIDevice::read_kmd_version() < MIN_KMD_VERSION) {
+    if (PCIDevice::read_kmd_version() < KMD_TLB_DMABUF_EXPORT) {
         GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
-                     << MIN_KMD_VERSION.str();
+                     << KMD_TLB_DMABUF_EXPORT.str();
     }
 
     const ChipId chip = 0;

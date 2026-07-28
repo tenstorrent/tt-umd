@@ -15,11 +15,11 @@
 #include <string>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"

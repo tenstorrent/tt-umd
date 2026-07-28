@@ -230,7 +230,6 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
             eth_interface_params.request_routing_cmd_queue_base + (sizeof(routing_cmd_t) * req_wr_ptr),
             erisc_command.size() * DATA_WORD_SIZE,
             get_selected_noc_id());
-        ;
         tt_driver_atomics::sfence();
 
         erisc_q_ptrs[0] = (erisc_q_ptrs[0] + 1) & eth_interface_params.cmd_buf_ptr_mask;

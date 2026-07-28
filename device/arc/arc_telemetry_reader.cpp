@@ -12,7 +12,6 @@
 #include <thread>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
@@ -20,6 +19,7 @@
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"

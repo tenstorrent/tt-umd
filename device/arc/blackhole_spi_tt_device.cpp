@@ -12,11 +12,11 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 

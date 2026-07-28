@@ -71,7 +71,30 @@ enum tt_device_attr {
     TT_DEVICE_ATTR_NUM_2M_TLBS = 9,
     TT_DEVICE_ATTR_NUM_16M_TLBS = 10,
     TT_DEVICE_ATTR_NUM_4G_TLBS = 11,
+    TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID = 12,
 };
+
+/**
+ * @brief All queryable attributes of a Tenstorrent device.
+ *
+ * Retrieved in a single call via `tt_device_get_attrs()`. Each field
+ * corresponds to a value of `enum tt_device_attr`.
+ */
+typedef struct tt_device_attrs_t {
+    uint64_t pci_domain;              /**< TT_DEVICE_ATTR_PCI_DOMAIN */
+    uint64_t pci_bus;                 /**< TT_DEVICE_ATTR_PCI_BUS */
+    uint64_t pci_device;              /**< TT_DEVICE_ATTR_PCI_DEVICE */
+    uint64_t pci_function;            /**< TT_DEVICE_ATTR_PCI_FUNCTION */
+    uint64_t pci_vendor_id;           /**< TT_DEVICE_ATTR_PCI_VENDOR_ID */
+    uint64_t pci_device_id;           /**< TT_DEVICE_ATTR_PCI_DEVICE_ID */
+    uint64_t pci_subsystem_vendor_id; /**< TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID */
+    uint64_t pci_subsystem_id;        /**< TT_DEVICE_ATTR_PCI_SUBSYSTEM_ID */
+    uint64_t chip_arch;               /**< TT_DEVICE_ATTR_CHIP_ARCH; see `enum tt_device_arch` */
+    uint64_t num_1m_tlbs;             /**< TT_DEVICE_ATTR_NUM_1M_TLBS */
+    uint64_t num_2m_tlbs;             /**< TT_DEVICE_ATTR_NUM_2M_TLBS */
+    uint64_t num_16m_tlbs;            /**< TT_DEVICE_ATTR_NUM_16M_TLBS */
+    uint64_t num_4g_tlbs;             /**< TT_DEVICE_ATTR_NUM_4G_TLBS */
+} tt_device_attrs_t;
 
 /**
  * @brief Queryable attributes of the Tenstorrent driver.
@@ -134,6 +157,19 @@ int tt_device_close(tt_device_t* dev);
  * @return 0 on success, error code on failure
  */
 int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value);
+
+/**
+ * @brief Query all device attributes at once.
+ *
+ * Retrieves every attribute in `enum tt_device_attr` with a single device
+ * query, filling out `out_attrs`. This is more efficient than issuing a
+ * separate `tt_device_get_attr()` call per attribute.
+ *
+ * @param dev Device handle
+ * @param out_attrs Populated with the device's attributes on success
+ * @return 0 on success, error code on failure
+ */
+int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs);
 
 /**
  * @brief Query driver attributes.
@@ -251,6 +287,16 @@ enum tt_dma_map_flags {
      * given Blackhole's larger address space.
      */
     TT_DMA_FLAG_NOC_TOP_DOWN = 1 << 1,
+
+    /**
+     * @brief Attests that the pages backing the buffer are physically
+     * contiguous.
+     *
+     * When the system IOMMU is not active, the driver requires this attestation
+     * to expose the buffer as a single contiguous physical (or NOC) address
+     * range, e.g. for hugepages. It has no effect when an IOMMU is active.
+     */
+    TT_DMA_FLAG_CONTIGUOUS = 1 << 2,
 };
 
 /**
@@ -314,6 +360,44 @@ int tt_dma_get_dma_addr(tt_dma_t* dma, uint64_t* out_dma_addr);
  * @return 0 on success, error code on failure
  */
 int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr);
+
+/**
+ * @brief Pins a host memory buffer and maps it for device access.
+ *
+ * This is a lower-level counterpart to `tt_dma_map()`. Unlike `tt_dma_map()`,
+ * it does not allocate a `tt_dma_t` handle: the caller identifies the mapping
+ * by its virtual address and size, and releases it via `tt_unpin_pages()` using
+ * the same virtual address and size. This mirrors the driver's pin/unpin
+ * interface directly and is intended for callers that track the buffer's
+ * lifetime themselves.
+ *
+ * The function validates that `addr` is page-aligned and `len` is a multiple of
+ * the page size, returning `-EINVAL` if not.
+ *
+ * @param dev Device handle
+ * @param addr Virtual address of memory to pin; must be page-aligned
+ * @param len Number of bytes; must be a multiple of the page size
+ * @param flags Bitmask of flags from `enum tt_dma_map_flags`
+ * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
+ * @param out_noc_addr On success, the NOC address. Only valid when a
+ *                     `TT_DMA_FLAG_NOC*` flag is set. May be NULL.
+ * @return 0 on success, -errno code on failure.
+ */
+int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr);
+
+/**
+ * @brief Unpins a previously pinned memory region.
+ *
+ * Releases the mapping created by `tt_pin_pages()`. The virtual address and
+ * size must match those passed to `tt_pin_pages()`. Unpinning a subset of a
+ * pinned buffer is not supported.
+ *
+ * @param dev Device handle
+ * @param addr Virtual address originally passed to `tt_pin_pages()`
+ * @param len Size originally passed to `tt_pin_pages()`
+ * @return 0 on success, -errno code on failure.
+ */
+int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
 
 /**
  * @brief Allocates a TLB window.

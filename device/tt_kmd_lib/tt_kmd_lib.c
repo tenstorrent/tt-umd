@@ -89,7 +89,7 @@ int tt_device_close(tt_device_t* dev) {
     return 0;
 }
 
-int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value) {
+int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs) {
     struct tenstorrent_get_device_info get_device_info = {0};
 
     get_device_info.in.output_size_bytes = sizeof(get_device_info.out);
@@ -105,42 +105,69 @@ int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out
         arch = TT_DEVICE_ARCH_WORMHOLE;
     }
 
+    out_attrs->pci_domain = get_device_info.out.pci_domain;
+    out_attrs->pci_bus = get_device_info.out.bus_dev_fn >> 8;
+    out_attrs->pci_device = (get_device_info.out.bus_dev_fn >> 3) & 0x1F;
+    out_attrs->pci_function = get_device_info.out.bus_dev_fn & 0x07;
+    out_attrs->pci_vendor_id = get_device_info.out.vendor_id;
+    out_attrs->pci_device_id = get_device_info.out.device_id;
+    out_attrs->pci_subsystem_vendor_id = get_device_info.out.subsystem_vendor_id;
+    out_attrs->pci_subsystem_id = get_device_info.out.subsystem_id;
+    out_attrs->chip_arch = arch;
+    out_attrs->num_1m_tlbs = TLB_COUNT_1M[arch];
+    out_attrs->num_2m_tlbs = TLB_COUNT_2M[arch];
+    out_attrs->num_16m_tlbs = TLB_COUNT_16M[arch];
+    out_attrs->num_4g_tlbs = TLB_COUNT_4G[arch];
+
+    return 0;
+}
+
+int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value) {
+    tt_device_attrs_t attrs = {0};
+    int ret = tt_device_get_attrs(dev, &attrs);
+    if (ret != 0) {
+        return ret;
+    }
+
     switch (attr) {
         case TT_DEVICE_ATTR_PCI_DOMAIN:
-            *out_value = get_device_info.out.pci_domain;
+            *out_value = attrs.pci_domain;
             break;
         case TT_DEVICE_ATTR_PCI_BUS:
-            *out_value = get_device_info.out.bus_dev_fn >> 8;
+            *out_value = attrs.pci_bus;
             break;
         case TT_DEVICE_ATTR_PCI_DEVICE:
-            *out_value = (get_device_info.out.bus_dev_fn >> 3) & 0x1F;
+            *out_value = attrs.pci_device;
             break;
         case TT_DEVICE_ATTR_PCI_FUNCTION:
-            *out_value = get_device_info.out.bus_dev_fn & 0x07;
+            *out_value = attrs.pci_function;
             break;
         case TT_DEVICE_ATTR_PCI_VENDOR_ID:
-            *out_value = get_device_info.out.vendor_id;
+            *out_value = attrs.pci_vendor_id;
             break;
         case TT_DEVICE_ATTR_PCI_DEVICE_ID:
-            *out_value = get_device_info.out.device_id;
+            *out_value = attrs.pci_device_id;
+            break;
+        case TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID:
+            *out_value = attrs.pci_subsystem_vendor_id;
             break;
         case TT_DEVICE_ATTR_PCI_SUBSYSTEM_ID:
-            *out_value = get_device_info.out.subsystem_id;
+            *out_value = attrs.pci_subsystem_id;
             break;
         case TT_DEVICE_ATTR_CHIP_ARCH:
-            *out_value = arch;
+            *out_value = attrs.chip_arch;
             break;
         case TT_DEVICE_ATTR_NUM_1M_TLBS:
-            *out_value = TLB_COUNT_1M[arch];
+            *out_value = attrs.num_1m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_2M_TLBS:
-            *out_value = TLB_COUNT_2M[arch];
+            *out_value = attrs.num_2m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_16M_TLBS:
-            *out_value = TLB_COUNT_16M[arch];
+            *out_value = attrs.num_16m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_4G_TLBS:
-            *out_value = TLB_COUNT_4G[arch];
+            *out_value = attrs.num_4g_tlbs;
             break;
         default:
             return -EINVAL;
@@ -322,16 +349,10 @@ int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const vo
     return 0;
 }
 
-int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** out_dma) {
+int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr) {
     int page_size = getpagesize();
-    if (len == 0 || len % page_size != 0 || addr == NULL || (uint64_t)addr % page_size != 0) {
+    if ((uint64_t)addr % page_size != 0 || len % page_size != 0) {
         return -EINVAL;
-    }
-
-    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
-
-    if (!dma) {
-        return -ENOMEM;
     }
 
     struct {
@@ -344,30 +365,66 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
     pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
     pin_pages.in.virtual_address = (uint64_t)addr;
     pin_pages.in.size = len;
+    pin_pages.in.flags = 0;
 
+    if (flags & TT_DMA_FLAG_CONTIGUOUS) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    }
     if (flags & TT_DMA_FLAG_NOC) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_DMA;
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
-    } else {
-        pin_pages.in.flags = 0;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
     }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {
-        int e = errno;
+        return -errno;
+    }
+
+    if (out_dma_addr) {
+        *out_dma_addr = pin_pages.out.physical_address;
+    }
+
+    if (out_noc_addr && (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN))) {
+        *out_noc_addr = pin_pages.out.noc_address;
+    }
+
+    return 0;
+}
+
+int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len) {
+    struct tenstorrent_unpin_pages unpin = {0};
+    unpin.in.virtual_address = (uint64_t)addr;
+    unpin.in.size = len;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin) != 0) {
+        return -errno;
+    }
+
+    return 0;
+}
+
+int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** out_dma) {
+    int page_size = getpagesize();
+    if (len == 0 || len % page_size != 0 || addr == NULL || (uint64_t)addr % page_size != 0) {
+        return -EINVAL;
+    }
+
+    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
+
+    if (!dma) {
+        return -ENOMEM;
+    }
+
+    uint64_t noc = ~0ULL;
+    int ret = tt_pin_pages(dev, addr, len, flags, &dma->iova, &noc);
+    if (ret != 0) {
         free(dma);
-        return -e;
+        return ret;
     }
 
     dma->addr = addr;
     dma->len = len;
-    dma->iova = pin_pages.out.physical_address;
-
-    if (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN)) {
-        dma->noc = pin_pages.out.noc_address;
-    } else {
-        dma->noc = ~0ULL;
-    }
+    dma->noc = noc;
 
     *out_dma = dma;
 
@@ -375,12 +432,9 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
 }
 
 int tt_dma_unmap(tt_device_t* dev, tt_dma_t* dma) {
-    struct tenstorrent_unpin_pages unpin = {0};
-    unpin.in.virtual_address = (uint64_t)dma->addr;
-    unpin.in.size = dma->len;
-
-    if (ioctl(dev->fd, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin) != 0) {
-        return -errno;
+    int ret = tt_unpin_pages(dev, dma->addr, dma->len);
+    if (ret != 0) {
+        return ret;
     }
 
     free(dma);

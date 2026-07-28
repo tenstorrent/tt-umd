@@ -48,6 +48,7 @@ if(MASTER_PROJECT)
     endif()
 
     include(sanitizers)
+    include(sccache)
 endif()
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)

@@ -745,6 +745,11 @@ private:
     // and ChipInfo) are constructed here against the MMIO gateway.
     std::unique_ptr<RemoteChip> create_simulation_remote_chip(
         ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc);
+
+    // Host simulation Cluster only: exposes each simulation chip's device on its per-chip socket so a
+    // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
+    // no-op for a client Cluster. Called once from the constructor after the chips are built.
+    void serve_simulation_devices_over_sockets(const std::filesystem::path& simulator_directory);
 #endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);

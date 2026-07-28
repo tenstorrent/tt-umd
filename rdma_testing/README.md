@@ -54,13 +54,18 @@ Binaries land at `build/rdma_testing/dmabuf_target` and `build/rdma_testing/dmab
 
 Any tensix L1 address works as a first smoke test. `addr = 0`, `size = 1 MiB` is the simplest
 choice. Note this must stay under Blackhole's `TENSIX_L1_SIZE` (1.5 MiB,
-`device/api/umd/device/arch/blackhole_implementation.hpp`) — the 2 MiB window size used in
-`tests/unified/test_tlb.cpp`'s export-only gtests works there only because those tests never
-actually write data across the full window; this test does, so `addr + size` must fit inside L1
-or the RDMA WRITE will land outside valid tensix memory. Use `tools/topology` (already in this
-repo, `tools/topology.cpp`) on the target host to confirm chip id 0 and pick a real tensix core
+`device/api/umd/device/arch/blackhole_implementation.hpp`) — `addr + size` must fit inside L1 or
+the RDMA WRITE will land outside valid tensix memory. Use `tools/topology` (already in this repo,
+`tools/topology.cpp`) on the target host to confirm chip id 0 and pick a real tensix core
 coordinate if you don't want to hardcode (0,0)-ish defaults — the example below defaults to the
 first tensix core in TRANSLATED coords, same as the new gtest does.
+
+Note `dmabuf_target`'s underlying TLB window is always allocated at 2 MiB, independent of
+`--size`: `tt_tlb_alloc()` only accepts specific window sizes (1/2/16 MiB on Wormhole, 2 MiB or
+4 GiB on Blackhole — see `device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h`), and 1 MiB isn't one of
+them on Blackhole. `--size` instead controls how many bytes of that 2 MiB window are registered as
+the RDMA MR and verified on readback, so it must stay `<= 2 MiB` and, per above, `addr + size <=
+1.5 MiB`.
 
 ## 3. Run
 

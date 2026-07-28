@@ -19,6 +19,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -88,11 +89,11 @@ void RemoteChip::close_device() {
 }
 
 void RemoteChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
-    tt_device_->write_to_device(src, core, l1_dest, size);
+    tt_device_->write_to_device(src, core, l1_dest, size, get_selected_noc_id());
 }
 
 void RemoteChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
-    tt_device_->read_from_device(dest, core, l1_src, size);
+    tt_device_->read_from_device(dest, core, l1_src, size, get_selected_noc_id());
 }
 
 void RemoteChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {

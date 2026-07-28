@@ -190,38 +190,39 @@ def get_tenstorrent_pcie_info_manual():
 # Main Logic
 
 
-def detect_board_type():
-    """Detect the board type via `tt_umd`; `str(BoardType)` gives the pipeline's
-    labels ("n150"/"n300"/"p150"). Returns "unknown" (guarded) on any failure.
+def detect_board_type_and_arch():
+    """Detect board type and silicon arch via `tt_umd`; `str(BoardType)`/`str(ARCH)`
+    give the pipeline's labels ("n150"/"n300"/"p150", "wormhole_b0"/"blackhole").
+    Returns ("unknown", "unknown") (guarded) on any failure.
     """
     try:
         import tt_umd
     except ImportError as e:
         print(
-            f"INFO: tt_umd module not available ({e}); board type 'unknown'.",
+            f"INFO: tt_umd module not available ({e}); board type/arch 'unknown'.",
             file=sys.stderr,
         )
-        return "unknown"
+        return "unknown", "unknown"
 
     try:
         cluster_descriptor = tt_umd.TopologyDiscovery.create_cluster_descriptor()
-        board_types = {
-            str(cluster_descriptor.get_board_type(chip))
-            for chip in cluster_descriptor.get_all_chips()
-        }
+        chips = cluster_descriptor.get_all_chips()
+        board_types = {str(cluster_descriptor.get_board_type(chip)) for chip in chips}
+        archs = {str(cluster_descriptor.get_arch(chip)) for chip in chips}
     except Exception as e:
         print(
-            f"INFO: could not detect board type via tt_umd: {e}",
+            f"INFO: could not detect board type/arch via tt_umd: {e}",
             file=sys.stderr,
         )
-        return "unknown"
+        return "unknown", "unknown"
 
     board_types.discard("unknown")
+    archs.discard("unknown")
     if not board_types:
         print(
             "INFO: no board type reported by tt_umd; using 'unknown'.", file=sys.stderr
         )
-        return "unknown"
+        return "unknown", "unknown"
     board_type = sorted(board_types)[0]
     if len(board_types) > 1:
         # Mixed-board host: the per-arch baseline model assumes one board type.
@@ -229,10 +230,13 @@ def detect_board_type():
             f"WARN: multiple board types {sorted(board_types)}; using '{board_type}'.",
             file=sys.stderr,
         )
-    return board_type
+    arch = sorted(archs)[0] if archs else "unknown"
+    if len(archs) > 1:
+        print(f"WARN: multiple archs {sorted(archs)}; using '{arch}'.", file=sys.stderr)
+    return board_type, arch
 
 
-def gather_specs(board_type="unknown"):
+def gather_specs(board_type="unknown", arch="unknown"):
     """Aggregates all system info using manual sysfs/psutil methods."""
     io_settings = get_io_perf_settings()
     mem_gb = round(psutil.virtual_memory().total / (1024**3), 2)
@@ -249,6 +253,8 @@ def gather_specs(board_type="unknown"):
             "CI_Runner": os.environ.get("RUNNER_NAME", "unknown"),
             # Board type detected on this machine via UMD's Python bindings (e.g. "n300")
             "BoardType": board_type,
+            # Silicon arch detected via UMD's Python bindings (e.g. "wormhole_b0")
+            "Arch": arch,
             "Platform": platform.machine(),
             "Python": platform.python_version(),
             "Memory": f"{mem_gb} GB",
@@ -383,11 +389,24 @@ def main():
             "When omitted, the board type is auto-detected via tt_umd."
         ),
     )
+    parser.add_argument(
+        "--arch",
+        type=str,
+        default=None,
+        help=(
+            "Override the auto-detected silicon arch, e.g. 'wormhole_b0' for a simulator run. "
+            "When omitted, the arch is auto-detected via tt_umd."
+        ),
+    )
     args = parser.parse_args()
 
     # 1. Gather the specs using manual methods
-    board_type = args.board_type if args.board_type is not None else detect_board_type()
-    specs = gather_specs(board_type=board_type)
+    board_type, arch = args.board_type, args.arch
+    if board_type is None or arch is None:
+        detected_board_type, detected_arch = detect_board_type_and_arch()
+        board_type = board_type if board_type is not None else detected_board_type
+        arch = arch if arch is not None else detected_arch
+    specs = gather_specs(board_type=board_type, arch=arch)
 
     # 2. Determine filenames and formats
     base_filename = args.output

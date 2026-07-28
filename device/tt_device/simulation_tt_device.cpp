@@ -68,6 +68,19 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_
         }
     }
 
+    // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
+    // YAML (empty when the build ships none) so a client can rebuild the full topology.
+    if (request.command == SimulationServerCommand::GetClusterDescriptor) {
+        try {
+            return encode(describe_cluster(simulator_directory_));
+        } catch (const std::exception& e) {
+            log_warning(tt::LogUMD, "Simulation host failed to serve cluster descriptor: {}", e.what());
+            SimulationServerClusterDescriptor cluster_descriptor;
+            cluster_descriptor.status = -1;
+            return encode(cluster_descriptor);
+        }
+    }
+
     // The client already translated the coordinate (translation is stateless and client-side), so
     // pass it through verbatim as LITERAL -- the shared read/write skeleton must not translate
     // again. CoreCoord defaults to CoreType::UNSPECIFIED + CoordSystem::LITERAL.

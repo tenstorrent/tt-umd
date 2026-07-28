@@ -1,4 +1,4 @@
-# Cross-host RDMA dma-buf P2P test (bh-glx6u-08 <-> bh-glx6u-18)
+# Cross-host RDMA dma-buf P2P test (bh-glx6u-22 <-> bh-glx6u-18)
 
 Validates `Cluster::export_dmabuf()` end-to-end: NIC on one host does an RDMA WRITE, over the
 network, directly into a TLB window on the *other* host's Blackhole card — landing in device NOC
@@ -69,7 +69,7 @@ the RDMA MR and verified on readback, so it must stay `<= 2 MiB` and, per above,
 
 ## 3. Run
 
-On **bh-glx6u-08** (the target — owns the exported dma-buf):
+On **bh-glx6u-22** (the target — owns the exported dma-buf):
 ```bash
 ./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 1048576
 ```
@@ -79,7 +79,7 @@ initiator's "done" signal, then verifies and prints PASS/FAIL.
 
 On **bh-glx6u-18** (the initiator):
 ```bash
-./build/rdma_testing/dmabuf_initiator --host bh-glx6u-08 --port 9999 --size 1048576
+./build/rdma_testing/dmabuf_initiator --host bh-glx6u-22 --port 9999 --size 1048576
 ```
 It connects, exchanges QP info, posts the RDMA WRITE, polls for local completion, and signals done.
 

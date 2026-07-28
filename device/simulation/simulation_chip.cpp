@@ -9,7 +9,6 @@
 #include <mutex>
 #include <tt-logger/tt-logger.hpp>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
@@ -17,6 +16,7 @@
 #include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {

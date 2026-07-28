@@ -13,7 +13,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -26,6 +25,7 @@
 #include "umd/device/tt_device/wormhole_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"

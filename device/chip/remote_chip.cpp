@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
@@ -20,6 +19,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"

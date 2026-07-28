@@ -15,13 +15,13 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"

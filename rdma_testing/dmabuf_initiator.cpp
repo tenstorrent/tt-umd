@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// SPDX-License-Identifier: Apache-2.0
-//
 // RDMA initiator for the two-host dma-buf smoke test. Registers a normal host-memory MR filled
 // with a known test pattern, brings up an RC QP against the target, and issues an RDMA WRITE into
 // the target's dma-buf-backed MR (see dmabuf_target.cpp). No UMD dependency here at all.

@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// SPDX-License-Identifier: Apache-2.0
 // Shared helpers for the two-host dma-buf RDMA smoke test. Not part of tt-umd; standalone scratch
 // tooling to validate Cluster::export_dmabuf() over real RDMA hardware.
 #pragma once

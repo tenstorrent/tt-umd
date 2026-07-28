@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// SPDX-License-Identifier: Apache-2.0
-//
 // RDMA target for the two-host dma-buf smoke test. Exports a TLB window via UMD's
 // Cluster::export_dmabuf(), registers the resulting fd as an RDMA MR with ibv_reg_dmabuf_mr(), and
 // waits for a peer NIC to RDMA-WRITE into it. Verifies the write landed by reading the same NOC

@@ -165,7 +165,7 @@ void TTSimTlbHandle::free_tlb() noexcept {
 
 tt::ARCH TTSimTlbHandle::get_arch() const { return allocator_->get_architecture(); }
 
-int TTSimTlbHandle::export_dmabuf(uint64_t offset, uint64_t size) const {
+int TTSimTlbHandle::export_dmabuf(uint64_t /*offset*/, uint64_t /*size*/) const {
     UMD_THROW(error::RuntimeError, "Exporting a TLB as a dma-buf is not supported for simulation devices.");
 }
 

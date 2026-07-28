@@ -490,9 +490,6 @@ int tt_allocate_dma_buf(
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
         return -errno;
     }
-    if (dma_buf.out.size != (uint32_t)size) {
-        return -EIO;
-    }
 
     void* mapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, dma_buf.out.mapping_offset);
     if (mapping == MAP_FAILED) {

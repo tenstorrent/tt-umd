@@ -16,6 +16,7 @@
 #include "umd/device/tt_device/simulation_device_factory.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -65,12 +66,14 @@ void SimulationChip::close_device() {}
 
 void SimulationChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->write_to_device(src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size);
+    tt_device_->write_to_device(
+        src, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_dest, size, get_selected_noc_id());
 }
 
 void SimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->read_from_device(dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size);
+    tt_device_->read_from_device(
+        dest, get_soc_descriptor().translate_chip_coord_to_translated(core), l1_src, size, get_selected_noc_id());
 }
 
 void SimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {

@@ -229,27 +229,32 @@ int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappin
         switch (m->mapping_id) {
             case TENSTORRENT_MAPPING_RESOURCE0_UC:
                 dst = &out_mappings->resource0_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE0_UC;
                 break;
             case TENSTORRENT_MAPPING_RESOURCE0_WC:
                 dst = &out_mappings->resource0_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE0_WC;
                 break;
             case TENSTORRENT_MAPPING_RESOURCE1_UC:
                 dst = &out_mappings->resource1_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE1_UC;
                 break;
             case TENSTORRENT_MAPPING_RESOURCE1_WC:
                 dst = &out_mappings->resource1_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE1_WC;
                 break;
             case TENSTORRENT_MAPPING_RESOURCE2_UC:
                 dst = &out_mappings->resource2_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE2_UC;
                 break;
             case TENSTORRENT_MAPPING_RESOURCE2_WC:
                 dst = &out_mappings->resource2_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE2_WC;
                 break;
             default:
                 continue;
         }
 
-        dst->id = m->mapping_id;
         dst->base = m->mapping_base;
         dst->size = m->mapping_size;
     }

@@ -139,9 +139,12 @@ bool SimulationSysmemManager::read_mapped_buffer(uint64_t device_io_addr, void* 
     return true;
 }
 
-void* SimulationSysmemManager::get_mapped_host_ptr(uint64_t device_io_addr, uint32_t size) {
+void* SimulationSysmemManager::get_mapped_host_ptr(uint64_t device_io_addr) {
     std::lock_guard<std::mutex> lock(registry_->mutex);
-    auto b = find_mapped_buffer_locked(device_io_addr, size);
+    // Pure address translation: locate the buffer holding this device IO address (1-byte
+    // membership) and return the in-place host pointer. The caller owns the access length, so no
+    // range is validated here — read_mapped_buffer/write_mapped_buffer are where a size is checked.
+    auto b = find_mapped_buffer_locked(device_io_addr, 1);
     if (!b.has_value()) {
         return nullptr;
     }

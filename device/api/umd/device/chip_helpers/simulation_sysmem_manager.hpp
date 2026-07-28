@@ -70,7 +70,9 @@ public:
     // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
     // mapped: the caller must not retain it across an unpin_or_unmap_sysmem()/SysmemBuffer
     // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
-    void* get_mapped_host_ptr(uint64_t device_io_addr, uint32_t size);
+    // This is a pure address translation — the caller owns the access length (the returned bare
+    // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
+    void* get_mapped_host_ptr(uint64_t device_io_addr);
 
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;

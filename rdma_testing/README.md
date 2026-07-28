@@ -34,30 +34,21 @@ If `/sys/module/tenstorrent/version` is older than 2.10.0-rc1, the kmd on that h
 updated first — `export_dmabuf()` will throw `"... requires KMD >= 2.10.0"` otherwise (and the two
 new gtests in `tests/unified/test_tlb.cpp` will `GTEST_SKIP()`).
 
-## 1. Build tt-umd (both hosts)
+## 1. Build tt-umd + this test pair (both hosts)
+
+`rdma_testing/` is wired into the main tt-umd CMake build behind the `TT_UMD_BUILD_RDMA_TESTS`
+option (requires `libibverbs-dev` from the prerequisites step above), so no separate manual
+compile step is needed:
 
 ```bash
-cd tt-umd   # this branch: ajovanovic/bench_data_exporting
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j"$(nproc)" --target umd_static  # or whatever installs libtt-umd + headers
+cd tt-umd   # this branch: ajovanovic/rdma_tlw_window_support
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DTT_UMD_BUILD_RDMA_TESTS=ON
+cmake --build build -j"$(nproc)"
 ```
 
-Confirm the library + headers are importable, e.g. `find build -name 'libtt-umd*'`.
-
-## 2. Build this test pair (both hosts)
-
-```bash
-UMD_ROOT=/path/to/tt-umd   # adjust
-g++ -std=c++20 -O2 -o dmabuf_target dmabuf_target.cpp \
-    -I"$UMD_ROOT/device/api" -I"$UMD_ROOT/build/include" \
-    -L"$UMD_ROOT/build/device" -ltt-umd -libverbs -lpthread
-
-g++ -std=c++20 -O2 -o dmabuf_initiator dmabuf_initiator.cpp -libverbs -lpthread
-```
+Binaries land at `build/rdma_testing/dmabuf_target` and `build/rdma_testing/dmabuf_initiator`.
 
 (`dmabuf_initiator` doesn't link UMD at all — it only speaks RDMA to a plain host buffer.)
-Adjust the `-I`/`-L` paths to wherever your build actually places the umd headers/static lib —
-check `find build -iname 'libtt-umd*'` and `find . -path '*/api/umd/device/cluster.hpp'`.
 
 ## 3. Pick a target address
 
@@ -71,7 +62,7 @@ example below defaults to the first tensix core in TRANSLATED coords, same as th
 
 On **bh-glx6u-08** (the target — owns the exported dma-buf):
 ```bash
-./dmabuf_target --port 9999 --chip 0 --size 2097152
+./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 2097152
 ```
 It prints its own QP/rkey info is exchanged automatically over the socket; you don't need to copy
 anything by hand. It blocks waiting for a TCP connection from the initiator, then waits for the
@@ -79,7 +70,7 @@ initiator's "done" signal, then verifies and prints PASS/FAIL.
 
 On **bh-glx6u-18** (the initiator):
 ```bash
-./dmabuf_initiator --host bh-glx6u-08 --port 9999 --size 2097152
+./build/rdma_testing/dmabuf_initiator --host bh-glx6u-08 --port 9999 --size 2097152
 ```
 It connects, exchanges QP info, posts the RDMA WRITE, polls for local completion, and signals done.
 

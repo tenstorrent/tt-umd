@@ -23,6 +23,7 @@ enum SimulationServerCommand : byte {
     READ = 0,
     WRITE = 1,
     GET_DEVICE_INFO = 2,
+    GET_CLUSTER_DESCRIPTOR = 3,
 }
 
 // Which simulator the host runs; served in the device identity so a client can build the matching
@@ -65,6 +66,14 @@ table SimulationServerDeviceInfo {
     eth_harvesting_mask : uint32;
     l2cpu_harvesting_mask : uint32;
     pcie_harvesting_mask : uint32;
+}
+
+// Cluster topology served in response to a GET_CLUSTER_DESCRIPTOR request. `yaml` is the host's
+// cluster-descriptor YAML text so a client can rebuild the full ClusterDescriptor; empty means the
+// host has no cluster descriptor (the client falls back to a mock built from the device info).
+table SimulationServerClusterDescriptor {
+    status : int32;
+    yaml : string;
 }
 
 // flatc requires a single root_type; the codec reads both messages uniformly via GetRoot<T>, so

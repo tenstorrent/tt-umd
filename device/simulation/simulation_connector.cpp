@@ -32,21 +32,21 @@ namespace {
 //     simulation sockets               socket in it (one device per socket), sourcing device
 //                                      identity from the host over the wire;
 //   - any other directory          -> host running the RTL backend from that build directory.
-enum class Role { HOST_TTSIM, HOST_RTL, CLIENT };
+enum class PathKind { HOST_TTSIM, HOST_RTL, CLIENT };
 
-// The role and, for CLIENT, the sockets found in the directory -- returned together so discover()
-// doesn't scan the directory a second time. The second scan would also be a TOCTOU race: if the host
-// exited between the two scans, the role would still be CLIENT but discover() would build zero
-// devices from a now-empty listing and return silently.
+// The path kind and, for CLIENT, the sockets found in the directory -- returned together so
+// discover() doesn't scan the directory a second time. The second scan would also be a TOCTOU race:
+// if the host exited between the two scans, the kind would still be CLIENT but discover() would
+// build zero devices from a now-empty listing and return silently.
 struct Classification {
-    Role role;
+    PathKind kind;
     std::map<ChipId, std::filesystem::path> sockets;
 };
 
 Classification classify(const std::filesystem::path& simulator_path) {
     std::error_code ec;
     if (std::filesystem::is_regular_file(simulator_path, ec) && simulator_path.extension() == ".so") {
-        return {Role::HOST_TTSIM, {}};
+        return {PathKind::HOST_TTSIM, {}};
     }
     UMD_ASSERT(
         std::filesystem::is_directory(simulator_path, ec),
@@ -56,18 +56,18 @@ Classification classify(const std::filesystem::path& simulator_path) {
     // attach as a client; any other directory is an RTL build we host.
     auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
     if (sockets.empty()) {
-        return {Role::HOST_RTL, {}};
+        return {PathKind::HOST_RTL, {}};
     }
-    return {Role::CLIENT, std::move(sockets)};
+    return {PathKind::CLIENT, std::move(sockets)};
 }
 
 // Host path: bring up the in-process backend (the direct hot path) and hand it the socket to serve.
 std::unique_ptr<TTDevice> make_host_device(
-    Role role,
+    PathKind role,
     const std::filesystem::path& simulator_directory,
     int num_host_mem_channels,
     std::unique_ptr<SimulationServerSocket> socket) {
-    if (role == Role::HOST_TTSIM) {
+    if (role == PathKind::HOST_TTSIM) {
         auto device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
         device->adopt_socket(std::move(socket));
         return device;
@@ -97,13 +97,18 @@ std::unique_ptr<TTDevice> make_client_device(
 
 }  // namespace
 
+SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::path& simulator_directory) {
+    // The two host backends collapse to Host for callers that only care host-vs-client.
+    return classify(simulator_directory).kind == PathKind::CLIENT ? Role::Client : Role::Host;
+}
+
 std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     const std::filesystem::path& simulator_path = options.simulator_directory;
 
     const Classification classification = classify(simulator_path);
 
-    if (classification.role == Role::CLIENT) {
+    if (classification.kind == PathKind::CLIENT) {
         // Multi-chip: one client device per per-chip socket in the directory (enumerated by
         // classify()). Chip ids come from the socket names, so they match the host's. A failure on
         // one socket (a dead or wedged host) only skips that chip -- it must not abort attaching to
@@ -136,7 +141,7 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
     auto socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id));
     devices.emplace(
         chip_id,
-        make_host_device(classification.role, simulator_path, options.num_host_mem_channels, std::move(socket)));
+        make_host_device(classification.kind, simulator_path, options.num_host_mem_channels, std::move(socket)));
     return devices;
 }
 

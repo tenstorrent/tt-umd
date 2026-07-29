@@ -853,7 +853,7 @@ xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {
     if (!soc_descriptor_.has_value()) {
         UMD_THROW(error::UnresolvableCoordinateError, *this, core, noc_id);
     }
-    return get_soc_descriptor().translate_chip_coord_to_translated(core);
+    return get_soc_descriptor().translate_chip_coord_to_translated(core, noc_id);
 }
 
 void TTDevice::set_arc_coordinates(xy_pair arc_core_noc0, xy_pair arc_core_noc1) {

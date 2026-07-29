@@ -6,6 +6,8 @@
 
 #include <fmt/format.h>
 
+#include <tt-logger/tt-logger.hpp>
+
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -141,21 +143,62 @@ uint64_t GrendelNocAddressResolver::to_flat_address(const CoreCoord& core, uint6
     const auto x = static_cast<uint32_t>(noc0_xy.x);
     const auto y = static_cast<uint32_t>(noc0_xy.y);
 
+    // Every branch logs the window it picked and the index within it. The wire carries the target
+    // twice -- as (x, y) and encoded in the address -- and nothing downstream cross-checks them, so
+    // when an access lands on the wrong core this line is what says whether the driver's choice of
+    // window, its index, or the backend is at fault.
     if (core_type == CoreType::DRAM) {
         // The descriptor's DRAM channel map is the authority for which GDDR window a core belongs
         // to; LOGICAL x is the channel and LOGICAL y the subchannel.
         const CoreCoord logical = soc_descriptor_->translate_coord_to(
             CoreCoord(noc0_xy, CoreType::DRAM, CoordSystem::NOC0), CoordSystem::LOGICAL);
-        return windows_.dram_address(static_cast<uint32_t>(logical.x), offset);
+        const auto channel = static_cast<uint32_t>(logical.x);
+        const uint64_t address = windows_.dram_address(channel, offset);
+        log_debug(
+            tt::LogUMD,
+            "Grendel ATT: core ({}, {}) type {} -> Mimir GDDR window, channel {} (subchannel {}), "
+            "offset 0x{:x} -> flat 0x{:x}",
+            x,
+            y,
+            to_str(core_type),
+            channel,
+            logical.y,
+            offset,
+            address);
+        return address;
     }
 
     if ((core_type == CoreType::TENSIX || core_type == CoreType::WORKER) && windows_.is_in_neo_grid(x, y)) {
-        return windows_.tensix_l1_address(x, y, offset);
+        const uint64_t index = (y - windows_.neo_y_start) * windows_.neo_x_count + (x - windows_.neo_x_start);
+        const uint64_t address = windows_.tensix_l1_address(x, y, offset);
+        log_debug(
+            tt::LogUMD,
+            "Grendel ATT: core ({}, {}) type {} -> TensixNEO L1 window, slot {}, offset 0x{:x} -> flat 0x{:x}",
+            x,
+            y,
+            to_str(core_type),
+            index,
+            offset,
+            address);
+        return address;
     }
 
     // Everything else (router, dispatch, ARC, PCIe, security, L2CPU, and Tensix tiles outside the
     // NEO grid) is reached through its per-tile config aperture.
-    return windows_.config_address(x, y, offset);
+    // config_address() validates the core is in the mesh, so it runs before the index is derived --
+    // an out-of-mesh coordinate would underflow the subtraction below.
+    const uint64_t address = windows_.config_address(x, y, offset);
+    const uint64_t tile_id = (y - windows_.quasar_origin_y) * windows_.mesh_x_size + (x - windows_.quasar_origin_x);
+    log_debug(
+        tt::LogUMD,
+        "Grendel ATT: core ({}, {}) type {} -> per-tile config window, tile_id {}, offset 0x{:x} -> flat 0x{:x}",
+        x,
+        y,
+        to_str(core_type),
+        tile_id,
+        offset,
+        address);
+    return address;
 }
 
 }  // namespace tt::umd

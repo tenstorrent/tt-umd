@@ -637,11 +637,10 @@ TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
         if (tt_device->get_arch() != tt::ARCH::BLACKHOLE ||
-            fw_info->get_firmware_version() < FirmwareBundleVersion(19, 8, 0)) {
-            // Out of range is rejected before any message is sent, so it holds on every device.
-            EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
-            EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
+            fw_info->get_firmware_version() < FirmwareBundleVersion(19, 11, 0)) {
+            // Unsupported devices reject every request, in range or not.
             EXPECT_THROW(set_tdp_limit(tt_device.get(), 100), std::runtime_error);
+            EXPECT_THROW(restore_default_tdp_limit(tt_device.get()), std::runtime_error);
             continue;
         }
 
@@ -656,7 +655,7 @@ TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
         set_tdp_limit(tt_device.get(), 75);
         EXPECT_EQ(fw_info->get_tdp_limit(), 75u);
 
-        EXPECT_EQ(restore_default_tdp_limit(tt_device.get()), original_limit.value());
+        restore_default_tdp_limit(tt_device.get());
         EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
     }
 }

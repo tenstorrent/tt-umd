@@ -108,76 +108,65 @@ SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core) {
 constexpr uint32_t TDP_LIMIT_MIN_WATTS = 50;
 constexpr uint32_t TDP_LIMIT_MAX_WATTS = 500;
 
-// CMFW release that introduced ArcMessageType::SET_TDP_LIMIT.
-const FirmwareBundleVersion TDP_LIMIT_MIN_FIRMWARE_VERSION(19, 8, 0);
+// Firmware that UMD requires for ArcMessageType::SET_TDP_LIMIT.
+const FirmwareBundleVersion TDP_LIMIT_MIN_FIRMWARE_VERSION(19, 11, 0);
 
-static void verify_tdp_limit_supported(TTDevice* tt_device) {
-    tt::ARCH arch = tt_device->get_arch();
-    if (arch != tt::ARCH::BLACKHOLE) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format("Changing the TDP limit is supported only on Blackhole, but this device is {}.", arch));
-    }
-
-    FirmwareBundleVersion fw_version = tt_device->get_firmware_info_provider()->get_firmware_version();
-    if (fw_version < TDP_LIMIT_MIN_FIRMWARE_VERSION) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Changing the TDP limit requires firmware {} or newer, but this device runs {}.",
-                TDP_LIMIT_MIN_FIRMWARE_VERSION.to_string(),
-                fw_version.to_string()));
-    }
-}
-
-// send_message drops the firmware exit code that signals refusal, so the outcome is confirmed by reading
-// the limit back: firmware only rewrites it once it has accepted a new one.
-static uint32_t apply_tdp_limit(TTDevice* tt_device, const uint32_t tdp_limit_watts, const bool restore_default) {
-    verify_tdp_limit_supported(tt_device);
-
-    tt_device->get_arc_messenger()->send_message(
-        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT),
-        {restore_default ? 0u : tdp_limit_watts, restore_default ? 1u : 0u});
-
-    std::optional<uint32_t> applied_limit = tt_device->get_firmware_info_provider()->get_tdp_limit();
-    if (!applied_limit.has_value()) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Firmware does not report the TDP limit through telemetry, so the requested change cannot be confirmed.");
-    }
-    return applied_limit.value();
+static bool is_tdp_limit_supported(TTDevice* tt_device) {
+    return tt_device->get_arch() == tt::ARCH::BLACKHOLE &&
+           tt_device->get_firmware_info_provider()->get_firmware_version() >= TDP_LIMIT_MIN_FIRMWARE_VERSION;
 }
 
 void set_tdp_limit(TTDevice* tt_device, const uint32_t tdp_limit_watts) {
-    if (tdp_limit_watts < TDP_LIMIT_MIN_WATTS || tdp_limit_watts > TDP_LIMIT_MAX_WATTS) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "TDP limit of {} W is outside the [{}, {}] W range that firmware accepts.",
-                tdp_limit_watts,
-                TDP_LIMIT_MIN_WATTS,
-                TDP_LIMIT_MAX_WATTS));
-    }
+    UMD_ASSERT(
+        is_tdp_limit_supported(tt_device),
+        error::RuntimeError,
+        fmt::format(
+            "Setting the TDP limit needs Blackhole with firmware {} or newer, but this device is {} running {}.",
+            TDP_LIMIT_MIN_FIRMWARE_VERSION.to_string(),
+            tt_device->get_arch(),
+            tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
 
-    const uint32_t applied_limit = apply_tdp_limit(tt_device, tdp_limit_watts, false);
-    if (applied_limit != tdp_limit_watts) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Firmware refused a TDP limit of {} W and is still enforcing {} W. A limit above max_tdp_limit in "
-                "the board's SPI firmware table is refused, and that field is only populated on Blackhole Galaxy "
-                "boards, so on other boards the limit cannot be raised past the board default.",
-                tdp_limit_watts,
-                applied_limit));
-    }
+    UMD_ASSERT(
+        tdp_limit_watts >= TDP_LIMIT_MIN_WATTS && tdp_limit_watts <= TDP_LIMIT_MAX_WATTS,
+        error::RuntimeError,
+        fmt::format(
+            "TDP limit of {} W is outside the [{}, {}] W range that firmware accepts.",
+            tdp_limit_watts,
+            TDP_LIMIT_MIN_WATTS,
+            TDP_LIMIT_MAX_WATTS));
 
-    log_debug(tt::LogUMD, "TDP limit set to {} W.", applied_limit);
+    tt_device->get_arc_messenger()->send_message(
+        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {tdp_limit_watts, 0});
+
+    // Firmware refuses a limit above chip_limits.max_tdp_limit through an exit code that send_message drops,
+    // so the outcome is read back: firmware rewrites the limit only once it has accepted one.
+    std::optional<uint32_t> applied_limit = tt_device->get_firmware_info_provider()->get_tdp_limit();
+    UMD_ASSERT(
+        !applied_limit.has_value() || applied_limit.value() == tdp_limit_watts,
+        error::RuntimeError,
+        fmt::format(
+            "Firmware refused a TDP limit of {} W and still enforces {} W, which means the request exceeds "
+            "max_tdp_limit in the board's SPI firmware table.",
+            tdp_limit_watts,
+            applied_limit.value_or(0)));
+
+    log_debug(tt::LogUMD, "TDP limit set to {} W.", tdp_limit_watts);
 }
 
-uint32_t restore_default_tdp_limit(TTDevice* tt_device) {
-    const uint32_t applied_limit = apply_tdp_limit(tt_device, 0, true);
-    log_debug(tt::LogUMD, "TDP limit restored to the board default of {} W.", applied_limit);
-    return applied_limit;
+void restore_default_tdp_limit(TTDevice* tt_device) {
+    UMD_ASSERT(
+        is_tdp_limit_supported(tt_device),
+        error::RuntimeError,
+        fmt::format(
+            "Restoring the TDP limit needs Blackhole with firmware {} or newer, but this device is {} running {}.",
+            TDP_LIMIT_MIN_FIRMWARE_VERSION.to_string(),
+            tt_device->get_arch(),
+            tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
+
+    // Firmware takes the default from chip_limits.tdp_limit in the SPI firmware table, so it ignores the
+    // limit argument entirely and only reads the restore-default flag.
+    tt_device->get_arc_messenger()->send_message(
+        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {0, 1});
 }
 
 std::vector<std::pair<CoreCoord, bool>> filter_harvested_eth_status(

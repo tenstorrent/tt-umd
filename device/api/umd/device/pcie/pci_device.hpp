@@ -274,6 +274,12 @@ public:
     static SemVer read_kmd_version();
 
     /**
+     * Read the running Linux kernel version (from uname(2)'s release field), as major.minor.patch.
+     * The trailing distro suffix (e.g. "-91-generic") is dropped; only major/minor/patch are parsed.
+     */
+    static SemVer read_kernel_version();
+
+    /**
      * Allocate TLB resource from KMD.
      *
      * @param tlb_size Size of the TLB caller wants to allocate.
@@ -328,7 +334,8 @@ public:
 
     /**
      * Checks if exporting a TLB window as a dma-buf (TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF) is
-     * supported by the device by checking the KMD version which enables this feature.
+     * supported: requires both a KMD version that implements the ioctl and a running kernel new
+     * enough for the dma-buf infrastructure the ioctl relies on (Linux 5.8+).
      */
     static bool is_tlb_dmabuf_export_supported();
 

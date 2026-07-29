@@ -48,4 +48,11 @@ inline constexpr SemVer KMD_POWER_STATE = SemVer(2, 6, 0);
  * NIC import via ibv_reg_dmabuf_mr()).
  */
 inline constexpr SemVer KMD_TLB_DMABUF_EXPORT = SemVer(2, 10, 0, 1);
+
+/**
+ * TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF also requires the running kernel itself to be new enough
+ * (Linux 5.8+), independent of the KMD version, since the ioctl relies on dma-buf facilities
+ * introduced in that release.
+ */
+inline constexpr SemVer MIN_KERNEL_TLB_DMABUF_EXPORT = SemVer(5, 8, 0);
 }  // namespace tt::umd

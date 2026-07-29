@@ -65,7 +65,13 @@ int SiliconTlbHandle::export_dmabuf(uint64_t offset, uint64_t size) const {
     if (!PCIDevice::is_tlb_dmabuf_export_supported()) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Exporting a TLB as a dma-buf requires KMD >= {}.", KMD_TLB_DMABUF_EXPORT.str()));
+            fmt::format(
+                "Exporting a TLB as a dma-buf requires KMD >= {} and Linux kernel >= {} (running: KMD {}, kernel "
+                "{}).",
+                KMD_TLB_DMABUF_EXPORT.str(),
+                MIN_KERNEL_TLB_DMABUF_EXPORT.str(),
+                PCIDevice::read_kmd_version().str(),
+                PCIDevice::read_kernel_version().str()));
     }
 
     int fd;

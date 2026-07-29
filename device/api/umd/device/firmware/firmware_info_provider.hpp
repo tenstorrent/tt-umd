@@ -138,6 +138,15 @@ public:
     std::optional<double> get_thm_limit_shutdown() const;
 
     /*
+     * Get the TDP limit currently enforced by the TDP throttler, in watts.
+     * Firmware initializes this to the board's default TDP limit from the SPI firmware table and
+     * updates it whenever the limit is changed at runtime, so it reflects the active limit rather
+     * than a static ceiling (despite the TDP_LIMIT_MAX telemetry tag it is read from).
+     * @returns Active TDP limit [W]
+     */
+    std::optional<uint32_t> get_tdp_limit() const;
+
+    /*
      * Get board power limit in watts.
      * @returns Board power limit [W]
      */

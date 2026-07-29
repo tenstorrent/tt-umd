@@ -110,6 +110,7 @@ enum class FirmwareFeature {
     TDC,
     VCORE,
     TDC_LIMIT_MAX,
+    TDP_LIMIT_MAX,
     BOARD_POWER_LIMIT,
 
     // Cooling & thermal management.

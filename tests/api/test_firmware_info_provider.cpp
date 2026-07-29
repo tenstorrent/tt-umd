@@ -606,6 +606,22 @@ TEST_F(TestFirmwareInfoProvider, BoardPowerLimit) {
     }
 }
 
+TEST_F(TestFirmwareInfoProvider, TdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        auto tdp_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "tdp_limit={} W", opt_str(tdp_limit));
+
+        // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
+        // throttler's [50, 500] W range. A zero means the board never configured a limit.
+        if (tdp_limit.has_value() && tdp_limit.value() != 0) {
+            EXPECT_GE(tdp_limit.value(), 50u);
+            EXPECT_LE(tdp_limit.value(), 500u);
+        }
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();

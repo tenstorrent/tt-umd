@@ -105,6 +105,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::TDC,               {TelemetryTag::TDC, LinearTransform{}}},
         {FirmwareFeature::VCORE,             {TelemetryTag::VCORE, LinearTransform{}}},
         {FirmwareFeature::TDC_LIMIT_MAX,     {TelemetryTag::TDC_LIMIT_MAX, LinearTransform{}}},
+        {FirmwareFeature::TDP_LIMIT_MAX,     {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}}},
         {FirmwareFeature::BOARD_POWER_LIMIT, {TelemetryTag::BOARD_POWER_LIMIT, LinearTransform{}}},
         {FirmwareFeature::FAN_SPEED,         {TelemetryTag::FAN_SPEED, LinearTransform{}}},
         {FirmwareFeature::FAN_RPM,           {TelemetryTag::FAN_RPM, LinearTransform{}}},
@@ -155,6 +156,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
         {FirmwareFeature::TDC_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::TDP_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::BOARD_POWER_LIMIT, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
         {FirmwareFeature::FAN_RPM, {FixedValue{0}, NotAvailable{}}},
@@ -673,6 +675,10 @@ std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() c
 std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
     // Stored as a plain integer in degrees Celsius.
     return read_scalar<double>(FirmwareFeature::THM_LIMIT_SHUTDOWN);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp_limit() const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDP_LIMIT_MAX);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {

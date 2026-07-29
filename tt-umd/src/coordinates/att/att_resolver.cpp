@@ -5,6 +5,7 @@
 #include "tt-umd/coordinates/att/att_resolver.hpp"
 
 #include <fmt/format.h>
+#include <tt-logger/tt-logger.hpp>
 
 #include "tt-umd/soc_descriptor.hpp"
 #include "tt-umd/utils/error.hpp"
@@ -18,6 +19,20 @@ constexpr uint32_t COORD_LIMIT = 1u << 6;
 
 /** Endpoint tables hold coordinates the way the hardware register does. */
 constexpr uint16_t pack_coord(uint32_t x, uint32_t y) { return static_cast<uint16_t>((y << 6) | x); }
+
+const char* window_class_name(WindowClass window_class) {
+    switch (window_class) {
+        case WindowClass::WORKER:
+            return "TensixNEO L1";
+        case WindowClass::DRAM:
+            return "Mimir GDDR";
+        case WindowClass::FULL_TILE:
+            return "per-tile config";
+        case WindowClass::COUNT:
+            break;
+    }
+    return "unknown";
+}
 
 WindowClass window_class_for(CoreType core_type) {
     switch (core_type) {
@@ -133,7 +148,21 @@ uint64_t EndpointResolver::resolve(tt_xy_pair core, CoreType core_type, uint64_t
             x,
             y));
 
-    return window.make_address(entry->second, offset);
+    // The wire carries the target twice -- as (x, y) and encoded in the address -- and nothing
+    // downstream cross-checks them. When an access lands on the wrong core this line says whether
+    // the window, the slot within it, or the backend is at fault.
+    const uint64_t address = window.make_address(entry->second, offset);
+    log_debug(
+        tt::LogUMD,
+        "Grendel ATT: core ({}, {}) type {} -> {} window, slot {}, offset 0x{:x} -> flat 0x{:x}",
+        x,
+        y,
+        to_str(core_type),
+        window_class_name(window_class),
+        entry->second,
+        offset,
+        address);
+    return address;
 }
 
 uint64_t resolve_core(

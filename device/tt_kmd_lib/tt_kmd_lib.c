@@ -570,6 +570,17 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
 }
 
 int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd) {
+    if (dev == NULL || tlb == NULL || out_fd == NULL) {
+        return -EINVAL;
+    }
+
+    const uint64_t tlb_size = tlb->size;
+    const uint64_t page_size = (uint64_t)getpagesize();
+    if (offset > tlb_size || (offset % page_size) != 0 || (size != 0 && (size % page_size) != 0) ||
+        (size != 0 && (offset + size) > tlb_size)) {
+        return -EINVAL;
+    }
+
     struct tenstorrent_export_tlb_dmabuf export_dmabuf = {0};
     export_dmabuf.argsz = sizeof(export_dmabuf);
     export_dmabuf.tlb_id = tlb->id;

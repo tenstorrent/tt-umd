@@ -195,7 +195,7 @@ void bind_tt_device(nb::module_ &m) {
         .def_static(
             "read_device_info",
             &PCIDevice::read_device_info,
-            nb::arg("fd"),
+            nb::arg("device_path"),
             release_gil(),
             "Read PCI device information.")
         .def_static(

@@ -153,6 +153,20 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 
+void TTDevice::init_tt_device_for_simulation_remote(const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    probe_arc();
+    wait_arc_core_start(timeout_ms);
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    // Simulation remotes are seeded from the cluster descriptor before init. Keep that descriptor
+    // authoritative for harvesting/topology, while still bringing up ARC/FW services.
+    if (!soc_descriptor_.has_value()) {
+        construct_soc_descriptor(soc_arch_descriptor_);
+    }
+}
+
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number,
     IODeviceType device_type,
@@ -228,12 +242,16 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
             "Supplied SocDescriptor arch ({}) does not match the remote device arch ({}).",
             arch_to_str(soc_descriptor.arch),
             arch_to_str(arch)));
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor =
+        soc_descriptor.device_descriptor_file_path.empty()
+            ? std::make_shared<SocArchDescriptor>(soc_descriptor.arch)
+            : std::make_shared<SocArchDescriptor>(soc_descriptor.device_descriptor_file_path);
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             auto device = std::unique_ptr<WormholeTTDevice>(
-                new WormholeTTDevice(std::move(remote_communication), /*soc_arch_descriptor=*/nullptr));
-            // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
-            // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
+                new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
+            // Seed the simulation-backed descriptor before ARC/FW init; the later reconstruction reuses the same
+            // YAML-backed SocArchDescriptor so downstream metadata loaders keep a valid device descriptor path.
             device->set_soc_descriptor(soc_descriptor);
             return device;
         }
@@ -624,6 +642,12 @@ uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get
 
 ChipInfo TTDevice::get_chip_info() {
     if (firmware_info_provider == nullptr) {
+        if (soc_descriptor_.has_value()) {
+            ChipInfo chip_info;
+            chip_info.noc_translation_enabled = soc_descriptor_->noc_translation_enabled;
+            chip_info.harvesting_masks = soc_descriptor_->harvesting_masks;
+            return chip_info;
+        }
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
     ChipInfo chip_info;

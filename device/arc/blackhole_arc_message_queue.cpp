@@ -145,7 +145,9 @@ uint32_t BlackholeArcMessageQueue::send_message(
 
 std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     TTDevice* tt_device, const size_t queue_index) {
-    const tt_xy_pair arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), is_selected_noc1());
+    const NocId noc_id = get_selected_noc_id();
+    const tt_xy_pair arc_core =
+        blackhole::get_arc_core(tt_device->get_noc_translation_enabled(noc_id), noc_id == NocId::NOC1);
 
     uint32_t queue_control_block_addr;
     tt_device->read_from_arc_apb(&queue_control_block_addr, blackhole::SCRATCH_RAM_11, sizeof(uint32_t));
@@ -156,8 +158,7 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
         queue_control_block |=
             ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
     } else {
-        tt_device->read_from_device(
-            &queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t), get_selected_noc_id());
+        tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t), noc_id);
     }
 
     uint32_t queue_base_addr = queue_control_block & 0xFFFFFFFF;

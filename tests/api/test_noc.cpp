@@ -599,7 +599,7 @@ TEST_P(TestNocWormholeDramTranslatedCoordinates, VerifyTranslatedRegisterMatches
     }
 
     // Skip if NOC translation is not enabled.
-    if (!get_cluster()->get_tt_device(0)->get_noc_translation_enabled()) {
+    if (!get_cluster()->get_tt_device(0)->get_noc_translation_enabled(NocId::NOC0)) {
         GTEST_SKIP() << "NOC translation is not enabled";
     }
 

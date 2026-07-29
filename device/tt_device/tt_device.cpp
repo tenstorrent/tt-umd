@@ -17,7 +17,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -117,7 +116,7 @@ TTDevice::TTDevice(
 
 void TTDevice::probe_arc(NocId noc_id) {
     uint32_t dummy;
-    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
+    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy), noc_id);  // SCRATCH_0
 }
 
 void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
@@ -140,10 +139,9 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, NocId 
     if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
     }
-    bool noc_hang_check_result =
-        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+    bool noc_hang_check_result = hang_detector_->is_noc_hung(noc_id).value_or(false);
     if (noc_hang_check_result) {
-        UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
+        UMD_THROW(error::NocHangError, *this, noc_id);
     }
     probe_arc(noc_id);
     wait_arc_core_start(timeout_ms, noc_id);
@@ -677,7 +675,15 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 }
 
 tt_xy_pair TTDevice::get_arc_core(NocId noc_id) const {
-    return noc_id == NocId::NOC0 ? arc_core_noc0_ : arc_core_noc1_;
+    // NocId::DEFAULT_NOC shares NOC0's value, so it resolves to the NOC0 ARC core.
+    switch (noc_id) {
+        case NocId::NOC0:
+            return arc_core_noc0_;
+        case NocId::NOC1:
+            return arc_core_noc1_;
+        default:
+            UMD_THROW(error::RuntimeError, fmt::format("No ARC core coordinate defined for {}.", noc_to_str(noc_id)));
+    }
 }
 
 void TTDevice::noc_multicast_write(

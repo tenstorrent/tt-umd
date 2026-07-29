@@ -201,7 +201,7 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
     constexpr auto busy_poll_window = std::chrono::microseconds(1000);
     constexpr auto poll_interval = std::chrono::microseconds(10);
     const bool arc_core_started = utils::poll_until(
-        [this, &arc_boot_status, &arc_postcode, &noc_id]() {
+        [this, &arc_boot_status, &arc_postcode, noc_id]() {
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status, noc_id);
             read_from_arc_apb(
                 &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_postcode, noc_id);
@@ -273,7 +273,11 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
     }
     if (!is_arc_available_over_axi()) {
         read_from_device_reg(
-            mem_ptr, get_arc_core(noc_id), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+            mem_ptr,
+            get_arc_core(noc_id),
+            architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+            size,
+            noc_id);
         return;
     }
     auto result = bar_read32(blackhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -296,7 +300,11 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
     }
     if (!is_arc_available_over_axi()) {
         write_to_device_reg(
-            mem_ptr, get_arc_core(noc_id), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+            mem_ptr,
+            get_arc_core(noc_id),
+            architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+            size,
+            noc_id);
         return;
     }
     bar_write32(

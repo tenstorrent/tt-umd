@@ -159,7 +159,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
         }
         pci_tt_device->init_tt_device();
 
-        ChipInfo chip_info = pci_tt_device->get_chip_info();
+        ChipInfo chip_info = pci_tt_device->get_chip_info(NocId::NOC0);
         tt_xy_pair tensix_core =
             pci_tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
@@ -169,7 +169,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
         pci_tt_device->write_to_device(data_write.data(), tensix_core, address, data_write.size() * sizeof(uint32_t));
 
         for (const auto& device : device_data_) {
-            ChipInfo jtag_chip_info = device.tt_device_->get_chip_info();
+            ChipInfo jtag_chip_info = device.tt_device_->get_chip_info(NocId::NOC0);
             // Since we can have multiple chips with their own jlink,
             // we have to find the one which direct connection to PCIe link.
             if (jtag_chip_info.board_id == chip_info.board_id &&

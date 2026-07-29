@@ -60,9 +60,9 @@ struct SpiBufferInfo {
 
 // Reads SPI dump buffer address and size from SCRATCH_RAM[10]. addr is ARC physical address (bytes),
 // size is buffer size in bytes (2^upper_8_bits from register).
-static SpiBufferInfo get_spi_buffer_info(TTDevice* device) {
+static SpiBufferInfo get_spi_buffer_info(TTDevice* device, NocId noc_id) {
     uint32_t buffer_info;
-    device->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info));
+    device->read_from_arc_apb(&buffer_info, blackhole::SCRATCH_RAM_10, sizeof(buffer_info), noc_id);
     uint32_t buffer_addr = (buffer_info & BH_SPI_ADDR_MASK_24_BITS) + BH_SPI_ARC_ADDR_OFFSET;
     uint32_t buffer_size = 1u << ((buffer_info >> BH_SPI_SIZE_SHIFT_BITS) & BH_SPI_SIZE_MASK_8_BITS);
     return {buffer_addr, buffer_size};
@@ -154,7 +154,9 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI read on Blackhole.");
     }
 
-    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
+    const NocId noc_id = get_selected_noc_id();
+
+    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_, noc_id);
 
     size_t bytes_read = 0;
     while (bytes_read < size) {
@@ -174,8 +176,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         }
 
         // Read data from buffer.
-        device_->read_from_device(
-            data + bytes_read, device_->get_arc_core(), buffer_addr, chunk_size, get_selected_noc_id());
+        device_->read_from_device(data + bytes_read, device_->get_arc_core(noc_id), buffer_addr, chunk_size, noc_id);
         bytes_read += chunk_size;
         // Guard against bytes_read exceeding size (e.g. if device returned more than requested).
         bytes_read = std::min(bytes_read, size);
@@ -192,7 +193,9 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI write on Blackhole.");
     }
 
-    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_);
+    const NocId noc_id = get_selected_noc_id();
+
+    auto [buffer_addr, buffer_size] = get_spi_buffer_info(device_, noc_id);
 
     // Since BH_SPI_LOCK_REQUIRED_SINCE_FW, SPI write must be accompanied by unlock (0xC2) before and lock (0xC3) after.
     FirmwareBundleVersion fw_version = device_->get_firmware_version();
@@ -214,8 +217,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         uint32_t chunk_size = std::min<uint32_t>(static_cast<uint32_t>(remaining), buffer_size);
 
         // Write data to buffer first.
-        device_->write_to_device(
-            data + bytes_written, device_->get_arc_core(), buffer_addr, chunk_size, get_selected_noc_id());
+        device_->write_to_device(data + bytes_written, device_->get_arc_core(noc_id), buffer_addr, chunk_size, noc_id);
 
         if (!skip_write_to_spi) {
             // Request ARC to write chunk from buffer to SPI using WRITE_EEPROM (0x1A).

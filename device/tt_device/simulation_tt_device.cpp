@@ -134,6 +134,13 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
     if (handle_special_write(mem_ptr, translated_core, addr, size)) {
         return;
     }
+    // Backends that target cores by a flat global address resolve (core, offset) here, while the
+    // CoreCoord -- and so its CoreType, which selects the address window -- is still intact. This is
+    // the host path deliberately: a client-mode access arrives here already translated (as LITERAL)
+    // with a core-local address, so resolving once here covers both roles.
+    if (noc_address_resolver_ != nullptr) {
+        addr = noc_address_resolver_->to_flat_address(core, addr, get_selected_noc_id());
+    }
     if (should_use_cached_tlb_window()) {
         cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
@@ -149,6 +156,10 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     if (handle_special_read(mem_ptr, translated_core, addr, size)) {
         return;
+    }
+    // See host_write: flatten the coordinate into the address before it loses its CoreType.
+    if (noc_address_resolver_ != nullptr) {
+        addr = noc_address_resolver_->to_flat_address(core, addr, get_selected_noc_id());
     }
     if (should_use_cached_tlb_window()) {
         cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());

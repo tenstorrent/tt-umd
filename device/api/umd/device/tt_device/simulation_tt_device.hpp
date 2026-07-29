@@ -13,6 +13,7 @@
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/noc_address_resolver.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -142,6 +143,12 @@ protected:
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
     std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
     std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
+
+    // Set only by backends that address cores by a flat global address instead of carrying the
+    // destination coordinate out of band -- Grendel/Quasar, whose NOC ATT resolves a flat address
+    // into a destination (x, y) plus a local address. Null everywhere else, which leaves the
+    // address core-local and read/write behavior unchanged.
+    std::unique_ptr<NocAddressResolver> noc_address_resolver_;
 
     // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find it.
     // The host keeps its own direct in-process fast path; the socket is for remote clients.

@@ -117,6 +117,7 @@ target_sources(
         coordinates/wormhole_coordinate_manager.cpp
         coordinates/blackhole_coordinate_manager.cpp
         coordinates/quasar_coordinate_manager.cpp
+        coordinates/grendel_noc_address_resolver.cpp
         arc/arc_telemetry_reader.cpp
         arc/wormhole_arc_telemetry_reader.cpp
         arc/blackhole_arc_telemetry_reader.cpp

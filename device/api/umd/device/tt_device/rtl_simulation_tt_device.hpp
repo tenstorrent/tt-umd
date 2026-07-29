@@ -69,6 +69,9 @@ protected:
     void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void* mem_ptr, size_t size) override;
     bool handle_special_read(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
     bool handle_special_write(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    // Quasar has no TLBs; it addresses cores by a flat global address resolved through
+    // noc_address_resolver_, so it bypasses the dummy cached window entirely.
+    bool should_use_cached_tlb_window() override;
 
 private:
     // System NOC (SMN) fast path (Quasar only). `core` is a TRANSLATED coordinate; returns true when
@@ -86,6 +89,14 @@ private:
     // Host-mode backend bring-up (communicator init, sysmem callbacks, TLB setup). Takes the
     // host-mem channel count because the RAM callbacks need it.
     void initialize_backend(int num_host_mem_channels);
+
+    // Install the arch's flat-address resolver, if it needs one. Only Grendel/Quasar does; every
+    // other arch keeps core-local addresses and leaves noc_address_resolver_ null. Must run after
+    // set_soc_descriptor(), since the resolver borrows the descriptor.
+    //
+    // Host mode only. A client-mode device must not resolve: it hands the host a translated
+    // coordinate and a core-local address, and the host resolves that in host_write/host_read.
+    void setup_noc_address_resolver();
 
     // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
     // difference today: host mode drives the in-process RTL backend (communicator_), client mode

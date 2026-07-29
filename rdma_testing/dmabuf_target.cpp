@@ -26,13 +26,6 @@ using namespace tt::umd;
 
 namespace {
 
-// TLB windows can only be allocated in the sizes tt_tlb_alloc() supports (see
-// device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h): 1/2/16 MiB on Wormhole, 2 MiB or 4 GiB on
-// Blackhole. 1 MiB is not a valid window size on Blackhole (tt_tlb_alloc fails with -EINVAL), so
-// the window is always allocated at 2 MiB regardless of --size; --size only controls how many
-// bytes of that window get registered as the RDMA MR and verified.
-constexpr uint64_t kTlbWindowSize = 2ull << 20;
-
 struct Args {
     uint16_t port = 9999;
     tt::ChipId chip = 0;
@@ -82,11 +75,9 @@ int main(int argc, char** argv) {
     std::cout << "Exporting TLB window: chip=" << args.chip << " core=(" << core.x << "," << core.y << ") addr=0x"
               << std::hex << args.addr << std::dec << " size=" << args.size << std::endl;
 
-    if (args.size > kTlbWindowSize) {
-        std::cerr << "--size " << args.size << " exceeds the TLB window size " << kTlbWindowSize << std::endl;
-        return 1;
-    }
-    int dmabuf_fd = cluster->export_dmabuf(args.chip, core, args.addr, kTlbWindowSize);
+    // export_dmabuf() takes the export length directly and rounds the underlying TLB window up to
+    // the arch's next valid size class internally, so --size needs no arch-specific adjustment here.
+    int dmabuf_fd = cluster->export_dmabuf(args.chip, core, args.addr, args.size);
     std::cout << "Got dma-buf fd " << dmabuf_fd << std::endl;
 
     // --- RDMA side: register the dma-buf as an MR --------------------------------------------

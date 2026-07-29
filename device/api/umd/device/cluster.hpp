@@ -500,13 +500,17 @@ public:
      *   once the last export on the window is released, returns the window to the allocation pool.
      * - A dedicated window is always allocated (never a shared/static one), so there is no
      *   reconfigure hazard with other TLB users.
+     * - `size` is the exported length, not a TLB window size: the underlying window is rounded up
+     *   internally to the smallest per-arch size class that can cover [addr, addr + size), so
+     *   callers need not know the arch's valid window sizes. The dma-buf is exactly `size` bytes.
      * - `addr` and `size` must both be host-page-aligned; the kmd rejects an unaligned export
      *   offset or length with -EINVAL.
      *
      * @param chip Chip to target.
      * @param core Core to target.
      * @param addr Address within the core the window should map to. Must be page-aligned.
-     * @param size Size of the window/export, in bytes. Must be page-aligned.
+     * @param size Bytes to export. Must be non-zero and page-aligned. The returned dma-buf is
+     *             exactly this long, which is the length a peer registers its MR with.
      * @param ordering Ordering mode for the TLB.
      * @return dma-buf file descriptor; the caller owns it and must close() it when done.
      */

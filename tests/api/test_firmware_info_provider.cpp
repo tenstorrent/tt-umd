@@ -613,6 +613,16 @@ TEST_F(TestFirmwareInfoProvider, TdpLimit) {
         auto tdp_limit = fw_info->get_tdp_limit();
         log_info(tt::LogUMD, "tdp_limit={} W", opt_str(tdp_limit));
 
+        // Wormhole publishes the limit from 18.4 on, Blackhole from 19.8 on.
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE
+                                    ? fw_version >= FirmwareBundleVersion(19, 8, 0)
+                                    : fw_version > FW_VERSION_18_3;
+        if (!expect_available) {
+            EXPECT_FALSE(tdp_limit.has_value());
+            continue;
+        }
+
         // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
         // throttler's [50, 500] W range. A zero means the board never configured a limit.
         if (tdp_limit.has_value() && tdp_limit.value() != 0) {

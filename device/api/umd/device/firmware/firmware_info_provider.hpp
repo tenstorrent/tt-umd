@@ -138,11 +138,8 @@ public:
     std::optional<double> get_thm_limit_shutdown() const;
 
     /*
-     * Get the TDP limit currently enforced by the TDP throttler, in watts.
-     * Firmware initializes this to the board's default TDP limit from the SPI firmware table and
-     * updates it whenever the limit is changed at runtime, so it reflects the active limit rather
-     * than a static ceiling (despite the TDP_LIMIT_MAX telemetry tag it is read from).
-     * @returns Active TDP limit [W]
+     * Get TDP limit in watts.
+     * @returns TDP limit [W]
      */
     std::optional<uint32_t> get_tdp_limit() const;
 
@@ -236,6 +233,7 @@ private:
     static FirmwareFeatures create_wormhole_18_8_base();
     static FirmwareFeatures create_wormhole_19_9_base();
     static FirmwareFeatures create_blackhole_18_8_base();
+    static FirmwareFeatures create_blackhole_19_8_base();
     static FirmwareFeatures create_blackhole_19_9_base();
 
     // Engine methods for reading and transforming telemetry data.

@@ -168,6 +168,13 @@ void SimulationTTDevice::noc_write_translated(tt_xy_pair core, uint64_t addr, co
     if (handle_special_write(mem_ptr, core, addr, size)) {
         return;
     }
+    // Backends that target cores by a flat global address resolve (core, offset) here, while the
+    // CoreCoord -- and so its CoreType, which selects the address window -- is still intact. This is
+    // the host path deliberately: a client-mode access arrives here already translated (as LITERAL)
+    // with a core-local address, so resolving once here covers both roles.
+    if (noc_address_resolver_ != nullptr) {
+        addr = noc_address_resolver_->to_flat_address(core, addr, get_selected_noc_id());
+    }
     if (should_use_cached_tlb_window()) {
         write_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());
     } else {
@@ -182,6 +189,10 @@ void SimulationTTDevice::noc_read_translated(tt_xy_pair core, uint64_t addr, voi
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     if (handle_special_read(mem_ptr, core, addr, size)) {
         return;
+    }
+    // See host_write: flatten the coordinate into the address before it loses its CoreType.
+    if (noc_address_resolver_ != nullptr) {
+        addr = noc_address_resolver_->to_flat_address(core, addr, get_selected_noc_id());
     }
     if (should_use_cached_tlb_window()) {
         read_block_reconfigure(*cached_tlb_window_, mem_ptr, core, addr, size, get_selected_noc_id());

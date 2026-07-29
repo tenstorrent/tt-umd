@@ -632,6 +632,35 @@ TEST_F(TestFirmwareInfoProvider, TdpLimit) {
     }
 }
 
+TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE ||
+            fw_info->get_firmware_version() < FirmwareBundleVersion(19, 8, 0)) {
+            // Out of range is rejected before any message is sent, so it holds on every device.
+            EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
+            EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
+            EXPECT_THROW(set_tdp_limit(tt_device.get(), 100), std::runtime_error);
+            continue;
+        }
+
+        std::optional<uint32_t> original_limit = fw_info->get_tdp_limit();
+        ASSERT_TRUE(original_limit.has_value());
+
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
+        EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
+
+        // 75 W is below the default limit of every Blackhole board, and lowering is always accepted.
+        set_tdp_limit(tt_device.get(), 75);
+        EXPECT_EQ(fw_info->get_tdp_limit(), 75u);
+
+        EXPECT_EQ(restore_default_tdp_limit(tt_device.get()), original_limit.value());
+        EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();

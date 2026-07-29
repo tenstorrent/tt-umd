@@ -28,6 +28,7 @@ enum class ArcMessageType : uint8_t {
     READ_VM = 0x1D,
     I2C_MESSAGE = 0x1E,
     EFUSE_BURN_BITS = 0x1F,
+    SET_TDP_LIMIT = 0x22,  // Requires fw 19.8.0 or newer. arg0: limit [W], arg1: bit 0 = restore default
     FORCE_AICLK = 0x33,
     FORCE_VDD = 0x39,
     AICLK_GO_BUSY = 0x52,

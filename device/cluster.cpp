@@ -218,16 +218,13 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
         gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
             cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
 
+    auto remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
+    remote_tt_device->init_tt_device_for_simulation_remote();
     ChipInfo chip_info;
     chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
     chip_info.harvesting_masks = soc_desc.harvesting_masks;
     chip_info.board_type = cluster_desc->get_board_type(chip_id);
-    chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
     chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
-
-    // The simulated remote chip has no ARC, so hand its SocDescriptor to the remote TTDevice directly
-    // instead of letting init_tt_device construct one.
-    auto remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
     return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
 }
 #endif  // TT_UMD_BUILD_SIMULATION

@@ -15,6 +15,9 @@
 #include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -329,7 +332,19 @@ uint32_t SimulationTTDevice::get_clock() {
 }
 
 uint32_t SimulationTTDevice::get_min_clock_freq() {
-    UMD_THROW(error::RuntimeError, "Getting minimum clock frequency is not supported for simulation devices.");
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return wormhole::AICLK_IDLE_VAL;
+        case tt::ARCH::BLACKHOLE:
+            return blackhole::AICLK_IDLE_VAL;
+        case tt::ARCH::QUASAR:
+            return grendel::AICLK_IDLE_VAL;
+        default:
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Getting minimum clock frequency is not supported for simulation arch {}.", arch_to_str(arch)));
+    }
 }
 
 }  // namespace tt::umd

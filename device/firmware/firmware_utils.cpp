@@ -124,15 +124,6 @@ static bool is_tdp_limit_supported(TTDevice* tt_device) {
 
 void set_tdp_limit(TTDevice* tt_device, const uint32_t tdp_limit_watts) {
     UMD_ASSERT(
-        is_tdp_limit_supported(tt_device),
-        error::RuntimeError,
-        fmt::format(
-            "Setting the TDP limit needs Blackhole with firmware {} or newer, but this device is {} running {}.",
-            TDP_LIMIT_MIN_FIRMWARE_VERSION.to_string(),
-            tt_device->get_arch(),
-            tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
-
-    UMD_ASSERT(
         tdp_limit_watts >= TDP_LIMIT_MIN_WATTS && tdp_limit_watts <= TDP_LIMIT_MAX_WATTS,
         error::RuntimeError,
         fmt::format(
@@ -140,6 +131,15 @@ void set_tdp_limit(TTDevice* tt_device, const uint32_t tdp_limit_watts) {
             tdp_limit_watts,
             TDP_LIMIT_MIN_WATTS,
             TDP_LIMIT_MAX_WATTS));
+
+    UMD_ASSERT(
+        is_tdp_limit_supported(tt_device),
+        error::RuntimeError,
+        fmt::format(
+            "Setting the TDP limit needs Blackhole with firmware {} or newer, but this device is {} running {}.",
+            TDP_LIMIT_MIN_FIRMWARE_VERSION.to_string(),
+            tt_device->get_arch(),
+            tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
 
     tt_device->get_arc_messenger()->send_message(
         static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {tdp_limit_watts, TDP_LIMIT_APPLY_REQUESTED});

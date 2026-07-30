@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// RDMA initiator for the two-host dma-buf smoke test. Registers a normal host-memory MR filled
-// with a known test pattern, brings up an RC QP against the target, and issues an RDMA WRITE into
-// the target's dma-buf-backed MR (see dmabuf_target.cpp). No UMD dependency here at all.
+// RDMA initiator for the two-host dma-buf bandwidth test. Registers a normal host-memory MR filled
+// with a known test pattern, brings up an RC QP against the target, and issues repeated RDMA WRITEs
+// into the target's dma-buf-backed MR (see dmabuf_target.cpp) to measure sustained write bandwidth.
+// No UMD dependency here at all.
 #include <infiniband/verbs.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -21,7 +23,10 @@ namespace {
 struct Args {
     std::string host;
     uint16_t port = 9999;
-    uint64_t size = 1ull << 20;  // 1 MiB — must match dmabuf_target's --size (Blackhole TENSIX_L1_SIZE is 1.5 MiB)
+    // 64 MiB: must match dmabuf_target's --size (Blackhole DRAM_BANK_SIZE is 4 GiB, so there's
+    // plenty of headroom vs the old Tensix-L1-backed 1.5 MiB ceiling).
+    uint64_t size = 64ull << 20;
+    uint64_t iters = 100;  // number of RDMA_WRITEs of --size bytes to issue, timed as one batch
     int ib_port = 1;
     int gid_index = 0;
 };
@@ -37,6 +42,8 @@ Args parse_args(int argc, char** argv) {
             a.port = static_cast<uint16_t>(std::stoi(next()));
         } else if (arg == "--size") {
             a.size = std::stoull(next());
+        } else if (arg == "--iters") {
+            a.iters = std::stoull(next());
         } else if (arg == "--ib-port") {
             a.ib_port = std::stoi(next());
         } else if (arg == "--gid-index") {
@@ -45,6 +52,11 @@ Args parse_args(int argc, char** argv) {
     }
     return a;
 }
+
+// Number of in-flight, unsignaled RDMA_WRITEs between each polled completion. RC QPs complete
+// WQEs in order, so polling one CQE every SIGNAL_INTERVAL writes still confirms all of them landed,
+// while keeping per-message ibv_poll_cq overhead from dominating the bandwidth measurement.
+constexpr uint64_t SIGNAL_INTERVAL = 32;
 
 }  // namespace
 
@@ -94,7 +106,9 @@ int main(int argc, char** argv) {
     qp_init_attr.send_cq = cq;
     qp_init_attr.recv_cq = cq;
     qp_init_attr.qp_type = IBV_QPT_RC;
-    qp_init_attr.cap.max_send_wr = 1;
+    // Must hold at least SIGNAL_INTERVAL WQEs, since that many go unsignaled (and thus unretired)
+    // between polls.
+    qp_init_attr.cap.max_send_wr = static_cast<uint32_t>(SIGNAL_INTERVAL);
     qp_init_attr.cap.max_recv_wr = 1;
     qp_init_attr.cap.max_send_sge = 1;
     qp_init_attr.cap.max_recv_sge = 1;
@@ -179,42 +193,58 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Post the RDMA WRITE: local_buf -> target's dma-buf MR at iova 0 (see dmabuf_target.cpp;
-    // the dma-buf MR was registered with iova=0, so remote_addr here must also be 0).
+    // Repeatedly RDMA WRITE local_buf -> target's dma-buf MR at iova 0 (see dmabuf_target.cpp; the
+    // dma-buf MR was registered with iova=0, so remote_addr here must also be 0). Every write lands
+    // in the same remote window, which is fine for a bandwidth measurement — only the last one's
+    // content is checked, and each write reproduces the identical pattern.
     ibv_sge sge{};
     sge.addr = reinterpret_cast<uint64_t>(local_buf.data());
     sge.length = static_cast<uint32_t>(local_buf.size());
     sge.lkey = mr->lkey;
 
     ibv_send_wr wr{};
-    wr.wr_id = 1;
     wr.sg_list = &sge;
     wr.num_sge = 1;
     wr.opcode = IBV_WR_RDMA_WRITE;
-    wr.send_flags = IBV_SEND_SIGNALED;
     wr.wr.rdma.remote_addr = remote.remote_addr;
     wr.wr.rdma.rkey = remote.rkey;
 
-    ibv_send_wr* bad_wr = nullptr;
-    if (ibv_post_send(qp, &wr, &bad_wr)) {
-        std::cerr << "ibv_post_send failed" << std::endl;
-        return 1;
-    }
+    std::cout << "Issuing " << args.iters << " x " << args.size << " byte RDMA WRITEs..." << std::endl;
+    auto t_start = std::chrono::steady_clock::now();
+    for (uint64_t i = 0; i < args.iters; ++i) {
+        bool signal = ((i + 1) % SIGNAL_INTERVAL == 0) || (i + 1 == args.iters);
+        wr.wr_id = i;
+        wr.send_flags = signal ? IBV_SEND_SIGNALED : 0;
 
-    ibv_wc wc{};
-    int n = 0;
-    while (n == 0) {
-        n = ibv_poll_cq(cq, 1, &wc);
-        if (n < 0) {
-            std::cerr << "ibv_poll_cq failed" << std::endl;
+        ibv_send_wr* bad_wr = nullptr;
+        if (ibv_post_send(qp, &wr, &bad_wr)) {
+            std::cerr << "ibv_post_send failed at iter " << i << std::endl;
             return 1;
         }
+
+        if (signal) {
+            ibv_wc wc{};
+            int n = 0;
+            while (n == 0) {
+                n = ibv_poll_cq(cq, 1, &wc);
+                if (n < 0) {
+                    std::cerr << "ibv_poll_cq failed" << std::endl;
+                    return 1;
+                }
+            }
+            if (wc.status != IBV_WC_SUCCESS) {
+                std::cerr << "RDMA WRITE failed at iter " << i << ": " << ibv_wc_status_str(wc.status) << std::endl;
+                return 1;
+            }
+        }
     }
-    if (wc.status != IBV_WC_SUCCESS) {
-        std::cerr << "RDMA WRITE failed: " << ibv_wc_status_str(wc.status) << std::endl;
-        return 1;
-    }
-    std::cout << "RDMA WRITE completed successfully" << std::endl;
+    auto t_end = std::chrono::steady_clock::now();
+
+    double elapsed_s = std::chrono::duration<double>(t_end - t_start).count();
+    double total_bytes = static_cast<double>(args.size) * static_cast<double>(args.iters);
+    double gbps = total_bytes / elapsed_s / 1e9;
+    std::cout << "Wrote " << static_cast<uint64_t>(total_bytes) << " bytes in " << elapsed_s << " s => " << gbps
+              << " GB/s" << std::endl;
 
     // Signal the target that the write has landed (it's a real hardware ACK from the CQE above,
     // not just "posted") so it's safe to read back and verify.

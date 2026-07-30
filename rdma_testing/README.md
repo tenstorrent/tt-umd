@@ -1,17 +1,19 @@
-# Cross-host RDMA dma-buf P2P test (bh-glx6u-22 <-> bh-glx6u-18)
+# Cross-host RDMA dma-buf P2P bandwidth test (bh-glx6u-22 <-> bh-glx6u-18)
 
-Validates `Cluster::export_dmabuf()` end-to-end: NIC on one host does an RDMA WRITE, over the
-network, directly into a TLB window on the *other* host's Blackhole card — landing in device NOC
-memory with no host-CPU copy on the target side.
+Validates `Cluster::export_dmabuf()` end-to-end and measures sustained bandwidth: NIC on one host
+issues repeated RDMA WRITEs, over the network, directly into a TLB window over a DRAM core on the
+*other* host's Blackhole card — landing in device NOC memory with no host-CPU copy on the target
+side.
 
 Files:
 - `rdma_common.hpp` — shared TCP out-of-band handshake + small helpers.
-- `dmabuf_target.cpp` — runs on the box whose Blackhole TLB window is the RDMA target. Exports the
-  dma-buf via UMD, registers it as an RDMA MR, publishes QP/rkey info, waits for the peer to finish,
-  then reads back device memory via UMD (a completely separate path from the exported window) to
-  verify the write landed.
+- `dmabuf_target.cpp` — runs on the box whose Blackhole TLB window (over a DRAM core) is the RDMA
+  target. Exports the dma-buf via UMD, registers it as an RDMA MR, publishes QP/rkey info, waits for
+  the peer to finish, then reads back device memory via UMD (a completely separate path from the
+  exported window) to verify the final write landed.
 - `dmabuf_initiator.cpp` — runs on the peer box. Registers a normal host-memory MR with a known test
-  pattern, connects to the target, brings up an RC QP, and issues the RDMA WRITE.
+  pattern, connects to the target, brings up an RC QP, and issues `--iters` back-to-back RDMA
+  WRITEs of `--size` bytes each into the same remote window, timing the batch to report bandwidth.
 
 ## 0. Prerequisites (both hosts)
 
@@ -50,28 +52,30 @@ Binaries land at `build/rdma_testing/dmabuf_target` and `build/rdma_testing/dmab
 
 (`dmabuf_initiator` doesn't link UMD at all — it only speaks RDMA to a plain host buffer.)
 
-## 2. Pick a target address
+## 2. Pick a target address and size
 
-Any tensix L1 address works as a first smoke test. `addr = 0`, `size = 1 MiB` is the simplest
-choice. Note this must stay under Blackhole's `TENSIX_L1_SIZE` (1.5 MiB,
-`device/api/umd/device/arch/blackhole_implementation.hpp`) — `addr + size` must fit inside L1 or
-the RDMA WRITE will land outside valid tensix memory. Use `tools/topology` (already in this repo,
-`tools/topology.cpp`) on the target host to confirm chip id 0 and pick a real tensix core
-coordinate if you don't want to hardcode (0,0)-ish defaults — the example below defaults to the
-first tensix core in TRANSLATED coords, same as the new gtest does.
+Both tools default to `addr = 0`, `size = 64 MiB` against the first DRAM core (in TRANSLATED
+coords) on chip 0. `addr + size` must stay within a single DRAM bank — Blackhole's `DRAM_BANK_SIZE`
+is 4 GiB (`device/api/umd/device/arch/blackhole_implementation.hpp`), far roomier than the old
+Tensix-L1-backed test (1.5 MiB ceiling). Use `tools/topology` (already in this repo,
+`tools/topology.cpp`) on the target host to confirm chip id 0 and pick a real DRAM core coordinate
+if you don't want the first-DRAM-core default.
 
-Note `dmabuf_target`'s underlying TLB window is always allocated at 2 MiB, independent of
-`--size`: `tt_tlb_alloc()` only accepts specific window sizes (1/2/16 MiB on Wormhole, 2 MiB or
-4 GiB on Blackhole — see `device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h`), and 1 MiB isn't one of
-them on Blackhole. `--size` instead controls how many bytes of that 2 MiB window are registered as
-the RDMA MR and verified on readback, so it must stay `<= 2 MiB` and, per above, `addr + size <=
-1.5 MiB`.
+`dmabuf_target`'s underlying TLB window size is chosen internally by `tt_tlb_alloc()`, which only
+accepts specific size classes (1/2/16 MiB on Wormhole, 2 MiB or 4 GiB on Blackhole — see
+`device/api/umd/device/tt_kmd_lib/tt_kmd_lib.h`); `export_dmabuf()` rounds `--size` up to the
+smallest class that fits, so no manual adjustment is needed. `--size` above 2 MiB forces the 4 GiB
+class on Blackhole — still valid, just make sure `addr + size` stays inside the bank.
+
+`--iters` (initiator only, default 100) controls how many `--size`-byte RDMA WRITEs are issued
+back-to-back into the same remote window before the batch is timed; bump it for a longer,
+lower-noise bandwidth sample.
 
 ## 3. Run
 
 On **bh-glx6u-22** (the target — owns the exported dma-buf):
 ```bash
-./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 1048576
+./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 67108864
 ```
 It prints its own QP/rkey info is exchanged automatically over the socket; you don't need to copy
 anything by hand. It blocks waiting for a TCP connection from the initiator, then waits for the
@@ -79,21 +83,31 @@ initiator's "done" signal, then verifies and prints PASS/FAIL.
 
 On **bh-glx6u-18** (the initiator):
 ```bash
-./build/rdma_testing/dmabuf_initiator --host bh-glx6u-22 --port 9999 --size 1048576
+./build/rdma_testing/dmabuf_initiator --host bh-glx6u-22 --port 9999 --size 67108864 --iters 200
 ```
-It connects, exchanges QP info, posts the RDMA WRITE, polls for local completion, and signals done.
+It connects, exchanges QP info, posts 200 RDMA WRITEs (polling a completion every 32, since RC QPs
+retire WQEs in order), times the batch, and prints something like:
+```
+Wrote 13421772800 bytes in 1.842 s => 7.287 GB/s
+```
+then signals the target that it's done so the target can verify and print PASS/FAIL.
 
-## 4. What "pass" looks like
+## 4. What "pass" and the bandwidth number mean
 
 `dmabuf_target` reads back the same NOC address via `cluster->read_from_device()` (ordinary
 register/DMA readback, independent of the TLB window that was exported) and compares it against the
-pattern `dmabuf_initiator` wrote. A byte-for-byte match with no `UMD_THROW` along the way confirms:
+pattern `dmabuf_initiator` last wrote. A byte-for-byte match with no `UMD_THROW` along the way
+confirms:
 - `PCIDevice::is_tlb_dmabuf_export_supported()` gated correctly on the live kmd version,
 - `Cluster::export_dmabuf()` produced a valid, importable dma-buf fd,
-- the peer NIC's RDMA WRITE actually reached the NOC-mapped window with no host involvement on the
-  target's data path,
+- the peer NIC's repeated RDMA WRITEs actually reached the NOC-mapped window with no host
+  involvement on the target's data path,
 - the window's `FREE_TLB` firing immediately (per the design) didn't invalidate the export while the
-  RDMA WRITE was in flight (kmd's pin-until-fd-closed contract held).
+  RDMA WRITEs were in flight (kmd's pin-until-fd-closed contract held).
+
+The printed GB/s is wall-clock `(size * iters) / elapsed_time` measured on the initiator around the
+post/poll loop — it reflects sustained NIC-to-DRAM-over-NOC write throughput for this specific
+window, not a generic multi-connection or full-link RDMA benchmark.
 
 ## Known gaps / things to double check on real hardware (I couldn't run this — no RDMA NIC or
 Blackhole card on this machine, only compiled the pieces I could against local headers)
@@ -109,3 +123,12 @@ Blackhole card on this machine, only compiled the pieces I could against local h
 - If your NICs are on a private/isolated RDMA fabric rather than the general network, replace the
   plain-TCP handshake socket in `rdma_common.hpp` with whatever management/OOB network path is
   actually reachable between the two hosts.
+- **Bandwidth ceiling from SIGNAL_INTERVAL**: the initiator polls one completion every 32 WRITEs
+  (`SIGNAL_INTERVAL` in `dmabuf_initiator.cpp`); the QP's `max_send_wr` is sized to match. If you
+  raise `SIGNAL_INTERVAL` for less polling overhead, bump `max_send_wr` accordingly or
+  `ibv_post_send` will fail once the send queue fills.
+- **Large `--size` and pinned memory**: `--size` above the default 64 MiB increases both the
+  initiator's `local_buf` (regular pageable-then-pinned host memory via `ibv_reg_mr`) and, above
+  2 MiB, forces the target's TLB window to the 4 GiB class. Neither has been exercised at very large
+  sizes on real hardware — watch for `ibv_reg_mr`/`ibv_reg_dmabuf_mr` failures from ulimited
+  lockable memory (`ulimit -l`) if you push `--size` much higher.

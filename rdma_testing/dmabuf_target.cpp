@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// RDMA target for the two-host dma-buf smoke test. Exports a TLB window via UMD's
+// RDMA target for the two-host dma-buf bandwidth test. Exports a TLB window via UMD's
 // Cluster::export_dmabuf(), registers the resulting fd as an RDMA MR with ibv_reg_dmabuf_mr(), and
-// waits for a peer NIC to RDMA-WRITE into it. Verifies the write landed by reading the same NOC
-// address back through UMD (a path independent of the exported window).
+// waits for a peer NIC to RDMA-WRITE into it (repeatedly, to measure sustained bandwidth). Verifies
+// the final write landed by reading the same NOC address back through UMD (a path independent of
+// the exported window).
 #include <infiniband/verbs.h>
 
 #include <cstdio>
@@ -30,7 +31,10 @@ struct Args {
     uint16_t port = 9999;
     tt::ChipId chip = 0;
     uint64_t addr = 0;
-    uint64_t size = 1ull << 20;  // 1 MiB — must stay under Blackhole TENSIX_L1_SIZE (1.5 MiB)
+    // 64 MiB: comfortably under Blackhole DRAM_BANK_SIZE (4 GiB, device/api/umd/device/arch/
+    // blackhole_implementation.hpp) and large enough that per-message RDMA/CQE overhead doesn't
+    // dominate the bandwidth measurement. addr + size must stay within a single DRAM bank.
+    uint64_t size = 64ull << 20;
     int ib_port = 1;
     int gid_index = 0;
 };
@@ -65,12 +69,12 @@ int main(int argc, char** argv) {
     // --- UMD side: export a TLB window as a dma-buf ------------------------------------------
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
     const SocDescriptor& soc_desc = cluster->get_soc_descriptor(args.chip);
-    std::vector<CoreCoord> tensix_cores = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
-    if (tensix_cores.empty()) {
-        std::cerr << "No tensix cores found on chip " << args.chip << std::endl;
+    std::vector<CoreCoord> dram_cores = soc_desc.get_cores(CoreType::DRAM, CoordSystem::TRANSLATED);
+    if (dram_cores.empty()) {
+        std::cerr << "No DRAM cores found on chip " << args.chip << std::endl;
         return 1;
     }
-    CoreCoord core = tensix_cores.front();
+    CoreCoord core = dram_cores.front();
 
     std::cout << "Exporting TLB window: chip=" << args.chip << " core=(" << core.x << "," << core.y << ") addr=0x"
               << std::hex << args.addr << std::dec << " size=" << args.size << std::endl;

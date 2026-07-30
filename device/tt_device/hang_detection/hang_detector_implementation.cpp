@@ -15,7 +15,7 @@ namespace tt::umd {
 HangDetectorImplementation::HangDetectorImplementation(DeviceProtocol* protocol) :
     protocol_(protocol),
     pcie_interface_(dynamic_cast<PcieInterface*>(protocol)),
-    is_mmio_protocol_(!dynamic_cast<RemoteInterface*>(protocol)),
+    is_mmio_protocol_(protocol != nullptr && !dynamic_cast<RemoteInterface*>(protocol)),
     // Default reader: plain protocol register read. A higher layer may override it via set_noc_reg_reader().
     noc_reg_reader_([this](tt_xy_pair core, uint64_t addr, NocId noc) -> uint32_t {
         uint32_t value = 0;

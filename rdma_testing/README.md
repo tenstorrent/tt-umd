@@ -85,8 +85,9 @@ On **bh-glx6u-18** (the initiator):
 ```bash
 ./build/rdma_testing/dmabuf_initiator --host bh-glx6u-22 --port 9999 --size 67108864 --iters 200
 ```
-It connects, exchanges QP info, posts 200 RDMA WRITEs (polling a completion every 32, since RC QPs
-retire WQEs in order), times the batch, and prints something like:
+It connects, exchanges QP info, posts 200 RDMA WRITEs one at a time (waiting for each one's
+completion before posting the next — see `SIGNAL_INTERVAL` in `dmabuf_initiator.cpp`), times the
+batch, and prints something like:
 ```
 Wrote 13421772800 bytes in 1.842 s => 7.287 GB/s
 ```
@@ -123,10 +124,14 @@ Blackhole card on this machine, only compiled the pieces I could against local h
 - If your NICs are on a private/isolated RDMA fabric rather than the general network, replace the
   plain-TCP handshake socket in `rdma_common.hpp` with whatever management/OOB network path is
   actually reachable between the two hosts.
-- **Bandwidth ceiling from SIGNAL_INTERVAL**: the initiator polls one completion every 32 WRITEs
-  (`SIGNAL_INTERVAL` in `dmabuf_initiator.cpp`); the QP's `max_send_wr` is sized to match. If you
-  raise `SIGNAL_INTERVAL` for less polling overhead, bump `max_send_wr` accordingly or
-  `ibv_post_send` will fail once the send queue fills.
+- **SIGNAL_INTERVAL and in-flight bytes**: `dmabuf_initiator.cpp` polls a completion after every
+  single WRITE (`SIGNAL_INTERVAL = 1`) — confirmed on real bh-glx6u-22/18 hardware that raising this
+  (previously 32) left ~2 GiB of unpaced, unacknowledged 64 MiB WRITEs outstanding and blew through
+  the QP's retry budget (`transport retry counter exceeded`), likely from overrunning switch/NIC
+  buffers on a non-lossless fabric. The QP's `max_send_wr` is sized to match `SIGNAL_INTERVAL`. Only
+  raise it after confirming (empirically, on your fabric) how many bytes can be safely outstanding
+  at your chosen `--size` — and bump `max_send_wr` to match or `ibv_post_send` will fail once the
+  send queue fills.
 - **Large `--size` and pinned memory**: `--size` above the default 64 MiB increases both the
   initiator's `local_buf` (regular pageable-then-pinned host memory via `ibv_reg_mr`) and, above
   2 MiB, forces the target's TLB window to the 4 GiB class. Neither has been exercised at very large

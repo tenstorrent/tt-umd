@@ -63,7 +63,7 @@ Args parse_args(int argc, char** argv) {
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int run(int argc, char** argv) {
     Args args = parse_args(argc, argv);
 
     // --- UMD side: export a TLB window as a dma-buf ------------------------------------------
@@ -241,4 +241,15 @@ int main(int argc, char** argv) {
     ibv_dealloc_pd(pd);
     ibv_close_device(ctx);
     return all_match ? 0 : 1;
+}
+
+int main(int argc, char** argv) {
+    // recv_all()/send_all() throw on a dropped connection (e.g. the initiator dying mid-run); catch
+    // here so a peer failure prints a clean error instead of an uncaught-exception core dump.
+    try {
+        return run(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal: " << e.what() << std::endl;
+        return 1;
+    }
 }

@@ -54,9 +54,14 @@ Args parse_args(int argc, char** argv) {
 }
 
 // Number of in-flight, unsignaled RDMA_WRITEs between each polled completion. RC QPs complete
-// WQEs in order, so polling one CQE every SIGNAL_INTERVAL writes still confirms all of them landed,
-// while keeping per-message ibv_poll_cq overhead from dominating the bandwidth measurement.
-constexpr uint64_t SIGNAL_INTERVAL = 32;
+// WQEs in order, so polling one CQE every SIGNAL_INTERVAL writes still confirms all of them landed.
+// Kept at 1 (fully synchronous, one WRITE in flight at a time): at the default 64 MiB --size,
+// ibv_poll_cq overhead is negligible next to per-message transfer time, so there's nothing to gain
+// from batching completions — and batching here is actively dangerous, since going over 32 previously
+// left ~2 GiB of unpaced, unacknowledged WRITEs outstanding and blew through the QP's retry budget
+// ("transport retry counter exceeded") on a real fabric. Only raise this if you've confirmed the
+// fabric tolerates more bytes in flight for your chosen --size.
+constexpr uint64_t SIGNAL_INTERVAL = 1;
 
 }  // namespace
 
@@ -233,7 +238,11 @@ int main(int argc, char** argv) {
                 }
             }
             if (wc.status != IBV_WC_SUCCESS) {
-                std::cerr << "RDMA WRITE failed at iter " << i << ": " << ibv_wc_status_str(wc.status) << std::endl;
+                // wc.wr_id, not the loop counter i: once a fatal transport error hits, the QP flushes
+                // all outstanding WQEs, so the CQE we get back may belong to an earlier, still-unsignaled
+                // write rather than the one posted this iteration.
+                std::cerr << "RDMA WRITE failed, wr_id=" << wc.wr_id << ": " << ibv_wc_status_str(wc.status)
+                          << std::endl;
                 return 1;
             }
         }

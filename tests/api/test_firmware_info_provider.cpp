@@ -617,12 +617,12 @@ TEST_F(TestFirmwareInfoProvider, TdpLimit) {
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
         bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE
                                     ? fw_version >= FirmwareBundleVersion(19, 8, 0)
-                                    : fw_version > FW_VERSION_18_3;
+                                    : fw_version >= FW_VERSION_18_4;
         if (!expect_available) {
             EXPECT_FALSE(tdp_limit.has_value());
             continue;
         }
-
+        EXPECT_TRUE(tdp_limit.has_value());
         // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
         // throttler's [50, 500] W range. A zero means the board never configured a limit.
         if (tdp_limit.has_value() && tdp_limit.value() != 0) {

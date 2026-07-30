@@ -189,6 +189,21 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
+// Wormhole 18.8-19.8: same as 18.4, except MAX_CLOCK_FREQ moves from SMBus to a telemetry tag.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
+    FirmwareFeatures map = create_wormhole_18_4_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
+    FirmwareFeatures map = create_wormhole_18_8_base();
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
+    return map;
+}
+
 // Blackhole 18.5-18.7: StandardTag base, but fixed AICLK and no ETH support.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_5_base() {
     FirmwareFeatures map = create_18_4_new_telemetry_base();
@@ -201,31 +216,10 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Wormhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ.
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
-    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
-    return map;
-}
-
-// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
-    FirmwareFeatures map = create_wormhole_18_8_base();
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
-    return map;
-}
-
-// Blackhole 18.8-19.7: StandardTag base with StandardTag MAX_CLOCK_FREQ, no ETH support.
+// Blackhole 18.8-19.7: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    FirmwareFeatures map = create_blackhole_18_5_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
-    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
-    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
     return map;
 }
 

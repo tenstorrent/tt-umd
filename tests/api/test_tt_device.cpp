@@ -389,6 +389,7 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         tt_device.reset();
 
         tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
         using err = error::UmdException<error::UnresolvableCoordinateError>;
 
         const uint32_t value = 0xAABB;

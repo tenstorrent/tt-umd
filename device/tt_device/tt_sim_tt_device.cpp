@@ -16,9 +16,12 @@
 
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-kmd-lib/pci_ids.h"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
@@ -28,8 +31,10 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -112,6 +117,8 @@ TTSimTTDevice::TTSimTTDevice(
     communicator_(std::make_unique<TTSimCommunicator>(
         simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
     chip_id_(chip_id) {
+    communication_device_type_ = IODeviceType::PCIe;
+    communication_device_id_ = chip_id;
     set_soc_descriptor(soc_descriptor);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
@@ -185,6 +192,8 @@ TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)),
     chip_id_(chip_id) {
+    communication_device_type_ = IODeviceType::PCIe;
+    communication_device_id_ = chip_id;
     set_soc_descriptor(soc_descriptor);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired

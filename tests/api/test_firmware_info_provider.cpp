@@ -617,7 +617,7 @@ TEST_F(TestFirmwareInfoProvider, TdpLimit) {
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
         bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE
                                     ? fw_version >= FirmwareBundleVersion(19, 8, 0)
-                                    : fw_version > FW_VERSION_18_3;
+                                    : fw_version >= FW_VERSION_18_4;
         if (!expect_available) {
             EXPECT_FALSE(tdp_limit.has_value());
             continue;

@@ -646,6 +646,7 @@ TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
 
         std::optional<uint32_t> original_limit = fw_info->get_tdp_limit();
         ASSERT_TRUE(original_limit.has_value());
+        log_info(tt::LogUMD, "original tdp_limit={} W", opt_str(original_limit));
 
         EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
         EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
@@ -653,10 +654,14 @@ TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
 
         // 75 W is below the default limit of every Blackhole board, and lowering is always accepted.
         set_tdp_limit(tt_device.get(), 75);
-        EXPECT_EQ(fw_info->get_tdp_limit(), 75u);
+        std::optional<uint32_t> lowered_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "lowered tdp_limit={} W", opt_str(lowered_limit));
+        EXPECT_EQ(lowered_limit, 75u);
 
         restore_default_tdp_limit(tt_device.get());
-        EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
+        std::optional<uint32_t> restored_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "restored tdp_limit={} W", opt_str(restored_limit));
+        EXPECT_EQ(restored_limit, original_limit);
     }
 }
 

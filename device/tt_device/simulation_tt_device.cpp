@@ -23,6 +23,7 @@
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
@@ -30,14 +31,30 @@
 
 namespace tt::umd {
 
+namespace {
+
+class SimulationHangDetector final : public HangDetector {
+protected:
+    uint32_t read_hang_check_reg_via_bar() override { return 0; }
+    uint32_t read_hang_check_reg_via_noc(NocId /*noc*/) override { return 0; }
+    bool is_bus_available() override { return true; }
+    bool is_noc_available() override { return true; }
+};
+
+}  // namespace
+
 // The constructor and destructor are defined out-of-line so that socket_
 // (unique_ptr<SimulationServerSocket>) is constructed/destroyed where the type is complete; the
 // public header only forward-declares SimulationServerSocket.
 SimulationTTDevice::SimulationTTDevice(
     const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
-    simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
+    simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {
+    set_hang_detector(std::make_unique<SimulationHangDetector>());
+}
 
-SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {}
+SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {
+    set_hang_detector(std::make_unique<SimulationHangDetector>());
+}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
@@ -157,6 +174,16 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     } else {
         host_read(core, addr, mem_ptr, size);
     }
+}
+
+void SimulationTTDevice::read_from_device_reg(
+    void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    read_from_device(mem_ptr, core, addr, size, noc_id);
+}
+
+void SimulationTTDevice::write_to_device_reg(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    write_to_device(mem_ptr, core, addr, size, noc_id);
 }
 
 void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {
@@ -321,20 +348,32 @@ void SimulationTTDevice::dma_multicast_write(
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
+void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
+    UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
+    read_from_device(
+        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
 }
 
-void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
+void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
+    UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
+    write_to_device(
+        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
 }
 
-void SimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC CSM access is not supported for simulation devices.");
+void SimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
+    UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
+    read_from_device(
+        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
-void SimulationTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
-    UMD_THROW(error::RuntimeError, "ARC CSM access is not supported for simulation devices.");
+void SimulationTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
+    const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
+    UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
+    write_to_device(
+        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
 uint32_t SimulationTTDevice::get_clock() {

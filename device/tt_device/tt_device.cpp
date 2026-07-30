@@ -490,26 +490,22 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
 
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->read_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->write_data(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
 void TTDevice::read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->read_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->read_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
 void TTDevice::write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
-
-    device_protocol_->write_ctrl(mem_ptr, resolve_coordinate(core), addr, size, get_selected_noc_id());
+    device_protocol_->write_ctrl(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);
 }
 
 void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
@@ -689,10 +685,10 @@ void TTDevice::noc_multicast_write(
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
-    xy_pair translated_start = resolve_coordinate(core_start);
-    xy_pair translated_end = resolve_coordinate(core_end);
+    xy_pair translated_start = resolve_coordinate(core_start, noc_id);
+    xy_pair translated_end = resolve_coordinate(core_end, noc_id);
     bool multicast_success =
-        device_protocol_->write_to_core_range(src, translated_start, translated_end, addr, size, get_selected_noc_id());
+        device_protocol_->write_to_core_range(src, translated_start, translated_end, addr, size, noc_id);
 
     log_trace(
         LogUMD,
@@ -723,14 +719,14 @@ void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, 
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
-        get_soc_descriptor().get_bounding_rectangle(is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        get_soc_descriptor().get_bounding_rectangle((noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
     noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
 void TTDevice::multicast_write_via_unicast(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    CoreCoord translated_start = resolve_coordinate(core_start);
-    CoreCoord translated_end = resolve_coordinate(core_end);
+    CoreCoord translated_start = resolve_coordinate(core_start, noc_id);
+    CoreCoord translated_end = resolve_coordinate(core_end, noc_id);
     size_t x_min = std::min(translated_start.x, translated_end.x);
     size_t x_max = std::max(translated_start.x, translated_end.x);
     size_t y_min = std::min(translated_start.y, translated_end.y);
@@ -756,14 +752,14 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core,
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success =
-        get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core), addr, get_selected_noc_id());
+        get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core, noc_id), addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular write.
     pcie_dma_lock.unlock();
-    write_to_device(src, core, addr, size);
+    write_to_device(src, core, addr, size, noc_id);
 }
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
@@ -776,14 +772,14 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success =
-        get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core), addr, get_selected_noc_id());
+        get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core, noc_id), addr, noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular read.
     pcie_dma_lock.unlock();
-    read_from_device(dst, core, addr, size);
+    read_from_device(dst, core, addr, size, noc_id);
 }
 
 void TTDevice::dma_multicast_write(
@@ -797,14 +793,15 @@ void TTDevice::dma_multicast_write(
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_pcie_interface()->dma_multicast_write(
-        src, size, resolve_coordinate(core_start), resolve_coordinate(core_end), addr, get_selected_noc_id());
+        src, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), addr, noc_id);
+
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
-    noc_multicast_write(src, size, core_start, core_end, addr);
+    noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
 }
 
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
@@ -841,12 +838,12 @@ void TTDevice::set_soc_descriptor(const SocDescriptor &soc_descriptor) {
     soc_descriptor_ = soc_descriptor;
 }
 
-xy_pair TTDevice::resolve_coordinate(CoreCoord core) const {
+xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {
     if (core.coord_system == CoordSystem::LITERAL) {
         return xy_pair(core.x, core.y);
     }
     if (!soc_descriptor_.has_value()) {
-        UMD_THROW(error::UnresolvableCoordinateError, *this, core, get_selected_noc_id());
+        UMD_THROW(error::UnresolvableCoordinateError, *this, core, noc_id);
     }
     return get_soc_descriptor().translate_chip_coord_to_translated(core);
 }

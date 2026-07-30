@@ -7,6 +7,7 @@
 #include <asio.hpp>
 #include <cstdint>
 #include <exception>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -74,6 +75,22 @@ TEST_F(SimulationServerTransportTest, RecvThrowsWhenPeerCloses) {
     a_.close();
 
     EXPECT_THROW(recv_framed(b_), std::exception);
+}
+
+// A clean peer close (e.g. a stopped simulation host) surfaces a *distinct*, clearly-worded error --
+// not the generic read-failure message -- so a client blocked in transact() can tell the server was
+// stopped from a real I/O error and unwind gracefully.
+TEST_F(SimulationServerTransportTest, RecvReportsPeerCloseDistinctly) {
+    a_.close();
+
+    try {
+        recv_framed(b_);
+        FAIL() << "recv_framed should have thrown on peer close";
+    } catch (const std::exception& e) {
+        const std::string message = e.what();
+        EXPECT_NE(message.find("closed the connection"), std::string::npos) << "message was: " << message;
+        EXPECT_NE(message.find("gone away"), std::string::npos) << "message was: " << message;
+    }
 }
 
 // A message cut short (header promises more than is delivered, then the peer goes away) fails

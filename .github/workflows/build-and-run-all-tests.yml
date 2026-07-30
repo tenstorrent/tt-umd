@@ -159,6 +159,8 @@ jobs:
         #   PR/merge queue runtime down.
         # - g13blx01 is the Blackhole Galaxy machine. It is fully disabled on all events for now as
         #   it has been causing CI problems; re-enable once the machine is stable (see #3070).
+        # - ubuntu-22.04 is the baremetal (no device) entry. TSan builds run only the unified tests,
+        #   which don't run on baremetal, so a baremetal TSan job would have nothing to do.
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
@@ -171,6 +173,7 @@ jobs:
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
             '*|*|g13blx01' \
+            '*|TSan|ubuntu-22.04' \
           )
           echo "entries=$ENTRIES" >> $GITHUB_OUTPUT
 
@@ -261,7 +264,9 @@ jobs:
     with:
       ubuntu-docker-version: ${{ matrix.ubuntu-docker-version}}
       build-type: ${{ inputs.build-type }}
-      build-tracy: true
+      # The -tracy artifact is only consumed by run-tracy, which doesn't run for TSan, so skip
+      # the extra Tracy matrix entry there rather than building an artifact nothing downloads.
+      build-tracy: ${{ inputs.build-type != 'TSan' }}
       image-tag: ${{ inputs.docker-image-tag || 'latest' }}
       log-params: |
         ${{ inputs.log-params }}
@@ -272,8 +277,9 @@ jobs:
   # Build the tt-exalens kernels + source artifact consumed by run-exalens-tests. Skipped when a
   # caller already built it once and passed build-exalens-kernels: false (see the multiple-builds
   # workflow); on a standalone run this defaults to true so the artifact always exists.
+  # Also skipped for TSan, where run-exalens-tests doesn't run, so nothing would consume it.
   build-exalens-kernels:
-    if: inputs.build-exalens-kernels
+    if: inputs.build-exalens-kernels && inputs.build-type != 'TSan'
     secrets: inherit
     uses: ./.github/workflows/build-exalens-kernels.yml
 
@@ -307,11 +313,18 @@ jobs:
 
   run-ttsim-tests:
     secrets: inherit
+    # ttsim takes no build-type and hardcodes CMAKE_BUILD_TYPE=Release for its own builds, so it
+    # is build-type-independent: run it once on Release instead of repeating identical work for
+    # every build-type this workflow is invoked with. This also avoids the benchmark-json-sim-*
+    # artifact names colliding between the per-build-type invocations, which share a run_id.
+    if: inputs.build-type == 'Release'
     uses: ./.github/workflows/run-ttsim-tests.yml
 
   run-tooling-tests:
     secrets: inherit
     needs: build-tests
+    # TSan builds only run the unified tests; tooling is not covered by them.
+    if: inputs.build-type != 'TSan'
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
@@ -343,8 +356,9 @@ jobs:
     # must be uploaded before the tests download it). When build-exalens-kernels is skipped
     # (a caller built it once and provided it), always() lets this run anyway; it still requires
     # build-tests to have succeeded for the wheel.
+    # TSan builds only run the unified tests, so exalens is skipped for them.
     needs: [build-tests, build-exalens-kernels]
-    if: always() && needs.build-tests.result == 'success'
+    if: always() && needs.build-tests.result == 'success' && inputs.build-type != 'TSan'
     strategy:
       fail-fast: ${{ inputs.triggering-event == 'merge_group' }}
       matrix:
@@ -373,6 +387,8 @@ jobs:
   run-tracy:
     secrets: inherit
     needs: build-tests
+    # TSan builds only run the unified tests; tracy is not covered by them.
+    if: inputs.build-type != 'TSan'
     uses: ./.github/workflows/run-tracy-test.yml
     with:
       ubuntu-docker-version: 'ubuntu-22.04'

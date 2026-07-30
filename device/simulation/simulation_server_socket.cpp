@@ -9,8 +9,12 @@
 
 #include <asio.hpp>
 #include <atomic>
+#include <charconv>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <vector>
@@ -332,6 +336,55 @@ std::filesystem::path SimulationServerSocket::default_socket_path(ChipId chip_id
     // single host. The socket dir is assumed trusted: the path is predictable and the socket
     // is world-writable (see bind_and_listen), so any local user can connect to or squat it.
     return std::filesystem::temp_directory_path() / fmt::format("tt-umd-sim-{}.sock", chip_id);
+}
+
+std::optional<ChipId> SimulationServerSocket::chip_id_from_socket_path(const std::filesystem::path& socket_path) {
+    // Inverse of default_socket_path()'s "tt-umd-sim-<chip_id>.sock". Kept next to it so the naming
+    // convention lives in exactly one place.
+    constexpr std::string_view prefix = "tt-umd-sim-";
+    constexpr std::string_view suffix = ".sock";
+    const std::string filename = socket_path.filename().string();
+    const std::string_view name = filename;
+    if (name.size() <= prefix.size() + suffix.size() || name.substr(0, prefix.size()) != prefix ||
+        name.substr(name.size() - suffix.size()) != suffix) {
+        return std::nullopt;
+    }
+    const std::string_view digits = name.substr(prefix.size(), name.size() - prefix.size() - suffix.size());
+    // Reject a leading zero (except the lone "0") so "tt-umd-sim-0.sock" and "tt-umd-sim-00.sock"
+    // can't both parse to chip 0 and silently collide in a directory listing.
+    if (digits.size() > 1 && digits.front() == '0') {
+        return std::nullopt;
+    }
+    // from_chars doesn't throw and rejects signs/whitespace/junk; require it to consume every digit.
+    int chip_id = 0;
+    const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), chip_id);
+    if (ec != std::errc{} || ptr != digits.data() + digits.size()) {
+        return std::nullopt;
+    }
+    return static_cast<ChipId>(chip_id);
+}
+
+std::map<ChipId, std::filesystem::path> SimulationServerSocket::sockets_in_directory(
+    const std::filesystem::path& directory) {
+    std::map<ChipId, std::filesystem::path> sockets;
+    // directory_iterator(dir, ec) sets ec if the path is not a directory or cannot be read; in
+    // either case there are no per-chip sockets to report (the caller then classifies it as a host
+    // build, not a client socket directory), so return empty rather than silently proceeding.
+    std::error_code ec;
+    std::filesystem::directory_iterator it(directory, ec);
+    if (ec) {
+        return sockets;
+    }
+    for (const auto& entry : it) {
+        std::error_code sock_ec;
+        if (!entry.is_socket(sock_ec)) {
+            continue;
+        }
+        if (const std::optional<ChipId> chip_id = chip_id_from_socket_path(entry.path())) {
+            sockets.emplace(*chip_id, entry.path());
+        }
+    }
+    return sockets;
 }
 
 }  // namespace tt::umd

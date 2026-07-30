@@ -4,45 +4,70 @@
 
 #include "umd/device/simulation/simulation_connector.hpp"
 
+#include <fmt/format.h>
+
+#include <filesystem>
+#include <map>
 #include <memory>
+#include <system_error>
+#include <tt-logger/tt-logger.hpp>
 #include <utility>
 
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
+#include "umd/device/simulation/simulation_server_protocol.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
 namespace {
 
-// Builds the device for one simulated chip. The backend (TTSim .so vs RTL directory) is chosen by
-// the simulator path; the host-vs-client role is decided by who owns the socket:
-//   - socket == nullptr: a live host already serves this chip, so attach as a client that reaches
-//     it over the socket via SimulationClient (slim today -- just connect/disconnect; device-op
-//     forwarding lands as the API grows). The client runs no backend, so the only backend-specific
-//     bit is which device class describes it.
-//   - socket != nullptr: we are the host; bring up the in-process backend (the direct hot path) and
-//     hand it the socket to own and expose.
-// The two backends don't share a common factory return type that carries adopt_socket, so dispatch
-// on the concrete device here.
-std::unique_ptr<TTDevice> create_simulation_device(
-    const std::filesystem::path& simulator_directory,
-    ChipId chip_id,
-    int num_host_mem_channels,
-    const std::filesystem::path& socket_path,
-    std::unique_ptr<SimulationServerSocket> socket) {
-    const bool is_ttsim = simulator_directory.extension() == ".so";
+// The role a UMD process takes for a given simulator_path -- decided purely from what the path is,
+// with no socket bind-race:
+//   - a ".so" file                 -> host running the TTSim backend for that library;
+//   - a directory holding per-chip  -> client: a host already serves there, so attach to each
+//     simulation sockets               socket in it (one device per socket), sourcing device
+//                                      identity from the host over the wire;
+//   - any other directory          -> host running the RTL backend from that build directory.
+enum class PathKind { HOST_TTSIM, HOST_RTL, CLIENT };
 
-    if (socket == nullptr) {
-        auto client = std::make_unique<SimulationClient>(socket_path);
-        if (is_ttsim) {
-            return TTSimTTDevice::create_client(chip_id, std::move(client));
-        }
-        return RtlSimulationTTDevice::create_client(chip_id, std::move(client));
+// The path kind and, for CLIENT, the sockets found in the directory -- returned together so
+// discover() doesn't scan the directory a second time. The second scan would also be a TOCTOU race:
+// if the host exited between the two scans, the kind would still be CLIENT but discover() would
+// build zero devices from a now-empty listing and return silently.
+struct Classification {
+    PathKind kind;
+    std::map<ChipId, std::filesystem::path> sockets;
+};
+
+Classification classify(const std::filesystem::path& simulator_path) {
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(simulator_path, ec) && simulator_path.extension() == ".so") {
+        return {PathKind::HOST_TTSIM, {}};
     }
+    UMD_ASSERT(
+        std::filesystem::is_directory(simulator_path, ec),
+        error::RuntimeError,
+        fmt::format("Simulator path is neither a .so file nor a directory: {}", simulator_path.string()));
+    // A directory that holds per-chip simulation sockets means a host is already serving there, so
+    // attach as a client; any other directory is an RTL build we host.
+    auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
+    if (sockets.empty()) {
+        return {PathKind::HOST_RTL, {}};
+    }
+    return {PathKind::CLIENT, std::move(sockets)};
+}
 
-    if (is_ttsim) {
+// Host path: bring up the in-process backend (the direct hot path) and hand it the socket to serve.
+std::unique_ptr<TTDevice> make_host_device(
+    PathKind role,
+    const std::filesystem::path& simulator_directory,
+    int num_host_mem_channels,
+    std::unique_ptr<SimulationServerSocket> socket) {
+    if (role == PathKind::HOST_TTSIM) {
         auto device = TTSimTTDevice::create(simulator_directory, num_host_mem_channels);
         device->adopt_socket(std::move(socket));
         return device;
@@ -52,20 +77,71 @@ std::unique_ptr<TTDevice> create_simulation_device(
     return device;
 }
 
+// Client path: build the device class the host reports over the wire. A client runs no local
+// backend, so the class mostly just names the device; the backend kind still comes from the host so
+// the right class is instantiated (and so this stays correct if the classes diverge).
+std::unique_ptr<TTDevice> make_client_device(
+    ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& info) {
+    switch (info.backend_type) {
+        case SimulationBackendType::TTSim:
+            return TTSimTTDevice::create_client(chip_id, std::move(client), info);
+        case SimulationBackendType::Rtl:
+            return RtlSimulationTTDevice::create_client(chip_id, std::move(client), info);
+    }
+    // A value outside the enum means a corrupt/incompatible reply from the host; fail loudly rather
+    // than silently defaulting to a backend class.
+    UMD_THROW(
+        error::RuntimeError,
+        fmt::format("Host reported an unknown simulation backend kind ({})", static_cast<int>(info.backend_type)));
+}
+
 }  // namespace
+
+SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::path& simulator_directory) {
+    // The two host backends collapse to Host for callers that only care host-vs-client.
+    return classify(simulator_directory).kind == PathKind::CLIENT ? Role::Client : Role::Host;
+}
 
 std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    const std::filesystem::path& simulator_path = options.simulator_directory;
 
-    // Single-chip for now. Socket-first: try to claim the path; success => we are the host.
+    const Classification classification = classify(simulator_path);
+
+    if (classification.kind == PathKind::CLIENT) {
+        // Multi-chip: one client device per per-chip socket in the directory (enumerated by
+        // classify()). Chip ids come from the socket names, so they match the host's. A failure on
+        // one socket (a dead or wedged host) only skips that chip -- it must not abort attaching to
+        // the healthy ones.
+        for (const auto& [chip_id, socket_file] : classification.sockets) {
+            try {
+                auto client = std::make_unique<SimulationClient>(socket_file);
+                // The connector owns the single GET_DEVICE_INFO fetch: it needs the backend type to
+                // pick the device class, and passes the fetched identity into create_client so it is
+                // not fetched again.
+                const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
+                devices.emplace(chip_id, make_client_device(chip_id, std::move(client), info));
+            } catch (const std::exception& e) {
+                log_warning(
+                    LogUMD, "Skipping simulation socket {} (chip {}): {}", socket_file.string(), chip_id, e.what());
+            }
+        }
+        // Every socket was present but none answered -- surface it rather than returning an empty,
+        // successful-looking cluster.
+        UMD_ASSERT(
+            !devices.empty(),
+            error::RuntimeError,
+            fmt::format("No reachable simulation hosts among the sockets in {}", simulator_path.string()));
+        return devices;
+    }
+
+    // Host: single chip for now. Claim the per-chip socket -- create() throws if a live host
+    // already owns it (two hosts cannot serve the same chip) -- and serve it.
     const ChipId chip_id = 0;
-    const std::filesystem::path socket_path = SimulationServerSocket::default_socket_path(chip_id);
-    std::unique_ptr<SimulationServerSocket> socket = SimulationServerSocket::try_create(socket_path);
-
+    auto socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id));
     devices.emplace(
         chip_id,
-        create_simulation_device(
-            options.simulator_directory, chip_id, options.num_host_mem_channels, socket_path, std::move(socket)));
+        make_host_device(classification.kind, simulator_path, options.num_host_mem_channels, std::move(socket)));
     return devices;
 }
 

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -37,8 +38,18 @@ class SimulationTTDevice : public TTDevice {
 public:
     ~SimulationTTDevice() override;
 
-    // Takes ownership of the serving socket that exposes this device (created by discovery).
-    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
+    // Takes ownership of the serving socket that exposes this device (created by discovery) and
+    // begins serving. An optional shutdown_handler is invoked when a client sends SHUTDOWN: a
+    // dedicated server (e.g. the sim_server tool) passes one to signal its main thread to exit and
+    // tear this device down; a host that passes none acks SHUTDOWN as a no-op, so a simulation
+    // embedded in another program can't be torn down by a stray client. The handler is fixed here,
+    // before serving starts, and never mutated afterwards -- so it needs no locking.
+    //
+    // The handler runs on a serving thread and MUST be non-blocking -- it must only signal (set a
+    // flag / notify a condition variable / write a self-pipe); tearing down from within it would
+    // join the serving threads from one of them and deadlock. It must also be safe to call more than
+    // once and concurrently: every attached client that sends SHUTDOWN invokes it.
+    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler = {});
 
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
     void read_from_device(
@@ -160,7 +171,8 @@ private:
     // socket's connection threads; read/write take device_lock, so concurrent host + client
     // access is serialized. The socket layer stays protocol-agnostic; this is where the protocol
     // is (de)serialized.
-    std::vector<uint8_t> handle_request(const std::vector<uint8_t>& request_bytes);
+    std::vector<uint8_t> handle_request(
+        const std::vector<uint8_t>& request_bytes, const std::function<void()>& shutdown_handler);
 
     // The device serves one of two disjoint roles; read_from_device/write_to_device dispatch on
     // this rather than a bare client_ null-check so the intent is named at the call site.

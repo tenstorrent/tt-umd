@@ -201,11 +201,10 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Wormhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ.
+// Wormhole 18.8-19.8: same as 18.4, except MAX_CLOCK_FREQ moves from SMBus to a telemetry tag.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    FirmwareFeatures map = create_wormhole_18_4_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
     return map;
 }
 

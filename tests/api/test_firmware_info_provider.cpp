@@ -622,7 +622,7 @@ TEST_F(TestFirmwareInfoProvider, TdpLimit) {
             EXPECT_FALSE(tdp_limit.has_value());
             continue;
         }
-
+        EXPECT_TRUE(tdp_limit.has_value());
         // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
         // throttler's [50, 500] W range. A zero means the board never configured a limit.
         if (tdp_limit.has_value() && tdp_limit.value() != 0) {

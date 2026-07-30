@@ -111,6 +111,12 @@ constexpr uint32_t TDP_LIMIT_MAX_WATTS = 500;
 // Firmware that UMD requires for ArcMessageType::SET_TDP_LIMIT.
 const FirmwareBundleVersion TDP_LIMIT_MIN_FIRMWARE_VERSION(19, 11, 0);
 
+// SET_TDP_LIMIT arg1 picks between applying arg0 and restoring the board default, and firmware
+// ignores arg0 when it restores.
+constexpr uint32_t TDP_LIMIT_APPLY_REQUESTED = 0;
+constexpr uint32_t TDP_LIMIT_RESTORE_DEFAULT = 1;
+constexpr uint32_t TDP_LIMIT_WATTS_IGNORED = 0;
+
 static bool is_tdp_limit_supported(TTDevice* tt_device) {
     return tt_device->get_arch() == tt::ARCH::BLACKHOLE &&
            tt_device->get_firmware_info_provider()->get_firmware_version() >= TDP_LIMIT_MIN_FIRMWARE_VERSION;
@@ -136,7 +142,7 @@ void set_tdp_limit(TTDevice* tt_device, const uint32_t tdp_limit_watts) {
             TDP_LIMIT_MAX_WATTS));
 
     tt_device->get_arc_messenger()->send_message(
-        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {tdp_limit_watts, 0});
+        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {tdp_limit_watts, TDP_LIMIT_APPLY_REQUESTED});
 
     // Firmware refuses a limit above chip_limits.max_tdp_limit through an exit code that send_message drops,
     // so the outcome is read back: firmware rewrites the limit only once it has accepted one.
@@ -163,10 +169,10 @@ void restore_default_tdp_limit(TTDevice* tt_device) {
             tt_device->get_arch(),
             tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
 
-    // Firmware takes the default from chip_limits.tdp_limit in the SPI firmware table, so it ignores the
-    // limit argument entirely and only reads the restore-default flag.
+    // Firmware takes the default from chip_limits.tdp_limit in the SPI firmware table.
     tt_device->get_arc_messenger()->send_message(
-        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {0, 1});
+        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT),
+        {TDP_LIMIT_WATTS_IGNORED, TDP_LIMIT_RESTORE_DEFAULT});
 }
 
 std::vector<std::pair<CoreCoord, bool>> filter_harvested_eth_status(

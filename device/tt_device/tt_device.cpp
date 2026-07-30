@@ -153,17 +153,24 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 
-void TTDevice::init_tt_device_for_simulation_remote(const std::chrono::milliseconds timeout_ms) {
+void TTDevice::init_tt_device_for_simulation(
+    bool preserve_soc_descriptor, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     probe_arc();
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    // Simulation remotes are seeded from the cluster descriptor before init. Keep that descriptor
-    // authoritative for harvesting/topology, while still bringing up ARC/FW services.
-    if (!soc_descriptor_.has_value()) {
-        construct_soc_descriptor(soc_arch_descriptor_);
+    // Descriptor-backed simulation remotes are seeded before init and may need to preserve that
+    // topology metadata. A bootstrap device without a cluster descriptor instead reconstructs its
+    // SocDescriptor from firmware, matching silicon initialization.
+    if (!preserve_soc_descriptor || !soc_descriptor_.has_value()) {
+        std::shared_ptr<SocArchDescriptor> descriptor = soc_arch_descriptor_;
+        if (descriptor == nullptr && soc_descriptor_.has_value() &&
+            !soc_descriptor_->device_descriptor_file_path.empty()) {
+            descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_->device_descriptor_file_path);
+        }
+        construct_soc_descriptor(descriptor);
     }
 }
 

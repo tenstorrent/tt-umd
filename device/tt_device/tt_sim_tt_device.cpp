@@ -16,9 +16,12 @@
 
 #include "simulation/simulation_server_socket.hpp"
 #include "tt-kmd-lib/pci_ids.h"
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/pcie/tt_sim_tlb_handle.hpp"
 #include "umd/device/pcie/tt_sim_tlb_window.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
@@ -27,8 +30,10 @@
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/types/wormhole_eth.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
@@ -110,6 +115,8 @@ TTSimTTDevice::TTSimTTDevice(
     communicator_(std::make_unique<TTSimCommunicator>(
         simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
     chip_id_(chip_id) {
+    communication_device_type_ = IODeviceType::PCIe;
+    communication_device_id_ = chip_id;
     set_soc_descriptor(soc_descriptor);
     // Populate the base-class arch field from the soc descriptor. TTSim does not go through
     // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream
@@ -187,6 +194,8 @@ void TTSimTTDevice::initialize_backend() {
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::move(client)), chip_id_(chip_id) {
+    communication_device_type_ = IODeviceType::PCIe;
+    communication_device_id_ = chip_id;
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
     architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
@@ -342,26 +351,96 @@ void TTSimTTDevice::advance_device_execution() {
 }
 
 void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "Waiting for ARC core start is not supported in TTSim simulation device.");
+    // TTSim starts firmware as part of backend initialization, before this TTDevice is returned.
 }
 
 std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "Waiting for ETH core training is not supported in TTSim simulation device.");
+    const auto start = std::chrono::steady_clock::now();
+    auto duration = std::chrono::milliseconds(0);
+    while (read_eth_core_training_status(eth_core) == EthTrainingStatus::IN_PROGRESS) {
+        duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+        UMD_ASSERT(
+            duration <= timeout_ms,
+            error::RuntimeError,
+            fmt::format("ETH training timed out after {} ms on core {}.", timeout_ms.count(), eth_core.str()));
+    }
+    return duration;
 }
 
 EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
+    if (arch == tt::ARCH::BLACKHOLE) {
+        uint32_t port_status;
+        const uint32_t port_status_addr =
+            blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+        read_from_device(&port_status, eth_core, port_status_addr, sizeof(port_status));
+        return static_cast<EthTrainingStatus>(port_status);
+    }
+
+    uint32_t retrain_status;
+    read_from_device_reg(&retrain_status, eth_core, wormhole::ETH_RETRAIN_ADDR, sizeof(retrain_status));
+    if (retrain_status == wormhole::ETH_TRIGGER_RETRAIN_VAL) {
+        return EthTrainingStatus::IN_PROGRESS;
+    }
+
+    uint32_t training_status;
+    read_from_device_reg(&training_status, eth_core, wormhole::ETH_TRAIN_STATUS_ADDR, sizeof(training_status));
+    if (training_status == static_cast<uint32_t>(EthTrainingStatus::FAIL)) {
+        uint32_t link_error_status;
+        read_from_device_reg(
+            &link_error_status, eth_core, wormhole::ETH_LINK_ERR_STATUS_ADDR, sizeof(link_error_status));
+        if (link_error_status >= wormhole::ETH_LINK_UNUSED_ERROR_CODE_RANGE_START) {
+            return EthTrainingStatus::NOT_CONNECTED;
+        }
+    }
+    return static_cast<EthTrainingStatus>(training_status);
 }
 
 ChipInfo TTSimTTDevice::get_chip_info() {
-    // No firmware_info_provider on the simulator; mirror the defaults used inside
-    // TTSimTTDevice::create(). BH SocDescriptor construction rejects an empty eth_harvesting_mask
-    // ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so apply the same 0x120
-    // default here. Keep in sync with create() above.
-    ChipInfo chip_info{};
-    if (arch == tt::ARCH::BLACKHOLE) {
-        chip_info.harvesting_masks.eth_harvesting_mask = 0x120;
+    ChipInfo chip_info = TTDevice::get_chip_info();
+    if (arch == tt::ARCH::WORMHOLE_B0) {
+        std::vector<uint32_t> arc_msg_return_values = {0};
+        const uint32_t ret_code = get_arc_messenger()->send_message(
+            wormhole::ARC_MSG_COMMON_PREFIX |
+                get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            arc_msg_return_values,
+            {0, 0});
+        UMD_ASSERT(
+            ret_code == 0,
+            error::RuntimeError,
+            fmt::format("Failed to get harvesting masks with exit code: {}", ret_code));
+        chip_info.harvesting_masks.tensix_harvesting_mask =
+            CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
+        return chip_info;
+    }
+
+    ArcTelemetryReader* telemetry_reader = get_arc_telemetry_reader();
+    chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        tt::ARCH::BLACKHOLE,
+        telemetry_reader->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
+            ? (~telemetry_reader->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
+            : 0);
+    chip_info.harvesting_masks.dram_harvesting_mask =
+        telemetry_reader->is_entry_available(TelemetryTag::ENABLED_GDDR)
+            ? (~telemetry_reader->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
+            : 0;
+    chip_info.harvesting_masks.eth_harvesting_mask =
+        telemetry_reader->is_entry_available(TelemetryTag::ENABLED_ETH)
+            ? (~telemetry_reader->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
+            : 0;
+    if (telemetry_reader->is_entry_available(TelemetryTag::PCIE_USAGE)) {
+        const uint32_t pcie_usage = telemetry_reader->read_entry(TelemetryTag::PCIE_USAGE);
+        constexpr uint32_t PCIE_USAGE_ENDPOINT = 1;
+        if ((pcie_usage & 0x3) != PCIE_USAGE_ENDPOINT) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+        }
+        if (((pcie_usage >> 2) & 0x3) != PCIE_USAGE_ENDPOINT) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x2;
+        }
+    }
+    if (telemetry_reader->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
+        chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
+            tt::ARCH::BLACKHOLE, telemetry_reader->read_entry(TelemetryTag::ENABLED_L2CPU));
     }
     return chip_info;
 }

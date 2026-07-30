@@ -98,6 +98,17 @@ set_target_properties(
             lock_virus
 )
 
+add_executable(dram_membar_probe dram_membar_probe.cpp)
+target_link_libraries(dram_membar_probe PRIVATE tools_common)
+set_target_properties(
+    dram_membar_probe
+    PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/tools/umd/
+        OUTPUT_NAME
+            dram_membar_probe
+)
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -108,4 +119,5 @@ add_custom_target(
         warm_reset
         tlb_virus
         lock_virus
+        dram_membar_probe
 )

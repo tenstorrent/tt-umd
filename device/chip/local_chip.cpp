@@ -5,7 +5,9 @@
 #include "umd/device/chip/local_chip.hpp"
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
+#include <chrono>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -37,6 +39,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -413,7 +416,26 @@ void LocalChip::set_membar_flag(
         write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
+    const auto start_time = std::chrono::steady_clock::now();
     while (cores_synced.size() != cores.size()) {
+        if (utils::check_timeout(start_time, timeout::MEMBAR_TIMEOUT)) {
+            std::vector<std::string> unsynced_cores;
+            for (const auto& core : cores) {
+                if (cores_synced.find(core) == cores_synced.end()) {
+                    unsynced_cores.push_back(core.str());
+                }
+            }
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format(
+                    "Timeout waiting for cores on chip (device {}) to receive mem bar flag {}: {} out of {} cores "
+                    "synced, waiting on {}.",
+                    tt_device_->get_communication_device_id(),
+                    barrier_value,
+                    cores_synced.size(),
+                    cores.size(),
+                    fmt::join(unsynced_cores, ", ")));
+        }
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
                 uint32_t readback_val;

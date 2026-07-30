@@ -21,6 +21,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -194,11 +195,12 @@ void Chip::noc_multicast_write(const void* src, size_t size, CoreCoord core_star
         size,
         get_soc_descriptor().translate_chip_coord_to_translated(core_start),
         get_soc_descriptor().translate_chip_coord_to_translated(core_end),
-        addr);
+        addr,
+        get_selected_noc_id());
 }
 
 void Chip::noc_multicast_write(const void* src, size_t size, uint64_t addr) {
-    get_tt_device()->noc_multicast_write(src, size, addr);
+    get_tt_device()->noc_multicast_write(src, size, addr, get_selected_noc_id());
 }
 
 }  // namespace tt::umd

@@ -606,14 +606,50 @@ TEST_F(TestFirmwareInfoProvider, BoardPowerLimit) {
     }
 }
 
+TEST_F(TestFirmwareInfoProvider, TdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        auto tdp_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "tdp_limit={} W", opt_str(tdp_limit));
+
+        // Wormhole publishes the limit from 18.4 on, Blackhole from 19.8 on.
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE
+                                    ? fw_version >= FirmwareBundleVersion(19, 8, 0)
+                                    : fw_version >= FW_VERSION_18_4;
+        if (!expect_available) {
+            EXPECT_FALSE(tdp_limit.has_value());
+            continue;
+        }
+        EXPECT_TRUE(tdp_limit.has_value());
+        // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
+        // throttler's [50, 500] W range. A zero means the board never configured a limit.
+        if (tdp_limit.has_value() && tdp_limit.value() != 0) {
+            EXPECT_GE(tdp_limit.value(), 50u);
+            EXPECT_LE(tdp_limit.value(), 500u);
+        }
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();
 
+        tt::ARCH arch = tt_device->get_arch();
         auto trip_count = fw_info->get_therm_trip_count();
-        // On a healthy running system, no thermal trips should have occurred.
+
+        // Thermal trip count is Blackhole-only telemetry. Wormhole firmware never publishes the
+        // THERM_TRIP_COUNT tag, at any bundle version, so the value is always unavailable there.
+        if (arch == tt::ARCH::WORMHOLE_B0) {
+            EXPECT_FALSE(trip_count.has_value());
+            continue;
+        }
+
+        EXPECT_TRUE(trip_count.has_value());
         if (trip_count.has_value()) {
-            EXPECT_EQ(trip_count.value(), 0u);
+            // The count itself is not asserted: a device may have legitimately tripped before this run.
+            log_info(tt::LogUMD, "therm_trip_count={}", trip_count.value());
         }
     }
 }

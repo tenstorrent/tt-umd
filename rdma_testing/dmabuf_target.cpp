@@ -36,7 +36,8 @@ struct Args {
     // dominate the bandwidth measurement. addr + size must stay within a single DRAM bank.
     uint64_t size = 64ull << 20;
     int ib_port = 1;
-    int gid_index = -1;  // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
+    int gid_index = -1;        // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
+    std::string op = "write";  // must match the initiator's --op: decides who seeds and who verifies
 };
 
 Args parse_args(int argc, char** argv) {
@@ -56,6 +57,8 @@ Args parse_args(int argc, char** argv) {
             a.ib_port = std::stoi(next());
         } else if (arg == "--gid-index") {
             a.gid_index = std::stoi(next());
+        } else if (arg == "--op") {
+            a.op = next();
         }
     }
     return a;
@@ -65,6 +68,11 @@ Args parse_args(int argc, char** argv) {
 
 int run(int argc, char** argv) {
     Args args = parse_args(argc, argv);
+    if (args.op != "write" && args.op != "read") {
+        std::cerr << "--op must be 'write' or 'read', got '" << args.op << "'" << std::endl;
+        return 1;
+    }
+    const bool is_read = (args.op == "read");
 
     // --- UMD side: export a TLB window as a dma-buf ------------------------------------------
     std::unique_ptr<Cluster> cluster = std::make_unique<Cluster>();
@@ -110,8 +118,13 @@ int run(int argc, char** argv) {
 
     ibv_pd* pd = ibv_alloc_pd(ctx);
     // offset=0, iova=0: the dma-buf has no CPU-side virtual address, so remote_addr on the
-    // initiator's WRITE must also be 0 to match this MR's iova.
-    ibv_mr* mr = ibv_reg_dmabuf_mr(pd, 0, args.size, 0, dmabuf_fd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE);
+    // initiator's WRITE/READ must also be 0 to match this MR's iova.
+    //
+    // REMOTE_READ is granted unconditionally alongside REMOTE_WRITE so one target invocation serves
+    // either direction. Omitting it is the classic way an RDMA_READ dies with
+    // IBV_WC_REM_ACCESS_ERR on the initiator while the write path looks perfectly healthy.
+    ibv_mr* mr = ibv_reg_dmabuf_mr(
+        pd, 0, args.size, 0, dmabuf_fd, IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ);
     if (!mr) {
         perror("ibv_reg_dmabuf_mr failed");
         return 1;
@@ -138,7 +151,9 @@ int run(int argc, char** argv) {
         attr.qp_state = IBV_QPS_INIT;
         attr.pkey_index = 0;
         attr.port_num = args.ib_port;
-        attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE;
+        // Same reasoning as the MR flags above: the QP must permit remote reads too, or an
+        // RDMA_READ is rejected at the QP level even though the MR allows it.
+        attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
         int flags = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
         if (ibv_modify_qp(qp, &attr, flags)) {
             std::cerr << "Failed to move QP to INIT" << std::endl;
@@ -160,6 +175,18 @@ int run(int argc, char** argv) {
         std::memcpy(local.gid, gid.raw, 16);
     } else {
         local.lid = port_attr.lid;
+    }
+
+    // In read mode the initiator pulls *from* device memory, so the pattern has to already be there.
+    // Seed it via UMD (a path independent of the exported window) before the handshake, so it is in
+    // place before the peer can possibly issue a READ.
+    if (is_read) {
+        std::vector<uint8_t> seed(args.size);
+        for (size_t i = 0; i < args.size; ++i) {
+            seed[i] = static_cast<uint8_t>(i & 0xFF);
+        }
+        cluster->write_to_device(seed.data(), seed.size(), args.chip, core, args.addr);
+        std::cout << "Seeded " << args.size << " bytes of test pattern into device memory via UMD" << std::endl;
     }
 
     // --- OOB handshake -------------------------------------------------------------------------
@@ -213,28 +240,36 @@ int run(int argc, char** argv) {
         }
     }
 
-    // Wait for the initiator to signal it has posted (and completed) the RDMA WRITE.
+    // Wait for the initiator to signal its RDMA batch has completed (a real hardware ACK, not just
+    // "posted").
     char done = 0;
     recv_all(conn, &done, 1);
-    std::cout << "Initiator signaled write complete; verifying via UMD readback..." << std::endl;
-
-    std::vector<uint8_t> readback(args.size);
-    cluster->read_from_device(readback.data(), args.chip, core, args.addr, args.size);
 
     bool all_match = true;
-    for (size_t i = 0; i < args.size && i < 4096; ++i) {
-        // Initiator fills its buffer with pattern byte = (i & 0xFF); check the first 4KiB, enough
-        // to catch a wrong-address / wrong-fd / stale-data class of bug without a slow full compare.
-        uint8_t expected = static_cast<uint8_t>(i & 0xFF);
-        if (readback[i] != expected) {
-            std::cerr << "Mismatch at byte " << i << ": expected " << static_cast<int>(expected) << " got "
-                      << static_cast<int>(readback[i]) << std::endl;
-            all_match = false;
-            break;
-        }
-    }
+    if (is_read) {
+        // The data moved device -> host, so the initiator holds it and verifies on its side; there is
+        // nothing to check here. Device memory should be unchanged from what we seeded.
+        std::cout << "Initiator signaled read complete; it verifies the pattern on its side." << std::endl;
+    } else {
+        std::cout << "Initiator signaled write complete; verifying via UMD readback..." << std::endl;
 
-    std::cout << (all_match ? "PASS" : "FAIL") << std::endl;
+        std::vector<uint8_t> readback(args.size);
+        cluster->read_from_device(readback.data(), args.chip, core, args.addr, args.size);
+
+        for (size_t i = 0; i < args.size && i < 4096; ++i) {
+            // Initiator fills its buffer with pattern byte = (i & 0xFF); check the first 4KiB, enough
+            // to catch a wrong-address / wrong-fd / stale-data class of bug without a slow full compare.
+            uint8_t expected = static_cast<uint8_t>(i & 0xFF);
+            if (readback[i] != expected) {
+                std::cerr << "Mismatch at byte " << i << ": expected " << static_cast<int>(expected) << " got "
+                          << static_cast<int>(readback[i]) << std::endl;
+                all_match = false;
+                break;
+            }
+        }
+
+        std::cout << (all_match ? "PASS" : "FAIL") << std::endl;
+    }
 
     close(conn);
     close(dmabuf_fd);

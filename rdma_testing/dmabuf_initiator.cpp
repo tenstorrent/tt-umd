@@ -8,6 +8,7 @@
 // No UMD dependency here at all.
 #include <infiniband/verbs.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -26,9 +27,10 @@ struct Args {
     // 64 MiB: must match dmabuf_target's --size (Blackhole DRAM_BANK_SIZE is 4 GiB, so there's
     // plenty of headroom vs the old Tensix-L1-backed 1.5 MiB ceiling).
     uint64_t size = 64ull << 20;
-    uint64_t iters = 100;  // number of RDMA_WRITEs of --size bytes to issue, timed as one batch
+    uint64_t iters = 100;  // number of RDMA ops of --size bytes to issue, timed as one batch
     int ib_port = 1;
-    int gid_index = -1;  // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
+    int gid_index = -1;        // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
+    std::string op = "write";  // "write" = host -> device NOC; "read" = device NOC -> host
 };
 
 Args parse_args(int argc, char** argv) {
@@ -48,6 +50,8 @@ Args parse_args(int argc, char** argv) {
             a.ib_port = std::stoi(next());
         } else if (arg == "--gid-index") {
             a.gid_index = std::stoi(next());
+        } else if (arg == "--op") {
+            a.op = next();
         }
     }
     return a;
@@ -68,15 +72,28 @@ constexpr uint64_t SIGNAL_INTERVAL = 1;
 int run(int argc, char** argv) {
     Args args = parse_args(argc, argv);
     if (args.host.empty()) {
-        std::cerr << "Usage: dmabuf_initiator --host <target-host> --port <port> [--size N]" << std::endl;
+        std::cerr << "Usage: dmabuf_initiator --host <target-host> [--port N] [--size N] [--iters N]"
+                  << " [--op write|read] [--gid-index N]" << std::endl;
         return 1;
     }
+    if (args.op != "write" && args.op != "read") {
+        std::cerr << "--op must be 'write' or 'read', got '" << args.op << "'" << std::endl;
+        return 1;
+    }
+    const bool is_read = (args.op == "read");
 
-    // Test pattern: byte i = i & 0xFF, so the target can verify without needing to share the
-    // buffer contents out of band.
     std::vector<uint8_t> local_buf(args.size);
-    for (size_t i = 0; i < args.size; ++i) {
-        local_buf[i] = static_cast<uint8_t>(i & 0xFF);
+    if (is_read) {
+        // RDMA_READ pulls device memory into this buffer, so prefill with a sentinel that is NOT the
+        // expected pattern — otherwise a read that silently moved nothing would still "verify".
+        // The target seeds the real pattern into device memory via UMD before the handshake.
+        std::fill(local_buf.begin(), local_buf.end(), 0xAA);
+    } else {
+        // Test pattern: byte i = i & 0xFF, so the target can verify without needing to share the
+        // buffer contents out of band.
+        for (size_t i = 0; i < args.size; ++i) {
+            local_buf[i] = static_cast<uint8_t>(i & 0xFF);
+        }
     }
 
     int num_devices = 0;
@@ -201,10 +218,17 @@ int run(int argc, char** argv) {
         }
     }
 
-    // Repeatedly RDMA WRITE local_buf -> target's dma-buf MR at iova 0 (see dmabuf_target.cpp; the
-    // dma-buf MR was registered with iova=0, so remote_addr here must also be 0). Every write lands
-    // in the same remote window, which is fine for a bandwidth measurement — only the last one's
-    // content is checked, and each write reproduces the identical pattern.
+    // Repeatedly move --size bytes between local_buf and the target's dma-buf MR at iova 0 (see
+    // dmabuf_target.cpp; the dma-buf MR was registered with iova=0, so remote_addr here must also be
+    // 0). Every iteration touches the same remote window, which is fine for a bandwidth measurement:
+    // in write mode each iteration reproduces the identical pattern, and in read mode the source
+    // device memory is never modified.
+    //
+    // Direction note: WRITE pushes host -> device NOC and is "posted" on the target's PCIe link
+    // (fire-and-forget, pipelines well). READ pulls device NOC -> host, which makes the target NIC
+    // issue *non-posted* PCIe reads against the card's BAR — each needs a completion to come back, so
+    // throughput is bounded by read-completion concurrency and latency rather than raw link
+    // bandwidth. Expect READ to be substantially slower than WRITE on the same link.
     ibv_sge sge{};
     sge.addr = reinterpret_cast<uint64_t>(local_buf.data());
     sge.length = static_cast<uint32_t>(local_buf.size());
@@ -213,11 +237,12 @@ int run(int argc, char** argv) {
     ibv_send_wr wr{};
     wr.sg_list = &sge;
     wr.num_sge = 1;
-    wr.opcode = IBV_WR_RDMA_WRITE;
+    wr.opcode = is_read ? IBV_WR_RDMA_READ : IBV_WR_RDMA_WRITE;
     wr.wr.rdma.remote_addr = remote.remote_addr;
     wr.wr.rdma.rkey = remote.rkey;
 
-    std::cout << "Issuing " << args.iters << " x " << args.size << " byte RDMA WRITEs..." << std::endl;
+    const char* op_name = is_read ? "READ" : "WRITE";
+    std::cout << "Issuing " << args.iters << " x " << args.size << " byte RDMA " << op_name << "s..." << std::endl;
     auto t_start = std::chrono::steady_clock::now();
     for (uint64_t i = 0; i < args.iters; ++i) {
         bool signal = ((i + 1) % SIGNAL_INTERVAL == 0) || (i + 1 == args.iters);
@@ -243,8 +268,8 @@ int run(int argc, char** argv) {
             if (wc.status != IBV_WC_SUCCESS) {
                 // wc.wr_id, not the loop counter i: once a fatal transport error hits, the QP flushes
                 // all outstanding WQEs, so the CQE we get back may belong to an earlier, still-unsignaled
-                // write rather than the one posted this iteration.
-                std::cerr << "RDMA WRITE failed, wr_id=" << wc.wr_id << ": " << ibv_wc_status_str(wc.status)
+                // op rather than the one posted this iteration.
+                std::cerr << "RDMA " << op_name << " failed, wr_id=" << wc.wr_id << ": " << ibv_wc_status_str(wc.status)
                           << std::endl;
                 return 1;
             }
@@ -255,11 +280,28 @@ int run(int argc, char** argv) {
     double elapsed_s = std::chrono::duration<double>(t_end - t_start).count();
     double total_bytes = static_cast<double>(args.size) * static_cast<double>(args.iters);
     double gbps = total_bytes / elapsed_s / 1e9;
-    std::cout << "Wrote " << static_cast<uint64_t>(total_bytes) << " bytes in " << elapsed_s << " s => " << gbps
-              << " GB/s" << std::endl;
+    std::cout << (is_read ? "Read " : "Wrote ") << static_cast<uint64_t>(total_bytes) << " bytes in " << elapsed_s
+              << " s => " << gbps << " GB/s" << std::endl;
 
-    // Signal the target that the write has landed (it's a real hardware ACK from the CQE above,
-    // not just "posted") so it's safe to read back and verify.
+    // In read mode the data landed on *this* side, so verification happens here rather than on the
+    // target: check that the pattern the target seeded into device memory actually arrived, and that
+    // we're not just looking at the 0xAA sentinel.
+    bool all_match = true;
+    if (is_read) {
+        for (size_t i = 0; i < args.size && i < 4096; ++i) {
+            uint8_t expected = static_cast<uint8_t>(i & 0xFF);
+            if (local_buf[i] != expected) {
+                std::cerr << "Mismatch at byte " << i << ": expected " << static_cast<int>(expected) << " got "
+                          << static_cast<int>(local_buf[i]) << std::endl;
+                all_match = false;
+                break;
+            }
+        }
+        std::cout << (all_match ? "PASS" : "FAIL") << std::endl;
+    }
+
+    // Signal the target that the batch is done (a real hardware ACK from the CQE above, not just
+    // "posted") so it can verify (write mode) or tear down (read mode).
     char done = 1;
     send_all(conn, &done, 1);
 
@@ -269,7 +311,7 @@ int run(int argc, char** argv) {
     ibv_dereg_mr(mr);
     ibv_dealloc_pd(pd);
     ibv_close_device(ctx);
-    return 0;
+    return all_match ? 0 : 1;
 }
 
 int main(int argc, char** argv) {

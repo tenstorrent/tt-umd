@@ -67,9 +67,24 @@ accepts specific size classes (1/2/16 MiB on Wormhole, 2 MiB or 4 GiB on Blackho
 smallest class that fits, so no manual adjustment is needed. `--size` above 2 MiB forces the 4 GiB
 class on Blackhole — still valid, just make sure `addr + size` stays inside the bank.
 
-`--iters` (initiator only, default 100) controls how many `--size`-byte RDMA WRITEs are issued
-back-to-back into the same remote window before the batch is timed; bump it for a longer,
+`--iters` (initiator only, default 100) controls how many `--size`-byte RDMA operations are issued
+back-to-back against the same remote window before the batch is timed; bump it for a longer,
 lower-noise bandwidth sample.
+
+`--op write|read` (default `write`, **must match on both sides**) picks the direction:
+
+- `write` — host memory → device NOC. The initiator fills a buffer with the test pattern and
+  RDMA-WRITEs it; the target verifies via `read_from_device()`.
+- `read` — device NOC → host memory. The *target* seeds the pattern into device memory via
+  `write_to_device()` before the handshake, the initiator RDMA-READs it into a buffer prefilled with
+  a `0xAA` sentinel (so a read that moved nothing can't false-pass), and the **initiator** prints
+  PASS/FAIL.
+
+Expect read to be markedly slower than write, and for a different reason than the link width. PCIe
+writes are *posted* — fire-and-forget, and they pipeline. PCIe reads are *non-posted*: the target NIC
+must issue read requests against the card's BAR and wait for each completion, so throughput is
+governed by read-completion concurrency and latency rather than raw link bandwidth. The same
+asymmetry shows up for host-side TLB access in `tests/microbenchmark/benchmarks/tlb/test_tlb.cpp`.
 
 ## 3. Run
 
@@ -92,6 +107,9 @@ batch, and prints something like:
 Wrote 13421772800 bytes in 1.842 s => 7.287 GB/s
 ```
 then signals the target that it's done so the target can verify and print PASS/FAIL.
+
+To measure the other direction, add `--op read` to **both** commands. The PASS/FAIL then prints on the
+initiator instead of the target, since that's where the data lands.
 
 ## 4. What "pass" and the bandwidth number mean
 

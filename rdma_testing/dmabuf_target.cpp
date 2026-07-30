@@ -36,7 +36,7 @@ struct Args {
     // dominate the bandwidth measurement. addr + size must stay within a single DRAM bank.
     uint64_t size = 64ull << 20;
     int ib_port = 1;
-    int gid_index = 0;
+    int gid_index = -1;  // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
 };
 
 Args parse_args(int argc, char** argv) {
@@ -104,6 +104,9 @@ int run(int argc, char** argv) {
         return 1;
     }
     bool is_roce = (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET);
+    if (is_roce) {
+        args.gid_index = resolve_gid_index(ctx, args.ib_port, args.gid_index);
+    }
 
     ibv_pd* pd = ibv_alloc_pd(ctx);
     // offset=0, iova=0: the dma-buf has no CPU-side virtual address, so remote_addr on the

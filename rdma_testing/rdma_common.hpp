@@ -7,6 +7,7 @@
 #pragma once
 
 #include <arpa/inet.h>
+#include <infiniband/verbs.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -14,6 +15,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 
@@ -28,6 +30,85 @@ struct QpExchangeInfo {
     uint64_t remote_addr = 0;  // target's dma-buf MR iova (we register with iova=0, so this is 0);
                                // kept explicit so the initiator doesn't have to hardcode it
 };
+
+// Format a GID for logging, matching the ipv4-mapped-aware style of `show_gids`.
+inline std::string gid_to_string(const ibv_gid& gid) {
+    char buf[INET6_ADDRSTRLEN] = {0};
+    if (!inet_ntop(AF_INET6, gid.raw, buf, sizeof(buf))) {
+        return "<unprintable>";
+    }
+    return buf;
+}
+
+// Pick the GID index to use for a RoCE port.
+//
+// This matters a lot and is easy to get wrong: on these Broadcom BCM957608 NICs, GID index 0 is
+// RoCE *v1* with a link-local fe80:: address. RoCEv1 is a non-routable L2 protocol, and connecting
+// with it (even between hosts on the same subnet) produces no traffic the peer ever ACKs — the
+// symptom is the initiator failing its very first WRITE with "transport retry counter exceeded",
+// which is indistinguishable at a glance from a hardware/dma-buf problem. `ib_write_bw -x 0`
+// reproduces the same stall, so it's a fabric-config issue, not anything to do with UMD.
+//
+// Prefer a RoCEv2 GID with an IPv4-mapped address (::ffff:a.b.c.d), which is the routable,
+// switch-friendly choice; fall back to any non-link-local RoCEv2 GID. Returns -1 if none is found.
+inline int find_roce_v2_gid_index(ibv_context* ctx, int ib_port) {
+    ibv_port_attr port_attr{};
+    if (ibv_query_port(ctx, ib_port, &port_attr)) {
+        return -1;
+    }
+
+    int fallback = -1;
+    for (int i = 0; i < port_attr.gid_tbl_len; ++i) {
+        ibv_gid_entry entry{};
+        if (ibv_query_gid_ex(ctx, static_cast<uint32_t>(ib_port), static_cast<uint32_t>(i), &entry, 0)) {
+            continue;  // ENODATA for empty table slots
+        }
+        if (entry.gid_type != IBV_GID_TYPE_ROCE_V2) {
+            continue;
+        }
+
+        const uint8_t* r = entry.gid.raw;
+        bool ipv4_mapped = (r[10] == 0xff && r[11] == 0xff);
+        for (int b = 0; b < 10 && ipv4_mapped; ++b) {
+            ipv4_mapped = (r[b] == 0x00);
+        }
+        if (ipv4_mapped) {
+            return i;
+        }
+        bool link_local = (r[0] == 0xfe && r[1] == 0x80);
+        if (!link_local && fallback < 0) {
+            fallback = i;
+        }
+    }
+    return fallback;
+}
+
+// Resolve the GID index to use: honor an explicit override if given (>= 0), otherwise auto-detect.
+// Throws if neither yields a usable RoCEv2 GID, since silently falling back to index 0 is exactly
+// the failure mode described above.
+inline int resolve_gid_index(ibv_context* ctx, int ib_port, int requested) {
+    if (requested >= 0) {
+        ibv_gid_entry entry{};
+        if (!ibv_query_gid_ex(ctx, static_cast<uint32_t>(ib_port), static_cast<uint32_t>(requested), &entry, 0) &&
+            entry.gid_type != IBV_GID_TYPE_ROCE_V2) {
+            std::cerr << "Warning: --gid-index " << requested << " is not a RoCEv2 GID; "
+                      << "expect 'transport retry counter exceeded' if the fabric is routed." << std::endl;
+        }
+        return requested;
+    }
+
+    int idx = find_roce_v2_gid_index(ctx, ib_port);
+    if (idx < 0) {
+        throw std::runtime_error(
+            "No RoCEv2 GID found on this port; pass --gid-index explicitly (see the GID table under "
+            "/sys/class/infiniband/<dev>/ports/<port>/gid_attrs/types/)");
+    }
+
+    ibv_gid gid{};
+    ibv_query_gid(ctx, ib_port, idx, &gid);
+    std::cout << "Auto-selected RoCEv2 GID index " << idx << " (" << gid_to_string(gid) << ")" << std::endl;
+    return idx;
+}
 
 inline void send_all(int fd, const void* buf, size_t len) {
     const char* p = static_cast<const char*>(buf);

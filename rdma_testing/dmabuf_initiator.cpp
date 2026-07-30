@@ -28,7 +28,7 @@ struct Args {
     uint64_t size = 64ull << 20;
     uint64_t iters = 100;  // number of RDMA_WRITEs of --size bytes to issue, timed as one batch
     int ib_port = 1;
-    int gid_index = 0;
+    int gid_index = -1;  // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
 };
 
 Args parse_args(int argc, char** argv) {
@@ -65,7 +65,7 @@ constexpr uint64_t SIGNAL_INTERVAL = 1;
 
 }  // namespace
 
-int main(int argc, char** argv) {
+int run(int argc, char** argv) {
     Args args = parse_args(argc, argv);
     if (args.host.empty()) {
         std::cerr << "Usage: dmabuf_initiator --host <target-host> --port <port> [--size N]" << std::endl;
@@ -98,6 +98,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     bool is_roce = (port_attr.link_layer == IBV_LINK_LAYER_ETHERNET);
+    if (is_roce) {
+        args.gid_index = resolve_gid_index(ctx, args.ib_port, args.gid_index);
+    }
 
     ibv_pd* pd = ibv_alloc_pd(ctx);
     ibv_mr* mr = ibv_reg_mr(pd, local_buf.data(), local_buf.size(), IBV_ACCESS_LOCAL_WRITE);
@@ -267,4 +270,15 @@ int main(int argc, char** argv) {
     ibv_dealloc_pd(pd);
     ibv_close_device(ctx);
     return 0;
+}
+
+int main(int argc, char** argv) {
+    // tcp_connect()/send_all()/recv_all() and resolve_gid_index() throw; catch here so a
+    // handshake or config failure prints a clean error instead of an uncaught-exception core dump.
+    try {
+        return run(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal: " << e.what() << std::endl;
+        return 1;
+    }
 }

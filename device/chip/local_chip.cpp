@@ -37,6 +37,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -413,6 +414,7 @@ void LocalChip::set_membar_flag(
         write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
+    const auto start = std::chrono::steady_clock::now();
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
@@ -420,12 +422,23 @@ void LocalChip::set_membar_flag(
                 read_from_device(core, &readback_val, barrier_addr, sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
-                } else {
-                    log_trace(
-                        LogUMD,
-                        "Waiting for core {} to recieve mem bar flag {} in function",
-                        core.str(),
-                        barrier_value);
+                } else if (utils::check_timeout(start, timeout::MEMBAR_SYNC_TIMEOUT)) {
+                    // Report the value actually read. A core that answers but returns corrupted data
+                    // (e.g. a DRAM channel that trained with a dead byte lane) never converges, and the
+                    // readback is what identifies it.
+                    UMD_THROW(
+                        error::RuntimeError,
+                        fmt::format(
+                            "Memory barrier timed out after {} ms on device {} core {} at {:#x}: expected {:#x}, "
+                            "read {:#x}. {} of {} core(s) synced.",
+                            timeout::MEMBAR_SYNC_TIMEOUT.count(),
+                            tt_device_->get_pci_device()->get_device_num(),
+                            core.str(),
+                            barrier_addr,
+                            barrier_value,
+                            readback_val,
+                            cores_synced.size(),
+                            cores.size()));
                 }
             }
         }

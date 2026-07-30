@@ -28,9 +28,40 @@ jobs:
 
     name: Build and test ttsim with newest UMD
     runs-on: tt-ubuntu-2204-large-stable
+    env:
+      # Read-only consumer of the shared Garage ccache that tt-metal's own CI populates
+      # (see tt-metal's .github/workflows/build-artifact.yaml, which uses the same
+      # bucket/prefix with CCACHE_S3_READONLY=false).
+      #
+      # The prefix is deliberately "tt-metal", NOT "tt-umd": the compilation this job
+      # caches *is* a tt-metal build, so tt-metal's prefix is the only namespace that
+      # holds usable entries. A UMD-specific prefix would be a permanently empty
+      # namespace and would never produce a hit.
+      #
+      # READONLY is forced to "true" so UMD's CI can never write to or evict from a
+      # cache it does not own. tt-metal's CI stays the single writer.
+      CCACHE_S3_BUCKET: ccache
+      CCACHE_S3_PREFIX: tt-metal
+      CCACHE_S3_READONLY: "true"
+      CCACHE_S3_DEBUG: "false"
     container:
       image: ghcr.io/tenstorrent/tt-metal/tt-metalium/ubuntu-22.04-dev-amd64:latest
       env:
+        # NOTE: CCACHE_REMOTE_ONLY is deliberately NOT set here (tt-metal sets it at this level).
+        # It is exported by the configure step below instead, so that when that step is skipped or
+        # bails out (forks, missing secrets) ccache is not left with neither a remote nor a local
+        # cache — it just falls back to plain local ccache, exactly as before this wiring.
+        CCACHE_TEMPDIR: /tmp/ccache
+        CCACHE_COMPRESS: "true"
+        CCACHE_COMPRESSLEVEL: "3"
+        # Log ccache operations to a file so remote storage errors are visible in CI.
+        # Errors (storage helper failures, S3 timeouts) would otherwise be silent.
+        CCACHE_LOGFILE: /tmp/ccache.log
+        # Strip the tt-metal checkout prefix from hashed paths so entries are shareable
+        # with tt-metal's own CI, which builds the same sources at a different absolute
+        # path (/work there). Must point at the tt-metal repo root, not UMD's workspace
+        # root, for the rewritten relative paths to line up.
+        CCACHE_BASEDIR: ${{ github.workspace }}/tt-metal
         # TODO: Revisit the addition of these env vars https://github.com/tenstorrent/tt-metal/issues/20161
         TRACY_NO_INVARIANT_CHECK: 1
         TRACY_NO_ISA_EXTENSIONS: 1
@@ -91,6 +122,43 @@ jobs:
           fileName: "libttsim_wh_x2.so"
           out-file-path: /tmp/ttsim-wh-x2
 
+      # Mirrors tt-metal's "Configure S3 ccache storage" step in build-artifact.yaml, with two
+      # deliberate deviations, both consequences of UMD being a read-only consumer:
+      #   1. CCACHE_S3_READONLY is pinned to "true" (job env above), so |read-only=true is always
+      #      appended and this CI can never write to tt-metal's cache.
+      #   2. Missing credentials are a warning, not a hard failure. tt-metal exits 1 there because a
+      #      cold cache in its own CI is a real regression; here the remote cache is pure upside, so
+      #      a build that cannot reach it should still succeed exactly as it did before this wiring.
+      - name: Configure S3 ccache storage (read-only)
+        # Forks never have secrets; don't fail or warn noisily for them, they just build uncached.
+        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+        run: |
+          mkdir -p /tmp/ccache
+          if [ -z "${{ secrets.GARAGE_S3_ACCESS_KEY }}" ] || [ -z "${{ secrets.GARAGE_S3_SECRET_KEY }}" ]; then
+            echo "::warning::Garage S3 credentials are missing (need 'secrets: inherit' and the" \
+              "GARAGE_S3_ACCESS_KEY / GARAGE_S3_SECRET_KEY secrets). Building without a remote ccache."
+            exit 0
+          fi
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.GARAGE_S3_ACCESS_KEY }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.GARAGE_S3_SECRET_KEY }}" >> $GITHUB_ENV
+          echo "AWS_DEFAULT_REGION=garage" >> $GITHUB_ENV
+          CCACHE_REMOTE_STORAGE="s3://${CCACHE_S3_BUCKET}|region=garage|prefix=${CCACHE_S3_PREFIX}|endpoint_url=http://garage.garage.svc.cluster.local:3900"
+          if [ "${CCACHE_S3_READONLY}" = "true" ]; then
+            CCACHE_REMOTE_STORAGE="${CCACHE_REMOTE_STORAGE}|read-only=true"
+          fi
+          echo "CCACHE_REMOTE_STORAGE=${CCACHE_REMOTE_STORAGE}" >> $GITHUB_ENV
+          echo "CCACHE_REMOTE_STORAGE: ${CCACHE_REMOTE_STORAGE}"
+          # Only meaningful now that a remote is actually configured. Combined with read-only this
+          # means ccache never writes anywhere: no local cache is worth keeping on this ephemeral
+          # runner, and the remote is not ours to write to.
+          echo "CCACHE_REMOTE_ONLY=true" >> $GITHUB_ENV
+          if [ "${CCACHE_S3_DEBUG}" = "true" ]; then
+            echo "CRSH_LOGFILE=/tmp/ccache-storage-s3.log" >> $GITHUB_ENV
+          fi
+          echo "AWS_ENDPOINT_URL_S3=http://garage.garage.svc.cluster.local:3900" >> $GITHUB_ENV
+          # Zero the stats so the summary below reflects only this build.
+          ccache -z
+
       - name: Build tt-metal
         run: |
           cd tt-metal
@@ -102,6 +170,32 @@ jobs:
           echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
           ./build_metal.sh --build-all --build-umd-tests --enable-ccache
           cd ../
+
+      # Surfaces the remote hit rate, which is the only way to tell whether the read-only cache is
+      # actually helping. always() so a failed build still reports why it was slow.
+      - name: Publish ccache summary
+        if: ${{ always() }}
+        run: |
+          CCACHE_STATS=$(ccache -sv)
+          echo "$CCACHE_STATS"
+          echo '## CCache Summary' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "$CCACHE_STATS" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # Remote storage errors are otherwise silent; surface them from the ccache log.
+          # tt-metal filters this with .github/scripts/ccache_log_filter.sh, which UMD does not
+          # have — grep for the same signal directly and cap the output.
+          if [ -f /tmp/ccache.log ]; then
+            REMOTE_ERRORS=$(grep -iE 'remote|s3|storage' /tmp/ccache.log \
+              | grep -iE 'error|fail|timeout' | head -50 || true)
+            if [ -n "$REMOTE_ERRORS" ]; then
+              echo '## CCache Remote Storage Errors' >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$REMOTE_ERRORS" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
 
       - name: Prepare sim paths
         run: |

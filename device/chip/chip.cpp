@@ -84,26 +84,6 @@ void Chip::wait_dram_cores_training(const std::chrono::milliseconds timeout_ms) 
     }
 }
 
-void Chip::enable_ethernet_queue(const std::chrono::milliseconds timeout_ms) {
-    UMD_ASSERT(
-        get_soc_descriptor().arch != tt::ARCH::BLACKHOLE,
-        error::RuntimeError,
-        "enable_ethernet_queue is not supported on Blackhole architecture");
-    uint32_t msg_success = 0x0;
-    auto start = std::chrono::steady_clock::now();
-    while (msg_success != 1) {
-        if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            UMD_THROW(
-                error::RuntimeError,
-                fmt::format(
-                    "Timed out after waiting {} milliseconds for for DRAM to finish training.", timeout_ms.count()));
-        }
-        if (arc_msg(0xaa58, true, {0xFFFF, 0xFFFF}, timeout::ARC_MESSAGE_TIMEOUT, &msg_success) == HANG_READ_VALUE) {
-            break;
-        }
-    }
-}
-
 RiscType Chip::get_risc_reset_state(CoreCoord core) {
     uint32_t soft_reset_current_state = get_tt_device()->get_risc_reset_state(core);
     return get_tt_device()->get_architecture_implementation()->get_soft_reset_risc_type(soft_reset_current_state);

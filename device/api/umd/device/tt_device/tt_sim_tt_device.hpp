@@ -75,6 +75,7 @@ public:
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
     ChipInfo get_chip_info() override;
+    bool get_noc_translation_enabled() override;
 
     void close_device();
     void start_device();

@@ -40,7 +40,8 @@ public:
         ChipId chip_id,
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0,
-        size_t num_chips = 1);
+        size_t num_chips = 1,
+        bool force_shared_bdf_mode = false);
 
     ~TTSimTTDevice();
 
@@ -90,6 +91,7 @@ public:
      * @return Pointer to TTSimCommunicator
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
+    uint32_t get_num_mmio_devices() { return communicator_->get_num_mmio_devices(); }
 
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;

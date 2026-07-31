@@ -152,13 +152,28 @@ TopologyDiscovery::discover_from_local_device(
     const TopologyDiscoveryOptions& options,
     IODeviceType io_device_type,
     const std::string& soc_descriptor_path) {
+    std::map<ChipId, std::unique_ptr<TTDevice>> local_devices;
+    local_devices.emplace(0, std::move(local_device));
+    return discover_from_local_devices(std::move(local_devices), options, io_device_type, soc_descriptor_path);
+}
+
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+TopologyDiscovery::discover_from_local_devices(
+    std::map<ChipId, std::unique_ptr<TTDevice>> local_devices,
+    const TopologyDiscoveryOptions& options,
+    IODeviceType io_device_type,
+    const std::string& soc_descriptor_path) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    UMD_ASSERT(local_device != nullptr, error::RuntimeError, "Topology discovery requires a local device.");
+    UMD_ASSERT(!local_devices.empty(), error::RuntimeError, "Topology discovery requires at least one local device.");
+    UMD_ASSERT(
+        local_devices.begin()->second != nullptr, error::RuntimeError, "Topology discovery received a null device.");
 
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     std::unique_ptr<TopologyDiscovery> td = TopologyDiscovery::create_topology_discovery(
-        local_device->get_arch(), options, io_device_type, soc_descriptor_path);
-    td->add_initialized_local_device(std::move(local_device));
+        local_devices.begin()->second->get_arch(), options, io_device_type, soc_descriptor_path);
+    for (auto& [chip_id, local_device] : local_devices) {
+        td->add_initialized_local_device(std::move(local_device));
+    }
     td->retrain_eth_cores();
     td->discover_remote_devices();
     std::unique_ptr<ClusterDescriptor> cluster_desc = td->fill_cluster_descriptor_info();

@@ -34,7 +34,8 @@ public:
         const std::filesystem::path &simulator_directory,
         bool copy_sim_binary = false,
         uint32_t chip_id = 0,
-        uint32_t num_chips = 1);
+        uint32_t num_chips = 1,
+        bool force_shared_bdf_mode = false);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -109,6 +110,9 @@ public:
      * @return 32-bit value read from configuration space
      */
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
+
+    // Enumerate consecutive host-visible PCI functions exposed by the loaded simulator.
+    uint32_t get_num_mmio_devices();
 
     /**
      * Advance the simulator clock.
@@ -211,6 +215,7 @@ private:
 
     uint32_t chip_id_ = 0;
     uint32_t num_chips_ = 1;
+    bool force_shared_bdf_mode_ = false;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
     static bool s_sim_initialized_;

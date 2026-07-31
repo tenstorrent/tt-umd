@@ -5,6 +5,7 @@
 #include "umd/device/chip/local_chip.hpp"
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #include <cstdint>
 #include <functional>
@@ -415,6 +416,30 @@ void LocalChip::set_membar_flag(
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
     const auto start = std::chrono::steady_clock::now();
+
+    // On timeout, report the cores still waiting and the value each returns. A core that answers but
+    // returns corrupted data (e.g. a DRAM channel that trained with a dead byte lane) never converges,
+    // and the readback is what identifies it. Capped because a wedged device fails the whole group,
+    // and the TENSIX group is 130 cores.
+    constexpr size_t max_reported_cores = 8;
+    auto not_synced_report = [&]() {
+        std::vector<std::string> entries;
+        size_t not_synced = 0;
+        for (const auto& core : cores) {
+            if (cores_synced.count(core) || ++not_synced > max_reported_cores) {
+                continue;
+            }
+            uint32_t val = 0;
+            // A read that times out here propagates instead of the barrier error. That is intended:
+            // an MMIO timeout is the more severe fault and execution should stop on it.
+            read_from_device(core, &val, barrier_addr, sizeof(std::uint32_t));
+            entries.push_back(fmt::format("{} read {:#x}", core.str(), val));
+        }
+        return not_synced > max_reported_cores
+                   ? fmt::format("{}, and {} more", fmt::join(entries, ", "), not_synced - max_reported_cores)
+                   : fmt::format("{}", fmt::join(entries, ", "));
+    };
+
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
@@ -423,22 +448,18 @@ void LocalChip::set_membar_flag(
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
                 } else if (utils::check_timeout(start, timeout::MEMBAR_SYNC_TIMEOUT)) {
-                    // Report the value actually read. A core that answers but returns corrupted data
-                    // (e.g. a DRAM channel that trained with a dead byte lane) never converges, and the
-                    // readback is what identifies it.
                     UMD_THROW(
                         error::RuntimeError,
                         fmt::format(
-                            "Memory barrier timed out after {} ms on device {} core {} at {:#x}: expected {:#x}, "
-                            "read {:#x}. {} of {} core(s) synced.",
+                            "Memory barrier timed out after {} ms on device {} at {:#x}: expected {:#x}, {} of {} "
+                            "core(s) synced. Not synced: {}.",
                             timeout::MEMBAR_SYNC_TIMEOUT.count(),
                             tt_device_->get_communication_device_id(),
-                            core.str(),
                             barrier_addr,
                             barrier_value,
-                            readback_val,
                             cores_synced.size(),
-                            cores.size()));
+                            cores.size(),
+                            not_synced_report()));
                 }
             }
         }

@@ -111,6 +111,36 @@ then signals the target that it's done so the target can verify and print PASS/F
 To measure the other direction, add `--op read` to **both** commands. The PASS/FAIL then prints on the
 initiator instead of the target, since that's where the data lands.
 
+### Comparing against the TLB microbenchmark
+
+`--sweep` runs the **same size ladder** as the DRAM case in
+`tests/microbenchmark/benchmarks/tlb/test_tlb.cpp` (1, 2, 4, 8 B; 1, 2, 4, 8 KiB; 1, 2, 4, 8, 16,
+32 MiB) so the two reports can be read side by side:
+
+```bash
+# target must export a window covering the sweep's largest row
+./build/rdma_testing/dmabuf_target --port 9999 --chip 0 --size 33554432 --op read
+./build/rdma_testing/dmabuf_initiator --host <target> --sweep --op read
+```
+
+What was aligned so the comparison means something:
+
+- **Same DRAM core.** `test_tlb.cpp` uses `get_cores(CoreType::DRAM)[0]` (NOC0) and this test uses
+  `get_cores(CoreType::DRAM, CoordSystem::TRANSLATED)[0]`. `SocDescriptor::get_cores()` translates
+  the list in place without reordering, so index 0 is the same physical bank either way.
+- **Same address** — both start at 0.
+- **Registration cost excluded.** The MR is registered once at 32 MiB and each row varies only
+  `sge.length`, so page-pinning never lands inside a timed region.
+- **Comparable pacing.** nanobench runs each `test_tlb.cpp` row for a time budget rather than a fixed
+  count; `--min-time-ms` (default 200) does the same here, with `--iters` as a per-row cap. Without
+  this a 1-byte row would be a handful of samples and pure noise.
+
+**What cannot be normalized away:** `test_tlb.cpp` measures the *local host CPU* driving MMIO through
+a TLB window; this measures a *remote NIC's DMA engine* over a network plus a peer-to-peer PCIe hop.
+Different engines, different paths. The comparison is meaningful for "how fast can data reach device
+DRAM by each method," but it is not two measurements of the same link — in particular the small-size
+rows here are dominated by network round-trip time, not by anything on the device.
+
 ## 4. What "pass" and the bandwidth number mean
 
 `dmabuf_target` reads back the same NOC address via `cluster->read_from_device()` (ordinary

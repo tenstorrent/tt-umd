@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -31,6 +32,10 @@ struct Args {
     int ib_port = 1;
     int gid_index = -1;        // -1 = auto-detect a RoCEv2 GID (see resolve_gid_index in rdma_common.hpp)
     std::string op = "write";  // "write" = host -> device NOC; "read" = device NOC -> host
+    // Sweep the same size ladder as test_tlb.cpp's DRAM benchmark instead of measuring one --size.
+    // In sweep mode --iters becomes a per-size *cap* and --min-time-ms drives how long each row runs.
+    bool sweep = false;
+    double min_time_ms = 200.0;
 };
 
 Args parse_args(int argc, char** argv) {
@@ -52,6 +57,10 @@ Args parse_args(int argc, char** argv) {
             a.gid_index = std::stoi(next());
         } else if (arg == "--op") {
             a.op = next();
+        } else if (arg == "--sweep") {
+            a.sweep = true;
+        } else if (arg == "--min-time-ms") {
+            a.min_time_ms = std::stod(next());
         }
     }
     return a;
@@ -73,7 +82,7 @@ int run(int argc, char** argv) {
     Args args = parse_args(argc, argv);
     if (args.host.empty()) {
         std::cerr << "Usage: dmabuf_initiator --host <target-host> [--port N] [--size N] [--iters N]"
-                  << " [--op write|read] [--gid-index N]" << std::endl;
+                  << " [--op write|read] [--sweep] [--min-time-ms N] [--gid-index N]" << std::endl;
         return 1;
     }
     if (args.op != "write" && args.op != "read") {
@@ -81,6 +90,14 @@ int run(int argc, char** argv) {
         return 1;
     }
     const bool is_read = (args.op == "read");
+
+    if (args.sweep) {
+        // The sweep's largest row is 32 MiB, so the buffer (and therefore the MR, and the target's
+        // exported window) must cover it. Also raise the iteration cap: at 1 byte per op the run is
+        // pure round-trip latency, and the default 100 would finish in well under a millisecond.
+        args.size = 32ull << 20;
+        args.iters = std::max<uint64_t>(args.iters, 100000);
+    }
 
     std::vector<uint8_t> local_buf(args.size);
     if (is_read) {
@@ -218,20 +235,17 @@ int run(int argc, char** argv) {
         }
     }
 
-    // Repeatedly move --size bytes between local_buf and the target's dma-buf MR at iova 0 (see
-    // dmabuf_target.cpp; the dma-buf MR was registered with iova=0, so remote_addr here must also be
-    // 0). Every iteration touches the same remote window, which is fine for a bandwidth measurement:
-    // in write mode each iteration reproduces the identical pattern, and in read mode the source
-    // device memory is never modified.
+    // Move bytes between local_buf and the target's dma-buf MR at iova 0 (see dmabuf_target.cpp; the
+    // dma-buf MR was registered with iova=0, so remote_addr here must also be 0). Every iteration
+    // touches the same remote window, which is fine for a bandwidth measurement: in write mode each
+    // iteration reproduces the identical pattern, and in read mode the source device memory is never
+    // modified.
     //
-    // Direction note: WRITE pushes host -> device NOC and is "posted" on the target's PCIe link
-    // (fire-and-forget, pipelines well). READ pulls device NOC -> host, which makes the target NIC
-    // issue *non-posted* PCIe reads against the card's BAR — each needs a completion to come back, so
-    // throughput is bounded by read-completion concurrency and latency rather than raw link
-    // bandwidth. Expect READ to be substantially slower than WRITE on the same link.
+    // The MR is registered once at the full buffer size; per-measurement sizes are expressed by
+    // varying sge.length only. That keeps ibv_reg_mr's page-pinning cost (and any RLIMIT_MEMLOCK
+    // churn) out of the timed region entirely, which matters for the sweep below.
     ibv_sge sge{};
     sge.addr = reinterpret_cast<uint64_t>(local_buf.data());
-    sge.length = static_cast<uint32_t>(local_buf.size());
     sge.lkey = mr->lkey;
 
     ibv_send_wr wr{};
@@ -242,46 +256,93 @@ int run(int argc, char** argv) {
     wr.wr.rdma.rkey = remote.rkey;
 
     const char* op_name = is_read ? "READ" : "WRITE";
-    std::cout << "Issuing " << args.iters << " x " << args.size << " byte RDMA " << op_name << "s..." << std::endl;
-    auto t_start = std::chrono::steady_clock::now();
-    for (uint64_t i = 0; i < args.iters; ++i) {
-        bool signal = ((i + 1) % SIGNAL_INTERVAL == 0) || (i + 1 == args.iters);
-        wr.wr_id = i;
-        wr.send_flags = signal ? IBV_SEND_SIGNALED : 0;
 
-        ibv_send_wr* bad_wr = nullptr;
-        if (ibv_post_send(qp, &wr, &bad_wr)) {
-            std::cerr << "ibv_post_send failed at iter " << i << std::endl;
-            return 1;
-        }
+    // Run `bytes`-sized ops until max_iters, or (when min_time_s > 0) until that much wall time has
+    // elapsed. The time budget mirrors how nanobench paces test_tlb.cpp: small transfers get many
+    // iterations so a row isn't a single-sample outlier, large ones stop early instead of running for
+    // minutes. Returns {iterations, elapsed_seconds}.
+    auto measure = [&](uint64_t bytes, uint64_t max_iters, double min_time_s) {
+        sge.length = static_cast<uint32_t>(bytes);
+        auto t0 = std::chrono::steady_clock::now();
+        uint64_t n = 0;
+        double elapsed = 0.0;
+        while (n < max_iters) {
+            bool signal = ((n + 1) % SIGNAL_INTERVAL == 0) || (n + 1 == max_iters);
+            wr.wr_id = n;
+            wr.send_flags = signal ? IBV_SEND_SIGNALED : 0;
 
-        if (signal) {
-            ibv_wc wc{};
-            int n = 0;
-            while (n == 0) {
-                n = ibv_poll_cq(cq, 1, &wc);
-                if (n < 0) {
-                    std::cerr << "ibv_poll_cq failed" << std::endl;
-                    return 1;
+            ibv_send_wr* bad_wr = nullptr;
+            if (ibv_post_send(qp, &wr, &bad_wr)) {
+                throw std::runtime_error("ibv_post_send failed at iter " + std::to_string(n));
+            }
+
+            if (signal) {
+                ibv_wc wc{};
+                int r = 0;
+                while (r == 0) {
+                    r = ibv_poll_cq(cq, 1, &wc);
+                    if (r < 0) {
+                        throw std::runtime_error("ibv_poll_cq failed");
+                    }
+                }
+                if (wc.status != IBV_WC_SUCCESS) {
+                    // wc.wr_id, not the loop counter: once a fatal transport error hits, the QP
+                    // flushes all outstanding WQEs, so the CQE may belong to an earlier op.
+                    throw std::runtime_error(
+                        std::string("RDMA ") + op_name + " failed, wr_id=" + std::to_string(wc.wr_id) + ": " +
+                        ibv_wc_status_str(wc.status));
                 }
             }
-            if (wc.status != IBV_WC_SUCCESS) {
-                // wc.wr_id, not the loop counter i: once a fatal transport error hits, the QP flushes
-                // all outstanding WQEs, so the CQE we get back may belong to an earlier, still-unsignaled
-                // op rather than the one posted this iteration.
-                std::cerr << "RDMA " << op_name << " failed, wr_id=" << wc.wr_id << ": " << ibv_wc_status_str(wc.status)
-                          << std::endl;
-                return 1;
+
+            ++n;
+            elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            // Only stop on a signaled boundary, so no unsignaled work is left in flight when the next
+            // size starts (matters if SIGNAL_INTERVAL is ever raised above 1).
+            if (min_time_s > 0.0 && elapsed >= min_time_s && signal) {
+                break;
             }
         }
-    }
-    auto t_end = std::chrono::steady_clock::now();
+        return std::make_pair(n, elapsed);
+    };
 
-    double elapsed_s = std::chrono::duration<double>(t_end - t_start).count();
-    double total_bytes = static_cast<double>(args.size) * static_cast<double>(args.iters);
-    double gbps = total_bytes / elapsed_s / 1e9;
-    std::cout << (is_read ? "Read " : "Wrote ") << static_cast<uint64_t>(total_bytes) << " bytes in " << elapsed_s
-              << " s => " << gbps << " GB/s" << std::endl;
+    if (args.sweep) {
+        // Same size ladder as the DRAM case in tests/microbenchmark/benchmarks/tlb/test_tlb.cpp, so
+        // the two reports line up row for row and can be compared directly.
+        static const std::vector<uint64_t> SWEEP_SIZES = {
+            1,
+            2,
+            4,
+            8,
+            1024,
+            2048,
+            4096,
+            8192,
+            1ull << 20,
+            2ull << 20,
+            4ull << 20,
+            8ull << 20,
+            16ull << 20,
+            32ull << 20};
+
+        std::cout << "\nRDMA " << op_name << " sweep (target DRAM core, remote_addr=0)\n"
+                  << std::setw(12) << "bytes" << std::setw(10) << "iters" << std::setw(14) << "MiB/s" << std::setw(12)
+                  << "GiB/s" << std::endl;
+        for (uint64_t bytes : SWEEP_SIZES) {
+            auto [n, elapsed] = measure(bytes, args.iters, args.min_time_ms / 1000.0);
+            double total = static_cast<double>(bytes) * static_cast<double>(n);
+            double mib_s = total / elapsed / (1024.0 * 1024.0);
+            std::cout << std::setw(12) << bytes << std::setw(10) << n << std::setw(14) << std::fixed
+                      << std::setprecision(2) << mib_s << std::setw(12) << std::setprecision(3) << (mib_s / 1024.0)
+                      << std::endl;
+        }
+        std::cout << std::defaultfloat << std::endl;
+    } else {
+        std::cout << "Issuing " << args.iters << " x " << args.size << " byte RDMA " << op_name << "s..." << std::endl;
+        auto [n, elapsed] = measure(args.size, args.iters, 0.0);
+        double total_bytes = static_cast<double>(args.size) * static_cast<double>(n);
+        std::cout << (is_read ? "Read " : "Wrote ") << static_cast<uint64_t>(total_bytes) << " bytes in " << elapsed
+                  << " s => " << (total_bytes / elapsed / 1e9) << " GB/s" << std::endl;
+    }
 
     // In read mode the data landed on *this* side, so verification happens here rather than on the
     // target: check that the pattern the target seeded into device memory actually arrived, and that

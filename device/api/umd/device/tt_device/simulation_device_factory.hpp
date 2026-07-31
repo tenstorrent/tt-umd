@@ -41,6 +41,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     const SocDescriptor &soc_descriptor,
     ChipId chip_id,
     size_t num_chips,
-    int num_host_mem_channels = 0);
+    int num_host_mem_channels = 0,
+    bool force_shared_bdf_mode = false);
 
 }  // namespace tt::umd

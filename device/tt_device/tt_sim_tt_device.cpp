@@ -354,6 +354,12 @@ void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_
     // TTSim starts firmware as part of backend initialization, before this TTDevice is returned.
 }
 
+bool TTSimTTDevice::get_noc_translation_enabled() {
+    // Blackhole TTSim accepts translated NOC coordinates at its host API. Wormhole TTSim continues
+    // to operate directly on NOC0 coordinates.
+    return arch == tt::ARCH::BLACKHOLE || arch == tt::ARCH::WORMHOLE_B0;
+}
+
 std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     const auto start = std::chrono::steady_clock::now();

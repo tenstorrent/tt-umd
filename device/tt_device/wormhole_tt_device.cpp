@@ -28,6 +28,9 @@
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/tt_device/simulation_tt_device.hpp"
+#endif
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"

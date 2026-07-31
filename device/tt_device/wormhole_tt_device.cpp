@@ -28,6 +28,9 @@
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/tt_device/simulation_tt_device.hpp"
+#endif
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -70,6 +73,14 @@ WormholeTTDevice::WormholeTTDevice(
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (is_remote()) {
+        TTDevice* gateway_device = get_remote_interface()->get_remote_communication()->get_local_device();
+        if (dynamic_cast<SimulationTTDevice*>(gateway_device) != nullptr) {
+            return gateway_device->get_noc_translation_enabled();
+        }
+    }
+#endif
     uint32_t niu_cfg = 0x0;
     constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
     constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;

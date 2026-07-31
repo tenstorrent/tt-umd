@@ -719,10 +719,13 @@ tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for devices without NOC translation enabled.");
+    if (!get_chip_info().noc_translation_enabled) {
+        multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+        if (is_remote_tt_device) {
+            get_remote_communication()->wait_for_non_mmio_flush();
+        }
+        return;
+    }
     ZoneScopedC(tracy::Color::Orange);
     xy_pair translated_start = resolve_coordinate(core_start, noc_id);
     xy_pair translated_end = resolve_coordinate(core_end, noc_id);
@@ -753,10 +756,6 @@ void TTDevice::noc_multicast_write(
 }
 
 void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
         get_soc_descriptor().get_bounding_rectangle((noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
     noc_multicast_write(src, size, start, end, addr, noc_id);

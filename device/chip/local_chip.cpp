@@ -432,7 +432,7 @@ void LocalChip::set_membar_flag(
                             "Memory barrier timed out after {} ms on device {} core {} at {:#x}: expected {:#x}, "
                             "read {:#x}. {} of {} core(s) synced.",
                             timeout::MEMBAR_SYNC_TIMEOUT.count(),
-                            tt_device_->get_pci_device()->get_device_num(),
+                            tt_device_->get_communication_device_id(),
                             core.str(),
                             barrier_addr,
                             barrier_value,

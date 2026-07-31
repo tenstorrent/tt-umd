@@ -369,7 +369,7 @@ std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
 }
 
 EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    if (arch == tt::ARCH::BLACKHOLE) {
+    if (arch != tt::ARCH::WORMHOLE_B0) {
         uint32_t port_status;
         const uint32_t port_status_addr =
             blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
@@ -411,6 +411,10 @@ ChipInfo TTSimTTDevice::get_chip_info() {
             fmt::format("Failed to get harvesting masks with exit code: {}", ret_code));
         chip_info.harvesting_masks.tensix_harvesting_mask =
             CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
+        return chip_info;
+    }
+
+    if (arch != tt::ARCH::BLACKHOLE) {
         return chip_info;
     }
 

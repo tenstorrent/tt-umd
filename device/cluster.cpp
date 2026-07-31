@@ -225,6 +225,7 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
     chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
     chip_info.harvesting_masks = soc_desc.harvesting_masks;
     chip_info.board_type = cluster_desc->get_board_type(chip_id);
+    chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
     chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
     return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
 }
@@ -265,6 +266,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
                 ChipInfo chip_info;
                 chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
                 chip_info.harvesting_masks = soc_desc.harvesting_masks;
+                chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
                 chip_info.board_type = cluster_desc->get_board_type(chip_id);
                 chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
                 return RemoteChip::create_for_simulation(std::move(tt_device), gateway_chip, chip_info);

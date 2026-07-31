@@ -44,11 +44,16 @@ std::mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
 
 TTSimCommunicator::TTSimCommunicator(
-    const std::filesystem::path &simulator_directory, bool copy_sim_binary, uint32_t chip_id, uint32_t num_chips) :
+    const std::filesystem::path &simulator_directory,
+    bool copy_sim_binary,
+    uint32_t chip_id,
+    uint32_t num_chips,
+    bool force_shared_bdf_mode) :
     simulator_directory_(simulator_directory),
     copy_sim_binary_(copy_sim_binary),
     chip_id_(chip_id),
-    num_chips_(num_chips) {}
+    num_chips_(num_chips),
+    force_shared_bdf_mode_(force_shared_bdf_mode) {}
 
 TTSimCommunicator::~TTSimCommunicator() {
     // Unregister from the process-global DMA routing tables first. The shared simulator may still be
@@ -208,7 +213,8 @@ void TTSimCommunicator::initialize() {
     // the per-chip isolated dlopen (legacy memfd path below) so each chip is its own simulator process.
     const bool self_describing_multi_mmio =
         num_chips_ > 1 &&
-        std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
+        (force_shared_bdf_mode_ ||
+         std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_)));
     if (self_describing_multi_mmio) {
         std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
         if (!s_shared_handle_) {
@@ -362,6 +368,19 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     }
     select_chip_if_needed();  // no-op outside the multichip-ABI mode
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
+}
+
+uint32_t TTSimCommunicator::get_num_mmio_devices() {
+    std::lock_guard<std::mutex> lock(device_lock_);
+    uint32_t count = 0;
+    for (uint32_t device = 0; device < 32; ++device) {
+        const uint32_t bdf = device << 3;
+        if (pfn_libttsim_pci_config_rd32_(bdf, 0) == 0xFFFFFFFFu) {
+            break;
+        }
+        ++count;
+    }
+    return count;
 }
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {

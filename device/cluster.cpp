@@ -514,11 +514,45 @@ Cluster::Cluster(ClusterOptions options) {
                     auto local_device =
                         create_simulation_tt_device(options.simulator_directory, bootstrap_host_mem_channels);
                     local_device->init_tt_device_for_simulation();
-                    std::tie(cluster_desc, tt_devices) = TopologyDiscovery::discover_from_local_device(
-                        std::move(local_device),
-                        options.topology_discovery_options,
-                        options.io_device_type,
-                        options.sdesc_path);
+                    auto* ttsim_device = dynamic_cast<TTSimTTDevice*>(local_device.get());
+                    UMD_ASSERT(
+                        ttsim_device != nullptr,
+                        error::RuntimeError,
+                        "A .so simulator path did not create a TTSimTTDevice.");
+                    const uint32_t num_mmio_devices = ttsim_device->get_num_mmio_devices();
+                    UMD_ASSERT(
+                        num_mmio_devices > 0,
+                        error::RuntimeError,
+                        "TTSim did not expose any host-visible PCI devices.");
+
+                    if (num_mmio_devices == 1) {
+                        std::tie(cluster_desc, tt_devices) = TopologyDiscovery::discover_from_local_device(
+                            std::move(local_device),
+                            options.topology_discovery_options,
+                            options.io_device_type,
+                            options.sdesc_path);
+                    } else {
+                        const SocDescriptor bootstrap_soc_descriptor = local_device->get_soc_descriptor();
+                        local_device.reset();
+
+                        std::map<ChipId, std::unique_ptr<TTDevice>> local_devices;
+                        for (ChipId chip_id = 0; chip_id < static_cast<ChipId>(num_mmio_devices); ++chip_id) {
+                            auto device = create_simulation_tt_device(
+                                options.simulator_directory,
+                                bootstrap_soc_descriptor,
+                                chip_id,
+                                num_mmio_devices,
+                                bootstrap_host_mem_channels,
+                                /*force_shared_bdf_mode=*/true);
+                            device->init_tt_device_for_simulation();
+                            local_devices.emplace(chip_id, std::move(device));
+                        }
+                        std::tie(cluster_desc, tt_devices) = TopologyDiscovery::discover_from_local_devices(
+                            std::move(local_devices),
+                            options.topology_discovery_options,
+                            options.io_device_type,
+                            options.sdesc_path);
+                    }
                     break;
                 }
 #endif

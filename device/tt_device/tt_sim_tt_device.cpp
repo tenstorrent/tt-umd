@@ -100,7 +100,8 @@ TTSimTTDevice::TTSimTTDevice(
     ChipId chip_id,
     bool copy_sim_binary,
     int num_host_mem_channels,
-    size_t num_chips) :
+    size_t num_chips,
+    bool force_shared_bdf_mode) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
@@ -113,7 +114,11 @@ TTSimTTDevice::TTSimTTDevice(
     // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
     // image addressed per-chip by PCI device. Single-chip keeps the legacy path.
     communicator_(std::make_unique<TTSimCommunicator>(
-        simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
+        simulator_directory,
+        copy_sim_binary,
+        static_cast<uint32_t>(chip_id),
+        static_cast<uint32_t>(num_chips),
+        force_shared_bdf_mode)),
     chip_id_(chip_id) {
     communication_device_type_ = IODeviceType::PCIe;
     communication_device_id_ = chip_id;

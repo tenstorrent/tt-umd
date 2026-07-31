@@ -46,6 +46,13 @@ public:
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");
 
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+    discover_from_local_devices(
+        std::map<ChipId, std::unique_ptr<TTDevice>> local_devices,
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
+
     virtual ~TopologyDiscovery() = default;
 
 protected:

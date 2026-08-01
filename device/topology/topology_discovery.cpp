@@ -92,7 +92,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
         }
     }
 
-    log_info(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
+    log_debug(LogUMD, "Creating TopologyDiscovery for architecture: {}", arch_to_str(current_arch));
     switch (current_arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<TopologyDiscoveryWormhole>(soc_arch_descriptor, options, io_device_type);
@@ -111,11 +111,11 @@ TopologyDiscovery::TopologyDiscovery(
 
 std::unique_ptr<ClusterDescriptor> TopologyDiscovery::create_ethernet_map() {
     ZoneScopedC(tracy::Color::DarkGreen);
-    log_info(LogUMD, "Starting topology discovery.");
+    log_debug(LogUMD, "Starting topology discovery.");
     get_connected_devices();
     retrain_eth_cores();
     discover_remote_devices();
-    log_info(LogUMD, "Completed topology discovery.");
+    log_debug(LogUMD, "Completed topology discovery.");
     return fill_cluster_descriptor_info();
 }
 
@@ -571,14 +571,13 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
 
     const tt::ARCH arch = tt_device->get_arch();
     first_fw_bundle_version = fw_bundle_version;
-    log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
     FirmwareBundleVersion minimum_compatible_fw_bundle_version =
         FirmwareInfoProvider::get_minimum_compatible_firmware_version(arch);
     FirmwareBundleVersion latest_supported_fw_bundle_version =
         FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
-        "System firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",
+        "Established firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",
         fw_bundle_version.to_string(),
         minimum_compatible_fw_bundle_version.to_string(),
         latest_supported_fw_bundle_version.to_string(),

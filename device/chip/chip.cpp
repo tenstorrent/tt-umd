@@ -24,7 +24,6 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -63,8 +62,7 @@ void Chip::wait_eth_cores_training(const std::chrono::milliseconds timeout_ms) {
     const std::vector<CoreCoord> eth_cores = get_soc_descriptor().get_cores(CoreType::ETH);
     TTDevice* tt_device = get_tt_device();
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = get_soc_descriptor().translate_chip_coord_to_translated(eth_core);
-        timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
+        timeout_left -= tt_device->wait_eth_core_training(eth_core, timeout_left);
     }
 }
 
@@ -90,12 +88,11 @@ RiscType Chip::get_risc_reset_state(CoreCoord core) {
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    get_tt_device()->assert_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs);
+    get_tt_device()->assert_risc_reset(core, selected_riscs);
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    get_tt_device()->deassert_risc_reset(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
+    get_tt_device()->deassert_risc_reset(core, selected_riscs, staggered_start);
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {
@@ -142,30 +139,12 @@ int Chip::arc_msg(
     return exit_code;
 }
 
-void Chip::advance_device_execution() {
-    if (auto* td = get_tt_device()) {
-        td->advance_device_execution();
-    }
-}
+void Chip::advance_device_execution() { get_tt_device()->advance_device_execution(); }
 
-void Chip::set_clock_state(DevicePowerState state) {
-    if (auto* tt_device = get_tt_device()) {
-        tt_device->set_clock_state(state);
-    }
-}
+void Chip::set_clock_state(DevicePowerState state) { get_tt_device()->set_clock_state(state); }
 
 void Chip::noc_multicast_write(const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    // TODO: Support other core types once needed.
-    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
-    }
-    get_tt_device()->noc_multicast_write(
-        src,
-        size,
-        get_soc_descriptor().translate_chip_coord_to_translated(core_start),
-        get_soc_descriptor().translate_chip_coord_to_translated(core_end),
-        addr,
-        get_selected_noc_id());
+    get_tt_device()->noc_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }
 
 void Chip::noc_multicast_write(const void* src, size_t size, uint64_t addr) {

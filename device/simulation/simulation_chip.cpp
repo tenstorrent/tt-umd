@@ -79,14 +79,18 @@ void SimulationChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_sr
 void SimulationChip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     ZoneScopedC(tracy::Color::DarkRed);
     std::lock_guard<std::mutex> lock(device_lock);
-    tt_device_->assert_risc_reset(get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs);
+    tt_device_->assert_risc_reset(
+        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, get_selected_noc_id());
 }
 
 void SimulationChip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     ZoneScopedC(tracy::Color::DarkGreen);
     std::lock_guard<std::mutex> lock(device_lock);
     tt_device_->deassert_risc_reset(
-        get_soc_descriptor().translate_chip_coord_to_translated(core), selected_riscs, staggered_start);
+        get_soc_descriptor().translate_chip_coord_to_translated(core),
+        selected_riscs,
+        staggered_start,
+        get_selected_noc_id());
 }
 
 void SimulationChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {

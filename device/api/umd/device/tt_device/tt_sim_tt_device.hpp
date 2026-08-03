@@ -79,8 +79,9 @@ public:
     void close_device();
     void start_device();
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) override;
+    void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) override;
 
     void advance_device_execution() override;
 

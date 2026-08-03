@@ -247,6 +247,9 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     ClusterOptions host_options;
     host_options.chip_type = ChipType::SIMULATION;
     host_options.simulator_directory = simulator_path;
+    // Publishing per-chip sockets is opt-in (off by default so ordinary in-process runs stay
+    // private); this test is specifically the host/client-over-socket path, so it opts in.
+    host_options.serve_simulation_devices_over_sockets = true;
     Cluster host_cluster(host_options);
 
     ClusterOptions client_options;

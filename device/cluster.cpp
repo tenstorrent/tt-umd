@@ -634,7 +634,7 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION) {
+    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
         serve_simulation_devices_over_sockets(options.simulator_directory, options.simulation_shutdown_handler);
     }
 #endif  // TT_UMD_BUILD_SIMULATION

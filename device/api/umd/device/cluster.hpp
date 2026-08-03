@@ -113,6 +113,13 @@ struct ClusterOptions {
     std::filesystem::path simulator_directory = "";
 
     /**
+     * Host SIMULATION chip type only: expose simulated chips over per-chip sockets so other
+     * processes can attach as clients. Disabled by default so ordinary in-process simulator runs
+     * remain private and can run independently in parallel.
+     */
+    bool serve_simulation_devices_over_sockets = false;
+
+    /**
      * Host SIMULATION chip type only: optional callback invoked when a client sends SHUTDOWN over a
      * chip's socket, so a long-running host (e.g. the sim_server tool) can be stopped in-band. It is
      * fixed when the host starts serving and must only signal (be non-blocking) and be safe to call

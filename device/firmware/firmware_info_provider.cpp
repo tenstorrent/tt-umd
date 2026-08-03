@@ -67,8 +67,10 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
-            } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
+            } else if (fw_version < FirmwareBundleVersion(19, 8, 0)) {
                 return create_blackhole_18_8_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
+                return create_blackhole_19_8_base();
             }
             return create_blackhole_19_9_base();
         default:
@@ -105,6 +107,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::TDC,               {TelemetryTag::TDC, LinearTransform{}}},
         {FirmwareFeature::VCORE,             {TelemetryTag::VCORE, LinearTransform{}}},
         {FirmwareFeature::TDC_LIMIT_MAX,     {TelemetryTag::TDC_LIMIT_MAX, LinearTransform{}}},
+        {FirmwareFeature::TDP_LIMIT_MAX,     {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::BOARD_POWER_LIMIT, {TelemetryTag::BOARD_POWER_LIMIT, LinearTransform{}}},
         {FirmwareFeature::FAN_SPEED,         {TelemetryTag::FAN_SPEED, LinearTransform{}}},
         {FirmwareFeature::FAN_RPM,           {TelemetryTag::FAN_RPM, LinearTransform{}}},
@@ -155,6 +158,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
         {FirmwareFeature::TDC_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::TDP_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::BOARD_POWER_LIMIT, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
         {FirmwareFeature::FAN_RPM, {FixedValue{0}, NotAvailable{}}},
@@ -180,6 +184,23 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_4_base() {
     FirmwareFeatures map = create_18_4_new_telemetry_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
+    // Wormhole publishes the TDP limit from the new telemetry onwards.
+    map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Wormhole 18.8-19.8: same as 18.4, except MAX_CLOCK_FREQ moves from SMBus to a telemetry tag.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
+    FirmwareFeatures map = create_wormhole_18_4_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
+    FirmwareFeatures map = create_wormhole_18_8_base();
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
     return map;
 }
 
@@ -195,36 +216,23 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Wormhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ.
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
-    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    return map;
-}
-
-// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
-    FirmwareFeatures map = create_wormhole_18_8_base();
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
-    return map;
-}
-
-// Blackhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ, no ETH support.
+// Blackhole 18.8-19.7: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    FirmwareFeatures map = create_blackhole_18_5_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
-    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
-    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    return map;
+}
+
+// Blackhole >= 19.8: firmware gains the adjustable TDP limit and publishes it.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_8_base() {
+    FirmwareFeatures map = create_blackhole_18_8_base();
+    map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
     return map;
 }
 
 // Blackhole >= 19.9: ETH_LIVE_STATUS becomes available (upper 16 = link, lower 16 = heartbeat).
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_9_base() {
-    FirmwareFeatures map = create_blackhole_18_8_base();
+    FirmwareFeatures map = create_blackhole_19_8_base();
     map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}};
     map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
     return map;
@@ -673,6 +681,10 @@ std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() c
 std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
     // Stored as a plain integer in degrees Celsius.
     return read_scalar<double>(FirmwareFeature::THM_LIMIT_SHUTDOWN);
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp_limit() const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDP_LIMIT_MAX);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {

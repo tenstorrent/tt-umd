@@ -7,7 +7,7 @@
 # every push to main purely so the compile results land in the shared cache and the merge-queue
 # runs start warm.
 
-name: Populate cache with ASan and TSan builds
+name: Populate build artifact cache
 
 on:
   workflow_dispatch:
@@ -53,5 +53,5 @@ jobs:
       build-type: ${{ matrix.build-type }}
       timeout: ${{ matrix.timeout }}
       build-tracy: true
-      build-wheel: true
+      build-wheel: false
       image-tag: ${{ needs.ensure-image.outputs.image-tag }}

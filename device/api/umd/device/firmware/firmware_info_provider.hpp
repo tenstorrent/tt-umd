@@ -138,6 +138,12 @@ public:
     std::optional<double> get_thm_limit_shutdown() const;
 
     /*
+     * Get TDP limit in watts.
+     * @returns TDP limit [W]
+     */
+    std::optional<uint32_t> get_tdp_limit() const;
+
+    /*
      * Get board power limit in watts.
      * @returns Board power limit [W]
      */
@@ -227,6 +233,7 @@ private:
     static FirmwareFeatures create_wormhole_18_8_base();
     static FirmwareFeatures create_wormhole_19_9_base();
     static FirmwareFeatures create_blackhole_18_8_base();
+    static FirmwareFeatures create_blackhole_19_8_base();
     static FirmwareFeatures create_blackhole_19_9_base();
 
     // Engine methods for reading and transforming telemetry data.

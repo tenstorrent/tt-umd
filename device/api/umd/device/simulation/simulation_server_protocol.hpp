@@ -29,6 +29,9 @@ enum class SimulationServerCommand : int8_t {
     Write = 1,
     GetDeviceInfo = 2,
     GetClusterDescriptor = 3,
+    // Asks the host to shut down gracefully; the host acks with a SimulationServerResponse then tears
+    // down (closing every client connection). A host that didn't opt in acks as a no-op.
+    Shutdown = 4,
 };
 
 // Which simulator the host runs; mirrors wire::SimulationBackendType. Served as part of the device

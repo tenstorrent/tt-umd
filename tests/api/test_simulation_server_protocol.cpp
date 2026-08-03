@@ -157,3 +157,11 @@ TEST(SimulationServerProtocol, GetClusterDescriptorRequestRoundTrip) {
     const SimulationServerRequest decoded = decode_request(encode(request));
     EXPECT_EQ(decoded.command, SimulationServerCommand::GetClusterDescriptor);
 }
+
+// The Shutdown command survives a request round-trip (its reply is a plain SimulationServerResponse).
+TEST(SimulationServerProtocol, ShutdownRequestRoundTrip) {
+    SimulationServerRequest request;
+    request.command = SimulationServerCommand::Shutdown;
+    const SimulationServerRequest decoded = decode_request(encode(request));
+    EXPECT_EQ(decoded.command, SimulationServerCommand::Shutdown);
+}

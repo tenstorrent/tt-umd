@@ -46,13 +46,19 @@ void SimulationTTDevice::detach_client() {
     }
 }
 
-void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+void SimulationTTDevice::adopt_socket(
+    std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler) {
     socket_ = std::move(socket);
-    // Begin serving remote clients now that the backend is up.
-    socket_->serve([this](const std::vector<uint8_t>& request_bytes) { return handle_request(request_bytes); });
+    // Begin serving remote clients now that the backend is up. The shutdown handler is captured into
+    // the request handler here, before serving starts, so it is fixed for the socket's lifetime and
+    // the serving threads read it without synchronization.
+    socket_->serve([this, shutdown_handler = std::move(shutdown_handler)](const std::vector<uint8_t>& request_bytes) {
+        return handle_request(request_bytes, shutdown_handler);
+    });
 }
 
-std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
+std::vector<uint8_t> SimulationTTDevice::handle_request(
+    const std::vector<uint8_t>& request_bytes, const std::function<void()>& shutdown_handler) {
     const SimulationServerRequest request = decode_request(request_bytes);
 
     // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
@@ -79,6 +85,18 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_
             cluster_descriptor.status = -1;
             return encode(cluster_descriptor);
         }
+    }
+
+    // Shutdown: invoke the opt-in handler (a dedicated server passes one to adopt_socket() to signal
+    // its main thread to exit and tear down; an embedded host passes none, making this a no-op) and
+    // ack. The handler was fixed before serving started, so it is read here without locking; it must
+    // only signal -- it must not tear down from this serving thread. The ack is sent before any
+    // teardown, and this serving thread hits EOF and is joined during that teardown.
+    if (request.command == SimulationServerCommand::Shutdown) {
+        if (shutdown_handler) {
+            shutdown_handler();
+        }
+        return encode(SimulationServerResponse{});  // status 0
     }
 
     // The client already translated the coordinate (translation is stateless and client-side), so

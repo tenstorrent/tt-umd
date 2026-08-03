@@ -606,6 +606,65 @@ TEST_F(TestFirmwareInfoProvider, BoardPowerLimit) {
     }
 }
 
+TEST_F(TestFirmwareInfoProvider, TdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        auto tdp_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "tdp_limit={} W", opt_str(tdp_limit));
+
+        // Wormhole publishes the limit from 18.4 on, Blackhole from 19.8 on.
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE
+                                    ? fw_version >= FirmwareBundleVersion(19, 8, 0)
+                                    : fw_version >= FW_VERSION_18_4;
+        if (!expect_available) {
+            EXPECT_FALSE(tdp_limit.has_value());
+            continue;
+        }
+        EXPECT_TRUE(tdp_limit.has_value());
+        // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
+        // throttler's [50, 500] W range. A zero means the board never configured a limit.
+        if (tdp_limit.has_value() && tdp_limit.value() != 0) {
+            EXPECT_GE(tdp_limit.value(), 50u);
+            EXPECT_LE(tdp_limit.value(), 500u);
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE ||
+            fw_info->get_firmware_version() < FirmwareBundleVersion(19, 11, 0)) {
+            // Unsupported devices reject every request, in range or not.
+            EXPECT_THROW(set_tdp_limit(tt_device.get(), 100), std::runtime_error);
+            EXPECT_THROW(restore_default_tdp_limit(tt_device.get()), std::runtime_error);
+            continue;
+        }
+
+        std::optional<uint32_t> original_limit = fw_info->get_tdp_limit();
+        ASSERT_TRUE(original_limit.has_value());
+        log_info(tt::LogUMD, "original tdp_limit={} W", opt_str(original_limit));
+
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
+        EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
+
+        // 75 W is below the default limit of every Blackhole board, and lowering is always accepted.
+        set_tdp_limit(tt_device.get(), 75);
+        std::optional<uint32_t> lowered_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "lowered tdp_limit={} W", opt_str(lowered_limit));
+        EXPECT_EQ(lowered_limit, 75u);
+
+        restore_default_tdp_limit(tt_device.get());
+        std::optional<uint32_t> restored_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "restored tdp_limit={} W", opt_str(restored_limit));
+        EXPECT_EQ(restored_limit, original_limit);
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ThermTripCount) {
     for (const auto& tt_device : get_tt_devices()) {
         auto* fw_info = tt_device->get_firmware_info_provider();

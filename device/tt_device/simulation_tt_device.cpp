@@ -36,8 +36,11 @@ namespace {
 class SimulationHangDetector final : public HangDetector {
 protected:
     uint32_t read_hang_check_reg_via_bar() override { return 0; }
+
     uint32_t read_hang_check_reg_via_noc(NocId /*noc*/) override { return 0; }
+
     bool is_bus_available() override { return true; }
+
     bool is_noc_available() override { return true; }
 };
 
@@ -176,8 +179,7 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     }
 }
 
-void SimulationTTDevice::read_from_device_reg(
-    void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+void SimulationTTDevice::read_from_device_reg(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     read_from_device(mem_ptr, core, addr, size, noc_id);
 }
 

@@ -91,6 +91,7 @@ public:
      * @return Pointer to TTSimCommunicator
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
+
     uint32_t get_num_mmio_devices() { return communicator_->get_num_mmio_devices(); }
 
     uint64_t bar0_base = 0;

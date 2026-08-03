@@ -74,8 +74,8 @@ WormholeTTDevice::WormholeTTDevice(
 bool WormholeTTDevice::get_noc_translation_enabled() {
 #ifdef TT_UMD_BUILD_SIMULATION
     if (is_remote()) {
-        TTDevice* gateway_device = get_remote_interface()->get_remote_communication()->get_local_device();
-        if (dynamic_cast<SimulationTTDevice*>(gateway_device) != nullptr) {
+        TTDevice *gateway_device = get_remote_interface()->get_remote_communication()->get_local_device();
+        if (dynamic_cast<SimulationTTDevice *>(gateway_device) != nullptr) {
             return gateway_device->get_noc_translation_enabled();
         }
     }

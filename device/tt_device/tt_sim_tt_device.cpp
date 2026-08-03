@@ -382,8 +382,7 @@ std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
 EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     if (arch != tt::ARCH::WORMHOLE_B0) {
         uint32_t port_status;
-        const uint32_t port_status_addr =
-            blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
+        const uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
         read_from_device(&port_status, eth_core, port_status_addr, sizeof(port_status));
         return static_cast<EthTrainingStatus>(port_status);
     }
@@ -412,8 +411,7 @@ ChipInfo TTSimTTDevice::get_chip_info() {
     if (arch == tt::ARCH::WORMHOLE_B0) {
         std::vector<uint32_t> arc_msg_return_values = {0};
         const uint32_t ret_code = get_arc_messenger()->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
             arc_msg_return_values,
             {0, 0});
         UMD_ASSERT(

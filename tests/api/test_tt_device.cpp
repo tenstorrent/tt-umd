@@ -376,3 +376,29 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         EXPECT_NO_THROW(tt_device->get_firmware_version());
     }
 }
+
+TEST(ApiTTDeviceTest, UninitializedIO) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        tt_device->init_tt_device();
+
+        CoreCoord tensix_core = tt_device->get_soc_descriptor().get_cores(tt::CoreType::TENSIX).at(0);
+        xy_pair tensix_core_xy = tt_device->get_soc_descriptor().translate_chip_coord_to_translated(tensix_core);
+        tt_device.reset();
+
+        tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(true);
+        using err = error::UmdException<error::UnresolvableCoordinateError>;
+
+        const uint32_t value = 0xAABB;
+        const uint32_t bad_value = 0xCCDD;
+        EXPECT_NO_THROW(tt_device->write_to_device(&value, tensix_core_xy, SAFE_IO_L1_ADDRESS, sizeof value));
+        EXPECT_THROW(tt_device->write_to_device(&bad_value, tensix_core, SAFE_IO_L1_ADDRESS, sizeof bad_value), err);
+        uint32_t readback = 0;
+        EXPECT_NO_THROW(tt_device->read_from_device(&readback, tensix_core_xy, SAFE_IO_L1_ADDRESS, sizeof value));
+        EXPECT_THROW(tt_device->read_from_device(&readback, tensix_core, SAFE_IO_L1_ADDRESS, sizeof value), err);
+        EXPECT_EQ(value, readback);
+    }
+}

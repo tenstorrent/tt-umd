@@ -6,6 +6,9 @@
 
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
+#include <fmt/format.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstring>
 #include <mutex>
@@ -13,6 +16,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -167,6 +171,69 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 }
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
+
+int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
+    // Alignment is checked before any window is allocated. The offset handed to the driver is the
+    // window's distance from its size-aligned base, i.e. addr % window_size, and the driver requires
+    // both that offset and the length to be page-aligned.
+    const uint64_t page_size = static_cast<uint64_t>(getpagesize());
+    UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a dma-buf of size 0.");
+    UMD_ASSERT(
+        addr % page_size == 0,
+        error::RuntimeError,
+        fmt::format("Address {:#x} must be aligned to the host page size ({} bytes) to be exported.", addr, page_size));
+    UMD_ASSERT(
+        size % page_size == 0,
+        error::RuntimeError,
+        fmt::format("Size {} must be a multiple of the host page size ({} bytes) to be exported.", size, page_size));
+
+    // A window's NOC base must be size-aligned, so a window of class W aimed at addr starts at
+    // addr & ~(W-1) and therefore reaches only W - (addr % W) bytes past addr. Pick the smallest
+    // class that still covers [addr, addr + size). get_tlb_sizes() is ascending.
+    const std::vector<size_t>& size_classes = pci_device_->get_architecture_implementation()->get_tlb_sizes();
+    size_t window_size = 0;
+    for (const size_t candidate : size_classes) {
+        if ((addr % candidate) + size <= candidate) {
+            window_size = candidate;
+            break;
+        }
+    }
+    UMD_ASSERT(
+        window_size != 0,
+        error::RuntimeError,
+        fmt::format(
+            "No TLB window size can cover {} bytes at address {:#x}; the largest is {} bytes and its base must be "
+            "size-aligned. Use a smaller size or a more aligned address.",
+            size,
+            addr,
+            size_classes.back()));
+
+    // A window's NOC base is size-aligned, so the window is aimed at the aligned address at or below
+    // addr and the export starts the remaining distance into it.
+    const uint64_t window_offset = addr % window_size;
+
+    tlb_data config{};
+    config.local_offset = addr - window_offset;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
+    config.ordering = ordering;
+    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+
+    log_debug(
+        LogUMD,
+        "Exporting {} bytes at {:#x} on core {} as a dma-buf via a {} byte TLB window (offset {:#x} into the window).",
+        size,
+        addr,
+        core.str(),
+        window_size,
+        window_offset);
+
+    // A dedicated window on purpose, never one of the cached ones: it must not alias a window that
+    // other traffic could reconfigure while the export is live. PCIDevice allocates it, configures
+    // it, exports it and releases it; the driver keeps it pinned for the lifetime of the fd.
+    return pci_device_->export_tlb_dmabuf(window_size, config, window_offset, size);
+}
 
 bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
     // const_cast is safe here: dma_transfer only reads from the buffer in H2D direction (memcpy into DMA buffer).

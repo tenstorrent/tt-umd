@@ -574,10 +574,11 @@ int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint6
         return -EINVAL;
     }
 
-    const uint64_t tlb_size = tlb->size;
+    /* The driver rejects an offset or size that is not page-aligned, or a range that runs past the
+     * end of the window. A size of 0 means to the end of the window. */
     const uint64_t page_size = (uint64_t)getpagesize();
-    if (offset > tlb_size || (offset % page_size) != 0 || (size != 0 && (size % page_size) != 0) ||
-        (size != 0 && (offset + size) > tlb_size)) {
+    if (offset > tlb->size || (offset % page_size) != 0 || (size != 0 && (size % page_size) != 0) ||
+        (size != 0 && (offset + size) > tlb->size)) {
         return -EINVAL;
     }
 

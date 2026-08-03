@@ -6,7 +6,6 @@
 
 #include <fmt/format.h>
 #include <fmt/ranges.h>
-#include <unistd.h>
 
 #include <algorithm>
 #include <chrono>
@@ -29,7 +28,6 @@
 #include <vector>
 
 #include "hugepage.hpp"
-#include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip/local_chip.hpp"
@@ -889,72 +887,7 @@ TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord cor
 }
 
 int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
-    // Check page alignment up front, before any window is allocated. The offset handed to the kmd is
-    // this window's offset from its size-aligned base, i.e. `addr % window_size`, and the kmd requires
-    // that offset (and the length) to be page-aligned.
-    const uint64_t page_size = static_cast<uint64_t>(getpagesize());
-    UMD_ASSERT(
-        addr % page_size == 0,
-        error::RuntimeError,
-        fmt::format("export_dmabuf: address {:#x} must be aligned to the host page size ({} bytes).", addr, page_size));
-    UMD_ASSERT(
-        size % page_size == 0,
-        error::RuntimeError,
-        fmt::format("export_dmabuf: size {} must be a multiple of the host page size ({} bytes).", size, page_size));
-    UMD_ASSERT(size != 0, error::RuntimeError, "export_dmabuf: size must be non-zero.");
-
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
-
-    tlb_data config{};
-    config.local_offset = addr;
-    config.x_end = translated_core.x;
-    config.y_end = translated_core.y;
-    config.noc_sel = is_selected_noc1() ? 1 : 0;
-    config.ordering = ordering;
-    config.static_vc = get_tt_device(chip)->get_architecture_implementation()->get_static_vc();
-
-    // A window's NOC base must be size-aligned, so a window of class W aimed at `addr` starts at
-    // `addr & ~(W-1)` and therefore reaches only `W - (addr % W)` bytes past `addr`. Pick the
-    // smallest class that still covers [addr, addr + size). get_tlb_sizes() is ascending.
-    const std::vector<size_t>& size_classes = get_tt_device(chip)->get_architecture_implementation()->get_tlb_sizes();
-    size_t window_size = 0;
-    for (const size_t candidate : size_classes) {
-        if ((addr % candidate) + size <= candidate) {
-            window_size = candidate;
-            break;
-        }
-    }
-    UMD_ASSERT(
-        window_size != 0,
-        error::RuntimeError,
-        fmt::format(
-            "export_dmabuf: no TLB window size on {} can cover {} bytes at address {:#x}; the largest window is "
-            "{} bytes and its base must be size-aligned. Use a smaller size or a more aligned address.",
-            arch_to_str(get_tt_device(chip)->get_arch()),
-            size,
-            addr,
-            size_classes.back()));
-
-    // Recorded because the class picked can be both larger and scarcer than the export needs.
-    // On Blackhole an in-bounds Tensix L1 access always fits the 2 MiB class (L1 is smaller than 2 MiB),
-    // and only targets at or above 2 MiB can force the 4 GiB class.
-    log_debug(
-        LogUMD,
-        "export_dmabuf: exporting {} bytes at {:#x} via a {} byte TLB window (offset {:#x} into the window).",
-        size,
-        addr,
-        window_size,
-        addr % window_size);
-
-    // A dedicated window (not tracked in TLBManager's maps) is allocated here on purpose: it is
-    // exported and then dropped immediately below, so it must not alias a shared/static window
-    // that other TLB users could later reconfigure out from under the live export.
-    std::unique_ptr<TlbWindow> tlb_window =
-        get_tlb_manager(chip)->allocate_tlb_window(config, TlbMapping::WC, window_size);
-
-    // Export exactly `size` bytes, not the remainder of the (possibly rounded-up) window, so the
-    // dma-buf length is always what the caller asked for.
-    return tlb_window->export_dmabuf(0, size);
+    return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
 }
 
 std::map<int, int> Cluster::get_clocks() {

@@ -1044,6 +1044,72 @@ bool PCIDevice::is_tlb_dmabuf_export_supported() {
            PCIDevice::read_kernel_version() >= MIN_KERNEL_TLB_DMABUF_EXPORT;
 }
 
+int PCIDevice::export_tlb_dmabuf(
+    const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
+    UMD_ASSERT(
+        is_tlb_dmabuf_export_supported(),
+        error::RuntimeError,
+        fmt::format(
+            "Exporting a TLB window as a dma-buf requires KMD {} or newer and kernel {} or newer, but this system "
+            "runs KMD {} and kernel {}.",
+            KMD_TLB_DMABUF_EXPORT.str(),
+            MIN_KERNEL_TLB_DMABUF_EXPORT.str(),
+            read_kmd_version().str(),
+            read_kernel_version().str()));
+
+    // This follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
+    // EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
+    tt_tlb_t *tlb = nullptr;
+    int ret = tt_tlb_alloc(tt_device_handle, window_size, TT_MMIO_CACHE_MODE_WC, &tlb);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to allocate a {} byte TLB window to export as a dma-buf: {}", window_size, strerror(-ret)));
+    }
+
+    // No TlbHandle owns this window, so every path below releases it explicitly. Any new exit added
+    // here must do the same, or the window leaks out of the allocation pool until the process exits.
+    tt_noc_addr_config_t noc_config{};
+    noc_config.addr = config.local_offset;
+    noc_config.x_end = static_cast<uint16_t>(config.x_end);
+    noc_config.y_end = static_cast<uint16_t>(config.y_end);
+    noc_config.x_start = static_cast<uint16_t>(config.x_start);
+    noc_config.y_start = static_cast<uint16_t>(config.y_start);
+    noc_config.noc = static_cast<uint8_t>(config.noc_sel);
+    noc_config.mcast = static_cast<uint8_t>(config.mcast);
+    noc_config.ordering = static_cast<uint8_t>(config.ordering);
+    noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+
+    ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to configure TLB window for a dma-buf export at NOC address {:#x} on core ({}, {}): {}",
+                config.local_offset,
+                config.x_end,
+                config.y_end,
+                strerror(-ret)));
+    }
+
+    int fd = -1;
+    ret = tt_tlb_export_dmabuf(tt_device_handle, tlb, offset, size, &fd);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to export TLB window as a dma-buf (offset {:#x}, size {}): {}", offset, size, strerror(-ret)));
+    }
+
+    // Released on success as well: the driver keeps the window pinned for as long as the fd is open.
+    tt_tlb_free(tt_device_handle, tlb);
+
+    return fd;
+}
+
 void PCIDevice::set_power_state(bool busy) {
     if (arch != tt::ARCH::BLACKHOLE) {
         return;

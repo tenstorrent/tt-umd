@@ -479,6 +479,8 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
  * and must close() it when done; the window is returned to the allocation pool only once the
  * last export on it is released. Requires tt-kmd >= 2.10.0-rc1 and Linux 5.8+.
  *
+ * The window must have been allocated on this same device handle; the driver checks that ownership.
+ *
  * @param dev Device handle
  * @param tlb TLB window handle from `tt_tlb_alloc()`
  * @param offset Page-aligned byte offset within the window at which the export begins

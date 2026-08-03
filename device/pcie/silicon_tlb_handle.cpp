@@ -13,7 +13,6 @@
 #include "tracy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/kmd_versions.hpp"
 
 namespace tt::umd {
 
@@ -60,28 +59,5 @@ void SiliconTlbHandle::free_tlb() noexcept {
 }
 
 tt::ARCH SiliconTlbHandle::get_arch() const { return pci_device_.get_arch(); }
-
-int SiliconTlbHandle::export_dmabuf(uint64_t offset, uint64_t size) const {
-    if (!PCIDevice::is_tlb_dmabuf_export_supported()) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Exporting a TLB as a dma-buf requires KMD >= {} and Linux kernel >= {} (running: KMD {}, kernel "
-                "{}).",
-                KMD_TLB_DMABUF_EXPORT.str(),
-                MIN_KERNEL_TLB_DMABUF_EXPORT.str(),
-                PCIDevice::read_kmd_version().str(),
-                PCIDevice::read_kernel_version().str()));
-    }
-
-    int fd;
-    int ret_code = tt_tlb_export_dmabuf(pci_device_.get_tt_device_handle(), tlb_handle_, offset, size, &fd);
-
-    if (ret_code != 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("tt_tlb_export_dmabuf failed with error code {}.", ret_code));
-    }
-
-    return fd;
-}
 
 }  // namespace tt::umd

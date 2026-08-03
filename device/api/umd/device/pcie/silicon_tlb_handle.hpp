@@ -39,8 +39,6 @@ public:
 
     tt::ARCH get_arch() const override;
 
-    int export_dmabuf(uint64_t offset = 0, uint64_t size = 0) const override;
-
 private:
     void free_tlb() noexcept override;
 

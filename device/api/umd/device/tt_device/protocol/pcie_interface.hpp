@@ -49,6 +49,10 @@ public:
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
     virtual uint32_t bar_read32(uint32_t addr) = 0;
 
+    // Export (core, addr) as a dma-buf fd for peer-to-peer PCIe DMA, backed by a dedicated TLB
+    // window. addr and size must be page-aligned; the caller owns the fd and must close() it.
+    virtual int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) = 0;
+
     // Sets the hang check invoked on an IO-op timeout: returns true if the in-flight NOC is hung (abort),
     // false to continue.
     virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;

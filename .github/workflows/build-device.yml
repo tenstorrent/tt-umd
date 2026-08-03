@@ -165,8 +165,9 @@ jobs:
       # Enabled on push to main (the only branch that triggers a push event here)
       # and on manual dispatch when the input is set; skipped on PRs and merge queue.
       SCCACHE_GHA_ENABLED: ${{ github.event_name == 'push' || inputs.use-sccache }}
-      SCCACHE_GHA_VERSION: build-device-${{ matrix.image.distro }}-${{ matrix.image.compiler-c }}-\\
-        ${{ matrix.image.use_release_flags && '-release' || '' }}
+      SCCACHE_GHA_VERSION: >-
+        build-device-${{ matrix.image.distro }}-${{ matrix.image.compiler-c
+        }}${{ matrix.image.use_release_flags && '-release' || '' }}
       # Only the main branch may write to the sccache; all other branches read only.
       SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
     container:

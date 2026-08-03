@@ -37,6 +37,7 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
+    options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
 
     {
@@ -48,6 +49,33 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
 
     EXPECT_FALSE(std::filesystem::exists(socket));                  // torn down with the device
     EXPECT_FALSE(std::filesystem::is_directory(server_directory));  // and its now-empty directory removed
+}
+
+// With serving off (the default), discover() still creates a working host device, but it is private
+// in-process: no socket is published, so nothing else can attach. This is the direct-use entry point
+// into the TTDevice layer for callers that don't want cross-process IPC. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, CreatesPrivateHostDeviceWhenNotServing) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    // No server directory is claimed when serving is off; if the connector wrongly served, it would
+    // land here, so assert this stays empty.
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+    const std::filesystem::path socket = SimulationServerSocket::default_socket_path(server_directory, 0);
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    // serve_over_sockets defaults to false: a private in-process host, no socket published.
+    options.server_directory = server_directory;
+
+    auto devices = SimulationConnector::discover(options);
+    ASSERT_EQ(devices.size(), 1u);
+    EXPECT_NE(devices.at(0), nullptr);              // a usable host device...
+    EXPECT_FALSE(std::filesystem::exists(socket));  // ...that published no socket
+
+    std::filesystem::remove(server_directory);
 }
 
 // discover() decides the role from what simulator_directory points at (a .so file hosts TTSim, a
@@ -75,6 +103,7 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
+    options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
     auto devices = SimulationConnector::discover(options);
     ASSERT_EQ(devices.size(), 1u);
@@ -135,6 +164,7 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
 
     SimulationConnectorOptions options;
     options.simulator_directory = simulator_path;
+    options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
     auto devices = SimulationConnector::discover(options);
     ASSERT_EQ(devices.size(), 1u);
@@ -175,6 +205,7 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
 
     SimulationConnectorOptions host_options;
     host_options.simulator_directory = simulator_path;
+    host_options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     host_options.server_directory = server_directory;
 
     // The .so path hosts and publishes its per-chip socket; pointing discovery at that server's

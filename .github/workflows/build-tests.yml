@@ -93,7 +93,8 @@ env:
   NANOBIND_TEST_DIR: ./nanobind/tests
   # Env. vars related to SCCache:
   SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
-  SCCACHE_GHA_VERSION: 1
+  SCCACHE_GHA_VERSION: build-tests-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version }}\\
+    ${{ matrix.use_tracy && '-tracy' || '' }})
   # Only the main branch may write to the sccache; all other branches read only.
   SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
 

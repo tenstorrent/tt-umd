@@ -161,7 +161,7 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_write(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -177,7 +177,7 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_read(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -200,7 +200,8 @@ void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void*
         size <= std::numeric_limits<uint32_t>::max(),
         error::RuntimeError,
         fmt::format("Remote write size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
-    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    const xy_pair translated_core =
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
     request.command = SimulationServerCommand::Write;
     request.x = static_cast<uint32_t>(translated_core.x);
@@ -225,7 +226,8 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
         size <= std::numeric_limits<uint32_t>::max(),
         error::RuntimeError,
         fmt::format("Remote read size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
-    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    const xy_pair translated_core =
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
     request.command = SimulationServerCommand::Read;
     request.x = static_cast<uint32_t>(translated_core.x);

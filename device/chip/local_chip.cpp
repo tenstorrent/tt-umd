@@ -249,7 +249,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, translated_core, l1_dest, size, get_selected_noc_id());
@@ -276,7 +276,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         l1_src,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
@@ -320,7 +320,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
@@ -343,7 +343,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
     }
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, reg_src, size, get_selected_noc_id());

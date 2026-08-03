@@ -18,6 +18,7 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 using namespace tt::umd;
 
@@ -82,7 +83,7 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     const SocDescriptor& soc = host->get_soc_descriptor();
     const CoreCoord tensix = soc.get_cores(tt::CoreType::TENSIX).at(0);
     // Client-side translation: what the client puts on the wire, passed through the host as-is.
-    const tt_xy_pair noc = soc.translate_chip_coord_to_translated(tensix);
+    const tt_xy_pair noc = soc.translate_chip_coord_to_translated(tensix, get_selected_noc_id());
     constexpr uint64_t addr = 0x1000;
     const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0x11, 0x22, 0x33, 0x44};
 

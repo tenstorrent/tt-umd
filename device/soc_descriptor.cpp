@@ -222,7 +222,7 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
         return xy_pair(core.x, core.y);
     }
     if (!noc_translation_enabled) {
-        return translate_coord_to(core, (noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
+        return translate_coord_to(core, (noc_id == NocId::NOC1) ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     // Blackhole-specific workaround: ROUTER_ONLY and harvested ETH cores need
@@ -257,7 +257,7 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
     if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
-        return translate_coord_to(core, (noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
+        return translate_coord_to(core, (noc_id == NocId::NOC1) ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     return translate_coord_to(core, CoordSystem::TRANSLATED);

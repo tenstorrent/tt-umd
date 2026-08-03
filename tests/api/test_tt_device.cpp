@@ -385,7 +385,8 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         tt_device->init_tt_device();
 
         CoreCoord tensix_core = tt_device->get_soc_descriptor().get_cores(tt::CoreType::TENSIX).at(0);
-        xy_pair tensix_core_xy = tt_device->get_soc_descriptor().translate_chip_coord_to_translated(tensix_core);
+        xy_pair tensix_core_xy =
+            tt_device->get_soc_descriptor().translate_chip_coord_to_translated(tensix_core, get_selected_noc_id());
         tt_device.reset();
 
         tt_device = TTDevice::create(pci_device_id);

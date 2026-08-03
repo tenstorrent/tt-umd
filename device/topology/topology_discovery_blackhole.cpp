@@ -136,7 +136,7 @@ uint32_t TopologyDiscoveryBlackhole::get_logical_remote_eth_channel(TTDevice* tt
     if (first_fw_bundle_version >= FirmwareBundleVersion(18, 12, 0)) {
         return remote_logical_eth_id;
     }
-    if (tt_device->get_chip_info().board_type != BoardType::P150) {
+    if (tt_device->get_chip_info(get_selected_noc_id()).board_type != BoardType::P150) {
         UMD_THROW(
             error::RuntimeError,
             "Querying Logical Eth Channels on a Remote Host is only supported for P150 Board Types.");

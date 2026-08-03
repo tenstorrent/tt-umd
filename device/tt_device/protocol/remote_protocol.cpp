@@ -78,7 +78,7 @@ bool RemoteProtocol::write_to_core_range(
     } else {
         // Translated coordinates only land correctly when NOC translation is enabled; otherwise the translated grid
         // is meaningless. Fall back to unicast rather than broadcasting to the wrong cores.
-        if (!remote_communication_->get_local_device()->get_noc_translation_enabled()) {
+        if (!remote_communication_->get_local_device()->get_noc_translation_enabled(noc_id)) {
             log_debug(
                 LogUMD,
                 "write_to_core_range: NOC translation is not enabled, translated ethernet broadcast not supported, "

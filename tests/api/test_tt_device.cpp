@@ -28,6 +28,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 using namespace tt;
@@ -335,7 +336,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         tt_device->set_power_state(true);
 
         // These methods should work without initialization.
-        EXPECT_NO_THROW(tt_device->get_arc_core());
+        EXPECT_NO_THROW(tt_device->get_arc_core(NocId::NOC0));
         EXPECT_NO_THROW(tt_device->get_arch());
         EXPECT_NO_THROW(tt_device->get_architecture_implementation());
         EXPECT_NO_THROW(tt_device->get_min_clock_freq());
@@ -345,7 +346,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         EXPECT_NO_THROW(tt_device->get_communication_device_type());
 
         using err = error::UmdException<error::UninitializedDeviceError>;
-        EXPECT_THROW(tt_device->get_chip_info(), err);
+        EXPECT_THROW(tt_device->get_chip_info(NocId::NOC0), err);
         EXPECT_THROW(tt_device->get_soc_descriptor(), err);
         EXPECT_THROW(tt_device->get_arc_messenger(), err);
         EXPECT_THROW(tt_device->get_arc_telemetry_reader(), err);
@@ -362,7 +363,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         ASSERT_NO_THROW(tt_device->init_tt_device());
 
         // These methods should work only after successful initialization.
-        EXPECT_NO_THROW(tt_device->get_chip_info());
+        EXPECT_NO_THROW(tt_device->get_chip_info(NocId::NOC0));
         EXPECT_NO_THROW(tt_device->get_soc_descriptor());
         EXPECT_NO_THROW(tt_device->get_arc_messenger());
         EXPECT_NO_THROW(tt_device->get_arc_telemetry_reader());

@@ -292,7 +292,7 @@ void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType s
     }
 }
 
-void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms, NocId noc_id) {
     // RTL simulation doesn't have ARC cores in the same way.
 }
 

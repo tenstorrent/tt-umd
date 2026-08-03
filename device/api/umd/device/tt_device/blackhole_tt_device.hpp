@@ -28,7 +28,7 @@ public:
 
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
+    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms, NocId noc_id) override;
 
     uint32_t get_clock() override;
 
@@ -36,17 +36,17 @@ public:
 
     void set_clock_state(DevicePowerState state) override;
 
-    bool get_noc_translation_enabled() override;
+    bool get_noc_translation_enabled(NocId noc_id) override;
 
-    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
 
-    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
 
-    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
 
-    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
+    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) override;
 
-    ChipInfo get_chip_info() override;
+    ChipInfo get_chip_info(NocId noc_id) override;
 
     std::chrono::milliseconds wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
@@ -70,10 +70,10 @@ protected:
     // Number of retrain attempts is chosen based on syseng team testing.
     uint32_t get_max_dram_retrain_attempts() const override { return 3; }
 
-    void set_arc_coordinate() override;
-
 private:
     int get_pcie_x_coordinate();
+
+    void set_bh_arc_coordinates();
 
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,

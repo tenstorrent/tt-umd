@@ -14,6 +14,11 @@ Files:
 - `dmabuf_initiator.cpp` — runs on the peer box. Registers a normal host-memory MR with a known test
   pattern, connects to the target, brings up an RC QP, and issues `--iters` back-to-back RDMA
   WRITEs of `--size` bytes each into the same remote window, timing the batch to report bandwidth.
+- `dmabuf_loopback.cpp` — **single-host** RDMA loopback read benchmark answering "is a NIC-driven
+  DMA read out of device DRAM faster than UMD's CPU/PIO read through a mapped TLB window?" Needs no
+  second host and no network config: both ends of the RC connection are QPs on the same port,
+  cross-connected using the port's own GID, so the NIC loops the traffic internally while the data
+  still travels BH BAR → PCIe → NIC → PCIe → host DRAM. See §5 below.
 
 ## 0. Prerequisites (both hosts)
 
@@ -127,6 +132,45 @@ confirms:
 The printed GB/s is wall-clock `(size * iters) / elapsed_time` measured on the initiator around the
 post/poll loop — it reflects sustained NIC-to-DRAM-over-NOC write throughput for this specific
 window, not a generic multi-connection or full-link RDMA benchmark.
+
+## 5. Single-host loopback read benchmark (`dmabuf_loopback`)
+
+Runs entirely on one box with a Blackhole card and a RoCE NIC — no peer, no IP handshake:
+
+```bash
+./build/tests/rdma/dmabuf_loopback -r rocep201s0f0
+```
+
+It seeds a known pattern into DRAM via `cluster->write_to_device()`, exports the same tile as a
+dma-buf, RDMA-READs it back over a loopback QP pair, verifies, then reads the same region again via
+`cluster->read_from_device()` and prints both rates plus the ratio:
+
+```
+UMD seed write (PIO)               64 MiB in    xxx.xxx ms  (   x.xx GiB/s)
+RDMA read  (dev->host, DMA)       640 MiB in    xxx.xxx ms  (   x.xx GiB/s)
+RDMA read verified against the UMD-seeded pattern (independent window)
+UMD  read  (dev->host, PIO)        64 MiB in    xxx.xxx ms  (   x.xx GiB/s)
+
+RDMA/PIO read speedup: x.xxx
+```
+
+Both measurements use the same `-s` size against the same DRAM tile over the same PCIe link, so the
+only variable is who drives the transactions — the CPU (`read_from_device()` →
+`TlbWindow::read_block()`, a memcpy against an mmap'd BAR) or the NIC's DMA engine. The expected
+win comes from read concurrency: CPU loads against MMIO are non-posted and nearly
+latency-serialized, whereas the NIC keeps `-o` reads in flight at once.
+
+Useful knobs: `-s` size MiB (default 64), `-o` reads in flight (default 16, clamped to the HCA's
+`max_qp_rd_atom`), `-k` chunk MiB per work request (default 4), `-i` RDMA iterations (default 10),
+`-p` PIO iterations (default 1; `-p 0` skips the slow baseline entirely).
+
+Two notes:
+- The default 64 MiB registers only 64 MiB of pinned host memory, which fits under a typical
+  `ulimit -l`. Raising `-s` may require raising `ulimit -l` to match.
+- The seed goes in through a *different* TLB window (TlbManager's static/cached WC window) than the
+  dedicated one `export_dmabuf()` allocates. So a passing verify here is independent evidence that
+  the exported window reaches real device DRAM, rather than the self-consistent "write and read
+  back through the same window" check.
 
 ## Known gaps / things to double check on real hardware (I couldn't run this — no RDMA NIC or
 Blackhole card on this machine, only compiled the pieces I could against local headers)

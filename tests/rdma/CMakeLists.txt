@@ -18,9 +18,20 @@ target_link_libraries(
         pthread
 )
 
+add_executable(dmabuf_loopback dmabuf_loopback.cpp)
+target_link_libraries(
+    dmabuf_loopback
+    PRIVATE
+        umd::tt-umd
+        tt-logger::tt-logger
+        ${IBVERBS_LIBRARY}
+        pthread
+)
+
 set_target_properties(
     dmabuf_target
     dmabuf_initiator
+    dmabuf_loopback
     PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY
             ${CMAKE_BINARY_DIR}/tests/rdma/

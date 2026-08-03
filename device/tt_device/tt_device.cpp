@@ -155,6 +155,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
 
 void TTDevice::init_tt_device_for_simulation(bool preserve_soc_descriptor, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
+    // Quasar simulation does not expose ARC or Ethernet firmware yet. Keep initialization as a no-op until those
+    // interfaces exist; its SocDescriptor is already supplied by the simulation construction path.
+    if (arch == tt::ARCH::QUASAR) {
+        return;
+    }
     probe_arc();
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);

@@ -155,8 +155,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 
-void TTDevice::init_tt_device_for_simulation(
-    bool preserve_soc_descriptor, const std::chrono::milliseconds timeout_ms) {
+void TTDevice::init_tt_device_for_simulation(bool preserve_soc_descriptor, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     probe_arc();
     wait_arc_core_start(timeout_ms);

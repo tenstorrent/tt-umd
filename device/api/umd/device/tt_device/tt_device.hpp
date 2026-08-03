@@ -425,8 +425,7 @@ public:
 
     void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
     void init_tt_device_for_simulation(
-        bool preserve_soc_descriptor = false,
-        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+        bool preserve_soc_descriptor = false, std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
 
     uint64_t get_refclk_counter();
 

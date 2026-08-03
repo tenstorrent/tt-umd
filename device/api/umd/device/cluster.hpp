@@ -128,6 +128,13 @@ struct ClusterOptions {
     std::function<void()> simulation_shutdown_handler;
 
     /**
+     * Host SIMULATION chip type only: the directory this host serves its per-chip sockets in.
+     * Empty means allocate a fresh one, so distinct hosts on the same machine never collide; set it
+     * to serve in a specific directory (e.g. one the caller pre-allocated to report to the user).
+     */
+    std::filesystem::path simulator_server_directory = "";
+
+    /**
      * I/O device type to use for the cluster.
      * This determines how the cluster will communicate with the underlying hardware.
      */
@@ -748,7 +755,9 @@ private:
     // separate client process (a Cluster pointed at the socket directory) can attach and drive it. A
     // no-op for a client Cluster. Called once from the constructor after the chips are built.
     void serve_simulation_devices_over_sockets(
-        const std::filesystem::path& simulator_directory, const std::function<void()>& shutdown_handler);
+        const std::filesystem::path& simulator_directory,
+        const std::filesystem::path& simulator_server_directory,
+        const std::function<void()>& shutdown_handler);
 #endif  // TT_UMD_BUILD_SIMULATION
     SocDescriptor construct_soc_descriptor(
         const std::string& soc_desc_path, ChipId chip_id, ChipType chip_type, ClusterDescriptor* cluster_desc);

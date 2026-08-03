@@ -63,7 +63,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
     // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
     // read/write skeleton below (SimulationServerResponse), so it is handled up front.
-    if (request.command == SimulationServerCommand::GetDeviceInfo) {
+    if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
         try {
             return encode(describe_device(get_soc_descriptor(), backend_type()));
         } catch (const std::exception& e) {
@@ -76,7 +76,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
     // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
     // YAML (empty when the build ships none) so a client can rebuild the full topology.
-    if (request.command == SimulationServerCommand::GetClusterDescriptor) {
+    if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
         try {
             return encode(describe_cluster(simulator_directory_));
         } catch (const std::exception& e) {
@@ -92,7 +92,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     // ack. The handler was fixed before serving started, so it is read here without locking; it must
     // only signal -- it must not tear down from this serving thread. The ack is sent before any
     // teardown, and this serving thread hits EOF and is joined during that teardown.
-    if (request.command == SimulationServerCommand::Shutdown) {
+    if (request.command == SimulationServerCommand::SHUTDOWN) {
         if (shutdown_handler) {
             shutdown_handler();
         }
@@ -107,11 +107,11 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     SimulationServerResponse response;
     try {
         switch (request.command) {
-            case SimulationServerCommand::Read:
+            case SimulationServerCommand::READ:
                 response.data.resize(request.size);
                 read_from_device(response.data.data(), core, request.address, request.size);
                 break;
-            case SimulationServerCommand::Write:
+            case SimulationServerCommand::WRITE:
                 UMD_ASSERT(
                     request.data.size() >= request.size,
                     error::RuntimeError,
@@ -202,7 +202,7 @@ void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void*
         fmt::format("Remote write size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
     const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Write;
+    request.command = SimulationServerCommand::WRITE;
     request.x = static_cast<uint32_t>(translated_core.x);
     request.y = static_cast<uint32_t>(translated_core.y);
     request.address = addr;
@@ -227,7 +227,7 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
         fmt::format("Remote read size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
     const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Read;
+    request.command = SimulationServerCommand::READ;
     request.x = static_cast<uint32_t>(translated_core.x);
     request.y = static_cast<uint32_t>(translated_core.y);
     request.address = addr;

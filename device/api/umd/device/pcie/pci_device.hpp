@@ -354,7 +354,7 @@ public:
      * @param config NOC configuration for the window. config.local_offset must be aligned to
      *               @p window_size, since a window's NOC base is size-aligned.
      * @param offset Page-aligned byte offset within the window at which the export begins.
-     * @param size Page-aligned byte count to export; 0 means to the end of the window.
+     * @param size Page-aligned byte count to export; must be nonzero.
      */
     int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 

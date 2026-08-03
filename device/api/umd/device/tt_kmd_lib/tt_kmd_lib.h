@@ -484,7 +484,8 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
  * @param dev Device handle
  * @param tlb TLB window handle from `tt_tlb_alloc()`
  * @param offset Page-aligned byte offset within the window at which the export begins
- * @param size Page-aligned byte count to export; 0 means to the end of the window
+ * @param size Page-aligned byte count to export; must be nonzero and not run past the end of the
+ *             window
  * @param out_fd On success, the dma-buf file descriptor
  * @return 0 on success, error code on failure
  */

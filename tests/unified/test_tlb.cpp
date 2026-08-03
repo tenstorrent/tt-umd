@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -154,6 +155,19 @@ TEST_F(TestTlb, TestClusterExportDmabuf) {
     EXPECT_GE(fd, 0);
     EXPECT_GE(fcntl(fd, F_GETFD), 0);
     close(fd);
+
+    // An address that is page-aligned but not TLB-window-aligned exercises TlbWindow's
+    // offset_from_aligned_addr translation: the window's NOC base is rounded down to a size-aligned
+    // boundary, so the export starts `addr % window_size` bytes into the window, not at its base.
+    const uint64_t page_size = static_cast<uint64_t>(getpagesize());
+    fd = cluster->export_dmabuf(chip, core, page_size, page_size);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
+
+    // Misaligned requests are rejected up front, before a window is allocated or an ioctl issued.
+    EXPECT_THROW(cluster->export_dmabuf(chip, core, 1, page_size), std::runtime_error);
+    EXPECT_THROW(cluster->export_dmabuf(chip, core, 0, page_size + 1), std::runtime_error);
 }
 
 TEST_F(TestTlb, TestTlbWindowReuse) {

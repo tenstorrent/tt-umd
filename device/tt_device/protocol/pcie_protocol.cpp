@@ -173,6 +173,14 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
+    // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
+    // any window is allocated or an ioctl issued, same as the alignment checks below.
+    UMD_ASSERT(
+        tt::umd::utils::has_any_active_rdma_port(),
+        error::RuntimeError,
+        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
+        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
+
     // Alignment is checked before any window is allocated. The offset handed to the driver is the
     // window's distance from its size-aligned base, i.e. addr % window_size, and the driver requires
     // both that offset and the length to be page-aligned.

@@ -30,6 +30,7 @@
 #include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -101,6 +102,10 @@ TEST_F(TestTlb, TestClusterExportDmabuf) {
     if (PCIDevice::read_kmd_version() < KMD_TLB_DMABUF_EXPORT) {
         GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
                      << KMD_TLB_DMABUF_EXPORT.str();
+    }
+
+    if (!tt::umd::utils::has_any_active_rdma_port()) {
+        GTEST_SKIP() << "No active RDMA NIC (RoCE/InfiniBand) found under /sys/class/infiniband.";
     }
 
     const ChipId chip = 0;

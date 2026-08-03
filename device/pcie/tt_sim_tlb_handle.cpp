@@ -18,7 +18,6 @@
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -164,9 +163,5 @@ void TTSimTlbHandle::free_tlb() noexcept {
 }
 
 tt::ARCH TTSimTlbHandle::get_arch() const { return allocator_->get_architecture(); }
-
-int TTSimTlbHandle::export_dmabuf(uint64_t /*offset*/, uint64_t /*size*/) const {
-    UMD_THROW(error::RuntimeError, "Exporting a TLB as a dma-buf is not supported for simulation devices.");
-}
 
 }  // namespace tt::umd

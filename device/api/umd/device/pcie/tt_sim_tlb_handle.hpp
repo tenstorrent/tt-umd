@@ -42,8 +42,6 @@ public:
 
     tt::ARCH get_arch() const override;
 
-    int export_dmabuf(uint64_t offset = 0, uint64_t size = 0) const override;
-
 private:
     // Private constructor to enforce use of create() factory method.
     TTSimTlbHandle(

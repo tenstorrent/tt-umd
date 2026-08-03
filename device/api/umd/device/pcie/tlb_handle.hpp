@@ -9,6 +9,7 @@
 
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
@@ -64,7 +65,9 @@ public:
      * @param offset Byte offset within the window at which the export begins.
      * @param size Number of bytes to export; 0 means to the end of the window.
      */
-    virtual int export_dmabuf(uint64_t offset = 0, uint64_t size = 0) const = 0;
+    virtual int export_dmabuf(uint64_t offset = 0, uint64_t size = 0) const {
+        UMD_THROW(error::RuntimeError, "Exporting a TLB as a dma-buf is not supported for this TLB handle type.");
+    }
 
 protected:
     /**

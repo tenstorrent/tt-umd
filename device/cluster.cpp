@@ -504,11 +504,16 @@ Cluster::Cluster(ClusterOptions options) {
                     break;
                 }
 
-                if (is_ttsim_build) {
-                    if (options.sdesc_path.empty()) {
-                        options.sdesc_path =
-                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
-                    }
+                if (is_ttsim_build && options.sdesc_path.empty()) {
+                    options.sdesc_path =
+                        SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                }
+                // Quasar does not expose ARC or Ethernet firmware yet, so there is no device topology to query.
+                // Fall through to the existing mock descriptor construction below.
+                const bool discover_ttsim_topology = is_ttsim_build && SocDescriptor::get_arch_from_soc_descriptor_path(
+                                                                           options.sdesc_path) != tt::ARCH::QUASAR;
+
+                if (discover_ttsim_topology) {
                     const int bootstrap_host_mem_channels =
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(MAX_HOST_MEM_CHANNELS));
                     auto local_device =

@@ -206,7 +206,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
 
 #ifdef TT_UMD_BUILD_SIMULATION
 std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
-    ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc) {
+    ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc, bool initialize_from_firmware) {
     ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
     Chip* gateway_chip = get_chip(gateway_id);
     SysmemManager* sysmem_manager = gateway_chip->get_sysmem_manager();
@@ -220,7 +220,9 @@ std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
             cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
 
     auto remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
-    remote_tt_device->init_tt_device_for_simulation(/*preserve_soc_descriptor=*/true);
+    if (initialize_from_firmware) {
+        remote_tt_device->init_tt_device_for_simulation(/*preserve_soc_descriptor=*/true);
+    }
     ChipInfo chip_info;
     chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
     chip_info.harvesting_masks = soc_desc.harvesting_masks;
@@ -238,6 +240,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     SocDescriptor& soc_desc,
     int num_host_mem_channels,
     const std::filesystem::path& simulator_directory,
+    bool initialize_simulation_from_firmware,
     std::unique_ptr<TTDevice> tt_device) {
     if (chip_type == ChipType::MOCK) {
         return std::make_unique<MockChip>(soc_desc);
@@ -277,7 +280,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
             return std::make_unique<SimulationChip>(simulator_directory, device_soc, chip_id, std::move(tt_device));
         }
         if (simulator_directory.extension() == ".so" && cluster_desc->is_chip_remote(chip_id)) {
-            return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
+            return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc, initialize_simulation_from_firmware);
         }
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(
@@ -407,6 +410,9 @@ Cluster::Cluster(ClusterOptions options) {
     // A second assignment at the end captures any mutations made during construction
     // (sdesc_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
     options_ = options;
+    // An explicitly supplied descriptor is authoritative and preserves the legacy mock-descriptor behavior:
+    // do not probe ARC or discover Ethernet state from simulated firmware.
+    const bool initialize_simulation_from_firmware = options.cluster_descriptor == nullptr;
     std::map<ChipId, std::unique_ptr<TTDevice>> tt_devices;
     switch (options.chip_type) {
         case ChipType::SILICON: {
@@ -630,6 +636,7 @@ Cluster::Cluster(ClusterOptions options) {
                 soc_desc,
                 options.num_host_mem_ch_per_mmio_device.value(),
                 options.simulator_directory,
+                initialize_simulation_from_firmware,
                 std::move(tt_device)));
     }
 

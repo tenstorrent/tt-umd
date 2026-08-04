@@ -212,9 +212,9 @@ void TTSimCommunicator::initialize() {
     // (e.g. galaxy wormhole, driven by an external mock cluster desc) has no such file -- it must keep
     // the per-chip isolated dlopen (legacy memfd path below) so each chip is its own simulator process.
     const bool self_describing_multi_mmio =
-        num_chips_ > 1 &&
-        (force_shared_bdf_mode_ ||
-         std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_)));
+        num_chips_ > 1 && (force_shared_bdf_mode_ ||
+                           std::filesystem::exists(
+                               SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_)));
     if (self_describing_multi_mmio) {
         std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
         if (!s_shared_handle_) {

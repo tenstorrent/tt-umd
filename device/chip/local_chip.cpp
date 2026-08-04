@@ -70,7 +70,7 @@ LocalChip::LocalChip(
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     tt_device_(std::move(tt_device)) {
-    tt_device_->set_power_state(true);
+    tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();
@@ -80,7 +80,7 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
-    tt_device_->set_power_state(false);
+    tt_device_->set_power_state(TTDevice::PowerState::IDLE);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     sysmem_manager_.reset();

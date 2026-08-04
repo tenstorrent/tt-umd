@@ -129,6 +129,14 @@ public:
     };
 
     /**
+     * @brief Defines the requested power domain state for the device.
+     */
+    enum class PowerState {
+        BUSY,  ///< Claims all power domains, requesting maximum performance.
+        IDLE,  ///< Releases power domains, allowing the device to enter lower power states.
+    };
+
+    /**
      * Check if the PCIe communication is hung.
      *
      * Reads a known register over BAR and compares the result against the hang
@@ -371,12 +379,13 @@ public:
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**
-     * Request full power domains from KMD (busy=true) or release them (busy=false).
-     * No-op for remote devices and on KMD versions older than 2.6.0.
+     * @brief Requests a hardware power domain state change.
      *
-     * @param busy true to claim all power domains, false to release them.
+     * Claims or releases full power domains. No-op for remote devices.
+     *
+     * @param state The requested power state (BUSY or IDLE).
      */
-    virtual void set_power_state(bool busy);
+    virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Set the device clock (AICLK) state by sending the corresponding power-state request to device

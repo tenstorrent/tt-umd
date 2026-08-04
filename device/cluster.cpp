@@ -1175,20 +1175,6 @@ void Cluster::deassert_resets_and_set_clock_state() {
         chip->deassert_risc_resets();
     }
 
-    // MT Initial BH - ARC messages not supported in Blackhole.
-    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
-        for (const ChipId& chip : all_chip_ids_) {
-            // No ttsim chip can service ARC messages, not even the gateway (a SimulationChip, whose
-            // is_mmio_capable() is also false), so skip enabling the ethernet queue for every chip in a simulation
-            // cluster. This is deliberately not keyed on remote_chip_ids_: the gateway must be skipped too. Silicon
-            // chips are initialized over ARC/ethernet as before.
-            if (options_.chip_type == ChipType::SIMULATION && !get_chip(chip)->is_mmio_capable()) {
-                continue;
-            }
-            get_chip(chip)->enable_ethernet_queue();
-        }
-    }
-
     // Set clock state to busy.
     set_clock_state(DevicePowerState::BUSY);
 }

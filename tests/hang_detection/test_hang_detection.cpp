@@ -242,7 +242,7 @@ TEST_F(HangDetectionTest, TopologyDiscoveryRecordsNocHangHealthError) {
     }
 
     // NOC0 is the NOC that init_tt_device() probes during discovery, so hang that one.
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
+    CoreCoord tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     hang_noc(tensix_core, NocId::NOC0);
     ASSERT_TRUE(tt_device_->is_noc_hung(NocId::NOC0, TTDevice::HangAction::RETURN))
         << "Failed to hang NOC0 before running topology discovery.";

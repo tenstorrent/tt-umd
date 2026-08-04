@@ -23,7 +23,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -212,22 +211,23 @@ CoreCoord SocDescriptor::translate_coord_to(
 }
 
 // Translates a chip coordinate to the correct device coordinates, returning a CoreCoord.
-// Returns the correct pre-translation coordinates for the given architecture. Note that
-// the returned CoordSystem is not necessarily TRANSLATED — architecture-specific fixups
-// (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1 coordinates instead.
+// Returns the correct pre-translation coordinates for the given architecture and the NOC
+// identified by noc_id. Note that the returned CoordSystem is not necessarily TRANSLATED —
+// architecture-specific fixups (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1
+// coordinates instead.
 // The key guarantee is that the returned coordinates will be correct for device access
-// on the given architecture.
-CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+// on the given architecture over the given NOC.
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core, const NocId noc_id) const {
     if (core.coord_system == CoordSystem::LITERAL) {
         return xy_pair(core.x, core.y);
     }
     if (!noc_translation_enabled) {
-        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        return translate_coord_to(core, (noc_id == NocId::NOC1) ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     // Blackhole-specific workaround: ROUTER_ONLY and harvested ETH cores need
     // special translation when using NOC1.
-    if ((arch == tt::ARCH::BLACKHOLE) && is_selected_noc1()) {
+    if ((arch == tt::ARCH::BLACKHOLE) && (noc_id == NocId::NOC1)) {
         // For ROUTER_ONLY cores, the translated coordinate space differs depending on
         // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
         // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
@@ -257,7 +257,7 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
     if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
-        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        return translate_coord_to(core, (noc_id == NocId::NOC1) ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     return translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -265,8 +265,8 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
 
 // Convenience wrapper returning tt_xy_pair; the actual logic lives in
 // translate_chip_coord_to_translated_coord.
-tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    return translate_chip_coord_to_translated_coord(core).to_pair();
+xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core, const NocId noc_id) const {
+    return translate_chip_coord_to_translated_coord(core, noc_id).to_pair();
 }
 
 int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }

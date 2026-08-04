@@ -17,6 +17,7 @@
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 using namespace tt::umd;
@@ -45,9 +46,11 @@ TEST(TestSocDescriptor, LiteralCoordSystem) {
         CoreCoord literal_dram = CoreCoord(dram.x, dram.y);
         tt::xy_pair literal_dram_pair = tt::xy_pair(dram.x, dram.y);
 
-        // Literal CoreCoords should pass through with no coordinate changes.
-        EXPECT_EQ(literal_dram_pair, soc_descriptor.translate_chip_coord_to_translated(literal_dram));
-        EXPECT_EQ(literal_dram, soc_descriptor.translate_chip_coord_to_translated_coord(literal_dram));
+        // Literal CoreCoords should pass through with no coordinate changes, on either NOC.
+        for (const NocId noc_id : {NocId::NOC0, NocId::NOC1}) {
+            EXPECT_EQ(literal_dram_pair, soc_descriptor.translate_chip_coord_to_translated(literal_dram, noc_id));
+            EXPECT_EQ(literal_dram, soc_descriptor.translate_chip_coord_to_translated_coord(literal_dram, noc_id));
+        }
 
         // CoreCoords cannot be translated to LITERAL through CooridinateManager.
         EXPECT_ANY_THROW(soc_descriptor.translate_coord_to(dram, tt::CoordSystem::LITERAL));

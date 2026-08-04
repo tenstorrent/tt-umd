@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <stdexcept>
@@ -45,10 +46,11 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
     uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
     uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
     uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
+    std::optional<uint32_t> tdp_limit = firmware_info_provider->get_tdp_limit();
 
     return fmt::format(
         "Chip ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
-        "TDP {} W, TDC {} A, VCORE {} mV",
+        "TDP {}/{} W, TDC {} A, VCORE {} mV",
         chip_id,
         asic_temperature,
         board_temperature,
@@ -56,6 +58,7 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
         axiclk,
         arcclk,
         tdp,
+        tdp_limit.has_value() ? std::to_string(tdp_limit.value()) : "N/A",
         tdc,
         vcore);
 }

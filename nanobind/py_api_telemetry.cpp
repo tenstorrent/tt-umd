@@ -234,6 +234,7 @@ void bind_telemetry(nb::module_& m) {
         .def("get_dram_speed", &FirmwareInfoProvider::get_dram_speed, release_gil())
         .def("get_current_max_dram_temperature", &FirmwareInfoProvider::get_current_max_dram_temperature, release_gil())
         .def("get_thm_limit_shutdown", &FirmwareInfoProvider::get_thm_limit_shutdown, release_gil())
+        .def("get_tdp_limit", &FirmwareInfoProvider::get_tdp_limit, release_gil())
         .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit, release_gil())
         .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle, release_gil())
         .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())

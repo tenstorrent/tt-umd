@@ -381,7 +381,7 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         CoreCoord tensix_core = tt_device->get_soc_descriptor().get_cores(tt::CoreType::TENSIX).at(0);
@@ -390,7 +390,7 @@ TEST(ApiTTDeviceTest, UninitializedIO) {
         tt_device.reset();
 
         tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         using err = error::UmdException<error::UnresolvableCoordinateError>;
 
         const uint32_t value = 0xAABB;

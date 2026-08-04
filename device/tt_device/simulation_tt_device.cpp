@@ -46,13 +46,19 @@ void SimulationTTDevice::detach_client() {
     }
 }
 
-void SimulationTTDevice::adopt_socket(std::unique_ptr<SimulationServerSocket> socket) {
+void SimulationTTDevice::adopt_socket(
+    std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler) {
     socket_ = std::move(socket);
-    // Begin serving remote clients now that the backend is up.
-    socket_->serve([this](const std::vector<uint8_t>& request_bytes) { return handle_request(request_bytes); });
+    // Begin serving remote clients now that the backend is up. The shutdown handler is captured into
+    // the request handler here, before serving starts, so it is fixed for the socket's lifetime and
+    // the serving threads read it without synchronization.
+    socket_->serve([this, shutdown_handler = std::move(shutdown_handler)](const std::vector<uint8_t>& request_bytes) {
+        return handle_request(request_bytes, shutdown_handler);
+    });
 }
 
-std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_t>& request_bytes) {
+std::vector<uint8_t> SimulationTTDevice::handle_request(
+    const std::vector<uint8_t>& request_bytes, const std::function<void()>& shutdown_handler) {
     const SimulationServerRequest request = decode_request(request_bytes);
 
     // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
@@ -66,6 +72,31 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(const std::vector<uint8_
             info.status = -1;
             return encode(info);
         }
+    }
+
+    // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
+    // YAML (empty when the build ships none) so a client can rebuild the full topology.
+    if (request.command == SimulationServerCommand::GetClusterDescriptor) {
+        try {
+            return encode(describe_cluster(simulator_directory_));
+        } catch (const std::exception& e) {
+            log_warning(tt::LogUMD, "Simulation host failed to serve cluster descriptor: {}", e.what());
+            SimulationServerClusterDescriptor cluster_descriptor;
+            cluster_descriptor.status = -1;
+            return encode(cluster_descriptor);
+        }
+    }
+
+    // Shutdown: invoke the opt-in handler (a dedicated server passes one to adopt_socket() to signal
+    // its main thread to exit and tear down; an embedded host passes none, making this a no-op) and
+    // ack. The handler was fixed before serving started, so it is read here without locking; it must
+    // only signal -- it must not tear down from this serving thread. The ack is sent before any
+    // teardown, and this serving thread hits EOF and is joined during that teardown.
+    if (request.command == SimulationServerCommand::Shutdown) {
+        if (shutdown_handler) {
+            shutdown_handler();
+        }
+        return encode(SimulationServerResponse{});  // status 0
     }
 
     // The client already translated the coordinate (translation is stateless and client-side), so
@@ -130,7 +161,7 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_write(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -146,7 +177,7 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
         return;
     }
     std::lock_guard<std::recursive_mutex> lock(device_lock);
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     if (handle_special_read(mem_ptr, translated_core, addr, size)) {
         return;
     }
@@ -169,7 +200,8 @@ void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void*
         size <= std::numeric_limits<uint32_t>::max(),
         error::RuntimeError,
         fmt::format("Remote write size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
-    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    const xy_pair translated_core =
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
     request.command = SimulationServerCommand::Write;
     request.x = static_cast<uint32_t>(translated_core.x);
@@ -194,7 +226,8 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
         size <= std::numeric_limits<uint32_t>::max(),
         error::RuntimeError,
         fmt::format("Remote read size {} exceeds the protocol maximum of {} bytes", size, UINT32_MAX));
-    const xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    const xy_pair translated_core =
+        get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
     request.command = SimulationServerCommand::Read;
     request.x = static_cast<uint32_t>(translated_core.x);

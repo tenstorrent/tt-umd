@@ -31,7 +31,10 @@ public:
      *   for legacy single-chip consumers.
      */
     TTSimCommunicator(
-        const std::filesystem::path &simulator_directory, bool copy_sim_binary = false, uint32_t chip_id = 0);
+        const std::filesystem::path &simulator_directory,
+        bool copy_sim_binary = false,
+        uint32_t chip_id = 0,
+        uint32_t num_chips = 1);
 
     /**
      * Destructor that properly cleans up library handles and file descriptors.
@@ -157,6 +160,12 @@ private:
     void close_simulator_binary();
     void load_simulator_library(const std::filesystem::path &path);
 
+    // Error-path cleanup for the shared-dlopen init paths. Called with s_shared_init_mutex_ held when
+    // symbol resolution throws before this communicator commits (bumps s_shared_refcount_). If this call
+    // performed the fresh dlopen (refcount still 0), releases s_shared_handle_ so it does not leak and a
+    // retry starts clean; if a prior communicator already owns it (refcount > 0), leaves it alone.
+    void release_uncommitted_shared_handle();
+
     // In multichip mode, selects this communicator's chip before an I/O call.
     void select_chip_if_needed();
 
@@ -193,7 +202,15 @@ private:
     // True when the loaded .so supports the multichip ABI and this
     // communicator is using the shared dlopen path.
     bool multichip_mode_ = false;
+    // True when the .so has NO multichip ABI but the cluster has >1 chip: all communicators share one
+    // dlopen and each chip is addressed by its PCI device (BDF) rather than libttsim_select_device_by_id.
+    bool shared_bdf_mode_ = false;
+
+    // Both modes use the single shared dlopen (s_shared_handle_) + refcount.
+    bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
+
     uint32_t chip_id_ = 0;
+    uint32_t num_chips_ = 1;
     static void *s_shared_handle_;
     static int s_shared_refcount_;
     static bool s_sim_initialized_;

@@ -37,6 +37,7 @@
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -248,10 +249,10 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, translated_core, l1_dest, size);
+        tt_device_->write_to_device(src, translated_core, l1_dest, size, get_selected_noc_id());
         return;
     }
 
@@ -275,10 +276,10 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         l1_src,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, l1_src, size);
+        tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
         return;
     }
     if (tlb_manager_->is_tlb_mapped(translated_core, l1_src, size)) {
@@ -292,15 +293,15 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
 }
 
 void LocalChip::dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_write_to_device(src, size, core, addr);
+    tt_device_->dma_write_to_device(src, size, core, addr, get_selected_noc_id());
 }
 
 void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) {
-    tt_device_->dma_read_from_device(dst, size, core, addr);
+    tt_device_->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
 }
 
 void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    tt_device_->dma_multicast_write(src, size, core_start, core_end, addr);
+    tt_device_->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }
 
 void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) {
@@ -313,13 +314,13 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     }
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->write_to_device(src, core, reg_dest, size);
+        tt_device_->write_to_device(src, core, reg_dest, size, get_selected_noc_id());
         return;
     }
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
@@ -342,10 +343,10 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
     }
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
-        tt_device_->read_from_device(dest, translated_core, reg_src, size);
+        tt_device_->read_from_device(dest, translated_core, reg_src, size, get_selected_noc_id());
         return;
     }
 
@@ -413,6 +414,7 @@ void LocalChip::set_membar_flag(
         write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
+    const auto start = std::chrono::steady_clock::now();
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
@@ -420,12 +422,23 @@ void LocalChip::set_membar_flag(
                 read_from_device(core, &readback_val, barrier_addr, sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
-                } else {
-                    log_trace(
-                        LogUMD,
-                        "Waiting for core {} to recieve mem bar flag {} in function",
-                        core.str(),
-                        barrier_value);
+                } else if (utils::check_timeout(start, timeout::MEMBAR_SYNC_TIMEOUT)) {
+                    // Report the value actually read. A core that answers but returns corrupted data
+                    // (e.g. a DRAM channel that trained with a dead byte lane) never converges, and the
+                    // readback is what identifies it.
+                    UMD_THROW(
+                        error::RuntimeError,
+                        fmt::format(
+                            "Memory barrier timed out after {} ms on device {} core {} at {:#x}: expected {:#x}, "
+                            "read {:#x}. {} of {} core(s) synced.",
+                            timeout::MEMBAR_SYNC_TIMEOUT.count(),
+                            tt_device_->get_communication_device_id(),
+                            core.str(),
+                            barrier_addr,
+                            barrier_value,
+                            readback_val,
+                            cores_synced.size(),
+                            cores.size()));
                 }
             }
         }

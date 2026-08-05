@@ -177,6 +177,9 @@ if(TT_UMD_BUILD_TESTS)
     add_subdirectory(tests)
 endif(TT_UMD_BUILD_TESTS)
 
+# TEMPORARY: wire up rdma_testing for local testing on this branch.
+add_subdirectory(rdma_testing)
+
 include(packaging)
 
 # Print the effective value of every UMD option at the end of configuration.

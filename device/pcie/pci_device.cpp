@@ -394,7 +394,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)),
     arch_impl_(architecture_implementation::create(arch)) {
-    if (kmd_version < KMD_TLBS) {
+    if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));

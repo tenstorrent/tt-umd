@@ -105,7 +105,6 @@ enum class arc_message_type {
     GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
-    ARC_GO_SHORT_IDLE = 0x53,
     ARC_GO_LONG_IDLE = 0x54,
     ARC_GET_HARVESTING = 0x57,
     SET_ETH_DRAM_TRAINED_STATUS = 0x58,
@@ -384,10 +383,6 @@ public:
 
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_LONG_IDLE);
-    }
-
-    uint32_t get_arc_message_arc_go_short_idle() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_SHORT_IDLE);
     }
 
     uint32_t get_arc_message_deassert_riscv_reset() const override {

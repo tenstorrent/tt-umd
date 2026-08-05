@@ -59,8 +59,8 @@ using namespace tt::umd;
 
 /* ===== hard-coded test parameters (mirrors nic_bh_p2p_dma.c) ===== */
 
-#define NOC_ADDR 0ULL             // DRAM tile base address (must be page-aligned)
-#define XFER_SIZE (256ULL << 20)  // bytes written/read/verified (256 MiB)
+#define NOC_ADDR 0ULL           // DRAM tile base address (must be page-aligned)
+#define XFER_SIZE (4ULL << 30)  // bytes written/read/verified (4 GiB, one full BH DRAM bank)
 
 #define RDMA_MTU_MAX IBV_MTU_4096
 
@@ -521,9 +521,14 @@ static int run_client(const char* server_ip, const char* rdma_name, int gid_inde
     setup_verbs(&c, rdma_name, gid_index, &local);
 
     // Two registered DMA buffers: src is written into Blackhole, dst is filled back from
-    // Blackhole. After a correct round-trip they are identical.
+    // Blackhole. After a correct round-trip they are identical. cpy is deliberately NOT registered
+    // - it is only the destination of a plain host memcpy, used as a bandwidth reference point for
+    // the two DMA numbers. Constructing it value-initializes all of it, so its pages are already
+    // faulted in and the timed memcpy below measures steady-state DRAM bandwidth rather than
+    // first-touch page-fault cost.
     std::vector<uint64_t> src(nwords);
     std::vector<uint64_t> dst(nwords);
+    std::vector<uint64_t> cpy(nwords);
     src_mr = ibv_reg_mr(c.pd, src.data(), XFER_SIZE, IBV_ACCESS_LOCAL_WRITE);
     dst_mr = ibv_reg_mr(c.pd, dst.data(), XFER_SIZE, IBV_ACCESS_LOCAL_WRITE);
     if (!src_mr || !dst_mr) {
@@ -565,12 +570,21 @@ static int run_client(const char* server_ip, const char* rdma_name, int gid_inde
     t1 = now_sec();
     report("DMA read  (BH->NIC)", XFER_SIZE, t1 - t0);
 
+    // Host -> host: copy the just-read payload into an unregistered buffer, timed exactly like the
+    // two transfers above. Nothing but host DRAM is in this path - no PCIe, no NOC, no NIC - so it
+    // is the local upper bound the DMA numbers should be read against. Verifying cpy (rather than
+    // dst) below also keeps the copy on the correctness path so it cannot be optimized away.
+    t0 = now_sec();
+    memcpy(cpy.data(), dst.data(), XFER_SIZE);
+    t1 = now_sec();
+    report("memcpy (host)", XFER_SIZE, t1 - t0);
+
     for (size_t j = 0; j < nwords; j++) {
-        if (dst[j] != src[j]) {
-            DIE("verify FAILED at word %zu: got=0x%016" PRIx64 " want=0x%016" PRIx64, j, dst[j], src[j]);
+        if (cpy[j] != src[j]) {
+            DIE("verify FAILED at word %zu: got=0x%016" PRIx64 " want=0x%016" PRIx64, j, cpy[j], src[j]);
         }
     }
-    printf("client: round-trip verified (src and dst identical)\n");
+    printf("client: round-trip verified (src and cpy identical)\n");
 
     rw_all(sock, &sync, 1, 1);  // tell server "all verified"
 

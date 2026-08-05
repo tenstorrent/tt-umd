@@ -59,8 +59,15 @@ using namespace tt::umd;
 
 /* ===== hard-coded test parameters (mirrors nic_bh_p2p_dma.c) ===== */
 
-#define NOC_ADDR 0ULL           // DRAM tile base address (must be page-aligned)
-#define XFER_SIZE (4ULL << 30)  // bytes written/read/verified (4 GiB, one full BH DRAM bank)
+#define NOC_ADDR 0ULL  // DRAM tile base address (must be page-aligned)
+// Bytes written/read/verified. This is the end of a Blackhole GDDR bank's 32-bit NOC address space
+// (4080 MiB), NOT the 4 GiB that SocDescriptor's dram_bank_size advertises - the top 16 MiB of the
+// DRAM tile's NOC map is not GDDR at all (see SYS-3691, which calls 0xFF000000 "the expected end of
+// the address space" and finds RISC-V instructions above it, i.e. DRISC local memory). Confirmed
+// with dram_pio_probe: everything below 0xFF000000 round-trips, and from 0xFF000000 up writes are
+// dropped and reads return zeros with no error. Exceeding this does not fail cleanly - it either
+// silently corrupts or hangs the board hard enough to need a tt-smi reset.
+#define XFER_SIZE 0xFF000000ULL
 
 #define RDMA_MTU_MAX IBV_MTU_4096
 

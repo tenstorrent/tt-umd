@@ -12,6 +12,7 @@
 #include <system_error>
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
+#include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -102,6 +103,21 @@ SimulationConnector::Role SimulationConnector::role_for(const std::filesystem::p
     return classify(simulator_directory).kind == PathKind::CLIENT ? Role::Client : Role::Host;
 }
 
+std::filesystem::path SimulationConnector::allocate_server_directory() {
+    return SimulationServerSocket::allocate_server_directory();
+}
+
+std::vector<SimulationServerInfo> SimulationConnector::list_servers() {
+    // Each server owns a directory under the system temp dir (see allocate_server_directory);
+    // scanning for those directories and the sockets in each yields every open server, and the
+    // chips it serves, without connecting to any.
+    std::vector<SimulationServerInfo> servers;
+    for (const auto& [index, directory] : SimulationServerSocket::list_server_directories()) {
+        servers.push_back({index, directory, SimulationServerSocket::sockets_in_directory(directory)});
+    }
+    return servers;
+}
+
 std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
     std::map<ChipId, std::unique_ptr<TTDevice>> devices;
     const std::filesystem::path& simulator_path = options.simulator_directory;
@@ -135,10 +151,15 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
         return devices;
     }
 
-    // Host: single chip for now. Claim the per-chip socket -- create() throws if a live host
-    // already owns it (two hosts cannot serve the same chip) -- and serve it.
+    // Host: single chip for now. Serve in a dedicated server directory -- the caller's, or a fresh
+    // one -- so two hosts never collide even when they serve the same chip id. create() throws if a
+    // live host already owns this chip's socket in that directory.
+    const std::filesystem::path server_directory = options.server_directory.empty()
+                                                       ? SimulationServerSocket::allocate_server_directory()
+                                                       : options.server_directory;
     const ChipId chip_id = 0;
-    auto socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id));
+    auto socket =
+        SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id));
     devices.emplace(
         chip_id,
         make_host_device(classification.kind, simulator_path, options.num_host_mem_channels, std::move(socket)));

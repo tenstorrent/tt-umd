@@ -86,7 +86,9 @@ public:
 
 private:
     RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device);
+#ifdef TT_UMD_BUILD_SIMULATION
     RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device, ChipInfo chip_info);
+#endif
 
     Chip* local_chip_;
     RemoteCommunication* remote_communication_;

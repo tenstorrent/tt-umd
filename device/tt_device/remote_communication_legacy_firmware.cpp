@@ -8,8 +8,10 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <mutex>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
+#include <variant>
 #include <vector>
 
 #include "noc_access.hpp"
@@ -24,7 +26,30 @@
 #include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/tt_device/simulation_tt_device.hpp"
+#endif
+
 namespace tt::umd {
+
+namespace {
+
+using NonMmioTransactionLock = std::variant<std::unique_lock<RobustMutex>, std::unique_lock<std::recursive_mutex>>;
+
+NonMmioTransactionLock acquire_non_mmio_transaction_lock(TTDevice* local_tt_device, LockManager& lock_manager) {
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (auto* simulation_device = dynamic_cast<SimulationTTDevice*>(local_tt_device);
+        simulation_device != nullptr && !simulation_device->requires_interprocess_non_mmio_lock()) {
+        return simulation_device->acquire_non_mmio_transaction_lock();
+    }
+#endif
+    return lock_manager.acquire_mutex(
+        MutexType::NON_MMIO,
+        local_tt_device->get_communication_device_id(),
+        local_tt_device->get_communication_device_type());
+}
+
+}  // namespace
 
 static constexpr uint32_t REMOTE_CMD_NOC_BIT = 9;
 
@@ -69,6 +94,7 @@ std::optional<EthCoord> RemoteCommunicationLegacyFirmware::get_target_eth_coord(
  * Relevant functions:
  *  - write_to_non_mmio_device
  *  - read_from_non_mmio_device
+ *  - wait_for_non_mmio_flush
  *
  * The non-MMIO read/write functions are responsible for the writes/reads to/from those wormhole chips that aren't
  * memory mapped or directly host connected. To get the data to or from those other chips, there is a memory
@@ -97,8 +123,9 @@ std::optional<EthCoord> RemoteCommunicationLegacyFirmware::get_target_eth_coord(
  * The interprocess mutex from measurements takes a while. While not seconds, it's non-trivial such that locking and
  * unlocking at fine granularity would be more detrimental to performance than acquiring it for a large block.
  *
- * Considering the above, the current chosen approach is to make each of these calls acquired a shared mutex:
- * `NON_MMIO_MUTEX_NAME`
+ * Considering the above, the current chosen approach is to make each of these calls acquire a transaction mutex:
+ * `NON_MMIO_MUTEX_NAME` for devices shared across processes, or the gateway device's process-local mutex for an
+ * isolated simulator.
  *  - They acquire at a relatively large granularity -> for the entire duration of the function where we interact
  *    with the ethernet core (read/write) and where we use `active_core` to choose a core.
  *    - Simplifies synchronization while we reach stability
@@ -119,7 +146,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     uint64_t core_src,
     uint32_t size_in_bytes,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
+    auto lock = acquire_non_mmio_transaction_lock(local_tt_device_, lock_manager_);
 
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
@@ -382,7 +409,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     bool broadcast,
     std::vector<int> broadcast_header,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
+    auto lock = acquire_non_mmio_transaction_lock(local_tt_device_, lock_manager_);
     flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;
@@ -596,6 +623,7 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
 }
 
 void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chrono::milliseconds timeout_ms) {
+    auto lock = acquire_non_mmio_transaction_lock(local_tt_device_, lock_manager_);
     if (flush_non_mmio_) {
         UMD_ASSERT(
             local_tt_device_->get_arch() != tt::ARCH::BLACKHOLE,

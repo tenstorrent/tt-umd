@@ -51,6 +51,19 @@ public:
     // once and concurrently: every attached client that sends SHUTDOWN invokes it.
     void adopt_socket(std::unique_ptr<SimulationServerSocket> socket, std::function<void()> shutdown_handler = {});
 
+    // Legacy non-MMIO communication is a multi-call transaction: selecting an Ethernet queue,
+    // populating its command slot, and publishing/consuming queue pointers must be atomic with
+    // respect to other host threads.  Reuse the per-device recursive lock so the transaction can
+    // call read_from_device/write_to_device, which acquire this same lock internally.
+    std::unique_lock<std::recursive_mutex> acquire_non_mmio_transaction_lock() {
+        return std::unique_lock<std::recursive_mutex>(device_lock);
+    }
+
+    // A client or socket-serving host can share one simulator instance with other processes, so it
+    // must retain the interprocess transaction lock.  Only an isolated in-process simulator may
+    // replace that lock with acquire_non_mmio_transaction_lock().
+    bool requires_interprocess_non_mmio_lock() const { return client_ != nullptr || socket_ != nullptr; }
+
     // --- TTDevice overrides whose behavior is identical across both simulation backends ---
     void read_from_device(
         void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC) override;

@@ -49,6 +49,7 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class DmaInterface;
 class JtagDevice;
 class JtagInterface;
 class PCIDevice;
@@ -115,6 +116,7 @@ public:
 
     DeviceProtocol *get_device_protocol();
     PcieInterface *get_pcie_interface();
+    DmaInterface *get_dma_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
 
@@ -578,6 +580,7 @@ private:
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
+    DmaInterface *dma_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

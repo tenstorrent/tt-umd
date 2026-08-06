@@ -31,6 +31,7 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
+#include "umd/device/tt_device/protocol/dma_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -76,6 +77,7 @@ TTDevice::TTDevice(
 
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
+    dma_capabilities_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -366,6 +368,13 @@ PcieInterface *TTDevice::get_pcie_interface() {
         UMD_THROW(error::RuntimeError, "PCIe interface is not available for this device.");
     }
     return pcie_capabilities_;
+}
+
+DmaInterface *TTDevice::get_dma_interface() {
+    if (!dma_capabilities_) {
+        UMD_THROW(error::RuntimeError, "DMA interface is not available for this device.");
+    }
+    return dma_capabilities_;
 }
 
 JtagInterface *TTDevice::get_jtag_interface() {
@@ -751,8 +760,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core,
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_write_to_device(src, size, resolve_coordinate(core, noc_id), addr, noc_id);
+    bool dma_success = get_dma_interface()->dma_write(src, addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
         return;
     }
@@ -771,8 +779,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success =
-        get_pcie_interface()->dma_read_from_device(dst, size, resolve_coordinate(core, noc_id), addr, noc_id);
+    bool dma_success = get_dma_interface()->dma_read(dst, addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
         return;
     }
@@ -792,8 +799,8 @@ void TTDevice::dma_multicast_write(
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_pcie_interface()->dma_multicast_write(
-        src, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), addr, noc_id);
+    bool dma_success = get_dma_interface()->dma_multicast_write(
+        src, addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
 
     if (dma_success) {
         return;

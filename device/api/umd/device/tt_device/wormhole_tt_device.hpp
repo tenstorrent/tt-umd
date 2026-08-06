@@ -31,7 +31,7 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    void set_clock_state(DevicePowerState state) override;
+    void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     bool get_noc_translation_enabled() override;
 
@@ -71,7 +71,7 @@ protected:
 
 private:
     // Builds the ARC message (with the common prefix) that requests the given clock state.
-    uint32_t get_power_state_arc_msg(DevicePowerState state);
+    uint32_t get_power_state_arc_msg(PowerState state);
 
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,

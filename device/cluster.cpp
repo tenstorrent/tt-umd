@@ -4,19 +4,19 @@
 
 #include "api/umd/device/cluster.hpp"
 
+#include <fcntl.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <cerrno>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <filesystem>
 #include <initializer_list>
 #include <map>
@@ -66,6 +66,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -602,6 +603,7 @@ Cluster::Cluster(ClusterOptions options) {
                 first_chip_comm->switch_reset();
             }
         }
+
         // For every connected eth pair (chip_a:chan_a <-> chip_b:chan_b),
         // register MACs and peer handles.  Process each undirected edge once
         // (chip_a < chip_b) to avoid double-registration.
@@ -618,6 +620,7 @@ Cluster::Cluster(ClusterOptions options) {
             std::string wpath;
             int read_fd;
         };
+
         std::vector<PendingFdLink> pending_fd_links;
         const char* eth_ipc_env = std::getenv("TT_SIM_ETH_IPC_DIR");
         std::string eth_ipc_dir = eth_ipc_env ? std::string(eth_ipc_env) : std::string("/tmp/ttsim_eth_ipc");
@@ -625,8 +628,8 @@ Cluster::Cluster(ClusterOptions options) {
         // FIFO paths are keyed by GLOBAL unique chip ids (not per-rank-local logical ids) so both
         // rank processes name the same pair for a physical cross-rank link.
         auto eth_fifo_path = [&](uint64_t s, int sc, uint64_t d, int dc) {
-            return eth_ipc_dir + "/eth_" + std::to_string(s) + "_" + std::to_string(sc) + "__" +
-                   std::to_string(d) + "_" + std::to_string(dc) + ".fifo";
+            return eth_ipc_dir + "/eth_" + std::to_string(s) + "_" + std::to_string(sc) + "__" + std::to_string(d) +
+                   "_" + std::to_string(dc) + ".fifo";
         };
 
         // (1) Intra-rank links: both endpoints in this process -> in-process virtual eth_switch.
@@ -730,14 +733,16 @@ Cluster::Cluster(ClusterOptions options) {
                 continue;
             }
             pl.comm->configure_eth_link_fd(pl.chan, write_fd, pl.read_fd);
-            log_info(tt::LogEmulationDriver, "TTSim eth xrank wired: chan {} wfd {} rfd {}", pl.chan, write_fd, pl.read_fd);
+            log_info(
+                tt::LogEmulationDriver, "TTSim eth xrank wired: chan {} wfd {} rfd {}", pl.chan, write_fd, pl.read_fd);
         }
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION) {
-        serve_simulation_devices_over_sockets(options.simulator_directory, options.simulation_shutdown_handler);
+    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
+        serve_simulation_devices_over_sockets(
+            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -803,7 +808,9 @@ std::unique_ptr<Cluster> Cluster::create_swemule_cluster(
 
 #ifdef TT_UMD_BUILD_SIMULATION
 void Cluster::serve_simulation_devices_over_sockets(
-    const std::filesystem::path& simulator_directory, const std::function<void()>& shutdown_handler) {
+    const std::filesystem::path& simulator_directory,
+    const std::filesystem::path& simulator_server_directory,
+    const std::function<void()>& shutdown_handler) {
     // A client Cluster skips this: its simulator_directory is a socket directory (not a .so/RTL
     // build), so role_for returns Client. On the host, expose each simulation chip's device on its
     // per-chip socket so a separate client process (a Cluster pointed at the socket directory) can
@@ -814,10 +821,17 @@ void Cluster::serve_simulation_devices_over_sockets(
     if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
         return;
     }
+    // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
+    // machine never collide even when they serve the same chip id.
+    const std::filesystem::path server_directory = simulator_server_directory.empty()
+                                                       ? SimulationServerSocket::allocate_server_directory()
+                                                       : simulator_server_directory;
+    log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
             sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(chip_id)), shutdown_handler);
+                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
+                shutdown_handler);
         }
     }
 }
@@ -1039,7 +1053,8 @@ void Cluster::refresh_cluster_description() {
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }
 
@@ -1059,7 +1074,8 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
@@ -1078,8 +1094,9 @@ void Cluster::configure_tlb(
 void Cluster::configure_tlb(
     ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     ZoneScopedC(tracy::Color::Cyan);
-    tt_xy_pair translated_core =
-        get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(logical_device_id)
+                                     ->get_soc_descriptor()
+                                     .translate_chip_coord_to_translated(core, get_selected_noc_id());
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
@@ -1314,20 +1331,6 @@ void Cluster::deassert_resets_and_set_clock_state() {
 
     for (auto& [_, chip] : chips_) {
         chip->deassert_risc_resets();
-    }
-
-    // MT Initial BH - ARC messages not supported in Blackhole.
-    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
-        for (const ChipId& chip : all_chip_ids_) {
-            // No ttsim chip can service ARC messages, not even the gateway (a SimulationChip, whose
-            // is_mmio_capable() is also false), so skip enabling the ethernet queue for every chip in a simulation
-            // cluster. This is deliberately not keyed on remote_chip_ids_: the gateway must be skipped too. Silicon
-            // chips are initialized over ARC/ethernet as before.
-            if (options_.chip_type == ChipType::SIMULATION && !get_chip(chip)->is_mmio_capable()) {
-                continue;
-            }
-            get_chip(chip)->enable_ethernet_queue();
-        }
     }
 
     // Set clock state to busy.

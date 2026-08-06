@@ -231,15 +231,14 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
-void BlackholeTTDevice::set_clock_state(DevicePowerState state) {
+void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
     int exit_code = 0;
     switch (state) {
-        case DevicePowerState::BUSY:
+        case TTDevice::PowerState::BUSY:
             exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
             break;
-        case DevicePowerState::LONG_IDLE:
-        case DevicePowerState::SHORT_IDLE:
+        case TTDevice::PowerState::IDLE:
             exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
             break;
         default:

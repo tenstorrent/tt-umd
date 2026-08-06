@@ -37,7 +37,6 @@ public:
     virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
     virtual uint32_t get_arc_message_arc_go_busy() const = 0;
     virtual uint32_t get_arc_message_arc_go_long_idle() const = 0;
-    virtual uint32_t get_arc_message_arc_go_short_idle() const = 0;
     virtual uint32_t get_arc_message_deassert_riscv_reset() const = 0;
     virtual uint32_t get_arc_message_get_aiclk() const = 0;
     virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;

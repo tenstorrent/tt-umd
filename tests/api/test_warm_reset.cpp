@@ -111,7 +111,7 @@ TEST_P(WarmResetParamTest, DISABLED_SafeApiHandlesReset) {
 
     for (int pci_device_id : pci_device_ids) {
         tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
-        tt_devices[pci_device_id]->set_power_state(true);
+        tt_devices[pci_device_id]->set_power_state(TTDevice::PowerState::BUSY);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -185,7 +185,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
 
     for (int pci_device_id : pci_device_ids) {
         tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
-        tt_devices[pci_device_id]->set_power_state(true);
+        tt_devices[pci_device_id]->set_power_state(TTDevice::PowerState::BUSY);
 
         tt_devices[pci_device_id]->init_tt_device();
 
@@ -245,7 +245,7 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiProcess) {
 
             for (int pci_device_id : pci_device_ids) {
                 tt_devices[pci_device_id] = TTDevice::create(pci_device_id, IODeviceType::PCIe, true);
-                tt_devices[pci_device_id]->set_power_state(true);
+                tt_devices[pci_device_id]->set_power_state(TTDevice::PowerState::BUSY);
 
                 tt_devices[pci_device_id]->init_tt_device();
 

@@ -168,8 +168,6 @@ jobs:
             'merge_group|*|tt-ubuntu-2204-bh-loudbox-viommu-stable' \
             'merge_group|ASan|tt-ubuntu-2204-bh-loudbox-stable' \
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
-            'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
-            'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
             '*|*|tt-ubuntu-2204-wh-glx-6u-stable' \

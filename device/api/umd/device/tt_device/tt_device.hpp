@@ -52,6 +52,7 @@ class JtagDevice;
 class JtagInterface;
 class PCIDevice;
 class PcieInterface;
+class PcieProtocol;
 class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
@@ -163,46 +164,6 @@ public:
      * @throws std::runtime_error if a confirmed hang is detected and action is Throw.
      */
     bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
-
-    /**
-     * DMA transfer from device to host.
-     *
-     * @param dst destination buffer
-     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
-
-    /**
-     * DMA transfer from device to host.
-     *
-     * @param dst destination buffer
-     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
-
-    /**
-     * DMA transfer from host to device.
-     *
-     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
-     * @param src source buffer
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
-
-    /**
-     * DMA transfer from host to device.
-     *
-     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
-     * @param src source buffer
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
 
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
@@ -616,6 +577,7 @@ private:
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
     DmaInterface *dma_capabilities_ = nullptr;
+    PcieProtocol *pcie_protocol_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

@@ -78,6 +78,7 @@ TTDevice::TTDevice(
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
     dma_capabilities_ = pcie_protocol.get();
+    pcie_protocol_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -258,7 +259,7 @@ PCIDevice *TTDevice::get_pci_device() {
     if (!pcie_capabilities_) {
         return nullptr;
     }
-    return get_pcie_interface()->get_pci_device();
+    return pcie_protocol_->get_pci_device();
 }
 
 RemoteCommunication *TTDevice::get_remote_communication() {
@@ -432,14 +433,13 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
     // A null detector disables hang detection: clear any previously wired callback and stop before
     // dereferencing it below.
     if (hang_detector_ == nullptr) {
-        pcie_capabilities_->set_io_timeout_callback({});
+        pcie_protocol_->set_io_timeout_callback({});
         return;
     }
 
     // Route a single-op memcpy overrun to a NOC liveness check on the in-flight op's NOC: a hung NOC
     // aborts the transfer with DeviceTimeoutError; a healthy NOC lets it continue.
-    pcie_capabilities_->set_io_timeout_callback(
-        [this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
+    pcie_protocol_->set_io_timeout_callback([this](NocId noc) -> bool { return is_noc_hung(noc, HangAction::RETURN); });
 
     // The liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must read through a
     // dedicated, separately-locked window rather than the protocol's cached window. The window and lock live
@@ -829,18 +829,6 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
-}
-
-void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
-
-void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) { get_pcie_interface()->dma_h2d(dst, src, size); }
-
-void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    get_pcie_interface()->dma_d2h_zero_copy(dst, src, size);
-}
-
-void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const {

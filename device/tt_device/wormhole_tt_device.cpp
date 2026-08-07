@@ -111,19 +111,15 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
-uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
+uint32_t WormholeTTDevice::get_power_state_arc_msg(TTDevice::PowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
-        case BUSY: {
+        case TTDevice::PowerState::BUSY: {
             msg |= get_architecture_implementation()->get_arc_message_arc_go_busy();
             break;
         }
-        case LONG_IDLE: {
+        case TTDevice::PowerState::IDLE: {
             msg |= get_architecture_implementation()->get_arc_message_arc_go_long_idle();
-            break;
-        }
-        case SHORT_IDLE: {
-            msg |= get_architecture_implementation()->get_arc_message_arc_go_short_idle();
             break;
         }
         default:
@@ -132,7 +128,7 @@ uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
     return msg;
 }
 
-void WormholeTTDevice::set_clock_state(DevicePowerState state) {
+void WormholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
     uint32_t msg = get_power_state_arc_msg(state);
     int exit_code = get_arc_messenger()->send_message(msg, {0, 0});

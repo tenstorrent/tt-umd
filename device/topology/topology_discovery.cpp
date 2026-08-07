@@ -183,7 +183,7 @@ void TopologyDiscovery::get_connected_devices() {
                 "file descriptors.");
         } else {
             // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
-            tt_device->set_power_state(true);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(

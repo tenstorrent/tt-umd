@@ -45,7 +45,7 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         const size_t tlb_tensix_size = tt_device->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         std::unique_ptr<TLBManager> tlb_manager = std::make_unique<TLBManager>(tt_device.get());
@@ -66,6 +66,6 @@ TEST_F(ApiTLBManager, ManualTLBConfiguration) {
         TlbWindow* window = tlb_manager->get_tlb_window(any_worker_translated_core.to_pair());
         window->write_register(SAFE_IO_L1_ADDRESS, buffer_to_write.data(), buffer_to_write.size());
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

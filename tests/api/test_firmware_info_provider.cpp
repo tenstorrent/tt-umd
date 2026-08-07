@@ -81,7 +81,7 @@ public:
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         for (int pci_device_id : pci_device_ids) {
             auto tt_device = TTDevice::create(pci_device_id);
-            tt_device->set_power_state(true);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
             tt_device->init_tt_device();
             ASSERT_NE(tt_device->get_firmware_info_provider(), nullptr);
             tt_devices_.push_back(std::move(tt_device));
@@ -90,7 +90,7 @@ public:
 
     void TearDown() override {
         for (auto& tt_device : tt_devices_) {
-            tt_device->set_power_state(false);
+            tt_device->set_power_state(TTDevice::PowerState::IDLE);
         }
     }
 
@@ -823,7 +823,7 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
@@ -843,6 +843,6 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
             EXPECT_TRUE(size.has_value());
             EXPECT_TRUE(address.has_value());
         }
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

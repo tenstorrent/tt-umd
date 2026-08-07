@@ -5,43 +5,39 @@
  */
 #pragma once
 
-#include <cstddef>
 #include <cstdint>
-#include <functional>
-
-#include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
-class PCIDevice;
-
 /**
- * PcieInterface defines PCIe-specific operations beyond the basic DeviceProtocol.
+ * @brief PCIe-specific device access: BAR register I/O and NUMA topology.
  *
- * This includes BAR register access, NOC multicast writes, and direct access to the underlying
- * PCIDevice.
+ * Exposes operations that are only meaningful for PCIe-connected devices.
+ * Available from TTDevice::get_pcie_interface() when the active transport is PCIe.
  */
 class PcieInterface {
 public:
     virtual ~PcieInterface() = default;
 
-    virtual PCIDevice* get_pci_device() = 0;
-
-    virtual void dma_d2h(void* dst, uint32_t src, size_t size) = 0;
-    virtual void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) = 0;
-    virtual void dma_h2d(uint32_t dst, const void* src, size_t size) = 0;
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) = 0;
-
-    virtual void noc_multicast_write(
-        const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) = 0;
-
+    /**
+     * @brief Writes a 32-bit value to a BAR-relative device address.
+     * @param addr BAR-relative address.
+     * @param data The 32-bit value to write.
+     */
     virtual void bar_write32(uint32_t addr, uint32_t data) = 0;
+
+    /**
+     * @brief Reads a 32-bit value from a BAR-relative device address.
+     * @param addr BAR-relative address.
+     * @return uint32_t The value read.
+     */
     virtual uint32_t bar_read32(uint32_t addr) = 0;
 
-    // Sets the hang check invoked on an IO-op timeout: returns true if the in-flight NOC is hung (abort),
-    // false to continue.
-    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;
+    /**
+     * @brief Returns the NUMA node associated with this PCIe device.
+     * @return int NUMA node ID, or -1 if the system is non-NUMA.
+     */
+    virtual int get_numa_node() const = 0;
 };
 
 }  // namespace tt::umd

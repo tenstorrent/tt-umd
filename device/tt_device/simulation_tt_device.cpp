@@ -313,22 +313,6 @@ void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint6
     noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
-void SimulationTTDevice::dma_d2h(void* dst, uint32_t src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
-void SimulationTTDevice::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    UMD_THROW(error::RuntimeError, "DMA operations are not supported for simulation devices.");
-}
-
 void SimulationTTDevice::dma_multicast_write(
     void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");

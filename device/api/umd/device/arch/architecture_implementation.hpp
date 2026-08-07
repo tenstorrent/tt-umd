@@ -27,6 +27,8 @@ enum class CoreType;
 
 namespace tt::umd {
 
+class TTDevice;
+
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 
 class architecture_implementation {
@@ -116,13 +118,12 @@ public:
     // boards or when the bus id does not correspond to a known tray.
     virtual std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const { return std::nullopt; }
 
-    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address_offset(const FirmwareBundleVersion&) const {
-        return std::nullopt;
-    }
+    // Read the address/size of the firmware runtime telemetry buffer that firmware publishes for the
+    // host runtime (e.g. Metal). Each arch reads its own scratch space and applies its own firmware-version
+    // gate. Returns std::nullopt on archs or firmware versions that do not publish the buffer.
+    virtual std::optional<uint32_t> read_runtime_telemetry_buffer_address(TTDevice*) const { return std::nullopt; }
 
-    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size_offset(const FirmwareBundleVersion&) const {
-        return std::nullopt;
-    }
+    virtual std::optional<uint32_t> read_runtime_telemetry_buffer_size(TTDevice*) const { return std::nullopt; }
 };
 
 }  // namespace tt::umd

@@ -394,21 +394,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)),
     arch_impl_(architecture_implementation::create(arch)) {
-    if (iommu_enabled && kmd_version < KMD_IOMMU) {
+    if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Running with IOMMU support requires KMD version {} or newer.", KMD_IOMMU.to_string()));
-    }
-    if (kmd_version < KMD_TLBS) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string()));
-    }
-
-    if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
-        log_warning(
-            LogUMD,
-            "Running with IOMMU support prior to KMD version {} is of limited support.",
-            KMD_MAP_TO_NOC.to_string());
+            fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
     int extra_flags = 0;

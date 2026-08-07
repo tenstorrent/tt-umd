@@ -178,7 +178,7 @@ struct CoreCoord : public xy_pair {
 
     std::string str() const {
         if (coord_system == CoordSystem::LITERAL) {
-            return xy_pair{x, y}.str();
+            return to_pair().str();
         }
         std::stringstream ss;
         char shorthand = type_shorthand(core_type);

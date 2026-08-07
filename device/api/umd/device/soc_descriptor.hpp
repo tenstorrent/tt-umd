@@ -60,7 +60,7 @@ public:
     // Returns the coordinates to use for device access over the NOC identified by noc_id. Note that the returned
     // CoordSystem is not necessarily TRANSLATED — architecture-specific fixups (e.g. Wormhole DRAM/ARC/PCIe cores,
     // Blackhole ROUTER_ONLY and harvested ETH cores on NOC1) may produce NOC0/NOC1 coordinates instead.
-    xy_pair translate_chip_coord_to_translated(const CoreCoord core, const NocId noc_id) const;
+    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core, const NocId noc_id) const;
     CoreCoord translate_chip_coord_to_translated_coord(const CoreCoord core, const NocId noc_id) const;
 
     // Serialize the soc descriptor to a YAML string, or directly to a file.

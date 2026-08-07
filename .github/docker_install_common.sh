@@ -31,10 +31,11 @@ apt-get update && apt-get install -y \
     xxd \
     rpm \
     dpkg-dev \
-    fakeroot
+    fakeroot \
+    jq
 
 # Install Python dependencies
-python3 -m pip install --no-cache-dir pytest pyyaml
+python3 -m pip install --no-cache-dir pytest pyyaml tt-smi
 
 # gcc-11 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-11 > /dev/null 2>&1; then
@@ -70,3 +71,28 @@ apt install -y clang-format-20 && \
 
 # Install clang-tidy-20
 apt-get install -y clang-tidy-20
+
+# OpenSSH server for TTOP / multihost MPI workers (mpirun SSHes into this image).
+# Keep config tweaks after the apt install so openssh-server does not overwrite them.
+apt-get install -y --no-install-recommends openssh-server sudo
+if ! id -u user >/dev/null 2>&1; then
+    adduser --uid 1001 --shell /bin/bash --disabled-password --gecos "" user
+fi
+usermod -aG sudo user
+echo 'user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/user
+chmod 0440 /etc/sudoers.d/user
+mkdir -p /run/sshd
+grep -q '^StrictModes no' /etc/ssh/sshd_config || echo "StrictModes no" >> /etc/ssh/sshd_config
+
+# OpenMPI with ULFM — must match the exabox runner's launch agent path
+# (/opt/openmpi-v5.0.7-ulfm/bin/prted). Same package metal installs for multihost.
+# SHA256 pinned for supply-chain integrity of the GitHub release artifact.
+OMPI_DEB_URL="https://github.com/tenstorrent/ompi/releases/download/v5.0.7/openmpi-ulfm_5.0.7-1_amd64.deb"
+OMPI_DEB_SHA256="954e872d9105e8bf8c31368ff7a5db8670a3d549e2e7eb1ab6072cffcae7984d"
+OMPI_DEB_FILE="$(basename "$OMPI_DEB_URL")"
+OMPI_TMP="$(mktemp -d)"
+wget -q -O "${OMPI_TMP}/${OMPI_DEB_FILE}" "${OMPI_DEB_URL}"
+echo "${OMPI_DEB_SHA256}  ${OMPI_TMP}/${OMPI_DEB_FILE}" | sha256sum -c -
+apt-get install -y --no-install-recommends "${OMPI_TMP}/${OMPI_DEB_FILE}"
+rm -rf "${OMPI_TMP}"
+test -x /opt/openmpi-v5.0.7-ulfm/bin/prted

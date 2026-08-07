@@ -17,7 +17,6 @@
 
 #include "tracy.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/protocol/dma_interface.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -69,14 +68,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    bool success = tt_device_->get_dma_interface()->dma_write_zero_copy(
-        get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
-    UMD_ASSERT(
-        success,
-        error::RuntimeError,
-        fmt::format(
-            "DMA write to device failed: DMA buffer is not allocated on PCI device {}.",
-            pci_device_->get_device_num()));
+    tt_device_->dma_write_zero_copy(get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
 }
 
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
@@ -89,14 +81,7 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    bool success = tt_device_->get_dma_interface()->dma_read_zero_copy(
-        get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
-    UMD_ASSERT(
-        success,
-        error::RuntimeError,
-        fmt::format(
-            "DMA read from device failed: DMA buffer is not allocated on PCI device {}.",
-            pci_device_->get_device_num()));
+    tt_device_->dma_read_zero_copy(get_device_io_addr(offset), addr, size, core, get_selected_noc_id());
 }
 
 SysmemBuffer::~SysmemBuffer() {

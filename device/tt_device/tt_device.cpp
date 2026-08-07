@@ -811,6 +811,36 @@ void TTDevice::dma_multicast_write(
     noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
 }
 
+void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
+    ZoneScopedC(tracy::Color::MediumPurple);
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
+    }
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+
+    bool dma_success =
+        get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    if (!dma_success) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read requires a functional DMA interface.");
+    }
+}
+
+void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
+    ZoneScopedC(tracy::Color::MediumPurple);
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
+    }
+    auto pcie_dma_lock =
+        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+
+    bool dma_success =
+        get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
+    if (!dma_success) {
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write requires a functional DMA interface.");
+    }
+}
+
 void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
 
 void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) { get_pcie_interface()->dma_h2d(dst, src, size); }

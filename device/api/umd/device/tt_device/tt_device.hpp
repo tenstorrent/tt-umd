@@ -116,7 +116,6 @@ public:
 
     DeviceProtocol *get_device_protocol();
     PcieInterface *get_pcie_interface();
-    DmaInterface *get_dma_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
 
@@ -499,6 +498,32 @@ public:
         NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
+     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr source address on the target core.
+     * @param size number of bytes
+     * @param core source core coordinates
+     */
+    virtual void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr destination address on the target core.
+     * @param size number of bytes
+     * @param core target core coordinates
+     */
+    virtual void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
      * Read the training status of the given ETH core.
      *
      * @param eth_core ETH core to read the training status for.
@@ -571,6 +596,8 @@ private:
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
+
+    DmaInterface *get_dma_interface();
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;

@@ -400,6 +400,36 @@ int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* 
 int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
 
 /**
+ * @brief Allocates a driver-managed DMA buffer and maps it into the caller's
+ * address space.
+ *
+ * Unlike `tt_dma_map()`/`tt_pin_pages()`, which make caller-provided host memory
+ * accessible to the device, this asks the driver to allocate a physically
+ * contiguous buffer and returns a host mapping of it. The buffer is identified
+ * by `buf_index` and is released when the device handle is closed; the caller is
+ * responsible for calling `munmap()` on `out_mapping` with `size` bytes.
+ *
+ * @param dev Device handle
+ * @param buf_index Buffer slot in [0, TENSTORRENT_MAX_DMA_BUFS)
+ * @param size Number of bytes to allocate and map
+ * @param flags Bitmask of flags from `enum tt_dma_map_flags`; only
+ *              `TT_DMA_FLAG_NOC` is honored
+ * @param out_mapping On success, the host mapping of the buffer
+ * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
+ * @param out_noc_addr On success, the NOC address. Only valid when
+ *                     `TT_DMA_FLAG_NOC` is set. May be NULL.
+ * @return 0 on success, error code on failure
+ */
+int tt_allocate_dma_buf(
+    tt_device_t* dev,
+    uint8_t buf_index,
+    size_t size,
+    int flags,
+    void** out_mapping,
+    uint64_t* out_dma_addr,
+    uint64_t* out_noc_addr);
+
+/**
  * @brief Allocates a TLB window.
  *
  * Quantities and sizes of TLB windows vary by device architecture:

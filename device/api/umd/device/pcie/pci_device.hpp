@@ -21,11 +21,14 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+
+// Opaque handle owned by tt-kmd-lib, a private dependency. Forward-declared here
+// so this public header does not pull in (or leak) the tt-kmd-lib include path.
+struct tt_device_t;
 
 namespace tt::umd {
 class architecture_implementation;

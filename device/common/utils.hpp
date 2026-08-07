@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <thread>
@@ -184,6 +185,27 @@ inline bool check_timeout(
 constexpr bool is_arm_platform() {
 #if defined(__aarch64__) || defined(__arm__)
     return true;
+#else
+    return false;
+#endif
+}
+
+// Check whether the CPU is an Ampere custom core (AmpereOne family, implementer 0xc0).
+// Returns false for Ampere Altra (which uses ARM Neoverse N1 reference cores, implementer 0x41)
+// and for non-ARM platforms.  Reads /proc/cpuinfo once.
+inline bool is_ampereone() {
+#if defined(__aarch64__) || defined(__arm__)
+    static const bool result = [] {
+        std::ifstream f("/proc/cpuinfo");
+        std::string line;
+        while (std::getline(f, line)) {
+            if (line.find("CPU implementer") != std::string::npos && line.find("0xc0") != std::string::npos) {
+                return true;
+            }
+        }
+        return false;
+    }();
+    return result;
 #else
     return false;
 #endif

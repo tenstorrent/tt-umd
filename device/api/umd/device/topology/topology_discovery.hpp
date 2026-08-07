@@ -36,6 +36,23 @@ public:
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");
 
+    // Run topology discovery starting from an already initialized local device. This is used by
+    // backends which do not have an OS enumeration interface, but expose the same ARC/Ethernet
+    // topology information as a silicon TTDevice.
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+    discover_from_local_device(
+        std::unique_ptr<TTDevice> local_device,
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
+
+    static std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+    discover_from_local_devices(
+        std::map<ChipId, std::unique_ptr<TTDevice>> local_devices,
+        const TopologyDiscoveryOptions& options = {},
+        IODeviceType io_device_type = IODeviceType::PCIe,
+        const std::string& soc_descriptor_path = "");
+
     virtual ~TopologyDiscovery() = default;
 
 protected:
@@ -49,11 +66,19 @@ protected:
         IODeviceType io_device_type = IODeviceType::PCIe,
         const std::string& soc_descriptor_path = "");
 
+    static std::unique_ptr<TopologyDiscovery> create_topology_discovery(
+        tt::ARCH arch,
+        const TopologyDiscoveryOptions& options,
+        IODeviceType io_device_type,
+        const std::string& soc_descriptor_path);
+
     virtual tt::ARCH get_topology_arch() const = 0;
 
     std::unique_ptr<ClusterDescriptor> create_ethernet_map();
 
     void get_connected_devices();
+
+    void add_initialized_local_device(std::unique_ptr<TTDevice> tt_device);
 
     void discover_remote_devices();
 

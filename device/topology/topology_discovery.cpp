@@ -77,6 +77,14 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             UMD_THROW(error::RuntimeError, "Unsupported device type for topology discovery.");
     }
 
+    return create_topology_discovery(current_arch, options, io_device_type, soc_descriptor_path);
+}
+
+std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
+    tt::ARCH current_arch,
+    const TopologyDiscoveryOptions& options,
+    IODeviceType io_device_type,
+    const std::string& soc_descriptor_path) {
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor = nullptr;
     if (soc_descriptor_path.empty()) {
         soc_arch_descriptor = std::make_shared<SocArchDescriptor>(current_arch);
@@ -86,7 +94,7 @@ std::unique_ptr<TopologyDiscovery> TopologyDiscovery::create_topology_discovery(
             UMD_THROW(
                 error::RuntimeError,
                 fmt::format(
-                    "Architecture {} in SocArchDescriptor file on path {} does not match architecture {} on silicon.",
+                    "Architecture {} in SocArchDescriptor file on path {} does not match device architecture {}.",
                     arch_to_str(soc_arch_descriptor->get_arch()),
                     soc_descriptor_path,
                     arch_to_str(current_arch)));
@@ -138,6 +146,45 @@ std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<T
     return std::make_pair(std::move(cluster_desc), std::move(devices));
 }
 
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+TopologyDiscovery::discover_from_local_device(
+    std::unique_ptr<TTDevice> local_device,
+    const TopologyDiscoveryOptions& options,
+    IODeviceType io_device_type,
+    const std::string& soc_descriptor_path) {
+    std::map<ChipId, std::unique_ptr<TTDevice>> local_devices;
+    local_devices.emplace(0, std::move(local_device));
+    return discover_from_local_devices(std::move(local_devices), options, io_device_type, soc_descriptor_path);
+}
+
+std::pair<std::unique_ptr<ClusterDescriptor>, std::map<ChipId, std::unique_ptr<TTDevice>>>
+TopologyDiscovery::discover_from_local_devices(
+    std::map<ChipId, std::unique_ptr<TTDevice>> local_devices,
+    const TopologyDiscoveryOptions& options,
+    IODeviceType io_device_type,
+    const std::string& soc_descriptor_path) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    UMD_ASSERT(!local_devices.empty(), error::RuntimeError, "Topology discovery requires at least one local device.");
+    UMD_ASSERT(
+        local_devices.begin()->second != nullptr, error::RuntimeError, "Topology discovery received a null device.");
+
+    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+    std::unique_ptr<TopologyDiscovery> td = TopologyDiscovery::create_topology_discovery(
+        local_devices.begin()->second->get_arch(), options, io_device_type, soc_descriptor_path);
+    for (auto& [chip_id, local_device] : local_devices) {
+        td->add_initialized_local_device(std::move(local_device));
+    }
+    td->retrain_eth_cores();
+    td->discover_remote_devices();
+    std::unique_ptr<ClusterDescriptor> cluster_desc = td->fill_cluster_descriptor_info();
+
+    for (auto& [unique_id, device] : td->devices) {
+        ChipId chip_id = td->asic_id_to_chip_id[unique_id];
+        devices[chip_id] = std::move(device);
+    }
+    return std::make_pair(std::move(cluster_desc), std::move(devices));
+}
+
 bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const std::chrono::milliseconds timeout) {
     try {
         tt_device->init_tt_device(timeout);
@@ -152,6 +199,37 @@ bool TopologyDiscovery::init_device(TTDevice* tt_device, ChipId chip_id, const s
         return false;
     }
     return true;
+}
+
+void TopologyDiscovery::add_initialized_local_device(std::unique_ptr<TTDevice> tt_device) {
+    UMD_ASSERT(tt_device != nullptr, error::RuntimeError, "Cannot add a null device to topology discovery.");
+    UMD_ASSERT(
+        tt_device->get_arch() == get_topology_arch(),
+        error::RuntimeError,
+        fmt::format(
+            "Local device architecture {} does not match topology architecture {}.",
+            arch_to_str(tt_device->get_arch()),
+            arch_to_str(get_topology_arch())));
+
+    const ChipId chip_id = get_next_chip_id();
+    init_first_device(tt_device.get());
+    if (options.wait_on_ethernet_link_training) {
+        wait_eth_cores_training(tt_device.get());
+    }
+
+    const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
+    for (const CoreCoord& eth_core : soc_desc.get_cores(CoreType::ETH)) {
+        const uint64_t board_id = get_local_board_id(tt_device.get(), eth_core);
+        if (board_id != 0) {
+            board_ids.insert(board_id);
+            break;
+        }
+    }
+
+    const uint64_t asic_id = get_asic_id(tt_device.get());
+    devices_to_discover.emplace(asic_id, std::move(tt_device));
+    asic_id_to_chip_id.emplace(asic_id, chip_id);
+    log_debug(LogUMD, "Added initialized local device with ASIC ID: {}", asic_id);
 }
 
 void TopologyDiscovery::get_connected_devices() {
@@ -430,7 +508,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
 
         cluster_desc->chip_unique_ids.emplace(chip_id, current_device_asic_id);
 
-        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote()) {
+        if (io_device_type == IODeviceType::PCIe && !tt_device->is_remote() && tt_device->get_pci_device() != nullptr) {
             cluster_desc->chip_pci_bdfs.emplace(chip_id, tt_device->get_pci_device()->get_device_info().pci_bdf);
         }
 

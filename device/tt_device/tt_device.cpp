@@ -153,6 +153,31 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 
+void TTDevice::init_tt_device_for_simulation(bool preserve_soc_descriptor, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    // Quasar simulation does not expose ARC or Ethernet firmware yet. Keep initialization as a no-op until those
+    // interfaces exist; its SocDescriptor is already supplied by the simulation construction path.
+    if (arch == tt::ARCH::QUASAR) {
+        return;
+    }
+    probe_arc();
+    wait_arc_core_start(timeout_ms);
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
+    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    // Descriptor-backed simulation remotes are seeded before init and may need to preserve that
+    // topology metadata. A bootstrap device without a cluster descriptor instead reconstructs its
+    // SocDescriptor from firmware, matching silicon initialization.
+    if (!preserve_soc_descriptor || !soc_descriptor_.has_value()) {
+        std::shared_ptr<SocArchDescriptor> descriptor = soc_arch_descriptor_;
+        if (descriptor == nullptr && soc_descriptor_.has_value() &&
+            !soc_descriptor_->device_descriptor_file_path.empty()) {
+            descriptor = std::make_shared<SocArchDescriptor>(soc_descriptor_->device_descriptor_file_path);
+        }
+        construct_soc_descriptor(descriptor);
+    }
+}
+
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
     int device_number,
     IODeviceType device_type,
@@ -228,12 +253,16 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
             "Supplied SocDescriptor arch ({}) does not match the remote device arch ({}).",
             arch_to_str(soc_descriptor.arch),
             arch_to_str(arch)));
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor =
+        soc_descriptor.device_descriptor_file_path.empty()
+            ? std::make_shared<SocArchDescriptor>(soc_descriptor.arch)
+            : std::make_shared<SocArchDescriptor>(soc_descriptor.device_descriptor_file_path);
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             auto device = std::unique_ptr<WormholeTTDevice>(
-                new WormholeTTDevice(std::move(remote_communication), /*soc_arch_descriptor=*/nullptr));
-            // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
-            // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
+                new WormholeTTDevice(std::move(remote_communication), soc_arch_descriptor));
+            // Seed the simulation-backed descriptor before ARC/FW init; the later reconstruction reuses the same
+            // YAML-backed SocArchDescriptor so downstream metadata loaders keep a valid device descriptor path.
             device->set_soc_descriptor(soc_descriptor);
             return device;
         }
@@ -387,7 +416,9 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
     }
     auto result = hang_detector_->is_bus_hung(data_read);
     if (!result.has_value()) {
-        log_warning(LogUMD, "Bus hang detection is not supported for this device.");
+        if (!is_remote_tt_device) {
+            log_warning(LogUMD, "Bus hang detection is not supported for this device.");
+        }
         return false;
     }
     if (result.value()) {
@@ -625,6 +656,12 @@ uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get
 
 ChipInfo TTDevice::get_chip_info() {
     if (firmware_info_provider == nullptr) {
+        if (soc_descriptor_.has_value()) {
+            ChipInfo chip_info;
+            chip_info.noc_translation_enabled = soc_descriptor_->noc_translation_enabled;
+            chip_info.harvesting_masks = soc_descriptor_->harvesting_masks;
+            return chip_info;
+        }
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
     ChipInfo chip_info;
@@ -677,10 +714,13 @@ tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for devices without NOC translation enabled.");
+    if (!get_chip_info().noc_translation_enabled) {
+        multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
+        if (is_remote_tt_device) {
+            get_remote_communication()->wait_for_non_mmio_flush();
+        }
+        return;
+    }
     ZoneScopedC(tracy::Color::Orange);
     xy_pair translated_start = resolve_coordinate(core_start, noc_id);
     xy_pair translated_end = resolve_coordinate(core_end, noc_id);
@@ -711,10 +751,6 @@ void TTDevice::noc_multicast_write(
 }
 
 void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
         get_soc_descriptor().get_bounding_rectangle((noc_id == NocId::NOC0) ? CoordSystem::NOC0 : CoordSystem::NOC1);
     noc_multicast_write(src, size, start, end, addr, noc_id);

@@ -20,7 +20,7 @@ class PCIDevice;
  * PcieInterface defines PCIe-specific operations beyond the basic DeviceProtocol.
  *
  * This includes BAR register access, NOC multicast writes, and direct access to the underlying
- * PCIDevice. DMA transfers live in DmaInterface.
+ * PCIDevice.
  */
 class PcieInterface {
 public:

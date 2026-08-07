@@ -473,6 +473,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("soft_reset_raw_value"),
             release_gil(),
             "Set the raw soft reset register value for a core in translated coordinates. ")
+        // TODO: rename to dma_read to match TTDevice::dma_read once tt-exalens's umd_device.py (which
+        // calls this by name) is updated in lockstep.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
@@ -480,7 +482,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(buffer.data(), size, core, addr, get_selected_noc_id());
+                    self.dma_read(buffer.data(), addr, size, core, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -489,6 +491,8 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
+        // TODO: rename to dma_write to match TTDevice::dma_write once tt-exalens's umd_device.py (which
+        // calls this by name) is updated in lockstep.
         .def(
             "dma_write_to_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
@@ -496,7 +500,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_write_to_device(buffer.readable_data(), buffer.size(), core, addr, get_selected_noc_id());
+                    self.dma_write(buffer.readable_data(), addr, buffer.size(), core, get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -639,6 +643,8 @@ void bind_tt_device(nb::module_ &m) {
                     "memoryview) -> None"),
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
             "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
+        // TODO: rename to dma_read to match TTDevice::dma_read once tt-exalens's umd_device.py (which
+        // calls this by name) is updated in lockstep.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)
@@ -652,7 +658,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(data_ptr, data_size, core, addr, get_selected_noc_id());
+                    self.dma_read(data_ptr, addr, data_size, core, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),

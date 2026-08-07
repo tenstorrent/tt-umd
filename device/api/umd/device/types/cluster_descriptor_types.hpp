@@ -19,9 +19,6 @@
 namespace tt {
 
 enum BoardType : uint32_t {
-    E75,
-    E150,
-    E300,
     N150,
     N300,
     P100,
@@ -38,20 +35,17 @@ enum BoardType : uint32_t {
     UNKNOWN,
 };
 
-static_assert(E75 == 0, "E75 must be 0");
-static_assert(E150 == 1, "E150 must be 1");
-static_assert(E300 == 2, "E300 must be 2");
-static_assert(N150 == 3, "N150 must be 3");
-static_assert(N300 == 4, "N300 must be 4");
-static_assert(P100 == 5, "P100 must be 5");
-static_assert(P150 == 6, "P150 must be 6");
-static_assert(P300 == 7, "P300 must be 7");
-static_assert(GALAXY == 8, "GALAXY must be 8");
-static_assert(UBB == 9, "UBB must be 9");
-static_assert(UBB_WORMHOLE == 9, "WH_UBB must equal UBB");
-static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
-static_assert(QUASAR_BOARD == 11, "QUASAR must be 11");
-static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
+static_assert(N150 == 0, "N150 must be 0");
+static_assert(N300 == 1, "N300 must be 1");
+static_assert(P100 == 2, "P100 must be 2");
+static_assert(P150 == 3, "P150 must be 3");
+static_assert(P300 == 4, "P300 must be 4");
+static_assert(GALAXY == 5, "GALAXY must be 5");
+static_assert(UBB == 6, "UBB must be 6");
+static_assert(UBB_WORMHOLE == 6, "WH_UBB must equal UBB");
+static_assert(UBB_BLACKHOLE == 7, "BH_UBB must be 7");
+static_assert(QUASAR_BOARD == 8, "QUASAR must be 8");
+static_assert(UNKNOWN == 9, "UNKNOWN must be 9");
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.
@@ -97,9 +91,6 @@ struct EthCoord {
 // Centralized mapping from lowercase name (including aliases) to BoardType for fast lookup.
 inline const std::unordered_map<std::string_view, BoardType> board_type_name_map = {
     // Canonical forms (stored in lowercase for case-insensitive lookup).
-    {"e75", BoardType::E75},
-    {"e150", BoardType::E150},
-    {"e300", BoardType::E300},
     {"n150", BoardType::N150},
     {"n300", BoardType::N300},
     {"p100", BoardType::P100},
@@ -119,9 +110,6 @@ inline const std::unordered_map<std::string_view, BoardType> board_type_name_map
 
 // Mapping from BoardType to canonical string name (keeps historical casing like "GALAXY").
 inline const std::unordered_map<BoardType, std::string_view> board_type_canonical_name_map = {
-    {BoardType::E75, "e75"},
-    {BoardType::E150, "e150"},
-    {BoardType::E300, "e300"},
     {BoardType::N150, "n150"},
     {BoardType::N300, "n300"},
     {BoardType::P100, "p100"},

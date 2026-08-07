@@ -112,9 +112,6 @@ void bind_basic_types(nb::module_ &m) {
         .def("__invert__", [](RiscType rt) { return invert_selected_options(rt); });
 
     nb::enum_<tt::BoardType>(m, "BoardType")
-        .value("E75", tt::BoardType::E75)
-        .value("E150", tt::BoardType::E150)
-        .value("E300", tt::BoardType::E300)
         .value("N150", tt::BoardType::N150)
         .value("N300", tt::BoardType::N300)
         .value("P100", tt::BoardType::P100)

@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 
+#include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/xy_pair.hpp"
 

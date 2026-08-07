@@ -274,6 +274,12 @@ public:
     static SemVer read_kmd_version();
 
     /**
+     * Read the running Linux kernel version (from uname(2)'s release field), as major.minor.patch.
+     * The trailing distro suffix (e.g. "-91-generic") is dropped; only major/minor/patch are parsed.
+     */
+    static SemVer read_kernel_version();
+
+    /**
      * Allocate TLB resource from KMD.
      *
      * @param tlb_size Size of the TLB caller wants to allocate.
@@ -325,6 +331,32 @@ public:
      * feature.
      */
     static bool is_arch_agnostic_reset_supported();
+
+    /**
+     * Checks if exporting a TLB window as a dma-buf (TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF) is
+     * supported: requires both a KMD version that implements the ioctl and a running kernel new
+     * enough for the dma-buf infrastructure the ioctl relies on (Linux 5.8+).
+     */
+    static bool is_tlb_dmabuf_export_supported();
+
+    /**
+     * Allocate a dedicated TLB window, configure it per @p config, and export a range of it as a
+     * dma-buf file descriptor for peer-to-peer PCIe DMA (e.g. import into an RDMA NIC via
+     * ibv_reg_dmabuf_mr()). Traffic routes onto the NOC according to @p config.
+     *
+     * The returned fd is the unit of ownership and is self-sufficient: exporting pins the window
+     * and the device by refcount, so the fd stays valid after this call releases the window, and
+     * across closing this device or even device removal. The window returns to the allocation pool
+     * only once the last export on it is released. The caller owns the fd and must close() it.
+     *
+     * @param window_size Size of the TLB window to allocate; must be a size this architecture
+     *                    supports, and must be large enough to cover @p offset + @p size.
+     * @param config NOC configuration for the window. config.local_offset must be aligned to
+     *               @p window_size, since a window's NOC base is size-aligned.
+     * @param offset Page-aligned byte offset within the window at which the export begins.
+     * @param size Page-aligned byte count to export; must be nonzero.
+     */
+    int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 
     /**
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).

@@ -10,14 +10,10 @@
 #include <tuple>
 
 #include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/types/blackhole_eth.hpp"
-#include "umd/device/types/blackhole_l1.hpp"
-#include "blackhole/eth_interface.h"
-#include "blackhole/eth_l1_address_map.h"
-#include "blackhole/host_mem_address_map.h"
-#include "blackhole/l1_address_map.h"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/blackhole_l1.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"

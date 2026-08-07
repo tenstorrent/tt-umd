@@ -64,8 +64,9 @@ protected:
             DeviceData device_data;
             device_data.tt_device_ = TTDevice::create(jlink_device_id, IODeviceType::JTAG);
             device_data.tt_device_->init_tt_device();
-            device_data.tensix_core_ =
-                device_data.tt_device_->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            device_data.tensix_core_ = device_data.tt_device_->get_soc_descriptor()
+                                           .get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0]
+                                           .to_pair();
             device_data_.push_back(std::move(device_data));
         }
 
@@ -161,7 +162,7 @@ TEST_F(ApiJtagDeviceTest, JtagTranslatedCoordsTest) {
 
         ChipInfo chip_info = pci_tt_device->get_chip_info();
         tt_xy_pair tensix_core =
-            pci_tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+            pci_tt_device->get_soc_descriptor().get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0].to_pair();
 
         // clear the memory first with zeros.
         pci_tt_device->write_to_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
@@ -195,8 +196,9 @@ TEST_F(ApiJtagDeviceTest, JtagTestNoc1) {
 
     for (const auto& device : device_data_) {
         const SocDescriptor& soc_desc = device.tt_device_->get_soc_descriptor();
-        tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0];
-        tt_xy_pair test_core_noc_1 = soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1);
+        tt_xy_pair test_core_noc_0 = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::NOC0)[0].to_pair();
+        tt_xy_pair test_core_noc_1 =
+            soc_desc.translate_coord_to(test_core_noc_0, CoordSystem::NOC0, CoordSystem::NOC1).to_pair();
 
         device.tt_device_->write_to_device(
             data_write.data(), test_core_noc_0, address, data_write.size() * sizeof(uint32_t));

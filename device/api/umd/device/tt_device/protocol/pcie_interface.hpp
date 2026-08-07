@@ -13,7 +13,7 @@ namespace tt::umd {
  * @brief PCIe-specific device access: BAR register I/O and NUMA topology.
  *
  * Exposes operations that are only meaningful for PCIe-connected devices.
- * Available from @ref TTDeviceModel when the active transport is PCIe.
+ * Available from TTDevice::get_pcie_interface() when the active transport is PCIe.
  */
 class PcieInterface {
 public:

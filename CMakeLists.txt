@@ -56,6 +56,7 @@ option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" O
 option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
 option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+option(TT_UMD_BUILD_RDMA_TESTS "Enables build of tests/rdma dma-buf/RDMA smoke test binaries (requires libibverbs)" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
 option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
 option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling support" OFF)
@@ -194,6 +195,7 @@ set(_umd_summary_vars
     TT_UMD_BUILD_JTAG
     TT_UMD_BUILD_PIP
     TT_UMD_BUILD_PYTHON
+    TT_UMD_BUILD_RDMA_TESTS
     TT_UMD_BUILD_SIMULATION
     TT_UMD_BUILD_STATIC
     TT_UMD_BUILD_TESTS

@@ -28,10 +28,9 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/wormhole_l1.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
-#include "wormhole/eth_l1_address_map.h"
-#include "wormhole/l1_address_map.h"
 
 using namespace tt::umd;
 
@@ -60,7 +59,7 @@ static const std::vector<uint32_t> T6_Y_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
+        {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {
@@ -110,7 +109,7 @@ TEST(ClusterWH, HarvestingRuntime) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
             // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
             cluster.configure_tlb(
-                chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+                chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
         }
     }
 
@@ -120,7 +119,7 @@ TEST(ClusterWH, HarvestingRuntime) {
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
     for (auto chip_id : cluster.get_target_device_ids()) {
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         std::uint32_t dynamic_write_address = 0x40000000;
         for (int loop = 0; loop < 100;
              loop++) {  // Write to each core a 100 times at different statically mapped addresses
@@ -178,7 +177,7 @@ TEST(ClusterWH, UnalignedStaticTLB_RW) {
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
         cluster.configure_tlb(
-            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
     }
 
     test_utils::safe_test_cluster_start(&cluster);
@@ -188,7 +187,7 @@ TEST(ClusterWH, UnalignedStaticTLB_RW) {
         std::vector<uint8_t> write_vec(size, 0);
         std::iota(write_vec.begin(), write_vec.end(), static_cast<uint8_t>(size));
         std::vector<uint8_t> readback_vec(size, 0);
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(write_vec.data(), size, chip_id, core, address);
@@ -219,14 +218,14 @@ TEST(ClusterWH, StaticTLB_RW) {
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 1MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
         cluster.configure_tlb(
-            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            chip_id, core, tt::umd::wormhole::STATIC_TLB_SIZE, tt::umd::wormhole::NCRISC_FIRMWARE_BASE);
     }
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
-    std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
     // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
     for (int loop = 0; loop < 100; loop++) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -266,7 +265,7 @@ TEST(ClusterWH, DynamicTLB_RW) {
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = {};
 
-    std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
     // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
     for (int loop = 0; loop < 100; loop++) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -299,7 +298,7 @@ TEST(ClusterWH, DISABLED_MultiThreadedDevice) {
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::wormhole::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
@@ -343,7 +342,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
-    uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t base_addr = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
 
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
@@ -361,8 +360,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
 
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4);
+        test_utils::read_data_from_device(cluster, readback_membar_vec, 0, core, tt::umd::wormhole::L1_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
@@ -378,7 +376,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4);
+            cluster, readback_membar_vec, 0, core, tt::umd::wormhole::ERISC_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0),
             187);  // Ensure that memory barriers were correctly initialized on all ethernet cores
@@ -431,8 +429,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
     th2.join();
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
-        test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4);
+        test_utils::read_data_from_device(cluster, readback_membar_vec, 0, core, tt::umd::wormhole::L1_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers end up in the correct sate for workers
         readback_membar_vec = {};
@@ -440,7 +437,7 @@ TEST(ClusterWH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4);
+            cluster, readback_membar_vec, 0, core, tt::umd::wormhole::ERISC_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0),
             187);  // Ensure that memory barriers end up in the correct sate for ethernet cores
@@ -458,7 +455,7 @@ TEST(ClusterWH, BroadcastWrite) {
 
     test_utils::safe_test_cluster_start(&cluster);
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks in noc0 coords.
     std::set<uint32_t> rows_to_exclude = {0, 6};
     std::set<uint32_t> cols_to_exclude = {0, 5};
@@ -579,7 +576,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
     test_utils::safe_test_cluster_start(&cluster);
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
     std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
@@ -711,7 +708,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     test_utils::safe_test_cluster_start(&cluster);
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
     std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
@@ -867,7 +864,7 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
     }
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
     std::set<uint32_t> rows_to_exclude = {16, 17, 20, 22, 26, 27};
@@ -949,7 +946,7 @@ TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
     }
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
 
     // Partial range: first half of tensix columns and rows in translated coordinates.
     const tt_xy_pair core_start = {

@@ -182,6 +182,61 @@ int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs);
 int tt_driver_get_attr(tt_device_t* dev, enum tt_driver_attr attr, uint64_t* out_value);
 
 /**
+ * @brief Identifiers for a device's memory-mapped BAR resources.
+ *
+ * Each identifies one BAR resource exposed by the device in a specific caching
+ * mode (UC = uncached, WC = write-combined).
+ */
+enum tt_bar_mapping_id {
+    TT_BAR_MAPPING_UNUSED = 0,
+    TT_BAR_MAPPING_RESOURCE0_UC = 1,
+    TT_BAR_MAPPING_RESOURCE0_WC = 2,
+    TT_BAR_MAPPING_RESOURCE1_UC = 3,
+    TT_BAR_MAPPING_RESOURCE1_WC = 4,
+    TT_BAR_MAPPING_RESOURCE2_UC = 5,
+    TT_BAR_MAPPING_RESOURCE2_WC = 6,
+};
+
+/**
+ * @brief A single BAR resource mapping.
+ *
+ * `id` is `TT_BAR_MAPPING_UNUSED` when the device did not report this mapping.
+ */
+typedef struct tt_bar_mapping_t {
+    uint32_t id;   /**< Mapping identifier; see `enum tt_bar_mapping_id` */
+    uint64_t base; /**< Offset to pass to mmap() on the device file descriptor */
+    uint64_t size; /**< Size of the mapping in bytes */
+} tt_bar_mapping_t;
+
+/**
+ * @brief The set of BAR resource mappings exposed by a device.
+ *
+ * Retrieved via `tt_device_query_bar_mappings()`. Any mapping the device does
+ * not report is left zeroed, with its `id` equal to `TT_BAR_MAPPING_UNUSED`.
+ */
+typedef struct tt_bar_mappings_t {
+    tt_bar_mapping_t resource0_uc;
+    tt_bar_mapping_t resource0_wc;
+    tt_bar_mapping_t resource1_uc;
+    tt_bar_mapping_t resource1_wc;
+    tt_bar_mapping_t resource2_uc;
+    tt_bar_mapping_t resource2_wc;
+} tt_bar_mappings_t;
+
+/**
+ * @brief Query the device's BAR resource mappings.
+ *
+ * Retrieves the base offsets and sizes of the device's memory-mapped BAR
+ * resources. The returned `base` values are suitable as offsets to mmap() on
+ * the device file descriptor.
+ *
+ * @param dev Device handle
+ * @param out_mappings Populated with the device's BAR mappings on success
+ * @return 0 on success, error code on failure
+ */
+int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappings);
+
+/**
  * @brief Convenience function to read a 32-bit value from a device NOC address.
  *
  * Appropriate for reading device registers or memory.
@@ -398,6 +453,36 @@ int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* 
  * @return 0 on success, -errno code on failure.
  */
 int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
+
+/**
+ * @brief Allocates a driver-managed DMA buffer and maps it into the caller's
+ * address space.
+ *
+ * Unlike `tt_dma_map()`/`tt_pin_pages()`, which make caller-provided host memory
+ * accessible to the device, this asks the driver to allocate a physically
+ * contiguous buffer and returns a host mapping of it. The buffer is identified
+ * by `buf_index` and is released when the device handle is closed; the caller is
+ * responsible for calling `munmap()` on `out_mapping` with `size` bytes.
+ *
+ * @param dev Device handle
+ * @param buf_index Buffer slot in [0, TENSTORRENT_MAX_DMA_BUFS)
+ * @param size Number of bytes to allocate and map
+ * @param flags Bitmask of flags from `enum tt_dma_map_flags`; only
+ *              `TT_DMA_FLAG_NOC` is honored
+ * @param out_mapping On success, the host mapping of the buffer
+ * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
+ * @param out_noc_addr On success, the NOC address. Only valid when
+ *                     `TT_DMA_FLAG_NOC` is set. May be NULL.
+ * @return 0 on success, error code on failure
+ */
+int tt_allocate_dma_buf(
+    tt_device_t* dev,
+    uint8_t buf_index,
+    size_t size,
+    int flags,
+    void** out_mapping,
+    uint64_t* out_dma_addr,
+    uint64_t* out_noc_addr);
 
 /**
  * @brief Allocates a TLB window.

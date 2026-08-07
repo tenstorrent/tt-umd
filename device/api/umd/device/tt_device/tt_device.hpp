@@ -33,7 +33,6 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -126,6 +125,14 @@ public:
     enum class HangAction {
         THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * @brief Defines the requested power domain state for the device.
+     */
+    enum class PowerState {
+        BUSY,  ///< Claims all power domains, requesting maximum performance.
+        IDLE,  ///< Releases power domains, allowing the device to enter lower power states.
     };
 
     /**
@@ -371,20 +378,23 @@ public:
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**
-     * Request full power domains from KMD (busy=true) or release them (busy=false).
-     * No-op for remote devices and on KMD versions older than 2.6.0.
+     * @brief Requests a hardware power domain state change.
      *
-     * @param busy true to claim all power domains, false to release them.
+     * Claims or releases full power domains. No-op for remote devices.
+     *
+     * @param state The requested power state (BUSY or IDLE).
      */
-    virtual void set_power_state(bool busy);
+    virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
-     * and waiting for the clock to settle at the expected frequency.
+     * @brief Sets the device clock frequency.
      *
-     * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
+     * Controls the AICLK frequency the device runs at. Distinct from
+     * set_power_state(), which manages hardware power domains.
+     *
+     * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */
-    virtual void set_clock_state(DevicePowerState state);
+    virtual void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual uint32_t get_clock() = 0;
 
@@ -563,7 +573,7 @@ protected:
     // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
     // returns on timeout.
     void wait_for_aiclk_value(
-        DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
+        PowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 

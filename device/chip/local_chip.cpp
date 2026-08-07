@@ -32,11 +32,13 @@
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -50,9 +52,7 @@ std::unique_ptr<LocalChip> LocalChip::create(std::unique_ptr<TTDevice> tt_device
         UMD_THROW(error::RuntimeError, "Cannot create LocalChip without a TTDevice.");
     }
 
-    // The variables below are only needed when using PCIe.
-    // JTAG(currently the only communication protocol other than PCIe) has no use of them.
-    if (tt_device->get_pci_device() != nullptr) {
+    if (tt_device->get_communication_device_type() == IODeviceType::PCIe) {
         tlb_manager = std::make_unique<TLBManager>(tt_device.get());
         sysmem_manager = std::make_unique<SiliconSysmemManager>(tt_device.get(), num_host_mem_channels);
     }
@@ -69,7 +69,7 @@ LocalChip::LocalChip(
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     tt_device_(std::move(tt_device)) {
-    tt_device_->set_power_state(true);
+    tt_device_->set_power_state(TTDevice::PowerState::BUSY);
     wait_chip_to_be_ready();
     if (tlb_manager_ != nullptr) {
         initialize_default_chip_mutexes();
@@ -79,7 +79,7 @@ LocalChip::LocalChip(
 LocalChip::~LocalChip() {
     // Deconstruct the LocalChip in the right order.
     // TODO: Use intializers in constructor to avoid having to explicitly declare the order of destruction.
-    tt_device_->set_power_state(false);
+    tt_device_->set_power_state(TTDevice::PowerState::IDLE);
     cached_wc_tlb_window.reset();
     cached_uc_tlb_window.reset();
     sysmem_manager_.reset();
@@ -248,7 +248,7 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         l1_dest,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->write_to_device(src, translated_core, l1_dest, size, get_selected_noc_id());
@@ -275,7 +275,7 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         l1_src,
         size);
 
-    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, l1_src, size, get_selected_noc_id());
@@ -323,7 +323,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
 
     std::lock_guard<std::mutex> lock(uc_tlb_lock);
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     tlb_data config{};
     config.local_offset = reg_dest;
     config.x_end = translated_core.x;
@@ -346,7 +346,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
         UMD_THROW(error::RuntimeError, "Register address must be 4-byte aligned.");
     }
 
-    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    auto translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
 
     if (tt_device_->get_communication_device_type() != IODeviceType::PCIe) {
         tt_device_->read_from_device(dest, translated_core, reg_src, size, get_selected_noc_id());
@@ -417,6 +417,7 @@ void LocalChip::set_membar_flag(
         write_to_device(core, barrier_val_vec.data(), barrier_addr, barrier_val_vec.size() * sizeof(uint32_t));
     }
     tt_driver_atomics::sfence();  // Ensure that all writes in the Host WC buffer are flushed
+    const auto start = std::chrono::steady_clock::now();
     while (cores_synced.size() != cores.size()) {
         for (const auto& core : cores) {
             if (cores_synced.find(core) == cores_synced.end()) {
@@ -424,12 +425,23 @@ void LocalChip::set_membar_flag(
                 read_from_device(core, &readback_val, barrier_addr, sizeof(std::uint32_t));
                 if (readback_val == barrier_value) {
                     cores_synced.insert(core);
-                } else {
-                    log_trace(
-                        LogUMD,
-                        "Waiting for core {} to recieve mem bar flag {} in function",
-                        core.str(),
-                        barrier_value);
+                } else if (utils::check_timeout(start, timeout::MEMBAR_SYNC_TIMEOUT)) {
+                    // Report the value actually read. A core that answers but returns corrupted data
+                    // (e.g. a DRAM channel that trained with a dead byte lane) never converges, and the
+                    // readback is what identifies it.
+                    UMD_THROW(
+                        error::RuntimeError,
+                        fmt::format(
+                            "Memory barrier timed out after {} ms on device {} core {} at {:#x}: expected {:#x}, "
+                            "read {:#x}. {} of {} core(s) synced.",
+                            timeout::MEMBAR_SYNC_TIMEOUT.count(),
+                            tt_device_->get_communication_device_id(),
+                            core.str(),
+                            barrier_addr,
+                            barrier_value,
+                            readback_val,
+                            cores_synced.size(),
+                            cores.size()));
                 }
             }
         }
@@ -455,7 +467,7 @@ void LocalChip::l1_membar(const std::unordered_set<CoreCoord>& cores) {
         std::vector<CoreCoord> dram_to_sync = {};
 
         for (const auto& core : cores) {
-            auto core_from_soc = get_soc_descriptor().get_coord_at(core, core.coord_system);
+            auto core_from_soc = get_soc_descriptor().get_coord_at(core.to_pair(), core.coord_system);
             if (core_from_soc.core_type == CoreType::TENSIX) {
                 workers_to_sync.push_back(core);
             } else if (core_from_soc.core_type == CoreType::ETH) {
@@ -491,7 +503,7 @@ void LocalChip::dram_membar(const std::unordered_set<CoreCoord>& cores) {
     if (!cores.empty()) {
         for (const auto& core : cores) {
             UMD_ASSERT(
-                get_soc_descriptor().get_coord_at(core, core.coord_system).core_type == CoreType::DRAM,
+                get_soc_descriptor().get_coord_at(core.to_pair(), core.coord_system).core_type == CoreType::DRAM,
                 error::RuntimeError,
                 "Can only insert a DRAM Memory barrier on DRAM cores.");
         }
@@ -553,14 +565,5 @@ TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     }
 
     return cached_uc_tlb_window.get();
-}
-
-void LocalChip::noc_multicast_write(
-    const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
-    // TODO: Support other core types once needed.
-    if (core_start.core_type != CoreType::TENSIX || core_end.core_type != CoreType::TENSIX) {
-        UMD_THROW(error::RuntimeError, "noc_multicast_write is only supported for Tensix cores.");
-    }
-    tt_device_->noc_multicast_write(src, size, core_start, core_end, addr);
 }
 }  // namespace tt::umd

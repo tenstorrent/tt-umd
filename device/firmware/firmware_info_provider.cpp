@@ -753,13 +753,11 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address() const {
-    return tt_device->get_architecture_implementation()->read_runtime_telemetry_buffer_address(
-        tt_device, firmware_version);
+    return tt_device->get_architecture_implementation()->read_runtime_telemetry_buffer_address(tt_device);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size() const {
-    return tt_device->get_architecture_implementation()->read_runtime_telemetry_buffer_size(
-        tt_device, firmware_version);
+    return tt_device->get_architecture_implementation()->read_runtime_telemetry_buffer_size(tt_device);
 }
 
 }  // namespace tt::umd

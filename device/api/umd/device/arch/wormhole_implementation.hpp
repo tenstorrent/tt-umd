@@ -547,11 +547,9 @@ public:
         return static_cast<uint8_t>(std::distance(wormhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
     }
 
-    std::optional<uint32_t> read_runtime_telemetry_buffer_address(
-        TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const override;
+    std::optional<uint32_t> read_runtime_telemetry_buffer_address(TTDevice* tt_device) const override;
 
-    std::optional<uint32_t> read_runtime_telemetry_buffer_size(
-        TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const override;
+    std::optional<uint32_t> read_runtime_telemetry_buffer_size(TTDevice* tt_device) const override;
 };
 
 }  // namespace tt::umd

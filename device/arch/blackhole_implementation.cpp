@@ -12,6 +12,10 @@
 #include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/blackhole_l1.hpp"
+#include "blackhole/eth_interface.h"
+#include "blackhole/eth_l1_address_map.h"
+#include "blackhole/host_mem_address_map.h"
+#include "blackhole/l1_address_map.h"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -192,9 +196,9 @@ RiscType blackhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_
     return risc_type;
 }
 
-std::optional<uint32_t> blackhole_implementation::read_runtime_telemetry_buffer_address(
-    TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const {
+std::optional<uint32_t> blackhole_implementation::read_runtime_telemetry_buffer_address(TTDevice* tt_device) const {
     constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
+    const auto firmware_version = get_firmware_version_util(tt_device);
     if (firmware_version < min_firmware_version) {
         return std::nullopt;
     }
@@ -203,9 +207,9 @@ std::optional<uint32_t> blackhole_implementation::read_runtime_telemetry_buffer_
     return address;
 }
 
-std::optional<uint32_t> blackhole_implementation::read_runtime_telemetry_buffer_size(
-    TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const {
+std::optional<uint32_t> blackhole_implementation::read_runtime_telemetry_buffer_size(TTDevice* tt_device) const {
     constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
+    const auto firmware_version = get_firmware_version_util(tt_device);
     if (firmware_version < min_firmware_version) {
         return std::nullopt;
     }

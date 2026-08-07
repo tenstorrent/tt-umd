@@ -209,9 +209,9 @@ RiscType wormhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_r
     return risc_type;
 }
 
-std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_address(
-    TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const {
+std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_address(TTDevice* tt_device) const {
     constexpr auto min_firmware_version = FirmwareBundleVersion(19, 13, 0);
+    const auto firmware_version = get_firmware_version_util(tt_device);
     if (firmware_version < min_firmware_version) {
         return std::nullopt;
     }
@@ -220,9 +220,9 @@ std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_a
     return address;
 }
 
-std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_size(
-    TTDevice* tt_device, const FirmwareBundleVersion& firmware_version) const {
+std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_size(TTDevice* tt_device) const {
     constexpr auto min_firmware_version = FirmwareBundleVersion(19, 13, 0);
+    const auto firmware_version = get_firmware_version_util(tt_device);
     if (firmware_version < min_firmware_version) {
         return std::nullopt;
     }

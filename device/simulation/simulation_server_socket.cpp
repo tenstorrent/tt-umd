@@ -9,8 +9,12 @@
 
 #include <asio.hpp>
 #include <atomic>
+#include <charconv>
+#include <map>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 #include <vector>
@@ -324,14 +328,153 @@ SimulationServerSocket::~SimulationServerSocket() {
     // filesystem_error would call std::terminate. Cleanup is best-effort.
     std::error_code ec;
     std::filesystem::remove(socket_path_, ec);
+    // Remove the server directory once its last socket is gone. remove() only deletes an empty
+    // directory, so a multi-chip host's directory survives until the last chip's socket is torn
+    // down, and a directory that still holds other files is left alone. Guarded to our own naming
+    // so we never touch an unrelated directory.
+    const std::filesystem::path server_directory = socket_path_.parent_path();
+    std::error_code temp_ec;
+    const std::filesystem::path temp = std::filesystem::temp_directory_path(temp_ec);
+    // Only ever remove a directory we could have allocated: our naming convention AND directly under
+    // the system temp dir. A caller may bind a socket at an arbitrary path that happens to match the
+    // naming (e.g. ~/tt-umd-sim-server-0/foo.sock); the parent-path check keeps teardown from rmdir'ing
+    // that. (remove() deletes only an empty directory, so this is already narrow, but not narrow enough.)
+    if (!temp_ec && server_directory.parent_path() == temp &&
+        server_index_from_directory_path(server_directory).has_value()) {
+        std::filesystem::remove(server_directory, ec);
+    }
 }
 
-std::filesystem::path SimulationServerSocket::default_socket_path(ChipId chip_id) {
-    // One shared socket per chip per machine, under the system temp directory: the name
-    // carries no uid, so every process (any user) resolves the same path and attaches to the
-    // single host. The socket dir is assumed trusted: the path is predictable and the socket
-    // is world-writable (see bind_and_listen), so any local user can connect to or squat it.
-    return std::filesystem::temp_directory_path() / fmt::format("tt-umd-sim-{}.sock", chip_id);
+namespace {
+// Naming convention for a server directory: <temp>/tt-umd-sim-server-<index>. Kept here so the
+// prefix lives in one place, shared by allocate/list/parse below.
+constexpr std::string_view kServerDirPrefix = "tt-umd-sim-server-";
+// Backstop on the index search in allocate_server_directory(); far above any real server count.
+constexpr int kMaxServerIndex = 4096;
+}  // namespace
+
+std::filesystem::path SimulationServerSocket::allocate_server_directory() {
+    const std::filesystem::path base = std::filesystem::temp_directory_path();
+    for (int index = 0; index < kMaxServerIndex; ++index) {
+        const std::filesystem::path dir = base / fmt::format("{}{}", kServerDirPrefix, index);
+        // create_directory returns true only when it actually creates the directory (mkdir is
+        // atomic), so the winner of a race claims the index and everyone else moves on. It returns
+        // false without setting ec when the directory already exists (taken) -- move to the next
+        // index; ec is set only on a real error (e.g. permissions, read-only fs), which we surface
+        // immediately rather than spin kMaxServerIndex times hiding it behind a generic message.
+        std::error_code ec;
+        if (std::filesystem::create_directory(dir, ec)) {
+            return dir;
+        }
+        UMD_ASSERT(
+            !ec,
+            error::RuntimeError,
+            fmt::format("Failed to create simulation server directory {}: {}", dir.string(), ec.message()));
+    }
+    UMD_THROW(
+        error::RuntimeError, fmt::format("Could not allocate a simulation server directory under {}", base.string()));
+}
+
+std::map<int, std::filesystem::path> SimulationServerSocket::list_server_directories() {
+    std::map<int, std::filesystem::path> servers;
+    std::error_code ec;
+    std::filesystem::directory_iterator it(std::filesystem::temp_directory_path(), ec);
+    if (ec) {
+        return servers;
+    }
+    for (const auto& entry : it) {
+        // Skip symlinks: the temp dir is world-writable, so a symlink named tt-umd-sim-server-<index>
+        // could otherwise make an arbitrary target enumerate as a server (is_directory() follows links).
+        std::error_code sym_ec;
+        if (entry.is_symlink(sym_ec)) {
+            continue;
+        }
+        std::error_code dir_ec;
+        if (!entry.is_directory(dir_ec)) {
+            continue;
+        }
+        if (const std::optional<int> index = server_index_from_directory_path(entry.path())) {
+            servers.emplace(*index, entry.path());
+        }
+    }
+    return servers;
+}
+
+std::optional<int> SimulationServerSocket::server_index_from_directory_path(const std::filesystem::path& directory) {
+    // Inverse of allocate_server_directory()'s "tt-umd-sim-server-<index>". Kept next to it so the
+    // naming convention lives in exactly one place.
+    const std::string name = directory.filename().string();
+    if (name.size() <= kServerDirPrefix.size() || name.compare(0, kServerDirPrefix.size(), kServerDirPrefix) != 0) {
+        return std::nullopt;
+    }
+    const std::string digits = name.substr(kServerDirPrefix.size());
+    // Require a plain run of digits so e.g. "tt-umd-sim-server-x" doesn't parse.
+    if (digits.empty() || digits.find_first_not_of("0123456789") != std::string::npos) {
+        return std::nullopt;
+    }
+    try {
+        return std::stoi(digits);
+    } catch (const std::exception&) {
+        return std::nullopt;  // out of int range
+    }
+}
+
+std::filesystem::path SimulationServerSocket::default_socket_path(
+    const std::filesystem::path& server_directory, ChipId chip_id) {
+    // One shared socket per chip inside the server's directory: the name carries no uid, so every
+    // process (any user) resolves the same path and attaches to the host. The directory is assumed
+    // trusted: the path is predictable and the socket is world-writable (see bind_and_listen), so
+    // any local user can connect to or squat it.
+    return server_directory / fmt::format("tt-umd-sim-{}.sock", chip_id);
+}
+
+std::optional<ChipId> SimulationServerSocket::chip_id_from_socket_path(const std::filesystem::path& socket_path) {
+    // Inverse of default_socket_path()'s "tt-umd-sim-<chip_id>.sock". Kept next to it so the naming
+    // convention lives in exactly one place.
+    constexpr std::string_view prefix = "tt-umd-sim-";
+    constexpr std::string_view suffix = ".sock";
+    const std::string filename = socket_path.filename().string();
+    const std::string_view name = filename;
+    if (name.size() <= prefix.size() + suffix.size() || name.substr(0, prefix.size()) != prefix ||
+        name.substr(name.size() - suffix.size()) != suffix) {
+        return std::nullopt;
+    }
+    const std::string_view digits = name.substr(prefix.size(), name.size() - prefix.size() - suffix.size());
+    // Reject a leading zero (except the lone "0") so "tt-umd-sim-0.sock" and "tt-umd-sim-00.sock"
+    // can't both parse to chip 0 and silently collide in a directory listing.
+    if (digits.size() > 1 && digits.front() == '0') {
+        return std::nullopt;
+    }
+    // from_chars doesn't throw and rejects signs/whitespace/junk; require it to consume every digit.
+    int chip_id = 0;
+    const auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), chip_id);
+    if (ec != std::errc{} || ptr != digits.data() + digits.size()) {
+        return std::nullopt;
+    }
+    return static_cast<ChipId>(chip_id);
+}
+
+std::map<ChipId, std::filesystem::path> SimulationServerSocket::sockets_in_directory(
+    const std::filesystem::path& directory) {
+    std::map<ChipId, std::filesystem::path> sockets;
+    // directory_iterator(dir, ec) sets ec if the path is not a directory or cannot be read; in
+    // either case there are no per-chip sockets to report (the caller then classifies it as a host
+    // build, not a client socket directory), so return empty rather than silently proceeding.
+    std::error_code ec;
+    std::filesystem::directory_iterator it(directory, ec);
+    if (ec) {
+        return sockets;
+    }
+    for (const auto& entry : it) {
+        std::error_code sock_ec;
+        if (!entry.is_socket(sock_ec)) {
+            continue;
+        }
+        if (const std::optional<ChipId> chip_id = chip_id_from_socket_path(entry.path())) {
+            sockets.emplace(*chip_id, entry.path());
+        }
+    }
+    return sockets;
 }
 
 }  // namespace tt::umd

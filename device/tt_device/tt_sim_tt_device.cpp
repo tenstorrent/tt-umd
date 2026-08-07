@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
@@ -75,13 +74,17 @@ std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_for_chip(
         simulator_directory, soc_descriptor, chip_id, copy_sim_binary, num_host_mem_channels);
 }
 
-std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+std::unique_ptr<TTSimTTDevice> TTSimTTDevice::create_client(
+    ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info) {
     UMD_ASSERT(
         client != nullptr, error::RuntimeError, "Client-mode TTSimTTDevice requires a non-null SimulationClient.");
-    // Source the device identity from the host over the socket -- a client does not read a local
-    // simulator build.
-    const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
-    SocDescriptor soc_descriptor = build_soc_descriptor(info);
+    UMD_ASSERT(
+        device_info.status == 0,
+        error::RuntimeError,
+        fmt::format("Cannot build a client device from failed device info (status {}).", device_info.status));
+    // The connector already fetched the device identity over the socket (it needed the backend type
+    // to pick this class); build the SoC descriptor from it -- a client does not read a local build.
+    SocDescriptor soc_descriptor = build_soc_descriptor(device_info);
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
     return std::unique_ptr<TTSimTTDevice>(new TTSimTTDevice(soc_descriptor, chip_id, std::move(client)));
 }
@@ -91,19 +94,21 @@ TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor,
     ChipId chip_id,
     bool copy_sim_binary,
-    int num_host_mem_channels) :
+    int num_host_mem_channels,
+    size_t num_chips) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
-    // Pass chip_id to the communicator. If the loaded .so supports the multichip
-    // multichip ABI (libttsim_create_device_by_id + libttsim_select_device_by_id),
-    // the communicator will auto-detect at initialize() time and switch to
-    // shared-dlopen mode regardless of copy_sim_binary.
-    communicator_(
-        std::make_unique<TTSimCommunicator>(simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id))),
+    // Pass chip_id and num_chips to the communicator. If the .so supports the multichip
+    // ABI (libttsim_create_device_by_id + libttsim_select_device_by_id), the communicator
+    // auto-detects at initialize() and uses select_device_by_id. Otherwise, for a
+    // multi-chip cluster (num_chips > 1) it uses shared-dlopen BDF mode: one libttsim
+    // image addressed per-chip by PCI device. Single-chip keeps the legacy path.
+    communicator_(std::make_unique<TTSimCommunicator>(
+        simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     // Populate the base-class arch field from the soc descriptor. TTSim does not go through

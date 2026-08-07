@@ -7,7 +7,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -15,7 +17,8 @@
 namespace tt::umd {
 
 // Manages a per-chip UNIX domain socket that represents a simulated device on disk
-// ("the card"). One socket per simulated chip.
+// ("the card"). One socket per simulated chip, kept in a per-server directory
+// (allocate_server_directory) so distinct hosts on the same machine never collide.
 //
 // The socket acts as a presence indicator: if a process can bind the path it becomes the
 // host; if a live host already exists, try_create() returns nullptr so the caller
@@ -68,10 +71,39 @@ public:
 
     const std::filesystem::path& socket_path() const { return socket_path_; }
 
-    // Deterministic per-chip socket path (the naming contract a client connects to):
-    // <temp_dir>/tt-umd-sim-<chip_id>.sock, under the system temp directory. No uid in the
-    // name: one shared socket per chip that any user may attach to.
-    static std::filesystem::path default_socket_path(ChipId chip_id = 0);
+    // Claims a fresh directory for one simulation server: <temp_dir>/tt-umd-sim-server-<index>,
+    // for the lowest index not already taken. Each server owns its own directory so two hosts
+    // never collide -- even when they serve overlapping chip ids, the sockets live in different
+    // directories. The claim is atomic (create_directory fails if the name exists), so racing
+    // hosts get distinct indices. Throws if no index is free. A client is then pointed at the
+    // returned directory.
+    static std::filesystem::path allocate_server_directory();
+
+    // The simulation server directories present under the system temp dir: {index -> directory},
+    // keyed and ordered by index. This is what a caller enumerating the machine's servers scans;
+    // sockets_in_directory() then lists the chips each one serves.
+    static std::map<int, std::filesystem::path> list_server_directories();
+
+    // Inverse of allocate_server_directory()'s naming: pulls the index out of a directory *name*
+    // (tt-umd-sim-server-<index>). Returns nullopt when the name doesn't match the convention.
+    static std::optional<int> server_index_from_directory_path(const std::filesystem::path& directory);
+
+    // Deterministic per-chip socket path inside a server directory (the naming contract a client
+    // connects to): <server_directory>/tt-umd-sim-<chip_id>.sock. No uid in the name: one shared
+    // socket per chip that any user may attach to.
+    static std::filesystem::path default_socket_path(const std::filesystem::path& server_directory, ChipId chip_id = 0);
+
+    // Inverse of default_socket_path()'s naming: pulls the chip id out of a socket file *name*
+    // (tt-umd-sim-<chip_id>.sock). Returns nullopt when the name doesn't match the convention, so a
+    // client enumerating a directory can pick out exactly the per-chip simulation sockets.
+    static std::optional<ChipId> chip_id_from_socket_path(const std::filesystem::path& socket_path);
+
+    // The per-chip simulation sockets present in a directory: {chip_id -> socket file}, keyed and
+    // ordered by chip id. Only AF_UNIX sockets whose names match the default_socket_path()
+    // convention are included; everything else in the directory is ignored. Empty if the path is
+    // not a directory or holds no such sockets. This is how a client turns a socket directory into
+    // the set of hosts to attach to.
+    static std::map<ChipId, std::filesystem::path> sockets_in_directory(const std::filesystem::path& directory);
 
 private:
     // Non-throwing; only initializes members. Binding happens in bind_and_listen(), driven by

@@ -54,6 +54,8 @@ void RtlSimTlbHandle::configure(const tlb_data& new_config) {
     // These fields are not used for RTL sim.
     tlb_config_.ordering = 0;
     tlb_config_.static_vc = 0;
+    tlb_config_.static_vc_buddy = 0;
+    tlb_config_.static_vc_class = 0;
 
     log_debug(
         LogUMD,

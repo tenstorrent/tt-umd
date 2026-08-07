@@ -8,9 +8,31 @@
 #include <string>
 #include <utility>
 
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+void set_static_vc(tlb_data &config, tt::ARCH arch, TlbVcDirection direction) {
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+        case tt::ARCH::QUASAR:
+            // Buddy/class are configurable; pin them by direction so reads (buddy=1) and writes
+            // (buddy=0) never share a static VC. Multicast requests must use class 0b10.
+            config.static_vc = 1;
+            config.static_vc_buddy = (direction == TlbVcDirection::UnicastRead) ? 1 : 0;
+            config.static_vc_class = (direction == TlbVcDirection::MulticastWrite) ? 0b10 : 0b00;
+            break;
+        case tt::ARCH::WORMHOLE_B0:
+            // The Wormhole PCIe tile hardwires buddy/class (buddy=0 writes, buddy=1 reads,
+            // class 0b10 multicast, 0b00 unicast) regardless of config, so only enable static_vc.
+            config.static_vc = 1;
+            break;
+        default:
+            config.static_vc = 0;
+            break;
+    }
+}
 
 bool tlb_data::check(const tlb_offsets &offset) const {
     return (local_offset > ((1ULL << (offset.x_end - offset.local_offset)) - 1)) |
@@ -22,7 +44,9 @@ bool tlb_data::check(const tlb_offsets &offset) const {
            (mcast > ((1ULL << (offset.ordering - offset.mcast)) - 1)) |
            (ordering > ((1ULL << (offset.linked - offset.ordering)) - 1)) |
            (linked > ((1ULL << (offset.static_vc - offset.linked)) - 1)) |
-           (static_vc > ((1ULL << (offset.static_vc_end - offset.static_vc)) - 1));
+           (static_vc > ((1ULL << (offset.static_vc_end - offset.static_vc)) - 1)) |
+           (static_vc_buddy > ((1ULL << (offset.static_vc_class - offset.static_vc_buddy)) - 1)) |
+           (static_vc_class > ((1ULL << (offset.static_vc_class_end - offset.static_vc_class)) - 1));
 }
 
 // Helper lambda to handle bit packing.
@@ -56,6 +80,8 @@ std::pair<std::uint64_t, std::uint64_t> tlb_data::apply_offset(const tlb_offsets
     pack_bits(lower, upper, ordering, offset.ordering);
     pack_bits(lower, upper, linked, offset.linked);
     pack_bits(lower, upper, static_vc, offset.static_vc);
+    pack_bits(lower, upper, static_vc_buddy, offset.static_vc_buddy);
+    pack_bits(lower, upper, static_vc_class, offset.static_vc_class);
 
     return std::make_pair(lower, upper);
 }

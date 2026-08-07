@@ -138,6 +138,7 @@ protected:
         tt_xy_pair core_end,
         NocId noc_id,
         uint64_t ordering,
+        TlbVcDirection direction,
         bool mcast = false,
         tt_xy_pair core_start = {}) const;
 

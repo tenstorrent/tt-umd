@@ -197,7 +197,7 @@ tlb_data PcieProtocol::create_dma_tlb_config(
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+    // static_vc is pinned by direction in dma_transfer() via set_static_vc().
     if (core_start) {
         config.x_start = core_start->x;
         config.y_start = core_start->y;
@@ -214,6 +214,14 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
         return false;
     }
+
+    // For DMA the TLB direction matches the data-flow direction: H2D writes into the device tile,
+    // D2H reads from it. Pin the static VC accordingly so reads and writes stay on separate VCs.
+    const TlbVcDirection vc_direction =
+        (direction == DmaDirection::H2D)
+            ? (config.mcast ? TlbVcDirection::MulticastWrite : TlbVcDirection::UnicastWrite)
+            : TlbVcDirection::UnicastRead;
+    set_static_vc(config, pci_device_->get_arch(), vc_direction);
 
     uint8_t* buf = static_cast<uint8_t*>(buffer);
     size_t dmabuf_size = dma_buffer.size;

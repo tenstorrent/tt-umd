@@ -179,7 +179,7 @@ void TTSimTTDevice::initialize_backend() {
         size_t nch = sysmem_manager_->get_num_host_mem_channels();
         for (size_t ch = 0; ch < nch; ch++) {
             HugepageMapping m = sysmem_manager_->get_hugepage_mapping(ch);
-            configure_iatu_region(ch, m.physical_address, m.mapping_size);
+            TTSimTTDevice::configure_iatu_region(ch, m.physical_address, m.mapping_size);
         }
     }
 }

@@ -186,8 +186,7 @@ void TTSimTTDevice::initialize_backend() {
         const uint64_t arena_offset = sim_mgr->get_mapped_arena_offset();
         const uint64_t arena_size = sim_mgr->get_mapped_arena_size();
         if (arena_size > 0) {
-            configure_iatu_region_at(
-                nch, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
+            configure_iatu_region_at(nch, arena_offset, sim_mgr->get_host_base() + arena_offset, arena_size);
         }
     }
 }
@@ -379,8 +378,7 @@ void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t
     configure_iatu_region_at(region, uint64_t(region) * CHANNEL_STRIDE, target, region_size);
 }
 
-void TTSimTTDevice::configure_iatu_region_at(
-    size_t region, uint64_t base, uint64_t target, size_t region_size) {
+void TTSimTTDevice::configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size) {
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue
     // the same register sequence through the simulator's BAR2 MMIO path; the sim decodes it into the

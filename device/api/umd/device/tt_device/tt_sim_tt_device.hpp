@@ -107,8 +107,7 @@ protected:
     void after_read() override;
 
 private:
-    void configure_iatu_region_at(
-        size_t region, uint64_t base, uint64_t target, size_t region_size);
+    void configure_iatu_region_at(size_t region, uint64_t base, uint64_t target, size_t region_size);
 
     // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
     // coordinate; returns true when the access was serviced against the backend DRAM model. These

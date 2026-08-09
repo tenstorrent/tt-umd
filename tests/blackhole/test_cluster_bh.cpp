@@ -16,14 +16,13 @@
 #include <unordered_set>
 #include <vector>
 
-#include "blackhole/eth_l1_address_map.h"
-#include "blackhole/l1_address_map.h"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/setup_risc_cores.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/types/blackhole_l1.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -36,7 +35,7 @@ constexpr std::uint32_t DRAM_BARRIER_BASE = 0;
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
-        {l1_mem::address_map::L1_BARRIER_BASE, eth_l1_mem::address_map::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
+        {tt::umd::blackhole::L1_BARRIER_BASE, tt::umd::blackhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
 TEST(ClusterBH, CreateDestroy) {
@@ -61,7 +60,7 @@ TEST(ClusterBH, UnalignedStaticTLB_RW) {
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
         cluster.configure_tlb(
-            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, tt::umd::blackhole::NCRISC_FIRMWARE_BASE);
     }
 
     test_utils::safe_test_cluster_start(&cluster);
@@ -71,7 +70,7 @@ TEST(ClusterBH, UnalignedStaticTLB_RW) {
         std::vector<uint8_t> write_vec(size, 0);
         std::iota(write_vec.begin(), write_vec.end(), static_cast<uint8_t>(size));
         std::vector<uint8_t> readback_vec(size, 0);
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::blackhole::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 50; loop++) {
             for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(write_vec.data(), size, chip_id, core, address);
@@ -102,14 +101,14 @@ TEST(ClusterBH, StaticTLB_RW) {
     for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
         // Statically mapping a 2MB TLB to this core, starting from address NCRISC_FIRMWARE_BASE.
         cluster.configure_tlb(
-            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, l1_mem::address_map::NCRISC_FIRMWARE_BASE);
+            chip_id, core, tt::umd::blackhole::STATIC_TLB_SIZE, tt::umd::blackhole::NCRISC_FIRMWARE_BASE);
     }
 
     std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     std::vector<uint32_t> readback_vec = {};
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     // Check functionality of Static TLBs by reading adn writing from statically mapped address space.
-    std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    std::uint32_t address = tt::umd::blackhole::NCRISC_FIRMWARE_BASE;
     // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
     for (int loop = 0; loop < 100; loop++) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -149,7 +148,7 @@ TEST(ClusterBH, DynamicTLB_RW) {
     std::vector<uint32_t> zeros = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     std::vector<uint32_t> readback_vec = {};
 
-    std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+    std::uint32_t address = tt::umd::blackhole::NCRISC_FIRMWARE_BASE;
     // Stress-test TLB stability by exercising one chip 100 times at different statically mapped addresses.
     for (int loop = 0; loop < 100; loop++) {
         for (const CoreCoord& core : sdesc.get_cores(CoreType::TENSIX)) {
@@ -208,7 +207,7 @@ TEST(ClusterBH, DISABLED_MultiThreadedDevice) {
     std::thread th1 = std::thread([&] {
         std::vector<uint32_t> vector_to_write = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
         std::vector<uint32_t> readback_vec = {};
-        std::uint32_t address = l1_mem::address_map::NCRISC_FIRMWARE_BASE;
+        std::uint32_t address = tt::umd::blackhole::NCRISC_FIRMWARE_BASE;
         for (int loop = 0; loop < 100; loop++) {
             for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
                 cluster.write_to_device(
@@ -252,7 +251,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
     // We want to make sure the memory barrier is thread/process safe.
 
     // Memory barrier flags get sent to address 0 for all channels in this test.
-    uint32_t base_addr = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t base_addr = tt::umd::blackhole::DATA_BUFFER_SPACE_BASE;
     auto cluster_ptr = test_utils::make_default_test_cluster();
     Cluster& cluster = *cluster_ptr;
     set_barrier_params(cluster);
@@ -268,7 +267,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
     std::vector<uint32_t> readback_membar_vec = {};
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4);
+            cluster, readback_membar_vec, 0, core, tt::umd::blackhole::L1_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers were correctly initialized on all workers
         readback_membar_vec = {};
@@ -284,7 +283,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4);
+            cluster, readback_membar_vec, 0, core, tt::umd::blackhole::ERISC_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0),
             187);  // Ensure that memory barriers were correctly initialized on all ethernet cores
@@ -338,7 +337,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::TENSIX)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, l1_mem::address_map::L1_BARRIER_BASE, 4);
+            cluster, readback_membar_vec, 0, core, tt::umd::blackhole::L1_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0), 187);  // Ensure that memory barriers end up in the correct sate for workers
         readback_membar_vec = {};
@@ -346,7 +345,7 @@ TEST(ClusterBH, MultiThreadedMemBar) {
 
     for (const CoreCoord& core : cluster.get_soc_descriptor(0).get_cores(CoreType::ETH)) {
         test_utils::read_data_from_device(
-            cluster, readback_membar_vec, 0, core, eth_l1_mem::address_map::ERISC_BARRIER_BASE, 4);
+            cluster, readback_membar_vec, 0, core, tt::umd::blackhole::ERISC_BARRIER_BASE, 4);
         ASSERT_EQ(
             readback_membar_vec.at(0),
             187);  // Ensure that memory barriers end up in the correct sate for ethernet cores
@@ -459,7 +458,7 @@ TEST(ClusterBH, VirtualCoordinateBroadcast) {
     test_utils::safe_test_cluster_start(&cluster);
 
     std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    uint32_t address = l1_mem::address_map::DATA_BUFFER_SPACE_BASE;
+    uint32_t address = tt::umd::blackhole::DATA_BUFFER_SPACE_BASE;
     // For BH the broadcast falls back to a per-chip SW loop. Exclude DRAM translated cols (17, 18) plus a couple of
     // tensix rows/cols (translated cols 1..7, 10..16; rows 2..11) for selective filtering.
     std::set<uint32_t> rows_to_exclude = {4, 6};

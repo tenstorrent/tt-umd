@@ -22,6 +22,9 @@ static constexpr uint32_t POSTCODE_ETH_INIT_CODE_NOT_FOUND = 0xC0DEFFFF;
 
 static constexpr uint32_t NUM_SERDES_LANES = 8;
 
+// Note, ETH FW version is not in the same format as WH. Taken from ETH_FW_MAJOR_ADDR.
+static constexpr uint32_t ETH_FW_VERSION_ADDR = 0x7CFBE;
+
 typedef enum {
     LINK_TRAIN_TRAINING,
     LINK_TRAIN_SKIP,

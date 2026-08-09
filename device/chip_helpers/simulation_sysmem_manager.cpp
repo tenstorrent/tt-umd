@@ -172,6 +172,14 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         const uint64_t arena_offset = align_up(registry_->next_arena_offset, page_size);
+        UMD_ASSERT(
+            arena_offset <= DEVICE_IO_WINDOW_SIZE && mapped_size <= DEVICE_IO_WINDOW_SIZE - arena_offset,
+            error::RuntimeError,
+            fmt::format(
+                "Simulation mapped-buffer arena exhausted: offset 0x{:x}, size 0x{:x}, window size 0x{:x}.",
+                arena_offset,
+                mapped_size,
+                DEVICE_IO_WINDOW_SIZE));
         registry_->next_arena_offset = arena_offset + mapped_size;
         device_io_addr = pcie_base_ + arena_offset;
         registry_->buffers.push_back({device_io_addr, buffer, sysmem_buffer_size});

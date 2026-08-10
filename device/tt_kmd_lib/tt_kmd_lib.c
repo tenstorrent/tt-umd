@@ -686,7 +686,7 @@ int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint6
      * runs past the end of the window. */
     const uint64_t page_size = (uint64_t)getpagesize();
     if (offset > tlb->size || (offset % page_size) != 0 || size == 0 || (size % page_size) != 0 ||
-        (offset + size) > tlb->size) {
+        size > (tlb->size - offset)) {
         return -EINVAL;
     }
 

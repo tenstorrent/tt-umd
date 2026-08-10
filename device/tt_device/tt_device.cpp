@@ -247,7 +247,7 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
 
 architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
-// The nullptr check for capabilities in the APIs get_pci_device, get_jtag_device and get_remote_communication
+// The nullptr check for capabilities in the APIs get_pci_device and get_remote_communication
 // exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
 // Throwing an exception would break existing behavior and require significant changes across client code.
 // This approach is intended as a temporary measure until the API is updated to use tl::expected or std::optional,
@@ -257,13 +257,6 @@ PCIDevice *TTDevice::get_pci_device() {
         return nullptr;
     }
     return get_pcie_interface()->get_pci_device();
-}
-
-JtagDevice *TTDevice::get_jtag_device() {
-    if (!jtag_capabilities_) {
-        return nullptr;
-    }
-    return get_jtag_interface()->get_jtag_device();
 }
 
 RemoteCommunication *TTDevice::get_remote_communication() {

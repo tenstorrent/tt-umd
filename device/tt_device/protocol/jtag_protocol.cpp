@@ -40,6 +40,8 @@ bool JtagProtocol::write_to_core_range(const void*, tt_xy_pair, tt_xy_pair, uint
 
 int JtagProtocol::get_mmio_id() { return mmio_id_; }
 
-JtagDevice* JtagProtocol::get_jtag_device() { return jtag_device_.get(); }
+void JtagProtocol::mmio_write32(uint32_t addr, uint32_t data) { jtag_device_->write32_axi(mmio_id_, addr, data); }
+
+uint32_t JtagProtocol::mmio_read32(uint32_t addr) { return jtag_device_->read32_axi(mmio_id_, addr).value(); }
 
 }  // namespace tt::umd

@@ -6,6 +6,9 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+
+#include "umd/device/types/noc_id.hpp"
 
 namespace tt::umd {
 
@@ -38,6 +41,19 @@ public:
      * @return int NUMA node ID, or -1 if the system is non-NUMA.
      */
     virtual int get_numa_node() const = 0;
+
+    /**
+     * @brief Registers the callback consulted on an IO-op timeout to distinguish a hung NOC from a
+     * slow one.
+     *
+     * Temporary: this is an implementation detail rather than
+     * something the Base API spec should own. It lives here only until we align api
+     * with TTDeviceModel; move/remove it at that point.
+     *
+     * @param hang_check Callback invoked with the NOC id of the in-flight op; an empty callback
+     * disables hang detection.
+     */
+    virtual void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) = 0;
 };
 
 }  // namespace tt::umd

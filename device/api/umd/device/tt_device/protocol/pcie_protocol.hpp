@@ -56,6 +56,7 @@ public:
     void bar_write32(uint32_t addr, uint32_t data) override;
     uint32_t bar_read32(uint32_t addr) override;
     int get_numa_node() const override;
+    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
 
     // DmaInterface.
     [[nodiscard]] bool dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;
@@ -72,7 +73,7 @@ public:
 
     // Not part of any Base API interface: internal PCIe plumbing reached by TTDevice via the
     // concrete PcieProtocol rather than through PcieInterface/DmaInterface.
-    void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check);
+    // TODO: delete this along with TTDevice::get_pci_device() once callers go through PcieInterface only.
     PCIDevice* get_pci_device();
 
 private:

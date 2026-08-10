@@ -119,7 +119,7 @@ private:
      * Throws an exception if the range is out of bounds.
      *
      * @param offset Offset to validate.
-     * @param size Size of the range starting at offset to validate. Defaults to 0, i.e. just the offset itself.
+     * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
      */
     void validate(const size_t offset, const size_t size = 0) const;
 

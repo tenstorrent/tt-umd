@@ -123,9 +123,9 @@ void SysmemBuffer::validate(const size_t offset, const size_t size) const {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
-                "Range [{:#x}, {:#x}) is out of bounds for SysmemBuffer of size {:#x}",
+                "Range starting at {:#x} with size {:#x} is out of bounds for SysmemBuffer of size {:#x}",
                 offset,
-                offset + size,
+                size,
                 buffer_size_));
     }
 }

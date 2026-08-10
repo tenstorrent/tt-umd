@@ -1004,6 +1004,8 @@ bool PCIDevice::is_tlb_dmabuf_export_supported() {
            PCIDevice::read_kernel_version() >= MIN_KERNEL_TLB_DMABUF_EXPORT;
 }
 
+// Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
+// EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
 int PCIDevice::export_tlb_dmabuf(
     const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
     UMD_ASSERT(
@@ -1017,8 +1019,6 @@ int PCIDevice::export_tlb_dmabuf(
             read_kmd_version().str(),
             read_kernel_version().str()));
 
-    // This follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
-    // EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
     tt_tlb_t *tlb = nullptr;
     int ret = tt_tlb_alloc(tt_device_handle, window_size, TT_MMIO_CACHE_MODE_WC, &tlb);
     if (ret != 0) {

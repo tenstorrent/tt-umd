@@ -178,6 +178,57 @@ public:
     virtual void write_to_device_reg(
         const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
+    virtual void dma_write_to_device(
+        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+
+    virtual void dma_read_from_device(
+        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(
+        void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr source address on the target core.
+     * @param size number of bytes
+     * @param core source core coordinates
+     */
+    virtual void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr destination address on the target core.
+     * @param size number of bytes
+     * @param core target core coordinates
+     */
+    virtual void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
      * of cores. Ideally cores should be in translated coordinate system. Putting cores in translated coordinate systems
@@ -439,58 +490,7 @@ public:
     virtual std::unique_ptr<TlbWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
-    virtual void dma_write_to_device(
-        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-
-    virtual void dma_read_from_device(
-        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-
     static void set_sigbus_safe_handler(bool set_safe_handler);
-
-    /**
-     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
-     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
-     * translated coordinate system so that the write lands on the intended cores.
-     *
-     * @param src pointer to memory from which the data is sent
-     * @param size number of bytes
-     * @param core_start starting core coordinates (x,y) of the multicast write
-     * @param core_end ending core coordinates (x,y) of the multicast write
-     * @param addr address on the device where data will be written
-     */
-    virtual void dma_multicast_write(
-        void *src,
-        size_t size,
-        CoreCoord core_start,
-        CoreCoord core_end,
-        uint64_t addr,
-        NocId noc_id = NocId::DEFAULT_NOC);
-
-    /**
-     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
-     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
-     * DMA is unavailable.
-     *
-     * @param dst_iova IOVA of the destination pinned host memory buffer.
-     * @param src_addr source address on the target core.
-     * @param size number of bytes
-     * @param core source core coordinates
-     */
-    virtual void dma_read_zero_copy(
-        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
-
-    /**
-     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
-     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
-     * DMA is unavailable.
-     *
-     * @param src_iova IOVA of the source pinned host memory buffer.
-     * @param dst_addr destination address on the target core.
-     * @param size number of bytes
-     * @param core target core coordinates
-     */
-    virtual void dma_write_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Read the training status of the given ETH core.

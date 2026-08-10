@@ -245,7 +245,7 @@ TEST_F(TestFirmwareInfoProvider, EthFirmwareVersion) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        std::optional<SemVer> eth_fw_version_semver = fw_info->get_eth_fw_version_semver();
+        std::optional<SemVer> eth_fw_version_semver = fw_info->get_eth_fw_version();
 
         log_info(
             tt::LogUMD,

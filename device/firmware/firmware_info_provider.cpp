@@ -352,12 +352,8 @@ uint64_t FirmwareInfoProvider::get_board_id() const {
     return (static_cast<uint64_t>(high) << 32) | low;
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
-    return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
-}
-
-std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    auto tag_value = get_eth_fw_version();
+std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version() const {
+    auto tag_value = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
     if (!tag_value.has_value()) {
         return std::nullopt;
     }

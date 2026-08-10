@@ -822,7 +822,7 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
     bool dma_success =
         get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
-        UMD_THROW(error::RuntimeError, "DMA zero-copy read requires a functional DMA interface.");
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read failed: no DMA buffer allocated for this device.");
     }
 }
 
@@ -837,7 +837,7 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     bool dma_success =
         get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
-        UMD_THROW(error::RuntimeError, "DMA zero-copy write requires a functional DMA interface.");
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
 }
 

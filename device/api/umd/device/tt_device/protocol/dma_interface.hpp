@@ -21,8 +21,6 @@ namespace tt::umd {
  *   unavailable, letting the caller fall back.
  * - Zero-copy: operates directly on caller-managed pinned memory identified by IOVA, bypassing
  *   the staging buffer.
- *
- * All core coordinates are tt_xy_pair: raw (x, y) with no translation.
  */
 class DmaInterface {
 public:

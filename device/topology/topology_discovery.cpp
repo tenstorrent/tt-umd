@@ -573,10 +573,8 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
     const tt::ARCH arch = tt_device->get_arch();
     first_fw_bundle_version = fw_bundle_version;
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
-    FirmwareBundleVersion minimum_compatible_fw_bundle_version =
-        FirmwareInfoProvider::get_minimum_compatible_firmware_version(arch);
-    FirmwareBundleVersion latest_supported_fw_bundle_version =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
+    FirmwareBundleVersion minimum_compatible_fw_bundle_version = get_minimum_compatible_firmware_version(arch);
+    FirmwareBundleVersion latest_supported_fw_bundle_version = get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
         "System firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",

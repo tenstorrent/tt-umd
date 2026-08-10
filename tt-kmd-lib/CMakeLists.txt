@@ -5,7 +5,8 @@
 cmake_minimum_required(VERSION 3.25)
 
 # Allow tt-kmd-lib to be built on its own, not only via add_subdirectory().
-if(NOT DEFINED PROJECT_NAME)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    cmake_minimum_required(VERSION 3.25)
     project(tt-kmd-lib DESCRIPTION "Tenstorrent kernel-mode driver userspace library" LANGUAGES C)
     include(GNUInstallDirs)
 endif()

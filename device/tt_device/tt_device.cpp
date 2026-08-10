@@ -275,30 +275,27 @@ RemoteCommunication *TTDevice::get_remote_communication() {
     return get_remote_interface()->get_remote_communication();
 }
 
-void TTDevice::set_power_state(bool busy) {
+void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     if (is_remote_tt_device || !pcie_capabilities_) {
         return;
     }
-    get_pci_device()->set_power_state(busy);
+    get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
 }
 
-void TTDevice::set_clock_state(DevicePowerState /*state*/) {
+void TTDevice::set_clock_state(TTDevice::PowerState /*state*/, NocId /*noc_id*/) {
     // No-op by default. Backends with a controllable clock (Wormhole, Blackhole) override this to
     // drive AICLK via ARC; backends without one (e.g. simulation) keep the no-op.
 }
 
-void TTDevice::wait_for_aiclk_value(DevicePowerState power_state, const std::chrono::milliseconds timeout_ms) {
+void TTDevice::wait_for_aiclk_value(TTDevice::PowerState power_state, const std::chrono::milliseconds timeout_ms) {
     uint32_t target_aiclk = 0;
     switch (power_state) {
-        case DevicePowerState::BUSY:
+        case TTDevice::PowerState::BUSY:
             target_aiclk = get_max_clock_freq();
             break;
-        case DevicePowerState::LONG_IDLE:
+        case TTDevice::PowerState::IDLE:
             target_aiclk = get_min_clock_freq();
             break;
-        case DevicePowerState::SHORT_IDLE:
-            log_warning(LogUMD, "Skipping AICLK settle wait for SHORT_IDLE clock state.");
-            return;
         default:
             UMD_THROW(error::RuntimeError, "Invalid power state specified for AICLK wait.");
     }
@@ -822,7 +819,7 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
     bool dma_success =
         get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
-        UMD_THROW(error::RuntimeError, "DMA zero-copy read requires a functional DMA interface.");
+        UMD_THROW(error::RuntimeError, "DMA zero-copy read failed: no DMA buffer allocated for this device.");
     }
 }
 
@@ -837,7 +834,7 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     bool dma_success =
         get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (!dma_success) {
-        UMD_THROW(error::RuntimeError, "DMA zero-copy write requires a functional DMA interface.");
+        UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
 }
 

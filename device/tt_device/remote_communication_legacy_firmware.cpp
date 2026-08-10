@@ -173,8 +173,9 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     uint32_t offset = 0;
     uint32_t block_size;
 
-    auto start = std::chrono::steady_clock::now();
     while (offset < size_in_bytes) {
+        // A completed queue wait is progress; do not charge subsequent blocks against this timeout interval.
+        auto start = std::chrono::steady_clock::now();
         while (full) {
             local_tt_device_->read_from_device(
                 erisc_q_rptr.data(),
@@ -184,6 +185,8 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
                 DATA_WORD_SIZE,
                 get_selected_noc_id());
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_rptr[0]);
+
+            utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
         }
 
         uint32_t req_wr_ptr = erisc_q_ptrs[0] & eth_interface_params.cmd_buf_size_mask;
@@ -268,6 +271,7 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         // 4. complete operation and write data into response or buffer
         // 5. set response flags
         // So we have to wait for wrptr to advance, then wait for flags to be nonzero, then read data.
+        start = std::chrono::steady_clock::now();
         do {
             local_tt_device_->read_from_device(
                 erisc_resp_q_wptr.data(),
@@ -281,6 +285,8 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
         tt_driver_atomics::lfence();
         uint32_t flags_offset = 12 + sizeof(routing_cmd_t) * resp_rd_ptr;
         std::vector<std::uint32_t> erisc_resp_flags = std::vector<uint32_t>(1);
+        // The response queue advanced, so begin a new stall interval while the firmware finishes the response.
+        start = std::chrono::steady_clock::now();
         do {
             local_tt_device_->read_from_device(
                 erisc_resp_flags.data(),
@@ -424,9 +430,9 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     erisc_q_rptr.resize(1);
     erisc_q_rptr[0] = erisc_q_ptrs[4];
 
-    auto start = std::chrono::steady_clock::now();
-
     while (offset < size_in_bytes) {
+        // Only time a lack of queue progress, not time spent transferring earlier blocks.
+        auto start = std::chrono::steady_clock::now();
         while (full) {
             local_tt_device_->read_from_device(
                 erisc_q_rptr.data(),
@@ -584,8 +590,6 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
             full = is_non_mmio_cmd_q_full(eth_interface_params, erisc_q_ptrs[0], erisc_q_ptrs[4]);
             erisc_q_rptr[0] = erisc_q_ptrs[4];
         }
-
-        utils::check_timeout(start, timeout_ms, "Timeout waiting for Ethernet core service remote IO request.");
     }
 }
 
@@ -603,10 +607,10 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
             std::vector<std::uint32_t> erisc_q_ptrs =
                 std::vector<uint32_t>(eth_interface_params.remote_update_ptr_size_bytes * 2 / sizeof(uint32_t));
 
-            auto start_time = std::chrono::steady_clock::now();
-
             // wait for all queues to be empty.
             for (tt_xy_pair& core : remote_transfer_eth_cores_) {
+                // Each core is an independent progress boundary.
+                auto start_time = std::chrono::steady_clock::now();
                 do {
                     local_tt_device_->read_from_device(
                         erisc_q_ptrs.data(),
@@ -621,6 +625,8 @@ void RemoteCommunicationLegacyFirmware::wait_for_non_mmio_flush(const std::chron
             }
             // wait for all write responses to come back.
             for (tt_xy_pair& core : remote_transfer_eth_cores_) {
+                // Queue drain is progress; give response drain its own bounded interval for each core.
+                auto start_time = std::chrono::steady_clock::now();
                 do {
                     local_tt_device_->read_from_device(
                         erisc_txn_counters.data(),

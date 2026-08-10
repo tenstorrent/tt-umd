@@ -56,14 +56,6 @@ set_target_properties(
 # Note: Requires TT_ENABLE_UNITY_BUILD function from parent project 
 if(COMMAND TT_ENABLE_UNITY_BUILD)
     tt_enable_unity_build(tt-umd)
-    # Exclude files that cause ODR violations due to conflicting eth_interface.h headers 
-    set_source_files_properties(
-        arch/wormhole_implementation.cpp
-        arch/blackhole_implementation.cpp
-        PROPERTIES
-            SKIP_UNITY_BUILD_INCLUSION
-                ON
-    )
 endif()
 
 target_sources(
@@ -261,6 +253,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/ethernet_broadcast.hpp
+                api/umd/device/firmware/erisc_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
@@ -291,6 +284,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/arch.hpp
                 api/umd/device/types/blackhole_arc.hpp
                 api/umd/device/types/blackhole_eth.hpp
+                api/umd/device/types/blackhole_l1.hpp
                 api/umd/device/types/cluster_descriptor_types.hpp
                 api/umd/device/types/cluster_types.hpp
                 api/umd/device/types/communication_protocol.hpp
@@ -300,6 +294,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/tlb.hpp
                 api/umd/device/types/wormhole_dram.hpp
                 api/umd/device/types/wormhole_eth.hpp
+                api/umd/device/types/wormhole_l1.hpp
                 api/umd/device/types/wormhole_telemetry.hpp
                 api/umd/device/types/xy_pair.hpp
                 api/umd/device/coordinates/wormhole_coordinate_manager.hpp
@@ -327,7 +322,6 @@ target_link_libraries(
     PUBLIC
         fmt::fmt-header-only
     PRIVATE
-        umd::Firmware
         hwloc
         rt
         spdlog::spdlog_header_only

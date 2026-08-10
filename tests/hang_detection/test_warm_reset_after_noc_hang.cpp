@@ -68,12 +68,12 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     std::vector<uint8_t> readback_data(data.size(), 0);
 
     std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->set_power_state(true);
+    tt_device->set_power_state(TTDevice::PowerState::BUSY);
     tt_device->init_tt_device();
 
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
-    tt_xy_pair tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
     // send to core 15, 15 which will hang the NOC
     noc_hung_ = true;
@@ -100,7 +100,7 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
     tt_device.reset();
 
     tt_device = TTDevice::create(pci_device_ids.at(0));
-    tt_device->set_power_state(true);
+    tt_device->set_power_state(TTDevice::PowerState::BUSY);
     tt_device->init_tt_device();
 
     tt_device->write_to_device(zero_data.data(), tensix_core, SAFE_IO_L1_ADDRESS, zero_data.size());
@@ -111,5 +111,5 @@ TEST_F(WarmResetAfterNocHangTest, TTDeviceWarmResetAfterNocHang) {
 
     ASSERT_EQ(data, readback_data);
 
-    tt_device->set_power_state(false);
+    tt_device->set_power_state(TTDevice::PowerState::IDLE);
 }

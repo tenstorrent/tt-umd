@@ -6,8 +6,9 @@
 
 #include <fcntl.h>  // for ::open
 #include <fmt/format.h>
-#include <sys/mman.h>  // for mmap, munmap
-#include <unistd.h>    // for ::close
+#include <sys/mman.h>     // for mmap, munmap
+#include <sys/utsname.h>  // for uname
+#include <unistd.h>       // for ::close
 
 #include <cerrno>
 #include <cstdint>
@@ -768,6 +769,20 @@ SemVer PCIDevice::read_kmd_version() {
     std::getline(file, version_str);
 
     return SemVer(version_str);
+}
+
+SemVer PCIDevice::read_kernel_version() {
+    struct utsname uts {};
+
+    if (uname(&uts) != 0) {
+        log_warning(LogUMD, "uname() failed: {}", strerror(errno));
+        return {0, 0, 0};
+    }
+
+    // uts.release looks like "5.15.0-91-generic"; SemVer's parser reads leading digits of each
+    // dot-separated field and stops at the first non-digit, so the "-91-generic" tail of the
+    // patch field is naturally dropped.
+    return SemVer(uts.release);
 }
 
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {

@@ -37,7 +37,7 @@ public:
 
     FirmwareInfoProvider(TTDevice* tt_device);
 
-    ~FirmwareInfoProvider() = default;
+    virtual ~FirmwareInfoProvider() = default;
 
     FirmwareBundleVersion get_firmware_version() const;
 
@@ -86,16 +86,30 @@ public:
     /*
      * Get targeted speed per fan as a percentage (0-100). Individual entries
      * can be nullopt if fan speed is not available.
-     * @returns Targeted fan speeds [percent]
+     * @returns Targeted fan speed [percent]
      */
-    std::vector<std::optional<uint32_t>> get_fan_speed() const;
+    [[deprecated("use get_fan_speeds()")]] std::optional<uint32_t> get_fan_speed() const;
 
     /*
      * Get actual speed per fan in RPM. Individual entries
      * can be nullopt if fan RPM is not available.
      * @returns Actual fan RPM [percent]
      */
-    std::vector<std::optional<uint32_t>> get_fan_rpm() const;
+    [[deprecated("use get_fan_rpms()")]] std::optional<uint32_t> get_fan_rpm() const;
+
+    /*
+     * Get targeted speeds per fan as a percentage (0-100). Individual entries
+     * can be nullopt if fan speed is not available.
+     * @returns Targeted fan speeds [percent]
+     */
+    std::vector<std::optional<uint32_t>> get_fan_speeds() const;
+
+    /*
+     * Get actual speeds per fan in RPM. Individual entries
+     * can be nullopt if fan RPM is not available.
+     * @returns Actual fan RPMs [percent]
+     */
+    std::vector<std::optional<uint32_t>> get_fan_rpms() const;
 
     /*
      * Get TDP in watts.

@@ -307,7 +307,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto fan_speed = fw_info->get_fan_speed();
+        auto fan_speed = fw_info->get_fan_speeds();
         std::optional<uint32_t> tdp = fw_info->get_tdp();
         std::optional<uint32_t> tdc = fw_info->get_tdc();
         std::optional<uint32_t> vcore = fw_info->get_vcore();
@@ -508,8 +508,8 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto speed_percentage = fw_info->get_fan_speed();
-        auto speed_rpm = fw_info->get_fan_rpm();
+        auto speed_percentage = fw_info->get_fan_speeds();
+        auto speed_rpm = fw_info->get_fan_rpms();
 
         // Always report information about 2 fans.
         EXPECT_EQ(speed_percentage.size(), 2);

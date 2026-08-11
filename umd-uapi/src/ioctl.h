@@ -5,8 +5,8 @@
 // clang-format off
 // This file is copied from KMD, so we don't want clang formatting diff.
 
-#ifndef TTDRIVER_IOCTL_H_INCLUDED
-#define TTDRIVER_IOCTL_H_INCLUDED
+#ifndef UMD_UAPI_IOCTL_H_
+#define UMD_UAPI_IOCTL_H_
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
@@ -418,5 +418,5 @@ struct tenstorrent_export_tlb_dmabuf {
 	__u64 size;
 };
 
-#endif
+#endif  // UMD_UAPI_IOCTL_H_
 // clang-format on

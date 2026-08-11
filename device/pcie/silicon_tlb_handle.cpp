@@ -11,6 +11,7 @@
 #include <string>
 
 #include "tracy.hpp"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 

@@ -156,6 +156,8 @@ struct CoreCoord : public xy_pair {
     CoreType core_type = CoreType::UNSPECIFIED;
     CoordSystem coord_system = CoordSystem::LITERAL;
 
+    xy_pair to_pair() const { return xy_pair{x, y}; }
+
     bool operator==(const CoreCoord& other) const {
         return this->x == other.x && this->y == other.y && this->core_type == other.core_type &&
                this->coord_system == other.coord_system;
@@ -176,7 +178,7 @@ struct CoreCoord : public xy_pair {
 
     std::string str() const {
         if (coord_system == CoordSystem::LITERAL) {
-            return tt_xy_pair::str();
+            return to_pair().str();
         }
         std::stringstream ss;
         char shorthand = type_shorthand(core_type);

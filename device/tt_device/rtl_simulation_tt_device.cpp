@@ -68,15 +68,18 @@ std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create(
 }
 
 std::unique_ptr<RtlSimulationTTDevice> RtlSimulationTTDevice::create_client(
-    ChipId chip_id, std::unique_ptr<SimulationClient> client) {
+    ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& device_info) {
     UMD_ASSERT(
         client != nullptr,
         error::RuntimeError,
         "Client-mode RtlSimulationTTDevice requires a non-null SimulationClient.");
-    // Source the device identity from the host over the socket -- a client does not read a local
-    // simulator build.
-    const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
-    SocDescriptor soc_descriptor = build_soc_descriptor(info);
+    UMD_ASSERT(
+        device_info.status == 0,
+        error::RuntimeError,
+        fmt::format("Cannot build a client device from failed device info (status {}).", device_info.status));
+    // The connector already fetched the device identity over the socket (it needed the backend type
+    // to pick this class); build the SoC descriptor from it -- a client does not read a local build.
+    SocDescriptor soc_descriptor = build_soc_descriptor(device_info);
     // make_unique can't reach the private client-mode constructor; this static factory can via new.
     return std::unique_ptr<RtlSimulationTTDevice>(
         new RtlSimulationTTDevice(soc_descriptor, chip_id, std::move(client)));
@@ -208,7 +211,7 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
 }
 
 void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
     // If the architecture is Quasar, a special case is needed to control the NEO Data Movement cores.
@@ -251,7 +254,7 @@ void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType sel
 }
 
 void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core);
+    xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     // See the comment in assert_risc_reset for more details.

@@ -274,6 +274,12 @@ public:
     static SemVer read_kmd_version();
 
     /**
+     * Read the running Linux kernel version (from uname(2)'s release field), as major.minor.patch.
+     * The trailing distro suffix (e.g. "-91-generic") is dropped; only major/minor/patch are parsed.
+     */
+    static SemVer read_kernel_version();
+
+    /**
      * Allocate TLB resource from KMD.
      *
      * @param tlb_size Size of the TLB caller wants to allocate.

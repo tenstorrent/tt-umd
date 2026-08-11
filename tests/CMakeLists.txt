@@ -3,7 +3,6 @@ target_link_libraries(
     test_common
     INTERFACE
         umd::tt-umd
-        umd::Firmware
         gtest_main
         gtest
         pthread

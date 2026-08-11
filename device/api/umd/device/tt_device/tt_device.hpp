@@ -21,7 +21,6 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
@@ -33,7 +32,6 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -49,6 +47,7 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class DmaInterface;
 class JtagDevice;
 class JtagInterface;
 class PCIDevice;
@@ -110,7 +109,6 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
-    JtagDevice *get_jtag_device();
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
@@ -126,6 +124,14 @@ public:
     enum class HangAction {
         THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * @brief Defines the requested power domain state for the device.
+     */
+    enum class PowerState {
+        BUSY,  ///< Claims all power domains, requesting maximum performance.
+        IDLE,  ///< Releases power domains, allowing the device to enter lower power states.
     };
 
     /**
@@ -371,20 +377,23 @@ public:
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**
-     * Request full power domains from KMD (busy=true) or release them (busy=false).
-     * No-op for remote devices and on KMD versions older than 2.6.0.
+     * @brief Requests a hardware power domain state change.
      *
-     * @param busy true to claim all power domains, false to release them.
+     * Claims or releases full power domains. No-op for remote devices.
+     *
+     * @param state The requested power state (BUSY or IDLE).
      */
-    virtual void set_power_state(bool busy);
+    virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
-     * and waiting for the clock to settle at the expected frequency.
+     * @brief Sets the device clock frequency.
      *
-     * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
+     * Controls the AICLK frequency the device runs at. Distinct from
+     * set_power_state(), which manages hardware power domains.
+     *
+     * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */
-    virtual void set_clock_state(DevicePowerState state);
+    virtual void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual uint32_t get_clock() = 0;
 
@@ -497,6 +506,32 @@ public:
         NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
+     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr source address on the target core.
+     * @param size number of bytes
+     * @param core source core coordinates
+     */
+    virtual void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr destination address on the target core.
+     * @param size number of bytes
+     * @param core target core coordinates
+     */
+    virtual void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
      * Read the training status of the given ETH core.
      *
      * @param eth_core ETH core to read the training status for.
@@ -545,7 +580,7 @@ protected:
     // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
     // returns on timeout.
     void wait_for_aiclk_value(
-        DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
+        PowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
@@ -568,7 +603,9 @@ private:
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
-    xy_pair resolve_coordinate(CoreCoord core) const;
+    xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
+
+    DmaInterface *get_dma_interface();
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
@@ -578,6 +615,7 @@ private:
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
+    DmaInterface *dma_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

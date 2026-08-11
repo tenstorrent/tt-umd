@@ -78,6 +78,7 @@ TTDevice::TTDevice(
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
     dma_capabilities_ = pcie_protocol.get();
+    pcie_protocol_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -258,7 +259,7 @@ PCIDevice *TTDevice::get_pci_device() {
     if (!pcie_capabilities_) {
         return nullptr;
     }
-    return get_pcie_interface()->get_pci_device();
+    return pcie_protocol_->get_pci_device();
 }
 
 RemoteCommunication *TTDevice::get_remote_communication() {
@@ -829,18 +830,6 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
     if (!dma_success) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write failed: no DMA buffer allocated for this device.");
     }
-}
-
-void TTDevice::dma_d2h(void *dst, uint32_t src, size_t size) { get_pcie_interface()->dma_d2h(dst, src, size); }
-
-void TTDevice::dma_h2d(uint32_t dst, const void *src, size_t size) { get_pcie_interface()->dma_h2d(dst, src, size); }
-
-void TTDevice::dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) {
-    get_pcie_interface()->dma_d2h_zero_copy(dst, src, size);
-}
-
-void TTDevice::dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) {
-    get_pcie_interface()->dma_h2d_zero_copy(dst, src, size);
 }
 
 const SocDescriptor &TTDevice::get_soc_descriptor() const {

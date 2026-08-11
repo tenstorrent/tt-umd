@@ -31,6 +31,7 @@
 #define TENSTORRENT_IOCTL_CONFIGURE_TLB		_IO(TENSTORRENT_IOCTL_MAGIC, 13)
 #define TENSTORRENT_IOCTL_SET_NOC_CLEANUP		_IO(TENSTORRENT_IOCTL_MAGIC, 14)
 #define TENSTORRENT_IOCTL_SET_POWER_STATE		_IO(TENSTORRENT_IOCTL_MAGIC, 15)
+#define TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF	_IO(TENSTORRENT_IOCTL_MAGIC, 16)
 
 // For tenstorrent_mapping.mapping_id. These are not array indices.
 #define TENSTORRENT_MAPPING_UNUSED		0
@@ -368,6 +369,53 @@ struct tenstorrent_power_state {
 #define TT_POWER_FLAG_TENSIX_ENABLE    (1U << 2) /* 1=Enable Tensix, 0=Clock Gate Tensix */
 #define TT_POWER_FLAG_L2CPU_ENABLE     (1U << 3) /* 1=Enable L2CPU,  0=Clock Gate L2CPU */
 	__u16 power_settings[14];
+};
+
+/**
+ * TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF - Export a TLB window as a dma-buf
+ *
+ * Wraps an already-allocated, already-configured TLB window in a dma-buf and
+ * returns a file descriptor for it. That fd can be handed to another
+ * device's driver (e.g. an RDMA NIC via ibv_reg_dmabuf_mr()) so the peer can
+ * perform peer-to-peer PCIe DMA directly into and out of the window. Traffic
+ * routes onto the NOC according to the window's CONFIGURE_TLB setup, with no
+ * Tenstorrent-CPU involvement on the data path.
+ *
+ * The export must be issued on the same file descriptor that allocated the
+ * window. offset and size must be page-aligned and lie within the window;
+ * size of 0 means to the end of the window.
+ *
+ * The fd is the unit of ownership and is self-sufficient. An export pins the
+ * window: FREE_TLB or close() of the owning fd does not return the window to
+ * the allocation pool while the export is live, so the window cannot be
+ * reallocated and reconfigured to redirect a live importer's DMA elsewhere on
+ * the NOC. The window is freed only once the dma-buf is released. This lets
+ * the export survive FREE_TLB, close() of the owning fd, and even device
+ * removal.
+ *
+ * Resetting the device under in-flight P2P DMA can wedge the host hard enough
+ * to require out-of-band recovery, and a pin-only importer cannot be revoked
+ * to prevent the in-flight DMA. RESET_DEVICE is therefore refused with
+ * -EBUSY while any export is live.
+ *
+ * This ioctl requires Linux 5.8+.
+ *
+ * @argsz: Must be sizeof(struct tenstorrent_export_tlb_dmabuf).
+ * @flags: Reserved for future use, must be 0.
+ * @tlb_id: A TLB window id returned by TENSTORRENT_IOCTL_ALLOCATE_TLB.
+ * @fd: OUT: the dma-buf file descriptor.
+ * @offset: Byte offset within the window at which the export begins; must be
+ *          page-aligned.
+ * @size: Number of bytes to export; 0 means to the end of the window. A
+ *        non-zero size must be a multiple of the page size.
+ */
+struct tenstorrent_export_tlb_dmabuf {
+	__u32 argsz;
+	__u32 flags;
+	__u32 tlb_id;
+	__s32 fd;
+	__u64 offset;
+	__u64 size;
 };
 
 #endif

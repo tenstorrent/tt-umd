@@ -21,7 +21,6 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
@@ -48,6 +47,7 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class DmaInterface;
 class JtagDevice;
 class JtagInterface;
 class PCIDevice;
@@ -109,7 +109,6 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
-    JtagDevice *get_jtag_device();
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
@@ -507,6 +506,32 @@ public:
         NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
+     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr source address on the target core.
+     * @param size number of bytes
+     * @param core source core coordinates
+     */
+    virtual void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr destination address on the target core.
+     * @param size number of bytes
+     * @param core target core coordinates
+     */
+    virtual void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
      * Read the training status of the given ETH core.
      *
      * @param eth_core ETH core to read the training status for.
@@ -580,6 +605,8 @@ private:
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
+    DmaInterface *get_dma_interface();
+
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
@@ -588,6 +615,7 @@ private:
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
+    DmaInterface *dma_capabilities_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

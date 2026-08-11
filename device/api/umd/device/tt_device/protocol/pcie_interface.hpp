@@ -19,24 +19,14 @@ class PCIDevice;
 /**
  * PcieInterface defines PCIe-specific operations beyond the basic DeviceProtocol.
  *
- * This includes DMA transfers, BAR register access, NOC multicast writes, and
- * direct access to the underlying PCIDevice.
+ * This includes BAR register access, NOC multicast writes, and direct access to the underlying
+ * PCIDevice.
  */
 class PcieInterface {
 public:
     virtual ~PcieInterface() = default;
 
     virtual PCIDevice* get_pci_device() = 0;
-
-    // Return true on success, false if DMA is unavailable.
-    [[nodiscard]] virtual bool dma_write_to_device(
-        const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) = 0;
-    // Return true on success, false if DMA is unavailable.
-    [[nodiscard]] virtual bool dma_read_from_device(
-        void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) = 0;
-    // Return true on success, false if DMA is unavailable.
-    [[nodiscard]] virtual bool dma_multicast_write(
-        void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) = 0;
 
     virtual void dma_d2h(void* dst, uint32_t src, size_t size) = 0;
     virtual void dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) = 0;

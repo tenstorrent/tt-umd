@@ -19,7 +19,10 @@
 namespace tt {
 
 enum BoardType : uint32_t {
-    N150,
+    // E75, E150, E300 (Grayskull boards, values 0-2) have been removed since Grayskull
+    // support was dropped, but the remaining values are kept as-is to preserve the
+    // existing BoardType numbering/ABI.
+    N150 = 3,
     N300,
     P100,
     P150,
@@ -35,17 +38,17 @@ enum BoardType : uint32_t {
     UNKNOWN,
 };
 
-static_assert(N150 == 0, "N150 must be 0");
-static_assert(N300 == 1, "N300 must be 1");
-static_assert(P100 == 2, "P100 must be 2");
-static_assert(P150 == 3, "P150 must be 3");
-static_assert(P300 == 4, "P300 must be 4");
-static_assert(GALAXY == 5, "GALAXY must be 5");
-static_assert(UBB == 6, "UBB must be 6");
-static_assert(UBB_WORMHOLE == 6, "WH_UBB must equal UBB");
-static_assert(UBB_BLACKHOLE == 7, "BH_UBB must be 7");
-static_assert(QUASAR_BOARD == 8, "QUASAR must be 8");
-static_assert(UNKNOWN == 9, "UNKNOWN must be 9");
+static_assert(N150 == 3, "N150 must be 3");
+static_assert(N300 == 4, "N300 must be 4");
+static_assert(P100 == 5, "P100 must be 5");
+static_assert(P150 == 6, "P150 must be 6");
+static_assert(P300 == 7, "P300 must be 7");
+static_assert(GALAXY == 8, "GALAXY must be 8");
+static_assert(UBB == 9, "UBB must be 9");
+static_assert(UBB_WORMHOLE == 9, "WH_UBB must equal UBB");
+static_assert(UBB_BLACKHOLE == 10, "BH_UBB must be 10");
+static_assert(QUASAR_BOARD == 11, "QUASAR must be 11");
+static_assert(UNKNOWN == 12, "UNKNOWN must be 12");
 
 // Small performant hash combiner taken from boost library.
 // Not using boost::hash_combine due to dependency complications.

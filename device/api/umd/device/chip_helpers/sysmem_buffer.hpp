@@ -7,11 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <memory>
 #include <optional>
 
-#include "umd/device/chip_helpers/tlb_manager.hpp"
-#include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -118,14 +115,13 @@ private:
     void align_address_and_size();
 
     /**
-     * Validates that the offset is within the bounds of the buffer.
-     * Throws an exception if the offset is out of bounds.
+     * Validates that the [offset, offset + size) range is within the bounds of the buffer.
+     * Throws an exception if the range is out of bounds.
      *
      * @param offset Offset to validate.
+     * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
      */
-    void validate(const size_t offset) const;
-
-    TlbWindow* get_cached_tlb_window();
+    void validate(const size_t offset, const size_t size = 0) const;
 
     PCIDevice* pci_device_;
     TTDevice* tt_device_;
@@ -149,8 +145,6 @@ private:
     // Address that is used on the NOC to access the buffer.  NOC target must be
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
-
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
 
     std::function<void()> unmap_callback_;
 };

@@ -20,4 +20,4 @@
 -*.pb.cc
 
 # Internal ignore
--*/umd-uapi/src/umd_uapi.c
+-*/tt-kmd-lib/src/tt_kmd_lib.c

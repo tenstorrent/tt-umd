@@ -328,7 +328,7 @@ target_link_libraries(
 
 target_link_libraries(tt-umd PRIVATE umd_asio_lib)
 
-target_link_libraries(tt-umd PRIVATE umd-uapi::umd-uapi)
+target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 
 check_function_exists(
     backtrace

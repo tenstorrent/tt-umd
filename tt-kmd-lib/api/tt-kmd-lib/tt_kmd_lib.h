@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef UMD_UAPI_H_
-#define UMD_UAPI_H_
+#ifndef TT_KMD_LIB_H_
+#define TT_KMD_LIB_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -616,4 +616,4 @@ int tt_device_reset(tt_device_t* dev, uint32_t reset_flags);
 }
 #endif
 
-#endif  // UMD_UAPI_H_
+#endif  // TT_KMD_LIB_H_

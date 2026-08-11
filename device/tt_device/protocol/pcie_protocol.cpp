@@ -168,21 +168,48 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
     // const_cast is safe here: dma_transfer only reads from the buffer in H2D direction (memcpy into DMA buffer).
     // dma_transfer uses void* to handle both H2D (read) and D2H (write) in a single function.
     // TODO: Split dma_transfer into separate H2D/D2H functions to remove this cast.
     return dma_transfer(
-        const_cast<void*>(src), size, addr, create_dma_tlb_config(addr, core, noc_id), DmaDirection::H2D);  // NOLINT
+        const_cast<void*>(src),  // NOLINT
+        size,
+        dst_addr,
+        create_dma_tlb_config(dst_addr, core, noc_id),
+        DmaDirection::H2D);
 }
 
-bool PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
-    return dma_transfer(dst, size, addr, create_dma_tlb_config(addr, core, noc_id), DmaDirection::D2H);
+bool PcieProtocol::dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_transfer(dst, size, src_addr, create_dma_tlb_config(src_addr, core, noc_id), DmaDirection::D2H);
 }
 
 bool PcieProtocol::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core_end, noc_id, core_start), DmaDirection::H2D);
+    const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id) {
+    return dma_transfer(
+        const_cast<void*>(src),  // NOLINT
+        size,
+        dst_addr,
+        create_dma_tlb_config(dst_addr, core_end, noc_id, core_start),
+        DmaDirection::H2D);
+}
+
+bool PcieProtocol::dma_read_zero_copy(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_transfer_zero_copy(
+        dst_iova, size, src_addr, create_dma_tlb_config(src_addr, core, noc_id), DmaDirection::D2H);
+}
+
+bool PcieProtocol::dma_write_zero_copy(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_transfer_zero_copy(
+        src_iova, size, dst_addr, create_dma_tlb_config(dst_addr, core, noc_id), DmaDirection::H2D);
+}
+
+bool PcieProtocol::dma_multicast_write_zero_copy(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id) {
+    return dma_transfer_zero_copy(
+        src_iova, size, dst_addr, create_dma_tlb_config(dst_addr, core_end, noc_id, core_start), DmaDirection::H2D);
 }
 
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
@@ -241,6 +268,47 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         size -= transfer_size;
         addr += transfer_size;
         buf += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    }
+
+    return true;
+}
+
+bool PcieProtocol::dma_transfer_zero_copy(
+    uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+
+    if (dma_buffer.buffer == nullptr) {
+        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
+        return false;
+    }
+
+    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+
+    auto axi_address_base = pci_device_->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .tlb_offset;
+
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+
+    while (size > 0) {
+        auto tlb_size = tlb_window->get_size();
+        size_t transfer_size = std::min(size, tlb_size);
+
+        if (direction == DmaDirection::H2D) {
+            dma_h2d_transfer(static_cast<uint32_t>(axi_address), iova, transfer_size);
+        } else {
+            dma_d2h_transfer(iova, static_cast<uint32_t>(axi_address), transfer_size);
+        }
+
+        size -= transfer_size;
+        addr += transfer_size;
+        iova += transfer_size;
 
         config.local_offset = addr;
         tlb_window->configure(config);

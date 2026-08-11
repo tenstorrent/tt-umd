@@ -61,7 +61,7 @@ SysmemBuffer::SysmemBuffer(
 void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::Yellow);
 
-    validate(offset);
+    validate(offset, size);
 
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
@@ -74,7 +74,7 @@ void SysmemBuffer::dma_write_to_device(const size_t offset, size_t size, const t
 void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
     ZoneScopedC(tracy::Color::Yellow);
 
-    validate(offset);
+    validate(offset, size);
 
     // TODO: these are chip functions, figure out how to have these
     // inside sysmem buffer, or we keep API as it is and make application send
@@ -118,11 +118,15 @@ uint64_t SysmemBuffer::get_device_io_addr(const size_t offset) const {
     return device_io_addr_ + offset + offset_from_aligned_addr_;
 }
 
-void SysmemBuffer::validate(const size_t offset) const {
-    if (offset >= buffer_size_) {
+void SysmemBuffer::validate(const size_t offset, const size_t size) const {
+    if (offset >= buffer_size_ || size > buffer_size_ - offset) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Offset {:#x} is out of bounds for SysmemBuffer of size {:#x}", offset, buffer_size_));
+            fmt::format(
+                "Range starting at {:#x} with size {:#x} is out of bounds for SysmemBuffer of size {:#x}",
+                offset,
+                size,
+                buffer_size_));
     }
 }
 

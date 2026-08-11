@@ -115,12 +115,13 @@ private:
     void align_address_and_size();
 
     /**
-     * Validates that the offset is within the bounds of the buffer.
-     * Throws an exception if the offset is out of bounds.
+     * Validates that the [offset, offset + size) range is within the bounds of the buffer.
+     * Throws an exception if the range is out of bounds.
      *
      * @param offset Offset to validate.
+     * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
      */
-    void validate(const size_t offset) const;
+    void validate(const size_t offset, const size_t size = 0) const;
 
     PCIDevice* pci_device_;
     TTDevice* tt_device_;

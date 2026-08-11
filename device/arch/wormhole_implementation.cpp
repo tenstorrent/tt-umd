@@ -11,8 +11,6 @@
 #include <tuple>
 
 #include "umd/device/firmware/erisc_firmware.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
@@ -207,27 +205,5 @@ RiscType wormhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_r
     }
 
     return risc_type;
-}
-
-std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_address(TTDevice* tt_device) const {
-    constexpr auto min_firmware_version = FirmwareBundleVersion(19, 13, 0);
-    const auto firmware_version = get_firmware_version_util(tt_device);
-    if (firmware_version < min_firmware_version) {
-        return std::nullopt;
-    }
-    uint32_t address = 0;
-    tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
-    return address;
-}
-
-std::optional<uint32_t> wormhole_implementation::read_runtime_telemetry_buffer_size(TTDevice* tt_device) const {
-    constexpr auto min_firmware_version = FirmwareBundleVersion(19, 13, 0);
-    const auto firmware_version = get_firmware_version_util(tt_device);
-    if (firmware_version < min_firmware_version) {
-        return std::nullopt;
-    }
-    uint32_t size = 0;
-    tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
-    return size;
 }
 }  // namespace tt::umd

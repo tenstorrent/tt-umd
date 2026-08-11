@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
-#include "tt-kmd-lib/pci_ids.h"
+#include "umd-uapi/pci_ids.h"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"

@@ -29,8 +29,8 @@
 #include <vector>
 
 #include "tracy.hpp"
-#include "tt-kmd-lib/pci_ids.h"
-#include "tt-kmd-lib/tt_kmd_lib.h"
+#include "umd-uapi/pci_ids.h"
+#include "umd-uapi/umd_uapi.h"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"

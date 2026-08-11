@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "tt-kmd-lib/tt_kmd_lib.h"
+#include "umd-uapi/umd_uapi.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 #include "ioctl.h"
-#include "tt-kmd-lib/pci_ids.h"
+#include "umd-uapi/pci_ids.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DEBUG(fmt, ...)                                                        \

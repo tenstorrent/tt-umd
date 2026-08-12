@@ -612,7 +612,8 @@ bool PCIDevice::is_read_only_page_pinning_supported() const {
     return is_iommu_enabled() && kmd_version >= KMD_READ_ONLY_PAGE_PINNING;
 }
 
-std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size, DeviceBufferAccess device_access) {
+std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
+    void *buffer, size_t size, DeviceBufferAccess device_access) {
     if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
     }

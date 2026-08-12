@@ -613,7 +613,7 @@ bool PCIDevice::is_read_only_page_pinning_supported() const {
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size, DeviceBufferAccess access) {
-    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
+    if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
     }
     if (access == DeviceBufferAccess::ReadOnly && !is_read_only_page_pinning_supported()) {
@@ -664,7 +664,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
+    if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use hugepages with NOC mapping.");
     }
 

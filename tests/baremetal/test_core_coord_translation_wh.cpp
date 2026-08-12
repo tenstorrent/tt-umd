@@ -21,7 +21,6 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/common.hpp"
-#include "umd/device/utils/error.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -448,7 +447,7 @@ TEST(CoordinateManager, CoordinateManagerRejectGridLargerThanCoreList) {
             std::vector<tt_xy_pair>{},
             std::vector<tt_xy_pair>{},
             std::vector<tt_xy_pair>{}),
-        tt::umd::error::UmdException<tt::umd::error::RuntimeError>);
+        std::out_of_range);
 }
 
 // Regression test that a core whose NOC0 coordinate exceeds the size of the
@@ -480,5 +479,5 @@ TEST(CoordinateManager, CoordinateManagerRejectNoc1IndexOutOfRange) {
             std::vector<tt_xy_pair>{},
             noc0_x_to_noc1_x,
             noc0_y_to_noc1_y),
-        tt::umd::error::UmdException<tt::umd::error::RuntimeError>);
+        std::out_of_range);
 }

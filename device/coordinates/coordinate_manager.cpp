@@ -215,25 +215,11 @@ void CoordinateManager::translate_tensix_coords() {
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
-    if (grid_size_x != 0 && grid_size_y != 0 && tensix_cores.size() / grid_size_x < grid_size_y) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "CoordinateManager: tensix core list size {} is smaller than declared grid {}x{}",
-                tensix_cores.size(),
-                grid_size_x,
-                grid_size_y));
-    }
-
     size_t logical_y = 0;
     for (size_t y = 0; y < grid_size_y; y++) {
         if (!(harvesting_masks.tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
-                const size_t idx = y * grid_size_x + x;
-                if (idx >= tensix_cores.size()) {
-                    UMD_THROW(error::RuntimeError, "CoordinateManager: tensix core index out of range");
-                }
-                const tt_xy_pair& tensix_core = tensix_cores[idx];
+                const tt_xy_pair& tensix_core = tensix_cores.at(y * grid_size_x + x);
 
                 CoreCoord logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, tensix_core);
@@ -861,15 +847,12 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
 
     auto map_noc0_to_noc1_cores = [this](const std::vector<tt_xy_pair>& cores, CoreType core_type) {
         for (const tt_xy_pair& tensix_core : cores) {
-            if (tensix_core.x >= noc0_x_to_noc1_x.size() || tensix_core.y >= noc0_y_to_noc1_y.size()) {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "CoordinateManager: NOC1 mapping index ({},{}) is out of range", tensix_core.x, tensix_core.y));
-            }
             add_core_translation(
                 CoreCoord(
-                    noc0_x_to_noc1_x[tensix_core.x], noc0_y_to_noc1_y[tensix_core.y], core_type, CoordSystem::NOC1),
+                    noc0_x_to_noc1_x.at(tensix_core.x),
+                    noc0_y_to_noc1_y.at(tensix_core.y),
+                    core_type,
+                    CoordSystem::NOC1),
                 tensix_core);
         }
     };

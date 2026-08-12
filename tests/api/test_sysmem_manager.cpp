@@ -292,14 +292,10 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     }
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    // Probe the capability on the device the mapping will actually be made through. PCIDevice::enumerate_devices()
-    // and the cluster's MMIO chip ordering are independent, so checking enumerate_devices()[0] can clear a device
-    // that is not the one map_sysmem_buffer ends up on, and the mapping then throws instead of skipping.
-    PCIDevice* pci_device = cluster->get_chip(mmio_chip)->get_tt_device()->get_pci_device();
-    if (pci_device == nullptr) {
-        GTEST_SKIP() << "MMIO chip has no PCI device.";
-    }
-    if (!pci_device->is_read_only_page_pinning_supported()) {
+    // Probe the capability on the manager the mapping will actually be made through, so a device other than the one
+    // map_sysmem_buffer ends up on cannot clear the gate and turn a skip into a throw.
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+    if (!sysmem_manager->is_read_only_page_pinning_supported()) {
         GTEST_SKIP() << "Device-read-only page pinning requires an active IOMMU and KMD "
                      << KMD_READ_ONLY_PAGE_PINNING.str() << " or newer.";
     }
@@ -345,13 +341,12 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     void* mapping = mmap(nullptr, mapping_size, PROT_READ, MAP_SHARED, read_only_fd, 0);
     ASSERT_NE(mapping, MAP_FAILED);
 
-    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    auto sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, mapping_size, true, DeviceBufferAccess::ReadOnly);
+    auto sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, mapping_size, true, DeviceBufferAccess::READ_ONLY);
 
     ASSERT_NE(sysmem_buffer, nullptr);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapping);
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), mapping_size);
-    EXPECT_EQ(sysmem_buffer->get_device_access(), DeviceBufferAccess::ReadOnly);
+    EXPECT_EQ(sysmem_buffer->get_device_access(), DeviceBufferAccess::READ_ONLY);
     EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
 
     // Device reads the read-only mapping and writes it into Tensix L1 -- the direction read-only pinning exists to

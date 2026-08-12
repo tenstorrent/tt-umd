@@ -164,7 +164,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
-    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess access) {
+    void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
@@ -200,7 +200,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
                     reg->buffers.end());
             }
         },
-        access);
+        device_access);
 }
 
 }  // namespace tt::umd

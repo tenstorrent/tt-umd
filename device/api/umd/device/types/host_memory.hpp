@@ -9,12 +9,12 @@ namespace tt::umd {
 /**
  * @brief Device permissions for a pinned host-memory mapping.
  *
- * ReadOnly prevents the device from writing the mapping. It does not restrict
+ * READ_ONLY prevents the device from writing the mapping. It does not restrict
  * host access to the underlying virtual memory.
  */
 enum class DeviceBufferAccess {
-    ReadWrite,
-    ReadOnly,
+    READ_WRITE,
+    READ_ONLY,
 };
 
 }  // namespace tt::umd

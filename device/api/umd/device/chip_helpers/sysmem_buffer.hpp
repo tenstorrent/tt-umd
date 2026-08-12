@@ -57,14 +57,14 @@ public:
         void* buffer_va,
         size_t buffer_size,
         bool map_to_noc = false,
-        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite);
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
     SysmemBuffer(
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
         std::optional<uint64_t> noc_addr = std::nullopt,
         std::function<void()> unmap_callback = {},
-        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite);
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
     ~SysmemBuffer();
 
     /**
@@ -156,7 +156,7 @@ private:
     std::optional<uint64_t> noc_addr_;
 
     std::function<void()> unmap_callback_;
-    DeviceBufferAccess device_access_ = DeviceBufferAccess::ReadWrite;
+    DeviceBufferAccess device_access_ = DeviceBufferAccess::READ_WRITE;
 };
 
 }  // namespace tt::umd

@@ -47,7 +47,7 @@ public:
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
-        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite) override;
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
     // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
     // fires a DMA callback with a raw device IO address (pcie_base_ + offset).

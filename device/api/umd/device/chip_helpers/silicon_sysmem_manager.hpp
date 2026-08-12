@@ -35,7 +35,7 @@ public:
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
-        DeviceBufferAccess access = DeviceBufferAccess::ReadWrite) override;
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;

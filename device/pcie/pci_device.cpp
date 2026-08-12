@@ -607,7 +607,9 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
 bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
 
 bool PCIDevice::is_read_only_page_pinning_supported() const {
-    return is_iommu_enabled() && PCIDevice::read_kmd_version() >= KMD_READ_ONLY_PAGE_PINNING;
+    // Use the version cached at construction: this is reached from the mapping path, once per pinned buffer, and
+    // read_kmd_version() re-opens and re-parses sysfs on every call.
+    return is_iommu_enabled() && kmd_version >= KMD_READ_ONLY_PAGE_PINNING;
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size, DeviceBufferAccess access) {

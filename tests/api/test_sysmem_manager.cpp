@@ -9,11 +9,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <unordered_set>
 #include <vector>
 
@@ -283,39 +286,65 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
 }
 
 TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
-    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
-    if (pci_device_ids.empty()) {
-        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+    if (cluster->get_target_mmio_device_ids().empty()) {
+        GTEST_SKIP() << "No Tenstorrent MMIO devices found.";
     }
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
 
-    PCIDevice pci_device(pci_device_ids[0]);
-    if (!pci_device.is_iommu_enabled()) {
-        GTEST_SKIP() << "Device-read-only page pinning requires an active IOMMU.";
+    // Probe the capability on the device the mapping will actually be made through. PCIDevice::enumerate_devices()
+    // and the cluster's MMIO chip ordering are independent, so checking enumerate_devices()[0] can clear a device
+    // that is not the one map_sysmem_buffer ends up on, and the mapping then throws instead of skipping.
+    PCIDevice* pci_device = cluster->get_chip(mmio_chip)->get_tt_device()->get_pci_device();
+    if (pci_device == nullptr) {
+        GTEST_SKIP() << "MMIO chip has no PCI device.";
     }
-    if (PCIDevice::read_kmd_version() < KMD_READ_ONLY_PAGE_PINNING) {
-        GTEST_SKIP() << "Device-read-only page pinning requires KMD " << KMD_READ_ONLY_PAGE_PINNING.str()
-                     << " or newer.";
+    if (!pci_device->is_read_only_page_pinning_supported()) {
+        GTEST_SKIP() << "Device-read-only page pinning requires an active IOMMU and KMD "
+                     << KMD_READ_ONLY_PAGE_PINNING.str() << " or newer.";
     }
-    if (!pci_device.is_mapping_buffer_to_noc_supported()) {
+    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
         GTEST_SKIP() << "KMD does not support mapping host buffers to NOC.";
     }
 
     const size_t mapping_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
-    char file_name[] = "./tt_umd_read_only_pin_XXXXXX";
-    int writable_fd = mkstemp(file_name);
+    const std::string file_template = (std::filesystem::temp_directory_path() / "tt_umd_read_only_pin_XXXXXX").string();
+    std::vector<char> file_name(file_template.begin(), file_template.end());
+    file_name.push_back('\0');
+    int writable_fd = mkstemp(file_name.data());
     ASSERT_NE(writable_fd, -1);
+
+    // Remove the file on every exit path, including an ASSERT failure before the explicit unlink below.
+    struct FileRemover {
+        std::string path;
+
+        ~FileRemover() {
+            std::error_code ec;
+            std::filesystem::remove(path, ec);
+        }
+    } file_remover{std::string(file_name.data())};
+
     ASSERT_EQ(ftruncate(writable_fd, mapping_size), 0);
+
+    // Seed the file with a position-dependent pattern while it is still writable, so the transfer below proves the
+    // device actually reads the pinned pages rather than just that the accessors echo their arguments back.
+    void* writable_mapping = mmap(nullptr, mapping_size, PROT_READ | PROT_WRITE, MAP_SHARED, writable_fd, 0);
+    ASSERT_NE(writable_mapping, MAP_FAILED);
+    std::vector<uint8_t> expected(mapping_size);
+    for (size_t i = 0; i < mapping_size; ++i) {
+        expected[i] = static_cast<uint8_t>((i * 31 + 7) % 256);
+    }
+    std::memcpy(writable_mapping, expected.data(), mapping_size);
+    ASSERT_EQ(munmap(writable_mapping, mapping_size), 0);
     ASSERT_EQ(close(writable_fd), 0);
 
-    int read_only_fd = open(file_name, O_RDONLY | O_CLOEXEC);
+    int read_only_fd = open(file_name.data(), O_RDONLY | O_CLOEXEC);
     ASSERT_NE(read_only_fd, -1);
-    ASSERT_EQ(unlink(file_name), 0);
+    ASSERT_EQ(unlink(file_name.data()), 0);
 
     void* mapping = mmap(nullptr, mapping_size, PROT_READ, MAP_SHARED, read_only_fd, 0);
     ASSERT_NE(mapping, MAP_FAILED);
 
-    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
-    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
     auto sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, mapping_size, true, DeviceBufferAccess::ReadOnly);
 
@@ -324,6 +353,22 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), mapping_size);
     EXPECT_EQ(sysmem_buffer->get_device_access(), DeviceBufferAccess::ReadOnly);
     EXPECT_TRUE(sysmem_buffer->get_noc_addr().has_value());
+
+    // Device reads the read-only mapping and writes it into Tensix L1 -- the direction read-only pinning exists to
+    // serve. Reading it back independently confirms the mapping is genuinely usable, not merely accepted.
+    const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
+    std::vector<uint8_t> zeros(mapping_size, 0);
+    cluster->write_to_device(zeros.data(), mapping_size, mmio_chip, tensix_core, 0);
+    sysmem_buffer->dma_write_to_device(0, mapping_size, tensix_core.to_pair(), 0);
+
+    // Read back over MMIO rather than DMA: D2H DMA is unsupported on Blackhole, and the direction under test here
+    // is the device-side read of the pinned mapping, not how the host retrieves the result.
+    std::vector<uint8_t> readback(mapping_size, 0);
+    cluster->read_from_device(readback.data(), mmio_chip, tensix_core, 0, mapping_size);
+    EXPECT_EQ(readback, expected);
+
+    // The opposite direction writes host memory, so it must be refused on a device-read-only mapping.
+    EXPECT_THROW(sysmem_buffer->dma_read_from_device(0, mapping_size, tensix_core.to_pair(), 0), std::exception);
 
     sysmem_buffer.reset();
     EXPECT_EQ(munmap(mapping, mapping_size), 0);

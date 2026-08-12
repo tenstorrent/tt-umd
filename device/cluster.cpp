@@ -144,10 +144,10 @@ void Cluster::log_pci_device_summary() {
     }
 
     if (all_devices_same_iommu_state) {
-        log_info(LogUMD, "IOMMU: {}", iommu_state_str(expected_iommu_state));
+        log_debug(LogUMD, "IOMMU: {}", iommu_state_str(expected_iommu_state));
     }
 
-    log_info(LogUMD, "KMD version: {}", kmd_version);
+    log_debug(LogUMD, "KMD version: {}", kmd_version);
 }
 
 void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device, const ChipType& chip_type) {
@@ -164,7 +164,7 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
         for (ChipId local_chip_id : local_chip_ids_) {
             pci_ids.push_back(mmio_id_map.at(local_chip_id));
         }
-        log_info(
+        log_debug(
             LogUMD,
             "Opening local chip ids/{} ids: {}/{} and remote chip ids {}",
             DeviceTypeToString.at(cluster_desc->get_io_device_type()),
@@ -263,7 +263,7 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
         if (simulator_directory.extension() == ".so" && cluster_desc->is_chip_remote(chip_id)) {
             return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
         }
-        log_info(LogUMD, "Creating Simulation device");
+        log_debug(LogUMD, "Creating Simulation device");
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
 #else
@@ -386,7 +386,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
 // Options is intentionally taken by value because it may be mutated when TT_UMD_BUILD_SIMULATION is enabled.
 Cluster::Cluster(ClusterOptions options) {
     ZoneScopedNC("Cluster::Cluster", tracy::Color::DarkGreen);
-    log_info(LogUMD, "Cluster constructor started.");
+    log_debug(LogUMD, "Cluster constructor started.");
     // Store options early so that options_ is populated if the constructor throws.
     // A second assignment at the end captures any mutations made during construction
     // (sdesc_path resolution, num_host_mem_ch_per_mmio_device auto-detect).
@@ -645,7 +645,7 @@ Cluster::Cluster(ClusterOptions options) {
     // Overwrite with the final (possibly mutated) options: sdesc_path may have been
     // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
     options_ = std::move(options);
-    log_info(LogUMD, "Cluster constructor completed.");
+    log_debug(LogUMD, "Cluster constructor completed.");
 }
 
 #ifdef TT_UMD_BUILD_SIMULATION
@@ -908,12 +908,7 @@ std::map<int, int> Cluster::get_clocks() {
     return clock_freq_map;
 }
 
-Cluster::~Cluster() {
-    log_info(LogUMD, "Cluster destructor started.");
-
-    cluster_desc.reset();
-    log_info(LogUMD, "Cluster destructor completed.");
-}
+Cluster::~Cluster() { cluster_desc.reset(); }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
     tt_xy_pair translated_core =
@@ -1181,7 +1176,7 @@ void Cluster::deassert_resets_and_set_clock_state() {
 
 void Cluster::start_device(const DeviceParams& device_params) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    log_info(LogUMD, "Starting devices in cluster");
+    log_debug(LogUMD, "Starting devices in cluster");
     if (device_params.init_device) {
         for (auto chip_id : all_chip_ids_) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
@@ -1189,12 +1184,12 @@ void Cluster::start_device(const DeviceParams& device_params) {
 
         deassert_resets_and_set_clock_state();
     }
-    log_info(LogUMD, "Starting devices in cluster completed.");
+    log_debug(LogUMD, "Starting devices in cluster completed.");
 }
 
 void Cluster::close_device() {
     ZoneScopedC(tracy::Color::DarkRed);
-    log_info(LogUMD, "Closing devices in cluster");
+    log_debug(LogUMD, "Closing devices in cluster");
     // Close remote device first because sending risc reset requires corresponding pcie device to be active.
     for (auto remote_chip_id : remote_chip_ids_) {
         get_chip(remote_chip_id)->close_device();
@@ -1203,7 +1198,7 @@ void Cluster::close_device() {
     for (auto chip_id : local_chip_ids_) {
         get_chip(chip_id)->close_device();
     }
-    log_info(LogUMD, "Closing devices in cluster completed.");
+    log_debug(LogUMD, "Closing devices in cluster completed.");
 }
 
 std::uint32_t Cluster::get_num_host_channels(std::uint32_t device_id) {

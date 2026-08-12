@@ -340,7 +340,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
 }
 
 std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    auto tag_value = get_eth_fw_version();
+    auto tag_value = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
     if (!tag_value.has_value()) {
         return std::nullopt;
     }

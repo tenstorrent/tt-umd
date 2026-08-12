@@ -742,6 +742,13 @@ void TTDevice::multicast_write_via_unicast(
     }
 }
 
+int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
+    if (is_remote_tt_device) {
+        UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for remote device.");
+    }
+    return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
+}
+
 void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {

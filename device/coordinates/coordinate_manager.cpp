@@ -215,8 +215,7 @@ void CoordinateManager::translate_tensix_coords() {
     size_t grid_size_x = tensix_grid_size.x;
     size_t grid_size_y = tensix_grid_size.y;
 
-    if (grid_size_x != 0 && grid_size_y != 0 &&
-        tensix_cores.size() / grid_size_x < grid_size_y) {
+    if (grid_size_x != 0 && grid_size_y != 0 && tensix_cores.size() / grid_size_x < grid_size_y) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
@@ -866,9 +865,7 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
                 UMD_THROW(
                     error::RuntimeError,
                     fmt::format(
-                        "CoordinateManager: NOC1 mapping index ({},{}) is out of range",
-                        tensix_core.x,
-                        tensix_core.y));
+                        "CoordinateManager: NOC1 mapping index ({},{}) is out of range", tensix_core.x, tensix_core.y));
             }
             add_core_translation(
                 CoreCoord(

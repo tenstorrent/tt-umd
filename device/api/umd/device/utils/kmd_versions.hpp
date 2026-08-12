@@ -9,8 +9,13 @@
 namespace tt::umd {
 
 /**
+ * The minimum KMD version that can be used to interact with Tenstorrent devices in UMD.
+ */
+inline constexpr SemVer KMD_MINIMUM_VERSION = SemVer(2, 0, 0);
+
+/**
  * KMD version 1.29.0 introduced IOMMU support. UMD requires at least this version to run with IOMMU enabled.
- * With never versions of KMD, UMD will still work when IOMMU is disabled on the system.
+ * With newer versions of KMD, UMD will still work when IOMMU is disabled on the system.
  */
 inline constexpr SemVer KMD_IOMMU = SemVer(1, 29, 0);
 

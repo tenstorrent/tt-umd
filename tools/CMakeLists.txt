@@ -110,6 +110,8 @@ if(TT_UMD_BUILD_SIMULATION)
             OUTPUT_NAME
                 sim_server
     )
+    # The wrapper that backgrounds `start`; ships beside the binary, which is where it looks for it.
+    configure_file(sim_server.sh ${CMAKE_BINARY_DIR}/tools/umd/sim_server.sh COPYONLY USE_SOURCE_PERMISSIONS)
 endif()
 
 add_custom_target(

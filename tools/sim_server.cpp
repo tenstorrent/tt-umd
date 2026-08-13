@@ -1,40 +1,33 @@
-// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
-// sim_server: manage long-running simulation host processes.
+// sim_server: run and manage long-running simulation hosts, so other UMD processes can attach to a
+// simulation as clients over its per-chip socket.
 //
-//   sim_server start <simulator.so | rtl-dir>   -- daemonize a host that serves the simulation in a
-//                                                  fresh server directory; other UMD processes attach
-//                                                  as clients (a Cluster pointed at that directory).
-//   sim_server list                              -- list the currently-open servers and their chips.
-//   sim_server kill <server>                     -- ask a server to shut down, over its socket.
+//   sim_server start <simulator.so | rtl-dir>  -- serve a simulation until stopped. Background it
+//                                                 with `&` or `nohup ... &`.
+//   sim_server list                            -- show the open servers and their chips.
+//   sim_server kill <server>                   -- ask a server to shut down, over its socket.
 //
-// Each host gets its own server directory, so two hosts (even serving the same chip id) never
-// collide; list/kill address a server by its index. Management is in-band over the socket (a
-// SHUTDOWN request), not by PID/signal: the socket is world-writable and cross-user, so a socket
-// message reaches exactly the processes that can reach the server, whereas a signal would be
-// same-uid only.
+// kill goes over the socket rather than by signal because the socket is world-writable, so it also
+// works across users, which a signal would not.
 
-#include <fcntl.h>
 #include <fmt/format.h>
-#include <unistd.h>
 
 #include <algorithm>
-#include <cerrno>
+#include <chrono>
 #include <csignal>
-#include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <cxxopts.hpp>
-#include <exception>
 #include <filesystem>
 #include <iostream>
-#include <map>
 #include <string>
+#include <thread>
 #include <tt-logger/tt-logger.hpp>
+#include <vector>
 
 #include "umd/device/cluster.hpp"
+#include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_connector.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
@@ -46,130 +39,63 @@ using namespace tt::umd;
 
 namespace {
 
-// Self-pipe used to unblock the daemon's main thread from either stop source: a SHUTDOWN request
-// (handled on a serving thread) or a SIGTERM/SIGINT. Both just write one byte; the main thread reads.
-// The write end is non-blocking (set in cmd_start) so writing from a signal handler cannot block.
-int g_stop_pipe[2] = {-1, -1};
+// Row layout shared by the `list` header and its rows.
+constexpr const char* LIST_ROW = "{:<8} {:<6} {:<12} {:<16} {}\n";
 
-void request_stop() {
-    if (g_stop_pipe[1] >= 0) {
-        const char byte = 1;
-        // async-signal-safe; the write end is non-blocking, so a full pipe fails with EAGAIN rather
-        // than blocking -- fine, since a full pipe already holds a pending wakeup byte.
-        [[maybe_unused]] const ssize_t written = ::write(g_stop_pipe[1], &byte, 1);
+// Raised by a SHUTDOWN request (on a serving thread) or by SIGINT/SIGTERM; polled by cmd_start.
+// volatile sig_atomic_t is the only thing a signal handler may touch.
+volatile std::sig_atomic_t stop_requested = 0;
+
+void request_stop() { stop_requested = 1; }
+
+// Asks the host on this socket who it is. Returns "<arch>/<backend>", or "" if nothing answers.
+std::string probe_socket(const std::filesystem::path& socket_path) {
+    try {
+        SimulationClient client(socket_path);
+        const SimulationServerDeviceInfo info = fetch_device_info_from_host(client);  // attaches + GET_DEVICE_INFO
+        return fmt::format(
+            "{}/{}",
+            tt::arch_to_str(static_cast<tt::ARCH>(info.arch)),
+            info.backend_type == SimulationBackendType::TTSim ? "ttsim" : "rtl");
+    } catch (const std::exception&) {
+        return "";  // socket file present, but no live host answering
     }
 }
 
-void on_signal(int /*signum*/) { request_stop(); }
+int cmd_start(const std::filesystem::path& simulator_path) {
+    std::signal(SIGINT, [](int) { request_stop(); });
+    std::signal(SIGTERM, [](int) { request_stop(); });
 
-// Detaches stdio to a per-process log so the daemon isn't tied to the launching terminal.
-void redirect_stdio_to_log() {
-    const std::filesystem::path log_path =
-        std::filesystem::temp_directory_path() / fmt::format("tt-umd-sim-server-{}.log", ::getpid());
-    const int log_fd = ::open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
-    const int null_fd = ::open("/dev/null", O_RDONLY);
-    if (null_fd >= 0) {
-        ::dup2(null_fd, STDIN_FILENO);
-        ::close(null_fd);
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path;
+    // A simulator that ships a cluster_descriptor.yaml is enumerated from it, and leaving
+    // target_devices empty then means "every chip in it". Without one, Cluster falls back to a mock
+    // descriptor built *from* target_devices -- so leaving it empty there yields a Cluster with zero
+    // chips that serves zero sockets. Name chip 0 in that case, and only that case.
+    if (!std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_path))) {
+        options.target_devices = {0};
     }
-    if (log_fd >= 0) {
-        ::dup2(log_fd, STDOUT_FILENO);
-        ::dup2(log_fd, STDERR_FILENO);
-        ::close(log_fd);
-    }
-}
+    // Serving the per-chip sockets is opt-in, and it is this tool's whole job.
+    options.serve_simulation_devices_over_sockets = true;
+    options.simulation_shutdown_handler = request_stop;
+    // Claim the directory here rather than letting Cluster pick one, so we can report it on stdout in
+    // a form a caller can parse. Cluster logs it too, but a log line is not an interface.
+    options.simulator_server_directory = SimulationConnector::allocate_server_directory();
 
-int cmd_start(const std::string& simulator_path) {
-    // Claim the server directory before forking so the parent can report where the host will serve
-    // (its sockets, and the directory a client attaches to). Each server gets its own directory, so
-    // two hosts never collide even when they serve the same chip id.
-    std::filesystem::path server_directory;
-    try {
-        server_directory = SimulationConnector::allocate_server_directory();
-    } catch (const std::exception& e) {
-        log_error(tt::LogUMD, "sim_server start: could not allocate a server directory: {}", e.what());
-        return 1;
-    }
+    Cluster cluster(options);
 
-    // Best-effort removal of the just-claimed (still-empty) directory on any start-failure path, so
-    // a failed start doesn't leak tt-umd-sim-server-* dirs that clutter `list` and consume indices.
-    // On the success path the running host owns the directory and its SimulationServerSocket removes
-    // it on graceful shutdown, so this is only for the paths that never get that far.
-    const auto remove_claimed_directory = [&server_directory] {
-        std::error_code ec;
-        std::filesystem::remove(server_directory, ec);
-    };
+    // Printed only once the sockets are actually serving, so a caller can treat this line -- and not
+    // the process merely existing -- as the signal that clients may attach.
+    std::cout << "server directory: " << options.simulator_server_directory.string() << std::endl;
 
-    // Daemonize with a single fork + setsid: the parent reports the child's pid and returns to the
-    // shell; the child detaches into its own session and serves in the background.
-    const pid_t pid = ::fork();
-    if (pid < 0) {
-        log_error(tt::LogUMD, "sim_server start: fork failed: {}", std::strerror(errno));
-        remove_claimed_directory();
-        return 1;
-    }
-    if (pid > 0) {
-        std::cout << fmt::format(
-            "started simulation host pid {} (serving {} in {})\n", pid, simulator_path, server_directory.string());
-        return 0;
+    log_info(tt::LogUMD, "Simulation host up. Stop it with Ctrl-C, SIGTERM, or `sim_server kill`.");
+    while (stop_requested == 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // --- daemon ---
-    ::setsid();
-    if (::chdir("/") != 0) { /* best effort; not fatal */
-    }
-    redirect_stdio_to_log();
-
-    if (::pipe(g_stop_pipe) != 0) {
-        remove_claimed_directory();
-        _exit(1);
-    }
-    // Make the write end non-blocking so request_stop() -- reached from a signal handler and from a
-    // serving thread -- can never block. One pending byte is all the main thread needs, so if the
-    // pipe is already full the write harmlessly fails (a wakeup is already queued). The read end
-    // stays blocking: the main thread blocks on it until stopped.
-    const int flags = ::fcntl(g_stop_pipe[1], F_GETFL, 0);
-    if (flags >= 0) {
-        ::fcntl(g_stop_pipe[1], F_SETFL, flags | O_NONBLOCK);
-    }
-    std::signal(SIGTERM, on_signal);
-    std::signal(SIGINT, on_signal);
-
-    try {
-        // Opt into over-socket shutdown: a client's SHUTDOWN request signals this daemon's main
-        // thread to stop; dropping the Cluster below then tears everything down gracefully. Passing
-        // the handler through the options fixes it before the host starts serving, so there's no
-        // window where a SHUTDOWN would be silently ignored.
-        ClusterOptions options;
-        options.chip_type = ChipType::SIMULATION;
-        options.simulator_directory = simulator_path;
-        options.simulation_shutdown_handler = request_stop;
-        options.simulator_server_directory = server_directory;  // the directory claimed above
-        // Serving over sockets is opt-in (off by default so ordinary in-process simulator runs stay
-        // private). Publishing the per-chip sockets for clients to attach to IS this tool's whole job.
-        options.serve_simulation_devices_over_sockets = true;
-        Cluster cluster(options);
-
-        log_info(
-            tt::LogUMD,
-            "Simulation host up (from {}); send SHUTDOWN over the socket or SIGTERM to stop.",
-            simulator_path);
-
-        // Block until stopped (SHUTDOWN request or signal), tolerating EINTR.
-        char byte = 0;
-        ssize_t n = 0;
-        do {
-            n = ::read(g_stop_pipe[0], &byte, 1);
-        } while (n < 0 && errno == EINTR);
-
-        log_info(tt::LogUMD, "Simulation host shutting down; tearing down cluster and closing client connections.");
-        // Cluster destructor (end of scope) performs the graceful teardown.
-    } catch (const std::exception& e) {
-        log_error(tt::LogUMD, "Simulation host failed: {}", e.what());
-        remove_claimed_directory();
-        _exit(1);
-    }
-    _exit(0);
+    log_info(tt::LogUMD, "Shutting down; closing client connections.");
+    return 0;  // ~Cluster tears the host down gracefully.
 }
 
 int cmd_list() {
@@ -178,32 +104,23 @@ int cmd_list() {
         std::cout << "No simulation servers running.\n";
         return 0;
     }
-    std::cout << fmt::format("{:<8} {:<6} {:<12} {:<10} {}\n", "SERVER", "CHIP", "STATE", "ARCH", "SOCKET");
+    std::cout << fmt::format(LIST_ROW, "SERVER", "CHIP", "STATE", "ARCH", "SOCKET");
     for (const SimulationServerInfo& server : servers) {
+        // A directory with no sockets is a host still coming up, or one that died and left it behind.
         if (server.sockets.empty()) {
-            // Directory claimed but not yet (or no longer) serving any chip -- e.g. a host that is
-            // still coming up, or one that died and left its directory behind.
-            std::cout << fmt::format(
-                "{:<8} {:<6} {:<12} {:<10} {}\n", server.index, "-", "empty", "-", server.directory.string());
+            std::cout << fmt::format(LIST_ROW, server.index, "-", "empty", "-", server.directory.string());
             continue;
         }
         for (const auto& [chip_id, socket_path] : server.sockets) {
-            std::string state = "unreachable";
-            std::string arch = "-";
-            try {
-                SimulationClient client(socket_path);
-                const SimulationServerDeviceInfo info =
-                    fetch_device_info_from_host(client);  // attaches + GET_DEVICE_INFO
-                state = "live";
-                arch = fmt::format(
-                    "{}/{}",
-                    tt::arch_to_str(static_cast<tt::ARCH>(info.arch)),
-                    info.backend_type == SimulationBackendType::TTSim ? "ttsim" : "rtl");
-            } catch (const std::exception&) {
-                // Socket file present but no live host answering -> stale/unreachable.
-            }
+            const std::string arch = probe_socket(socket_path);
+            const bool live = !arch.empty();
             std::cout << fmt::format(
-                "{:<8} {:<6} {:<12} {:<10} {}\n", server.index, chip_id, state, arch, socket_path.string());
+                LIST_ROW,
+                server.index,
+                chip_id,
+                live ? "live" : "unreachable",
+                live ? arch : "-",
+                socket_path.string());
         }
     }
     return 0;
@@ -211,82 +128,70 @@ int cmd_list() {
 
 int cmd_kill(int server_index) {
     const std::vector<SimulationServerInfo> servers = SimulationConnector::list_servers();
-    const auto it = std::find_if(servers.begin(), servers.end(), [server_index](const SimulationServerInfo& s) {
-        return s.index == server_index;
+    const auto it = std::find_if(servers.begin(), servers.end(), [server_index](const SimulationServerInfo& server) {
+        return server.index == server_index;
     });
-    if (it == servers.end()) {
-        log_error(tt::LogUMD, "No simulation server {} found.", server_index);
+    if (it == servers.end() || it->sockets.empty()) {
+        log_error(
+            tt::LogUMD, "No simulation server {} with a socket to shut down; see `sim_server list`.", server_index);
         return 1;
     }
-    if (it->sockets.empty()) {
-        log_error(tt::LogUMD, "Simulation server {} has no live socket to send shutdown to.", server_index);
+
+    // The host is one process, so a SHUTDOWN on any of its chip sockets stops it and closes the rest.
+    SimulationClient client(it->sockets.begin()->second);
+    client.attach();
+    SimulationServerRequest request;
+    request.command = SimulationServerCommand::Shutdown;
+    const SimulationServerResponse response = decode_response(client.transact(encode(request)));
+    if (response.status != 0) {
+        log_error(tt::LogUMD, "Server {} did not acknowledge shutdown (status {}).", server_index, response.status);
         return 1;
     }
-    // The whole host is one process: a SHUTDOWN on any of its chip sockets stops it and closes the
-    // rest, so it is enough to send to the first socket.
-    const std::filesystem::path& socket_path = it->sockets.begin()->second;
-    try {
-        SimulationClient client(socket_path);
-        client.attach();
-        SimulationServerRequest request;
-        request.command = SimulationServerCommand::Shutdown;
-        const SimulationServerResponse response = decode_response(client.transact(encode(request)));
-        if (response.status != 0) {
-            log_error(tt::LogUMD, "Server {} did not acknowledge shutdown (status {}).", server_index, response.status);
-            return 1;
-        }
-        std::cout << fmt::format("Requested shutdown of simulation server {}.\n", server_index);
-    } catch (const std::exception& e) {
-        log_error(tt::LogUMD, "Failed to reach simulation server {}: {}", server_index, e.what());
-        return 1;
-    }
+    std::cout << fmt::format("Requested shutdown of simulation server {}.\n", server_index);
     return 0;
 }
 
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    cxxopts::Options options("sim_server", "Manage simulation host processes (start / list / kill).");
-    options.add_options()("command", "start | list | kill", cxxopts::value<std::string>())(
-        "arg", "start: <simulator.so | rtl-dir>;  kill: <server>", cxxopts::value<std::string>())(
-        "h,help", "Print usage");
+    cxxopts::Options options("sim_server", "Manage simulation hosts (start / list / kill).");
+    // clang-format off
+    options.add_options()
+        ("command", "start | list | kill",                                    cxxopts::value<std::string>())
+        ("arg",     "start: <simulator.so | rtl-dir>;  kill: <server index>", cxxopts::value<std::string>())
+        ("h,help",  "Print usage");
+    // clang-format on
     options.parse_positional({"command", "arg"});
     options.positional_help("<command> [arg]");
 
     const auto result = options.parse(argc, argv);
-
-    if (result.count("help") != 0u || result.count("command") == 0u) {
+    if (result.count("help") || !result.count("command")) {
         std::cout << options.help() << std::endl;
-        return result.count("help") != 0u ? 0 : 2;
+        return result.count("help") ? 0 : 2;
     }
 
     const std::string command = result["command"].as<std::string>();
+    const std::string arg = result.count("arg") ? result["arg"].as<std::string>() : "";
+    if ((command == "start" || command == "kill") && arg.empty()) {
+        log_error(tt::LogUMD, "sim_server {} requires an argument; see --help.", command);
+        return 2;
+    }
 
-    if (command == "list") {
-        return cmd_list();
-    }
-    if (command == "start") {
-        if (result.count("arg") == 0u) {
-            log_error(tt::LogUMD, "sim_server start requires a <simulator.so | rtl-dir> argument.");
-            return 2;
+    try {
+        if (command == "list") {
+            return cmd_list();
         }
-        return cmd_start(result["arg"].as<std::string>());
-    }
-    if (command == "kill") {
-        if (result.count("arg") == 0u) {
-            log_error(tt::LogUMD, "sim_server kill requires a <server> argument.");
-            return 2;
+        if (command == "start") {
+            return cmd_start(arg);
         }
-        const std::string arg = result["arg"].as<std::string>();
-        try {
+        if (command == "kill") {
             return cmd_kill(std::stoi(arg));
-        } catch (const std::exception&) {
-            log_error(tt::LogUMD, "Invalid server index '{}'.", arg);
-            return 2;
         }
+    } catch (const std::exception& e) {
+        log_error(tt::LogUMD, "sim_server {} failed: {}", command, e.what());
+        return 1;
     }
 
-    log_error(tt::LogUMD, "Unknown command '{}'.", command);
-    std::cout << options.help() << std::endl;
+    log_error(tt::LogUMD, "Unknown command '{}'; see --help.", command);
     return 2;
 }

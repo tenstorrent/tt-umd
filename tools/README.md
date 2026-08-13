@@ -155,9 +155,9 @@ Each host gets its own server directory (`<temp>/tt-umd-sim-server-<index>`), so
 same machine never collide — even when they serve the same chip id — and a client attaches by
 pointing at a specific server's directory. It has three subcommands:
 
-- `start <simulator.so | rtl-dir>` — daemonizes a simulation host that serves the simulation in a
-  fresh server directory and returns immediately, printing the host pid and that directory. Other
-  UMD processes then attach to it as clients (e.g. a `Cluster` pointed at that directory).
+- `start <simulator.so | rtl-dir>` — serves the simulation in a fresh server directory and runs
+  until stopped, printing `server directory: <dir>` once the sockets are up. Other UMD processes
+  then attach to it as clients (e.g. a `Cluster` pointed at that directory).
 - `list` — lists the currently-open simulation servers, showing each server's index, and for each
   of its chips the chip id, liveness, arch/backend, and socket path.
 - `kill <server>` — asks a server (by its index from `list`) to shut down in-band over its socket
@@ -166,6 +166,12 @@ pointing at a specific server's directory. It has three subcommands:
   PID/signal because the socket is world-writable and cross-user, while a signal would be same-uid
   only.
 
+`start` runs in the foreground, so a failure is visible and the exit code is real. Backgrounding,
+log files and the readiness check are process management and live in the `sim_server.sh` wrapper
+shipped beside the binary, which handles `start` and forwards `list`/`kill` to `sim_server`
+untouched. Use it for anything long-running; `SIM_SERVER_BIN` overrides where it looks for the
+binary. `Ctrl-C` stops a foreground host, as does `SIGTERM`.
+
 You can run the following for more information:
 ```
 ./build/tools/umd/sim_server --help
@@ -173,17 +179,17 @@ You can run the following for more information:
 
 Example:
 ```
-$ ./build/tools/umd/sim_server start /path/to/simulator.so
-started simulation host pid 12345 (serving /path/to/simulator.so in /tmp/tt-umd-sim-server-0)
+$ ./build/tools/umd/sim_server.sh start /path/to/simulator.so
+sim_server up: pid 12345, serving /tmp/tt-umd-sim-server-0, log /tmp/sim_server-tt-umd-sim-server-0.log
 
-$ ./build/tools/umd/sim_server start /path/to/other_simulator.so
-started simulation host pid 12346 (serving /path/to/other_simulator.so in /tmp/tt-umd-sim-server-1)
+$ ./build/tools/umd/sim_server.sh start /path/to/other_simulator.so
+sim_server up: pid 12346, serving /tmp/tt-umd-sim-server-1, log /tmp/sim_server-tt-umd-sim-server-1.log
 
-$ ./build/tools/umd/sim_server list
+$ ./build/tools/umd/sim_server.sh list
 SERVER   CHIP   STATE        ARCH             SOCKET
 0        0      live         blackhole/ttsim  /tmp/tt-umd-sim-server-0/tt-umd-sim-0.sock
 1        0      live         blackhole/ttsim  /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock
 
-$ ./build/tools/umd/sim_server kill 0
+$ ./build/tools/umd/sim_server.sh kill 0
 Requested shutdown of simulation server 0.
 ```

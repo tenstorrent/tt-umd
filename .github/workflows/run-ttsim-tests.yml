@@ -144,6 +144,18 @@ jobs:
           # builds the tools with simulation OFF, which excludes it).
           cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark sim_server
 
+      # Exercises the tool, not just its build: a single-chip simulator ships no cluster_descriptor.yaml,
+      # which is the case where a host with no chips would serve no sockets and still look like it started.
+      # `list` must report the chip as live, and `kill` must be able to reach it over that socket.
+      - name: Run sim_server start / list / kill on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          cd tt-metal/tt_metal/third_party/umd/build/tools/umd
+          ./sim_server.sh start ${{ github.workspace }}/sim_bh/libttsim.so
+          ./sim_server.sh list | tee /tmp/sim_server_list.txt
+          grep -q "live" /tmp/sim_server_list.txt
+          ./sim_server.sh kill 0
+
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
       - name: Run tt-sim wormhole tests

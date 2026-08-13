@@ -18,6 +18,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -329,7 +330,11 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-uint64_t FirmwareInfoProvider::get_board_id() const {
+std::optional<uint64_t> FirmwareInfoProvider::get_board_id() const {
+    if (!(is_feature_available(FirmwareFeature::BOARD_ID_HIGH) &&
+          is_feature_available(FirmwareFeature::BOARD_ID_LOW))) {
+        return std::nullopt;
+    }
     uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
     uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
     return (static_cast<uint64_t>(high) << 32) | low;

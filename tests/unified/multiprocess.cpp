@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -633,7 +634,7 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
     WorkerResult* results = static_cast<WorkerResult*>(results_mem);
 
     std::cout << "Testing DMA read mixed-core repro on PCI device " << pci_device_id << " with " << NUM_WORKERS
-              << " workers, " << NUM_ITERATIONS << " iterations each" << std::endl;
+              << " workers, " << NUM_ITERATIONS << " iterations each (cores shown as NOC translated x,y)" << std::endl;
 
     std::vector<pid_t> pids;
     pids.reserve(NUM_WORKERS);
@@ -656,19 +657,24 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
     int total_stale = 0;
     int total_foreign = 0;
     int total_iterations = 0;
+    auto core_str = [](int x, int y) { return "(" + std::to_string(x) + "," + std::to_string(y) + ")"; };
+
+    std::cout << std::right << std::setw(3) << "wk" << std::left << std::setw(9) << "  core" << std::right
+              << std::setw(6) << "inits" << std::setw(7) << "stale" << std::setw(8) << "foreign"
+              << "  status" << std::endl;
     for (int worker_id = 0; worker_id < NUM_WORKERS; worker_id++) {
         const WorkerResult& r = results[worker_id];
         ASSERT_FALSE(r.errored) << "worker " << worker_id << " failed: " << r.error_message;
 
         const char* tag = r.foreign > 0 ? "FOREIGN" : (r.stale > 0 ? "stale-only" : "clean");
-        std::cout << "worker " << worker_id << " core=" << r.core.str() << " inits=" << r.completed_iterations
-                  << " stale=" << r.stale << " foreign=" << r.foreign << ":  " << tag << std::endl;
+        std::cout << std::right << std::setw(3) << worker_id << "  " << std::left << std::setw(9)
+                  << core_str(r.core.x, r.core.y) << std::right << std::setw(5) << r.completed_iterations
+                  << std::setw(7) << r.stale << std::setw(8) << r.foreign << "  " << tag << std::endl;
         for (int s = 0; s < r.num_samples; s++) {
             const ForeignSample& sample = r.samples[s];
-            std::cout << "        iter " << sample.iteration << ": DMA read returned worker " << sample.got.worker_id
-                      << "'s data from core (" << sample.got.noc_x << "," << sample.got.noc_y << ") iter "
-                      << sample.got.iteration << "  (expected worker " << worker_id << " core " << r.core.str() << ")"
-                      << std::endl;
+            std::cout << "    iter " << std::setw(3) << sample.iteration << " -> worker " << std::setw(2)
+                      << sample.got.worker_id << " " << core_str(sample.got.noc_x, sample.got.noc_y) << " iter "
+                      << sample.got.iteration << std::endl;
         }
 
         total_stale += r.stale;
@@ -676,8 +682,8 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
         total_iterations += r.completed_iterations;
     }
 
-    std::cout << total_stale << " stale + " << total_foreign << " foreign over " << total_iterations << " link inits"
-              << std::endl;
+    std::cout << "\ntotal: " << total_stale << " stale, " << total_foreign << " foreign / " << total_iterations
+              << " inits" << std::endl;
 
     pthread_barrier_destroy(start_barrier);
     munmap(barrier_mem, sizeof(pthread_barrier_t));

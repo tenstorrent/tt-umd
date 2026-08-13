@@ -672,8 +672,8 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
                   << std::setw(7) << r.stale << std::setw(8) << r.foreign << "  " << tag << std::endl;
         for (int s = 0; s < r.num_samples; s++) {
             const ForeignSample& sample = r.samples[s];
-            std::cout << "    iter " << std::setw(3) << sample.iteration << " -> worker " << std::setw(2)
-                      << sample.got.worker_id << " " << core_str(sample.got.noc_x, sample.got.noc_y) << " iter "
+            std::cout << "    read@" << std::setw(3) << sample.iteration << " -> worker " << std::setw(2)
+                      << sample.got.worker_id << " " << core_str(sample.got.noc_x, sample.got.noc_y) << " write@"
                       << sample.got.iteration << std::endl;
         }
 

@@ -7,11 +7,13 @@
 #
 #   sim_server.sh start <simulator.so | rtl-dir>   start a host in the background, wait until it is
 #                                                  actually serving, and report where its log went
+#   sim_server.sh prune                            remove the directories of servers that are gone
 #   sim_server.sh list | kill <server> | --help    forwarded to sim_server unchanged
 #
-# Only `start` needs process management -- detaching from the terminal, a unique log per server, and
-# checking that startup worked. list and kill run and exit, so they go straight through, which keeps
-# this script from restating an interface the binary already documents.
+# Only `start` and `prune` need process management -- detaching from the terminal, a unique log per
+# server, checking that startup worked, and clearing up after a host that died without doing so
+# itself. list and kill run and exit, so they go straight through, which keeps this script from
+# restating an interface the binary already documents.
 
 set -euo pipefail
 
@@ -23,12 +25,48 @@ if [ ! -x "$sim_server" ]; then
     exit 1
 fi
 
-# Anything that is not `start` -- including no arguments at all, which prints usage -- is the
+tmp=${TMPDIR:-/tmp}
+
+# A host removes its own directory when it shuts down gracefully, so anything left behind belongs to
+# one that was killed or crashed. `list` already probes every socket, so it can say which: a server
+# is gone when none of its chips answer -- reported per chip as `unreachable` (socket file, nobody
+# home) or `empty` (directory, no socket at all).
+#
+# Note `empty` is also how a host that is still coming up looks, so do not prune while starting one.
+prune() {
+    local listing index path directory pruned=0
+    listing=$("$sim_server" list)
+    # Column 1 is the server index, 3 the state, 5 the socket path (or the directory, when `empty`).
+    # Skip the header row, and keep an index only if no chip of it came back live.
+    while read -r index path; do
+        case $path in
+            *.sock) directory=$(dirname "$path") ;;
+            *) directory=$path ;;
+        esac
+        # Never rm -rf anything that is not a server directory, however the parse went.
+        case $(basename "$directory") in
+            tt-umd-sim-server-*) ;;
+            *) continue ;;
+        esac
+        rm -rf "$directory"
+        rm -f "$tmp/sim_server-$(basename "$directory").log"
+        echo "pruned server $index ($directory)"
+        pruned=$((pruned + 1))
+    done < <(awk 'NR > 1 { seen[$1] = $5; if ($3 == "live") live[$1] = 1 }
+                  END { for (i in seen) if (!(i in live)) print i, seen[i] }' <<< "$listing")
+
+    if [ "$pruned" -eq 0 ]; then
+        echo "Nothing to prune."
+    fi
+}
+
+# Anything that is not handled here -- including no arguments at all, which prints usage -- is the
 # binary's own command, forwarded untouched.
-if [ "${1:-}" != start ]; then
-    exec "$sim_server" "$@"
-fi
-shift
+case ${1:-} in
+    start) shift ;;
+    prune) prune; exit 0 ;;
+    *) exec "$sim_server" "$@" ;;
+esac
 
 if [ $# -ne 1 ]; then
     echo "usage: $(basename "$0") start <simulator.so | rtl-dir>" >&2
@@ -36,7 +74,6 @@ if [ $# -ne 1 ]; then
 fi
 simulator=$1
 
-tmp=${TMPDIR:-/tmp}
 # Unique from the start, since the server's identity isn't known until it reports one below.
 log=$(mktemp "$tmp/sim_server-XXXXXX.log")
 

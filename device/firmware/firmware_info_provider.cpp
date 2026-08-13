@@ -472,8 +472,8 @@ std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
     return read_scalar<uint32_t>(FirmwareFeature::VCORE);
 }
 
-uint8_t FirmwareInfoProvider::get_asic_location() const {
-    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION).value_or(0);
+std::optional<uint8_t> FirmwareInfoProvider::get_asic_location() const {
+    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION);
 }
 
 uint32_t FirmwareInfoProvider::get_heartbeat() const {

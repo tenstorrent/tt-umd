@@ -386,14 +386,16 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        uint8_t asic_location = fw_info->get_asic_location();
+        std::optional<uint8_t> asic_location = fw_info->get_asic_location();
+        EXPECT_NE(asic_location, std::nullopt);
+
         log_info(
             tt::LogUMD,
             "Device {}: arch={}, fw_range={}, asic_location={}",
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            static_cast<uint32_t>(asic_location));
+            static_cast<uint32_t>(asic_location.value_or(0)));
 
         // Wormhole FW <= 18.3 hardcodes ASIC_LOCATION to 0 (FixedValue).
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {

@@ -192,7 +192,7 @@ public:
 
     virtual uint32_t get_max_clock_freq() const;
 
-    virtual uint8_t get_asic_location() const;
+    virtual std::optional<uint8_t> get_asic_location() const;
 
     /*
      * Get heartbeat from ARC core.

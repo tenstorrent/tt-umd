@@ -102,8 +102,8 @@ private:
 
 TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     // Test static methods that don't need a device.
-    FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_min = get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_min = get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
@@ -111,9 +111,8 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     EXPECT_EQ(wh_min, FW_VERSION_18_3);
     EXPECT_EQ(bh_min, FW_VERSION_18_5);
 
-    FirmwareBundleVersion wh_latest =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_latest = FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_latest = get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_latest = get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
     log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());

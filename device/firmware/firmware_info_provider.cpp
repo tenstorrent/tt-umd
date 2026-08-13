@@ -329,23 +329,6 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
-    return FirmwareBundleVersion(19, 7, 1);
-}
-
-/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0: {
-            return FirmwareBundleVersion(18, 3, 0);
-        }
-        case tt::ARCH::BLACKHOLE: {
-            return FirmwareBundleVersion(18, 5, 0);
-        }
-        default:
-            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
-    }
-}
-
 uint64_t FirmwareInfoProvider::get_board_id() const {
     uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
     uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);

@@ -415,6 +415,8 @@ std::optional<uint32_t> FirmwareInfoProvider::get_max_clock_freq() const {
     return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ);
 }
 
+std::optional<uint32_t> FirmwareInfoProvider::get_min_clock_freq() const { return std::nullopt; }
+
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
     return read_scalar<uint32_t>(FirmwareFeature::AICLK);
 }

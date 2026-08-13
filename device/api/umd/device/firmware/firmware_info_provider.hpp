@@ -192,6 +192,8 @@ public:
 
     virtual std::optional<uint32_t> get_max_clock_freq() const;
 
+    virtual std::optional<uint32_t> get_min_clock_freq() const;
+
     virtual std::optional<uint8_t> get_asic_location() const;
 
     /*

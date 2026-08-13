@@ -127,7 +127,7 @@ TEST_F(TestFirmwareInfoProvider, BoardId) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
 
-        uint64_t board_id = fw_info->get_board_id();
+        uint64_t board_id = fw_info->get_board_id().value_or(0);
         log_info(
             tt::LogUMD,
             "Device {}: board_id=0x{:016x}, fw_range={}",

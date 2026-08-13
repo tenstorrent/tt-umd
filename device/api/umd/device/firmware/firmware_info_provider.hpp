@@ -190,7 +190,7 @@ public:
 
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
-    virtual uint32_t get_max_clock_freq() const;
+    virtual std::optional<uint32_t> get_max_clock_freq() const;
 
     virtual std::optional<uint8_t> get_asic_location() const;
 

@@ -132,7 +132,7 @@ TEST_F(TestFirmwareInfoProvider, BoardId) {
             tt::LogUMD,
             "Device {}: board_id=0x{:016x}, fw_range={}",
             pci_device_id,
-            board_id.value(),
+            opt_str(board_id),
             fw_range_label(fw_info->get_firmware_version()));
 
         EXPECT_NE(board_id, std::nullopt);
@@ -158,10 +158,10 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
 
         log_info(
             tt::LogUMD,
-            "Device {}: fw_range={}, asic_temperature={:.2f} C, board_temperature={} C",
+            "Device {}: fw_range={}, asic_temperature={} C, board_temperature={} C",
             pci_device_id,
             fw_range_label(fw_version),
-            asic_temp.value(),
+            opt_str(asic_temp),
             opt_str(board_temp));
 
         tt::ARCH arch = tt_device->get_arch();
@@ -200,7 +200,7 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();
         std::optional<uint32_t> arcclk = fw_info->get_arcclk();
-        uint32_t max_clock = fw_info->get_max_clock_freq();
+        std::optional<uint32_t> max_clock = fw_info->get_max_clock_freq();
 
         log_info(
             tt::LogUMD,
@@ -211,7 +211,7 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
             opt_str(aiclk),
             opt_str(axiclk),
             opt_str(arcclk),
-            max_clock,
+            opt_str(max_clock),
             aiclk_busy_val);
 
         // Max clock frequency should match the architecture's AICLK_BUSY_VAL.
@@ -387,7 +387,6 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
         std::optional<uint8_t> asic_location = fw_info->get_asic_location();
-        EXPECT_NE(asic_location, std::nullopt);
 
         log_info(
             tt::LogUMD,
@@ -395,7 +394,7 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            static_cast<uint32_t>(asic_location.value_or(0)));
+            opt_str(std::optional<uint32_t>(asic_location)));
 
         // Wormhole FW <= 18.3 hardcodes ASIC_LOCATION to 0 (FixedValue).
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
@@ -414,7 +413,6 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
         // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
         // Heartbeat increments every 100ms, so wait at least that long.
         std::optional<uint32_t> heartbeat1 = fw_info->get_heartbeat();
-        EXPECT_NE(heartbeat1, std::nullopt);
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         std::optional<uint32_t> heartbeat2 = fw_info->get_heartbeat();
 
@@ -423,8 +421,8 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
             "Device {}: fw_range={}, heartbeat_1={}, heartbeat_2={}",
             pci_device_id,
             fw_range_label(fw_version),
-            heartbeat1.value(),
-            heartbeat2.value());
+            opt_str(heartbeat1),
+            opt_str(heartbeat2));
 
         EXPECT_GT(heartbeat2, heartbeat1);
     }

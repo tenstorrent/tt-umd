@@ -411,8 +411,8 @@ std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     return read_scalar<double>(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
-uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
-    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_max_clock_freq() const {
+    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ);
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {

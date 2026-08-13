@@ -52,6 +52,7 @@ class JtagDevice;
 class JtagInterface;
 class PCIDevice;
 class PcieInterface;
+class PcieProtocol;
 class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
@@ -164,46 +165,6 @@ public:
      */
     bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
-    /**
-     * DMA transfer from device to host.
-     *
-     * @param dst destination buffer
-     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
-
-    /**
-     * DMA transfer from device to host.
-     *
-     * @param dst destination buffer
-     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
-
-    /**
-     * DMA transfer from host to device.
-     *
-     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
-     * @param src source buffer
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
-
-    /**
-     * DMA transfer from host to device.
-     *
-     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
-     * @param src source buffer
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
-
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
@@ -216,6 +177,57 @@ public:
         void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
     virtual void write_to_device_reg(
         const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+
+    virtual void dma_write_to_device(
+        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+
+    virtual void dma_read_from_device(
+        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(
+        void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr source address on the target core.
+     * @param size number of bytes
+     * @param core source core coordinates
+     */
+    virtual void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr destination address on the target core.
+     * @param size number of bytes
+     * @param core target core coordinates
+     */
+    virtual void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -478,58 +490,25 @@ public:
     virtual std::unique_ptr<TlbWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
-    virtual void dma_write_to_device(
-        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-
-    virtual void dma_read_from_device(
-        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-
-    static void set_sigbus_safe_handler(bool set_safe_handler);
-
     /**
-     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
-     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
-     * translated coordinate system so that the write lands on the intended cores.
+     * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
+     * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
+     * caller owns the returned fd and must close() it.
      *
-     * @param src pointer to memory from which the data is sent
-     * @param size number of bytes
-     * @param core_start starting core coordinates (x,y) of the multicast write
-     * @param core_end ending core coordinates (x,y) of the multicast write
-     * @param addr address on the device where data will be written
+     * @param core Core to target.
+     * @param addr Address within the core to aim the exported region at; must be page-aligned.
+     * @param size Number of bytes to export; must be page-aligned and non-zero.
+     * @param ordering Ordering mode for the TLB window backing the export.
+     * @param noc_id NOC to route the exported traffic over.
      */
-    virtual void dma_multicast_write(
-        void *src,
-        size_t size,
-        CoreCoord core_start,
-        CoreCoord core_end,
+    virtual int export_dmabuf(
+        CoreCoord core,
         uint64_t addr,
+        size_t size,
+        uint64_t ordering = tlb_data::Relaxed,
         NocId noc_id = NocId::DEFAULT_NOC);
 
-    /**
-     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
-     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
-     * DMA is unavailable.
-     *
-     * @param dst_iova IOVA of the destination pinned host memory buffer.
-     * @param src_addr source address on the target core.
-     * @param size number of bytes
-     * @param core source core coordinates
-     */
-    virtual void dma_read_zero_copy(
-        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
-
-    /**
-     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
-     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
-     * DMA is unavailable.
-     *
-     * @param src_iova IOVA of the source pinned host memory buffer.
-     * @param dst_addr destination address on the target core.
-     * @param size number of bytes
-     * @param core target core coordinates
-     */
-    virtual void dma_write_zero_copy(
-        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+    static void set_sigbus_safe_handler(bool set_safe_handler);
 
     /**
      * Read the training status of the given ETH core.
@@ -616,6 +595,7 @@ private:
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
     DmaInterface *dma_capabilities_ = nullptr;
+    PcieProtocol *pcie_protocol_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

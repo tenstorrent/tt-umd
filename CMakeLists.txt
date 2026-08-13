@@ -162,6 +162,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-nonnull)
 endif()
 
+add_subdirectory(tt-kmd-lib)
 add_subdirectory(device)
 if(TT_UMD_BUILD_PYTHON)
     add_subdirectory(nanobind)

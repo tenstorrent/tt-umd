@@ -38,7 +38,7 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
         return fmt::format("Could not get information for chip ID {}.", chip_id);
     }
 
-    double asic_temperature = firmware_info_provider->get_asic_temperature();
+    double asic_temperature = firmware_info_provider->get_asic_temperature().value_or(0.0);
     double board_temperature = firmware_info_provider->get_board_temperature().value_or(0);
     uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
     uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);

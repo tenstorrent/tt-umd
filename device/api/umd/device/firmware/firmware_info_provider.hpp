@@ -62,7 +62,7 @@ public:
      * Get ASIC temperature in Celsius.
      * @returns ASIC temperature [Celsius]
      */
-    virtual double get_asic_temperature() const;
+    virtual std::optional<double> get_asic_temperature() const;
 
     /*
      * Get AICLK in MHz.

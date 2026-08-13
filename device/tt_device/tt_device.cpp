@@ -617,9 +617,9 @@ uint64_t TTDevice::get_refclk_counter() {
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
 
-uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id().value(); }
+uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_board_id().value_or(0); }
 
-double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature(); }
+double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature().value_or(0.0); }
 
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
 

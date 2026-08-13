@@ -476,8 +476,8 @@ std::optional<uint8_t> FirmwareInfoProvider::get_asic_location() const {
     return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION);
 }
 
-uint32_t FirmwareInfoProvider::get_heartbeat() const {
-    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_heartbeat() const {
+    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT);
 }
 
 // Legacy Wormhole: Each channel uses 4 bits.

@@ -507,6 +507,12 @@ constexpr uint64_t SCRATCH_ADDR = 0x10000;
 constexpr size_t NUM_BYTES = 256;
 constexpr size_t NUM_WORDS = NUM_BYTES / sizeof(uint32_t);
 constexpr int MAX_SAMPLES = 8;
+// Wormhole has 20 16MiB TLBs and 166 smaller ones, so every hardware index fits well under this.
+constexpr int MAX_TLB_IDS = 256;
+
+// Mirrors PcieProtocol::get_dma_tlb_size(), which is private: the window size the DMA path asks
+// for. Used to look the window's hardware id back up via PCIDevice::get_last_allocated_tlb_id().
+size_t dma_tlb_size(tt::ARCH arch) { return arch == tt::ARCH::BLACKHOLE ? 2 * 1024 * 1024 : 16 * 1024 * 1024; }
 
 uint32_t encode_tag(uint32_t worker_id, uint32_t noc_x, uint32_t noc_y, uint32_t iteration) {
     return ((worker_id & 0xF) << 28) | ((noc_x & 0x3F) << 22) | ((noc_y & 0x3F) << 16) | (iteration & 0xFFFF);
@@ -526,6 +532,23 @@ DecodedTag decode_tag(uint32_t word) {
 struct ForeignSample {
     int iteration;
     DecodedTag got;
+    // Hardware id of the PCIe DMA TLB window this read went through, and the worker/iteration that
+    // held that same window immediately before us (-1 if unknown, i.e. we are its first user).
+    int tlb_id;
+    int prev_owner;
+    int prev_owner_iteration;
+};
+
+// Cross-process record of PCIe DMA TLB window ownership, in its own MAP_SHARED|MAP_ANONYMOUS
+// mapping created by the parent before fork(). Indexed by hardware TLB id: which worker last
+// released that window, and on which iteration.
+//
+// No locking needed. A worker publishes to a slot only while it still holds that window, and only
+// the holder can publish, so the next worker to claim the id observes a stable value: our publish
+// happens-before our release, which happens-before their claim.
+struct TlbOwnership {
+    int last_releaser_worker[MAX_TLB_IDS];
+    int last_releaser_iteration[MAX_TLB_IDS];
 };
 
 // Plain-old-data result block. One slot per worker, living in a MAP_SHARED|MAP_ANONYMOUS
@@ -536,6 +559,11 @@ struct WorkerResult {
     int completed_iterations = 0;
     int stale = 0;
     int foreign = 0;
+    // Of the foreign reads, how many had a known previous owner for their DMA window, and how many
+    // of those name exactly the worker whose data came back. A high match rate says the transfer
+    // was routed by the window's stale configuration, inherited from its previous owner.
+    int foreign_prev_owner_known = 0;
+    int foreign_prev_owner_match = 0;
     int num_samples = 0;
     ForeignSample samples[MAX_SAMPLES] = {};
     bool errored = false;
@@ -548,7 +576,12 @@ struct WorkerResult {
 // and read it back via dma_read_from_device. A "foreign" result means the DMA read landed on
 // data tagged for a different worker/core -- the completed transfer was matched to the wrong
 // requester.
-void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_barrier_t* start_barrier) {
+//
+// Every iteration also records which hardware DMA TLB window the read went through and who held
+// that window before us, so a foreign read can be attributed: if the data belongs to the window's
+// previous owner, the transfer was routed by a stale window configuration rather than ours.
+void run_worker(
+    int worker_id, int pci_device_id, WorkerResult* result, TlbOwnership* ownership, pthread_barrier_t* start_barrier) {
     try {
         CoreCoord core;
         {
@@ -578,19 +611,45 @@ void run_worker(int worker_id, int pci_device_id, WorkerResult* result, pthread_
             tt_device->write_to_device(payload.data(), core, SCRATCH_ADDR, NUM_BYTES);
             tt_device->dma_read_from_device(readback.data(), NUM_BYTES, core, SCRATCH_ADDR);
 
-            result->completed_iterations++;
-            if (readback == payload) {
-                continue;
+            // The DMA window is allocated lazily by the first dma_read, so its hardware id is only
+            // observable now. We still hold it, so its ownership slot cannot move under us.
+            PCIDevice* pci_device = tt_device->get_pci_device();
+            int tlb_id = -1;
+            if (auto id = pci_device->get_last_allocated_tlb_id(dma_tlb_size(pci_device->get_arch()))) {
+                tlb_id = static_cast<int>(*id);
+            }
+            int prev_owner = -1;
+            int prev_owner_iteration = -1;
+            if (tlb_id >= 0 && tlb_id < MAX_TLB_IDS) {
+                prev_owner = __atomic_load_n(&ownership->last_releaser_worker[tlb_id], __ATOMIC_ACQUIRE);
+                prev_owner_iteration = __atomic_load_n(&ownership->last_releaser_iteration[tlb_id], __ATOMIC_RELAXED);
             }
 
-            DecodedTag got = decode_tag(readback[0]);
-            if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
-                result->stale++;
-            } else {
-                result->foreign++;
-                if (result->num_samples < MAX_SAMPLES) {
-                    result->samples[result->num_samples++] = ForeignSample{iteration, got};
+            result->completed_iterations++;
+            if (readback != payload) {
+                DecodedTag got = decode_tag(readback[0]);
+                if (got.worker_id == static_cast<uint32_t>(worker_id) && got.noc_x == core.x && got.noc_y == core.y) {
+                    result->stale++;
+                } else {
+                    result->foreign++;
+                    if (prev_owner >= 0) {
+                        result->foreign_prev_owner_known++;
+                        if (prev_owner == static_cast<int>(got.worker_id)) {
+                            result->foreign_prev_owner_match++;
+                        }
+                    }
+                    if (result->num_samples < MAX_SAMPLES) {
+                        result->samples[result->num_samples++] =
+                            ForeignSample{iteration, got, tlb_id, prev_owner, prev_owner_iteration};
+                    }
                 }
+            }
+
+            // Publish before the window is released, so whoever claims this id next sees us as its
+            // previous owner. Releasing happens when tt_device goes out of scope below.
+            if (tlb_id >= 0 && tlb_id < MAX_TLB_IDS) {
+                __atomic_store_n(&ownership->last_releaser_iteration[tlb_id], iteration, __ATOMIC_RELAXED);
+                __atomic_store_n(&ownership->last_releaser_worker[tlb_id], worker_id, __ATOMIC_RELEASE);
             }
         }
     } catch (const std::exception& e) {
@@ -633,6 +692,15 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
     ASSERT_NE(results_mem, MAP_FAILED);
     WorkerResult* results = static_cast<WorkerResult*>(results_mem);
 
+    void* ownership_mem =
+        mmap(nullptr, sizeof(TlbOwnership), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ASSERT_NE(ownership_mem, MAP_FAILED);
+    TlbOwnership* ownership = static_cast<TlbOwnership*>(ownership_mem);
+    for (int i = 0; i < MAX_TLB_IDS; i++) {
+        ownership->last_releaser_worker[i] = -1;
+        ownership->last_releaser_iteration[i] = -1;
+    }
+
     std::cout << "Testing DMA read mixed-core repro on PCI device " << pci_device_id << " with " << NUM_WORKERS
               << " workers, " << NUM_ITERATIONS << " iterations each (cores shown as NOC translated x,y)" << std::endl;
 
@@ -642,7 +710,7 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
         pid_t pid = fork();
         ASSERT_NE(pid, -1) << "fork() failed for worker " << worker_id;
         if (pid == 0) {
-            run_worker(worker_id, pci_device_id, &results[worker_id], start_barrier);
+            run_worker(worker_id, pci_device_id, &results[worker_id], ownership, start_barrier);
             _exit(0);
         }
         pids.push_back(pid);
@@ -657,6 +725,8 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
     int total_stale = 0;
     int total_foreign = 0;
     int total_iterations = 0;
+    int total_prev_owner_known = 0;
+    int total_prev_owner_match = 0;
     auto core_str = [](int x, int y) { return "(" + std::to_string(x) + "," + std::to_string(y) + ")"; };
 
     std::cout << std::right << std::setw(3) << "wk" << std::left << std::setw(9) << "  core" << std::right
@@ -674,20 +744,42 @@ TEST(Multiprocess, DISABLED_DmaReadMixedCoreRepro) {
             const ForeignSample& sample = r.samples[s];
             std::cout << "    read@" << std::setw(3) << sample.iteration << " -> worker " << std::setw(2)
                       << sample.got.worker_id << " " << core_str(sample.got.noc_x, sample.got.noc_y) << " write@"
-                      << sample.got.iteration << std::endl;
+                      << std::setw(3) << sample.got.iteration << "  dma tlb#" << std::setw(3) << sample.tlb_id
+                      << " prev held by ";
+            if (sample.prev_owner < 0) {
+                std::cout << "nobody" << std::endl;
+            } else {
+                std::cout << "worker " << std::setw(2) << sample.prev_owner << " @" << std::setw(3)
+                          << sample.prev_owner_iteration << "  "
+                          << (sample.prev_owner == static_cast<int>(sample.got.worker_id) ? "MATCH" : "no match")
+                          << std::endl;
+            }
         }
 
         total_stale += r.stale;
         total_foreign += r.foreign;
         total_iterations += r.completed_iterations;
+        total_prev_owner_known += r.foreign_prev_owner_known;
+        total_prev_owner_match += r.foreign_prev_owner_match;
     }
 
     std::cout << "\ntotal: " << total_stale << " stale, " << total_foreign << " foreign / " << total_iterations
               << " inits" << std::endl;
+    // The discriminator. If the foreign payload almost always belongs to the worker that held the
+    // same DMA TLB window just before us, the read was routed by that window's inherited
+    // configuration -- the DMA engine sourced it before our own reconfiguration took effect. A near
+    // zero match rate instead points somewhere else entirely (shared bounce buffer, engine
+    // register interleaving), and this correlation rules that in or out on its own.
+    if (total_foreign > 0) {
+        std::cout << "dma tlb handoff: " << total_prev_owner_match << "/" << total_prev_owner_known
+                  << " foreign reads returned the data of the worker that previously held the same DMA TLB window ("
+                  << total_foreign - total_prev_owner_known << " had no previous owner)" << std::endl;
+    }
 
     pthread_barrier_destroy(start_barrier);
     munmap(barrier_mem, sizeof(pthread_barrier_t));
     munmap(results_mem, sizeof(WorkerResult) * NUM_WORKERS);
+    munmap(ownership_mem, sizeof(TlbOwnership));
 
     EXPECT_EQ(total_foreign, 0) << total_foreign << " DMA reads returned another core's data (see log above)";
     EXPECT_EQ(total_stale, 0) << total_stale << " DMA reads returned a stale value (see log above)";

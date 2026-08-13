@@ -19,6 +19,7 @@
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
@@ -788,7 +789,12 @@ SemVer PCIDevice::read_kernel_version() {
 std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
-        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
+        auto handle = std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
+        {
+            std::lock_guard<std::mutex> lock(last_allocated_tlb_id_mutex_);
+            last_allocated_tlb_id_[tlb_size] = static_cast<uint32_t>(handle->get_tlb_id());
+        }
+        return handle;
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
@@ -808,6 +814,15 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
                 pci_device_num,
                 e.what()));
     }
+}
+
+std::optional<uint32_t> PCIDevice::get_last_allocated_tlb_id(const size_t tlb_size) const {
+    std::lock_guard<std::mutex> lock(last_allocated_tlb_id_mutex_);
+    auto it = last_allocated_tlb_id_.find(tlb_size);
+    if (it == last_allocated_tlb_id_.end()) {
+        return std::nullopt;
+    }
+    return it->second;
 }
 
 void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {

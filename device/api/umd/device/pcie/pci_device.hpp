@@ -11,6 +11,7 @@
 #include <iterator>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -296,6 +297,17 @@ public:
     void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
 
     /**
+     * Diagnostic hook: hardware TLB index handed out by the most recent successful allocate_tlb()
+     * call for a window of the given size, or nullopt if no window of that size was allocated by
+     * this PCIDevice. Lets a test correlate a transfer with the hardware window it went through --
+     * notably the lazily allocated PCIe DMA window, whose id is otherwise not observable from
+     * outside PcieProtocol.
+     *
+     * @param tlb_size Window size, as passed to allocate_tlb.
+     */
+    std::optional<uint32_t> get_last_allocated_tlb_id(const size_t tlb_size) const;
+
+    /**
      * Read command byte.
      */
     static uint8_t read_command_byte(const int pci_device_num);
@@ -441,5 +453,10 @@ private:
 
     // TLB configuration registers mapped space.
     void *tlb_config_space = nullptr;
+
+    // Diagnostic bookkeeping for get_last_allocated_tlb_id(): window size -> hardware TLB index of
+    // the last window of that size allocated through allocate_tlb().
+    std::map<size_t, uint32_t> last_allocated_tlb_id_;
+    mutable std::mutex last_allocated_tlb_id_mutex_;
 };
 }  // namespace tt::umd

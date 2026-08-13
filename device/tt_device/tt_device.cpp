@@ -621,7 +621,7 @@ uint64_t TTDevice::get_board_id() { return get_firmware_info_provider()->get_boa
 
 double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->get_asic_temperature().value_or(0.0); }
 
-uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location(); }
+uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
 ChipInfo TTDevice::get_chip_info() {
     if (firmware_info_provider == nullptr) {

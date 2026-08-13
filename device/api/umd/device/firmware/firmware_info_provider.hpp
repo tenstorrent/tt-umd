@@ -200,7 +200,7 @@ public:
      * On legacy telemetry, the value is taken from ARC0_HEALTH
      * @returns An integer that does not decrease on subsequent calls.
      */
-    virtual uint32_t get_heartbeat() const;
+    virtual std::optional<uint32_t> get_heartbeat() const;
 
     virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
 

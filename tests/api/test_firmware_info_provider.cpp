@@ -413,17 +413,18 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
 
         // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
         // Heartbeat increments every 100ms, so wait at least that long.
-        uint32_t heartbeat1 = fw_info->get_heartbeat();
+        std::optional<uint32_t> heartbeat1 = fw_info->get_heartbeat();
+        EXPECT_NE(heartbeat1, std::nullopt);
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        uint32_t heartbeat2 = fw_info->get_heartbeat();
+        std::optional<uint32_t> heartbeat2 = fw_info->get_heartbeat();
 
         log_info(
             tt::LogUMD,
             "Device {}: fw_range={}, heartbeat_1={}, heartbeat_2={}",
             pci_device_id,
             fw_range_label(fw_version),
-            heartbeat1,
-            heartbeat2);
+            heartbeat1.value(),
+            heartbeat2.value());
 
         EXPECT_GT(heartbeat2, heartbeat1);
     }

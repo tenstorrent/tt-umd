@@ -637,7 +637,7 @@ ChipInfo TTDevice::get_chip_info() {
     return chip_info;
 }
 
-uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq(); }
+uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
 void TTDevice::advance_device_execution() {
     if (remote_capabilities_ != nullptr) {

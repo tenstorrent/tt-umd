@@ -403,8 +403,8 @@ std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(*raw);
 }
 
-double FirmwareInfoProvider::get_asic_temperature() const {
-    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE).value_or(0.0);
+std::optional<double> FirmwareInfoProvider::get_asic_temperature() const {
+    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE);
 }
 
 std::optional<double> FirmwareInfoProvider::get_board_temperature() const {

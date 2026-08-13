@@ -127,19 +127,20 @@ TEST_F(TestFirmwareInfoProvider, BoardId) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
 
-        uint64_t board_id = fw_info->get_board_id().value_or(0);
+        std::optional<uint64_t> board_id = fw_info->get_board_id();
         log_info(
             tt::LogUMD,
             "Device {}: board_id=0x{:016x}, fw_range={}",
             pci_device_id,
-            board_id,
+            board_id.value(),
             fw_range_label(fw_info->get_firmware_version()));
 
+        EXPECT_NE(board_id, std::nullopt);
         EXPECT_NE(board_id, 0);
 
         // Board ID should map to a known board type.
         BoardType board_type = BoardType::UNKNOWN;
-        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id));
+        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id.value()));
 
         log_info(tt::LogUMD, "board_type={}", board_type_to_string(board_type));
     }
@@ -152,7 +153,7 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        double asic_temp = fw_info->get_asic_temperature();
+        std::optional<double> asic_temp = fw_info->get_asic_temperature();
         std::optional<double> board_temp = fw_info->get_board_temperature();
 
         log_info(
@@ -160,7 +161,7 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
             "Device {}: fw_range={}, asic_temperature={:.2f} C, board_temperature={} C",
             pci_device_id,
             fw_range_label(fw_version),
-            asic_temp,
+            asic_temp.value(),
             opt_str(board_temp));
 
         tt::ARCH arch = tt_device->get_arch();

@@ -172,6 +172,12 @@ shipped beside the binary, which handles `start` and forwards `list`/`kill` to `
 untouched. Use it for anything long-running; `SIM_SERVER_BIN` overrides where it looks for the
 binary. `Ctrl-C` stops a foreground host, as does `SIGTERM`.
 
+A host removes its own server directory when it shuts down gracefully, so a host that was killed or
+crashed leaves one behind — `list` shows it as `unreachable` (its socket file is there but nobody
+answers) or `empty` (no socket at all). `sim_server.sh prune` removes those directories and their
+logs, leaving live servers alone. A host that is still coming up also looks `empty`, so don't prune
+while starting one.
+
 You can run the following for more information:
 ```
 ./build/tools/umd/sim_server --help
@@ -192,4 +198,7 @@ SERVER   CHIP   STATE        ARCH             SOCKET
 
 $ ./build/tools/umd/sim_server.sh kill 0
 Requested shutdown of simulation server 0.
+
+$ ./build/tools/umd/sim_server.sh prune   # after a host was killed rather than shut down
+pruned server 1 (/tmp/tt-umd-sim-server-1)
 ```

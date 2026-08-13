@@ -258,3 +258,34 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     client_cluster.read_from_device(readback.data(), chip, tensix, addr, pattern.size());
     EXPECT_EQ(readback, pattern);
 }
+
+// Releasing a topology-discovered TTSim Cluster must not let a later Cluster inherit the first
+// simulator session's device state, even when the dynamic loader keeps the original .so mapped.
+TEST(SimulationConnector, RecreatedClusterStartsWithFreshDeviceState) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr || std::filesystem::path(simulator_path).extension() != ".so") {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR does not point to TTSim.";
+    }
+
+    ClusterOptions options;
+    options.chip_type = ChipType::SIMULATION;
+    options.simulator_directory = simulator_path;
+
+    constexpr tt::ChipId chip = 0;
+    constexpr uint64_t addr = 0x1000;
+    constexpr uint32_t pattern = 0xA5C39E71;
+    CoreCoord tensix;
+    uint32_t initial = 0;
+    {
+        Cluster cluster(options);
+        tensix = cluster.get_soc_descriptor(chip).get_cores(tt::CoreType::TENSIX).at(0);
+        cluster.read_from_device(&initial, chip, tensix, addr, sizeof(initial));
+        ASSERT_NE(initial, pattern);
+        cluster.write_to_device(&pattern, sizeof(pattern), chip, tensix, addr);
+    }
+
+    Cluster recreated(options);
+    uint32_t observed = 0;
+    recreated.read_from_device(&observed, chip, tensix, addr, sizeof(observed));
+    EXPECT_EQ(observed, initial);
+}

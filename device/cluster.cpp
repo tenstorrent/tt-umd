@@ -522,8 +522,8 @@ Cluster::Cluster(ClusterOptions options) {
                 if (discover_ttsim_topology) {
                     const int bootstrap_host_mem_channels =
                         static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(MAX_HOST_MEM_CHANNELS));
-                    auto local_device =
-                        create_simulation_tt_device(options.simulator_directory, bootstrap_host_mem_channels);
+                    auto local_device = create_simulation_tt_device(
+                        options.simulator_directory, bootstrap_host_mem_channels, /*copy_sim_binary=*/true);
                     local_device->init_tt_device_for_simulation();
                     auto* ttsim_device = dynamic_cast<TTSimTTDevice*>(local_device.get());
                     UMD_ASSERT(

@@ -722,7 +722,20 @@ std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProvider::parse_eth_status_b
     return statuses;
 }
 
-std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+    auto statuses = get_eth_heartbeat_status_per_core();
+    if (!statuses.has_value()) {
+        return std::nullopt;
+    }
+    std::vector<bool> heartbeat_status;
+    heartbeat_status.reserve(statuses->size());
+    for (const auto& [core, status] : statuses.value()) {
+        heartbeat_status.push_back(status);
+    }
+    return heartbeat_status;
+}
+
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_heartbeat_status_per_core() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_HEARTBEAT_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -730,7 +743,7 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_link_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_link_status_per_core() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_LINK_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -738,7 +751,20 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_retrain_status() const {
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
+    auto statuses = get_eth_retrain_status_per_core();
+    if (!statuses.has_value()) {
+        return std::nullopt;
+    }
+    std::vector<bool> retrain_status;
+    retrain_status.reserve(statuses->size());
+    for (const auto& [core, status] : statuses.value()) {
+        retrain_status.push_back(status);
+    }
+    return retrain_status;
+}
+
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_retrain_status_per_core() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_RETRAIN_STATUS);
     if (!data.has_value()) {
         return std::nullopt;

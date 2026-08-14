@@ -239,7 +239,7 @@ jobs:
           echo "Setting up virtual environment..."
           python3 -m venv .venv
           source .venv/bin/activate
-          python -m pip install --upgrade pip wheel auditwheel
+          python -m pip install --upgrade pip wheel auditwheel "patchelf>=0.17"
           echo "Compiling the code..."
           # Override CMAKE_BUILD_TYPE to Release for sanitizer builds to avoid symbol conflicts with Python
           # Python interpreters are not built with sanitizers, so TSAN/ASAN wheels cannot be loaded

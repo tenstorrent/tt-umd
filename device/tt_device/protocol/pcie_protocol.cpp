@@ -6,6 +6,9 @@
 
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
+#include <fmt/format.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <cstring>
 #include <mutex>
@@ -13,6 +16,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -168,21 +172,121 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
-bool PcieProtocol::dma_write_to_device(const void* src, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
+int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
+
+// A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
+// address at or below addr; the smallest window that still covers [addr, addr + size) is selected.
+// The offset handed to the driver is addr's distance from that base, and both offset and size must
+// be page-aligned.
+int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
+    // Nothing can consume this fd without an active RDMA NIC on the host, so check for one before
+    // any window is allocated or an ioctl issued, same as the alignment checks below.
+    UMD_ASSERT(
+        tt::umd::utils::has_any_active_rdma_port(),
+        error::RuntimeError,
+        "Exporting a TLB window as a dma-buf requires an active RDMA NIC (RoCE or InfiniBand) on this host to "
+        "consume it, but no port in the ACTIVE state was found under /sys/class/infiniband.");
+
+    UMD_ASSERT(
+        ordering == tlb_data::Strict || ordering == tlb_data::Posted || ordering == tlb_data::Relaxed,
+        error::RuntimeError,
+        "Invalid ordering specified in PcieProtocol::export_dmabuf");
+
+    const uint64_t page_size = static_cast<uint64_t>(getpagesize());
+    UMD_ASSERT(size != 0, error::RuntimeError, "Cannot export a dma-buf of size 0.");
+    UMD_ASSERT(
+        addr % page_size == 0,
+        error::RuntimeError,
+        fmt::format("Address {:#x} must be aligned to the host page size ({} bytes) to be exported.", addr, page_size));
+    UMD_ASSERT(
+        size % page_size == 0,
+        error::RuntimeError,
+        fmt::format("Size {} must be a multiple of the host page size ({} bytes) to be exported.", size, page_size));
+
+    const std::vector<size_t>& size_classes = pci_device_->get_architecture_implementation()->get_tlb_sizes();
+    size_t window_size = 0;
+    for (const size_t candidate : size_classes) {
+        if (size <= candidate - (addr % candidate)) {
+            window_size = candidate;
+            break;
+        }
+    }
+    UMD_ASSERT(
+        window_size != 0,
+        error::RuntimeError,
+        fmt::format(
+            "No TLB window size can cover {} bytes at address {:#x}; the largest is {} bytes and its base must be "
+            "size-aligned. Use a smaller size or a more aligned address.",
+            size,
+            addr,
+            size_classes.back()));
+
+    const uint64_t window_offset = addr % window_size;
+
+    tlb_data config{};
+    config.local_offset = addr - window_offset;
+    config.x_end = core.x;
+    config.y_end = core.y;
+    config.noc_sel = static_cast<uint64_t>(noc_id);
+    config.ordering = ordering;
+    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+
+    log_debug(
+        LogUMD,
+        "Exporting {} bytes at {:#x} on core {} as a dma-buf via a {} byte TLB window (offset {:#x} into the window).",
+        size,
+        addr,
+        core.str(),
+        window_size,
+        window_offset);
+
+    // Dedicated window (not a cached one): must not alias a window other traffic could reconfigure
+    // while the export is live.
+    return pci_device_->export_tlb_dmabuf(window_size, config, window_offset, size);
+}
+
+bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
     // const_cast is safe here: dma_transfer only reads from the buffer in H2D direction (memcpy into DMA buffer).
     // dma_transfer uses void* to handle both H2D (read) and D2H (write) in a single function.
     // TODO: Split dma_transfer into separate H2D/D2H functions to remove this cast.
     return dma_transfer(
-        const_cast<void*>(src), size, addr, create_dma_tlb_config(addr, core, noc_id), DmaDirection::H2D);  // NOLINT
+        const_cast<void*>(src),  // NOLINT
+        size,
+        dst_addr,
+        create_dma_tlb_config(dst_addr, core, noc_id),
+        DmaDirection::H2D);
 }
 
-bool PcieProtocol::dma_read_from_device(void* dst, size_t size, tt_xy_pair core, uint64_t addr, NocId noc_id) {
-    return dma_transfer(dst, size, addr, create_dma_tlb_config(addr, core, noc_id), DmaDirection::D2H);
+bool PcieProtocol::dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_transfer(dst, size, src_addr, create_dma_tlb_config(src_addr, core, noc_id), DmaDirection::D2H);
 }
 
 bool PcieProtocol::dma_multicast_write(
-    void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
-    return dma_transfer(src, size, addr, create_dma_tlb_config(addr, core_end, noc_id, core_start), DmaDirection::H2D);
+    const void* src, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id) {
+    return dma_transfer(
+        const_cast<void*>(src),  // NOLINT
+        size,
+        dst_addr,
+        create_dma_tlb_config(dst_addr, core_end, noc_id, core_start),
+        DmaDirection::H2D);
+}
+
+bool PcieProtocol::dma_read_zero_copy(
+    uint64_t dst_iova, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_transfer_zero_copy(
+        dst_iova, size, src_addr, create_dma_tlb_config(src_addr, core, noc_id), DmaDirection::D2H);
+}
+
+bool PcieProtocol::dma_write_zero_copy(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core, NocId noc_id) {
+    return dma_transfer_zero_copy(
+        src_iova, size, dst_addr, create_dma_tlb_config(dst_addr, core, noc_id), DmaDirection::H2D);
+}
+
+bool PcieProtocol::dma_multicast_write_zero_copy(
+    uint64_t src_iova, uint64_t dst_addr, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, NocId noc_id) {
+    return dma_transfer_zero_copy(
+        src_iova, size, dst_addr, create_dma_tlb_config(dst_addr, core_end, noc_id, core_start), DmaDirection::H2D);
 }
 
 // Creates a TLB config for DMA transfers. Parameters are named core_end/core_start to match
@@ -250,6 +354,47 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     return true;
 }
 
+bool PcieProtocol::dma_transfer_zero_copy(
+    uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction) {
+    std::scoped_lock lock(dma_mutex_);
+    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
+
+    if (dma_buffer.buffer == nullptr) {
+        log_warning(LogUMD, "DMA buffer was not allocated for PCI device {}.", pci_device_->get_device_num());
+        return false;
+    }
+
+    TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
+
+    auto axi_address_base = pci_device_->get_architecture_implementation()
+                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+                                .tlb_offset;
+
+    const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
+    auto axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+
+    while (size > 0) {
+        auto tlb_size = tlb_window->get_size();
+        size_t transfer_size = std::min(size, tlb_size);
+
+        if (direction == DmaDirection::H2D) {
+            dma_h2d_transfer(static_cast<uint32_t>(axi_address), iova, transfer_size);
+        } else {
+            dma_d2h_transfer(iova, static_cast<uint32_t>(axi_address), transfer_size);
+        }
+
+        size -= transfer_size;
+        addr += transfer_size;
+        iova += transfer_size;
+
+        config.local_offset = addr;
+        tlb_window->configure(config);
+        axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
+    }
+
+    return true;
+}
+
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {
         cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(
@@ -259,44 +404,6 @@ TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
 
     cached_dma_tlb_window_->configure(config);
     return cached_dma_tlb_window_.get();
-}
-
-// TODO: These public DMA methods are locked for safety since they can be called directly by
-// consumers. The goal is to make the protocol class lockless and push synchronization to
-// higher-level components. dma_transfer() calls the private _transfer methods directly to
-// avoid lock contention.
-void PcieProtocol::dma_d2h(void* dst, uint32_t src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        UMD_THROW(error::RuntimeError, "DMA size exceeds buffer size.");
-    }
-
-    dma_d2h_transfer(dma_buffer.buffer_pa, src, size);
-    std::memcpy(dst, dma_buffer.buffer, size);
-}
-
-void PcieProtocol::dma_d2h_zero_copy(void* dst, uint32_t src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    dma_d2h_transfer(reinterpret_cast<uint64_t>(dst), src, size);
-}
-
-void PcieProtocol::dma_h2d(uint32_t dst, const void* src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    DmaBuffer& dma_buffer = pci_device_->get_dma_buffer();
-
-    if (size > dma_buffer.size) {
-        UMD_THROW(error::RuntimeError, "DMA size exceeds buffer size.");
-    }
-
-    std::memcpy(dma_buffer.buffer, src, size);
-    dma_h2d_transfer(dst, dma_buffer.buffer_pa, size);
-}
-
-void PcieProtocol::dma_h2d_zero_copy(uint32_t dst, const void* src, size_t size) {
-    std::scoped_lock lock(dma_mutex_);
-    dma_h2d_transfer(dst, reinterpret_cast<uint64_t>(src), size);
 }
 
 void PcieProtocol::dma_d2h_transfer(const uint64_t dst, const uint32_t src, const size_t size) {

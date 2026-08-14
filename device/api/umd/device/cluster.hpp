@@ -308,8 +308,6 @@ public:
      * - Assert soft Tensix reset
      * - Deassert RiscV reset
      * - Set power state to busy (ramp up AICLK)
-     * - Initialize iATUs for PCIe devices
-     * - Initialize ethernet queues for remote chips.
      *
      * @param device_params Object specifying initialization configuration.
      */

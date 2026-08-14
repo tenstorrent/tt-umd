@@ -49,7 +49,7 @@ void SiliconTlbHandle::configure(const tlb_data& new_config) {
     // before passing to configure_tlb.
     tlb_data cfg_data = new_config;
     cfg_data.local_offset = cfg_data.local_offset / get_size();
-    pci_device_.configure_tlb(tlb_id_, cfg_data);
+    pci_device_.configure_tlb(tlb_id_, cfg_data, verify_config_);
 
     tlb_config_ = new_config;
 }

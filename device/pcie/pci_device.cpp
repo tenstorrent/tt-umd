@@ -37,6 +37,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -810,7 +811,7 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
     auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
 
@@ -832,12 +833,37 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
-    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
+    const uint32_t config_words[] = {
+        static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
+    const size_t num_config_words = arch == tt::ARCH::BLACKHOLE ? 3 : 2;
+    for (size_t i = 0; i < num_config_words; i++) {
+        tlb_reg_ptr[i] = config_words[i];
+    }
 
-    if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total).
-        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
+    // MMIO writes are posted, so read the low 64 bits back to prove the mapping is live before
+    // anything uses it. Costs a PCIe round trip, hence opt-in.
+    if (verify) {
+        static constexpr auto TLB_CONFIG_BUSY_POLL_WINDOW =
+            std::chrono::duration_cast<std::chrono::microseconds>(timeout::MMIO_OP_TIMEOUT);
+        static constexpr auto TLB_CONFIG_POLL_INTERVAL = std::chrono::microseconds(1);
+
+        const bool config_landed = utils::poll_until(
+            [&]() { return tlb_reg_ptr[0] == config_words[0] && tlb_reg_ptr[1] == config_words[1]; },
+            timeout::MMIO_OP_TIMEOUT,
+            TLB_CONFIG_BUSY_POLL_WINDOW,
+            TLB_CONFIG_POLL_INTERVAL);
+
+        UMD_ASSERT(
+            config_landed,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {} did not read back the configuration written to it (wrote {:#x} {:#x}, read {:#x} {:#x}). "
+                "The window is either not responding or is being written by another owner.",
+                tlb_index,
+                config_words[0],
+                config_words[1],
+                tlb_reg_ptr[0],
+                tlb_reg_ptr[1]));
     }
 
     log_trace(

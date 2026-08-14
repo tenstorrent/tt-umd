@@ -52,6 +52,18 @@ public:
      */
     int get_tlb_id() const { return tlb_id_; }
 
+    /**
+     * Require every subsequent configure() to confirm the new configuration has reached the device
+     * before returning, at the cost of a PCIe round trip per reconfigure.
+     *
+     * Off by default, which is correct whenever the host itself is the next user of the window: the
+     * host's access to the window travels behind the config write, into the same block, so it
+     * cannot be translated by the old configuration. Turn it on for a window whose next user is
+     * on-chip -- notably the PCIe DMA engine, which is a separate requester started by a doorbell to
+     * a different register block, and so is not ordered behind the config write at all.
+     */
+    void set_verify_config(const bool verify) { verify_config_ = verify; }
+
     virtual tt::ARCH get_arch() const = 0;
 
 protected:
@@ -65,6 +77,7 @@ protected:
     size_t tlb_size_ = 0;
     tlb_data tlb_config_{};
     TlbMapping tlb_mapping_ = TlbMapping::UC;
+    bool verify_config_ = false;
 
 private:
     /**

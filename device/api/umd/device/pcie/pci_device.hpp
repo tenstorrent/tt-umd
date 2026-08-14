@@ -292,8 +292,12 @@ public:
      *
      * @param tlb_index The TLB index/ID to configure
      * @param tlb_config The TLB configuration data
+     * @param verify Read the register back and wait until it holds the written configuration before
+     *               returning. MMIO writes are posted, so without this the mapping is not
+     *               guaranteed live on return. Only needed when the next user of the window is not
+     *               the host itself -- see TlbHandle::set_verify_config. Costs a PCIe round trip.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.

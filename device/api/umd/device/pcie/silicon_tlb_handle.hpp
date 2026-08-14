@@ -34,6 +34,12 @@ public:
      */
     SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
 
+    /**
+     * Constructor for SiliconTlbHandle that additionally fixes verify_config_ for the handle's
+     * lifetime. See TlbHandle's protected verify_config constructor for when to pass true.
+     */
+    SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping, const bool verify_config);
+
     ~SiliconTlbHandle() noexcept override;
 
     void configure(const tlb_data& new_config) override;

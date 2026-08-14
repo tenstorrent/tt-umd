@@ -167,10 +167,26 @@ public:
     /*
      * Get per-link ethernet heartbeat status.
      * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
+     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
+     */
+    [[deprecated("Use get_eth_heartbeat_status_per_core()")]] virtual std::optional<std::vector<bool>>
+    get_eth_heartbeat_status() const;
+
+    /*
+     * Get per-link ethernet retrain status.
+     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
+     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
+     */
+    [[deprecated("Use get_eth_retrain_status_per_core()")]] virtual std::optional<std::vector<bool>>
+    get_eth_retrain_status() const;
+
+    /*
+     * Get per-link ethernet heartbeat status.
+     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
      * Each entry pairs an ETH core's NOC0 coordinate with its status (16 entries on WH, 14 on BH).
      * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
      */
-    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status() const;
+    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status_per_core() const;
 
     /*
      * Get per-link ethernet retrain status.
@@ -178,7 +194,7 @@ public:
      * Each entry pairs an ETH core's NOC0 coordinate with its status.
      * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
      */
-    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status() const;
+    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status_per_core() const;
 
     /*
      * Get per-link ethernet link status.
@@ -186,7 +202,7 @@ public:
      * Each entry pairs an ETH core's NOC0 coordinate with its status.
      * @returns Per-core link status (true = up), or std::nullopt if unavailable.
      */
-    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status() const;
+    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status_per_core() const;
 
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 

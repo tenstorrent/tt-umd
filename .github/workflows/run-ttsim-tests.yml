@@ -150,8 +150,11 @@ jobs:
       - name: Run sim_server start / list / kill on tt-sim blackhole
         timeout-minutes: 2
         run: |
+          # Resolve the simulator before cd'ing: this job runs in a container, where github.workspace
+          # is the *host* path, so use the working directory the sim paths were prepared in instead.
+          simulator=$(pwd)/sim_bh/libttsim.so
           cd tt-metal/tt_metal/third_party/umd/build/tools/umd
-          ./sim_server.sh start ${{ github.workspace }}/sim_bh/libttsim.so
+          ./sim_server.sh start "$simulator"
           ./sim_server.sh list | tee /tmp/sim_server_list.txt
           grep -q "live" /tmp/sim_server_list.txt
           ./sim_server.sh kill 0

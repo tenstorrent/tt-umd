@@ -52,8 +52,10 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
       # seccomp=unconfined is required by TSan builds: the runtime re-execs itself with ASLR
       # disabled via personality(ADDR_NO_RANDOMIZE), which Docker's default seccomp profile denies.
+      # Set dummy var for baremetal, as options has to have some value.
       options: >-
-        ${{ inputs.build-type == 'TSan' && '--security-opt seccomp=unconfined ' || '' }}${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
+        ${{ inputs.build-type == 'TSan' && '--security-opt seccomp=unconfined' || '' }}
+        ${{ inputs.arch != 'baremetal' && '--device /dev/tenstorrent' || '-e DUMMY_VAR=' }}
       volumes:
         - /dev/hugepages:/dev/hugepages
         - /dev/hugepages-1G:/dev/hugepages-1G

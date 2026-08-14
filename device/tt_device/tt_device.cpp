@@ -78,7 +78,6 @@ TTDevice::TTDevice(
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
     pcie_capabilities_ = pcie_protocol.get();
     dma_capabilities_ = pcie_protocol.get();
-    pcie_protocol_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
     lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -259,7 +258,7 @@ PCIDevice *TTDevice::get_pci_device() {
     if (!pcie_capabilities_) {
         return nullptr;
     }
-    return pcie_protocol_->get_pci_device();
+    return dynamic_cast<PcieProtocol *>(device_protocol_.get())->get_pci_device();
 }
 
 RemoteCommunication *TTDevice::get_remote_communication() {
@@ -273,7 +272,7 @@ void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     if (is_remote_tt_device || !pcie_capabilities_) {
         return;
     }
-    get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
+    pcie_capabilities_->set_power_state(state == TTDevice::PowerState::BUSY);
 }
 
 void TTDevice::set_clock_state(TTDevice::PowerState /*state*/, NocId /*noc_id*/) {
@@ -467,19 +466,17 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
 
 // This is only needed for the BH workaround in iatu_configure_peer_region since no arc.
 std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping mapping, size_t size) {
-    PCIDevice *pci = get_pci_device();
-    UMD_ASSERT(
-        pci != nullptr, error::RuntimeError, "TTDevice::get_io_window default implementation requires a PCIDevice.");
+    PcieInterface *pcie = get_pcie_interface();
 
     if (size != 0) {
-        return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size, mapping), config);
+        return pcie->allocate_tlb_window(config, mapping, size);
     }
 
     // Caller didn't specify a size — try arch-supported sizes in preference order.
     const std::vector<size_t> &possible_sizes = get_architecture_implementation()->get_tlb_sizes();
     for (const auto &s : possible_sizes) {
         try {
-            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
+            return pcie->allocate_tlb_window(config, mapping, s);
         } catch (const std::exception &e) {
             log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
         }
@@ -568,6 +565,8 @@ void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
+
+int TTDevice::get_numa_node() const { return pcie_capabilities_ ? pcie_capabilities_->get_numa_node() : -1; }
 
 ArcMessenger *TTDevice::get_arc_messenger() const {
     if (arc_messenger_ == nullptr) {

@@ -26,8 +26,6 @@
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -92,7 +90,7 @@ void LocalChip::initialize_default_chip_mutexes() {
     // time here (during device init) since it's unsafe to modify shared state during multithreaded runtime.
     // cleanup_mutexes_in_shm is tied to clean_system_resources from the constructor. The main process is
     // responsible for initializing the driver with this field set to cleanup after an aborted process.
-    int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+    int pci_device_id = tt_device_->get_communication_device_id();
 
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
@@ -143,10 +141,10 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_communication_device_id()));
 
     sysmem_manager_->pin_or_map_sysmem_to_device();
-    if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
+    if (!tt_device_->get_pcie_interface()->is_mapping_buffer_to_noc_supported()) {
         // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
         init_pcie_iatus();
     }
@@ -453,7 +451,7 @@ void LocalChip::set_membar_flag(
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads.
-    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_communication_device_id());
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }
@@ -543,12 +541,12 @@ void LocalChip::deassert_risc_resets() {
 
 int LocalChip::get_clock() { return tt_device_->get_clock(); }
 
-int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_node(); }
+int LocalChip::get_numa_node() { return tt_device_->get_numa_node(); }
 
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
-        cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+        cached_wc_tlb_window = get_tt_device()->get_io_window(
+            {}, TlbMapping::WC, get_tt_device()->get_architecture_implementation()->get_cached_tlb_size());
         cached_wc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_wc_tlb_window.get();
     }
@@ -558,8 +556,8 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
 
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
-        cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+        cached_uc_tlb_window = get_tt_device()->get_io_window(
+            {}, TlbMapping::UC, get_tt_device()->get_architecture_implementation()->get_cached_tlb_size());
         cached_uc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_uc_tlb_window.get();
     }

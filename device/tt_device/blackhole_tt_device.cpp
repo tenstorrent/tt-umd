@@ -5,7 +5,6 @@
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
 
 #include <fmt/format.h>
-#include <sys/mman.h>  // for MAP_FAILED
 
 #include <chrono>
 #include <memory>
@@ -68,13 +67,10 @@ BlackholeTTDevice::~BlackholeTTDevice() {
     if (get_communication_device_type() != IODeviceType::PCIe) {
         return;
     }
-    if (get_pci_device()->bar2_uc != nullptr && get_pci_device()->bar2_uc != MAP_FAILED) {
-        auto *bar2 = static_cast<volatile uint8_t *>(get_pci_device()->bar2_uc);
-
+    if (get_pcie_interface()->is_bar2_available()) {
         for (size_t region : iatu_regions_) {
             uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
-            uint64_t region_ctrl_2 = 0;
-            *reinterpret_cast<volatile uint32_t *>(bar2 + iatu_base + 0x04) = region_ctrl_2;
+            get_pcie_interface()->bar2_write32(iatu_base + 0x04, 0);
         }
     }
 }
@@ -82,7 +78,6 @@ BlackholeTTDevice::~BlackholeTTDevice() {
 void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint64_t base = region * region_size;
     uint64_t iatu_base = ATU_OFFSET_IN_BH_BAR2 + (region * 0x200);
-    auto *bar2 = static_cast<volatile uint8_t *>(get_pci_device()->bar2_uc);
 
     if (region_size % (1ULL << 30) != 0 || region_size > (1ULL << 32)) {
         // If you hit this, the suggestion is to not use iATU: map your buffer
@@ -91,12 +86,12 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
             error::RuntimeError, "Failed constraint: region_size % (1ULL << 30) == 0; region_size <= (1ULL <<32).");
     }
 
-    if (bar2 == nullptr || bar2 == MAP_FAILED) {
+    if (!get_pcie_interface()->is_bar2_available()) {
         UMD_THROW(error::RuntimeError, "BAR2 not mapped.");
     }
 
-    auto write_iatu_reg = [bar2](uint64_t offset, uint32_t value) {
-        *reinterpret_cast<volatile uint32_t *>(bar2 + offset) = value;
+    auto write_iatu_reg = [this](uint64_t offset, uint32_t value) {
+        get_pcie_interface()->bar2_write32(offset, value);
     };
 
     uint64_t limit = (base + (region_size - 1)) & 0xffff'ffff;
@@ -125,7 +120,7 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
     log_debug(
         LogUMD,
         "Device: {} Mapped iATU region {} from 0x{:x} to 0x{:x} to 0x{:x}",
-        this->get_pci_device()->get_device_num(),
+        this->get_communication_device_id(),
         region,
         base,
         limit,

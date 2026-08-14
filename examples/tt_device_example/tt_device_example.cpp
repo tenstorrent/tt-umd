@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
                                                                   : "Unknown")
                   << std::endl;
 
-        std::cout << "PCI Device: " << device->get_pci_device()->get_device_num() << std::endl;
+        std::cout << "PCI Device: " << device->get_communication_device_id() << std::endl;
 
         std::cout << "Testing BAR read/write (without init)..." << std::endl;
         uint32_t test_addr = device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +

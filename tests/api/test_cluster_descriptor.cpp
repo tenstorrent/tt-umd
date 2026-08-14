@@ -246,7 +246,7 @@ TEST(TestClusterDescriptor, VerifyStandardTopology) {
             break;
         }
 
-        // This covers Quietbox 2/Quietbox GE (2 P300 cards = 4 chips)
+        // This covers Quietbox 2/Quietbox GE (2 P300 cards = 4 chips).
         case 4: {
             switch (cluster_desc->get_arch()) {
                 case tt::ARCH::BLACKHOLE: {

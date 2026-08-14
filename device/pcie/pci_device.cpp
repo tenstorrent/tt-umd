@@ -10,6 +10,7 @@
 #include <sys/utsname.h>  // for uname
 #include <unistd.h>       // for ::close
 
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -786,10 +787,11 @@ SemVer PCIDevice::read_kernel_version() {
     return SemVer(uts.release);
 }
 
-std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
+std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
+    const size_t tlb_size, const TlbMapping tlb_mapping, const bool verify_config) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
-        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping, verify_config);
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
@@ -833,9 +835,9 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    const uint32_t config_words[] = {
+    const std::array<uint32_t, 3> config_words = {
         static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
-    const size_t num_config_words = arch == tt::ARCH::BLACKHOLE ? 3 : 2;
+    const size_t num_config_words = (arch == tt::ARCH::BLACKHOLE) ? 3 : 2;
     for (size_t i = 0; i < num_config_words; i++) {
         tlb_reg_ptr[i] = config_words[i];
     }
@@ -848,7 +850,7 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
         static constexpr auto TLB_CONFIG_POLL_INTERVAL = std::chrono::microseconds(1);
 
         const bool config_landed = utils::poll_until(
-            [&]() { return tlb_reg_ptr[0] == config_words[0] && tlb_reg_ptr[1] == config_words[1]; },
+            [&]() { return (tlb_reg_ptr[0] == config_words[0]) && (tlb_reg_ptr[1] == config_words[1]); },
             timeout::MMIO_OP_TIMEOUT,
             TLB_CONFIG_BUSY_POLL_WINDOW,
             TLB_CONFIG_POLL_INTERVAL);

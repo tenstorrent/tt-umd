@@ -284,8 +284,11 @@ public:
      *
      * @param tlb_size Size of the TLB caller wants to allocate.
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
+     * @param verify_config Whether the handle should confirm each configure() reached the device
+     *                      before returning; see TlbHandle's protected verify_config constructor.
      */
-    std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+    std::unique_ptr<TlbHandle> allocate_tlb(
+        const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
      * Configure TLB register in user space by writing directly to BAR0.
@@ -295,7 +298,8 @@ public:
      * @param verify Read the register back and wait until it holds the written configuration before
      *               returning. MMIO writes are posted, so without this the mapping is not
      *               guaranteed live on return. Only needed when the next user of the window is not
-     *               the host itself -- see TlbHandle::set_verify_config. Costs a PCIe round trip.
+     *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
+     *               PCIe round trip.
      */
     void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
 

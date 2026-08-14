@@ -264,7 +264,7 @@ TEST(TestClusterDescriptor, VerifyStandardTopology) {
                     break;
                 }
                 default: {
-                    throw std::runtime_error("Unexpected architecture for 4 chip cluster descriptor.");
+                    throw std::runtime_error("Unexpected architecture for 4-chip cluster descriptor.");
                 }
             }
             break;

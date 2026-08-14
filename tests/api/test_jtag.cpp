@@ -73,6 +73,14 @@ protected:
         setup_successful_ = true;
     }
 
+    static void TearDownTestSuite() {
+        // Release the devices here rather than leaving them to the static destructor of device_data_. That destructor
+        // runs from atexit, by which point statics owned by other translation units may already be gone, and tearing
+        // down a device involves closing OS resources that depend on them.
+        device_data_.clear();
+        setup_successful_ = false;
+    }
+
     // This method runs before EACH individual test.
     void SetUp() override {
         // Check if devices were successfully set up in SetUpTestSuite.

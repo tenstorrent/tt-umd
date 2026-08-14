@@ -900,6 +900,10 @@ TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord cor
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }
 
+int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+    return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
+}
+
 std::map<int, int> Cluster::get_clocks() {
     std::map<int, int> clock_freq_map;
     for (auto& chip_id : local_chip_ids_) {

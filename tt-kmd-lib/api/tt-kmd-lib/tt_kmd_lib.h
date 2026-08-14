@@ -352,6 +352,14 @@ enum tt_dma_map_flags {
      * range, e.g. for hugepages. It has no effect when an IOMMU is active.
      */
     TT_DMA_FLAG_CONTIGUOUS = 1 << 2,
+
+    /**
+     * @brief Restricts the mapping to device reads.
+     *
+     * Requires KMD 2.9.0 or newer and an active IOMMU. Device writes to this
+     * mapping fault. This flag may be combined with either NOC mapping flag.
+     */
+    TT_DMA_FLAG_READ_ONLY = 1 << 3,
 };
 
 /**

@@ -22,6 +22,7 @@
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/host_memory.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -229,9 +230,11 @@ public:
      * Map a buffer so it is accessible by the device NOC.
      * @param buffer must be page-aligned
      * @param size must be a multiple of the page size
+     * @param device_access READ_ONLY requires is_read_only_page_pinning_supported()
      * @return uint64_t NOC address, uint64_t PA or IOVA
      */
-    std::pair<uint64_t, uint64_t> map_buffer_to_noc(void *buffer, size_t size);
+    std::pair<uint64_t, uint64_t> map_buffer_to_noc(
+        void *buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
 
     /**
      * Map a hugepage so it is accessible by the device NOC.
@@ -249,9 +252,15 @@ public:
      *
      * @param buffer must be page-aligned
      * @param size must be a multiple of the page size
+     * @param device_access READ_ONLY requires is_read_only_page_pinning_supported()
      * @return uint64_t PA (no IOMMU) or IOVA (with IOMMU) for use by the device
      */
-    uint64_t map_for_dma(void *buffer, size_t size);
+    uint64_t map_for_dma(void *buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
+
+    /**
+     * @return whether this device and KMD support device-read-only host mappings
+     */
+    bool is_read_only_page_pinning_supported() const;
 
     /**
      * Access the device's DMA buffer.  This buffer is not guaranteed to exist.

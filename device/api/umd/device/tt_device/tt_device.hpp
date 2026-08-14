@@ -490,6 +490,24 @@ public:
     virtual std::unique_ptr<TlbWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
+    /**
+     * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
+     * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
+     * caller owns the returned fd and must close() it.
+     *
+     * @param core Core to target.
+     * @param addr Address within the core to aim the exported region at; must be page-aligned.
+     * @param size Number of bytes to export; must be page-aligned and non-zero.
+     * @param ordering Ordering mode for the TLB window backing the export.
+     * @param noc_id NOC to route the exported traffic over.
+     */
+    virtual int export_dmabuf(
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        uint64_t ordering = tlb_data::Relaxed,
+        NocId noc_id = NocId::DEFAULT_NOC);
+
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
     /**

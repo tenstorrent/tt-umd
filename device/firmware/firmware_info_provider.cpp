@@ -329,23 +329,6 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
-    return FirmwareBundleVersion(19, 7, 1);
-}
-
-/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0: {
-            return FirmwareBundleVersion(18, 3, 0);
-        }
-        case tt::ARCH::BLACKHOLE: {
-            return FirmwareBundleVersion(18, 5, 0);
-        }
-        default:
-            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
-    }
-}
-
 uint64_t FirmwareInfoProvider::get_board_id() const {
     uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
     uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
@@ -753,25 +736,43 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address() const {
-    auto address_offset =
-        tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
-    if (!address_offset.has_value()) {
-        return std::nullopt;
-    }
     uint32_t address = 0;
-    tt_device->read_from_arc_apb(&address, address_offset.value(), sizeof(address));
-    return address;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
+            return address;
+        case ARCH::BLACKHOLE:
+            if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_apb(&address, blackhole::SCRATCH_RAM_22, sizeof(address));
+            return address;
+        default:
+            return std::nullopt;
+    }
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size() const {
-    auto size_offset =
-        tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
-    if (!size_offset.has_value()) {
-        return std::nullopt;
-    }
     uint32_t size = 0;
-    tt_device->read_from_arc_apb(&size, size_offset.value(), sizeof(size));
-    return size;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
+            return size;
+        case ARCH::BLACKHOLE:
+            if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_apb(&size, blackhole::SCRATCH_RAM_23, sizeof(size));
+            return size;
+        default:
+            return std::nullopt;
+    }
 }
 
 }  // namespace tt::umd

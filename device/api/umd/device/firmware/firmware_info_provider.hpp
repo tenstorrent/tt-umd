@@ -31,7 +31,7 @@ class TTDevice;
  * and DRAM training status.
  *
  */
-class FirmwareInfoProvider final {
+class FirmwareInfoProvider {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
 
@@ -40,16 +40,6 @@ public:
     ~FirmwareInfoProvider() = default;
 
     FirmwareBundleVersion get_firmware_version() const;
-
-    static FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
-
-    /**
-     * This function should capture latest firmware version that is supported by the UMD.
-     * It is used to verify that the firmware running on the device is not newer than what UMD supports.
-     * The function is meant to change on every FW release, so we can keep track of supported features
-     * from new FW versions.
-     */
-    static FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
 
     uint64_t get_board_id() const;
 

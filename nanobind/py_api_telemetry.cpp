@@ -240,9 +240,12 @@ void bind_telemetry(nb::module_& m) {
         .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit, release_gil())
         .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle, release_gil())
         .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())
-        .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status, release_gil())
-        .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status, release_gil())
-        .def("get_eth_link_status", &FirmwareInfoProvider::get_eth_link_status, release_gil())
+        .def(
+            "get_eth_heartbeat_status_per_core",
+            &FirmwareInfoProvider::get_eth_heartbeat_status_per_core,
+            release_gil())
+        .def("get_eth_retrain_status_per_core", &FirmwareInfoProvider::get_eth_retrain_status_per_core, release_gil())
+        .def("get_eth_link_status_per_core", &FirmwareInfoProvider::get_eth_link_status_per_core, release_gil())
         .def_static(
             "create_firmware_info_provider",
             &FirmwareInfoProvider::create_firmware_info_provider,

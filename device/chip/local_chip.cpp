@@ -299,6 +299,10 @@ void LocalChip::dma_read_from_device(void* dst, size_t size, CoreCoord core, uin
     tt_device_->dma_read_from_device(dst, size, core, addr, get_selected_noc_id());
 }
 
+int LocalChip::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+    return tt_device_->export_dmabuf(core, addr, size, ordering, get_selected_noc_id());
+}
+
 void LocalChip::dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) {
     tt_device_->dma_multicast_write(src, size, core_start, core_end, addr, get_selected_noc_id());
 }

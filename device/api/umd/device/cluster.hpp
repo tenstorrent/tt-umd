@@ -516,6 +516,23 @@ public:
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
 
+    /**
+     * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return
+     * an fd the caller owns.
+     * - The caller must close() the returned fd when done to release the underlying resources.
+     * - `addr` and `size` must both be host-page-aligned.
+     *
+     * @param chip Chip to target.
+     * @param core Core to target.
+     * @param addr Address within the core to export. Must be page-aligned.
+     * @param size Bytes to export. Must be non-zero and page-aligned. The returned dma-buf is
+     *             exactly this long, which is the length a peer registers its MR with.
+     * @param ordering Ordering mode for the export.
+     * @return dma-buf file descriptor; the caller owns it and must close() it when done.
+     */
+    int export_dmabuf(
+        const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering = tlb_data::Relaxed);
+
     //---------- Functions for synchronization and memory barriers.
 
     /**

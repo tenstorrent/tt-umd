@@ -421,3 +421,63 @@ TEST(CoordinateManager, CoordinateManagerWormholeNoc1Noc0Mapping) {
     check_noc0_noc1_mapping(wormhole::ARC_CORES_NOC0, ARC_CORES_NOC1, CoreType::ARC);
     check_noc0_noc1_mapping(wormhole::PCIE_CORES_NOC0, PCIE_CORES_NOC1, CoreType::PCIE);
 }
+
+// Regression: a device descriptor may declare a tensix grid that is larger than
+// the number of cores it provides. The flat loop index (y * grid_size_x + x) in
+// translate_tensix_coords() must not read past the end of the core list.
+TEST(CoordinateManager, CoordinateManagerRejectGridLargerThanCoreList) {
+    tt_xy_pair tensix_grid_size(2, 2);
+    std::vector<tt_xy_pair> tensix_cores{tt_xy_pair(0, 0), tt_xy_pair(0, 1)};  // only 2 of 4 cores
+
+    EXPECT_THROW(
+        CoordinateManager::create_coordinate_manager(
+            tt::ARCH::WORMHOLE_B0,
+            true,
+            tt::HarvestingMasks{},
+            tensix_grid_size,
+            tensix_cores,
+            tt_xy_pair(0, 0),
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            tt_xy_pair(0, 0),
+            std::vector<tt_xy_pair>{},
+            tt_xy_pair(0, 0),
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{}),
+        std::out_of_range);
+}
+
+// Regression test that a core whose NOC0 coordinate exceeds the size of the
+// NOC0->NOC1 translation table is rejected instead of reading past the vector.
+TEST(CoordinateManager, CoordinateManagerRejectNoc1IndexOutOfRange) {
+    tt_xy_pair tensix_grid_size(1, 1);
+    std::vector<tt_xy_pair> tensix_cores{tt_xy_pair(4, 0)};  // x exceeds the table width below
+
+    std::vector<uint32_t> noc0_x_to_noc1_x{0};  // width 1 < core x == 4
+    std::vector<uint32_t> noc0_y_to_noc1_y{0};
+
+    EXPECT_THROW(
+        CoordinateManager::create_coordinate_manager(
+            tt::ARCH::WORMHOLE_B0,
+            true,
+            tt::HarvestingMasks{},
+            tensix_grid_size,
+            tensix_cores,
+            tt_xy_pair(0, 0),
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            tt_xy_pair(0, 0),
+            std::vector<tt_xy_pair>{},
+            tt_xy_pair(0, 0),
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            std::vector<tt_xy_pair>{},
+            noc0_x_to_noc1_x,
+            noc0_y_to_noc1_y),
+        std::out_of_range);
+}

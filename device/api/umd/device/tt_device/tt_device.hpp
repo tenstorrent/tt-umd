@@ -369,7 +369,7 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info(NocId noc_id);
+    virtual ChipInfo get_chip_info(NocId noc_id = NocId::DEFAULT_NOC);
 
     FirmwareBundleVersion get_firmware_version();
 
@@ -402,7 +402,7 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
-    tt_xy_pair get_arc_core(NocId noc_id) const;
+    tt_xy_pair get_arc_core(NocId noc_id = NocId::DEFAULT_NOC) const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
@@ -443,7 +443,7 @@ public:
 
     BoardType get_board_type();
 
-    virtual bool get_noc_translation_enabled(NocId noc_id) = 0;
+    virtual bool get_noc_translation_enabled(NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     double get_asic_temperature();
 

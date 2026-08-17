@@ -397,8 +397,11 @@ bool PcieProtocol::dma_transfer_zero_copy(
 
 TlbWindow* PcieProtocol::get_cached_dma_tlb_window(tlb_data config) {
     if (cached_dma_tlb_window_ == nullptr) {
-        cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(
-            pci_device_->allocate_tlb(get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC), config);
+        // The DMA engine, not the host, reads through this window, so it is not ordered behind our
+        // config write - pass verify_config so every configure() confirms it landed first.
+        auto handle = pci_device_->allocate_tlb(
+            get_dma_tlb_size(pci_device_->get_arch()), TlbMapping::WC, /*verify_config=*/true);
+        cached_dma_tlb_window_ = std::make_unique<SiliconTlbWindow>(std::move(handle), config);
         return cached_dma_tlb_window_.get();
     }
 

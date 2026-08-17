@@ -10,6 +10,7 @@
 #include <sys/utsname.h>  // for uname
 #include <unistd.h>       // for ::close
 
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -37,6 +38,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -393,21 +395,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)),
     arch_impl_(architecture_implementation::create(arch)) {
-    if (iommu_enabled && kmd_version < KMD_IOMMU) {
+    if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Running with IOMMU support requires KMD version {} or newer.", KMD_IOMMU.to_string()));
-    }
-    if (kmd_version < KMD_TLBS) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string()));
-    }
-
-    if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
-        log_warning(
-            LogUMD,
-            "Running with IOMMU support prior to KMD version {} is of limited support.",
-            KMD_MAP_TO_NOC.to_string());
+            fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
     int extra_flags = 0;
@@ -806,10 +797,11 @@ SemVer PCIDevice::read_kernel_version() {
     return SemVer(uts.release);
 }
 
-std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
+std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
+    const size_t tlb_size, const TlbMapping tlb_mapping, const bool verify_config) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
-        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping, verify_config);
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
@@ -831,7 +823,7 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
     auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
 
@@ -853,12 +845,37 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
-    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
+    const std::array<uint32_t, 3> config_words = {
+        static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
+    const size_t num_config_words = (arch == tt::ARCH::BLACKHOLE) ? 3 : 2;
+    for (size_t i = 0; i < num_config_words; i++) {
+        tlb_reg_ptr[i] = config_words[i];
+    }
 
-    if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total).
-        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
+    // MMIO writes are posted, so read the low 64 bits back to prove the mapping is live before
+    // anything uses it. Costs a PCIe round trip, hence opt-in.
+    if (verify) {
+        static constexpr auto TLB_CONFIG_BUSY_POLL_WINDOW =
+            std::chrono::duration_cast<std::chrono::microseconds>(timeout::MMIO_OP_TIMEOUT);
+        static constexpr auto TLB_CONFIG_POLL_INTERVAL = std::chrono::microseconds(1);
+
+        const bool config_landed = utils::poll_until(
+            [&]() { return (tlb_reg_ptr[0] == config_words[0]) && (tlb_reg_ptr[1] == config_words[1]); },
+            timeout::MMIO_OP_TIMEOUT,
+            TLB_CONFIG_BUSY_POLL_WINDOW,
+            TLB_CONFIG_POLL_INTERVAL);
+
+        UMD_ASSERT(
+            config_landed,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {} did not read back the configuration written to it (wrote {:#x} {:#x}, read {:#x} {:#x}). "
+                "The window is either not responding or is being written by another owner.",
+                tlb_index,
+                config_words[0],
+                config_words[1],
+                tlb_reg_ptr[0],
+                tlb_reg_ptr[1]));
     }
 
     log_trace(

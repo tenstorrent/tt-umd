@@ -9,18 +9,19 @@
 #include <cstdint>
 #include <tuple>
 
-#include "blackhole/eth_interface.h"
-#include "blackhole/eth_l1_address_map.h"
-#include "blackhole/host_mem_address_map.h"
-#include "blackhole/l1_address_map.h"
+#include "umd/device/firmware/erisc_firmware.hpp"
+#include "umd/device/types/blackhole_eth.hpp"
+#include "umd/device/types/blackhole_l1.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
 
+namespace tt::umd {
+
+namespace blackhole {
 constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
-
-namespace tt::umd {
+}  // namespace blackhole
 
 std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
     // TODO: This is copied from wormhole_implementation. It should be implemented properly.
@@ -61,19 +62,16 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
 DeviceL1AddressParams blackhole_implementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
-    return {
-        ::l1_mem::address_map::L1_BARRIER_BASE,
-        ::eth_l1_mem::address_map::ERISC_BARRIER_BASE,
-        ::eth_l1_mem::address_map::FW_VERSION_ADDR};
+    return {blackhole::L1_BARRIER_BASE, blackhole::ERISC_BARRIER_BASE, blackhole::ETH_FW_VERSION_ADDR};
 }
 
 DriverHostAddressParams blackhole_implementation::get_host_address_params() const {
     return {
-        ::blackhole::host_mem::address_map::ETH_ROUTING_BLOCK_SIZE,
-        ::blackhole::host_mem::address_map::ETH_ROUTING_BUFFERS_START};
+        erisc_firmware::eth_routing::ETH_ROUTING_BLOCK_SIZE, erisc_firmware::eth_routing::ETH_ROUTING_BUFFERS_START};
 }
 
 DriverEthInterfaceParams blackhole_implementation::get_eth_interface_params() const {
+    using namespace erisc_firmware::eth_routing;
     return {
         ETH_RACK_COORD_WIDTH,
         CMD_BUF_SIZE_MASK,
@@ -99,7 +97,7 @@ DriverEthInterfaceParams blackhole_implementation::get_eth_interface_params() co
 }
 
 DriverNocParams blackhole_implementation::get_noc_params() const {
-    return {NOC_ADDR_LOCAL_BITS, NOC_ADDR_NODE_ID_BITS};
+    return {blackhole::NOC_ADDR_LOCAL_BITS, blackhole::NOC_ADDR_NODE_ID_BITS};
 }
 
 uint64_t blackhole_implementation::get_noc_reg_base(

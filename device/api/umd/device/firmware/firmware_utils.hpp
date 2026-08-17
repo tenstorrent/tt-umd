@@ -21,6 +21,10 @@ namespace tt::umd {
 class TTDevice;
 class SocDescriptor;
 
+FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
+
+FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
+
 FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
@@ -34,6 +38,20 @@ SemVer get_dm_bl_fw_version_from_telemetry(const uint32_t telemetry_data, tt::AR
 SemVer get_gddr_fw_version_from_telemetry(const uint32_t telemetry_data, tt::ARCH arch);
 
 SemVer get_eth_fw_version(TTDevice* tt_device, CoreCoord eth_core);
+
+/**
+ * Set the TDP limit the firmware throttler enforces [W]. Blackhole with firmware 19.11.0+ only.
+ * Applies per ASIC, is lost on chip reset, and is not arbitrated between callers: last write wins.
+ * Firmware refuses limits above the board's max_tdp_limit, which only Galaxy boards populate, so
+ * elsewhere the limit can only be lowered. Throws if unsupported, out of [50, 500] W, or refused.
+ */
+void set_tdp_limit(TTDevice* tt_device, uint32_t tdp_limit_watts);
+
+/**
+ * Restore the TDP limit to the board default from the SPI firmware table.
+ * Read the restored value back with FirmwareInfoProvider::get_tdp_limit().
+ */
+void restore_default_tdp_limit(TTDevice* tt_device);
 
 /**
  * Filter an ETH status vector to only include non-harvested cores.

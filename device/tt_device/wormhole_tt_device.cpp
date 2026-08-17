@@ -111,19 +111,15 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
 
-uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
+uint32_t WormholeTTDevice::get_power_state_arc_msg(TTDevice::PowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
-        case BUSY: {
+        case TTDevice::PowerState::BUSY: {
             msg |= get_architecture_implementation()->get_arc_message_arc_go_busy();
             break;
         }
-        case LONG_IDLE: {
+        case TTDevice::PowerState::IDLE: {
             msg |= get_architecture_implementation()->get_arc_message_arc_go_long_idle();
-            break;
-        }
-        case SHORT_IDLE: {
-            msg |= get_architecture_implementation()->get_arc_message_arc_go_short_idle();
             break;
         }
         default:
@@ -132,7 +128,7 @@ uint32_t WormholeTTDevice::get_power_state_arc_msg(DevicePowerState state) {
     return msg;
 }
 
-void WormholeTTDevice::set_clock_state(DevicePowerState state) {
+void WormholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
     uint32_t msg = get_power_state_arc_msg(state);
     int exit_code = get_arc_messenger()->send_message(msg, {0, 0});
@@ -187,13 +183,12 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->read(
-            communication_device_id_,
+        get_device_protocol()->read_ctrl(
             mem_ptr,
-            wormhole::ARC_CORES_NOC0[0].x,
-            wormhole::ARC_CORES_NOC0[0].y,
+            wormhole::ARC_CORES_NOC0[0],
             architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -210,13 +205,12 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->write(
-            communication_device_id_,
+        get_device_protocol()->write_ctrl(
             mem_ptr,
-            wormhole::ARC_CORES_NOC0[0].x,
-            wormhole::ARC_CORES_NOC0[0].y,
+            wormhole::ARC_CORES_NOC0[0],
             architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     bar_write32(
@@ -233,13 +227,12 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->read(
-            communication_device_id_,
+        get_device_protocol()->read_ctrl(
             mem_ptr,
-            wormhole::ARC_CORES_NOC0[0].x,
-            wormhole::ARC_CORES_NOC0[0].y,
+            wormhole::ARC_CORES_NOC0[0],
             architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     auto result = bar_read32(wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + arc_addr_offset);
@@ -256,13 +249,12 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->write(
-            communication_device_id_,
+        get_device_protocol()->write_ctrl(
             mem_ptr,
-            wormhole::ARC_CORES_NOC0[0].x,
-            wormhole::ARC_CORES_NOC0[0].y,
+            wormhole::ARC_CORES_NOC0[0],
             architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     bar_write32(

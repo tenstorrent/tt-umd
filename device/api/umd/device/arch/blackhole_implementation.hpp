@@ -58,7 +58,6 @@ enum class arc_message_type {
     NOP = 0x11,  // Do nothing
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
-    ARC_GO_SHORT_IDLE = 0x53,
     ARC_GO_LONG_IDLE = 0x54,
     ARC_GET_HARVESTING = 0x57,
     SET_ETH_DRAM_TRAINED_STATUS = 0x58,
@@ -348,10 +347,6 @@ public:
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
 
-    uint32_t get_arc_message_arc_go_short_idle() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_SHORT_IDLE);
-    }
-
     uint32_t get_arc_message_deassert_riscv_reset() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::DEASSERT_RISCV_RESET);
     }
@@ -508,24 +503,6 @@ public:
             return std::nullopt;
         }
         return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
-    }
-
-    std::optional<uint32_t> get_runtime_telemetry_buffer_address_offset(
-        const FirmwareBundleVersion& firmware_version) const override {
-        constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
-        if (firmware_version < min_firmware_version) {
-            return std::nullopt;
-        }
-        return blackhole::SCRATCH_RAM_22;
-    }
-
-    std::optional<uint32_t> get_runtime_telemetry_buffer_size_offset(
-        const FirmwareBundleVersion& firmware_version) const override {
-        constexpr auto min_firmware_version = FirmwareBundleVersion(19, 12, 0);
-        if (firmware_version < min_firmware_version) {
-            return std::nullopt;
-        }
-        return blackhole::SCRATCH_RAM_23;
     }
 };
 

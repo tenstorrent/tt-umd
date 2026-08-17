@@ -44,7 +44,10 @@ public:
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
     std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
-        void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) override;
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
     // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
     // fires a DMA callback with a raw device IO address (pcie_base_ + offset).
@@ -61,6 +64,18 @@ public:
     // class (sysmem_dest is a within-channel offset, not an absolute address).
     bool write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size);
     bool read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size);
+
+    // Zero-copy address→host-pointer lookup (nullptr on a miss). Unlike
+    // write/read_mapped_buffer, which copy, this returns the mapping directly for in-place
+    // access. emule needs it: its NOC address resolver (__emule_resolve_noc_addr) maps a
+    // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
+    // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
+    // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
+    // mapped: the caller must not retain it across an unpin_or_unmap_sysmem()/SysmemBuffer
+    // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
+    // This is a pure address translation — the caller owns the access length (the returned bare
+    // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
+    void* get_mapped_host_ptr(uint64_t device_io_addr);
 
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;

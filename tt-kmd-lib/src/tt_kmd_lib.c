@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,8 +14,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "pcie/ioctl.h"
-#include "umd/device/pcie/pci_ids.h"
+#include "ioctl.h"
+#include "tt-kmd-lib/pci_ids.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DEBUG(fmt, ...)                                                        \
@@ -207,6 +207,61 @@ int tt_driver_get_attr(tt_device_t* dev, enum tt_driver_attr attr, uint64_t* out
     return 0;
 }
 
+int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappings) {
+    struct {
+        struct tenstorrent_query_mappings query_mappings;
+        struct tenstorrent_mapping mapping_array[8];
+    } mappings;
+
+    memset(&mappings, 0, sizeof(mappings));
+    mappings.query_mappings.in.output_mapping_count = 8;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) != 0) {
+        return -errno;
+    }
+
+    memset(out_mappings, 0, sizeof(*out_mappings));
+
+    for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
+        struct tenstorrent_mapping* m = &mappings.mapping_array[i];
+        tt_bar_mapping_t* dst = NULL;
+
+        switch (m->mapping_id) {
+            case TENSTORRENT_MAPPING_RESOURCE0_UC:
+                dst = &out_mappings->resource0_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE0_UC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE0_WC:
+                dst = &out_mappings->resource0_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE0_WC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE1_UC:
+                dst = &out_mappings->resource1_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE1_UC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE1_WC:
+                dst = &out_mappings->resource1_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE1_WC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE2_UC:
+                dst = &out_mappings->resource2_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE2_UC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE2_WC:
+                dst = &out_mappings->resource2_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE2_WC;
+                break;
+            default:
+                continue;
+        }
+
+        dst->base = m->mapping_base;
+        dst->size = m->mapping_size;
+    }
+
+    return 0;
+}
+
 int tt_noc_read32(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, uint32_t* value) {
     if (addr % 4 != 0) {
         return -EINVAL;
@@ -375,6 +430,9 @@ int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* 
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
         pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
     }
+    if (flags & TT_DMA_FLAG_READ_ONLY) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_READ_ONLY;
+    }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {
         return -errno;
@@ -453,6 +511,59 @@ int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr) {
     }
 
     *out_noc_addr = dma->noc;
+    return 0;
+}
+
+int tt_allocate_dma_buf(
+    tt_device_t* dev,
+    uint8_t buf_index,
+    size_t size,
+    int flags,
+    void** out_mapping,
+    uint64_t* out_dma_addr,
+    uint64_t* out_noc_addr) {
+    if (!dev || !out_mapping || size == 0) {
+        return -EINVAL;
+    }
+    if (size > UINT32_MAX) {
+        return -EINVAL;
+    }
+    *out_mapping = NULL;
+    if (out_dma_addr) {
+        *out_dma_addr = 0;
+    }
+    if (out_noc_addr) {
+        *out_noc_addr = 0;
+    }
+
+    struct tenstorrent_allocate_dma_buf dma_buf = {0};
+    dma_buf.in.requested_size = (uint32_t)size;
+    dma_buf.in.buf_index = buf_index;
+    dma_buf.in.flags = 0;
+
+    if (flags & TT_DMA_FLAG_NOC) {
+        dma_buf.in.flags |= TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA;
+    }
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
+        return -errno;
+    }
+
+    void* mapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, dma_buf.out.mapping_offset);
+    if (mapping == MAP_FAILED) {
+        return -errno;
+    }
+
+    *out_mapping = mapping;
+
+    if (out_dma_addr) {
+        *out_dma_addr = dma_buf.out.physical_address;
+    }
+
+    if (out_noc_addr && (flags & TT_DMA_FLAG_NOC)) {
+        *out_noc_addr = dma_buf.out.noc_address;
+    }
+
     return 0;
 }
 
@@ -565,6 +676,34 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_CONFIGURE_TLB, &configure_tlb) != 0) {
         return -errno;
     }
+
+    return 0;
+}
+
+int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd) {
+    if (dev == NULL || tlb == NULL || out_fd == NULL) {
+        return -EINVAL;
+    }
+
+    /* The driver rejects a zero size, an offset or size that is not page-aligned, or a range that
+     * runs past the end of the window. */
+    const uint64_t page_size = (uint64_t)getpagesize();
+    if (offset > tlb->size || (offset % page_size) != 0 || size == 0 || (size % page_size) != 0 ||
+        size > (tlb->size - offset)) {
+        return -EINVAL;
+    }
+
+    struct tenstorrent_export_tlb_dmabuf export_dmabuf = {0};
+    export_dmabuf.argsz = sizeof(export_dmabuf);
+    export_dmabuf.tlb_id = tlb->id;
+    export_dmabuf.offset = offset;
+    export_dmabuf.size = size;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF, &export_dmabuf) != 0) {
+        return -errno;
+    }
+
+    *out_fd = export_dmabuf.fd;
 
     return 0;
 }

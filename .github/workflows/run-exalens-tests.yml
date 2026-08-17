@@ -59,18 +59,21 @@ jobs:
           echo "Cleaning up working directory from previous runs: $(pwd)"
           rm -rf *
 
-      - uses: actions/checkout@v6
+      # No source checkout here. The tt-exalens artifact packages the exact source tree the
+      # kernels were built from (build-exalens-kernels in build-and-run-all-tests-multiple-builds.yml),
+      # so the tests always run against the matching commit - a second `ref: main` checkout
+      # could resolve to a newer commit and drift from the built kernels.
+      - name: Get tt-exalens artifact (source + kernels)
+        uses: actions/download-artifact@v8
         with:
-          repository: tenstorrent/tt-exalens
-          ref: main
-          submodules: recursive
+          name: ttexalens-build-${{ inputs.ubuntu-docker-version }}
           path: ./
 
-      - name: Get tt-exalens kernels artifact
-        uses: pyTooling/download-artifact@v1.9.0
-        with:
-          name: ttexalens-build-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
-          path: ./
+      - name: Extract tt-exalens artifact
+        shell: bash
+        run: |
+          tar xf ttexalens-artifact.tar
+          rm ttexalens-artifact.tar
 
       - name: Use wheel artifact
         uses: actions/download-artifact@v8

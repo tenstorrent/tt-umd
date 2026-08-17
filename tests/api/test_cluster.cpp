@@ -100,7 +100,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
         return 0u;
     };
 
-    cluster->set_power_state(DevicePowerState::BUSY);
+    cluster->set_clock_state(DevicePowerState::BUSY);
 
     auto clocks_busy = cluster->get_clocks();
     for (auto& clock : clocks_busy) {
@@ -109,7 +109,7 @@ TEST(TestCluster, TestClusterAICLKControl) {
         EXPECT_GT(clock.second, get_expected_clock_val(clock.first, false));
     }
 
-    cluster->set_power_state(DevicePowerState::LONG_IDLE);
+    cluster->set_clock_state(DevicePowerState::LONG_IDLE);
 
     auto clocks_idle = cluster->get_clocks();
     for (auto& clock : clocks_idle) {

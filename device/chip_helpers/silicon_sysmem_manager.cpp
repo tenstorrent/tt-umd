@@ -315,11 +315,10 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
         if (physical_address == 0) {
             log_warning(
                 LogUMD,
-                "---- ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} TENSTORRENT_IOCTL_PIN_PAGES failed "
-                "(errno: {}). Common Issue: Requires TTMKD >= 1.11, see following file contents...",
+                "Failed pinning pages. See logs above. Physical device ID: {}. Channel: {}. See contents of following "
+                "files:",
                 physical_device_id,
-                ch,
-                strerror(errno));
+                ch);
             munmap(mapping, hugepage_size);
             print_file_contents("/sys/module/tenstorrent/version", "(TTKMD version)");
             print_file_contents("/proc/meminfo");
@@ -332,7 +331,7 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
 
         log_debug(
             LogUMD,
-            "ttSiliconDevice::init_hugepage: physical_device_id: {} ch: {} mapping_size: {} physical address 0x{:x}",
+            "Physical device ID: {}. Channel: {}. Mapping size: {}. Physical address {:#x}",
             physical_device_id,
             ch,
             hugepage_size,
@@ -465,9 +464,9 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 }
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
-    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc) {
+    void *buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc);
+    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc, device_access);
 }
 
 }  // namespace tt::umd

@@ -5,6 +5,7 @@
 #include "umd/device/chip/sw_emule_chip.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstring>
 #include <set>
 #include <stdexcept>
@@ -14,6 +15,7 @@
 
 #include "tt_emule/device.hpp"
 #include "tt_emule/l1_pool.hpp"
+#include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
 
 namespace tt::umd {
@@ -22,7 +24,9 @@ namespace tt::umd {
 SWEmuleChip::~SWEmuleChip() = default;
 
 SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
-    Chip(soc_descriptor.arch), soc_descriptor_(soc_descriptor) {
+    Chip(soc_descriptor.arch),
+    soc_descriptor_(soc_descriptor),
+    sysmem_manager_(std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/0, soc_descriptor.arch)) {
     auto& soc = get_soc_descriptor();
 
     l1_size_ = soc.worker_l1_size;
@@ -31,15 +35,18 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     // offsets up to 1 GB within a 2 GB bank, so capping below bank size causes
     // writes to segfault.  Overcommit means only touched pages use physical RAM.
     dram_bank_size_ = soc.dram_bank_size;
+    // A real on-chip DRAM offset can't structurally exceed its own bank's capacity, so it can
+    // never reach __emule_resolve_noc_addr's pcie_base_ threshold (which routes >= addresses to
+    // SimulationSysmemManager instead of the core map) — documents that margin rather than
+    // resting on it implicitly.
+    assert(dram_bank_size_ < SysmemManager::get_pcie_base_for_arch(soc_descriptor.arch));
 
-    // Allocate L1Pool for worker cores.
-    // Use a generous count covering Tensix + Ethernet + Router + other non-DRAM cores,
-    // since all non-DRAM cores go through the pool for consistent bitmask offset extraction.
-    // Add extra headroom for cores created via translated coords that differ from physical coords.
+    // One slot per Tensix core (all coord namings for a worker resolve to one Core, and
+    // only WORKER cores use the pool), so num_tensix is an exact bound — no padding. The
+    // pool sits in the scarce low-4 GB window (tt_emule/low4g_mmap.hpp), so over-sizing
+    // costs mesh capacity; get_core() falls back to an individual mmap if exceeded.
     size_t num_tensix = soc.get_cores(tt::CoreType::TENSIX).size();
-    // 128 is a safe upper bound on Tensix cores across known architectures (Wormhole=72,
-    // Blackhole~120). Used as fallback if SOC descriptor reports zero.
-    size_t pool_size = (num_tensix > 0 ? num_tensix : 128) * 2;  // 2× headroom
+    size_t pool_size = (num_tensix > 0 ? num_tensix : 128);  // 128 = WH/BH fallback if SOC reports 0
     worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
 }
 
@@ -66,6 +73,9 @@ tt_emule::Core* SWEmuleChip::get_dram_channel_backing(uint32_t channel) {
 tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     std::lock_guard<std::mutex> lock(core_mutex_);
 
+    // Keyed on raw (x,y): callers must use one canonical naming per worker (today
+    // TRANSLATED) — a tile's names share one L1 on silicon, so two encodings for the same
+    // worker must not split it into two Core backings.
     auto it = cores_.find(core_xy);
     if (it != cores_.end()) {
         return it->second.get();
@@ -140,7 +150,7 @@ void SWEmuleChip::close_device() {}
 
 TTDevice* SWEmuleChip::get_tt_device() { return nullptr; }
 
-SysmemManager* SWEmuleChip::get_sysmem_manager() { return nullptr; }
+SysmemManager* SWEmuleChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
 TLBManager* SWEmuleChip::get_tlb_manager() { return nullptr; }
 
@@ -175,8 +185,6 @@ void SWEmuleChip::dram_membar(const std::unordered_set<CoreCoord>&) {}
 void SWEmuleChip::dram_membar(const std::unordered_set<uint32_t>&, uint32_t) {}
 
 void SWEmuleChip::deassert_risc_resets() {}
-
-void SWEmuleChip::set_power_state(DevicePowerState) {}
 
 int SWEmuleChip::arc_msg(
     uint32_t, bool, const std::vector<uint32_t>&, const std::chrono::milliseconds, uint32_t* return_3, uint32_t*) {

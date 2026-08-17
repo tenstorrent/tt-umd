@@ -108,7 +108,7 @@ public:
     */
     virtual void deassert_risc_reset(const RiscType selected_riscs, bool staggered_start);
 
-    virtual void set_power_state(DevicePowerState state);
+    void set_clock_state(DevicePowerState state);
     virtual int get_clock() = 0;
     virtual int get_numa_node() = 0;
 
@@ -128,9 +128,6 @@ public:
     virtual void set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) = 0;
     virtual void set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) = 0;
 
-    // TODO: To be moved to private implementation once methods are moved to chip.
-    void enable_ethernet_queue(const std::chrono::milliseconds timeout_ms = timeout::ETH_QUEUE_ENABLE_TIMEOUT);
-
     // TODO: This should be private, once enough stuff is moved inside chip.
     // Probably also moved to LocalChip.
     DeviceDramAddressParams dram_address_params;
@@ -144,13 +141,6 @@ protected:
     virtual void wait_dram_cores_training(const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
 
     void set_default_params(ARCH arch);
-
-    uint32_t get_power_state_arc_msg(DevicePowerState state);
-
-    void wait_for_aiclk_value(
-        TTDevice* tt_device,
-        DevicePowerState power_state,
-        const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     ChipInfo chip_info_;
 };

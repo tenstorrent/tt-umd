@@ -16,6 +16,8 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -65,8 +67,10 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         case ARCH::BLACKHOLE:
             if (fw_version <= FirmwareBundleVersion(18, 7, 0)) {
                 return create_blackhole_18_5_base();
-            } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
+            } else if (fw_version < FirmwareBundleVersion(19, 8, 0)) {
                 return create_blackhole_18_8_base();
+            } else if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
+                return create_blackhole_19_8_base();
             }
             return create_blackhole_19_9_base();
         default:
@@ -103,6 +107,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::TDC,               {TelemetryTag::TDC, LinearTransform{}}},
         {FirmwareFeature::VCORE,             {TelemetryTag::VCORE, LinearTransform{}}},
         {FirmwareFeature::TDC_LIMIT_MAX,     {TelemetryTag::TDC_LIMIT_MAX, LinearTransform{}}},
+        {FirmwareFeature::TDP_LIMIT_MAX,     {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::BOARD_POWER_LIMIT, {TelemetryTag::BOARD_POWER_LIMIT, LinearTransform{}}},
         {FirmwareFeature::FAN_SPEED,         {TelemetryTag::FAN_SPEED, LinearTransform{}}},
         {FirmwareFeature::FAN_RPM,           {TelemetryTag::FAN_RPM, LinearTransform{}}},
@@ -153,6 +158,7 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
         {FirmwareFeature::TDC, {WormholeTag::TDC, LinearTransform{0, 0xFFFF, 1.0, 0.0}}},
         {FirmwareFeature::VCORE, {WormholeTag::VCORE, LinearTransform{}}},
         {FirmwareFeature::TDC_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
+        {FirmwareFeature::TDP_LIMIT_MAX, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::BOARD_POWER_LIMIT, {FixedValue{0}, NotAvailable{}}},
         {FirmwareFeature::FAN_SPEED, {WormholeTag::FAN_SPEED, LinearTransform{}}},
         {FirmwareFeature::FAN_RPM, {FixedValue{0}, NotAvailable{}}},
@@ -178,6 +184,23 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_4_base() {
     FirmwareFeatures map = create_18_4_new_telemetry_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {SmBusTag{WormholeTag::AICLK}, LinearTransform{16, 0xFFFF, 1.0, 0.0}};
+    // Wormhole publishes the TDP limit from the new telemetry onwards.
+    map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Wormhole 18.8-19.8: same as 18.4, except MAX_CLOCK_FREQ moves from SMBus to a telemetry tag.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
+    FirmwareFeatures map = create_wormhole_18_4_base();
+    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
+    return map;
+}
+
+// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
+    FirmwareFeatures map = create_wormhole_18_8_base();
+    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
     return map;
 }
 
@@ -193,36 +216,23 @@ FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     return map;
 }
 
-// Wormhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ.
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
-    map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    return map;
-}
-
-// Wormhole >= 19.9: ETH_LIVE_STATUS upper 16 bits change from retrain to link status.
-/* static */ FirmwareFeatures FirmwareInfoProvider::create_wormhole_19_9_base() {
-    FirmwareFeatures map = create_wormhole_18_8_base();
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
-    return map;
-}
-
-// Blackhole 18.8-19.8: StandardTag base with StandardTag MAX_CLOCK_FREQ, no ETH support.
+// Blackhole 18.8-19.7: same as 18.5, except MAX_CLOCK_FREQ moves from a fixed value to a telemetry tag.
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_18_8_base() {
-    FirmwareFeatures map = create_18_4_new_telemetry_base();
+    FirmwareFeatures map = create_blackhole_18_5_base();
     map[FirmwareFeature::MAX_CLOCK_FREQ] = {TelemetryTag::AICLK_LIMIT_MAX, LinearTransform{}};
-    // ETH_FW_VERSION telemetry tag exists but firmware doesn't implement it on Blackhole.
-    map[FirmwareFeature::ETH_FW_VERSION] = {FixedValue{0}, NotAvailable{}};
-    // ETH_LIVE_STATUS tag exists but always returns zeros on Blackhole prior to 19.9.
-    map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {FixedValue{0}, NotAvailable{}};
-    map[FirmwareFeature::ETH_RETRAIN_STATUS] = {FixedValue{0}, NotAvailable{}};
+    return map;
+}
+
+// Blackhole >= 19.8: firmware gains the adjustable TDP limit and publishes it.
+/* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_8_base() {
+    FirmwareFeatures map = create_blackhole_18_8_base();
+    map[FirmwareFeature::TDP_LIMIT_MAX] = {TelemetryTag::TDP_LIMIT_MAX, LinearTransform{}};
     return map;
 }
 
 // Blackhole >= 19.9: ETH_LIVE_STATUS becomes available (upper 16 = link, lower 16 = heartbeat).
 /* static */ FirmwareFeatures FirmwareInfoProvider::create_blackhole_19_9_base() {
-    FirmwareFeatures map = create_blackhole_18_8_base();
+    FirmwareFeatures map = create_blackhole_19_8_base();
     map[FirmwareFeature::ETH_HEARTBEAT_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{0, 0xFFFF}};
     map[FirmwareFeature::ETH_LINK_STATUS] = {TelemetryTag::ETH_LIVE_STATUS, LinearTransform{16, 0xFFFF}};
     return map;
@@ -319,23 +329,6 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH arch) {
-    return FirmwareBundleVersion(19, 7, 1);
-}
-
-/* static */ FirmwareBundleVersion FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH arch) {
-    switch (arch) {
-        case tt::ARCH::WORMHOLE_B0: {
-            return FirmwareBundleVersion(18, 3, 0);
-        }
-        case tt::ARCH::BLACKHOLE: {
-            return FirmwareBundleVersion(18, 5, 0);
-        }
-        default:
-            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
-    }
-}
-
 uint64_t FirmwareInfoProvider::get_board_id() const {
     uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
     uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
@@ -429,25 +422,44 @@ std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
     return read_scalar<uint32_t>(FirmwareFeature::ARCCLK);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const {
+std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speeds() const {
+    std::vector<std::optional<uint32_t>> fan_speeds(MAX_NUMBER_OF_FANS, std::nullopt);
+
     auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
-    // All ones mean fans not present on board, or not under control of firmware.
-    if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
-        return std::nullopt;
+    // No fan speed information available.
+    if (!fan_speed.has_value()) {
+        return fan_speeds;
     }
-    return fan_speed;
+
+    fan_speeds.at(0) = (fan_speed == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_speed);
+    return fan_speeds;
 }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const {
-    auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
-    // All ones mean fans not present on board, or not under control of firmware.
-    if (fan_speed.has_value() && fan_speed.value() == 0xFFFFFFFF) {
-        return std::nullopt;
+std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpms() const {
+    std::vector<std::optional<uint32_t>> fan_rpms(MAX_NUMBER_OF_FANS, std::nullopt);
+    auto fan_rpm = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
+    // No fan RPM information available.
+    if (!fan_rpm.has_value()) {
+        return fan_rpms;
     }
-    return fan_speed;
+    // Since 19.10, values for two fans are packed into one telemetry entry.
+    if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version >= FirmwareBundleVersion(19, 10, 0)) {
+        uint32_t left_fan = fan_rpm.value() >> 16;
+        uint32_t right_fan = fan_rpm.value() & 0xFFFF;
+        fan_rpms.at(0) = (left_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(left_fan);
+        fan_rpms.at(1) = (right_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(right_fan);
+        return fan_rpms;
+    }
+
+    fan_rpms.at(0) = (fan_rpm == 0xFFFFFFFF) ? std::nullopt : std::optional<uint32_t>(fan_rpm);
+    return fan_rpms;
 }
+
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const { return get_fan_speeds().front(); }
+
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const { return get_fan_rpms().front(); }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const { return read_scalar<uint32_t>(FirmwareFeature::TDC); }
 
@@ -658,6 +670,10 @@ std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
     return read_scalar<double>(FirmwareFeature::THM_LIMIT_SHUTDOWN);
 }
 
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp_limit() const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDP_LIMIT_MAX);
+}
+
 std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {
     return read_scalar<uint32_t>(FirmwareFeature::BOARD_POWER_LIMIT);
 }
@@ -671,16 +687,35 @@ std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
     return read_scalar<uint32_t>(FirmwareFeature::THERM_TRIP_COUNT);
 }
 
-/* static */ std::vector<bool> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) {
-    static constexpr uint32_t max_eth_links = 16;
-    std::vector<bool> statuses(max_eth_links);
-    for (uint32_t link = 0; link < max_eth_links; ++link) {
-        statuses[link] = static_cast<bool>(bitmask & (1u << link));
+// The firmware bitmask is indexed by physical channel, and ETH_CORES_NOC0 holds the physical coords in that same
+// channel order. So bit N maps directly to core N; harvested channels report 0 here and are dropped later by
+// filter_harvested_eth_status.
+// NOTE: This mapping depends on the ordering of ETH_CORES_NOC0 matching the firmware's physical channel indexing.
+// That array is expected to remain stable; reordering it would silently break the bit-to-core mapping.
+std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProvider::parse_eth_status_bitmask(uint16_t bitmask) const {
+    const std::vector<tt_xy_pair>& eth_cores_noc0 = [this]() -> const std::vector<tt_xy_pair>& {
+        switch (tt_device->get_arch()) {
+            case tt::ARCH::WORMHOLE_B0:
+                return wormhole::ETH_CORES_NOC0;
+            case tt::ARCH::BLACKHOLE:
+                return blackhole::ETH_CORES_NOC0;
+            case tt::ARCH::QUASAR:
+                return grendel::ETH_CORES_NOC0;
+            default:
+                UMD_THROW(error::RuntimeError, "ETH status parsing not supported for this architecture.");
+        }
+    }();
+
+    std::vector<std::pair<CoreCoord, bool>> statuses;
+    statuses.reserve(eth_cores_noc0.size());
+    for (uint32_t channel = 0; channel < eth_cores_noc0.size(); ++channel) {
+        CoreCoord noc0_coord(eth_cores_noc0[channel], CoreType::ETH, CoordSystem::NOC0);
+        statuses.emplace_back(noc0_coord, static_cast<bool>(bitmask & (1u << channel)));
     }
     return statuses;
 }
 
-std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_HEARTBEAT_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -688,7 +723,7 @@ std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status(
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_link_status() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_LINK_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -696,12 +731,52 @@ std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_link_status() con
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_retrain_status() const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_RETRAIN_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
     }
     return parse_eth_status_bitmask(data.value());
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address() const {
+    uint32_t address = 0;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
+            return address;
+        case ARCH::BLACKHOLE:
+            if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_apb(&address, blackhole::SCRATCH_RAM_22, sizeof(address));
+            return address;
+        default:
+            return std::nullopt;
+    }
+}
+
+std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size() const {
+    uint32_t size = 0;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
+            return size;
+        case ARCH::BLACKHOLE:
+            if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_apb(&size, blackhole::SCRATCH_RAM_23, sizeof(size));
+            return size;
+        default:
+            return std::nullopt;
+    }
 }
 
 }  // namespace tt::umd

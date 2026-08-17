@@ -4,6 +4,7 @@
 
 #include "umd/device/pcie/rtl_sim_tlb_window.hpp"
 
+#include <functional>
 #include <utility>
 
 #include "umd/device/pcie/rtl_sim_tlb_handle.hpp"

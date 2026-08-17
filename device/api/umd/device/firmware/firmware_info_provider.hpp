@@ -7,11 +7,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -29,25 +31,15 @@ class TTDevice;
  * and DRAM training status.
  *
  */
-class FirmwareInfoProvider final {
+class FirmwareInfoProvider {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
 
     FirmwareInfoProvider(TTDevice* tt_device);
 
-    ~FirmwareInfoProvider() = default;
+    virtual ~FirmwareInfoProvider() = default;
 
     FirmwareBundleVersion get_firmware_version() const;
-
-    static FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
-
-    /**
-     * This function should capture latest firmware version that is supported by the UMD.
-     * It is used to verify that the firmware running on the device is not newer than what UMD supports.
-     * The function is meant to change on every FW release, so we can keep track of supported features
-     * from new FW versions.
-     */
-    static FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
 
     uint64_t get_board_id() const;
 
@@ -92,16 +84,32 @@ public:
     std::optional<uint32_t> get_arcclk() const;
 
     /*
-     * Get fan speed as a percentage (0-100), if fans are present and controllable by firmware.
-     * @returns Fan speed [percent]
+     * Get targeted speed per fan as a percentage (0-100). Individual entries
+     * can be nullopt if fan speed is not available.
+     * @returns Targeted fan speed [percent]
      */
-    std::optional<uint32_t> get_fan_speed() const;
+    [[deprecated("use get_fan_speeds()")]] std::optional<uint32_t> get_fan_speed() const;
 
     /*
-     * Get fan speed in RPM, if fans are present and controllable by firmware.
-     * @returns Fan speed [RPM]
+     * Get actual speed per fan in RPM. Individual entries
+     * can be nullopt if fan RPM is not available.
+     * @returns Actual fan RPM [percent]
      */
-    std::optional<uint32_t> get_fan_rpm() const;
+    [[deprecated("use get_fan_rpms()")]] std::optional<uint32_t> get_fan_rpm() const;
+
+    /*
+     * Get targeted speeds per fan as a percentage (0-100). Individual entries
+     * can be nullopt if fan speed is not available.
+     * @returns Targeted fan speeds [percent]
+     */
+    std::vector<std::optional<uint32_t>> get_fan_speeds() const;
+
+    /*
+     * Get actual speeds per fan in RPM. Individual entries
+     * can be nullopt if fan RPM is not available.
+     * @returns Actual fan RPMs [percent]
+     */
+    std::vector<std::optional<uint32_t>> get_fan_rpms() const;
 
     /*
      * Get TDP in watts.
@@ -134,6 +142,12 @@ public:
     std::optional<double> get_thm_limit_shutdown() const;
 
     /*
+     * Get TDP limit in watts.
+     * @returns TDP limit [W]
+     */
+    std::optional<uint32_t> get_tdp_limit() const;
+
+    /*
      * Get board power limit in watts.
      * @returns Board power limit [W]
      */
@@ -154,26 +168,26 @@ public:
     /*
      * Get per-link ethernet heartbeat status.
      * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
-     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
-     * @returns Vector of bools (true = heartbeat active), or std::nullopt if unavailable.
+     * Each entry pairs an ETH core's NOC0 coordinate with its status (16 entries on WH, 14 on BH).
+     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_heartbeat_status() const;
+    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status() const;
 
     /*
      * Get per-link ethernet retrain status.
      * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
-     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
-     * @returns Vector of bools (true = link has been retrained), or std::nullopt if unavailable.
+     * Each entry pairs an ETH core's NOC0 coordinate with its status.
+     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_retrain_status() const;
+    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status() const;
 
     /*
      * Get per-link ethernet link status.
      * Available on firmware 19.9+ for both Wormhole and Blackhole; returns std::nullopt otherwise.
-     * Vector indices align with ETH channels (i.e. logical coordinates, up to 16).
-     * @returns Vector of bools (true = link is up), or std::nullopt if unavailable.
+     * Each entry pairs an ETH core's NOC0 coordinate with its status.
+     * @returns Per-core link status (true = up), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<bool>> get_eth_link_status() const;
+    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status() const;
 
     std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
@@ -197,12 +211,15 @@ public:
 
     std::optional<double> get_current_max_dram_temperature() const;
 
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address() const;
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size() const;
+
 private:
     /**
-     * Parse a 16-bit bitmask into a per-link boolean vector.
-     * Bit indices align with ETH channels (i.e. logical coordinates).
+     * Parse a 16-bit bitmask into per-core status using the arch-specific bit-to-NOC0 mapping.
      */
-    static std::vector<bool> parse_eth_status_bitmask(uint16_t bitmask);
+    std::vector<std::pair<CoreCoord, bool>> parse_eth_status_bitmask(uint16_t bitmask) const;
 
     TTDevice* tt_device = nullptr;
 
@@ -220,6 +237,7 @@ private:
     static FirmwareFeatures create_wormhole_18_8_base();
     static FirmwareFeatures create_wormhole_19_9_base();
     static FirmwareFeatures create_blackhole_18_8_base();
+    static FirmwareFeatures create_blackhole_19_8_base();
     static FirmwareFeatures create_blackhole_19_9_base();
 
     // Engine methods for reading and transforming telemetry data.
@@ -229,6 +247,12 @@ private:
 
     template <typename T>
     std::optional<T> read_scalar(FirmwareFeature feature) const;
+
+    /**
+     * @brief Maximum number of fans supported by the device.
+     * TODO: SysEng should provide a proper way of querying the number of fans on the device.
+     */
+    static constexpr size_t MAX_NUMBER_OF_FANS = 2U;
 };
 
 }  // namespace tt::umd

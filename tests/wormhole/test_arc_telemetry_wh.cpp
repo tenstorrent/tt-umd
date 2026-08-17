@@ -15,7 +15,7 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         std::unique_ptr<ArcTelemetryReader> blackhole_arc_telemetry_reader =
@@ -28,7 +28,7 @@ TEST(WormholeTelemetry, BasicWormholeTelemetry) {
         const uint64_t board_id = ((uint64_t)board_id_high << 32) | (board_id_low);
         EXPECT_NO_THROW(get_board_type_from_board_id(board_id));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -37,7 +37,7 @@ TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         std::unique_ptr<ArcTelemetryReader> telemetry =
@@ -49,7 +49,7 @@ TEST(WormholeTelemetry, WormholeTelemetryEntryAvailable) {
 
         EXPECT_FALSE(telemetry->is_entry_available(wormhole::LegacyTelemetryTag::NUMBER_OF_TAGS));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }
 
@@ -58,7 +58,7 @@ TEST(TestTelemetry, CompareTwoTelemetryValues) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
         ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
 
@@ -81,6 +81,6 @@ TEST(TestTelemetry, CompareTwoTelemetryValues) {
             arc_telemetry_reader->read_entry(TelemetryTag::ETH_FW_VERSION),
             smbus_telemetry_reader->read_entry(wormhole::LegacyTelemetryTag::ETH_FW_VERSION));
 
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

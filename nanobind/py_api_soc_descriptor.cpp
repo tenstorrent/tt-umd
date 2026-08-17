@@ -10,10 +10,13 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <optional>
+
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 namespace nb = nanobind;
 // Releases Python's Global Interpreter Lock (GIL) for the duration of the C++ call,
@@ -94,7 +97,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .def_prop_ro("tensix_cores", &SocArchDescriptor::get_tensix_cores, release_gil())
         .def_prop_ro("dram_cores", &SocArchDescriptor::get_dram_cores, release_gil())
         .def_prop_ro("eth_cores", &SocArchDescriptor::get_eth_cores, release_gil())
-        .def_prop_ro("arc_cores", &SocArchDescriptor::get_arc_cores, release_gil())
+        .def_prop_ro("firmware_cores", &SocArchDescriptor::get_firmware_cores, release_gil())
         .def_prop_ro("pcie_cores", &SocArchDescriptor::get_pcie_cores, release_gil())
         .def_prop_ro("router_cores", &SocArchDescriptor::get_router_cores, release_gil())
         .def_prop_ro("security_cores", &SocArchDescriptor::get_security_cores, release_gil())
@@ -196,14 +199,22 @@ void bind_soc_descriptor(nb::module_ &m) {
             "Translate a tt_xy_pair from one coordinate system to another")
         .def(
             "translate_chip_coord_to_translated",
-            &SocDescriptor::translate_chip_coord_to_translated,
+            // noc_id defaults to the NocId selected for the calling thread, so omitting it preserves the
+            // behaviour of set_thread_noc_id().
+            [](const SocDescriptor &self, const CoreCoord core, std::optional<NocId> noc_id) {
+                return self.translate_chip_coord_to_translated(core, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Translate a chip coordinate to translated coordinate system in tt_xy_pair")
         .def(
             "translate_chip_coord_to_translated_coord",
-            &SocDescriptor::translate_chip_coord_to_translated_coord,
+            [](const SocDescriptor &self, const CoreCoord core, std::optional<NocId> noc_id) {
+                return self.translate_chip_coord_to_translated_coord(core, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Translate a chip coordinate to the correct pre-translation coordinates for device access")
         .def(

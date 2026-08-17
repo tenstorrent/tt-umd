@@ -8,8 +8,9 @@
 #include <cstdint>
 
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/tlb.hpp"
+
+struct tt_tlb_t;
 
 namespace tt::umd {
 
@@ -32,6 +33,12 @@ public:
      * @param tlb_mapping Type of TLB mapping (UC or WC). The first mapping of TLB determines its caching behavior.
      */
     SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping = TlbMapping::UC);
+
+    /**
+     * Constructor for SiliconTlbHandle that additionally fixes verify_config_ for the handle's
+     * lifetime. See TlbHandle's protected verify_config constructor for when to pass true.
+     */
+    SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping, const bool verify_config);
 
     ~SiliconTlbHandle() noexcept override;
 

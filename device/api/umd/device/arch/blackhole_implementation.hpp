@@ -58,7 +58,6 @@ enum class arc_message_type {
     NOP = 0x11,  // Do nothing
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
-    ARC_GO_SHORT_IDLE = 0x53,
     ARC_GO_LONG_IDLE = 0x54,
     ARC_GET_HARVESTING = 0x57,
     SET_ETH_DRAM_TRAINED_STATUS = 0x58,
@@ -262,6 +261,8 @@ inline constexpr uint32_t SCRATCH_RAM_5 = ARC_RESET_UNIT_OFFSET + 0x418;   // ER
 inline constexpr uint32_t SCRATCH_RAM_10 = ARC_RESET_UNIT_OFFSET + 0x428;  // SPI buffer info
 inline constexpr uint32_t SCRATCH_RAM_12 = ARC_RESET_UNIT_OFFSET + 0x430;
 inline constexpr uint32_t SCRATCH_RAM_13 = ARC_RESET_UNIT_OFFSET + 0x434;
+inline constexpr uint32_t SCRATCH_RAM_22 = ARC_RESET_UNIT_OFFSET + 0x458;
+inline constexpr uint32_t SCRATCH_RAM_23 = ARC_RESET_UNIT_OFFSET + 0x45C;
 
 inline constexpr uint32_t NIU_CFG_NOC0_BAR_PCIE_ADDR = 0x1FD04000;
 inline constexpr uint32_t NIU_CFG_NOC1_BAR_PCIE_ADDR = 0x1FD14000;
@@ -344,10 +345,6 @@ public:
 
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_LONG_IDLE);
-    }
-
-    uint32_t get_arc_message_arc_go_short_idle() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_SHORT_IDLE);
     }
 
     uint32_t get_arc_message_deassert_riscv_reset() const override {

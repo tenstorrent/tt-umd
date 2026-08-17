@@ -12,6 +12,10 @@
 #include <string>
 #include <utility>
 
+// tt-kmd-lib device handle. Forward declared so this public header does not require tt-kmd-lib's
+// include path, which UMD links privately.
+struct tt_device_t;
+
 namespace tt::umd {
 
 // Conventional KMD resource-lock indices. These mirror the TENSTORRENT_LOCK_INDEX_* defines in KMD's
@@ -37,9 +41,9 @@ enum class KmdLockIndex : uint8_t {
     ETH15 = 15,
 };
 
-// KmdMutex is a cross-process lock backed by the Tenstorrent kernel-mode driver (KMD) resource locks
-// (TENSTORRENT_IOCTL_LOCK_CTL). See device/utils/README.md for how the available locking backends
-// compare.
+// KmdMutex is a cross-process lock backed by the Tenstorrent kernel-mode driver (KMD) resource locks,
+// which it drives through tt-kmd-lib's tt_lock_* API. See device/utils/README.md for how the
+// available locking backends compare.
 //
 // Properties:
 //   - The lock is tied to the device itself, not to a host filesystem. Any process that can open
@@ -54,15 +58,15 @@ enum class KmdLockIndex : uint8_t {
 //     cannot leak the lock - it is reclaimed automatically.
 //   - Scope is limited to a single local device: there is no global lock that spans devices.
 //
-// Each KMD device exposes TENSTORRENT_RESOURCE_LOCK_COUNT (64) independent lock indices (see
-// KmdLockIndex for the reserved ones).
+// Each KMD device exposes TT_RESOURCE_LOCK_COUNT (64) independent lock indices (see KmdLockIndex for
+// the reserved ones).
 //
-// This class owns its own dedicated chardev fd, separate from any fd used to run a workload. That
-// is deliberate: a device reset invalidates every fd that was open across it (further ioctls return
-// ENODEV), but the lock itself survives the reset and stays held until its fd is closed. Keeping the
-// lock on a dedicated fd lets a caller hold the lock, reset the device, then open fresh fds to run a
-// workload. lock() transparently reopens its fd and retries if it observes that a reset happened
-// while it was waiting.
+// This class owns its own dedicated device handle (chardev fd), separate from any fd used to run a
+// workload. That is deliberate: a device reset invalidates every fd that was open across it (further
+// ioctls return ENODEV), but the lock itself survives the reset and stays held until its fd is
+// closed. Keeping the lock on a dedicated handle lets a caller hold the lock, reset the device, then
+// open fresh fds to run a workload. lock() transparently reopens its handle and retries if it
+// observes that a reset happened while it was waiting.
 //
 // It meets the C++ Lockable requirement (lock()/try_lock()/unlock()), so it can be used with RAII
 // helpers like std::lock_guard and std::unique_lock.
@@ -74,22 +78,23 @@ public:
     KmdMutex(int pci_device_num, uint8_t lock_index);
     ~KmdMutex() noexcept;
 
-    // Opens the dedicated chardev fd used to hold the lock, after verifying the installed KMD supports
-    // resource locks (throws otherwise). Must be called before lock()/try_lock(). Kept separate from
-    // the constructor so that failures during setup are still cleaned up by the destructor.
+    // Opens the dedicated device handle used to hold the lock. Must be called before
+    // lock()/try_lock(). Kept separate from the constructor so that failures during setup are still
+    // cleaned up by the destructor.
     void initialize();
 
-    // Move-only so it can live in STL containers. Copying would alias the owned fd.
+    // Move-only so it can live in STL containers. Copying would alias the owned handle.
     KmdMutex(KmdMutex&& other) noexcept;
     KmdMutex& operator=(KmdMutex&& other) noexcept;
     KmdMutex(const KmdMutex&) = delete;
     KmdMutex& operator=(const KmdMutex&) = delete;
 
-    // Blocks until the lock is acquired. If a reset is detected while waiting (the fd becomes
-    // unusable), the fd is transparently reopened and the wait is retried.
+    // Blocks until the lock is acquired. If a reset is detected while waiting (the handle becomes
+    // unusable), the handle is transparently reopened and the wait is retried.
     void lock();
 
-    // Attempts to acquire without blocking. Returns true if acquired, false if held by another fd.
+    // Attempts to acquire without blocking. Returns true if acquired, false if held by another
+    // handle.
     bool try_lock();
 
     // Tries to acquire the lock (immediately if timeout is zero, otherwise polling until timeout).
@@ -98,21 +103,21 @@ public:
     // presence signals "held by someone else", nothing more.
     std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout = std::chrono::seconds(0));
 
-    // Releases the lock. It is also released automatically when this object (and thus its fd) is
+    // Releases the lock. It is also released automatically when this object (and thus its handle) is
     // destroyed, or when the owning process exits.
     void unlock();
 
-    // Best-effort query of whether the lock is currently held by any fd (including this one). This
-    // is inherently racy and intended for debugging/diagnostics only.
+    // Best-effort query of whether the lock is currently held by any handle (including this one).
+    // This is inherently racy and intended for debugging/diagnostics only.
     bool is_locked_by_anyone();
 
 private:
-    void open_device_fd();
-    void close_fd() noexcept;
+    void open_device();
+    void close_device() noexcept;
 
     int pci_device_num_;
     uint8_t lock_index_;
-    int fd_ = -1;
+    tt_device_t* device_ = nullptr;
     std::string device_path_;
 };
 

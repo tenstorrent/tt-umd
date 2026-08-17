@@ -23,7 +23,8 @@ layout, pthread-version assumptions, dead-owner recovery).
 
 ## KmdMutex
 
-A lock backed by the kernel-mode driver's resource locks (`TENSTORRENT_IOCTL_LOCK_CTL`). It is
+A lock backed by the kernel-mode driver's resource locks, driven through tt-kmd-lib's `tt_lock_*`
+API (`TENSTORRENT_IOCTL_LOCK_CTL` under the hood). It is
 **slower** than `RobustMutex` because every operation is a (custom) `ioctl` syscall, with no userspace
 fast path. The ioctl set used exposes only a non-blocking acquire, so a contended `lock()` polls with a
 short backoff rather than waiting efficiently in the kernel (this also avoids KMD's blocking-acquire

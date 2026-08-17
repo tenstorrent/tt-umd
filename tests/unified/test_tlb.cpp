@@ -2,12 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -23,9 +26,11 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -91,6 +96,45 @@ TEST_F(TestTlb, TestTlbWindowAllocateNew) {
 
         value_check++;
     }
+}
+
+TEST_F(TestTlb, TestClusterExportDmabuf) {
+    if (PCIDevice::read_kmd_version() < KMD_TLB_DMABUF_EXPORT) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << KMD_TLB_DMABUF_EXPORT.str();
+    }
+
+    if (!tt::umd::utils::has_any_active_rdma_port()) {
+        GTEST_SKIP() << "No active RDMA NIC (RoCE/InfiniBand) found under /sys/class/infiniband.";
+    }
+
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    ASSERT_FALSE(tensix_cores.empty());
+    CoreCoord core = tensix_cores.front();
+
+    int fd = cluster->export_dmabuf(chip, core, 0, two_mb_size);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
+
+    // An address that is page-aligned but not TLB-window-aligned exercises TlbWindow's
+    // offset_from_aligned_addr translation: the window's NOC base is rounded down to a size-aligned
+    // boundary, so the export starts `addr % window_size` bytes into the window, not at its base.
+    const uint64_t page_size = static_cast<uint64_t>(getpagesize());
+    fd = cluster->export_dmabuf(chip, core, page_size, page_size);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
+
+    // Misaligned requests are rejected up front, before a window is allocated or an ioctl issued.
+    EXPECT_THROW(cluster->export_dmabuf(chip, core, 1, page_size), std::runtime_error);
+    EXPECT_THROW(cluster->export_dmabuf(chip, core, 0, page_size + 1), std::runtime_error);
 }
 
 TEST_F(TestTlb, TestTlbWindowReuse) {

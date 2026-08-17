@@ -77,7 +77,7 @@ protected:
     // empirically found by the tt-exalens team to reliably hang the NOC. Returns nothing: the read's
     // value is meaningless here (and with the per-op MMIO timeout active the read aborts before it can
     // return one) — the NOC is hung regardless. Callers verify the hang via is_noc_hung() / the timeout.
-    void hang_noc(tt_xy_pair tensix_core, NocId noc = NocId::NOC0) {
+    void hang_noc(CoreCoord tensix_core, NocId noc = NocId::NOC0) {
         noc_hung_ = true;
         uint32_t hang_read_value = 0;
         if (tt_device_->get_arch() == tt::ARCH::BLACKHOLE) {
@@ -178,7 +178,7 @@ TEST_P(NocHangDetectionTest, TestIsNocHungAPI) {
     ASSERT_FALSE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
         << "is_noc_hung() returned true before any hang.";
 
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    CoreCoord tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     hang_noc(tensix_core, noc_to_hang);
 
     EXPECT_TRUE(tt_device_->is_noc_hung(noc_to_hang, TTDevice::HangAction::RETURN))
@@ -202,7 +202,7 @@ TEST_P(NocHangDetectionTest, PerOpTimeoutThrowsOnHungNoc) {
             << "BH: Hanging NOC0 on BH can prevent warm reset from working and a host reboot is then necessary.";
     }
 
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    CoreCoord tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     hang_noc(tensix_core, noc_to_hang);
 
     const auto original_budget = MmioTimeoutConfig::get_op_timeout();
@@ -242,7 +242,7 @@ TEST_F(HangDetectionTest, TopologyDiscoveryRecordsNocHangHealthError) {
     }
 
     // NOC0 is the NOC that init_tt_device() probes during discovery, so hang that one.
-    tt_xy_pair tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
+    CoreCoord tensix_core = soc_desc_->get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
     hang_noc(tensix_core, NocId::NOC0);
     ASSERT_TRUE(tt_device_->is_noc_hung(NocId::NOC0, TTDevice::HangAction::RETURN))
         << "Failed to hang NOC0 before running topology discovery.";

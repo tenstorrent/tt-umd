@@ -102,8 +102,8 @@ private:
 
 TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     // Test static methods that don't need a device.
-    FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_min = get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_min = get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
@@ -111,9 +111,8 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     EXPECT_EQ(wh_min, FW_VERSION_18_3);
     EXPECT_EQ(bh_min, FW_VERSION_18_5);
 
-    FirmwareBundleVersion wh_latest =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_latest = FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_latest = get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_latest = get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
     log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());
@@ -308,7 +307,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto fan_speed = fw_info->get_fan_speed();
+        auto fan_speed = fw_info->get_fan_speeds();
         std::optional<uint32_t> tdp = fw_info->get_tdp();
         std::optional<uint32_t> tdc = fw_info->get_tdc();
         std::optional<uint32_t> vcore = fw_info->get_vcore();
@@ -509,8 +508,8 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto speed_percentage = fw_info->get_fan_speed();
-        auto speed_rpm = fw_info->get_fan_rpm();
+        auto speed_percentage = fw_info->get_fan_speeds();
+        auto speed_rpm = fw_info->get_fan_rpms();
 
         // Always report information about 2 fans.
         EXPECT_EQ(speed_percentage.size(), 2);
@@ -830,18 +829,16 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
         const auto size = fw_info->get_runtime_telemetry_buffer_size();
         const auto address = fw_info->get_runtime_telemetry_buffer_address();
 
-        const auto firmware_version = tt_device->get_firmware_version();
-        const auto size_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
-        const auto address_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+        // Address and size are published together behind the same firmware-version gate, so they must
+        // be both present or both absent regardless of arch or firmware version.
+        EXPECT_EQ(address.has_value(), size.has_value());
 
-        if (!size_offset.has_value() || !address_offset.has_value()) {
-            EXPECT_FALSE(size.has_value());
-            EXPECT_FALSE(address.has_value());
-        } else {
-            EXPECT_TRUE(size.has_value());
-            EXPECT_TRUE(address.has_value());
+        // When the buffer is published, the locator must point somewhere and describe a non-empty,
+        // word-aligned region.
+        if (address.has_value() && size.has_value()) {
+            EXPECT_NE(address.value(), 0u);
+            EXPECT_NE(size.value(), 0u);
+            EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
         }
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }

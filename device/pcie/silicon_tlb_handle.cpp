@@ -11,13 +11,18 @@
 #include <string>
 
 #include "tracy.hpp"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
 SiliconTlbHandle::SiliconTlbHandle(PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping) :
-    pci_device_(pci_device) {
+    SiliconTlbHandle(pci_device, size, tlb_mapping, false) {}
+
+SiliconTlbHandle::SiliconTlbHandle(
+    PCIDevice& pci_device, size_t size, const TlbMapping tlb_mapping, const bool verify_config) :
+    TlbHandle(verify_config), pci_device_(pci_device) {
     tlb_size_ = size;
     tlb_mapping_ = tlb_mapping;
 
@@ -48,7 +53,7 @@ void SiliconTlbHandle::configure(const tlb_data& new_config) {
     // before passing to configure_tlb.
     tlb_data cfg_data = new_config;
     cfg_data.local_offset = cfg_data.local_offset / get_size();
-    pci_device_.configure_tlb(tlb_id_, cfg_data);
+    pci_device_.configure_tlb(tlb_id_, cfg_data, get_verify_config());
 
     tlb_config_ = new_config;
 }

@@ -21,11 +21,12 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/host_memory.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
+
+struct tt_device_t;
 
 namespace tt::umd {
 class architecture_implementation;
@@ -229,9 +230,11 @@ public:
      * Map a buffer so it is accessible by the device NOC.
      * @param buffer must be page-aligned
      * @param size must be a multiple of the page size
+     * @param device_access READ_ONLY requires is_read_only_page_pinning_supported()
      * @return uint64_t NOC address, uint64_t PA or IOVA
      */
-    std::pair<uint64_t, uint64_t> map_buffer_to_noc(void *buffer, size_t size);
+    std::pair<uint64_t, uint64_t> map_buffer_to_noc(
+        void *buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
 
     /**
      * Map a hugepage so it is accessible by the device NOC.
@@ -249,9 +252,15 @@ public:
      *
      * @param buffer must be page-aligned
      * @param size must be a multiple of the page size
+     * @param device_access READ_ONLY requires is_read_only_page_pinning_supported()
      * @return uint64_t PA (no IOMMU) or IOVA (with IOMMU) for use by the device
      */
-    uint64_t map_for_dma(void *buffer, size_t size);
+    uint64_t map_for_dma(void *buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
+
+    /**
+     * @return whether this device and KMD support device-read-only host mappings
+     */
+    bool is_read_only_page_pinning_supported() const;
 
     /**
      * Access the device's DMA buffer.  This buffer is not guaranteed to exist.
@@ -274,20 +283,34 @@ public:
     static SemVer read_kmd_version();
 
     /**
+     * Read the running Linux kernel version (from uname(2)'s release field), as major.minor.patch.
+     * The trailing distro suffix (e.g. "-91-generic") is dropped; only major/minor/patch are parsed.
+     */
+    static SemVer read_kernel_version();
+
+    /**
      * Allocate TLB resource from KMD.
      *
      * @param tlb_size Size of the TLB caller wants to allocate.
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
+     * @param verify_config Whether the handle should confirm each configure() reached the device
+     *                      before returning; see TlbHandle's protected verify_config constructor.
      */
-    std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+    std::unique_ptr<TlbHandle> allocate_tlb(
+        const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
      * Configure TLB register in user space by writing directly to BAR0.
      *
      * @param tlb_index The TLB index/ID to configure
      * @param tlb_config The TLB configuration data
+     * @param verify Read the register back and wait until it holds the written configuration before
+     *               returning. MMIO writes are posted, so without this the mapping is not
+     *               guaranteed live on return. Only needed when the next user of the window is not
+     *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
+     *               PCIe round trip.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.
@@ -325,6 +348,32 @@ public:
      * feature.
      */
     static bool is_arch_agnostic_reset_supported();
+
+    /**
+     * Checks if exporting a TLB window as a dma-buf is supported: requires both a KMD version that
+     * implements the export and a running kernel new enough for the dma-buf infrastructure it
+     * relies on (Linux 5.8+).
+     */
+    static bool is_tlb_dmabuf_export_supported();
+
+    /**
+     * Allocate a dedicated TLB window, configure it per @p config, and export a range of it as a
+     * dma-buf file descriptor for peer-to-peer PCIe DMA (e.g. import into an RDMA NIC via
+     * ibv_reg_dmabuf_mr()). Traffic routes onto the NOC according to @p config.
+     *
+     * The returned fd is the unit of ownership and is self-sufficient: exporting pins the window
+     * and the device by refcount, so the fd stays valid after this call releases the window, and
+     * across closing this device or even device removal. The window returns to the allocation pool
+     * only once the last export on it is released. The caller owns the fd and must close() it.
+     *
+     * @param window_size Size of the TLB window to allocate; must be a size this architecture
+     *                    supports, and must be large enough to cover @p offset + @p size.
+     * @param config NOC configuration for the window. config.local_offset must be aligned to
+     *               @p window_size, since a window's NOC base is size-aligned.
+     * @param offset Page-aligned byte offset within the window at which the export begins.
+     * @param size Page-aligned byte count to export; must be nonzero.
+     */
+    int export_tlb_dmabuf(size_t window_size, const tlb_data &config, uint64_t offset, uint64_t size);
 
     /**
      * Set the power state of this device via the KMD power API (requires KMD >= 2.6.0).

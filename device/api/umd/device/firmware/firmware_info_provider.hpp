@@ -43,7 +43,7 @@ public:
 
     virtual std::optional<uint64_t> get_board_id() const;
 
-    // TODO: Will be removed in UMD Base API 2.0.0
+    // TODO: Will be removed in UMD Base API 2.0.0 (#3181)
     [[deprecated("Use get_eth_fw_version_semver()")]] virtual std::optional<uint32_t> get_eth_fw_version() const;
 
     virtual std::optional<SemVer> get_eth_fw_version_semver() const;

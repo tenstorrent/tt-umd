@@ -130,7 +130,7 @@ TEST_F(TestFirmwareInfoProvider, BoardId) {
         std::optional<uint64_t> board_id = fw_info->get_board_id();
         log_info(
             tt::LogUMD,
-            "Device {}: board_id=0x{:016x}, fw_range={}",
+            "Device {}: board_id={}, fw_range={}",
             pci_device_id,
             opt_str(board_id),
             fw_range_label(fw_info->get_firmware_version()));
@@ -424,6 +424,8 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
             opt_str(heartbeat1),
             opt_str(heartbeat2));
 
+        ASSERT_TRUE(heartbeat1.has_value());
+        ASSERT_TRUE(heartbeat2.has_value());
         EXPECT_GT(heartbeat2, heartbeat1);
     }
 }

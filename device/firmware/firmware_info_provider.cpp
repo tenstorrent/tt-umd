@@ -466,9 +466,11 @@ std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpms(NocId no
     return fan_rpms;
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed(NocId noc_id) const { return get_fan_speeds().front(); }
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed(NocId noc_id) const {
+    return get_fan_speeds(noc_id).front();
+}
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm(NocId noc_id) const { return get_fan_rpms().front(); }
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm(NocId noc_id) const { return get_fan_rpms(noc_id).front(); }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_tdc(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::TDC);
@@ -729,7 +731,7 @@ std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProvider::parse_eth_status_b
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status(NocId noc_id) const {
-    auto statuses = get_eth_heartbeat_status_per_core();
+    auto statuses = get_eth_heartbeat_status_per_core(noc_id);
     if (!statuses.has_value()) {
         return std::nullopt;
     }
@@ -760,7 +762,7 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
 }
 
 std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status(NocId noc_id) const {
-    auto statuses = get_eth_retrain_status_per_core();
+    auto statuses = get_eth_retrain_status_per_core(noc_id);
     if (!statuses.has_value()) {
         return std::nullopt;
     }

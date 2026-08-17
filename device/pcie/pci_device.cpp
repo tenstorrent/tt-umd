@@ -6,10 +6,11 @@
 
 #include <fcntl.h>  // for ::open
 #include <fmt/format.h>
-#include <sys/ioctl.h>  // for ioctl
-#include <sys/mman.h>   // for mmap, munmap
-#include <unistd.h>     // for ::close
+#include <sys/mman.h>     // for mmap, munmap
+#include <sys/utsname.h>  // for uname
+#include <unistd.h>       // for ::close
 
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -29,15 +30,15 @@
 #include <utility>
 #include <vector>
 
-#include "ioctl.h"
 #include "tracy.hpp"
+#include "tt-kmd-lib/pci_ids.h"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -394,21 +395,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)),
     arch_impl_(architecture_implementation::create(arch)) {
-    if (iommu_enabled && kmd_version < KMD_IOMMU) {
+    if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Running with IOMMU support requires KMD version {} or newer.", KMD_IOMMU.to_string()));
-    }
-    if (kmd_version < KMD_TLBS) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string()));
-    }
-
-    if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
-        log_warning(
-            LogUMD,
-            "Running with IOMMU support prior to KMD version {} is of limited support.",
-            KMD_MAP_TO_NOC.to_string());
+            fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
     int extra_flags = 0;
@@ -440,63 +430,41 @@ PCIDevice::PCIDevice(int pci_device_number) :
     UMD_ASSERT(
         arch != tt::ARCH::WORMHOLE_B0 || revision == 0x01, error::RuntimeError, "Wormhole B0 must have revision 0x01");
 
-    struct {
-        tenstorrent_query_mappings query_mappings;
-        tenstorrent_mapping mapping_array[8];
-    } mappings;
-
-    memset(&mappings, 0, sizeof(mappings));
-    mappings.query_mappings.in.output_mapping_count = 8;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) == -1) {
-        UMD_THROW(error::RuntimeError, fmt::format("Query mappings failed on device {}.", pci_device_num));
-    }
-
     // Mapping resource to BAR
     // Resource 0 -> BAR0
     // Resource 1 -> BAR2
     // Resource 2 -> BAR4.
-    tenstorrent_mapping bar0_uc_mapping{};
-    tenstorrent_mapping bar0_wc_mapping{};
-    tenstorrent_mapping bar2_uc_mapping{};
-    tenstorrent_mapping bar2_wc_mapping{};
-    tenstorrent_mapping bar4_uc_mapping{};
-    tenstorrent_mapping bar4_wc_mapping{};
+    tt_bar_mappings_t bar_mappings{};
+    int mappings_ret = tt_device_query_bar_mappings(tt_device_handle, &bar_mappings);
+    if (mappings_ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Query mappings failed on device {}: {}", pci_device_num, strerror(-mappings_ret)));
+    }
 
-    for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_UC) {
-            bar0_uc_mapping = mappings.mapping_array[i];
+    const tt_bar_mapping_t &bar0_uc_mapping = bar_mappings.resource0_uc;
+    const tt_bar_mapping_t &bar2_uc_mapping = bar_mappings.resource1_uc;
+    const tt_bar_mapping_t &bar4_uc_mapping = bar_mappings.resource2_uc;
+
+    for (const tt_bar_mapping_t &mapping :
+         {bar_mappings.resource0_uc,
+          bar_mappings.resource0_wc,
+          bar_mappings.resource1_uc,
+          bar_mappings.resource1_wc,
+          bar_mappings.resource2_uc,
+          bar_mappings.resource2_wc}) {
+        if (mapping.id == TT_BAR_MAPPING_UNUSED) {
+            continue;
         }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE0_WC) {
-            bar0_wc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_UC) {
-            bar2_uc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE1_WC) {
-            bar2_wc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_UC) {
-            bar4_uc_mapping = mappings.mapping_array[i];
-        }
-
-        if (mappings.mapping_array[i].mapping_id == TENSTORRENT_MAPPING_RESOURCE2_WC) {
-            bar4_wc_mapping = mappings.mapping_array[i];
-        }
-
         log_trace(
             LogUMD,
             "BAR mapping id {} base {} size {}",
-            mappings.mapping_array[i].mapping_id,
-            reinterpret_cast<void *>(mappings.mapping_array[i].mapping_base),
-            mappings.mapping_array[i].mapping_size);
+            mapping.id,
+            reinterpret_cast<void *>(mapping.base),
+            mapping.size);
     }
 
-    if (bar0_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE0_UC) {
+    if (bar0_uc_mapping.id != TT_BAR_MAPPING_RESOURCE0_UC) {
         UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR0 UC mapping.", pci_device_num));
     }
 
@@ -506,7 +474,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + PCIDevice::bar0_mapping_offset);
+        bar0_uc_mapping.base + PCIDevice::bar0_mapping_offset);
 
     if (bar0 == MAP_FAILED) {
         UMD_THROW(error::RuntimeError, fmt::format("BAR0 mapping failed for device {}.", pci_device_num));
@@ -521,7 +489,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.mapping_base + arch_impl_->get_static_tlb_cfg_addr());
+        bar0_uc_mapping.base + arch_impl_->get_static_tlb_cfg_addr());
 
     if (tlb_config_space == MAP_FAILED) {
         UMD_THROW(
@@ -530,36 +498,36 @@ PCIDevice::PCIDevice(int pci_device_number) :
     }
 
     if (arch == tt::ARCH::WORMHOLE_B0) {
-        if (bar4_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE2_UC) {
+        if (bar4_uc_mapping.id != TT_BAR_MAPPING_RESOURCE2_UC) {
             UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR4 UC mapping.", pci_device_num));
         }
 
-        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
-            bar2_uc_mapping.mapping_size,
+            bar2_uc_mapping.size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             pci_device_file_desc,
-            bar2_uc_mapping.mapping_base);
+            bar2_uc_mapping.base);
 
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
         }
     } else if (arch == tt::ARCH::BLACKHOLE) {
-        if (bar2_uc_mapping.mapping_id != TENSTORRENT_MAPPING_RESOURCE1_UC) {
+        if (bar2_uc_mapping.id != TT_BAR_MAPPING_RESOURCE1_UC) {
             UMD_THROW(error::RuntimeError, fmt::format("Device {} has no BAR2 UC mapping.", pci_device_num));
         }
 
         // Using UnCachable memory mode. This is used for accessing registers on Blackhole.
-        bar2_uc_size = bar2_uc_mapping.mapping_size;
+        bar2_uc_size = bar2_uc_mapping.size;
         bar2_uc = mmap(
             nullptr,
-            bar2_uc_mapping.mapping_size,
+            bar2_uc_mapping.size,
             PROT_READ | PROT_WRITE,
             MAP_SHARED,
             pci_device_file_desc,
-            bar2_uc_mapping.mapping_base);
+            bar2_uc_mapping.base);
 
         if (bar2_uc == MAP_FAILED) {
             UMD_THROW(error::RuntimeError, fmt::format("BAR2 UC mapping failed for device {}.", pci_device_num));
@@ -629,9 +597,20 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
 
 bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
 
-std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
-    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
+bool PCIDevice::is_read_only_page_pinning_supported() const {
+    // Use the version cached at construction: this is reached from the mapping path, once per pinned buffer, and
+    // read_kmd_version() re-opens and re-parses sysfs on every call.
+    return is_iommu_enabled() && kmd_version >= KMD_READ_ONLY_PAGE_PINNING;
+}
+
+std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
+    void *buffer, size_t size, DeviceBufferAccess device_access) {
+    if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
+    }
+    if (device_access == DeviceBufferAccess::READ_ONLY && !is_read_only_page_pinning_supported()) {
+        UMD_THROW(
+            error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
@@ -645,7 +624,10 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
         UMD_THROW(error::RuntimeError, fmt::format("Cannot map buffer of size {} to NOC with IOMMU disabled.", size));
     }
 
-    const int flags = TT_DMA_FLAG_NOC;
+    int flags = TT_DMA_FLAG_NOC;
+    if (device_access == DeviceBufferAccess::READ_ONLY) {
+        flags |= TT_DMA_FLAG_READ_ONLY;
+    }
 
     uint64_t physical_address = 0;
     uint64_t noc_address = 0;
@@ -674,7 +656,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
+    if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use hugepages with NOC mapping.");
     }
 
@@ -722,11 +704,18 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     return {noc_address, physical_address};
 }
 
-uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
+uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess device_access) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
     const uint64_t virtual_address = reinterpret_cast<uint64_t>(buffer);
-    const int flags = is_iommu_enabled() ? TT_DMA_FLAG_NONE : TT_DMA_FLAG_CONTIGUOUS;
+    int flags = is_iommu_enabled() ? TT_DMA_FLAG_NONE : TT_DMA_FLAG_CONTIGUOUS;
+    if (device_access == DeviceBufferAccess::READ_ONLY) {
+        if (!is_read_only_page_pinning_supported()) {
+            UMD_THROW(
+                error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
+        }
+        flags |= TT_DMA_FLAG_READ_ONLY;
+    }
 
     if (virtual_address % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
@@ -794,10 +783,25 @@ SemVer PCIDevice::read_kmd_version() {
     return SemVer(version_str);
 }
 
-std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
+SemVer PCIDevice::read_kernel_version() {
+    struct utsname uts {};
+
+    if (uname(&uts) != 0) {
+        log_warning(LogUMD, "uname() failed: {}", strerror(errno));
+        return {0, 0, 0};
+    }
+
+    // uts.release looks like "5.15.0-91-generic"; SemVer's parser reads leading digits of each
+    // dot-separated field and stops at the first non-digit, so the "-91-generic" tail of the
+    // patch field is naturally dropped.
+    return SemVer(uts.release);
+}
+
+std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
+    const size_t tlb_size, const TlbMapping tlb_mapping, const bool verify_config) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
-        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping, verify_config);
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
@@ -819,7 +823,7 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
     auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
 
@@ -841,12 +845,37 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
-    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
+    const std::array<uint32_t, 3> config_words = {
+        static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
+    const size_t num_config_words = (arch == tt::ARCH::BLACKHOLE) ? 3 : 2;
+    for (size_t i = 0; i < num_config_words; i++) {
+        tlb_reg_ptr[i] = config_words[i];
+    }
 
-    if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total).
-        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
+    // MMIO writes are posted, so read the low 64 bits back to prove the mapping is live before
+    // anything uses it. Costs a PCIe round trip, hence opt-in.
+    if (verify) {
+        static constexpr auto TLB_CONFIG_BUSY_POLL_WINDOW =
+            std::chrono::duration_cast<std::chrono::microseconds>(timeout::MMIO_OP_TIMEOUT);
+        static constexpr auto TLB_CONFIG_POLL_INTERVAL = std::chrono::microseconds(1);
+
+        const bool config_landed = utils::poll_until(
+            [&]() { return (tlb_reg_ptr[0] == config_words[0]) && (tlb_reg_ptr[1] == config_words[1]); },
+            timeout::MMIO_OP_TIMEOUT,
+            TLB_CONFIG_BUSY_POLL_WINDOW,
+            TLB_CONFIG_POLL_INTERVAL);
+
+        UMD_ASSERT(
+            config_landed,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {} did not read back the configuration written to it (wrote {:#x} {:#x}, read {:#x} {:#x}). "
+                "The window is either not responding or is being written by another owner.",
+                tlb_index,
+                config_words[0],
+                config_words[1],
+                tlb_reg_ptr[0],
+                tlb_reg_ptr[1]));
     }
 
     log_trace(
@@ -931,45 +960,29 @@ bool PCIDevice::try_allocate_pcie_dma_buffer_iommu(const size_t dma_buf_size) {
 }
 
 bool PCIDevice::try_allocate_pcie_dma_buffer_no_iommu(const size_t dma_buf_size) {
-    tenstorrent_allocate_dma_buf dma_buf{};
-
     const uint64_t page_size = static_cast<uint64_t>(sysconf(_SC_PAGESIZE));
     const uint64_t dma_buf_alloc_size = dma_buf_size + page_size;  // completion flag page
 
-    dma_buf.in.requested_size = dma_buf_alloc_size;
-    dma_buf.in.buf_index = 0;
-
-    if (ioctl(pci_device_file_desc, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf)) {
-        log_debug(LogUMD, "Failed to allocate DMA buffer: {}", strerror(errno));
-    } else {
-        // OK - we have a buffer.  Map it.
-        void *buffer = mmap(
-            nullptr,
-            dma_buf_alloc_size,
-            PROT_READ | PROT_WRITE,
-            MAP_SHARED,
-            pci_device_file_desc,
-            dma_buf.out.mapping_offset);
-
-        if (buffer == MAP_FAILED) {
-            // Similar rationale to above, although this is worse because we
-            // can't deallocate it.  That only happens when we close the fd.
-            log_error(LogUMD, "Failed to map DMA buffer: {}", strerror(errno));
-            return false;
-        } else {
-            log_debug(
-                LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
-            dma_buffer.buffer = static_cast<uint8_t *>(buffer);
-            dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
-            dma_buffer.buffer_pa = dma_buf.out.physical_address;
-            dma_buffer.completion_pa = dma_buf.out.physical_address + dma_buf_size;
-            dma_buffer.size = dma_buf_size;
-            TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
-            return true;
-        }
+    void *buffer = nullptr;
+    uint64_t physical_address = 0;
+    int ret = tt_allocate_dma_buf(
+        tt_device_handle, 0, dma_buf_alloc_size, TT_DMA_FLAG_NONE, &buffer, &physical_address, nullptr);
+    if (ret != 0) {
+        // Buffers allocated but not mapped can't be deallocated until the fd is
+        // closed, but since this is a temporary hack we just retry with a
+        // smaller size.
+        log_debug(LogUMD, "Failed to allocate DMA buffer of size {}: {}", dma_buf_alloc_size, strerror(-ret));
+        return false;
     }
 
-    return false;
+    log_debug(LogUMD, "Allocated PCIe DMA buffer of size {} for PCI device {}.", dma_buf_alloc_size, pci_device_num);
+    dma_buffer.buffer = static_cast<uint8_t *>(buffer);
+    dma_buffer.completion = static_cast<uint8_t *>(buffer) + dma_buf_size;
+    dma_buffer.buffer_pa = physical_address;
+    dma_buffer.completion_pa = physical_address + dma_buf_size;
+    dma_buffer.size = dma_buf_size;
+    TracyAllocN(dma_buffer.buffer, dma_buf_alloc_size, "DMA");
+    return true;
 }
 
 void PCIDevice::allocate_pcie_dma_buffer() {
@@ -1023,6 +1036,77 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
+
+bool PCIDevice::is_tlb_dmabuf_export_supported() {
+    return PCIDevice::read_kmd_version() >= KMD_TLB_DMABUF_EXPORT &&
+           PCIDevice::read_kernel_version() >= MIN_KERNEL_TLB_DMABUF_EXPORT;
+}
+
+// Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
+// EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
+int PCIDevice::export_tlb_dmabuf(
+    const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
+    UMD_ASSERT(
+        is_tlb_dmabuf_export_supported(),
+        error::RuntimeError,
+        fmt::format(
+            "Exporting a TLB window as a dma-buf requires KMD {} or newer and kernel {} or newer, but this system "
+            "runs KMD {} and kernel {}.",
+            KMD_TLB_DMABUF_EXPORT.str(),
+            MIN_KERNEL_TLB_DMABUF_EXPORT.str(),
+            read_kmd_version().str(),
+            read_kernel_version().str()));
+
+    tt_tlb_t *tlb = nullptr;
+    int ret = tt_tlb_alloc(tt_device_handle, window_size, TT_MMIO_CACHE_MODE_WC, &tlb);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to allocate a {} byte TLB window to export as a dma-buf: {}", window_size, strerror(-ret)));
+    }
+
+    // No TlbHandle owns this window, so every path below releases it explicitly. Any new exit added
+    // here must do the same, or the window leaks out of the allocation pool until the process exits.
+    tt_noc_addr_config_t noc_config{};
+    noc_config.addr = config.local_offset;
+    noc_config.x_end = static_cast<uint16_t>(config.x_end);
+    noc_config.y_end = static_cast<uint16_t>(config.y_end);
+    noc_config.x_start = static_cast<uint16_t>(config.x_start);
+    noc_config.y_start = static_cast<uint16_t>(config.y_start);
+    noc_config.noc = static_cast<uint8_t>(config.noc_sel);
+    noc_config.mcast = static_cast<uint8_t>(config.mcast);
+    noc_config.ordering = static_cast<uint8_t>(config.ordering);
+    noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+
+    ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to configure TLB window for a dma-buf export at NOC address {:#x} on core ({}, {}): {}",
+                config.local_offset,
+                config.x_end,
+                config.y_end,
+                strerror(-ret)));
+    }
+
+    int fd = -1;
+    ret = tt_tlb_export_dmabuf(tt_device_handle, tlb, offset, size, &fd);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to export TLB window as a dma-buf (offset {:#x}, size {}): {}", offset, size, strerror(-ret)));
+    }
+
+    // Released on success as well: the driver keeps the window pinned for as long as the fd is open.
+    tt_tlb_free(tt_device_handle, tlb);
+
+    return fd;
+}
 
 void PCIDevice::set_power_state(bool busy) {
     if (arch != tt::ARCH::BLACKHOLE) {

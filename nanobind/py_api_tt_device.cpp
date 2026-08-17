@@ -235,6 +235,10 @@ void bind_tt_device(nb::module_ &m) {
         .value("Throw", TTDevice::HangAction::THROW)
         .value("ReturnValue", TTDevice::HangAction::RETURN);
 
+    nb::enum_<TTDevice::PowerState>(tt_device_class, "PowerState")
+        .value("BUSY", TTDevice::PowerState::BUSY)
+        .value("IDLE", TTDevice::PowerState::IDLE);
+
     tt_device_class
         .def_static(
             "create",
@@ -246,7 +250,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
             release_gil())
-        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())
+        .def(
+            "set_power_state",
+            &TTDevice::set_power_state,
+            nb::arg("state"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def(
             "init_tt_device",
             // noc_id defaults to the NocId selected for the calling thread, so omitting it preserves the

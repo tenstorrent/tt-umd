@@ -37,7 +37,6 @@ public:
     virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
     virtual uint32_t get_arc_message_arc_go_busy() const = 0;
     virtual uint32_t get_arc_message_arc_go_long_idle() const = 0;
-    virtual uint32_t get_arc_message_arc_go_short_idle() const = 0;
     virtual uint32_t get_arc_message_deassert_riscv_reset() const = 0;
     virtual uint32_t get_arc_message_get_aiclk() const = 0;
     virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
@@ -116,14 +115,6 @@ public:
     // Map a PCI bus id to a UBB tray id (1..4). Returns std::nullopt for archs without UBB
     // boards or when the bus id does not correspond to a known tray.
     virtual std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const { return std::nullopt; }
-
-    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address_offset(const FirmwareBundleVersion&) const {
-        return std::nullopt;
-    }
-
-    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size_offset(const FirmwareBundleVersion&) const {
-        return std::nullopt;
-    }
 };
 
 }  // namespace tt::umd

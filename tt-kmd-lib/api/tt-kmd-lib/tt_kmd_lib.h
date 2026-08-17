@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef TTKMD_H_
-#define TTKMD_H_
+#ifndef TT_KMD_LIB_H_
+#define TT_KMD_LIB_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -182,6 +182,61 @@ int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs);
 int tt_driver_get_attr(tt_device_t* dev, enum tt_driver_attr attr, uint64_t* out_value);
 
 /**
+ * @brief Identifiers for a device's memory-mapped BAR resources.
+ *
+ * Each identifies one BAR resource exposed by the device in a specific caching
+ * mode (UC = uncached, WC = write-combined).
+ */
+enum tt_bar_mapping_id {
+    TT_BAR_MAPPING_UNUSED = 0,
+    TT_BAR_MAPPING_RESOURCE0_UC = 1,
+    TT_BAR_MAPPING_RESOURCE0_WC = 2,
+    TT_BAR_MAPPING_RESOURCE1_UC = 3,
+    TT_BAR_MAPPING_RESOURCE1_WC = 4,
+    TT_BAR_MAPPING_RESOURCE2_UC = 5,
+    TT_BAR_MAPPING_RESOURCE2_WC = 6,
+};
+
+/**
+ * @brief A single BAR resource mapping.
+ *
+ * `id` is `TT_BAR_MAPPING_UNUSED` when the device did not report this mapping.
+ */
+typedef struct tt_bar_mapping_t {
+    uint32_t id;   /**< Mapping identifier; see `enum tt_bar_mapping_id` */
+    uint64_t base; /**< Offset to pass to mmap() on the device file descriptor */
+    uint64_t size; /**< Size of the mapping in bytes */
+} tt_bar_mapping_t;
+
+/**
+ * @brief The set of BAR resource mappings exposed by a device.
+ *
+ * Retrieved via `tt_device_query_bar_mappings()`. Any mapping the device does
+ * not report is left zeroed, with its `id` equal to `TT_BAR_MAPPING_UNUSED`.
+ */
+typedef struct tt_bar_mappings_t {
+    tt_bar_mapping_t resource0_uc;
+    tt_bar_mapping_t resource0_wc;
+    tt_bar_mapping_t resource1_uc;
+    tt_bar_mapping_t resource1_wc;
+    tt_bar_mapping_t resource2_uc;
+    tt_bar_mapping_t resource2_wc;
+} tt_bar_mappings_t;
+
+/**
+ * @brief Query the device's BAR resource mappings.
+ *
+ * Retrieves the base offsets and sizes of the device's memory-mapped BAR
+ * resources. The returned `base` values are suitable as offsets to mmap() on
+ * the device file descriptor.
+ *
+ * @param dev Device handle
+ * @param out_mappings Populated with the device's BAR mappings on success
+ * @return 0 on success, error code on failure
+ */
+int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappings);
+
+/**
  * @brief Convenience function to read a 32-bit value from a device NOC address.
  *
  * Appropriate for reading device registers or memory.
@@ -297,6 +352,14 @@ enum tt_dma_map_flags {
      * range, e.g. for hugepages. It has no effect when an IOMMU is active.
      */
     TT_DMA_FLAG_CONTIGUOUS = 1 << 2,
+
+    /**
+     * @brief Restricts the mapping to device reads.
+     *
+     * Requires KMD 2.9.0 or newer and an active IOMMU. Device writes to this
+     * mapping fault. This flag may be combined with either NOC mapping flag.
+     */
+    TT_DMA_FLAG_READ_ONLY = 1 << 3,
 };
 
 /**
@@ -400,6 +463,36 @@ int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* 
 int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len);
 
 /**
+ * @brief Allocates a driver-managed DMA buffer and maps it into the caller's
+ * address space.
+ *
+ * Unlike `tt_dma_map()`/`tt_pin_pages()`, which make caller-provided host memory
+ * accessible to the device, this asks the driver to allocate a physically
+ * contiguous buffer and returns a host mapping of it. The buffer is identified
+ * by `buf_index` and is released when the device handle is closed; the caller is
+ * responsible for calling `munmap()` on `out_mapping` with `size` bytes.
+ *
+ * @param dev Device handle
+ * @param buf_index Buffer slot in [0, TENSTORRENT_MAX_DMA_BUFS)
+ * @param size Number of bytes to allocate and map
+ * @param flags Bitmask of flags from `enum tt_dma_map_flags`; only
+ *              `TT_DMA_FLAG_NOC` is honored
+ * @param out_mapping On success, the host mapping of the buffer
+ * @param out_dma_addr On success, the DMA address (IOVA or PA). May be NULL.
+ * @param out_noc_addr On success, the NOC address. Only valid when
+ *                     `TT_DMA_FLAG_NOC` is set. May be NULL.
+ * @return 0 on success, error code on failure
+ */
+int tt_allocate_dma_buf(
+    tt_device_t* dev,
+    uint8_t buf_index,
+    size_t size,
+    int flags,
+    void** out_mapping,
+    uint64_t* out_dma_addr,
+    uint64_t* out_noc_addr);
+
+/**
  * @brief Allocates a TLB window.
  *
  * Quantities and sizes of TLB windows vary by device architecture:
@@ -471,6 +564,27 @@ int tt_tlb_map(tt_device_t* dev, tt_tlb_t* tlb, tt_noc_addr_config_t* config);
 int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, uint64_t addr);
 
 /**
+ * @brief Export a TLB window as a dma-buf file descriptor for peer-to-peer PCIe DMA.
+ *
+ * The window must already be configured via `tt_tlb_map()` or `tt_tlb_map_unicast()`. The
+ * returned fd is self-sufficient: it pins the window (and device) by refcount, so it survives
+ * `tt_tlb_free()`, closing the device handle, and even device removal. The caller owns the fd
+ * and must close() it when done; the window is returned to the allocation pool only once the
+ * last export on it is released. Requires tt-kmd >= 2.10.0-rc1 and Linux 5.8+.
+ *
+ * The window must have been allocated on this same device handle; the driver checks that ownership.
+ *
+ * @param dev Device handle
+ * @param tlb TLB window handle from `tt_tlb_alloc()`
+ * @param offset Page-aligned byte offset within the window at which the export begins
+ * @param size Page-aligned byte count to export; must be nonzero and not run past the end of the
+ *             window
+ * @param out_fd On success, the dma-buf file descriptor
+ * @return 0 on success, error code on failure
+ */
+int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd);
+
+/**
  * @brief Power flags for use with tt_device_set_power_state().
  */
 enum tt_power_flags {
@@ -510,4 +624,4 @@ int tt_device_reset(tt_device_t* dev, uint32_t reset_flags);
 }
 #endif
 
-#endif  // TTKMD_H_
+#endif  // TT_KMD_LIB_H_

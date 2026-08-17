@@ -10,13 +10,11 @@
 #include <chrono>
 #include <cstdlib>
 #include <memory>
-#include <optional>
 #include <string>
 #include <vector>
 
 #include "noc_access.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/utils/error.hpp"
@@ -154,9 +152,9 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
 
     uint64_t queue_control_block;
     if (tt_device->get_communication_device_type() == IODeviceType::JTAG) {
-        queue_control_block = tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr).value();
+        queue_control_block = tt_device->get_jtag_interface()->mmio_read32(queue_control_block_addr);
         queue_control_block |=
-            ((uint64_t)tt_device->get_jtag_device()->read32_axi(0, queue_control_block_addr + 4).value() << 32);
+            ((uint64_t)tt_device->get_jtag_interface()->mmio_read32(queue_control_block_addr + 4) << 32);
     } else {
         tt_device->read_from_device(&queue_control_block, arc_core, queue_control_block_addr, sizeof(uint64_t), noc_id);
     }

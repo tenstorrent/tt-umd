@@ -34,7 +34,7 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    void set_clock_state(DevicePowerState state) override;
+    void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     bool get_noc_translation_enabled(NocId noc_id) override;
 

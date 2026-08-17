@@ -81,7 +81,7 @@ public:
         std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
         for (int pci_device_id : pci_device_ids) {
             auto tt_device = TTDevice::create(pci_device_id);
-            tt_device->set_power_state(true);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
             tt_device->init_tt_device();
             ASSERT_NE(tt_device->get_firmware_info_provider(), nullptr);
             tt_devices_.push_back(std::move(tt_device));
@@ -90,7 +90,7 @@ public:
 
     void TearDown() override {
         for (auto& tt_device : tt_devices_) {
-            tt_device->set_power_state(false);
+            tt_device->set_power_state(TTDevice::PowerState::IDLE);
         }
     }
 
@@ -102,8 +102,8 @@ private:
 
 TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     // Test static methods that don't need a device.
-    FirmwareBundleVersion wh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_min = FirmwareInfoProvider::get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_min = get_minimum_compatible_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_min = get_minimum_compatible_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH min compatible FW: {}", wh_min.to_string());
     log_info(tt::LogUMD, "BH min compatible FW: {}", bh_min.to_string());
@@ -111,9 +111,8 @@ TEST(TestFirmwareInfoProviderStatic, StaticVersionInfo) {
     EXPECT_EQ(wh_min, FW_VERSION_18_3);
     EXPECT_EQ(bh_min, FW_VERSION_18_5);
 
-    FirmwareBundleVersion wh_latest =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
-    FirmwareBundleVersion bh_latest = FirmwareInfoProvider::get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
+    FirmwareBundleVersion wh_latest = get_latest_supported_firmware_version(tt::ARCH::WORMHOLE_B0);
+    FirmwareBundleVersion bh_latest = get_latest_supported_firmware_version(tt::ARCH::BLACKHOLE);
 
     log_info(tt::LogUMD, "WH latest supported FW: {}", wh_latest.to_string());
     log_info(tt::LogUMD, "BH latest supported FW: {}", bh_latest.to_string());
@@ -308,7 +307,7 @@ TEST_F(TestFirmwareInfoProvider, PowerMetrics) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto fan_speed = fw_info->get_fan_speed();
+        auto fan_speed = fw_info->get_fan_speeds();
         std::optional<uint32_t> tdp = fw_info->get_tdp();
         std::optional<uint32_t> tdc = fw_info->get_tdc();
         std::optional<uint32_t> vcore = fw_info->get_vcore();
@@ -509,8 +508,8 @@ TEST_F(TestFirmwareInfoProvider, FanSpeed) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        auto speed_percentage = fw_info->get_fan_speed();
-        auto speed_rpm = fw_info->get_fan_rpm();
+        auto speed_percentage = fw_info->get_fan_speeds();
+        auto speed_rpm = fw_info->get_fan_rpms();
 
         // Always report information about 2 fans.
         EXPECT_EQ(speed_percentage.size(), 2);
@@ -603,6 +602,65 @@ TEST_F(TestFirmwareInfoProvider, BoardPowerLimit) {
             EXPECT_GT(power_limit.value(), 0u);
             EXPECT_LT(power_limit.value(), 500u);
         }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, TdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        auto tdp_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "tdp_limit={} W", opt_str(tdp_limit));
+
+        // Wormhole publishes the limit from 18.4 on, Blackhole from 19.8 on.
+        FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
+        bool expect_available = tt_device->get_arch() == tt::ARCH::BLACKHOLE
+                                    ? fw_version >= FirmwareBundleVersion(19, 8, 0)
+                                    : fw_version >= FW_VERSION_18_4;
+        if (!expect_available) {
+            EXPECT_FALSE(tdp_limit.has_value());
+            continue;
+        }
+        EXPECT_TRUE(tdp_limit.has_value());
+        // Firmware seeds this from the board's SPI firmware table and keeps it inside the TDP
+        // throttler's [50, 500] W range. A zero means the board never configured a limit.
+        if (tdp_limit.has_value() && tdp_limit.value() != 0) {
+            EXPECT_GE(tdp_limit.value(), 50u);
+            EXPECT_LE(tdp_limit.value(), 500u);
+        }
+    }
+}
+
+TEST_F(TestFirmwareInfoProvider, SetTdpLimit) {
+    for (const auto& tt_device : get_tt_devices()) {
+        auto* fw_info = tt_device->get_firmware_info_provider();
+
+        if (tt_device->get_arch() != tt::ARCH::BLACKHOLE ||
+            fw_info->get_firmware_version() < FirmwareBundleVersion(19, 11, 0)) {
+            // Unsupported devices reject every request, in range or not.
+            EXPECT_THROW(set_tdp_limit(tt_device.get(), 100), std::runtime_error);
+            EXPECT_THROW(restore_default_tdp_limit(tt_device.get()), std::runtime_error);
+            continue;
+        }
+
+        std::optional<uint32_t> original_limit = fw_info->get_tdp_limit();
+        ASSERT_TRUE(original_limit.has_value());
+        log_info(tt::LogUMD, "original tdp_limit={} W", opt_str(original_limit));
+
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 20), std::runtime_error);
+        EXPECT_THROW(set_tdp_limit(tt_device.get(), 600), std::runtime_error);
+        EXPECT_EQ(fw_info->get_tdp_limit(), original_limit);
+
+        // 75 W is below the default limit of every Blackhole board, and lowering is always accepted.
+        set_tdp_limit(tt_device.get(), 75);
+        std::optional<uint32_t> lowered_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "lowered tdp_limit={} W", opt_str(lowered_limit));
+        EXPECT_EQ(lowered_limit, 75u);
+
+        restore_default_tdp_limit(tt_device.get());
+        std::optional<uint32_t> restored_limit = fw_info->get_tdp_limit();
+        log_info(tt::LogUMD, "restored tdp_limit={} W", opt_str(restored_limit));
+        EXPECT_EQ(restored_limit, original_limit);
     }
 }
 
@@ -764,26 +822,24 @@ TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
 
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
-        tt_device->set_power_state(true);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         const auto size = fw_info->get_runtime_telemetry_buffer_size();
         const auto address = fw_info->get_runtime_telemetry_buffer_address();
 
-        const auto firmware_version = tt_device->get_firmware_version();
-        const auto size_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_size_offset(firmware_version);
-        const auto address_offset =
-            tt_device->get_architecture_implementation()->get_runtime_telemetry_buffer_address_offset(firmware_version);
+        // Address and size are published together behind the same firmware-version gate, so they must
+        // be both present or both absent regardless of arch or firmware version.
+        EXPECT_EQ(address.has_value(), size.has_value());
 
-        if (!size_offset.has_value() || !address_offset.has_value()) {
-            EXPECT_FALSE(size.has_value());
-            EXPECT_FALSE(address.has_value());
-        } else {
-            EXPECT_TRUE(size.has_value());
-            EXPECT_TRUE(address.has_value());
+        // When the buffer is published, the locator must point somewhere and describe a non-empty,
+        // word-aligned region.
+        if (address.has_value() && size.has_value()) {
+            EXPECT_NE(address.value(), 0u);
+            EXPECT_NE(size.value(), 0u);
+            EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
         }
-        tt_device->set_power_state(false);
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
 }

@@ -105,7 +105,6 @@ enum class arc_message_type {
     GET_SMBUS_TELEMETRY_ADDR = 0x2C,
     GET_AICLK = 0x34,
     ARC_GO_BUSY = 0x52,
-    ARC_GO_SHORT_IDLE = 0x53,
     ARC_GO_LONG_IDLE = 0x54,
     ARC_GET_HARVESTING = 0x57,
     SET_ETH_DRAM_TRAINED_STATUS = 0x58,
@@ -258,6 +257,15 @@ inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 
+// SCRATCH_REG_EXT: a fixed, host-readable CSM window carved into 32-bit slots that firmware uses to
+// publish locators for the host runtime. Offsets are relative to the ARC CSM base (0x10000000) and are
+// meant to be passed to read_from_arc_csm. Firmware publishes the runtime telemetry buffer address in
+// slot 0 and its size in slot 1. See syseng src/hardware/soc/tb/arc_fw/lib/scratch_reg_ext.h
+// (SCRATCH_REG_EXT_START_ADDR = 0x10075C00).
+inline constexpr uint32_t SCRATCH_REG_EXT_OFFSET = 0x75C00;
+inline constexpr uint32_t RUNTIME_TELEMETRY_ADDR_OFFSET = SCRATCH_REG_EXT_OFFSET + 0x0;
+inline constexpr uint32_t RUNTIME_TELEMETRY_SIZE_OFFSET = SCRATCH_REG_EXT_OFFSET + 0x4;
+
 // ARC APB absolute addresses in BAR0 memory space.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_END = 0x1FFFFFFF;
@@ -384,10 +392,6 @@ public:
 
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_LONG_IDLE);
-    }
-
-    uint32_t get_arc_message_arc_go_short_idle() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_SHORT_IDLE);
     }
 
     uint32_t get_arc_message_deassert_riscv_reset() const override {

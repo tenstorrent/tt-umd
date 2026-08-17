@@ -142,7 +142,7 @@ bool BlackholeTTDevice::get_noc_translation_enabled(NocId /*noc_id*/) {
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
-        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+        niu_cfg = get_jtag_interface()->mmio_read32(blackhole::NIU_CFG_NOC0_ARC_ADDR);
     } else {
         niu_cfg = bar_read32(addr);
     }
@@ -236,15 +236,14 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
-void BlackholeTTDevice::set_clock_state(DevicePowerState state) {
+void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
     int exit_code = 0;
     switch (state) {
-        case DevicePowerState::BUSY:
+        case TTDevice::PowerState::BUSY:
             exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
             break;
-        case DevicePowerState::LONG_IDLE:
-        case DevicePowerState::SHORT_IDLE:
+        case TTDevice::PowerState::IDLE:
             exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
             break;
         default:
@@ -262,13 +261,12 @@ void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offse
         UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->read(
-            communication_device_id_,
+        get_device_protocol()->read_ctrl(
             mem_ptr,
-            blackhole::ARC_CORES_NOC0[0].x,
-            blackhole::ARC_CORES_NOC0[0].y,
+            blackhole::ARC_CORES_NOC0[0],
             blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     if (!is_arc_available_over_axi()) {
@@ -289,13 +287,12 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->write(
-            communication_device_id_,
+        get_device_protocol()->write_ctrl(
             mem_ptr,
-            blackhole::ARC_CORES_NOC0[0].x,
-            blackhole::ARC_CORES_NOC0[0].y,
+            blackhole::ARC_CORES_NOC0[0],
             blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     if (!is_arc_available_over_axi()) {

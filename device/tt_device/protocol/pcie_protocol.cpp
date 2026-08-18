@@ -7,6 +7,7 @@
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
 #include <fmt/format.h>
+#include <sys/mman.h>  // for MAP_FAILED
 #include <unistd.h>
 
 #include <algorithm>
@@ -173,6 +174,55 @@ uint32_t PcieProtocol::bar_read32(uint32_t addr) {
 PCIDevice* PcieProtocol::get_pci_device() { return pci_device_.get(); }
 
 int PcieProtocol::get_numa_node() const { return pci_device_->get_numa_node(); }
+
+void PcieProtocol::set_power_state(bool busy) { pci_device_->set_power_state(busy); }
+
+bool PcieProtocol::is_iommu_enabled() const { return pci_device_->is_iommu_enabled(); }
+
+void PcieProtocol::bar2_write32(uint32_t addr, uint32_t data) {
+    *reinterpret_cast<volatile uint32_t*>(static_cast<uint8_t*>(pci_device_->bar2_uc) + addr) = data;
+}
+
+bool PcieProtocol::is_bar2_available() const {
+    return pci_device_->bar2_uc != nullptr && pci_device_->bar2_uc != MAP_FAILED;
+}
+
+std::string PcieProtocol::get_pci_bdf() const { return pci_device_->get_device_info().pci_bdf; }
+
+uint16_t PcieProtocol::get_pci_bus() const { return pci_device_->get_device_info().pci_bus; }
+
+int PcieProtocol::get_pci_revision() const { return pci_device_->get_pci_revision(); }
+
+bool PcieProtocol::is_mapping_buffer_to_noc_supported() const {
+    return PCIDevice::is_mapping_buffer_to_noc_supported();
+}
+
+bool PcieProtocol::is_read_only_page_pinning_supported() const {
+    return pci_device_->is_read_only_page_pinning_supported();
+}
+
+std::pair<uint64_t, uint64_t> PcieProtocol::map_buffer_to_noc(
+    void* buffer, size_t size, DeviceBufferAccess device_access) {
+    return pci_device_->map_buffer_to_noc(buffer, size, device_access);
+}
+
+std::pair<uint64_t, uint64_t> PcieProtocol::map_hugepage_to_noc(void* hugepage, size_t size) {
+    return pci_device_->map_hugepage_to_noc(hugepage, size);
+}
+
+uint64_t PcieProtocol::map_for_dma(void* buffer, size_t size, DeviceBufferAccess device_access) {
+    return pci_device_->map_for_dma(buffer, size, device_access);
+}
+
+uint64_t PcieProtocol::map_for_hugepage(void* buffer, size_t size) {
+    return pci_device_->map_for_hugepage(buffer, size);
+}
+
+void PcieProtocol::unmap_for_dma(void* buffer, size_t size) { pci_device_->unmap_for_dma(buffer, size); }
+
+std::unique_ptr<TlbWindow> PcieProtocol::allocate_tlb_window(tlb_data config, TlbMapping mapping, size_t size) {
+    return std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(size, mapping), config);
+}
 
 // A TLB window's NOC base must be size-aligned, so the window aimed at addr sits at the size-aligned
 // address at or below addr; the smallest window that still covers [addr, addr + size) is selected.

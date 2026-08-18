@@ -103,7 +103,7 @@ protected:
     }
 
     void warm_reset_and_reinit() {
-        int pci_device_id = tt_device_->get_pci_device()->get_device_num();
+        int pci_device_id = tt_device_->get_communication_device_id();
         recover_device();
 
         auto cluster = test_utils::make_default_test_cluster();

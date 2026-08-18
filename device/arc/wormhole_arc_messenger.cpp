@@ -73,10 +73,7 @@ uint32_t WormholeArcMessenger::send_message(
     // are over pci device num) allow multiple remote arc messages to the same remote chip which will break the
     // communication. It can also happen that while topology discovery is running on a remote chip through one local
     // chip, regular cluster construction is running through another local chip. Currently there's no other solution
-    // than to just lock all arc communication through the same lock. auto lock =
-    //     tt_device->is_remote()
-    //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
-    //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    // than to just lock all arc communication through the same lock.
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);

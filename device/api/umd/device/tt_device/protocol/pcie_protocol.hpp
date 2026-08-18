@@ -58,6 +58,23 @@ public:
     int get_numa_node() const override;
     int export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) override;
     void set_io_timeout_callback(const std::function<bool(NocId)>& hang_check) override;
+    void set_power_state(bool busy) override;
+    bool is_iommu_enabled() const override;
+    void bar2_write32(uint32_t addr, uint32_t data) override;
+    bool is_bar2_available() const override;
+    std::string get_pci_bdf() const override;
+    uint16_t get_pci_bus() const override;
+    int get_pci_revision() const override;
+    bool is_mapping_buffer_to_noc_supported() const override;
+    bool is_read_only_page_pinning_supported() const override;
+    std::pair<uint64_t, uint64_t> map_buffer_to_noc(
+        void* buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
+    std::pair<uint64_t, uint64_t> map_hugepage_to_noc(void* hugepage, size_t size) override;
+    uint64_t map_for_dma(
+        void* buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
+    uint64_t map_for_hugepage(void* buffer, size_t size) override;
+    void unmap_for_dma(void* buffer, size_t size) override;
+    std::unique_ptr<TlbWindow> allocate_tlb_window(tlb_data config, TlbMapping mapping, size_t size) override;
 
     // DmaInterface.
     [[nodiscard]] bool dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pair core, NocId noc_id) override;

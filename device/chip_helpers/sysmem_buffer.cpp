@@ -16,7 +16,7 @@
 #include <utility>
 
 #include "tracy.hpp"
-#include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/utils/error.hpp"
 
@@ -24,19 +24,18 @@ namespace tt::umd {
 
 SysmemBuffer::SysmemBuffer(
     TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc, DeviceBufferAccess device_access) :
-    pci_device_(tt_device->get_pci_device()),
+    pcie_interface_(tt_device->get_pcie_interface()),
     tt_device_(tt_device),
     buffer_va_(buffer_va),
     mapped_buffer_size_(buffer_size),
     buffer_size_(buffer_size),
     device_access_(device_access) {
-    UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
     align_address_and_size();
     if (map_to_noc) {
         std::tie(noc_addr_, device_io_addr_) =
-            pci_device_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_, device_access_);
+            pcie_interface_->map_buffer_to_noc(buffer_va_, mapped_buffer_size_, device_access_);
     } else {
-        device_io_addr_ = pci_device_->map_for_dma(buffer_va_, mapped_buffer_size_, device_access_);
+        device_io_addr_ = pcie_interface_->map_for_dma(buffer_va_, mapped_buffer_size_, device_access_);
         noc_addr_ = std::nullopt;
     }
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
@@ -49,7 +48,7 @@ SysmemBuffer::SysmemBuffer(
     std::optional<uint64_t> noc_addr,
     std::function<void()> unmap_callback,
     DeviceBufferAccess device_access) :
-    pci_device_(nullptr),
+    pcie_interface_(nullptr),
     tt_device_(nullptr),
     buffer_va_(buffer_va),
     mapped_buffer_size_(buffer_size),
@@ -99,11 +98,11 @@ SysmemBuffer::~SysmemBuffer() {
         unmap_callback_();
         return;
     }
-    if (pci_device_ == nullptr) {
+    if (pcie_interface_ == nullptr) {
         return;
     }
     try {
-        pci_device_->unmap_for_dma(buffer_va_, mapped_buffer_size_);
+        pcie_interface_->unmap_for_dma(buffer_va_, mapped_buffer_size_);
     } catch (...) {
         log_warning(
             LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);

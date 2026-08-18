@@ -113,7 +113,7 @@ inline std::string convert_to_comma_separated_string(const std::unordered_set<in
 }
 
 inline bool is_iommu_available() {
-    return make_default_test_cluster()->get_tt_device(0)->get_pci_device()->is_iommu_enabled();
+    return make_default_test_cluster()->get_tt_device(0)->get_pcie_interface()->is_iommu_enabled();
 }
 
 inline bool is_virtual_machine() {

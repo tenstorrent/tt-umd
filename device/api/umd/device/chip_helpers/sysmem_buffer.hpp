@@ -13,7 +13,7 @@
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-class PCIDevice;
+class PcieInterface;
 class TTDevice;
 
 /**
@@ -47,7 +47,7 @@ public:
      *                  |<----- mapped_buffer_size ----->|
      *
      * @param tt_device Pointer to the TTDevice. Used directly for DMA transfers, and to access the underlying
-     * PCIDevice for mapping/unmapping and TLB allocation.
+     * PcieInterface for mapping/unmapping.
      * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
@@ -132,7 +132,7 @@ private:
      */
     void validate(const size_t offset, const size_t size = 0) const;
 
-    PCIDevice* pci_device_;
+    PcieInterface* pcie_interface_;
     TTDevice* tt_device_;
 
     // Virtual address in process addr space.

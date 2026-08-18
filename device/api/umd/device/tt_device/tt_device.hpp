@@ -52,7 +52,6 @@ class JtagDevice;
 class JtagInterface;
 class PCIDevice;
 class PcieInterface;
-class PcieProtocol;
 class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
@@ -380,6 +379,12 @@ public:
 
     uint32_t bar_read32(uint32_t addr);
 
+    /**
+     * @brief Returns the NUMA node associated with this device.
+     * @return int NUMA node ID, or -1 if the device is not PCIe-connected or the system is non-NUMA.
+     */
+    int get_numa_node() const;
+
     ArcMessenger *get_arc_messenger() const;
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
@@ -595,7 +600,6 @@ private:
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
     DmaInterface *dma_capabilities_ = nullptr;
-    PcieProtocol *pcie_protocol_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

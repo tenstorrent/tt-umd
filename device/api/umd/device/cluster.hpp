@@ -51,7 +51,6 @@ class ClusterDescriptor;
 class EthernetBroadcast;
 class LocalChip;
 class RemoteChip;
-class PCIDevice;
 class TLBManager;
 class TlbWindow;
 
@@ -715,13 +714,6 @@ public:
      * @param device_id Device to target.
      */
     RemoteChip* get_remote_chip(ChipId device_id) const;
-
-    /**
-     * Get PCI device for specified logical device id.
-     *
-     * @param device_id Device to target.
-     */
-    PCIDevice* get_pci_device(int device_id) const;
 
     /**
      * Get TTDevice for specified logical device id.

@@ -546,6 +546,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             board_type = BoardType::N150;
+            harvesting_masks.tensix_harvesting_mask = 0x40;
             break;
         case tt::ARCH::QUASAR:
             // TODO (#450): Add Quasar configuration. Until the hardware spec is finalized
@@ -555,6 +556,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_mock_cluster(
             break;
         case tt::ARCH::BLACKHOLE:
             board_type = BoardType::UNKNOWN;
+            harvesting_masks.tensix_harvesting_mask = 0xC0;
             // Example value from silicon machine.
             harvesting_masks.eth_harvesting_mask = 0x120;
             break;

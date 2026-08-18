@@ -97,18 +97,3 @@ apt-get install -y --no-install-recommends "${OMPI_TMP}/${OMPI_DEB_FILE}"
 rm -rf "${OMPI_TMP}"
 test -x "${OMPI_PREFIX}/bin/prted"
 test -x "${OMPI_PREFIX}/bin/mpirun"
-
-# Login shells (profile.d) and non-login/PAM sessions (/etc/environment) both need
-# mpirun on PATH; GHA container steps often skip a login shell.
-echo "export PATH=${OMPI_PREFIX}/bin:\$PATH" > /etc/profile.d/openmpi.sh
-echo "export LD_LIBRARY_PATH=${OMPI_PREFIX}/lib\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}" >> /etc/profile.d/openmpi.sh
-chmod 0644 /etc/profile.d/openmpi.sh
-if ! grep -q "${OMPI_PREFIX}/bin" /etc/environment 2>/dev/null; then
-    if grep -q '^PATH="' /etc/environment 2>/dev/null; then
-        sed -i "s|^PATH=\"|PATH=\"${OMPI_PREFIX}/bin:|" /etc/environment
-    elif grep -q '^PATH=' /etc/environment 2>/dev/null; then
-        sed -i "s|^PATH=|PATH=${OMPI_PREFIX}/bin:|" /etc/environment
-    else
-        echo "PATH=\"${OMPI_PREFIX}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"" >> /etc/environment
-    fi
-fi

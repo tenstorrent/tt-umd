@@ -696,7 +696,7 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        auto heartbeats = fw_info->get_eth_heartbeat_status_per_core();
 
         // Available on Wormhole (all versions) and Blackhole >= 19.9.
         if (arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(19, 9, 0)) {
@@ -724,7 +724,7 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto retrains = fw_info->get_eth_retrain_status();
+        auto retrains = fw_info->get_eth_retrain_status_per_core();
 
         // Only available on Wormhole prior to 19.9.
         if (arch == tt::ARCH::BLACKHOLE || fw_version >= FirmwareBundleVersion(19, 9, 0)) {
@@ -750,7 +750,7 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto links = fw_info->get_eth_link_status();
+        auto links = fw_info->get_eth_link_status_per_core();
 
         // Available on firmware >= 19.9 for both Wormhole and Blackhole.
         if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
@@ -786,7 +786,7 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
             soc_desc.get_num_harvested_eth_channels(),
             soc_desc.get_num_eth_channels());
 
-        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        auto heartbeats = fw_info->get_eth_heartbeat_status_per_core();
         if (heartbeats.has_value()) {
             log_info(tt::LogUMD, "--- Heartbeat (all channels) ---");
             for (const auto& [coord, status] : heartbeats.value()) {
@@ -803,7 +803,7 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
             log_info(tt::LogUMD, "Heartbeat: unavailable");
         }
 
-        auto links = fw_info->get_eth_link_status();
+        auto links = fw_info->get_eth_link_status_per_core();
         if (links.has_value()) {
             log_info(tt::LogUMD, "--- Link status (all channels) ---");
             for (const auto& [coord, status] : links.value()) {

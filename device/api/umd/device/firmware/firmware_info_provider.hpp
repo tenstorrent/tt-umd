@@ -41,7 +41,7 @@ public:
 
     virtual FirmwareBundleVersion get_firmware_version() const;
 
-    virtual uint64_t get_board_id() const;
+    virtual std::optional<uint64_t> get_board_id() const;
 
     // TODO: Will be removed in UMD Base API 2.0.0 (#3181)
     [[deprecated("Use get_eth_fw_version_semver()")]] virtual std::optional<uint32_t> get_eth_fw_version() const;
@@ -62,7 +62,7 @@ public:
      * Get ASIC temperature in Celsius.
      * @returns ASIC temperature [Celsius]
      */
-    virtual double get_asic_temperature() const;
+    virtual std::optional<double> get_asic_temperature() const;
 
     /*
      * Get AICLK in MHz.
@@ -190,9 +190,11 @@ public:
 
     virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
-    virtual uint32_t get_max_clock_freq() const;
+    virtual std::optional<uint32_t> get_max_clock_freq() const;
 
-    virtual uint8_t get_asic_location() const;
+    virtual std::optional<uint32_t> get_min_clock_freq() const;
+
+    virtual std::optional<uint8_t> get_asic_location() const;
 
     /*
      * Get heartbeat from ARC core.
@@ -200,7 +202,7 @@ public:
      * On legacy telemetry, the value is taken from ARC0_HEALTH
      * @returns An integer that does not decrease on subsequent calls.
      */
-    virtual uint32_t get_heartbeat() const;
+    virtual std::optional<uint32_t> get_heartbeat() const;
 
     virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
 

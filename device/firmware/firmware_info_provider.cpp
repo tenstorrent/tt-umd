@@ -18,6 +18,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -329,7 +330,11 @@ template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(Fir
 
 FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
 
-uint64_t FirmwareInfoProvider::get_board_id() const {
+std::optional<uint64_t> FirmwareInfoProvider::get_board_id() const {
+    if (!(is_feature_available(FirmwareFeature::BOARD_ID_HIGH) &&
+          is_feature_available(FirmwareFeature::BOARD_ID_LOW))) {
+        return std::nullopt;
+    }
     uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
     uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
     return (static_cast<uint64_t>(high) << 32) | low;
@@ -398,17 +403,19 @@ std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(*raw);
 }
 
-double FirmwareInfoProvider::get_asic_temperature() const {
-    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE).value_or(0.0);
+std::optional<double> FirmwareInfoProvider::get_asic_temperature() const {
+    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE);
 }
 
 std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
     return read_scalar<double>(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
-uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
-    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_max_clock_freq() const {
+    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ);
 }
+
+std::optional<uint32_t> FirmwareInfoProvider::get_min_clock_freq() const { return std::nullopt; }
 
 std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
     return read_scalar<uint32_t>(FirmwareFeature::AICLK);
@@ -467,12 +474,12 @@ std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
     return read_scalar<uint32_t>(FirmwareFeature::VCORE);
 }
 
-uint8_t FirmwareInfoProvider::get_asic_location() const {
-    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION).value_or(0);
+std::optional<uint8_t> FirmwareInfoProvider::get_asic_location() const {
+    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION);
 }
 
-uint32_t FirmwareInfoProvider::get_heartbeat() const {
-    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_heartbeat() const {
+    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT);
 }
 
 // Legacy Wormhole: Each channel uses 4 bits.

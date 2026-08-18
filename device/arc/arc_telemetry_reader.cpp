@@ -53,7 +53,6 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for creating ArcTelemetryReader.");
     }
-    reader->wait_for_telemetry_initialized(timeout_ms);
     return reader;
 }
 
@@ -93,7 +92,7 @@ void ArcTelemetryReader::initialize_telemetry() {
 }
 
 uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_id) {
-    if (!is_entry_available(telemetry_tag)) {
+    if (!is_entry_available(telemetry_tag, noc_id)) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(

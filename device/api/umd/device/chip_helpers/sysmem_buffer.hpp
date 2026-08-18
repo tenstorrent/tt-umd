@@ -7,10 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <memory>
 #include <optional>
 
-#include "umd/device/pcie/tlb_window.hpp"
+#include "umd/device/types/host_memory.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -53,13 +52,19 @@ public:
      * @param buffer_size Size of the buffer requested by the user.
      * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
      */
-    SysmemBuffer(TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc = false);
+    SysmemBuffer(
+        TTDevice* tt_device,
+        void* buffer_va,
+        size_t buffer_size,
+        bool map_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
     SysmemBuffer(
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
         std::optional<uint64_t> noc_addr = std::nullopt,
-        std::function<void()> unmap_callback = {});
+        std::function<void()> unmap_callback = {},
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
     ~SysmemBuffer();
 
     /**
@@ -84,6 +89,8 @@ public:
     uint64_t get_device_io_addr(const size_t offset = 0) const;
 
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
+
+    DeviceBufferAccess get_device_access() const { return device_access_; }
 
     /**
      * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
@@ -117,14 +124,13 @@ private:
     void align_address_and_size();
 
     /**
-     * Validates that the offset is within the bounds of the buffer.
-     * Throws an exception if the offset is out of bounds.
+     * Validates that the [offset, offset + size) range is within the bounds of the buffer.
+     * Throws an exception if the range is out of bounds.
      *
      * @param offset Offset to validate.
+     * @param size Size of the range starting at offset to validate. Defaults to 0, meaning only offset is validated.
      */
-    void validate(const size_t offset) const;
-
-    TlbWindow* get_cached_tlb_window();
+    void validate(const size_t offset, const size_t size = 0) const;
 
     PCIDevice* pci_device_;
     TTDevice* tt_device_;
@@ -149,9 +155,8 @@ private:
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
 
-    std::unique_ptr<TlbWindow> cached_tlb_window = nullptr;
-
     std::function<void()> unmap_callback_;
+    DeviceBufferAccess device_access_ = DeviceBufferAccess::READ_WRITE;
 };
 
 }  // namespace tt::umd

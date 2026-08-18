@@ -6,9 +6,11 @@
 
 #include <fcntl.h>  // for ::open
 #include <fmt/format.h>
-#include <sys/mman.h>  // for mmap, munmap
-#include <unistd.h>    // for ::close
+#include <sys/mman.h>     // for mmap, munmap
+#include <sys/utsname.h>  // for uname
+#include <unistd.h>       // for ::close
 
+#include <array>
 #include <cerrno>
 #include <cstdint>
 #include <cstdlib>
@@ -29,13 +31,14 @@
 #include <vector>
 
 #include "tracy.hpp"
+#include "tt-kmd-lib/pci_ids.h"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/pcie/pci_ids.h"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
+#include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
@@ -392,21 +395,10 @@ PCIDevice::PCIDevice(int pci_device_number) :
     kmd_version(PCIDevice::read_kmd_version()),
     iommu_enabled(detect_iommu(info)),
     arch_impl_(architecture_implementation::create(arch)) {
-    if (iommu_enabled && kmd_version < KMD_IOMMU) {
+    if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,
-            fmt::format("Running with IOMMU support requires KMD version {} or newer.", KMD_IOMMU.to_string()));
-    }
-    if (kmd_version < KMD_TLBS) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Running UMD requires KMD version {} or newer.", KMD_TLBS.to_string()));
-    }
-
-    if (iommu_enabled && kmd_version < KMD_MAP_TO_NOC) {
-        log_warning(
-            LogUMD,
-            "Running with IOMMU support prior to KMD version {} is of limited support.",
-            KMD_MAP_TO_NOC.to_string());
+            fmt::format("Running UMD requires KMD version {} or newer.", KMD_MINIMUM_VERSION.to_string()));
     }
 
     int extra_flags = 0;
@@ -605,9 +597,20 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
 
 bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
 
-std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t size) {
-    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
+bool PCIDevice::is_read_only_page_pinning_supported() const {
+    // Use the version cached at construction: this is reached from the mapping path, once per pinned buffer, and
+    // read_kmd_version() re-opens and re-parses sysfs on every call.
+    return is_iommu_enabled() && kmd_version >= KMD_READ_ONLY_PAGE_PINNING;
+}
+
+std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
+    void *buffer, size_t size, DeviceBufferAccess device_access) {
+    if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
+    }
+    if (device_access == DeviceBufferAccess::READ_ONLY && !is_read_only_page_pinning_supported()) {
+        UMD_THROW(
+            error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
     }
 
     static const auto page_size = sysconf(_SC_PAGESIZE);
@@ -621,7 +624,10 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
         UMD_THROW(error::RuntimeError, fmt::format("Cannot map buffer of size {} to NOC with IOMMU disabled.", size));
     }
 
-    const int flags = TT_DMA_FLAG_NOC;
+    int flags = TT_DMA_FLAG_NOC;
+    if (device_access == DeviceBufferAccess::READ_ONLY) {
+        flags |= TT_DMA_FLAG_READ_ONLY;
+    }
 
     uint64_t physical_address = 0;
     uint64_t noc_address = 0;
@@ -650,7 +656,7 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(void *buffer, size_t 
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (PCIDevice::read_kmd_version() < KMD_MAP_TO_NOC) {
+    if (kmd_version < KMD_MAP_TO_NOC) {
         UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use hugepages with NOC mapping.");
     }
 
@@ -698,11 +704,18 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, siz
     return {noc_address, physical_address};
 }
 
-uint64_t PCIDevice::map_for_dma(void *buffer, size_t size) {
+uint64_t PCIDevice::map_for_dma(void *buffer, size_t size, DeviceBufferAccess device_access) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
 
     const uint64_t virtual_address = reinterpret_cast<uint64_t>(buffer);
-    const int flags = is_iommu_enabled() ? TT_DMA_FLAG_NONE : TT_DMA_FLAG_CONTIGUOUS;
+    int flags = is_iommu_enabled() ? TT_DMA_FLAG_NONE : TT_DMA_FLAG_CONTIGUOUS;
+    if (device_access == DeviceBufferAccess::READ_ONLY) {
+        if (!is_read_only_page_pinning_supported()) {
+            UMD_THROW(
+                error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
+        }
+        flags |= TT_DMA_FLAG_READ_ONLY;
+    }
 
     if (virtual_address % page_size != 0 || size % page_size != 0) {
         UMD_THROW(error::RuntimeError, "Buffer must be page-aligned with a size that is a multiple of the page size.");
@@ -770,10 +783,25 @@ SemVer PCIDevice::read_kmd_version() {
     return SemVer(version_str);
 }
 
-std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping) {
+SemVer PCIDevice::read_kernel_version() {
+    struct utsname uts {};
+
+    if (uname(&uts) != 0) {
+        log_warning(LogUMD, "uname() failed: {}", strerror(errno));
+        return {0, 0, 0};
+    }
+
+    // uts.release looks like "5.15.0-91-generic"; SemVer's parser reads leading digits of each
+    // dot-separated field and stops at the first non-digit, so the "-91-generic" tail of the
+    // patch field is naturally dropped.
+    return SemVer(uts.release);
+}
+
+std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
+    const size_t tlb_size, const TlbMapping tlb_mapping, const bool verify_config) {
     ZoneScopedC(tracy::Color::Cyan);
     try {
-        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping);
+        return std::make_unique<SiliconTlbHandle>(*this, tlb_size, tlb_mapping, verify_config);
     } catch (const std::exception &e) {
         if (read_kmd_version() < SemVer(2, 6, 0)) {
             UMD_THROW(
@@ -795,7 +823,7 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(const size_t tlb_size, const 
     }
 }
 
-void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config) {
+void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
     auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
 
@@ -817,12 +845,37 @@ void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_conf
 
     // Write the TLB register values
     // Wormhole uses 64-bit registers (8 bytes), Blackhole uses 96-bit registers (12 bytes).
-    tlb_reg_ptr[0] = static_cast<uint32_t>(lower_64);
-    tlb_reg_ptr[1] = static_cast<uint32_t>(lower_64 >> 32);
+    const std::array<uint32_t, 3> config_words = {
+        static_cast<uint32_t>(lower_64), static_cast<uint32_t>(lower_64 >> 32), static_cast<uint32_t>(upper_64)};
+    const size_t num_config_words = (arch == tt::ARCH::BLACKHOLE) ? 3 : 2;
+    for (size_t i = 0; i < num_config_words; i++) {
+        tlb_reg_ptr[i] = config_words[i];
+    }
 
-    if (arch == tt::ARCH::BLACKHOLE) {
-        // Blackhole needs the upper 32 bits as well (96-bit total).
-        tlb_reg_ptr[2] = static_cast<uint32_t>(upper_64);
+    // MMIO writes are posted, so read the low 64 bits back to prove the mapping is live before
+    // anything uses it. Costs a PCIe round trip, hence opt-in.
+    if (verify) {
+        static constexpr auto TLB_CONFIG_BUSY_POLL_WINDOW =
+            std::chrono::duration_cast<std::chrono::microseconds>(timeout::MMIO_OP_TIMEOUT);
+        static constexpr auto TLB_CONFIG_POLL_INTERVAL = std::chrono::microseconds(1);
+
+        const bool config_landed = utils::poll_until(
+            [&]() { return (tlb_reg_ptr[0] == config_words[0]) && (tlb_reg_ptr[1] == config_words[1]); },
+            timeout::MMIO_OP_TIMEOUT,
+            TLB_CONFIG_BUSY_POLL_WINDOW,
+            TLB_CONFIG_POLL_INTERVAL);
+
+        UMD_ASSERT(
+            config_landed,
+            error::RuntimeError,
+            fmt::format(
+                "TLB index {} did not read back the configuration written to it (wrote {:#x} {:#x}, read {:#x} {:#x}). "
+                "The window is either not responding or is being written by another owner.",
+                tlb_index,
+                config_words[0],
+                config_words[1],
+                tlb_reg_ptr[0],
+                tlb_reg_ptr[1]));
     }
 
     log_trace(
@@ -983,6 +1036,77 @@ tt::ARCH PCIDevice::get_pcie_arch() {
 }
 
 bool PCIDevice::is_arch_agnostic_reset_supported() { return PCIDevice::read_kmd_version() >= KMD_ARCH_AGNOSTIC_RESET; }
+
+bool PCIDevice::is_tlb_dmabuf_export_supported() {
+    return PCIDevice::read_kmd_version() >= KMD_TLB_DMABUF_EXPORT &&
+           PCIDevice::read_kernel_version() >= MIN_KERNEL_TLB_DMABUF_EXPORT;
+}
+
+// Follows the driver's documented export sequence directly (ALLOCATE_TLB, CONFIGURE_TLB,
+// EXPORT_TLB_DMABUF, FREE_TLB) rather than going through TlbHandle/TlbWindow.
+int PCIDevice::export_tlb_dmabuf(
+    const size_t window_size, const tlb_data &config, const uint64_t offset, const uint64_t size) {
+    UMD_ASSERT(
+        is_tlb_dmabuf_export_supported(),
+        error::RuntimeError,
+        fmt::format(
+            "Exporting a TLB window as a dma-buf requires KMD {} or newer and kernel {} or newer, but this system "
+            "runs KMD {} and kernel {}.",
+            KMD_TLB_DMABUF_EXPORT.str(),
+            MIN_KERNEL_TLB_DMABUF_EXPORT.str(),
+            read_kmd_version().str(),
+            read_kernel_version().str()));
+
+    tt_tlb_t *tlb = nullptr;
+    int ret = tt_tlb_alloc(tt_device_handle, window_size, TT_MMIO_CACHE_MODE_WC, &tlb);
+    if (ret != 0) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to allocate a {} byte TLB window to export as a dma-buf: {}", window_size, strerror(-ret)));
+    }
+
+    // No TlbHandle owns this window, so every path below releases it explicitly. Any new exit added
+    // here must do the same, or the window leaks out of the allocation pool until the process exits.
+    tt_noc_addr_config_t noc_config{};
+    noc_config.addr = config.local_offset;
+    noc_config.x_end = static_cast<uint16_t>(config.x_end);
+    noc_config.y_end = static_cast<uint16_t>(config.y_end);
+    noc_config.x_start = static_cast<uint16_t>(config.x_start);
+    noc_config.y_start = static_cast<uint16_t>(config.y_start);
+    noc_config.noc = static_cast<uint8_t>(config.noc_sel);
+    noc_config.mcast = static_cast<uint8_t>(config.mcast);
+    noc_config.ordering = static_cast<uint8_t>(config.ordering);
+    noc_config.static_vc = static_cast<uint8_t>(config.static_vc);
+
+    ret = tt_tlb_map(tt_device_handle, tlb, &noc_config);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to configure TLB window for a dma-buf export at NOC address {:#x} on core ({}, {}): {}",
+                config.local_offset,
+                config.x_end,
+                config.y_end,
+                strerror(-ret)));
+    }
+
+    int fd = -1;
+    ret = tt_tlb_export_dmabuf(tt_device_handle, tlb, offset, size, &fd);
+    if (ret != 0) {
+        tt_tlb_free(tt_device_handle, tlb);
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format(
+                "Failed to export TLB window as a dma-buf (offset {:#x}, size {}): {}", offset, size, strerror(-ret)));
+    }
+
+    // Released on success as well: the driver keeps the window pinned for as long as the fd is open.
+    tt_tlb_free(tt_device_handle, tlb);
+
+    return fd;
+}
 
 void PCIDevice::set_power_state(bool busy) {
     if (arch != tt::ARCH::BLACKHOLE) {

@@ -13,6 +13,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
@@ -216,7 +217,8 @@ void bind_telemetry(nb::module_& m) {
         .def("get_aiclk", &FirmwareInfoProvider::get_aiclk, release_gil())
         .def("get_axiclk", &FirmwareInfoProvider::get_axiclk, release_gil())
         .def("get_arcclk", &FirmwareInfoProvider::get_arcclk, release_gil())
-        .def("get_fan_speed", &FirmwareInfoProvider::get_fan_speed, release_gil())
+        .def("get_fan_speeds", &FirmwareInfoProvider::get_fan_speeds, release_gil())
+        .def("get_fan_rpms", &FirmwareInfoProvider::get_fan_rpms, release_gil())
         .def("get_tdp", &FirmwareInfoProvider::get_tdp, release_gil())
         .def("get_tdc", &FirmwareInfoProvider::get_tdc, release_gil())
         .def("get_vcore", &FirmwareInfoProvider::get_vcore, release_gil())
@@ -242,18 +244,19 @@ void bind_telemetry(nb::module_& m) {
         .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status, release_gil())
         .def("get_eth_link_status", &FirmwareInfoProvider::get_eth_link_status, release_gil())
         .def_static(
-            "get_minimum_compatible_firmware_version",
-            &FirmwareInfoProvider::get_minimum_compatible_firmware_version,
-            nb::arg("arch"),
-            release_gil())
-        .def_static(
-            "get_latest_supported_firmware_version",
-            &FirmwareInfoProvider::get_latest_supported_firmware_version,
-            nb::arg("arch"),
-            release_gil())
-        .def_static(
             "create_firmware_info_provider",
             &FirmwareInfoProvider::create_firmware_info_provider,
             nb::arg("tt_device"),
             release_gil());
+
+    m.def(
+        "get_minimum_compatible_firmware_version",
+        &get_minimum_compatible_firmware_version,
+        nb::arg("arch"),
+        release_gil());
+    m.def(
+        "get_latest_supported_firmware_version",
+        &get_latest_supported_firmware_version,
+        nb::arg("arch"),
+        release_gil());
 }

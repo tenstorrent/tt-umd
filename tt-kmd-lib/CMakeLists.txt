@@ -32,14 +32,3 @@ set_target_properties(
         POSITION_INDEPENDENT_CODE
             ON
 )
-
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
-    target_sources(
-        tt-kmd-lib
-        PUBLIC
-            FILE_SET api
-            TYPE HEADERS
-            BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
-            FILES api/tt-kmd-lib/tt_kmd_lib.h api/tt-kmd-lib/pci_ids.h
-    )
-endif()

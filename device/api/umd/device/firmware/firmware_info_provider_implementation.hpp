@@ -58,162 +58,57 @@ public:
 
     virtual std::optional<SemVer> get_tt_flash_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get ASIC temperature in Celsius.
-     * @returns ASIC temperature [Celsius]
-     */
     virtual std::optional<double> get_asic_temperature([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get AICLK in MHz.
-     * @returns AICLK [MHz]
-     */
     virtual std::optional<uint32_t> get_aiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /**
-     * @brief Retrieves the current AICLK frequency.
-     * @param noc_id NOC to route through.
-     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
-     */
     virtual std::optional<uint32_t> get_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get AXICLK in MHz.
-     * @returns AXICLK [MHz]
-     */
     virtual std::optional<uint32_t> get_axiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get ARCCLK in MHz.
-     * @returns ARCCLK [MHz]
-     */
     virtual std::optional<uint32_t> get_arcclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get targeted speed per fan as a percentage (0-100). Individual entries
-     * can be nullopt if fan speed is not available.
-     * @returns Targeted fan speed [percent]
-     */
     [[deprecated("use get_fan_speeds()")]] virtual std::optional<uint32_t> get_fan_speed(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get actual speed per fan in RPM. Individual entries
-     * can be nullopt if fan RPM is not available.
-     * @returns Actual fan RPM [percent]
-     */
     [[deprecated("use get_fan_rpms()")]] virtual std::optional<uint32_t> get_fan_rpm(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get targeted speeds per fan as a percentage (0-100). Individual entries
-     * can be nullopt if fan speed is not available.
-     * @returns Targeted fan speeds [percent]
-     */
     virtual std::vector<std::optional<uint32_t>> get_fan_speeds(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get actual speeds per fan in RPM. Individual entries
-     * can be nullopt if fan RPM is not available.
-     * @returns Actual fan RPMs [percent]
-     */
     virtual std::vector<std::optional<uint32_t>> get_fan_rpms([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get TDP in watts.
-     * @returns TDP [W]
-     */
     virtual std::optional<uint32_t> get_tdp([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get TDC in amps.
-     * @returns TDC [amps]
-     */
     virtual std::optional<uint32_t> get_tdc([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get VCORE in mV.
-     * @returns VCORE [mV]
-     */
     virtual std::optional<uint32_t> get_vcore([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get board temperature in Celsius.
-     * @returns Board temperature [Celsius]
-     */
     virtual std::optional<double> get_board_temperature([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get thermal limit shutdown threshold in Celsius.
-     * @returns Thermal limit shutdown threshold [Celsius]
-     */
     virtual std::optional<double> get_thm_limit_shutdown([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get TDP limit in watts.
-     * @returns TDP limit [W]
-     */
     virtual std::optional<uint32_t> get_tdp_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get board power limit in watts.
-     * @returns Board power limit [W]
-     */
     virtual std::optional<uint32_t> get_board_power_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get thermal limit throttle threshold in Celsius.
-     * @returns Thermal limit throttle threshold [Celsius]
-     */
     virtual std::optional<double> get_thm_limit_throttle([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get thermal trip count.
-     * @returns Number of thermal trips that have occurred.
-     */
     virtual std::optional<uint32_t> get_therm_trip_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get per-link ethernet heartbeat status.
-     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
-     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
-     */
     [[deprecated("Use get_eth_heartbeat_status_per_core()")]] virtual std::optional<std::vector<bool>>
     get_eth_heartbeat_status([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get per-link ethernet retrain status.
-     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
-     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
-     */
     [[deprecated("Use get_eth_retrain_status_per_core()")]] virtual std::optional<std::vector<bool>>
     get_eth_retrain_status([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get per-link ethernet heartbeat status.
-     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
-     * Each entry pairs an ETH core's NOC0 coordinate with its status (16 entries on WH, 14 on BH).
-     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
-     */
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status_per_core(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get per-link ethernet retrain status.
-     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
-     * Each entry pairs an ETH core's NOC0 coordinate with its status.
-     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
-     */
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status_per_core(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get per-link ethernet link status.
-     * Available on firmware 19.9+ for both Wormhole and Blackhole; returns std::nullopt otherwise.
-     * Each entry pairs an ETH core's NOC0 coordinate with its status.
-     * @returns Per-core link status (true = up), or std::nullopt if unavailable.
-     */
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status_per_core(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
@@ -226,12 +121,6 @@ public:
 
     virtual std::optional<uint8_t> get_asic_location([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
-    /*
-     * Get heartbeat from ARC core.
-     * If using current telemetry, the value is taken from TIMER_HEARTBEAT
-     * On legacy telemetry, the value is taken from ARC0_HEALTH
-     * @returns An integer that does not decrease on subsequent calls.
-     */
     virtual std::optional<uint32_t> get_heartbeat([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry(

@@ -210,42 +210,121 @@ void bind_telemetry(nb::module_& m) {
             "__int__", [](tt::DramTrainingStatus status) { return static_cast<int>(status); }, release_gil());
 
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
-        .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version, release_gil())
-        .def("get_board_id", &FirmwareInfoProvider::get_board_id, release_gil())
-        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version_semver, release_gil())
-        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location, release_gil())
-        .def("get_aiclk", &FirmwareInfoProvider::get_aiclk, release_gil())
-        .def("get_axiclk", &FirmwareInfoProvider::get_axiclk, release_gil())
-        .def("get_arcclk", &FirmwareInfoProvider::get_arcclk, release_gil())
-        .def("get_fan_speeds", &FirmwareInfoProvider::get_fan_speeds, release_gil())
-        .def("get_fan_rpms", &FirmwareInfoProvider::get_fan_rpms, release_gil())
-        .def("get_tdp", &FirmwareInfoProvider::get_tdp, release_gil())
-        .def("get_tdc", &FirmwareInfoProvider::get_tdc, release_gil())
-        .def("get_vcore", &FirmwareInfoProvider::get_vcore, release_gil())
-        .def("get_board_temperature", &FirmwareInfoProvider::get_board_temperature, release_gil())
+        .def(
+            "get_firmware_version",
+            &FirmwareInfoProvider::get_firmware_version,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def("get_board_id", &FirmwareInfoProvider::get_board_id, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def(
+            "get_eth_fw_version",
+            &FirmwareInfoProvider::get_eth_fw_version_semver,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_asic_location",
+            &FirmwareInfoProvider::get_asic_location,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def("get_aiclk", &FirmwareInfoProvider::get_aiclk, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def("get_axiclk", &FirmwareInfoProvider::get_axiclk, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def("get_arcclk", &FirmwareInfoProvider::get_arcclk, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def(
+            "get_fan_speeds",
+            &FirmwareInfoProvider::get_fan_speeds,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def("get_fan_rpms", &FirmwareInfoProvider::get_fan_rpms, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def("get_tdp", &FirmwareInfoProvider::get_tdp, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def("get_tdc", &FirmwareInfoProvider::get_tdc, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def("get_vcore", &FirmwareInfoProvider::get_vcore, nb::arg("noc_id") = NocId::DEFAULT_NOC, release_gil())
+        .def(
+            "get_board_temperature",
+            &FirmwareInfoProvider::get_board_temperature,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def(
             "get_dram_training_status",
             &FirmwareInfoProvider::get_dram_training_status,
             nb::arg("num_dram_channels"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil())
-        .def("get_max_clock_freq", &FirmwareInfoProvider::get_max_clock_freq, release_gil())
-        .def("get_asic_location", &FirmwareInfoProvider::get_asic_location, release_gil())
-        .def("get_heartbeat", &FirmwareInfoProvider::get_heartbeat, release_gil())
-        .def("get_aggregated_dram_telemetry", &FirmwareInfoProvider::get_aggregated_dram_telemetry, release_gil())
-        .def("get_dram_telemetry", &FirmwareInfoProvider::get_dram_telemetry, nb::arg("gddr_module"), release_gil())
-        .def("get_dram_speed", &FirmwareInfoProvider::get_dram_speed, release_gil())
-        .def("get_current_max_dram_temperature", &FirmwareInfoProvider::get_current_max_dram_temperature, release_gil())
-        .def("get_thm_limit_shutdown", &FirmwareInfoProvider::get_thm_limit_shutdown, release_gil())
-        .def("get_tdp_limit", &FirmwareInfoProvider::get_tdp_limit, release_gil())
-        .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit, release_gil())
-        .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle, release_gil())
-        .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())
+        .def(
+            "get_max_clock_freq",
+            &FirmwareInfoProvider::get_max_clock_freq,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_asic_location",
+            &FirmwareInfoProvider::get_asic_location,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_heartbeat",
+            &FirmwareInfoProvider::get_heartbeat,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_aggregated_dram_telemetry",
+            &FirmwareInfoProvider::get_aggregated_dram_telemetry,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_dram_telemetry",
+            &FirmwareInfoProvider::get_dram_telemetry,
+            nb::arg("gddr_module"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_dram_speed",
+            &FirmwareInfoProvider::get_dram_speed,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_current_max_dram_temperature",
+            &FirmwareInfoProvider::get_current_max_dram_temperature,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_thm_limit_shutdown",
+            &FirmwareInfoProvider::get_thm_limit_shutdown,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_tdp_limit",
+            &FirmwareInfoProvider::get_tdp_limit,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_board_power_limit",
+            &FirmwareInfoProvider::get_board_power_limit,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_thm_limit_throttle",
+            &FirmwareInfoProvider::get_thm_limit_throttle,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_therm_trip_count",
+            &FirmwareInfoProvider::get_therm_trip_count,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def(
             "get_eth_heartbeat_status_per_core",
             &FirmwareInfoProvider::get_eth_heartbeat_status_per_core,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil())
-        .def("get_eth_retrain_status_per_core", &FirmwareInfoProvider::get_eth_retrain_status_per_core, release_gil())
-        .def("get_eth_link_status_per_core", &FirmwareInfoProvider::get_eth_link_status_per_core, release_gil())
+        .def(
+            "get_eth_retrain_status_per_core",
+            &FirmwareInfoProvider::get_eth_retrain_status_per_core,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "get_eth_link_status_per_core",
+            &FirmwareInfoProvider::get_eth_link_status_per_core,
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def_static(
             "create_firmware_info_provider",
             &FirmwareInfoProvider::create_firmware_info_provider,

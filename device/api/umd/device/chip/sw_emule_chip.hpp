@@ -26,8 +26,8 @@ class SimulationSysmemManager;
 
 /// SWEmuleChip extends Chip with real memory-backed I/O.
 ///
-/// Worker L1 regions are allocated from a single contiguous L1Pool
-/// (MAP_32BIT mmap with 2 MB aligned slots) for bitmask offset extraction.
+/// Worker L1 regions are allocated from a single contiguous L1Pool with
+/// power-of-two slots sized for the effective worker L1.
 /// DRAM cores use individual mmaps (not directly dereferenced by kernels).
 /// All non-memory operations (barriers, resets, power management) are no-ops.
 class SWEmuleChip : public Chip {
@@ -97,8 +97,7 @@ public:
 private:
     std::mutex core_mutex_;
 
-    // L1Pool for worker cores — single contiguous MAP_32BIT mmap with
-    // 2 MB aligned slots for bitmask offset extraction.
+    // L1Pool for worker cores with power-of-two aligned slots.
     std::unique_ptr<tt_emule::L1Pool> worker_pool_;
     size_t next_slot_ = 0;
 

@@ -6,7 +6,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cerrno>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -20,6 +25,46 @@
 
 namespace tt::umd {
 
+namespace {
+
+uint32_t effective_worker_l1_size(uint32_t native_size) {
+    const char* value = std::getenv("TT_EMULE_L1_SIZE");
+    if (value == nullptr) {
+        return native_size;
+    }
+
+    errno = 0;
+    char* end = nullptr;
+    const long double mib = std::strtold(value, &end);
+    constexpr long double bytes_per_mib = 1024.0L * 1024.0L;
+    const long double bytes = mib * bytes_per_mib;
+    if (end == value || *end != '\0' || errno == ERANGE || !std::isfinite(mib) || mib <= 0 ||
+        bytes > std::numeric_limits<uint32_t>::max() || std::floor(bytes) != bytes) {
+        throw std::runtime_error(
+            "TT_EMULE_L1_SIZE='" + std::string(value) +
+            "' is invalid: expected a positive unitless MiB value that resolves to whole bytes");
+    }
+
+    const uint32_t requested_size = static_cast<uint32_t>(bytes);
+    const uint32_t effective_size = std::max(native_size, requested_size);
+    if (effective_size > native_size) {
+        static std::once_flag warning_once;
+        std::call_once(warning_once, [effective_size, native_size]() {
+            std::fprintf(
+                stderr,
+                "\n[EMULE] L1 size raised to %.6Lg MiB (%u bytes); this arch has %u bytes. "
+                "This configuration is not silicon-feasible.\n\n",
+                static_cast<long double>(effective_size) / bytes_per_mib,
+                effective_size,
+                native_size);
+            std::fflush(stderr);
+        });
+    }
+    return effective_size;
+}
+
+}  // namespace
+
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
@@ -27,9 +72,10 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     Chip(soc_descriptor.arch),
     soc_descriptor_(soc_descriptor),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/0, soc_descriptor.arch)) {
-    auto& soc = get_soc_descriptor();
+    auto& soc = soc_descriptor_;
 
-    l1_size_ = soc.worker_l1_size;
+    l1_size_ = effective_worker_l1_size(soc.worker_l1_size);
+    soc.worker_l1_size = l1_size_;
     // Use full DRAM bank size — DRAM cores use regular mmap (not MAP_32BIT),
     // so virtual address space is not constrained.  Wormhole views use address
     // offsets up to 1 GB within a 2 GB bank, so capping below bank size causes
@@ -47,7 +93,7 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     // costs mesh capacity; get_core() falls back to an individual mmap if exceeded.
     size_t num_tensix = soc.get_cores(tt::CoreType::TENSIX).size();
     size_t pool_size = (num_tensix > 0 ? num_tensix : 128);  // 128 = WH/BH fallback if SOC reports 0
-    worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
+    worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size, l1_size_);
 }
 
 // One physical backing per DRAM CHANNEL. A channel is fronted by several NOC endpoint
@@ -107,18 +153,20 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
 }
 
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
-    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
-                                      ? get_dram_channel_backing(static_cast<uint32_t>(
-                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
-                                      : get_core(tt_xy_pair(core.x, core.y));
+    tt_emule::Core* target_core =
+        (core.core_type == CoreType::DRAM)
+            ? get_dram_channel_backing(
+                  static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
+            : get_core(tt_xy_pair(core.x, core.y));
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
-    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
-                                      ? get_dram_channel_backing(static_cast<uint32_t>(
-                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
-                                      : get_core(tt_xy_pair(core.x, core.y));
+    tt_emule::Core* target_core =
+        (core.core_type == CoreType::DRAM)
+            ? get_dram_channel_backing(
+                  static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
+            : get_core(tt_xy_pair(core.x, core.y));
     std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 

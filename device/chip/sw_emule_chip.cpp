@@ -23,7 +23,7 @@ namespace tt::umd {
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
-SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, uint64_t chip_uid) :
+SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     Chip(soc_descriptor.arch),
     soc_descriptor_(soc_descriptor),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/0, soc_descriptor.arch)) {
@@ -45,8 +45,7 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, uint64_t chip_uid)
     // only WORKER cores use the pool), so num_tensix is an exact bound — no padding.
     //
     // TRANSLATED, because that is the naming get_core() is keyed on. The descriptor's core order is
-    // a deterministic row-major walk, so this map is identical in every process given the same
-    // descriptor + harvesting mask — which is what makes a slot index a portable identity.
+    // a deterministic row-major walk, so a core's slot does not depend on the order cores are touched.
     const auto tensix = soc.get_cores(tt::CoreType::TENSIX, CoordSystem::TRANSLATED);
     for (size_t i = 0; i < tensix.size(); ++i) {
         slot_of_[tt_xy_pair(tensix[i].x, tensix[i].y)] = i;
@@ -59,41 +58,13 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, uint64_t chip_uid)
             "SWEmuleChip: worker_l1_size " + std::to_string(l1_size_) + " exceeds the L1Pool slot stride " +
             std::to_string(tt_emule::L1Pool::SLOT_SIZE) + " — adjacent cores' L1 would overlap");
     }
-    // Shared backing needs a stable identity; without a uid we can only be process-private.
-    // The harvesting mask joins the key because it changes the core list, hence the slot layout.
-    // Packed into disjoint 20-bit fields, never XOR-folded: folding overlapping shifts is not
-    // injective, so two chips with genuinely different core lists can collide on one key, attach to
-    // each other's segment and resolve through the wrong slot map. 20 bits is far above any real
-    // per-chip mask; a wider one would alias, so refuse it rather than corrupt silently.
-    {
-        const auto& hm = soc.harvesting_masks;
-        constexpr uint64_t kField = 20;
-        constexpr uint64_t kMax = (1ull << kField) - 1;
-        const uint64_t tensix = hm.tensix_harvesting_mask;
-        const uint64_t dram = hm.dram_harvesting_mask;
-        const uint64_t eth = hm.eth_harvesting_mask;
-        if (tensix > kMax || dram > kMax || eth > kMax) {
-            throw std::runtime_error(
-                "SWEmuleChip: harvesting mask exceeds the " + std::to_string(kField) +
-                "-bit field width of the shared-segment key; widen the key before sharing this chip");
-        }
-        shm_harvest_mask_ = tensix | (dram << kField) | (eth << (2 * kField));
-    }
-    if (chip_uid != 0 && tt_emule::chip_store_shared()) {
-        worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size, chip_uid, shm_harvest_mask_);
-    } else {
-        worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
-    }
+    worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
 }
 
 size_t SWEmuleChip::slot_of(tt_xy_pair core_xy) const {
     auto it = slot_of_.find(core_xy);
     return (it == slot_of_.end()) ? SIZE_MAX : it->second;
 }
-
-size_t SWEmuleChip::num_pool_slots() const { return worker_pool_ ? worker_pool_->num_slots() : 0; }
-
-uint64_t SWEmuleChip::shm_harvest_mask() const { return shm_harvest_mask_; }
 
 // One physical backing per DRAM CHANNEL. A channel is fronted by several NOC endpoint
 // coords (per-NOC preferred workers / subchannels) that all address the same bank on

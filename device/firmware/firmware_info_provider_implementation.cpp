@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
@@ -24,6 +25,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
 #include "umd/device/utils/error.hpp"
@@ -32,13 +34,17 @@
 namespace tt::umd {
 
 FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) :
-    tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    if (telemetry == nullptr) {
+    firmware_version(get_firmware_version_util(tt_device)) {
+    telemetry_ = tt_device->get_arc_telemetry_reader();
+    if (telemetry_ == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
     }
+    arch_ = tt_device->get_arch();
+    device_protocol_ = tt_device->get_device_protocol();
+    smbus_telemetry_ = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+    arc_core_noc0_ = tt_device->get_arc_core();
 
-    firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
+    firmware_feature_map = create_firmware_feature_map(tt_device->get_arch(), firmware_version);
 }
 
 /* static */ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProviderImplementation::create_firmware_info_provider(
@@ -53,8 +59,8 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice*
 }
 
 /* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_firmware_feature_map(
-    TTDevice* tt_device, const FirmwareBundleVersion& fw_version) {
-    switch (tt_device->get_arch()) {
+    tt::ARCH arch, const FirmwareBundleVersion& fw_version) {
+    switch (arch) {
         case ARCH::WORMHOLE_B0:
             if (fw_version <= FirmwareBundleVersion(18, 3, 0)) {
                 return create_wormhole_18_3_base();
@@ -248,11 +254,9 @@ uint32_t FirmwareInfoProviderImplementation::read_raw_telemetry(const FeatureKey
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
-                return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
+                return (telemetry_ && telemetry_->is_entry_available(arg)) ? telemetry_->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
-                return sm_bus_telemetry->read_entry(arg.tag);
+                return smbus_telemetry_->read_entry(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return arg.value;
             }
@@ -278,11 +282,9 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
-                return tel && tel->is_entry_available(arg);
+                return telemetry_ && telemetry_->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
-                return sm_bus_telemetry->is_entry_available(arg.tag);
+                return smbus_telemetry_->is_entry_available(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return true;
             }
@@ -356,7 +358,7 @@ std::optional<SemVer> FirmwareInfoProviderImplementation::get_eth_fw_version_sem
     if (tag_value.value() == 0) {
         return std::nullopt;
     }
-    switch (tt_device->get_arch()) {
+    switch (arch_) {
         case tt::ARCH::WORMHOLE_B0:
             return SemVer::from_wormhole_eth_firmware_tag(tag_value.value());
         case tt::ARCH::BLACKHOLE:
@@ -371,7 +373,7 @@ std::optional<SemVer> FirmwareInfoProviderImplementation::get_gddr_fw_version(No
     if (!raw.has_value()) {
         return std::nullopt;
     }
-    return get_gddr_fw_version_from_telemetry(*raw, tt_device->get_arch());
+    return get_gddr_fw_version_from_telemetry(*raw, arch_);
 }
 
 std::optional<SemVer> FirmwareInfoProviderImplementation::get_cm_fw_version(NocId noc_id) const {
@@ -379,7 +381,7 @@ std::optional<SemVer> FirmwareInfoProviderImplementation::get_cm_fw_version(NocI
     if (!raw.has_value()) {
         return std::nullopt;
     }
-    return get_cm_fw_version_from_telemetry(*raw, tt_device->get_arch());
+    return get_cm_fw_version_from_telemetry(*raw, arch_);
 }
 
 std::optional<SemVer> FirmwareInfoProviderImplementation::get_dm_app_fw_version(NocId noc_id) const {
@@ -387,7 +389,7 @@ std::optional<SemVer> FirmwareInfoProviderImplementation::get_dm_app_fw_version(
     if (!raw.has_value()) {
         return std::nullopt;
     }
-    return get_dm_app_fw_version_from_telemetry(*raw, tt_device->get_arch());
+    return get_dm_app_fw_version_from_telemetry(*raw, arch_);
 }
 
 std::optional<SemVer> FirmwareInfoProviderImplementation::get_dm_bl_fw_version(NocId noc_id) const {
@@ -395,7 +397,7 @@ std::optional<SemVer> FirmwareInfoProviderImplementation::get_dm_bl_fw_version(N
     if (!raw.has_value()) {
         return std::nullopt;
     }
-    return get_dm_bl_fw_version_from_telemetry(*raw, tt_device->get_arch());
+    return get_dm_bl_fw_version_from_telemetry(*raw, arch_);
 }
 
 std::optional<SemVer> FirmwareInfoProviderImplementation::get_tt_flash_version(NocId noc_id) const {
@@ -463,7 +465,7 @@ std::vector<std::optional<uint32_t>> FirmwareInfoProviderImplementation::get_fan
         return fan_rpms;
     }
     // Since 19.10, values for two fans are packed into one telemetry entry.
-    if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version >= FirmwareBundleVersion(19, 10, 0)) {
+    if (arch_ == ARCH::WORMHOLE_B0 && firmware_version >= FirmwareBundleVersion(19, 10, 0)) {
         uint32_t left_fan = fan_rpm.value() >> 16;
         uint32_t right_fan = fan_rpm.value() & 0xFFFF;
         fan_rpms.at(0) = (left_fan == 0xFFFF) ? std::nullopt : std::optional<uint32_t>(left_fan);
@@ -583,20 +585,18 @@ std::vector<DramTrainingStatus> FirmwareInfoProviderImplementation::get_dram_tra
 
     // Check if we're using legacy Wormhole format (4 bits per channel)
     // or modern format (2 bits per channel).
-    bool is_legacy_wormhole =
-        tt_device->get_arch() == ARCH::WORMHOLE_B0 && firmware_version <= FirmwareBundleVersion(18, 3, 0);
+    bool is_legacy_wormhole = arch_ == ARCH::WORMHOLE_B0 && firmware_version <= FirmwareBundleVersion(18, 3, 0);
 
     // BIST status is reported in the upper 16 bits of GDDR_STATUS starting with FW 19.7.0. Only
     // Blackhole has GDDR and reports BIST status here, so gate on the architecture as well as the
     // firmware version. Older firmware leaves those bits zero.
-    bool check_bist = tt_device->get_arch() == ARCH::BLACKHOLE && firmware_version >= FirmwareBundleVersion(19, 7, 0);
+    bool check_bist = arch_ == ARCH::BLACKHOLE && firmware_version >= FirmwareBundleVersion(19, 7, 0);
 
     return is_legacy_wormhole ? get_legacy_wormhole_dram_statuses(telemetry_data.value(), num_dram_channels)
                               : get_modern_dram_statuses(telemetry_data.value(), num_dram_channels, check_bist);
 }
 
-static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+static bool gddr_telemetry_tags_available(FirmwareTelemetryReader* telemetry) {
     // All GDDR telemetry tags from GDDR_0_1_TEMP through MAX_GDDR_TEMP must be present.
     for (uint8_t tag = static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP);
          tag <= static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP);
@@ -641,35 +641,33 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProviderImplementation::get_dram_
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
     const uint8_t pair_index = module_index / 2;
 
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-
-    if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index) ||
-        !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index) ||
-        !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS))) {
+    if (!telemetry_->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index) ||
+        !telemetry_->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index) ||
+        !telemetry_->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS))) {
         return std::nullopt;
     }
 
-    const uint32_t temp_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
+    const uint32_t temp_word = telemetry_->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index);
     const uint32_t corr_word =
-        telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
-    const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+        telemetry_->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index);
+    const uint32_t uncorr_bitmask = telemetry_->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 
     return decode_gddr_module_telemetry(module_index, temp_word, corr_word, uncorr_bitmask);
 }
 
 std::optional<GddrTelemetry> FirmwareInfoProviderImplementation::get_aggregated_dram_telemetry(NocId noc_id) const {
-    if (!gddr_telemetry_tags_available(tt_device)) {
+    if (!gddr_telemetry_tags_available(telemetry_)) {
         return std::nullopt;
     }
 
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
     GddrTelemetry aggregated{};
 
-    const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
+    const uint32_t uncorr_bitmask = telemetry_->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
 
     for (uint8_t pair = 0; pair < 4; ++pair) {
-        const uint32_t temp_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair);
-        const uint32_t corr_word = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair);
+        const uint32_t temp_word = telemetry_->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair);
+        const uint32_t corr_word =
+            telemetry_->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair);
 
         const uint8_t even_module = pair * 2;
         const uint8_t odd_module = pair * 2 + 1;
@@ -721,7 +719,7 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_therm_trip_count
 std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProviderImplementation::parse_eth_status_bitmask(
     uint16_t bitmask) const {
     const std::vector<tt_xy_pair>& eth_cores_noc0 = [this]() -> const std::vector<tt_xy_pair>& {
-        switch (tt_device->get_arch()) {
+        switch (arch_) {
             case tt::ARCH::WORMHOLE_B0:
                 return wormhole::ETH_CORES_NOC0;
             case tt::ARCH::BLACKHOLE:
@@ -797,27 +795,29 @@ FirmwareInfoProviderImplementation::get_eth_retrain_status_per_core(NocId noc_id
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_address(NocId noc_id) const {
     uint32_t address = 0;
-    switch (tt_device->get_arch()) {
+    switch (arch_) {
         case ARCH::WORMHOLE_B0:
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_device(
+            device_protocol_->read_ctrl(
                 &address,
-                tt_device->get_arc_core(),
+                arc_core_noc0_,
                 wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
                     wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET,
-                sizeof(address));
+                sizeof(address),
+                NocId::DEFAULT_NOC);
             return address;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_device_reg(
+            device_protocol_->read_ctrl(
                 &address,
-                tt_device->get_arc_core(),
+                arc_core_noc0_,
                 blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_22,
-                sizeof(address));
+                sizeof(address),
+                NocId::DEFAULT_NOC);
             return address;
         default:
             return std::nullopt;
@@ -826,27 +826,29 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_size(NocId noc_id) const {
     uint32_t size = 0;
-    switch (tt_device->get_arch()) {
+    switch (arch_) {
         case ARCH::WORMHOLE_B0:
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_device(
+            device_protocol_->read_ctrl(
                 &size,
-                tt_device->get_arc_core(),
+                arc_core_noc0_,
                 wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
                     wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET,
-                sizeof(size));
+                sizeof(size),
+                NocId::DEFAULT_NOC);
             return size;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_device_reg(
+            device_protocol_->read_ctrl(
                 &size,
-                tt_device->get_arc_core(),
+                arc_core_noc0_,
                 blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_23,
-                sizeof(size));
+                sizeof(size),
+                NocId::DEFAULT_NOC);
             return size;
         default:
             return std::nullopt;

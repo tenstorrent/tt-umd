@@ -10,12 +10,16 @@
 #include <utility>
 #include <vector>
 
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
+#include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt {
@@ -146,7 +150,11 @@ private:
      */
     std::vector<std::pair<CoreCoord, bool>> parse_eth_status_bitmask(uint16_t bitmask) const;
 
-    TTDevice* tt_device = nullptr;
+    tt::ARCH arch_ = ARCH::Invalid;
+    DeviceProtocol* device_protocol_ = nullptr;
+    FirmwareTelemetryReader* telemetry_ = nullptr;
+    std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_ = nullptr;
+    xy_pair arc_core_noc0_;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 
@@ -154,7 +162,7 @@ private:
     FirmwareFeatures firmware_feature_map;
 
     // Factory helpers for creating telemetry feature configuration maps.
-    static FirmwareFeatures create_firmware_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
+    static FirmwareFeatures create_firmware_feature_map(tt::ARCH arch, const FirmwareBundleVersion& fw_version);
     static FirmwareFeatures create_18_4_new_telemetry_base();
     static FirmwareFeatures create_wormhole_18_3_base();
     static FirmwareFeatures create_wormhole_18_4_base();

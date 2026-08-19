@@ -49,6 +49,14 @@ private:
      */
     uint64_t get_physical_address(uint64_t offset) const;
 
+    /**
+     * Single entry points for all reads and writes, so the choice between
+     * addressing the simulator by physical address and addressing it by core
+     * coordinate is made in exactly one place.
+     */
+    void translate_and_write(uint64_t offset, const void* data, size_t size);
+    void translate_and_read(uint64_t offset, void* data, size_t size);
+
     TTSimCommunicator* sim_communicator_;
 };
 

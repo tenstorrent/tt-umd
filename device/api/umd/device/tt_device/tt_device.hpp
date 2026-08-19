@@ -383,8 +383,6 @@ public:
 
     ArcMessenger *get_arc_messenger() const;
 
-    [[deprecated("Use get_firmware_telemetry_reader()")]] ArcTelemetryReader *get_arc_telemetry_reader() const;
-
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;

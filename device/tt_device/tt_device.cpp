@@ -577,13 +577,6 @@ ArcMessenger *TTDevice::get_arc_messenger() const {
     return arc_messenger_.get();
 }
 
-ArcTelemetryReader *TTDevice::get_arc_telemetry_reader() const {
-    if (telemetry == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    return dynamic_cast<ArcTelemetryReader *>(telemetry.get());
-}
-
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
     if (telemetry == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);

@@ -23,7 +23,7 @@ namespace tt::umd {
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
 
-SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
+SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, uint64_t chip_uid) :
     Chip(soc_descriptor.arch),
     soc_descriptor_(soc_descriptor),
     sysmem_manager_(std::make_unique<SimulationSysmemManager>(/*num_host_mem_channels=*/0, soc_descriptor.arch)) {
@@ -42,13 +42,58 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) :
     assert(dram_bank_size_ < SysmemManager::get_pcie_base_for_arch(soc_descriptor.arch));
 
     // One slot per Tensix core (all coord namings for a worker resolve to one Core, and
-    // only WORKER cores use the pool), so num_tensix is an exact bound — no padding. The
-    // pool sits in the scarce low-4 GB window (tt_emule/low4g_mmap.hpp), so over-sizing
-    // costs mesh capacity; get_core() falls back to an individual mmap if exceeded.
-    size_t num_tensix = soc.get_cores(tt::CoreType::TENSIX).size();
-    size_t pool_size = (num_tensix > 0 ? num_tensix : 128);  // 128 = WH/BH fallback if SOC reports 0
-    worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
+    // only WORKER cores use the pool), so num_tensix is an exact bound — no padding.
+    //
+    // TRANSLATED, because that is the naming get_core() is keyed on. The descriptor's core order is
+    // a deterministic row-major walk, so this map is identical in every process given the same
+    // descriptor + harvesting mask — which is what makes a slot index a portable identity.
+    const auto tensix = soc.get_cores(tt::CoreType::TENSIX, CoordSystem::TRANSLATED);
+    for (size_t i = 0; i < tensix.size(); ++i) {
+        slot_of_[tt_xy_pair(tensix[i].x, tensix[i].y)] = i;
+    }
+    size_t pool_size = (!tensix.empty() ? tensix.size() : 128);  // 128 = WH/BH fallback if SOC reports 0
+    // A slot must hold a whole core's L1. Quasar's worker_l1_size (4 MiB) exceeds L1Pool's 2 MB
+    // slot stride, which would silently overrun into the next core's slot.
+    if (static_cast<size_t>(l1_size_) > tt_emule::L1Pool::SLOT_SIZE) {
+        throw std::runtime_error(
+            "SWEmuleChip: worker_l1_size " + std::to_string(l1_size_) + " exceeds the L1Pool slot stride " +
+            std::to_string(tt_emule::L1Pool::SLOT_SIZE) + " — adjacent cores' L1 would overlap");
+    }
+    // Shared backing needs a stable identity; without a uid we can only be process-private.
+    // The harvesting mask joins the key because it changes the core list, hence the slot layout.
+    // Packed into disjoint 20-bit fields, never XOR-folded: folding overlapping shifts is not
+    // injective, so two chips with genuinely different core lists can collide on one key, attach to
+    // each other's segment and resolve through the wrong slot map. 20 bits is far above any real
+    // per-chip mask; a wider one would alias, so refuse it rather than corrupt silently.
+    {
+        const auto& hm = soc.harvesting_masks;
+        constexpr uint64_t kField = 20;
+        constexpr uint64_t kMax = (1ull << kField) - 1;
+        const uint64_t tensix = hm.tensix_harvesting_mask;
+        const uint64_t dram = hm.dram_harvesting_mask;
+        const uint64_t eth = hm.eth_harvesting_mask;
+        if (tensix > kMax || dram > kMax || eth > kMax) {
+            throw std::runtime_error(
+                "SWEmuleChip: harvesting mask exceeds the " + std::to_string(kField) +
+                "-bit field width of the shared-segment key; widen the key before sharing this chip");
+        }
+        shm_harvest_mask_ = tensix | (dram << kField) | (eth << (2 * kField));
+    }
+    if (chip_uid != 0 && tt_emule::chip_store_shared()) {
+        worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size, chip_uid, shm_harvest_mask_);
+    } else {
+        worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size);
+    }
 }
+
+size_t SWEmuleChip::slot_of(tt_xy_pair core_xy) const {
+    auto it = slot_of_.find(core_xy);
+    return (it == slot_of_.end()) ? SIZE_MAX : it->second;
+}
+
+size_t SWEmuleChip::num_pool_slots() const { return worker_pool_ ? worker_pool_->num_slots() : 0; }
+
+uint64_t SWEmuleChip::shm_harvest_mask() const { return shm_harvest_mask_; }
 
 // One physical backing per DRAM CHANNEL. A channel is fronted by several NOC endpoint
 // coords (per-NOC preferred workers / subchannels) that all address the same bank on
@@ -81,21 +126,21 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
         return it->second.get();
     }
 
-    // Lazy-create worker core.
+    // Lazy-create the Core object, but at its PRE-ASSIGNED slot — the backing address is a property
+    // of the core's identity, not of when it was first touched.
     tt_emule::CoreCoord coord{core_xy.x, core_xy.y};
     std::unique_ptr<tt_emule::Core> core;
-    if (next_slot_ < worker_pool_->num_slots()) {
-        // Worker cores: allocate from L1Pool (aligned slots, bitmask offset extraction).
-        size_t slot = next_slot_++;
-        uint8_t* slot_mem = worker_pool_->slot_ptr(slot);
-        core = std::make_unique<tt_emule::Core>(coord, slot_mem, static_cast<size_t>(l1_size_));
-        core_to_slot_[core_xy] = slot;
+    auto slot = slot_of_.find(core_xy);
+    if (slot != slot_of_.end()) {
+        core = std::make_unique<tt_emule::Core>(
+            coord, worker_pool_->slot_ptr(slot->second), static_cast<size_t>(l1_size_));
     } else {
-        // Pool exhausted — fall back to individual mmap (still MAP_32BIT via CoreRole::WORKER).
+        // Not a Tensix core (write_to_device routes ETH/PCIE/DISPATCH/ARC coords here too, since it
+        // only special-cases DRAM), so it has no pool slot. Private mapping: once the pool is shared
+        // this must become a hard error, because a peer could address this core and never see it.
         log_warning(
             LogUMD,
-            "L1Pool exhausted (all {} slots used); core ({},{}) falling back to individual mmap",
-            worker_pool_->num_slots(),
+            "core ({},{}) is not a pooled Tensix core; backing it with an individual mmap",
             core_xy.x,
             core_xy.y);
         core = std::make_unique<tt_emule::Core>(coord, tt_emule::CoreRole::WORKER, static_cast<size_t>(l1_size_));

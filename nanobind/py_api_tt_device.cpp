@@ -266,12 +266,7 @@ void bind_tt_device(nb::module_ &m) {
             &TTDevice::get_firmware_telemetry_reader,
             nb::rv_policy::reference_internal)
         // TODO: Update exalens to call get_firmware_telemetry_reader().
-        .def(
-            "get_arc_telemetry_reader",
-            [](const TTDevice &self) {
-                return dynamic_cast<ArcTelemetryReader *>(self.get_firmware_telemetry_reader());
-            },
-            nb::rv_policy::reference_internal)
+        .def("get_arc_telemetry_reader", &TTDevice::get_firmware_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
         .def("board_id", &TTDevice::get_board_id, release_gil())

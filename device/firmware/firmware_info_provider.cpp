@@ -34,7 +34,7 @@ namespace tt::umd {
 
 FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     if (telemetry == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
     }
@@ -249,7 +249,7 @@ uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
+                auto* tel = tt_device->get_firmware_telemetry_reader();
                 return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
                 const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
@@ -279,7 +279,7 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
+                auto* tel = tt_device->get_firmware_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
                 const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
@@ -585,7 +585,7 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(
 }
 
 static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     // All GDDR telemetry tags from GDDR_0_1_TEMP through MAX_GDDR_TEMP must be present.
     for (uint8_t tag = static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP);
          tag <= static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP);
@@ -630,7 +630,7 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
     const uint8_t pair_index = module_index / 2;
 
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
 
     if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index) ||
         !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index) ||
@@ -651,7 +651,7 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
         return std::nullopt;
     }
 
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     GddrTelemetry aggregated{};
 
     const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));

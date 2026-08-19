@@ -11,6 +11,7 @@
 #include <nanobind/stl/vector.h>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
@@ -189,7 +190,21 @@ void bind_telemetry(nb::module_& m) {
             return d;
         });
 
-    nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
+    nb::class_<FirmwareTelemetryReader>(m, "FirmwareTelemetryReader")
+        .def(
+            "read_entry",
+            &FirmwareTelemetryReader::read_entry,
+            nb::arg("telemetry_tag"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "is_entry_available",
+            &FirmwareTelemetryReader::is_entry_available,
+            nb::arg("telemetry_tag"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil());
+
+    nb::class_<ArcTelemetryReader, FirmwareTelemetryReader>(m, "ArcTelemetryReader")
         .def(
             "read_entry",
             &ArcTelemetryReader::read_entry,

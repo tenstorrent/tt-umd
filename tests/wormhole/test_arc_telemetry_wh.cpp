@@ -60,7 +60,7 @@ TEST(TestTelemetry, CompareTwoTelemetryValues) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
-        ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
+        FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();
 
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_reader =
             std::make_unique<SmBusArcTelemetryReader>(tt_device.get());

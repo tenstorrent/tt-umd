@@ -616,7 +616,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
                 ? 0
                 : CoordinateManager::get_num_harvested(harvesting_masks_map.at(chip).eth_harvesting_mask);
         int num_channels =
-            architecture_implementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
+            ArchitectureImplementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
             idle_eth_channels[chip].insert(i);
         }
@@ -1377,7 +1377,7 @@ std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
     if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
         return std::nullopt;
     }
-    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
+    auto arch_impl = ArchitectureImplementation::create(get_arch(chip_id));
     if (!arch_impl) {
         return std::nullopt;
     }

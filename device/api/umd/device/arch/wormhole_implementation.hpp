@@ -378,7 +378,7 @@ inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0xC0, 0x80, 0x00, 0
 
 }  // namespace wormhole
 
-class wormhole_implementation : public architecture_implementation {
+class WormholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::WORMHOLE_B0; }
 

@@ -108,7 +108,7 @@ public:
 
     virtual ~TTDevice() = default;
 
-    architecture_implementation *get_architecture_implementation();
+    ArchitectureImplementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
     RemoteCommunication *get_remote_communication();
 
@@ -523,24 +523,24 @@ public:
 protected:
     IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
     int communication_device_id_ = -1;
-    std::unique_ptr<architecture_implementation> architecture_impl_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
     LockManager lock_manager;
 
     TTDevice() = default;
     TTDevice(
         std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<architecture_implementation> architecture_impl,
+        std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
         bool use_safe_api);
     TTDevice(
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl,
+        std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     TTDevice(
         std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl,
+        std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;

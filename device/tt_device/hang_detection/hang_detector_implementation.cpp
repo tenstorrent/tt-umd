@@ -13,7 +13,7 @@
 
 namespace tt::umd {
 HangDetectorImplementation::HangDetectorImplementation(
-    DeviceProtocol* protocol, architecture_implementation* arch_impl) :
+    DeviceProtocol* protocol, ArchitectureImplementation* arch_impl) :
     protocol_(protocol),
     pcie_interface_(dynamic_cast<PcieInterface*>(protocol)),
     is_mmio_protocol_(!dynamic_cast<RemoteInterface*>(protocol)),

@@ -28,9 +28,9 @@ namespace tt::umd {
 
 static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 
-class architecture_implementation {
+class ArchitectureImplementation {
 public:
-    virtual ~architecture_implementation() = default;
+    virtual ~ArchitectureImplementation() = default;
 
     virtual tt::ARCH get_architecture() const = 0;
     virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
@@ -79,7 +79,7 @@ public:
     virtual DriverEthInterfaceParams get_eth_interface_params() const = 0;
     virtual DriverNocParams get_noc_params() const = 0;
 
-    static std::unique_ptr<architecture_implementation> create(tt::ARCH architecture);
+    static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
 
     virtual uint64_t get_noc_node_id_offset() const = 0;
     virtual uint64_t get_noc_node_translated_id_offset() const = 0;

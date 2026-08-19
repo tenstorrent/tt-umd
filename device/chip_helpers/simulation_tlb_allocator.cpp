@@ -17,7 +17,7 @@
 namespace tt::umd {
 
 SimulationTlbAllocator::SimulationTlbAllocator(
-    uint64_t bar0_base, const architecture_implementation* arch_impl, uint64_t bar4_base) :
+    uint64_t bar0_base, const ArchitectureImplementation* arch_impl, uint64_t bar4_base) :
     bar0_base_(bar0_base), bar4_base_(bar4_base), arch_impl_(arch_impl) {
     initialize_architecture_config();
 }
@@ -106,7 +106,7 @@ uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
     return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;
 }
 
-const architecture_implementation* SimulationTlbAllocator::get_architecture_impl() const { return arch_impl_; }
+const ArchitectureImplementation* SimulationTlbAllocator::get_architecture_impl() const { return arch_impl_; }
 
 tt::ARCH SimulationTlbAllocator::get_architecture() const { return architecture_; }
 

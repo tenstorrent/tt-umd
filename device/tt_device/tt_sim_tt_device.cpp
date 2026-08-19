@@ -115,7 +115,7 @@ TTSimTTDevice::TTSimTTDevice(
     // init_tt_device() (no PCI probe), so without this arch stays tt::ARCH::Invalid and downstream
     // consumers (e.g. tt-exalens constructing a SocDescriptor from the device) see the wrong arch.
     arch = soc_descriptor.arch;
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+    architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
@@ -189,7 +189,7 @@ TTSimTTDevice::TTSimTTDevice(
     SimulationTTDevice(std::move(client)), chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+    architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.

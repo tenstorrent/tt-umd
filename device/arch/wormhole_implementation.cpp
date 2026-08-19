@@ -25,7 +25,7 @@ constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h,
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
 }  // namespace wormhole
 
-tlb_configuration wormhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration WormholeImplementation::get_tlb_configuration(uint32_t tlb_index) const {
     if (tlb_index >= wormhole::TLB_BASE_INDEX_16M) {
         return tlb_configuration{
             .size = wormhole::DYNAMIC_TLB_16M_SIZE,
@@ -59,18 +59,18 @@ tlb_configuration wormhole_implementation::get_tlb_configuration(uint32_t tlb_in
     }
 }
 
-DeviceL1AddressParams wormhole_implementation::get_l1_address_params() const {
+DeviceL1AddressParams WormholeImplementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
     return {wormhole::L1_BARRIER_BASE, wormhole::ERISC_BARRIER_BASE, wormhole::ETH_FW_VERSION_ADDR};
 }
 
-DriverHostAddressParams wormhole_implementation::get_host_address_params() const {
+DriverHostAddressParams WormholeImplementation::get_host_address_params() const {
     return {
         erisc_firmware::eth_routing::ETH_ROUTING_BLOCK_SIZE, erisc_firmware::eth_routing::ETH_ROUTING_BUFFERS_START};
 }
 
-DriverEthInterfaceParams wormhole_implementation::get_eth_interface_params() const {
+DriverEthInterfaceParams WormholeImplementation::get_eth_interface_params() const {
     using namespace erisc_firmware::eth_routing;
     return {
         ETH_RACK_COORD_WIDTH,
@@ -96,12 +96,12 @@ DriverEthInterfaceParams wormhole_implementation::get_eth_interface_params() con
     };
 }
 
-DriverNocParams wormhole_implementation::get_noc_params() const {
+DriverNocParams WormholeImplementation::get_noc_params() const {
     return {wormhole::NOC_ADDR_LOCAL_BITS, wormhole::NOC_ADDR_NODE_ID_BITS};
 }
 
 // TODO: integrate noc_port for DRAM core type inside the function.
-uint64_t wormhole_implementation::get_noc_reg_base(
+uint64_t WormholeImplementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
     if (noc == 0) {
         for (const auto& noc_pair : wormhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
@@ -129,7 +129,7 @@ uint64_t wormhole_implementation::get_noc_reg_base(
     UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
 }
 
-uint32_t wormhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
+uint32_t WormholeImplementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
         UMD_THROW(error::RuntimeError, "NEO risc cores should not be used on Wormhole architecture.");
@@ -166,7 +166,7 @@ uint32_t wormhole_implementation::get_soft_reset_reg_value(RiscType risc_type) c
     return soft_reset_reg_value;
 }
 
-RiscType wormhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
+RiscType WormholeImplementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
     RiscType risc_type = RiscType::NONE;
     if (soft_reset_reg_value & wormhole::SOFT_RESET_BRISC) {
         risc_type |= RiscType::BRISC;

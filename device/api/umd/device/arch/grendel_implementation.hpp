@@ -322,7 +322,7 @@ tt_xy_pair get_arc_core(const bool noc_translation_enabled, const bool use_noc1)
 
 }  // namespace grendel
 
-class grendel_implementation : public architecture_implementation {
+class GrendelImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::QUASAR; }
 

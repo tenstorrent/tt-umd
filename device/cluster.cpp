@@ -762,7 +762,7 @@ void Cluster::assert_risc_reset() {
     }
 
     uint32_t reset_reg_value =
-        architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
+        ArchitectureImplementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
@@ -782,7 +782,7 @@ void Cluster::deassert_risc_reset() {
         return;
     }
 
-    auto arch_impl = architecture_implementation::create(arch_name);
+    auto arch_impl = ArchitectureImplementation::create(arch_name);
     uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
                                arch_impl->get_soft_reset_staggered_start();
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);

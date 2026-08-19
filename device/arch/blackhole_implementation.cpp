@@ -23,7 +23,7 @@ constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h,
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
 }  // namespace blackhole
 
-tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration BlackholeImplementation::get_tlb_configuration(uint32_t tlb_index) const {
     // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
         return tlb_configuration{
@@ -48,18 +48,18 @@ tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_i
     };
 }
 
-DeviceL1AddressParams blackhole_implementation::get_l1_address_params() const {
+DeviceL1AddressParams BlackholeImplementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
     return {blackhole::L1_BARRIER_BASE, blackhole::ERISC_BARRIER_BASE, blackhole::ETH_FW_VERSION_ADDR};
 }
 
-DriverHostAddressParams blackhole_implementation::get_host_address_params() const {
+DriverHostAddressParams BlackholeImplementation::get_host_address_params() const {
     return {
         erisc_firmware::eth_routing::ETH_ROUTING_BLOCK_SIZE, erisc_firmware::eth_routing::ETH_ROUTING_BUFFERS_START};
 }
 
-DriverEthInterfaceParams blackhole_implementation::get_eth_interface_params() const {
+DriverEthInterfaceParams BlackholeImplementation::get_eth_interface_params() const {
     using namespace erisc_firmware::eth_routing;
     return {
         ETH_RACK_COORD_WIDTH,
@@ -85,11 +85,11 @@ DriverEthInterfaceParams blackhole_implementation::get_eth_interface_params() co
     };
 }
 
-DriverNocParams blackhole_implementation::get_noc_params() const {
+DriverNocParams BlackholeImplementation::get_noc_params() const {
     return {blackhole::NOC_ADDR_LOCAL_BITS, blackhole::NOC_ADDR_NODE_ID_BITS};
 }
 
-uint64_t blackhole_implementation::get_noc_reg_base(
+uint64_t BlackholeImplementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
     if (noc == 0) {
         for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
@@ -110,7 +110,7 @@ uint64_t blackhole_implementation::get_noc_reg_base(
     UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
 }
 
-uint32_t blackhole_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
+uint32_t BlackholeImplementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
         UMD_THROW(error::RuntimeError, "NEO risc cores should not be used on Blackhole architecture.");
@@ -147,7 +147,7 @@ uint32_t blackhole_implementation::get_soft_reset_reg_value(RiscType risc_type) 
     return soft_reset_reg_value;
 }
 
-RiscType blackhole_implementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
+RiscType BlackholeImplementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
     RiscType risc_type = RiscType::NONE;
     if (soft_reset_reg_value & blackhole::SOFT_RESET_BRISC) {
         risc_type |= RiscType::BRISC;

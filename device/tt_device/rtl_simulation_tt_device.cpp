@@ -95,7 +95,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
-    architecture_impl_ = architecture_implementation::create(get_soc_descriptor().arch);
+    architecture_impl_ = ArchitectureImplementation::create(get_soc_descriptor().arch);
     arch = get_soc_descriptor().arch;
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
@@ -109,7 +109,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     SimulationTTDevice(std::move(client)) {
     set_soc_descriptor(soc_descriptor);
     arch = soc_descriptor.arch;
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
+    architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.

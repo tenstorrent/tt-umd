@@ -21,9 +21,6 @@ class FirmwareInfoProvider {
 public:
     virtual ~FirmwareInfoProvider() = default;
 
-    /** @name Firmware Versions */
-    /** @{ */
-
     /**
      * @brief Retrieves the firmware bundle version running on the device.
      * @param noc_id NOC to route through.
@@ -82,11 +79,6 @@ public:
      */
     virtual std::optional<SemVer> get_tt_flash_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /** @} */
-
-    /** @name Board Identity */
-    /** @{ */
-
     /**
      * @brief Retrieves the unique board identifier.
      * @param noc_id NOC to route through.
@@ -100,11 +92,6 @@ public:
      * @return std::optional<uint8_t> ASIC location index, or std::nullopt if unavailable.
      */
     virtual std::optional<uint8_t> get_asic_location([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /** @} */
-
-    /** @name Thermal */
-    /** @{ */
 
     /**
      * @brief Retrieves the ASIC temperature.
@@ -140,11 +127,6 @@ public:
      * @return std::optional<uint32_t> Number of thermal trips, or std::nullopt if unavailable.
      */
     virtual std::optional<uint32_t> get_therm_trip_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /** @} */
-
-    /** @name Clocks and Power */
-    /** @{ */
 
     /**
      * @brief Retrieves the current AICLK frequency.
@@ -257,11 +239,6 @@ public:
     virtual std::vector<std::optional<uint32_t>> get_fan_rpms(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /** @} */
-
-    /** @name Ethernet */
-    /** @{ */
-
     /**
      * @brief Retrieves per-link Ethernet heartbeat status.
      *
@@ -314,11 +291,6 @@ public:
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status_per_core(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /** @} */
-
-    /** @name DRAM */
-    /** @{ */
-
     /**
      * @brief Retrieves per-channel DRAM training status.
      * @param num_dram_channels Number of DRAM channels to query.
@@ -360,11 +332,6 @@ public:
     virtual std::optional<double> get_current_max_dram_temperature(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /** @} */
-
-    /** @name Heartbeat */
-    /** @{ */
-
     /**
      * @brief Retrieves the firmware heartbeat counter.
      *
@@ -374,10 +341,6 @@ public:
      * @return std::optional<uint32_t> Heartbeat counter, or std::nullopt if unavailable.
      */
     virtual std::optional<uint32_t> get_heartbeat([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-
-    /** @} */
-    /** @name Miscellaneous  */
-    /** @{ */
 
     /**
      * @brief Retrieves the address of the runtime telemetry buffer.
@@ -394,6 +357,5 @@ public:
      */
     virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
-    /** @} */
 };
 }  // namespace tt::umd

@@ -38,8 +38,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         arc_messenger->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
             arc_msg_return_values,
             {0, 0});
 
@@ -111,7 +110,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
                 arc_messenger->send_message(
                     wormhole::ARC_MSG_COMMON_PREFIX |
-                        tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+                        static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
                     arc_msg_return_values,
                     {0, 0});
 
@@ -128,7 +127,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
                 arc_messenger->send_message(
                     wormhole::ARC_MSG_COMMON_PREFIX |
-                        tt_device->get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+                        static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
                     arc_msg_return_values,
                     {0, 0});
 

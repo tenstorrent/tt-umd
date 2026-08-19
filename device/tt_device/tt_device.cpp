@@ -118,11 +118,6 @@ TTDevice::TTDevice(
     device_protocol_ = std::move(remote_protocol);
 }
 
-void TTDevice::probe_arc() {
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
-}
-
 void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
     if (soc_arch_descriptor == nullptr) {
         soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());

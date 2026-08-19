@@ -32,16 +32,8 @@ public:
     virtual ~ArchitectureImplementation() = default;
 
     virtual tt::ARCH get_architecture() const = 0;
-    virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
     virtual uint32_t get_arc_message_arc_go_busy() const = 0;
     virtual uint32_t get_arc_message_arc_go_long_idle() const = 0;
-    virtual uint32_t get_arc_message_deassert_riscv_reset() const = 0;
-    virtual uint32_t get_arc_message_get_aiclk() const = 0;
-    virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
-    virtual uint32_t get_arc_csm_bar0_mailbox_offset() const = 0;
-    virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
-    virtual uint32_t get_arc_reset_scratch_offset() const = 0;
-    virtual uint32_t get_arc_reset_scratch_2_offset() const = 0;
     virtual uint32_t get_arc_reset_unit_refclk_low_offset() const = 0;
     virtual uint32_t get_arc_reset_unit_refclk_high_offset() const = 0;
     virtual uint32_t get_dram_banks_number() const = 0;
@@ -51,8 +43,6 @@ public:
     virtual uint32_t get_soft_reset_reg_value(RiscType risc_type) const = 0;
     virtual RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
-    virtual uint64_t get_arc_apb_noc_base_address() const = 0;
-    virtual uint64_t get_arc_csm_noc_base_address() const = 0;
     // Replace with std::span once we enable C++20.
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;

@@ -21,6 +21,13 @@ using NocRegAddrResolver = uint64_t (*)(CoreType core_type, uint32_t noc, uint32
 // different addresses. Architecture specific code reads its own constants directly; this exists for
 // callers which are not tied to one architecture.
 struct ArchitectureRegisters {
+    uint32_t arc_apb_bar0_offset;
+    uint32_t arc_csm_bar0_mailbox_offset;
+    // ARC reset unit scratch registers, relative to the APB window.
+    uint32_t arc_reset_scratch_offset;
+    uint32_t arc_reset_scratch_2_offset;
+    uint64_t arc_apb_noc_base_address;
+
     // BAR0 offset of the NOC0 node id register. Reachable before the NOC is up, which is what makes
     // it usable as the bus hang check.
     uint32_t noc_node_id_bar_offset;

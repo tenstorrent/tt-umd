@@ -335,10 +335,6 @@ class BlackholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::BLACKHOLE; }
 
-    uint32_t get_arc_message_arc_get_harvesting() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GET_HARVESTING);
-    }
-
     uint32_t get_arc_message_arc_go_busy() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_BUSY);
     }
@@ -346,28 +342,6 @@ public:
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
-
-    uint32_t get_arc_message_deassert_riscv_reset() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::DEASSERT_RISCV_RESET);
-    }
-
-    uint32_t get_arc_message_get_aiclk() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::GET_AICLK);
-    }
-
-    uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER);
-    }
-
-    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
-        UMD_THROW(error::RuntimeError, "Not implemented for Blackhole architecture.");
-    }
-
-    uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
-
-    uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }
-
-    uint32_t get_arc_reset_scratch_2_offset() const override { return blackhole::ARC_RESET_SCRATCH_2_OFFSET; }
 
     uint32_t get_arc_reset_unit_refclk_low_offset() const override { return blackhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 
@@ -386,12 +360,6 @@ public:
     RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override { return blackhole::SOFT_RESET_STAGGERED_START; }
-
-    uint64_t get_arc_apb_noc_base_address() const override { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
-
-    uint64_t get_arc_csm_noc_base_address() const override {
-        UMD_THROW(error::RuntimeError, "CSM fetch base address not implemented for Blackhole architecture.");
-    }
 
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return blackhole::HARVESTING_NOC_LOCATIONS;

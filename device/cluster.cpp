@@ -245,7 +245,20 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SWEMULE) {
 #ifdef TT_UMD_BUILD_EMULE
-        return std::make_unique<SWEmuleChip>(soc_desc);
+        // Pass the chip's globally stable unique id (NOT chip_id, which cluster_desc renumbers to
+        // 0..N-1 per visible-device subset) so a shared L1 segment can be keyed on it.
+        std::optional<uint64_t> chip_uid;
+        if (cluster_desc != nullptr) {
+            const auto& uids = cluster_desc->get_chip_unique_ids();
+            auto it = uids.find(chip_id);
+            if (it != uids.end()) {
+                chip_uid = it->second;  // 0 is a legitimate id: the legacy descriptor computes chip << 32
+            }
+        }
+        // Whether a missing identity is fatal depends on whether shared backing was requested, and
+        // that is emule's business: SWEmuleChip decides. This file stays free of tt-emule headers,
+        // because it is compiled in every UMD build and emule is an optional component.
+        return std::make_unique<SWEmuleChip>(soc_desc, chip_uid);
 #else
         throw std::runtime_error(
             "SWEMULE device is not supported in this build. Set '-DTT_UMD_BUILD_EMULE=ON' during cmake "

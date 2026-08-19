@@ -15,6 +15,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 
@@ -189,17 +190,33 @@ void bind_telemetry(nb::module_& m) {
         });
 
     nb::class_<ArcTelemetryReader>(m, "ArcTelemetryReader")
-        .def("read_entry", &ArcTelemetryReader::read_entry, nb::arg("telemetry_tag"), release_gil())
-        .def("is_entry_available", &ArcTelemetryReader::is_entry_available, nb::arg("telemetry_tag"), release_gil());
+        .def(
+            "read_entry",
+            &ArcTelemetryReader::read_entry,
+            nb::arg("telemetry_tag"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
+        .def(
+            "is_entry_available",
+            &ArcTelemetryReader::is_entry_available,
+            nb::arg("telemetry_tag"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil());
 
     // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
         .def(nb::init<TTDevice*>(), nb::arg("tt_device"), release_gil())
-        .def("read_entry", &SmBusArcTelemetryReader::read_entry, nb::arg("telemetry_tag"), release_gil())
+        .def(
+            "read_entry",
+            &SmBusArcTelemetryReader::read_entry,
+            nb::arg("telemetry_tag"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def(
             "is_entry_available",
             &SmBusArcTelemetryReader::is_entry_available,
             nb::arg("telemetry_tag"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
             release_gil());
 
     nb::enum_<tt::DramTrainingStatus>(m, "DramTrainingStatus")

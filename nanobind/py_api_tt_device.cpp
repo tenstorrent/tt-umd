@@ -260,7 +260,11 @@ void bind_tt_device(nb::module_ &m) {
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
-        .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
+        .def(
+            "get_firmware_telemetry_reader",
+            &TTDevice::get_firmware_telemetry_reader,
+            nb::rv_policy::reference_internal)
+        // .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
         .def("board_id", &TTDevice::get_board_id, release_gil())

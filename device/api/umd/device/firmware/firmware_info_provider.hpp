@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -197,7 +198,7 @@ public:
     /**
      * @brief Retrieves the Thermal Design Power limit.
      * @param noc_id NOC to route through.
-     * @returns std::optional<uint32_t> TDP limit in watts, or std::nulloptr if unavailable.
+     * @returns std::optional<uint32_t> TDP limit in watts, or std::nullopt if unavailable.
      */
     virtual std::optional<uint32_t> get_tdp_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
@@ -239,19 +240,19 @@ public:
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
-     * @brief Get targeted speeds per fan as a percentage (0-100).
-     * Individual entries can be nullopt if fan speed is not available.
+     * @brief Retrieves targeted speeds per fan as a percentage (0-100).
+     * Individual entries can be std::nullopt if the percentage is unavailable.
      * @param noc_id NOC to route through.
-     * @returns Targeted fan speeds [percent]
+     * @return std::vector<std::optional<uint32_t>> of targeted fan speeds as a percentage.
      */
     virtual std::vector<std::optional<uint32_t>> get_fan_speeds(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
-     * @brief Get targeted speeds per fan in rotations per minute (0-100).
-     * Individual entries can be nullopt if fan speed is not available.
+     * @brief Retrieves actual speeds per fan in rotations per minute.
+     * Individual entries can be std::nullopt if fan RPM is unavailable.
      * @param noc_id NOC to route through.
-     * @returns Targeted fan speeds [rpm]
+     * @return std::vector<std::optional<uint32_t>> of actual fan speeds in RPM.
      */
     virtual std::vector<std::optional<uint32_t>> get_fan_rpms(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;

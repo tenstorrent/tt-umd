@@ -35,7 +35,8 @@ public:
      * @param noc_id NOC to route through.
      * @return std::optional<uint32_t> Raw version tag, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_eth_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+    [[deprecated("Use get_eth_fw_version_semver()")]] virtual std::optional<uint32_t> get_eth_fw_version(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
     /**
      * @brief Retrieves the Ethernet firmware version as a semantic version.

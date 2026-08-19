@@ -119,7 +119,7 @@ endif()
 # fmt : https://github.com/fmtlib/fmt
 ###################################################################################################################
 
-CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 11.1.4 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
+CPMAddPackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG 12.2.0 SYSTEM YES FIND_PACKAGE_ARGUMENTS GLOBAL)
 
 ###################################################################################################################
 # nanobench (for uBenchmarking)

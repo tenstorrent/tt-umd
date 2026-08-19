@@ -212,7 +212,7 @@ void bind_telemetry(nb::module_& m) {
     nb::class_<FirmwareInfoProvider>(m, "FirmwareInfoProvider")
         .def("get_firmware_version", &FirmwareInfoProvider::get_firmware_version, release_gil())
         .def("get_board_id", &FirmwareInfoProvider::get_board_id, release_gil())
-        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version, release_gil())
+        .def("get_eth_fw_version", &FirmwareInfoProvider::get_eth_fw_version_semver, release_gil())
         .def("get_asic_location", &FirmwareInfoProvider::get_asic_location, release_gil())
         .def("get_aiclk", &FirmwareInfoProvider::get_aiclk, release_gil())
         .def("get_axiclk", &FirmwareInfoProvider::get_axiclk, release_gil())
@@ -240,9 +240,12 @@ void bind_telemetry(nb::module_& m) {
         .def("get_board_power_limit", &FirmwareInfoProvider::get_board_power_limit, release_gil())
         .def("get_thm_limit_throttle", &FirmwareInfoProvider::get_thm_limit_throttle, release_gil())
         .def("get_therm_trip_count", &FirmwareInfoProvider::get_therm_trip_count, release_gil())
-        .def("get_eth_heartbeat_status", &FirmwareInfoProvider::get_eth_heartbeat_status, release_gil())
-        .def("get_eth_retrain_status", &FirmwareInfoProvider::get_eth_retrain_status, release_gil())
-        .def("get_eth_link_status", &FirmwareInfoProvider::get_eth_link_status, release_gil())
+        .def(
+            "get_eth_heartbeat_status_per_core",
+            &FirmwareInfoProvider::get_eth_heartbeat_status_per_core,
+            release_gil())
+        .def("get_eth_retrain_status_per_core", &FirmwareInfoProvider::get_eth_retrain_status_per_core, release_gil())
+        .def("get_eth_link_status_per_core", &FirmwareInfoProvider::get_eth_link_status_per_core, release_gil())
         .def_static(
             "create_firmware_info_provider",
             &FirmwareInfoProvider::create_firmware_info_provider,

@@ -39,131 +39,146 @@ public:
 
     virtual ~FirmwareInfoProvider() = default;
 
-    FirmwareBundleVersion get_firmware_version() const;
+    virtual FirmwareBundleVersion get_firmware_version() const;
 
-    uint64_t get_board_id() const;
+    virtual std::optional<uint64_t> get_board_id() const;
 
-    std::optional<uint32_t> get_eth_fw_version() const;
+    // TODO: Will be removed in UMD Base API 2.0.0 (#3181)
+    [[deprecated("Use get_eth_fw_version_semver()")]] virtual std::optional<uint32_t> get_eth_fw_version() const;
 
-    // TODO: remove semver suffix from this function when client code is changed to use SemVer directly.
-    // Remove version of the function that returns uint32_t accordingly.
-    std::optional<SemVer> get_eth_fw_version_semver() const;
+    virtual std::optional<SemVer> get_eth_fw_version_semver() const;
 
-    std::optional<SemVer> get_gddr_fw_version() const;
+    virtual std::optional<SemVer> get_gddr_fw_version() const;
 
-    std::optional<SemVer> get_cm_fw_version() const;
+    virtual std::optional<SemVer> get_cm_fw_version() const;
 
-    std::optional<SemVer> get_dm_app_fw_version() const;
+    virtual std::optional<SemVer> get_dm_app_fw_version() const;
 
-    std::optional<SemVer> get_dm_bl_fw_version() const;
+    virtual std::optional<SemVer> get_dm_bl_fw_version() const;
 
-    std::optional<SemVer> get_tt_flash_version() const;
+    virtual std::optional<SemVer> get_tt_flash_version() const;
 
     /*
      * Get ASIC temperature in Celsius.
      * @returns ASIC temperature [Celsius]
      */
-    double get_asic_temperature() const;
+    virtual std::optional<double> get_asic_temperature() const;
 
     /*
      * Get AICLK in MHz.
      * @returns AICLK [MHz]
      */
-    std::optional<uint32_t> get_aiclk() const;
+    virtual std::optional<uint32_t> get_aiclk() const;
 
     /*
      * Get AXICLK in MHz.
      * @returns AXICLK [MHz]
      */
-    std::optional<uint32_t> get_axiclk() const;
+    virtual std::optional<uint32_t> get_axiclk() const;
 
     /*
      * Get ARCCLK in MHz.
      * @returns ARCCLK [MHz]
      */
-    std::optional<uint32_t> get_arcclk() const;
+    virtual std::optional<uint32_t> get_arcclk() const;
 
     /*
      * Get targeted speed per fan as a percentage (0-100). Individual entries
      * can be nullopt if fan speed is not available.
      * @returns Targeted fan speed [percent]
      */
-    [[deprecated("use get_fan_speeds()")]] std::optional<uint32_t> get_fan_speed() const;
+    [[deprecated("use get_fan_speeds()")]] virtual std::optional<uint32_t> get_fan_speed() const;
 
     /*
      * Get actual speed per fan in RPM. Individual entries
      * can be nullopt if fan RPM is not available.
      * @returns Actual fan RPM [percent]
      */
-    [[deprecated("use get_fan_rpms()")]] std::optional<uint32_t> get_fan_rpm() const;
+    [[deprecated("use get_fan_rpms()")]] virtual std::optional<uint32_t> get_fan_rpm() const;
 
     /*
      * Get targeted speeds per fan as a percentage (0-100). Individual entries
      * can be nullopt if fan speed is not available.
      * @returns Targeted fan speeds [percent]
      */
-    std::vector<std::optional<uint32_t>> get_fan_speeds() const;
+    virtual std::vector<std::optional<uint32_t>> get_fan_speeds() const;
 
     /*
      * Get actual speeds per fan in RPM. Individual entries
      * can be nullopt if fan RPM is not available.
      * @returns Actual fan RPMs [percent]
      */
-    std::vector<std::optional<uint32_t>> get_fan_rpms() const;
+    virtual std::vector<std::optional<uint32_t>> get_fan_rpms() const;
 
     /*
      * Get TDP in watts.
      * @returns TDP [W]
      */
-    std::optional<uint32_t> get_tdp() const;
+    virtual std::optional<uint32_t> get_tdp() const;
 
     /*
      * Get TDC in amps.
      * @returns TDC [amps]
      */
-    std::optional<uint32_t> get_tdc() const;
+    virtual std::optional<uint32_t> get_tdc() const;
 
     /*
      * Get VCORE in mV.
      * @returns VCORE [mV]
      */
-    std::optional<uint32_t> get_vcore() const;
+    virtual std::optional<uint32_t> get_vcore() const;
 
     /*
      * Get board temperature in Celsius.
      * @returns Board temperature [Celsius]
      */
-    std::optional<double> get_board_temperature() const;
+    virtual std::optional<double> get_board_temperature() const;
 
     /*
      * Get thermal limit shutdown threshold in Celsius.
      * @returns Thermal limit shutdown threshold [Celsius]
      */
-    std::optional<double> get_thm_limit_shutdown() const;
+    virtual std::optional<double> get_thm_limit_shutdown() const;
 
     /*
      * Get TDP limit in watts.
      * @returns TDP limit [W]
      */
-    std::optional<uint32_t> get_tdp_limit() const;
+    virtual std::optional<uint32_t> get_tdp_limit() const;
 
     /*
      * Get board power limit in watts.
      * @returns Board power limit [W]
      */
-    std::optional<uint32_t> get_board_power_limit() const;
+    virtual std::optional<uint32_t> get_board_power_limit() const;
 
     /*
      * Get thermal limit throttle threshold in Celsius.
      * @returns Thermal limit throttle threshold [Celsius]
      */
-    std::optional<double> get_thm_limit_throttle() const;
+    virtual std::optional<double> get_thm_limit_throttle() const;
 
     /*
      * Get thermal trip count.
      * @returns Number of thermal trips that have occurred.
      */
-    std::optional<uint32_t> get_therm_trip_count() const;
+    virtual std::optional<uint32_t> get_therm_trip_count() const;
+
+    /*
+     * Get per-link ethernet heartbeat status.
+     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
+     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
+     */
+    [[deprecated("Use get_eth_heartbeat_status_per_core()")]] virtual std::optional<std::vector<bool>>
+    get_eth_heartbeat_status() const;
+
+    /*
+     * Get per-link ethernet retrain status.
+     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
+     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
+     */
+    [[deprecated("Use get_eth_retrain_status_per_core()")]] virtual std::optional<std::vector<bool>>
+    get_eth_retrain_status() const;
 
     /*
      * Get per-link ethernet heartbeat status.
@@ -171,7 +186,7 @@ public:
      * Each entry pairs an ETH core's NOC0 coordinate with its status (16 entries on WH, 14 on BH).
      * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status() const;
+    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status_per_core() const;
 
     /*
      * Get per-link ethernet retrain status.
@@ -179,7 +194,7 @@ public:
      * Each entry pairs an ETH core's NOC0 coordinate with its status.
      * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status() const;
+    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status_per_core() const;
 
     /*
      * Get per-link ethernet link status.
@@ -187,13 +202,15 @@ public:
      * Each entry pairs an ETH core's NOC0 coordinate with its status.
      * @returns Per-core link status (true = up), or std::nullopt if unavailable.
      */
-    std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status() const;
+    virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status_per_core() const;
 
-    std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
+    virtual std::vector<DramTrainingStatus> get_dram_training_status(uint32_t num_dram_channels) const;
 
-    uint32_t get_max_clock_freq() const;
+    virtual std::optional<uint32_t> get_max_clock_freq() const;
 
-    uint8_t get_asic_location() const;
+    virtual std::optional<uint32_t> get_min_clock_freq() const;
+
+    virtual std::optional<uint8_t> get_asic_location() const;
 
     /*
      * Get heartbeat from ARC core.
@@ -201,19 +218,19 @@ public:
      * On legacy telemetry, the value is taken from ARC0_HEALTH
      * @returns An integer that does not decrease on subsequent calls.
      */
-    uint32_t get_heartbeat() const;
+    virtual std::optional<uint32_t> get_heartbeat() const;
 
-    std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
+    virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry() const;
 
-    std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const;
+    virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(GddrModule gddr_module) const;
 
-    std::optional<uint16_t> get_dram_speed() const;
+    virtual std::optional<uint16_t> get_dram_speed() const;
 
-    std::optional<double> get_current_max_dram_temperature() const;
+    virtual std::optional<double> get_current_max_dram_temperature() const;
 
-    std::optional<uint32_t> get_runtime_telemetry_buffer_address() const;
+    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address() const;
 
-    std::optional<uint32_t> get_runtime_telemetry_buffer_size() const;
+    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size() const;
 
 private:
     /**

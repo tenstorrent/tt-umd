@@ -127,19 +127,20 @@ TEST_F(TestFirmwareInfoProvider, BoardId) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
         int pci_device_id = tt_device->get_communication_device_id();
 
-        uint64_t board_id = fw_info->get_board_id();
+        std::optional<uint64_t> board_id = fw_info->get_board_id();
         log_info(
             tt::LogUMD,
-            "Device {}: board_id=0x{:016x}, fw_range={}",
+            "Device {}: board_id={}, fw_range={}",
             pci_device_id,
-            board_id,
+            opt_str(board_id),
             fw_range_label(fw_info->get_firmware_version()));
 
+        EXPECT_NE(board_id, std::nullopt);
         EXPECT_NE(board_id, 0);
 
         // Board ID should map to a known board type.
         BoardType board_type = BoardType::UNKNOWN;
-        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id));
+        ASSERT_NO_THROW(board_type = get_board_type_from_board_id(board_id.value()));
 
         log_info(tt::LogUMD, "board_type={}", board_type_to_string(board_type));
     }
@@ -152,15 +153,15 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
 
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        double asic_temp = fw_info->get_asic_temperature();
+        std::optional<double> asic_temp = fw_info->get_asic_temperature();
         std::optional<double> board_temp = fw_info->get_board_temperature();
 
         log_info(
             tt::LogUMD,
-            "Device {}: fw_range={}, asic_temperature={:.2f} C, board_temperature={} C",
+            "Device {}: fw_range={}, asic_temperature={} C, board_temperature={} C",
             pci_device_id,
             fw_range_label(fw_version),
-            asic_temp,
+            opt_str(asic_temp),
             opt_str(board_temp));
 
         tt::ARCH arch = tt_device->get_arch();
@@ -199,7 +200,7 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();
         std::optional<uint32_t> arcclk = fw_info->get_arcclk();
-        uint32_t max_clock = fw_info->get_max_clock_freq();
+        std::optional<uint32_t> max_clock = fw_info->get_max_clock_freq();
 
         log_info(
             tt::LogUMD,
@@ -210,7 +211,7 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
             opt_str(aiclk),
             opt_str(axiclk),
             opt_str(arcclk),
-            max_clock,
+            opt_str(max_clock),
             aiclk_busy_val);
 
         // Max clock frequency should match the architecture's AICLK_BUSY_VAL.
@@ -385,14 +386,15 @@ TEST_F(TestFirmwareInfoProvider, AsicLocation) {
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
 
-        uint8_t asic_location = fw_info->get_asic_location();
+        std::optional<uint8_t> asic_location = fw_info->get_asic_location();
+
         log_info(
             tt::LogUMD,
             "Device {}: arch={}, fw_range={}, asic_location={}",
             pci_device_id,
             arch_to_str(arch),
             fw_range_label(fw_version),
-            static_cast<uint32_t>(asic_location));
+            opt_str(std::optional<uint32_t>(asic_location)));
 
         // Wormhole FW <= 18.3 hardcodes ASIC_LOCATION to 0 (FixedValue).
         if (arch == tt::ARCH::WORMHOLE_B0 && fw_version <= FW_VERSION_18_3) {
@@ -410,18 +412,20 @@ TEST_F(TestFirmwareInfoProvider, Heartbeat) {
 
         // Read heartbeat twice with a short delay to verify liveness (counter is advancing).
         // Heartbeat increments every 100ms, so wait at least that long.
-        uint32_t heartbeat1 = fw_info->get_heartbeat();
+        std::optional<uint32_t> heartbeat1 = fw_info->get_heartbeat();
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
-        uint32_t heartbeat2 = fw_info->get_heartbeat();
+        std::optional<uint32_t> heartbeat2 = fw_info->get_heartbeat();
 
         log_info(
             tt::LogUMD,
             "Device {}: fw_range={}, heartbeat_1={}, heartbeat_2={}",
             pci_device_id,
             fw_range_label(fw_version),
-            heartbeat1,
-            heartbeat2);
+            opt_str(heartbeat1),
+            opt_str(heartbeat2));
 
+        ASSERT_TRUE(heartbeat1.has_value());
+        ASSERT_TRUE(heartbeat2.has_value());
         EXPECT_GT(heartbeat2, heartbeat1);
     }
 }
@@ -692,7 +696,7 @@ TEST_F(TestFirmwareInfoProvider, EthHeartbeatStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        auto heartbeats = fw_info->get_eth_heartbeat_status_per_core();
 
         // Available on Wormhole (all versions) and Blackhole >= 19.9.
         if (arch == tt::ARCH::BLACKHOLE && fw_version < FirmwareBundleVersion(19, 9, 0)) {
@@ -720,7 +724,7 @@ TEST_F(TestFirmwareInfoProvider, EthRetrainStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto retrains = fw_info->get_eth_retrain_status();
+        auto retrains = fw_info->get_eth_retrain_status_per_core();
 
         // Only available on Wormhole prior to 19.9.
         if (arch == tt::ARCH::BLACKHOLE || fw_version >= FirmwareBundleVersion(19, 9, 0)) {
@@ -746,7 +750,7 @@ TEST_F(TestFirmwareInfoProvider, EthLinkStatus) {
 
         tt::ARCH arch = tt_device->get_arch();
         auto fw_version = fw_info->get_firmware_version();
-        auto links = fw_info->get_eth_link_status();
+        auto links = fw_info->get_eth_link_status_per_core();
 
         // Available on firmware >= 19.9 for both Wormhole and Blackhole.
         if (fw_version < FirmwareBundleVersion(19, 9, 0)) {
@@ -782,7 +786,7 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
             soc_desc.get_num_harvested_eth_channels(),
             soc_desc.get_num_eth_channels());
 
-        auto heartbeats = fw_info->get_eth_heartbeat_status();
+        auto heartbeats = fw_info->get_eth_heartbeat_status_per_core();
         if (heartbeats.has_value()) {
             log_info(tt::LogUMD, "--- Heartbeat (all channels) ---");
             for (const auto& [coord, status] : heartbeats.value()) {
@@ -799,7 +803,7 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
             log_info(tt::LogUMD, "Heartbeat: unavailable");
         }
 
-        auto links = fw_info->get_eth_link_status();
+        auto links = fw_info->get_eth_link_status_per_core();
         if (links.has_value()) {
             log_info(tt::LogUMD, "--- Link status (all channels) ---");
             for (const auto& [coord, status] : links.value()) {

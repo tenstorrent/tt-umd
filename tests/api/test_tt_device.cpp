@@ -348,7 +348,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         EXPECT_THROW(tt_device->get_chip_info(), err);
         EXPECT_THROW(tt_device->get_soc_descriptor(), err);
         EXPECT_THROW(tt_device->get_arc_messenger(), err);
-        EXPECT_THROW(tt_device->get_arc_telemetry_reader(), err);
+        EXPECT_THROW(tt_device->get_firmware_telemetry_reader(), err);
         EXPECT_THROW(tt_device->get_firmware_info_provider(), err);
         EXPECT_THROW(tt_device->get_board_id(), err);
         EXPECT_THROW(tt_device->get_board_type(), err);
@@ -365,7 +365,7 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         EXPECT_NO_THROW(tt_device->get_chip_info());
         EXPECT_NO_THROW(tt_device->get_soc_descriptor());
         EXPECT_NO_THROW(tt_device->get_arc_messenger());
-        EXPECT_NO_THROW(tt_device->get_arc_telemetry_reader());
+        EXPECT_NO_THROW(tt_device->get_firmware_telemetry_reader());
         EXPECT_NO_THROW(tt_device->get_firmware_info_provider());
         EXPECT_NO_THROW(tt_device->get_board_id());
         EXPECT_NO_THROW(tt_device->get_board_type());

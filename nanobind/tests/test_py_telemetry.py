@@ -18,7 +18,7 @@ class TestTelemetry(unittest.TestCase):
             dev = tt_umd.TTDevice.create(pci_id)
             dev.set_power_state(tt_umd.TTDevice.PowerState.BUSY)
             dev.init_tt_device()
-            tel_reader = dev.get_arc_telemetry_reader()
+            tel_reader = dev.get_firmware_telemetry_reader()
             tag = int(tt_umd.TelemetryTag.ASIC_TEMPERATURE)
             print(
                 f"Device {pci_id} - Telemetry reading for asic temperature: ",
@@ -30,7 +30,7 @@ class TestTelemetry(unittest.TestCase):
         cluster_descriptor, umd_tt_devices = tt_umd.TopologyDiscovery.discover()
         tag = int(tt_umd.TelemetryTag.ASIC_TEMPERATURE)
         for chip, dev in umd_tt_devices.items():
-            tel_reader = umd_tt_devices[chip].get_arc_telemetry_reader()
+            tel_reader = umd_tt_devices[chip].get_firmware_telemetry_reader()
             print(
                 f"Telemetry reading for {'local' if dev.is_remote() else 'remote'} chip {chip} ASIC temperature: ",
                 tel_reader.read_entry(tag),

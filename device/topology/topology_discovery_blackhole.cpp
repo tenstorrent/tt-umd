@@ -182,8 +182,8 @@ void TopologyDiscoveryBlackhole::init_first_device(TTDevice* tt_device) {
 }
 
 uint64_t TopologyDiscoveryBlackhole::get_unconnected_device_id(TTDevice* tt_device) {
-    uint32_t asic_id_lo = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
-    uint32_t asic_id_hi = tt_device->get_arc_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
+    uint32_t asic_id_lo = tt_device->get_firmware_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_LOW);
+    uint32_t asic_id_hi = tt_device->get_firmware_telemetry_reader()->read_entry(TelemetryTag::ASIC_ID_HIGH);
     return (static_cast<uint64_t>(asic_id_hi) << 32) | asic_id_lo;
 }
 

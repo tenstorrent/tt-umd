@@ -18,6 +18,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -33,7 +34,7 @@ namespace tt::umd {
 
 FirmwareInfoProvider::FirmwareInfoProvider(TTDevice* tt_device) :
     tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     if (telemetry == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
     }
@@ -248,7 +249,7 @@ uint32_t FirmwareInfoProvider::read_raw_telemetry(const FeatureKey& key) const {
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
+                auto* tel = tt_device->get_firmware_telemetry_reader();
                 return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
                 const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
@@ -278,7 +279,7 @@ bool FirmwareInfoProvider::is_feature_available(FirmwareFeature feature) const {
             using T = std::decay_t<decltype(arg)>;
 
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
-                auto* tel = tt_device->get_arc_telemetry_reader();
+                auto* tel = tt_device->get_firmware_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
                 const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
@@ -327,20 +328,24 @@ template std::optional<double> FirmwareInfoProvider::read_scalar<double>(Firmwar
 template std::optional<uint8_t> FirmwareInfoProvider::read_scalar<uint8_t>(FirmwareFeature feature) const;
 template std::optional<uint16_t> FirmwareInfoProvider::read_scalar<uint16_t>(FirmwareFeature feature) const;
 
-FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version() const { return firmware_version; }
+FirmwareBundleVersion FirmwareInfoProvider::get_firmware_version(NocId noc_id) const { return firmware_version; }
 
-uint64_t FirmwareInfoProvider::get_board_id() const {
+std::optional<uint64_t> FirmwareInfoProvider::get_board_id(NocId noc_id) const {
+    if (!(is_feature_available(FirmwareFeature::BOARD_ID_HIGH) &&
+          is_feature_available(FirmwareFeature::BOARD_ID_LOW))) {
+        return std::nullopt;
+    }
     uint32_t high = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_HIGH).value_or(0);
     uint32_t low = read_scalar<uint32_t>(FirmwareFeature::BOARD_ID_LOW).value_or(0);
     return (static_cast<uint64_t>(high) << 32) | low;
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_eth_fw_version(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
 }
 
-std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
-    auto tag_value = get_eth_fw_version();
+std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver(NocId noc_id) const {
+    auto tag_value = read_scalar<uint32_t>(FirmwareFeature::ETH_FW_VERSION);
     if (!tag_value.has_value()) {
         return std::nullopt;
     }
@@ -358,7 +363,7 @@ std::optional<SemVer> FirmwareInfoProvider::get_eth_fw_version_semver() const {
     }
 }
 
-std::optional<SemVer> FirmwareInfoProvider::get_gddr_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_gddr_fw_version(NocId noc_id) const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::GDDR_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -366,7 +371,7 @@ std::optional<SemVer> FirmwareInfoProvider::get_gddr_fw_version() const {
     return get_gddr_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<SemVer> FirmwareInfoProvider::get_cm_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_cm_fw_version(NocId noc_id) const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::CM_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -374,7 +379,7 @@ std::optional<SemVer> FirmwareInfoProvider::get_cm_fw_version() const {
     return get_cm_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<SemVer> FirmwareInfoProvider::get_dm_app_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_dm_app_fw_version(NocId noc_id) const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::DM_APP_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -382,7 +387,7 @@ std::optional<SemVer> FirmwareInfoProvider::get_dm_app_fw_version() const {
     return get_dm_app_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<SemVer> FirmwareInfoProvider::get_dm_bl_fw_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_dm_bl_fw_version(NocId noc_id) const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::DM_BL_FW_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -390,7 +395,7 @@ std::optional<SemVer> FirmwareInfoProvider::get_dm_bl_fw_version() const {
     return get_dm_bl_fw_version_from_telemetry(*raw, tt_device->get_arch());
 }
 
-std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version() const {
+std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version(NocId noc_id) const {
     auto raw = read_scalar<uint32_t>(FirmwareFeature::TT_FLASH_VERSION);
     if (!raw.has_value()) {
         return std::nullopt;
@@ -398,31 +403,33 @@ std::optional<SemVer> FirmwareInfoProvider::get_tt_flash_version() const {
     return get_tt_flash_version_from_telemetry(*raw);
 }
 
-double FirmwareInfoProvider::get_asic_temperature() const {
-    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE).value_or(0.0);
+std::optional<double> FirmwareInfoProvider::get_asic_temperature(NocId noc_id) const {
+    return read_scalar<double>(FirmwareFeature::ASIC_TEMPERATURE);
 }
 
-std::optional<double> FirmwareInfoProvider::get_board_temperature() const {
+std::optional<double> FirmwareInfoProvider::get_board_temperature(NocId noc_id) const {
     return read_scalar<double>(FirmwareFeature::BOARD_TEMPERATURE);
 }
 
-uint32_t FirmwareInfoProvider::get_max_clock_freq() const {
-    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_max_clock_freq(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::MAX_CLOCK_FREQ);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_aiclk() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_min_clock_freq(NocId noc_id) const { return std::nullopt; }
+
+std::optional<uint32_t> FirmwareInfoProvider::get_aiclk(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::AICLK);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_axiclk() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_axiclk(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::AXICLK);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_arcclk() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_arcclk(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::ARCCLK);
 }
 
-std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speeds() const {
+std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speeds(NocId noc_id) const {
     std::vector<std::optional<uint32_t>> fan_speeds(MAX_NUMBER_OF_FANS, std::nullopt);
 
     auto fan_speed = read_scalar<uint32_t>(FirmwareFeature::FAN_SPEED);
@@ -435,9 +442,11 @@ std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_speeds() cons
     return fan_speeds;
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_tdp() const { return read_scalar<uint32_t>(FirmwareFeature::TDP); }
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDP);
+}
 
-std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpms() const {
+std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpms(NocId noc_id) const {
     std::vector<std::optional<uint32_t>> fan_rpms(MAX_NUMBER_OF_FANS, std::nullopt);
     auto fan_rpm = read_scalar<uint32_t>(FirmwareFeature::FAN_RPM);
     // No fan RPM information available.
@@ -457,22 +466,26 @@ std::vector<std::optional<uint32_t>> FirmwareInfoProvider::get_fan_rpms() const 
     return fan_rpms;
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed() const { return get_fan_speeds().front(); }
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_speed(NocId noc_id) const {
+    return get_fan_speeds(noc_id).front();
+}
 
-std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm() const { return get_fan_rpms().front(); }
+std::optional<uint32_t> FirmwareInfoProvider::get_fan_rpm(NocId noc_id) const { return get_fan_rpms(noc_id).front(); }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_tdc() const { return read_scalar<uint32_t>(FirmwareFeature::TDC); }
+std::optional<uint32_t> FirmwareInfoProvider::get_tdc(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::TDC);
+}
 
-std::optional<uint32_t> FirmwareInfoProvider::get_vcore() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_vcore(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::VCORE);
 }
 
-uint8_t FirmwareInfoProvider::get_asic_location() const {
-    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION).value_or(0);
+std::optional<uint8_t> FirmwareInfoProvider::get_asic_location(NocId noc_id) const {
+    return read_scalar<uint8_t>(FirmwareFeature::ASIC_LOCATION);
 }
 
-uint32_t FirmwareInfoProvider::get_heartbeat() const {
-    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT).value_or(0);
+std::optional<uint32_t> FirmwareInfoProvider::get_heartbeat(NocId noc_id) const {
+    return read_scalar<uint32_t>(FirmwareFeature::HEARTBEAT);
 }
 
 // Legacy Wormhole: Each channel uses 4 bits.
@@ -550,7 +563,8 @@ static std::vector<DramTrainingStatus> get_modern_dram_statuses(
     return statuses;
 }
 
-std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(uint32_t num_dram_channels) const {
+std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(
+    uint32_t num_dram_channels, NocId noc_id) const {
     auto telemetry_data = read_scalar<uint32_t>(FirmwareFeature::DDR_STATUS);
     if (!telemetry_data.has_value()) {
         return {};
@@ -571,7 +585,7 @@ std::vector<DramTrainingStatus> FirmwareInfoProvider::get_dram_training_status(u
 }
 
 static bool gddr_telemetry_tags_available(TTDevice* tt_device) {
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     // All GDDR telemetry tags from GDDR_0_1_TEMP through MAX_GDDR_TEMP must be present.
     for (uint8_t tag = static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP);
          tag <= static_cast<uint8_t>(TelemetryTag::MAX_GDDR_TEMP);
@@ -611,11 +625,12 @@ static GddrModuleTelemetry decode_gddr_module_telemetry(
     return module;
 }
 
-std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(GddrModule gddr_module) const {
+std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(
+    GddrModule gddr_module, NocId noc_id) const {
     const uint8_t module_index = static_cast<uint8_t>(gddr_module);
     const uint8_t pair_index = module_index / 2;
 
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
 
     if (!telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_TEMP) + pair_index) ||
         !telemetry->is_entry_available(static_cast<uint8_t>(TelemetryTag::GDDR_0_1_CORR_ERRS) + pair_index) ||
@@ -631,12 +646,12 @@ std::optional<GddrModuleTelemetry> FirmwareInfoProvider::get_dram_telemetry(Gddr
     return decode_gddr_module_telemetry(module_index, temp_word, corr_word, uncorr_bitmask);
 }
 
-std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry() const {
+std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry(NocId noc_id) const {
     if (!gddr_telemetry_tags_available(tt_device)) {
         return std::nullopt;
     }
 
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     GddrTelemetry aggregated{};
 
     const uint32_t uncorr_bitmask = telemetry->read_entry(static_cast<uint8_t>(TelemetryTag::GDDR_UNCORR_ERRS));
@@ -657,33 +672,33 @@ std::optional<GddrTelemetry> FirmwareInfoProvider::get_aggregated_dram_telemetry
     return aggregated;
 }
 
-std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed() const {
+std::optional<uint16_t> FirmwareInfoProvider::get_dram_speed(NocId noc_id) const {
     return read_scalar<uint16_t>(FirmwareFeature::DDR_SPEED);
 }
 
-std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature() const {
+std::optional<double> FirmwareInfoProvider::get_current_max_dram_temperature(NocId noc_id) const {
     return read_scalar<double>(FirmwareFeature::MAX_GDDR_TEMP);
 }
 
-std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown() const {
+std::optional<double> FirmwareInfoProvider::get_thm_limit_shutdown(NocId noc_id) const {
     // Stored as a plain integer in degrees Celsius.
     return read_scalar<double>(FirmwareFeature::THM_LIMIT_SHUTDOWN);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_tdp_limit() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_tdp_limit(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::TDP_LIMIT_MAX);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_board_power_limit(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::BOARD_POWER_LIMIT);
 }
 
-std::optional<double> FirmwareInfoProvider::get_thm_limit_throttle() const {
+std::optional<double> FirmwareInfoProvider::get_thm_limit_throttle(NocId noc_id) const {
     // Stored as a plain integer in degrees Celsius.
     return read_scalar<double>(FirmwareFeature::THM_LIMIT_THROTTLE);
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_therm_trip_count(NocId noc_id) const {
     return read_scalar<uint32_t>(FirmwareFeature::THERM_TRIP_COUNT);
 }
 
@@ -715,7 +730,21 @@ std::vector<std::pair<CoreCoord, bool>> FirmwareInfoProvider::parse_eth_status_b
     return statuses;
 }
 
-std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_heartbeat_status() const {
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_heartbeat_status(NocId noc_id) const {
+    auto statuses = get_eth_heartbeat_status_per_core(noc_id);
+    if (!statuses.has_value()) {
+        return std::nullopt;
+    }
+    std::vector<bool> heartbeat_status;
+    heartbeat_status.reserve(statuses->size());
+    for (const auto& [core, status] : statuses.value()) {
+        heartbeat_status.push_back(status);
+    }
+    return heartbeat_status;
+}
+
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_heartbeat_status_per_core(
+    NocId noc_id) const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_HEARTBEAT_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -723,7 +752,8 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_link_status() const {
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_link_status_per_core(
+    NocId noc_id) const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_LINK_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -731,7 +761,21 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_retrain_status() const {
+std::optional<std::vector<bool>> FirmwareInfoProvider::get_eth_retrain_status(NocId noc_id) const {
+    auto statuses = get_eth_retrain_status_per_core(noc_id);
+    if (!statuses.has_value()) {
+        return std::nullopt;
+    }
+    std::vector<bool> retrain_status;
+    retrain_status.reserve(statuses->size());
+    for (const auto& [core, status] : statuses.value()) {
+        retrain_status.push_back(status);
+    }
+    return retrain_status;
+}
+
+std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get_eth_retrain_status_per_core(
+    NocId noc_id) const {
     auto data = read_scalar<uint16_t>(FirmwareFeature::ETH_RETRAIN_STATUS);
     if (!data.has_value()) {
         return std::nullopt;
@@ -739,7 +783,7 @@ std::optional<std::vector<std::pair<CoreCoord, bool>>> FirmwareInfoProvider::get
     return parse_eth_status_bitmask(data.value());
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_address(NocId noc_id) const {
     uint32_t address = 0;
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
@@ -759,7 +803,7 @@ std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_addre
     }
 }
 
-std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size() const {
+std::optional<uint32_t> FirmwareInfoProvider::get_runtime_telemetry_buffer_size(NocId noc_id) const {
     uint32_t size = 0;
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:

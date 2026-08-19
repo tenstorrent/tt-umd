@@ -10,6 +10,7 @@
 #include <memory>
 #include <unordered_set>
 
+#include "firmware_telemetry_reader.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -17,13 +18,11 @@
 namespace tt::umd {
 class TTDevice;
 
-class ArcTelemetryReader {
+class ArcTelemetryReader : public FirmwareTelemetryReader {
 public:
-    virtual ~ArcTelemetryReader() = default;
+    uint32_t read_entry(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
-    virtual uint32_t read_entry(const uint8_t telemetry_tag);
-
-    virtual bool is_entry_available(const uint8_t telemetry_tag);
+    bool is_entry_available(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
     // Constructs the reader and waits for the ARC telemetry table to be fully populated.
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(

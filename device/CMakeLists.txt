@@ -185,6 +185,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/arch/architecture_implementation.hpp
                 api/umd/device/arc/arc_messenger.hpp
                 api/umd/device/arc/arc_telemetry_reader.hpp
+                api/umd/device/arc/firmware_telemetry_reader.hpp
                 api/umd/device/arc/blackhole_arc_message_queue.hpp
                 api/umd/device/arc/blackhole_arc_messenger.hpp
                 api/umd/device/arc/smbus_arc_telemetry_reader.hpp

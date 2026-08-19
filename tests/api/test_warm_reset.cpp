@@ -34,7 +34,7 @@
 #include "tests/test_utils/multi_process_event.hpp"
 #include "tests/test_utils/pipe_communication.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -308,8 +308,8 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
     for (auto& chip_id : cluster->get_target_mmio_device_ids()) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
         tt_device->bar_write32(
-            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-                tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+            get_architecture_registers(tt_device->get_arch()).arc_apb_bar0_offset +
+                get_architecture_registers(tt_device->get_arch()).arc_reset_scratch_2_offset,
             write_test_data);
     }
 
@@ -323,8 +323,8 @@ TEST(WarmResetTest, GalaxyWarmResetScratch) {
         auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
         auto read_test_data = tt_device->bar_read32(
-            tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+            get_architecture_registers(tt_device->get_arch()).arc_apb_bar0_offset +
+            get_architecture_registers(tt_device->get_arch()).arc_reset_scratch_2_offset);
 
         EXPECT_NE(write_test_data, read_test_data);
         EXPECT_EQ(DEFAULT_VALUE_IN_SCRATCH_REGISTER, read_test_data);
@@ -419,8 +419,8 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
     auto tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
     tt_device->bar_write32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-            tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset(),
+        get_architecture_registers(tt_device->get_arch()).arc_apb_bar0_offset +
+            get_architecture_registers(tt_device->get_arch()).arc_reset_scratch_2_offset,
         write_test_data);
 
     switch (GetParam()) {
@@ -455,8 +455,8 @@ TEST_P(ClusterWarmResetScratchMethodTest, ClusterWarmResetScratch) {
     tt_device = cluster->get_chip(chip_id)->get_tt_device();
 
     auto read_test_data = tt_device->bar_read32(
-        tt_device->get_architecture_implementation()->get_arc_axi_apb_peripheral_offset() +
-        tt_device->get_architecture_implementation()->get_arc_reset_scratch_2_offset());
+        get_architecture_registers(tt_device->get_arch()).arc_apb_bar0_offset +
+        get_architecture_registers(tt_device->get_arch()).arc_reset_scratch_2_offset);
 
     EXPECT_NE(write_test_data, read_test_data);
 }

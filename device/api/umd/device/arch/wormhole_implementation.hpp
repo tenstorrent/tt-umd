@@ -255,6 +255,7 @@ inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_OFFSET_END - ARC_CSM_NOC_XBAR_OFFSET_START;
 
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
+inline constexpr uint32_t ARC_CSM_BAR0_MAILBOX_OFFSET = ARC_CSM_BAR0_XBAR_OFFSET_START + ARC_CSM_MAILBOX_OFFSET;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
 
@@ -305,6 +306,8 @@ inline constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET +
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
 inline constexpr uint64_t ARC_NOC_ADDRESS_START = 0x800000000;
+inline constexpr uint64_t ARC_APB_NOC_BASE_ADDRESS = ARC_NOC_ADDRESS_START + ARC_APB_NOC_XBAR_OFFSET_START;
+inline constexpr uint64_t ARC_CSM_NOC_BASE_ADDRESS = ARC_NOC_ADDRESS_START + ARC_CSM_NOC_XBAR_OFFSET_START;
 
 inline constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
 inline constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
@@ -389,10 +392,6 @@ class WormholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::WORMHOLE_B0; }
 
-    uint32_t get_arc_message_arc_get_harvesting() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING);
-    }
-
     uint32_t get_arc_message_arc_go_busy() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_BUSY);
     }
@@ -400,28 +399,6 @@ public:
     uint32_t get_arc_message_arc_go_long_idle() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
-
-    uint32_t get_arc_message_deassert_riscv_reset() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::DEASSERT_RISCV_RESET);
-    }
-
-    uint32_t get_arc_message_get_aiclk() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK);
-    }
-
-    uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER);
-    }
-
-    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
-        return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + wormhole::ARC_CSM_MAILBOX_OFFSET;
-    }
-
-    uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
-
-    uint32_t get_arc_reset_scratch_offset() const override { return wormhole::ARC_RESET_SCRATCH_OFFSET; }
-
-    uint32_t get_arc_reset_scratch_2_offset() const override { return wormhole::ARC_RESET_SCRATCH_2_OFFSET; }
 
     uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 
@@ -440,14 +417,6 @@ public:
     RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const override;
 
     uint32_t get_soft_reset_staggered_start() const override { return wormhole::SOFT_RESET_STAGGERED_START; }
-
-    uint64_t get_arc_apb_noc_base_address() const override {
-        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_APB_NOC_XBAR_OFFSET_START;
-    }
-
-    uint64_t get_arc_csm_noc_base_address() const override {
-        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START;
-    }
 
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return wormhole::HARVESTING_NOC_LOCATIONS;

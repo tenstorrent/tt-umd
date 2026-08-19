@@ -57,9 +57,7 @@ void TTSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t size
         static_cast<uint32_t>(size));
 }
 
-void TTSimTlbWindow::write16(uint64_t offset, uint16_t value) {
-    translate_and_write(offset, &value, sizeof(value));
-}
+void TTSimTlbWindow::write16(uint64_t offset, uint16_t value) { translate_and_write(offset, &value, sizeof(value)); }
 
 uint16_t TTSimTlbWindow::read16(uint64_t offset) {
     uint16_t value = 0;
@@ -67,9 +65,7 @@ uint16_t TTSimTlbWindow::read16(uint64_t offset) {
     return value;
 }
 
-void TTSimTlbWindow::write32(uint64_t offset, uint32_t value) {
-    translate_and_write(offset, &value, sizeof(value));
-}
+void TTSimTlbWindow::write32(uint64_t offset, uint32_t value) { translate_and_write(offset, &value, sizeof(value)); }
 
 uint32_t TTSimTlbWindow::read32(uint64_t offset) {
     uint32_t value = 0;
@@ -81,9 +77,7 @@ void TTSimTlbWindow::write_register(uint64_t offset, const void* data, size_t si
     translate_and_write(offset, data, size);
 }
 
-void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) {
-    translate_and_read(offset, data, size);
-}
+void TTSimTlbWindow::read_register(uint64_t offset, void* data, size_t size) { translate_and_read(offset, data, size); }
 
 void TTSimTlbWindow::write_block(uint64_t offset, const void* data, size_t size) {
     translate_and_write(offset, data, size);

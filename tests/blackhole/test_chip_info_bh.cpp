@@ -12,6 +12,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/noc_id.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -24,7 +25,7 @@ TEST(BlackholeChipInfo, BasicChipInfo) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        const ChipInfo chip_info = tt_device->get_chip_info();
+        const ChipInfo chip_info = tt_device->get_chip_info(NocId::NOC0);
 
         EXPECT_TRUE(
             chip_info.board_type == BoardType::P100 || chip_info.board_type == BoardType::P150 ||

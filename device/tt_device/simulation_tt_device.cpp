@@ -296,7 +296,7 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 
-bool SimulationTTDevice::get_noc_translation_enabled() {
+bool SimulationTTDevice::get_noc_translation_enabled(NocId /*noc_id*/) {
     // Simulation backends operate on logical/virtual coordinates end-to-end; NOC translation is never
     // applied.
     return false;
@@ -318,19 +318,23 @@ void SimulationTTDevice::dma_multicast_write(
     UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void SimulationTTDevice::read_from_arc_apb(
+    void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void SimulationTTDevice::write_to_arc_apb(
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "ARC APB access is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void SimulationTTDevice::read_from_arc_csm(
+    void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "ARC CSM access is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {
+void SimulationTTDevice::write_to_arc_csm(
+    const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "ARC CSM access is not supported for simulation devices.");
 }
 

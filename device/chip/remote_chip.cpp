@@ -64,7 +64,8 @@ RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_dev
 #endif  // TT_UMD_BUILD_SIMULATION
 
 RemoteChip::RemoteChip(Chip* local_chip, std::unique_ptr<TTDevice> remote_tt_device) :
-    Chip(remote_tt_device->get_chip_info(), remote_tt_device->get_arch()), local_chip_(local_chip) {
+    Chip(remote_tt_device->get_chip_info(get_selected_noc_id()), remote_tt_device->get_arch()),
+    local_chip_(local_chip) {
     remote_communication_ = remote_tt_device->get_remote_communication();
     tt_device_ = std::move(remote_tt_device);
     wait_chip_to_be_ready();

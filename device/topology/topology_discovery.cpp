@@ -458,12 +458,13 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             cluster_desc->chips_with_mmio.insert({current_chip_id, tt_device->get_communication_device_id()});
         }
 
-        cluster_desc->chip_board_type.insert({current_chip_id, tt_device->get_chip_info().board_type});
+        const ChipInfo chip_info = tt_device->get_chip_info(get_selected_noc_id());
 
-        cluster_desc->noc_translation_enabled.insert(
-            {current_chip_id, tt_device->get_chip_info().noc_translation_enabled});
-        cluster_desc->harvesting_masks_map.insert({current_chip_id, tt_device->get_chip_info().harvesting_masks});
-        cluster_desc->asic_locations.insert({current_chip_id, tt_device->get_chip_info().asic_location});
+        cluster_desc->chip_board_type.insert({current_chip_id, chip_info.board_type});
+
+        cluster_desc->noc_translation_enabled.insert({current_chip_id, chip_info.noc_translation_enabled});
+        cluster_desc->harvesting_masks_map.insert({current_chip_id, chip_info.harvesting_masks});
+        cluster_desc->asic_locations.insert({current_chip_id, chip_info.asic_location});
 
         if (tt_device->get_pci_device()) {
             cluster_desc->chip_to_bus_id.insert(
@@ -479,7 +480,7 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             }
         }
 
-        cluster_desc->add_chip_to_board(current_chip_id, tt_device->get_chip_info().board_id);
+        cluster_desc->add_chip_to_board(current_chip_id, chip_info.board_id);
     }
 
     for (auto [ethernet_connection_logical, ethernet_connection_remote] : ethernet_connections) {

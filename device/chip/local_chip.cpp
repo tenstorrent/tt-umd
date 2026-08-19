@@ -65,7 +65,7 @@ LocalChip::LocalChip(
     std::unique_ptr<TTDevice> tt_device,
     std::unique_ptr<TLBManager> tlb_manager,
     std::unique_ptr<SysmemManager> sysmem_manager) :
-    Chip(tt_device->get_chip_info(), tt_device->get_arch()),
+    Chip(tt_device->get_chip_info(get_selected_noc_id()), tt_device->get_arch()),
     tlb_manager_(std::move(tlb_manager)),
     sysmem_manager_(std::move(sysmem_manager)),
     tt_device_(std::move(tt_device)) {

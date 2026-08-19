@@ -272,7 +272,11 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc_apb(
+        void *mem_ptr,
+        uint64_t arc_addr_offset,
+        [[maybe_unused]] size_t size,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * Write function that will send write message to the ARC core APB peripherals.
@@ -289,7 +293,11 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc_apb(
+        const void *mem_ptr,
+        uint64_t arc_addr_offset,
+        [[maybe_unused]] size_t size,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * Read function that will send read message to the ARC core CSM.
@@ -306,7 +314,11 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void read_from_arc_csm(
+        void *mem_ptr,
+        uint64_t arc_addr_offset,
+        [[maybe_unused]] size_t size,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * Write function that will send write message to the ARC core CSM.
@@ -323,7 +335,11 @@ public:
      * For additional details on the ARC core architecture and communication mechanisms, please refer to:
      * https://github.com/tenstorrent/tt-isa-documentation
      */
-    virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
+    virtual void write_to_arc_csm(
+        const void *mem_ptr,
+        uint64_t arc_addr_offset,
+        [[maybe_unused]] size_t size,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * Configures a PCIe Address Translation Unit (iATU) region.
@@ -353,7 +369,7 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info();
+    virtual ChipInfo get_chip_info(NocId noc_id = NocId::DEFAULT_NOC);
 
     FirmwareBundleVersion get_firmware_version();
 
@@ -362,7 +378,9 @@ public:
      * Must be called before using ArcMessenger.
      * This ensures the ARC core is completely initialized and operational.
      */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    virtual void wait_arc_core_start(
+        const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT,
+        NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     /**
      * Waits for ETH core training to complete.
@@ -384,7 +402,7 @@ public:
 
     ArcTelemetryReader *get_arc_telemetry_reader() const;
 
-    tt_xy_pair get_arc_core() const;
+    tt_xy_pair get_arc_core(NocId noc_id = NocId::DEFAULT_NOC) const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
@@ -425,7 +443,7 @@ public:
 
     BoardType get_board_type();
 
-    virtual bool get_noc_translation_enabled() = 0;
+    virtual bool get_noc_translation_enabled(NocId noc_id = NocId::DEFAULT_NOC) = 0;
 
     double get_asic_temperature();
 
@@ -433,7 +451,8 @@ public:
 
     bool is_remote();
 
-    void init_tt_device(std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT);
+    void init_tt_device(
+        std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT, NocId noc_id = NocId::DEFAULT_NOC);
 
     uint64_t get_refclk_counter();
 
@@ -567,16 +586,13 @@ protected:
 
     bool is_remote_tt_device = false;
 
-    xy_pair arc_core_noc0;
-    xy_pair arc_core_noc1;
-
-    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor, NocId noc_id);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
-    virtual void set_arc_coordinate() {}
+    void set_arc_coordinates(xy_pair arc_core_noc0, xy_pair arc_core_noc1);
 
 private:
-    void probe_arc();
+    void probe_arc(NocId noc_id);
 
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
@@ -598,6 +614,9 @@ private:
     PcieProtocol *pcie_protocol_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
+
+    xy_pair arc_core_noc0_;
+    xy_pair arc_core_noc1_;
 };
 
 }  // namespace tt::umd

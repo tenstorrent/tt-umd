@@ -17,7 +17,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -118,9 +117,9 @@ TTDevice::TTDevice(
     device_protocol_ = std::move(remote_protocol);
 }
 
-void TTDevice::probe_arc() {
+void TTDevice::probe_arc(NocId noc_id) {
     uint32_t dummy;
-    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
+    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy), noc_id);  // SCRATCH_0
 }
 
 void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
@@ -138,22 +137,21 @@ void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescripto
     soc_arch_descriptor_ = soc_arch_descriptor;
 }
 
-void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
+void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms, NocId noc_id) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (pcie_capabilities_ != nullptr) {
         is_pcie_hung();
     }
-    bool noc_hang_check_result =
-        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+    bool noc_hang_check_result = hang_detector_->is_noc_hung(noc_id).value_or(false);
     if (noc_hang_check_result) {
-        UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
+        UMD_THROW(error::NocHangError, *this, noc_id);
     }
-    probe_arc();
-    wait_arc_core_start(timeout_ms);
+    probe_arc(noc_id);
+    wait_arc_core_start(timeout_ms, noc_id);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
-    construct_soc_descriptor(soc_arch_descriptor_);
+    construct_soc_descriptor(soc_arch_descriptor_, noc_id);
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -626,13 +624,13 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
-ChipInfo TTDevice::get_chip_info() {
+ChipInfo TTDevice::get_chip_info(NocId noc_id) {
     if (firmware_info_provider == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
     ChipInfo chip_info;
 
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
+    chip_info.noc_translation_enabled = get_noc_translation_enabled(noc_id);
     chip_info.board_id = get_board_id();
     chip_info.board_type = get_board_type();
     chip_info.asic_location = get_asic_location();
@@ -676,12 +674,22 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
+tt_xy_pair TTDevice::get_arc_core(NocId noc_id) const {
+    // NocId::DEFAULT_NOC shares NOC0's value, so it resolves to the NOC0 ARC core.
+    switch (noc_id) {
+        case NocId::NOC0:
+            return arc_core_noc0_;
+        case NocId::NOC1:
+            return arc_core_noc1_;
+        default:
+            UMD_THROW(error::RuntimeError, fmt::format("No ARC core coordinate defined for {}.", noc_to_str(noc_id)));
+    }
+}
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
+        get_chip_info(noc_id).noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
@@ -715,7 +723,7 @@ void TTDevice::noc_multicast_write(
 
 void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
+        get_chip_info(noc_id).noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
@@ -846,11 +854,11 @@ const SocDescriptor &TTDevice::get_soc_descriptor() const {
     return soc_descriptor_.value();
 }
 
-void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
+void TTDevice::construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor, NocId noc_id) {
     if (soc_arch_descriptor == nullptr) {
-        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info());
+        soc_descriptor_ = SocDescriptor(std::make_shared<SocArchDescriptor>(get_arch()), get_chip_info(noc_id));
     } else {
-        soc_descriptor_ = SocDescriptor(soc_arch_descriptor, get_chip_info());
+        soc_descriptor_ = SocDescriptor(soc_arch_descriptor, get_chip_info(noc_id));
     }
 }
 
@@ -869,6 +877,11 @@ xy_pair TTDevice::resolve_coordinate(CoreCoord core, NocId noc_id) const {
         UMD_THROW(error::UnresolvableCoordinateError, *this, core, noc_id);
     }
     return get_soc_descriptor().translate_chip_coord_to_translated(core, noc_id);
+}
+
+void TTDevice::set_arc_coordinates(xy_pair arc_core_noc0, xy_pair arc_core_noc1) {
+    arc_core_noc0_ = arc_core_noc0;
+    arc_core_noc1_ = arc_core_noc1;
 }
 
 }  // namespace tt::umd

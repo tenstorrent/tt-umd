@@ -341,7 +341,7 @@ void TTSimTTDevice::advance_device_execution() {
     }
 }
 
-void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
+void TTSimTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms, NocId noc_id) {
     UMD_THROW(error::RuntimeError, "Waiting for ARC core start is not supported in TTSim simulation device.");
 }
 
@@ -354,7 +354,7 @@ EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_cor
     UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
 }
 
-ChipInfo TTSimTTDevice::get_chip_info() {
+ChipInfo TTSimTTDevice::get_chip_info(NocId /*noc_id*/) {
     // No firmware_info_provider on the simulator; mirror the defaults used inside
     // TTSimTTDevice::create(). BH SocDescriptor construction rejects an empty eth_harvesting_mask
     // ("Exactly 2 or 14 ETH cores should be harvested on full Blackhole"), so apply the same 0x120

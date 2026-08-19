@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -13,6 +14,7 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/arc/spi_tt_device.hpp"
@@ -28,6 +30,7 @@
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -255,11 +258,22 @@ void bind_tt_device(nb::module_ &m) {
             release_gil())
         .def(
             "init_tt_device",
-            &TTDevice::init_tt_device,
+            // noc_id defaults to the NocId selected for the calling thread, so omitting it preserves the
+            // behaviour of set_thread_noc_id().
+            [](TTDevice &self, std::chrono::milliseconds timeout_ms, std::optional<NocId> noc_id) {
+                self.init_tt_device(timeout_ms, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("timeout_ms") = timeout::ARC_STARTUP_TIMEOUT,
+            nb::arg("noc_id") = nb::none(),
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
-        .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
+        .def(
+            "get_chip_info",
+            [](TTDevice &self, std::optional<NocId> noc_id) {
+                return self.get_chip_info(noc_id.value_or(get_selected_noc_id()));
+            },
+            nb::arg("noc_id") = nb::none(),
+            release_gil())
         .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
@@ -278,7 +292,13 @@ void bind_tt_device(nb::module_ &m) {
                     return -1;
                 }
             })
-        .def("get_noc_translation_enabled", &TTDevice::get_noc_translation_enabled, release_gil())
+        .def(
+            "get_noc_translation_enabled",
+            [](TTDevice &self, std::optional<NocId> noc_id) {
+                return self.get_noc_translation_enabled(noc_id.value_or(get_selected_noc_id()));
+            },
+            nb::arg("noc_id") = nb::none(),
+            release_gil())
         .def("is_remote", &TTDevice::is_remote, release_gil(), "Returns true if this is a remote TTDevice")
         .def("get_remote_communication", &TTDevice::get_remote_communication, nb::rv_policy::reference_internal)
         .def("get_firmware_info_provider", &TTDevice::get_firmware_info_provider, nb::rv_policy::reference_internal)

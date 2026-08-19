@@ -305,6 +305,8 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
         UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI read on Wormhole.");
     }
 
+    const NocId noc_id = get_selected_noc_id();
+
     std::vector<uint32_t> ret(1);
     uint32_t rc = messenger->send_message(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR), ret);
@@ -331,11 +333,7 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::SPI_READ);
         messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
         device_->read_from_device(
-            chunk_buf.data(),
-            device_->get_arc_core(),
-            spi_dump_addr,
-            wormhole::ARC_SPI_CHUNK_SIZE,
-            get_selected_noc_id());
+            chunk_buf.data(), device_->get_arc_core(noc_id), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, noc_id);
 
         // Copy the relevant portion of the chunk to the output buffer.
         if (offset < start_offset) {
@@ -361,6 +359,8 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
     if (!messenger) {
         UMD_THROW(error::RuntimeError, "ARC messenger not available for SPI write on Wormhole.");
     }
+
+    const NocId noc_id = get_selected_noc_id();
 
     uint32_t clock_div = get_clock();
 
@@ -404,11 +404,7 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             messenger->send_message(spi_read_msg, ret, {chunk_addr & 0xFFFF, (chunk_addr >> 16) & 0xFFFF});
 
             device_->read_from_device(
-                chunk_buf.data(),
-                device_->get_arc_core(),
-                spi_dump_addr,
-                wormhole::ARC_SPI_CHUNK_SIZE,
-                get_selected_noc_id());
+                chunk_buf.data(), device_->get_arc_core(noc_id), spi_dump_addr, wormhole::ARC_SPI_CHUNK_SIZE, noc_id);
 
             // Keep a copy to check if we need to write.
             std::vector<uint8_t> orig_data = chunk_buf;
@@ -430,10 +426,10 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
             if (chunk_buf != orig_data) {
                 device_->write_to_device(
                     chunk_buf.data(),
-                    device_->get_arc_core(),
+                    device_->get_arc_core(noc_id),
                     spi_dump_addr,
                     wormhole::ARC_SPI_CHUNK_SIZE,
-                    get_selected_noc_id());
+                    noc_id);
 
                 if (!skip_write_to_spi) {
                     uint32_t spi_write_msg =

@@ -13,7 +13,8 @@
 namespace tt::umd {
 
 BlackholeArcTelemetryReader::BlackholeArcTelemetryReader(TTDevice* tt_device) : ArcTelemetryReader(tt_device) {
-    arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(), is_selected_noc1());
+    const NocId noc_id = get_selected_noc_id();
+    arc_core = blackhole::get_arc_core(tt_device->get_noc_translation_enabled(noc_id), noc_id == NocId::NOC1);
     wait_for_telemetry_initialized();
 }
 

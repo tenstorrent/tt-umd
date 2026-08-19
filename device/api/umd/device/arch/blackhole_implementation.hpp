@@ -433,9 +433,6 @@ public:
     uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
-    DriverHostAddressParams get_host_address_params() const override;
-    DriverEthInterfaceParams get_eth_interface_params() const override;
-    DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
 

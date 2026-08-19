@@ -10,8 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include "fip.hpp"
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
@@ -32,13 +32,11 @@ class TTDevice;
  * and DRAM training status.
  *
  */
-class FirmwareInfoProvider {
+class FirmwareInfoProviderImplementation : public FirmwareInfoProvider {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
 
-    FirmwareInfoProvider(TTDevice* tt_device);
-
-    virtual ~FirmwareInfoProvider() = default;
+    FirmwareInfoProviderImplementation(TTDevice* tt_device);
 
     virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
@@ -71,6 +69,13 @@ public:
      * @returns AICLK [MHz]
      */
     virtual std::optional<uint32_t> get_aiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    /**
+     * @brief Retrieves the current AICLK frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
     /*
      * Get AXICLK in MHz.

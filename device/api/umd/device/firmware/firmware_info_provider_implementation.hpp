@@ -40,7 +40,7 @@ class FirmwareInfoProviderImplementation : public FirmwareInfoProvider {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
 
-    FirmwareInfoProviderImplementation(TTDevice* tt_device);
+    FirmwareInfoProviderImplementation(TTDevice* tt_device, FirmwareBundleVersion firmware_version);
 
     virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 

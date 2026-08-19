@@ -33,15 +33,18 @@
 
 namespace tt::umd {
 
-FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) :
-    firmware_version(get_firmware_version_util(tt_device)) {
+FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
+    TTDevice* tt_device, FirmwareBundleVersion firmware_version) :
+    firmware_version(firmware_version) {
     telemetry_ = tt_device->get_arc_telemetry_reader();
     if (telemetry_ == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
     }
     arch_ = tt_device->get_arch();
     device_protocol_ = tt_device->get_device_protocol();
-    smbus_telemetry_ = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+    if (arch_ == ARCH::WORMHOLE_B0) {
+        smbus_telemetry_ = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+    }
     arc_core_noc0_ = tt_device->get_arc_core();
 
     firmware_feature_map = create_firmware_feature_map(tt_device->get_arch(), firmware_version);
@@ -52,7 +55,8 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice*
     switch (tt_device->get_arch()) {
         case ARCH::WORMHOLE_B0:
         case ARCH::BLACKHOLE:
-            return std::make_unique<FirmwareInfoProviderImplementation>(tt_device);
+            return std::make_unique<FirmwareInfoProviderImplementation>(
+                tt_device, get_firmware_version_util(tt_device));
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
     }
@@ -256,6 +260,9 @@ uint32_t FirmwareInfoProviderImplementation::read_raw_telemetry(const FeatureKey
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 return (telemetry_ && telemetry_->is_entry_available(arg)) ? telemetry_->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
+                if (smbus_telemetry_ == nullptr) {
+                    return 0u;
+                }
                 return smbus_telemetry_->read_entry(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return arg.value;
@@ -284,6 +291,9 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
             if constexpr (std::is_same_v<T, StandardTag> || std::is_same_v<T, WormholeTag>) {
                 return telemetry_ && telemetry_->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
+                if (smbus_telemetry_ == nullptr) {
+                    return false;
+                }
                 return smbus_telemetry_->is_entry_available(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return true;

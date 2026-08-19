@@ -22,7 +22,7 @@
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"

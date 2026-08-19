@@ -2,8 +2,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/firmware/firmware_info_provider.hpp"
-
 #include <memory>
 #include <optional>
 #include <string>
@@ -18,6 +16,7 @@
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/grendel_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

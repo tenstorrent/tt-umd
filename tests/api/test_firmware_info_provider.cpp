@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

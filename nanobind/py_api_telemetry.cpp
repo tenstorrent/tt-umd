@@ -12,8 +12,8 @@
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
-#include "umd/device/firmware/fip.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"

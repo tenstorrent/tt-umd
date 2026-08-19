@@ -4,7 +4,7 @@
 
 #include "umd/device/topology/topology_discovery_error.hpp"
 
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 

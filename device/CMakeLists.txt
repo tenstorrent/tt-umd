@@ -101,7 +101,7 @@ target_sources(
         tt_device/protocol/remote_protocol.cpp
         tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
         tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
-        firmware/firmware_info_provider.cpp
+        firmware/firmware_info_provider_implementation.cpp
         firmware/firmware_utils.cpp
         types/risc_type.cpp
         soc_arch_descriptor.cpp
@@ -254,6 +254,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/ethernet_broadcast.hpp
                 api/umd/device/firmware/erisc_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
+                api/umd/device/firmware/firmware_info_provider_implementation.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/types/noc_id.hpp

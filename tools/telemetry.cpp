@@ -17,7 +17,6 @@
 #include <optional>
 #include <ostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -29,7 +28,6 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 

@@ -14,6 +14,7 @@
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -359,7 +360,7 @@ void bind_telemetry(nb::module_& m) {
             release_gil())
         .def_static(
             "create_firmware_info_provider",
-            &FirmwareInfoProvider::create_firmware_info_provider,
+            &FirmwareInfoProviderImplementation::create_firmware_info_provider,
             nb::arg("tt_device"),
             release_gil());
 

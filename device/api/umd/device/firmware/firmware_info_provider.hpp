@@ -1,289 +1,361 @@
-// SPDX-FileCopyrightText: © 2025 Tenstorrent Inc.
+// SPDX-FileCopyrightText: © 2026 Tenstorrent Inc.
 //
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
 #include <cstdint>
-#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
 
-#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
-#include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/semver.hpp"
 
-namespace tt {
-enum class ARCH;
-}  // namespace tt
-
 namespace tt::umd {
-class TTDevice;
 
-/*
- * FirmwareInfoProvider is a data-driven class that abstracts away the details of specific firmware
- * versions while maintaining backward compatibility. It provides information about the firmware
- * running on the device, such as version, board ID, ethernet firmware version, ASIC temperature,
- * and DRAM training status.
- *
- */
 class FirmwareInfoProvider {
 public:
-    static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
-
-    FirmwareInfoProvider(TTDevice* tt_device);
-
     virtual ~FirmwareInfoProvider() = default;
 
-    virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    /**
+     * @brief Retrieves the firmware bundle version running on the device.
+     * @param noc_id NOC to route through.
+     * @return FirmwareBundleVersion The active firmware version.
+     */
+    virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    virtual std::optional<uint64_t> get_board_id([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    // TODO: Will be removed in UMD Base API 2.0.0 (#3181)
+    /**
+     * @brief Retrieves the Ethernet firmware version as a raw tag value.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Raw version tag, or std::nullopt if unavailable.
+     */
     [[deprecated("Use get_eth_fw_version_semver()")]] virtual std::optional<uint32_t> get_eth_fw_version(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    virtual std::optional<SemVer> get_eth_fw_version_semver([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<SemVer> get_gddr_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<SemVer> get_cm_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<SemVer> get_dm_app_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<SemVer> get_dm_bl_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<SemVer> get_tt_flash_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get ASIC temperature in Celsius.
-     * @returns ASIC temperature [Celsius]
+    /**
+     * @brief Retrieves the Ethernet firmware version as a semantic version.
+     * @param noc_id NOC to route through.
+     * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    virtual std::optional<double> get_asic_temperature([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::optional<SemVer> get_eth_fw_version_semver(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get AICLK in MHz.
-     * @returns AICLK [MHz]
+    /**
+     * @brief Retrieves the GDDR firmware version.
+     * @param noc_id NOC to route through.
+     * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_aiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::optional<SemVer> get_gddr_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get AXICLK in MHz.
-     * @returns AXICLK [MHz]
+    /**
+     * @brief Retrieves the CM (Clock Manager) firmware version.
+     * @param noc_id NOC to route through.
+     * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_axiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::optional<SemVer> get_cm_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get ARCCLK in MHz.
-     * @returns ARCCLK [MHz]
+    /**
+     * @brief Retrieves the DM application firmware version.
+     * @param noc_id NOC to route through.
+     * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_arcclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::optional<SemVer> get_dm_app_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get targeted speed per fan as a percentage (0-100). Individual entries
-     * can be nullopt if fan speed is not available.
-     * @returns Targeted fan speed [percent]
+    /**
+     * @brief Retrieves the DM bootloader firmware version.
+     * @param noc_id NOC to route through.
+     * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
+     */
+    virtual std::optional<SemVer> get_dm_bl_fw_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the TT-Flash version.
+     * @param noc_id NOC to route through.
+     * @return std::optional<SemVer> Parsed version, or std::nullopt if unavailable.
+     */
+    virtual std::optional<SemVer> get_tt_flash_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the unique board identifier.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint64_t> Board ID, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint64_t> get_board_id([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the physical slot index of this chip on a multi-chip board.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint8_t> ASIC location index, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint8_t> get_asic_location([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the ASIC temperature.
+     * @param noc_id NOC to route through.
+     * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
+     */
+    virtual std::optional<double> get_asic_temperature([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the board temperature.
+     * @param noc_id NOC to route through.
+     * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
+     */
+    virtual std::optional<double> get_board_temperature([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the thermal shutdown threshold.
+     * @param noc_id NOC to route through.
+     * @return std::optional<double> Threshold in degrees Celsius, or std::nullopt if unavailable.
+     */
+    virtual std::optional<double> get_thm_limit_shutdown([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the thermal throttle threshold.
+     * @param noc_id NOC to route through.
+     * @return std::optional<double> Threshold in degrees Celsius, or std::nullopt if unavailable.
+     */
+    virtual std::optional<double> get_thm_limit_throttle([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the thermal trip count.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Number of thermal trips, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_therm_trip_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the current AICLK frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_aiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the current AICLK frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the current AXICLK frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_axiclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the current ARCCLK frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_arcclk([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the maximum supported clock frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_max_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the minimum supported clock frequency.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Frequency in MHz, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_min_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the Thermal Design Power.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> TDP in watts, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_tdp([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the Thermal Design Power limit.
+     * @param noc_id NOC to route through.
+     * @returns std::optional<uint32_t> TDP limit in watts, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_tdp_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the Thermal Design Current.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> TDC in amps, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_tdc([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the core voltage.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> VCORE in mV, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_vcore([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the board power limit.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Power limit in watts, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_board_power_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the fan speed as a percentage (0-100).
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Fan speed in percent, or std::nullopt if unavailable.
      */
     [[deprecated("use get_fan_speeds()")]] virtual std::optional<uint32_t> get_fan_speed(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get actual speed per fan in RPM. Individual entries
-     * can be nullopt if fan RPM is not available.
-     * @returns Actual fan RPM [percent]
+    /**
+     * @brief Retrieves the fan speed in RPM.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Fan speed in RPM, or std::nullopt if unavailable.
      */
     [[deprecated("use get_fan_rpms()")]] virtual std::optional<uint32_t> get_fan_rpm(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get targeted speeds per fan as a percentage (0-100). Individual entries
-     * can be nullopt if fan speed is not available.
-     * @returns Targeted fan speeds [percent]
+    /**
+     * @brief Retrieves targeted speeds per fan as a percentage (0-100).
+     * Individual entries can be std::nullopt if the percentage is unavailable.
+     * @param noc_id NOC to route through.
+     * @return std::vector<std::optional<uint32_t>> of targeted fan speeds as a percentage.
      */
     virtual std::vector<std::optional<uint32_t>> get_fan_speeds(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get actual speeds per fan in RPM. Individual entries
-     * can be nullopt if fan RPM is not available.
-     * @returns Actual fan RPMs [percent]
+    /**
+     * @brief Retrieves actual speeds per fan in rotations per minute.
+     * Individual entries can be std::nullopt if fan RPM is unavailable.
+     * @param noc_id NOC to route through.
+     * @return std::vector<std::optional<uint32_t>> of actual fan speeds in RPM.
      */
-    virtual std::vector<std::optional<uint32_t>> get_fan_rpms([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    virtual std::vector<std::optional<uint32_t>> get_fan_rpms(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get TDP in watts.
-     * @returns TDP [W]
-     */
-    virtual std::optional<uint32_t> get_tdp([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get TDC in amps.
-     * @returns TDC [amps]
-     */
-    virtual std::optional<uint32_t> get_tdc([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get VCORE in mV.
-     * @returns VCORE [mV]
-     */
-    virtual std::optional<uint32_t> get_vcore([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get board temperature in Celsius.
-     * @returns Board temperature [Celsius]
-     */
-    virtual std::optional<double> get_board_temperature([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get thermal limit shutdown threshold in Celsius.
-     * @returns Thermal limit shutdown threshold [Celsius]
-     */
-    virtual std::optional<double> get_thm_limit_shutdown([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get TDP limit in watts.
-     * @returns TDP limit [W]
-     */
-    virtual std::optional<uint32_t> get_tdp_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get board power limit in watts.
-     * @returns Board power limit [W]
-     */
-    virtual std::optional<uint32_t> get_board_power_limit([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get thermal limit throttle threshold in Celsius.
-     * @returns Thermal limit throttle threshold [Celsius]
-     */
-    virtual std::optional<double> get_thm_limit_throttle([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get thermal trip count.
-     * @returns Number of thermal trips that have occurred.
-     */
-    virtual std::optional<uint32_t> get_therm_trip_count([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get per-link ethernet heartbeat status.
-     * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
-     * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
+    /**
+     * @brief Retrieves per-link Ethernet heartbeat status.
+     *
+     * Vector indices align with ETH channels (logical coordinates, up to 16).
+     *
+     * @param noc_id NOC to route through.
+     * @return std::optional<std::vector<bool>> Per-link status (true = active), or std::nullopt if unavailable.
      */
     [[deprecated("Use get_eth_heartbeat_status_per_core()")]] virtual std::optional<std::vector<bool>>
-    get_eth_heartbeat_status([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    get_eth_heartbeat_status([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get per-link ethernet retrain status.
-     * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
-     * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
+    /**
+     * @brief Retrieves per-link Ethernet retrain status.
+     *
+     * Vector indices align with ETH channels (logical coordinates, up to 16).
+     *
+     * @param noc_id NOC to route through.
+     * @return std::optional<std::vector<bool>> Per-link status (true = retrained), or std::nullopt if unavailable.
      */
     [[deprecated("Use get_eth_retrain_status_per_core()")]] virtual std::optional<std::vector<bool>>
-    get_eth_retrain_status([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    get_eth_retrain_status([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get per-link ethernet heartbeat status.
+    /**
+     * @brief Get per-link ethernet heartbeat status.
      * Available on Wormhole (all versions) and Blackhole (firmware 19.9+); returns std::nullopt otherwise.
      * Each entry pairs an ETH core's NOC0 coordinate with its status (16 entries on WH, 14 on BH).
+     * @param noc_id NOC to route through.
      * @returns Per-core heartbeat status (true = active), or std::nullopt if unavailable.
      */
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_heartbeat_status_per_core(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get per-link ethernet retrain status.
+    /**
+     * @brief Get per-link ethernet retrain status.
      * Only available on Wormhole with firmware prior to 19.9; returns std::nullopt otherwise.
      * Each entry pairs an ETH core's NOC0 coordinate with its status.
+     * @param noc_id NOC to route through.
      * @returns Per-core retrain status (true = retrained), or std::nullopt if unavailable.
      */
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_retrain_status_per_core(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    /*
-     * Get per-link ethernet link status.
+    /**
+     * @brief Get per-link ethernet link status.
      * Available on firmware 19.9+ for both Wormhole and Blackhole; returns std::nullopt otherwise.
      * Each entry pairs an ETH core's NOC0 coordinate with its status.
+     * @param noc_id NOC to route through.
      * @returns Per-core link status (true = up), or std::nullopt if unavailable.
      */
     virtual std::optional<std::vector<std::pair<CoreCoord, bool>>> get_eth_link_status_per_core(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
+    /**
+     * @brief Retrieves per-channel DRAM training status.
+     * @param num_dram_channels Number of DRAM channels to query.
+     * @param noc_id NOC to route through.
+     * @return std::vector<DramTrainingStatus> Per-channel training status. Empty if unavailable.
+     */
     virtual std::vector<DramTrainingStatus> get_dram_training_status(
-        uint32_t num_dram_channels, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        uint32_t num_dram_channels, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    virtual std::optional<uint32_t> get_max_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<uint32_t> get_min_clock_freq([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    virtual std::optional<uint8_t> get_asic_location([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-    /*
-     * Get heartbeat from ARC core.
-     * If using current telemetry, the value is taken from TIMER_HEARTBEAT
-     * On legacy telemetry, the value is taken from ARC0_HEALTH
-     * @returns An integer that does not decrease on subsequent calls.
+    /**
+     * @brief Retrieves aggregated telemetry across all GDDR modules.
+     * @param noc_id NOC to route through.
+     * @return std::optional<GddrTelemetry> Aggregated DRAM telemetry, or std::nullopt if unavailable.
      */
-    virtual std::optional<uint32_t> get_heartbeat([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
     virtual std::optional<GddrTelemetry> get_aggregated_dram_telemetry(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
+    /**
+     * @brief Retrieves telemetry for a specific GDDR module.
+     * @param gddr_module The target GDDR module.
+     * @param noc_id NOC to route through.
+     * @return std::optional<GddrModuleTelemetry> Module telemetry, or std::nullopt if unavailable.
+     */
     virtual std::optional<GddrModuleTelemetry> get_dram_telemetry(
-        GddrModule gddr_module, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        GddrModule gddr_module, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
-    virtual std::optional<uint16_t> get_dram_speed([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+    /**
+     * @brief Retrieves the GDDR speed.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint16_t> Speed value, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint16_t> get_dram_speed([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
+    /**
+     * @brief Retrieves the current maximum DRAM temperature across all modules.
+     * @param noc_id NOC to route through.
+     * @return std::optional<double> Temperature in degrees Celsius, or std::nullopt if unavailable.
+     */
     virtual std::optional<double> get_current_max_dram_temperature(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
+    /**
+     * @brief Retrieves the firmware heartbeat counter.
+     *
+     * A monotonically non-decreasing value that indicates the firmware is alive.
+     *
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Heartbeat counter, or std::nullopt if unavailable.
+     */
+    virtual std::optional<uint32_t> get_heartbeat([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Retrieves the address of the runtime telemetry buffer.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Device address of the runtime telemetry buffer.
+     */
     virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 
+    /**
+     * @brief Retrieves the size of the runtime telemetry buffer.
+     * @param noc_id NOC to route through.
+     * @return std::optional<uint32_t> Size of the runtime telemetry buffer.
+     */
     virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size(
-        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
-
-private:
-    /**
-     * Parse a 16-bit bitmask into per-core status using the arch-specific bit-to-NOC0 mapping.
-     */
-    std::vector<std::pair<CoreCoord, bool>> parse_eth_status_bitmask(uint16_t bitmask) const;
-
-    TTDevice* tt_device = nullptr;
-
-    FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
-
-    // Configuration map that drives the data-driven behavior.
-    FirmwareFeatures firmware_feature_map;
-
-    // Factory helpers for creating telemetry feature configuration maps.
-    static FirmwareFeatures create_firmware_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
-    static FirmwareFeatures create_18_4_new_telemetry_base();
-    static FirmwareFeatures create_wormhole_18_3_base();
-    static FirmwareFeatures create_wormhole_18_4_base();
-    static FirmwareFeatures create_blackhole_18_5_base();
-    static FirmwareFeatures create_wormhole_18_8_base();
-    static FirmwareFeatures create_wormhole_19_9_base();
-    static FirmwareFeatures create_blackhole_18_8_base();
-    static FirmwareFeatures create_blackhole_19_8_base();
-    static FirmwareFeatures create_blackhole_19_9_base();
-
-    // Engine methods for reading and transforming telemetry data.
-    uint32_t read_raw_telemetry(const FeatureKey& key) const;
-
-    bool is_feature_available(FirmwareFeature feature) const;
-
-    template <typename T>
-    std::optional<T> read_scalar(FirmwareFeature feature) const;
-
-    /**
-     * @brief Maximum number of fans supported by the device.
-     * TODO: SysEng should provide a proper way of querying the number of fans on the device.
-     */
-    static constexpr size_t MAX_NUMBER_OF_FANS = 2U;
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
 };
-
 }  // namespace tt::umd

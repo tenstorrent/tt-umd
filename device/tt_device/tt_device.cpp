@@ -23,7 +23,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
@@ -51,7 +51,6 @@
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
@@ -153,7 +152,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
-    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(this);
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 

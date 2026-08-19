@@ -40,7 +40,13 @@ class FirmwareInfoProviderImplementation : public FirmwareInfoProvider {
 public:
     static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
 
-    FirmwareInfoProviderImplementation(TTDevice* tt_device, FirmwareBundleVersion firmware_version);
+    FirmwareInfoProviderImplementation(
+        FirmwareBundleVersion firmware_version,
+        tt::ARCH arch,
+        DeviceProtocol* device_protocol,
+        xy_pair arc_core_noc0,
+        FirmwareTelemetryReader* telemetry,
+        std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry = nullptr);
 
     virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 

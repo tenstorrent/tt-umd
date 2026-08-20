@@ -138,7 +138,8 @@ inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>
 
 template <typename... Args>
 inline std::string convert_to_space_separated_string(Args&&... args) {
-    return fmt::format("{}", fmt::join({fmt::to_string(std::forward<Args>(args))...}, " "));
+    std::vector<std::string> parts{fmt::to_string(std::forward<Args>(args))...};
+    return fmt::format("{}", fmt::join(parts, " "));
 }
 
 template <typename T>

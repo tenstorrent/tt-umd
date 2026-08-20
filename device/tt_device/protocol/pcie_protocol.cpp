@@ -140,7 +140,7 @@ bool PcieProtocol::write_to_core_range(
     return true;
 }
 
-int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
+int PcieProtocol::get_mmio_id() { return pci_device_->get_device_num(); }
 
 void PcieProtocol::noc_multicast_write(
     const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {

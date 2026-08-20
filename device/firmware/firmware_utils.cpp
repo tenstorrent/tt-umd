@@ -55,7 +55,7 @@ FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
         return FirmwareBundleVersion::from_firmware_bundle_tag(
             smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     }
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
                ? FirmwareBundleVersion::from_firmware_bundle_tag(
                      telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))

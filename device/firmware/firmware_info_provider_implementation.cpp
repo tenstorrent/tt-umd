@@ -68,7 +68,7 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
                 tt_device->get_arch(),
                 tt_device->get_device_protocol(),
                 tt_device->get_arc_core(),
-                tt_device->get_arc_telemetry_reader(),
+                tt_device->get_firmware_telemetry_reader(),
                 std::move(smbus_telemetry));
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");

@@ -41,7 +41,7 @@ TEST(TestTelemetry, BasicTelemetry) {
             continue;
         }
 
-        ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
+        FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();
 
         uint32_t board_id_high = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_HIGH);
         uint32_t board_id_low = arc_telemetry_reader->read_entry(TelemetryTag::BOARD_ID_LOW);
@@ -60,7 +60,7 @@ TEST(TestTelemetry, TelemetryEntryAvailable) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
-        ArcTelemetryReader* arc_telemetry_reader = tt_device->get_arc_telemetry_reader();
+        FirmwareTelemetryReader* arc_telemetry_reader = tt_device->get_firmware_telemetry_reader();
 
         EXPECT_TRUE(arc_telemetry_reader->is_entry_available(TelemetryTag::BOARD_ID_HIGH));
         EXPECT_TRUE(arc_telemetry_reader->is_entry_available(TelemetryTag::BOARD_ID_LOW));
@@ -81,8 +81,8 @@ TEST(TestTelemetry, RemoteTelemetry) {
     auto remote_chip = umd_cluster->get_remote_chip(*remote_chips.begin());
     TTDevice* remote_device = remote_chip->get_tt_device();
     TTDevice* local_device = remote_chip->get_remote_communication()->get_local_device();
-    ArcTelemetryReader* remote_telemetry = remote_device->get_arc_telemetry_reader();
-    ArcTelemetryReader* local_telemetry = local_device->get_arc_telemetry_reader();
+    FirmwareTelemetryReader* remote_telemetry = remote_device->get_firmware_telemetry_reader();
+    FirmwareTelemetryReader* local_telemetry = local_device->get_firmware_telemetry_reader();
 
     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_LOW));
     EXPECT_TRUE(remote_telemetry->is_entry_available(TelemetryTag::BOARD_ID_HIGH));

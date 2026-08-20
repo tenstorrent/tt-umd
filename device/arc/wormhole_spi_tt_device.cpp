@@ -99,7 +99,7 @@ void WormholeSPITTDevice::get_aligned_params(
 }
 
 uint32_t WormholeSPITTDevice::get_clock() {
-    auto* telemetry = device_->get_arc_telemetry_reader();
+    auto* telemetry = device_->get_firmware_telemetry_reader();
     uint32_t arcclk = 540;  // Default pessimistic value
 
     if (telemetry) {

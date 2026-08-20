@@ -43,7 +43,7 @@ void SmBusArcTelemetryReader::get_telemetry_address() {
 }
 
 uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_id) {
-    if (!is_entry_available(telemetry_tag, noc_id)) {
+    if (!SmBusArcTelemetryReader::is_entry_available(telemetry_tag, noc_id)) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(

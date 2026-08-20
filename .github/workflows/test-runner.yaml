@@ -7,8 +7,9 @@
 # allocation/environment lifecycle in this workflow (that was the closed
 # tt-umd PR 3090 approach).
 #
-# Reset/validation uses UMD tools (warm_reset --6u, topology, system_health)
-# rather than tt-smi.
+# Reset uses ttop-ipmi-reset from the multihost-ci runner ConfigMap (same
+# as metal's ttop-recovery). Validation uses UMD topology + system_health
+# rather than metal's run_cluster_validation or tt-smi.
 #
 # Closes https://github.com/tenstorrent/tt-umd/issues/3089
 # Supersedes https://github.com/tenstorrent/tt-umd/pull/3090
@@ -185,9 +186,21 @@ jobs:
           set -euo pipefail
           MAX_RECOVERY_ATTEMPTS=10
           TOPOLOGY=/home/user/tt-umd/build/tools/umd/topology
-          WARM_RESET=/home/user/tt-umd/build/tools/umd/warm_reset
           SYSTEM_HEALTH=/home/user/tt-umd/build/tools/umd/system_health
           export LD_LIBRARY_PATH=/home/user/tt-umd/build/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+          if ! command -v ttop-ipmi-reset >/dev/null 2>&1; then
+            echo "ERROR: ttop-ipmi-reset not on PATH"
+            echo "Expected from the multihost-ci runner ConfigMap sidecar."
+            exit 1
+          fi
+
+          echo "--- Checking socat availability (needed by ttop-ipmi-reset) ---"
+          if ! mpirun --pernode bash -c 'command -v socat >/dev/null 2>&1'; then
+            echo "Socat missing on some nodes, installing..."
+            mpirun --pernode bash -c \
+              'sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq socat >/dev/null'
+          fi
 
           echo "--- Pre-check: topology visibility on all hosts ---"
           mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
@@ -203,12 +216,13 @@ jobs:
             reset_success=false
             validation_success=false
 
-            echo "--- Resetting cards with warm_reset --6u ---"
-            if mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
-              bash -lc "cd /home/user/tt-umd && '${WARM_RESET}' --6u"; then
+            echo "--- Resetting cards with ttop-ipmi-reset ---"
+            # Wrap in bash -c && exit $? so mpirun propagates the remote exit
+            # code (same quirk as metal's ttop-recovery ConfigMap script).
+            if mpirun --pernode --tag-output bash -c 'ttop-ipmi-reset && exit $?'; then
               reset_success=true
             else
-              echo "WARNING: warm_reset --6u failed on attempt $attempt"
+              echo "WARNING: ttop-ipmi-reset failed on attempt $attempt"
             fi
 
             if [ "$reset_success" = true ]; then

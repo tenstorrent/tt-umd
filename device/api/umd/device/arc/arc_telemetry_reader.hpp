@@ -11,12 +11,13 @@
 #include <unordered_set>
 
 #include "firmware_telemetry_reader.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-class TTDevice;
+class DeviceProtocol;
 
 class ArcTelemetryReader : public FirmwareTelemetryReader {
 public:
@@ -26,10 +27,14 @@ public:
 
     // Constructs the reader and waits for the ARC telemetry table to be fully populated.
     static std::unique_ptr<ArcTelemetryReader> create_arc_telemetry_reader(
-        TTDevice* tt_device, std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
+        DeviceProtocol* device_protocol,
+        const tt::ARCH arch,
+        const tt_xy_pair arc_core_noc0,
+        const tt_xy_pair arc_core_noc1,
+        std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
 
 protected:
-    ArcTelemetryReader(TTDevice* tt_device);
+    ArcTelemetryReader(DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1);
 
     // Wait until ARC firmware has published the telemetry table. ARC writes the table pointer
     // register only after the whole table has been populated, so a non-zero pointer register
@@ -65,9 +70,13 @@ protected:
     std::map<uint32_t, uint32_t> telemetry_offset;
 
     // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
-    tt_xy_pair arc_core;
+    // Both sets of ARC core coordinates are kept, get_arc_core() picks the one for the selected NOC.
+    tt_xy_pair arc_core_noc0;
+    tt_xy_pair arc_core_noc1;
 
-    TTDevice* tt_device;
+    tt_xy_pair get_arc_core() const;
+
+    DeviceProtocol* device_protocol;
 
 private:
     const std::unordered_set<uint16_t> static_entries{

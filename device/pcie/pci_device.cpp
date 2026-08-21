@@ -38,6 +38,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/kmd_versions.hpp"
+#include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
 #include "utils.hpp"
 
@@ -774,7 +775,7 @@ SemVer PCIDevice::read_kmd_version() {
 
     if (!file.is_open()) {
         log_warning(LogUMD, "Failed to open file: {}", path);
-        return {0, 0, 0};
+        return SemVer{0, 0, 0};
     }
 
     std::string version_str;
@@ -788,7 +789,7 @@ SemVer PCIDevice::read_kernel_version() {
 
     if (uname(&uts) != 0) {
         log_warning(LogUMD, "uname() failed: {}", strerror(errno));
-        return {0, 0, 0};
+        return SemVer{0, 0, 0};
     }
 
     // uts.release looks like "5.15.0-91-generic"; SemVer's parser reads leading digits of each

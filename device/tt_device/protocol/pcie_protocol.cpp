@@ -25,6 +25,7 @@
 #include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/power_state.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "utils.hpp"
 
@@ -141,6 +142,10 @@ bool PcieProtocol::write_to_core_range(
 }
 
 int PcieProtocol::get_mmio_id() { return pci_device_->get_device_num(); }
+
+void PcieProtocol::set_power_state(PowerState state) {
+    pci_device_->set_power_state(/*busy=*/state == PowerState::HIGH);
+}
 
 void PcieProtocol::noc_multicast_write(
     const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {

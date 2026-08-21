@@ -26,16 +26,24 @@
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
-FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) :
-    tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
+FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) : tt_device(tt_device) {
     FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     if (telemetry == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
+    }
+    firmware_version = FirmwareBundleVersion(0, 0, 0);
+    if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && dynamic_cast<SmBusArcTelemetryReader*>(telemetry) != nullptr) {
+        firmware_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+            telemetry->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+    } else if (telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)) {
+        firmware_version =
+            FirmwareBundleVersion::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION));
     }
 
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
@@ -251,7 +259,10 @@ uint32_t FirmwareInfoProviderImplementation::read_raw_telemetry(const FeatureKey
                 auto* tel = tt_device->get_firmware_telemetry_reader();
                 return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(
+                    tt_device->get_device_protocol(),
+                    tt_device->get_arc_core(NocId::NOC0),
+                    tt_device->get_arc_core(NocId::NOC1));
                 return sm_bus_telemetry->read_entry(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return arg.value;
@@ -281,7 +292,10 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
                 auto* tel = tt_device->get_firmware_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(
+                    tt_device->get_device_protocol(),
+                    tt_device->get_arc_core(NocId::NOC0),
+                    tt_device->get_arc_core(NocId::NOC1));
                 return sm_bus_telemetry->is_entry_available(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return true;

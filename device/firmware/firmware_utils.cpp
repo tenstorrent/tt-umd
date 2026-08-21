@@ -51,7 +51,10 @@ FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch) {
 
 FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
     if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        SmBusArcTelemetryReader smbus_reader(tt_device);
+        SmBusArcTelemetryReader smbus_reader(
+            tt_device->get_device_protocol(),
+            tt_device->get_arc_core(NocId::NOC0),
+            tt_device->get_arc_core(NocId::NOC1));
         return FirmwareBundleVersion::from_firmware_bundle_tag(
             smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     }

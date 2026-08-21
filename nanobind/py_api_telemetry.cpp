@@ -221,7 +221,16 @@ void bind_telemetry(nb::module_& m) {
 
     // SmBusArcTelemetryReader binding - for direct instantiation when SMBUS telemetry is needed.
     nb::class_<SmBusArcTelemetryReader, ArcTelemetryReader>(m, "SmBusArcTelemetryReader")
-        .def(nb::init<TTDevice*>(), nb::arg("tt_device"), release_gil())
+        .def(
+            "__init__",
+            [](SmBusArcTelemetryReader* self, TTDevice* tt_device) {
+                new (self) SmBusArcTelemetryReader(
+                    tt_device->get_device_protocol(),
+                    tt_device->get_arc_core(NocId::NOC0),
+                    tt_device->get_arc_core(NocId::NOC1));
+            },
+            nb::arg("tt_device"),
+            release_gil())
         .def(
             "read_entry",
             &SmBusArcTelemetryReader::read_entry,

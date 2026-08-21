@@ -102,8 +102,11 @@ int main(int argc, char* argv[]) {
     std::vector<std::pair<tt::ChipId, std::unique_ptr<ArcTelemetryReader>>> telemetry_readers;
     std::vector<std::unique_ptr<TTDevice>> tt_devices;
     for (auto& [chip_id, tt_device] : tt_devices_map) {
-        std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader =
-            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
+        std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader = ArcTelemetryReader::create_arc_telemetry_reader(
+            tt_device->get_device_protocol(),
+            tt_device->get_arch(),
+            tt_device->get_arc_core(NocId::NOC0),
+            tt_device->get_arc_core(NocId::NOC1));
         tt_devices.push_back(std::move(tt_device));
         telemetry_readers.push_back(std::make_pair(chip_id, std::move(arc_telemetry_reader)));
     }

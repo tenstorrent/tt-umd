@@ -251,7 +251,10 @@ uint32_t FirmwareInfoProviderImplementation::read_raw_telemetry(const FeatureKey
                 auto* tel = tt_device->get_firmware_telemetry_reader();
                 return (tel && tel->is_entry_available(arg)) ? tel->read_entry(arg) : 0;
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(
+                    tt_device->get_device_protocol(),
+                    tt_device->get_arc_core(NocId::NOC0),
+                    tt_device->get_arc_core(NocId::NOC1));
                 return sm_bus_telemetry->read_entry(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return arg.value;
@@ -281,7 +284,10 @@ bool FirmwareInfoProviderImplementation::is_feature_available(FirmwareFeature fe
                 auto* tel = tt_device->get_firmware_telemetry_reader();
                 return tel && tel->is_entry_available(arg);
             } else if constexpr (std::is_same_v<T, SmBusTag>) {
-                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+                const auto sm_bus_telemetry = std::make_unique<SmBusArcTelemetryReader>(
+                    tt_device->get_device_protocol(),
+                    tt_device->get_arc_core(NocId::NOC0),
+                    tt_device->get_arc_core(NocId::NOC1));
                 return sm_bus_telemetry->is_entry_available(arg.tag);
             } else if constexpr (std::is_same_v<T, FixedValue>) {
                 return true;

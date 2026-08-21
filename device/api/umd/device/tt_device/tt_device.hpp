@@ -387,6 +387,8 @@ public:
 
     tt_xy_pair get_arc_core() const;
 
+    tt_xy_pair get_arc_core(const NocId noc_id) const;
+
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**

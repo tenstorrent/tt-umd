@@ -35,7 +35,7 @@ protected:
     void get_telemetry_address() override;
 
 private:
-    uint64_t telemetry_base_noc_addr;
+    static constexpr uint64_t SMBUS_TELEMETRY_NOC_ADDR = 0x820078d60;
 };
 
 }  // namespace tt::umd

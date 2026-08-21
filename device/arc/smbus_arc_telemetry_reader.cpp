@@ -31,16 +31,7 @@ SmBusArcTelemetryReader::SmBusArcTelemetryReader(TTDevice* tt_device) : ArcTelem
     SmBusArcTelemetryReader::wait_for_telemetry_initialized();
 }
 
-void SmBusArcTelemetryReader::get_telemetry_address() {
-    std::vector<uint32_t> arc_msg_return_values = {0};
-    tt_device->get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | (uint32_t)wormhole::arc_message_type::GET_SMBUS_TELEMETRY_ADDR,
-        arc_msg_return_values,
-        {0, 0});
-
-    static constexpr uint64_t noc_telemetry_offset = 0x810000000;
-    telemetry_base_noc_addr = arc_msg_return_values[0] + noc_telemetry_offset;
-}
+void SmBusArcTelemetryReader::get_telemetry_address() {}
 
 uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_id) {
     if (!is_entry_available(telemetry_tag, noc_id)) {
@@ -56,7 +47,7 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId 
     tt_device->read_from_device(
         &telemetry_value,
         arc_core,
-        telemetry_base_noc_addr + telemetry_tag * sizeof(uint32_t),
+        SMBUS_TELEMETRY_NOC_ADDR + telemetry_tag * sizeof(uint32_t),
         sizeof(uint32_t),
         get_selected_noc_id());
 

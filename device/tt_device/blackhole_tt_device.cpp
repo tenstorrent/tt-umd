@@ -48,7 +48,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     TTDevice(std::move(pci_device), std::make_unique<BlackholeImplementation>(), soc_arch_descriptor, use_safe_api) {
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
-        get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
+        get_device_protocol(), BlackholeTTDevice::get_noc_translation_enabled()));
 }
 
 BlackholeTTDevice::BlackholeTTDevice(
@@ -58,7 +58,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<BlackholeImplementation>(), soc_arch_descriptor) {
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
-        get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
+        get_device_protocol(), BlackholeTTDevice::get_noc_translation_enabled()));
 }
 
 BlackholeTTDevice::~BlackholeTTDevice() {

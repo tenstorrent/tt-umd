@@ -13,13 +13,12 @@
 
 namespace tt::umd {
 class DeviceProtocol;
-class ArchitectureImplementation;
 enum class NocId : uint8_t;
 
 // Wormhole variant: reads BAR and NOC node ID from the ARC tile.
 class WormholeHangDetector : public HangDetectorImplementation {
 public:
-    WormholeHangDetector(DeviceProtocol* protocol, ArchitectureImplementation* arch_impl);
+    WormholeHangDetector(DeviceProtocol* protocol);
 
 private:
     uint32_t read_hang_check_reg_via_bar() override;

@@ -39,9 +39,11 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice*
     }
     firmware_version = FirmwareBundleVersion(0, 0, 0);
     if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && dynamic_cast<SmBusArcTelemetryReader*>(telemetry) != nullptr) {
-        firmware_version = telemetry->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION);
+        firmware_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+            telemetry->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
     } else if (telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)) {
-        firmware_version = telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION);
+        firmware_version =
+            FirmwareBundleVersion::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION));
     }
 
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);

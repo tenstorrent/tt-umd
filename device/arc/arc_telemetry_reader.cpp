@@ -38,8 +38,8 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
             reader = std::make_unique<SmBusArcTelemetryReader>(tt_device);
-            FirmwareBundleVersion fw_bundle_version =
-                reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION);
+            FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+                reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
 
             if (fw_bundle_version < FW_NEW_TELEMETRY) {
                 return reader;

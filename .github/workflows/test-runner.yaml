@@ -220,10 +220,27 @@ jobs:
             echo "--- Resetting cards with ttop-ipmi-reset ---"
             # Wrap in bash -c && exit $? so mpirun propagates the remote exit
             # code (same quirk as metal's ttop-recovery ConfigMap script).
-            if mpirun --pernode --tag-output bash -c 'ttop-ipmi-reset && exit $?'; then
+            set +e
+            mpirun --pernode --tag-output bash -c 'ttop-ipmi-reset && exit $?'
+            reset_rc=$?
+            set -e
+            if [ "$reset_rc" -eq 0 ]; then
               reset_success=true
             else
-              echo "WARNING: ttop-ipmi-reset failed on attempt $attempt"
+              echo "WARNING: ttop-ipmi-reset failed on attempt $attempt (mpirun exit=$reset_rc)"
+              echo "--- Per-host diagnostics after ttop-ipmi-reset failure ---"
+              mpirun --pernode --tag-output bash -c '
+                echo "hostname=$(hostname)"
+                echo "ttop-ipmi-reset=$(command -v ttop-ipmi-reset || echo MISSING)"
+                echo "socat=$(command -v socat || echo MISSING)"
+                if [ -S /run/ttop-ipmi/reset ]; then
+                  ls -l /run/ttop-ipmi/reset
+                else
+                  echo "socket=/run/ttop-ipmi/reset MISSING"
+                  ls -la /run/ttop-ipmi 2>&1 || echo "/run/ttop-ipmi directory missing"
+                fi
+                exit 0
+              ' || true
             fi
 
             if [ "$reset_success" = true ]; then
@@ -231,10 +248,14 @@ jobs:
               sleep 5
 
               echo "--- Running UMD system_health ---"
-              if run_system_health; then
+              set +e
+              run_system_health
+              health_rc=$?
+              set -e
+              if [ "$health_rc" -eq 0 ]; then
                 validation_success=true
               else
-                echo "WARNING: system_health failed on attempt $attempt"
+                echo "WARNING: system_health failed on attempt $attempt (mpirun exit=$health_rc)"
               fi
             else
               echo "WARNING: Skipping system_health because reset failed on attempt $attempt"

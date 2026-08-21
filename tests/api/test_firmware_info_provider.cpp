@@ -820,3 +820,30 @@ TEST_F(TestFirmwareInfoProvider, DISABLED_PrintEthStatus) {
         }
     }
 }
+
+TEST_F(TestFirmwareInfoProvider, RuntimeTelemetryBufferAddressAndSize) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+
+    for (int pci_device_id : pci_device_ids) {
+        std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
+        tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->init_tt_device();
+
+        FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
+        const auto size = fw_info->get_runtime_telemetry_buffer_size();
+        const auto address = fw_info->get_runtime_telemetry_buffer_address();
+
+        // Address and size are published together behind the same firmware-version gate, so they must
+        // be both present or both absent regardless of arch or firmware version.
+        EXPECT_EQ(address.has_value(), size.has_value());
+
+        // When the buffer is published, the locator must point somewhere and describe a non-empty,
+        // word-aligned region.
+        if (address.has_value() && size.has_value()) {
+            EXPECT_NE(address.value(), 0u);
+            EXPECT_NE(size.value(), 0u);
+            EXPECT_EQ(size.value() % sizeof(uint32_t), 0u);
+        }
+        tt_device->set_power_state(TTDevice::PowerState::IDLE);
+    }
+}

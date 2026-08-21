@@ -331,7 +331,7 @@ inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0x00, 0x40, 0xC0, 0
 
 }  // namespace blackhole
 
-class blackhole_implementation : public architecture_implementation {
+class BlackholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::BLACKHOLE; }
 

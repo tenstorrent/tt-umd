@@ -66,7 +66,7 @@ constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
 
 TTDevice::TTDevice(
     std::unique_ptr<PCIDevice> pci_device,
-    std::unique_ptr<architecture_implementation> architecture_impl,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
     communication_device_type_(IODeviceType::PCIe),
@@ -90,7 +90,7 @@ TTDevice::TTDevice(
 TTDevice::TTDevice(
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
-    std::unique_ptr<architecture_implementation> architecture_impl,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     communication_device_type_(IODeviceType::JTAG),
     communication_device_id_(jlink_id),
@@ -105,7 +105,7 @@ TTDevice::TTDevice(
 
 TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
-    std::unique_ptr<architecture_implementation> architecture_impl,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     communication_device_type_(remote_communication->get_local_device()->get_communication_device_type()),
     communication_device_id_(remote_communication->get_local_device()->get_communication_device_id()),
@@ -248,7 +248,7 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
 }
 #endif  // TT_UMD_BUILD_SIMULATION
 
-architecture_implementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
+ArchitectureImplementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
 
 // The nullptr check for capabilities in the APIs get_pci_device and get_remote_communication
 // exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.

@@ -16,10 +16,12 @@
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
+#include "umd/device/firmware/firmware_telemetry_mapping.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
@@ -35,15 +37,15 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     std::unique_ptr<ArcTelemetryReader> reader;
     switch (tt_device->get_arch()) {
         case tt::ARCH::WORMHOLE_B0: {
-            FirmwareBundleVersion fw_bundle_version = get_firmware_version_util(tt_device);
+            reader = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+            FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+                reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
 
-            if (fw_bundle_version >= FW_NEW_TELEMETRY) {
-                log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
-                reader = std::make_unique<WormholeArcTelemetryReader>(tt_device);
-            } else {
-                log_debug(tt::LogUMD, "Creating old-style telemetry reader.");
-                reader = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+            if (fw_bundle_version < FW_NEW_TELEMETRY) {
+                return reader;
             }
+
+            reader = std::make_unique<WormholeArcTelemetryReader>(tt_device);
             break;
         }
         case tt::ARCH::BLACKHOLE:

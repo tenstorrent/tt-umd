@@ -26,16 +26,24 @@
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
-FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) :
-    tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
+FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) : tt_device(tt_device) {
     FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     if (telemetry == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
+    }
+    firmware_version = FirmwareBundleVersion(0, 0, 0);
+    if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && dynamic_cast<SmBusArcTelemetryReader*>(telemetry) != nullptr) {
+        firmware_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+            telemetry->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+    } else if (telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)) {
+        firmware_version =
+            FirmwareBundleVersion::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION));
     }
 
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);
@@ -802,13 +810,22 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
+            tt_device->read_from_device(
+                &address,
+                tt_device->get_arc_core(),
+                wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
+                    wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET,
+                sizeof(address));
             return address;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_apb(&address, blackhole::SCRATCH_RAM_22, sizeof(address));
+            tt_device->read_from_device_reg(
+                &address,
+                tt_device->get_arc_core(),
+                blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_22,
+                sizeof(address));
             return address;
         default:
             return std::nullopt;
@@ -822,13 +839,22 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
+            tt_device->read_from_device(
+                &size,
+                tt_device->get_arc_core(),
+                wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
+                    wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET,
+                sizeof(size));
             return size;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_apb(&size, blackhole::SCRATCH_RAM_23, sizeof(size));
+            tt_device->read_from_device_reg(
+                &size,
+                tt_device->get_arc_core(),
+                blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_23,
+                sizeof(size));
             return size;
         default:
             return std::nullopt;

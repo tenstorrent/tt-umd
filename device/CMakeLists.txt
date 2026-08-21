@@ -100,6 +100,7 @@ target_sources(
         tt_device/firmware/blackhole_device_firmware.cpp
         tt_device/firmware/blackhole_arc_apb.cpp
         tt_device/firmware/wormhole_arc_apb.cpp
+        tt_device/firmware/wormhole_arc_csm.cpp
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
@@ -258,6 +259,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
                 api/umd/device/tt_device/firmware/blackhole_arc_apb.hpp
                 api/umd/device/tt_device/firmware/wormhole_arc_apb.hpp
+                api/umd/device/tt_device/firmware/wormhole_arc_csm.hpp
                 api/umd/device/tt_device/firmware/device_firmware.hpp
                 api/umd/device/tt_device/firmware/wormhole_device_firmware.hpp
                 api/umd/device/tt_device/firmware/blackhole_device_firmware.hpp

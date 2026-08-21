@@ -159,6 +159,15 @@ jobs:
           grep -q "live" /tmp/sim_server_list.txt
           ./sim_server.sh kill 0
 
+      # The point of the server: a second process attaches to a hosted simulation and device I/O
+      # crosses the socket. SimulationConnector covers exactly that at the Cluster level (a host
+      # Cluster writes, a client Cluster reads it back), but was in no gtest filter, so it never ran.
+      - name: Run UMD SimulationConnector tests on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
+
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.
       - name: Run tt-sim wormhole tests

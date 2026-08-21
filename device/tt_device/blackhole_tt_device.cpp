@@ -24,6 +24,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
@@ -189,38 +190,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    uint32_t arc_boot_status = 0;
-    uint32_t arc_postcode = 0;
-    uint32_t arc_error_status0 = 0;
-
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
-    const bool arc_core_started = utils::poll_until(
-        [this, &arc_boot_status, &arc_postcode]() {
-            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status);
-            read_from_arc_apb(&arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_postcode);
-            return (arc_boot_status & 0x7) == 0x5;
-        },
-        timeout_ms,
-        busy_poll_window,
-        poll_interval);
-
-    if (!arc_core_started) {
-        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
-        UMD_THROW(
-            error::ArcStartupError,
-            *this,
-            get_selected_noc_id(),
-            get_arc_core(),
-            arc_boot_status,
-            arc_postcode,
-            timeout_ms,
-            /*message_id=*/std::nullopt,
-            arc_error_status0);
-    }
-}
-
 uint32_t BlackholeTTDevice::get_clock() {
     if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::AICLK)) {
         return get_firmware_telemetry_reader()->read_entry(TelemetryTag::AICLK);
@@ -349,6 +318,19 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
             error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
+}
+
+std::unique_ptr<DeviceFirmware> BlackholeTTDevice::create_device_firmware() {
+    // get_pcie_interface()/get_jtag_interface() throw when the device was not opened that way, so
+    // only the one matching this device's protocol is fetched; the other stays null.
+    const bool is_jtag = get_communication_device_type() == IODeviceType::JTAG;
+    return std::make_unique<BlackholeDeviceFirmware>(
+        get_device_protocol(),
+        is_jtag ? nullptr : get_pcie_interface(),
+        is_jtag ? get_jtag_interface() : nullptr,
+        get_architecture_implementation(),
+        get_firmware_info_provider(),
+        get_firmware_telemetry_reader());
 }
 
 void BlackholeTTDevice::set_arc_coordinate() {

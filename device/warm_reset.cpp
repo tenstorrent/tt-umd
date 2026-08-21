@@ -306,8 +306,15 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
         try {
-            tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-        } catch (error::ArcStartupError& arc_error) {
+            // FIXME(integration): this caller wants firmware startup on its own, before
+            // init_tt_device(), but the firmware component is created inside init_tt_device() - so
+            // get_device_firmware() throws here. Either the firmware moves to the TTDevice
+            // constructor, or this pre-check becomes part of init.
+            tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+            // FIXME(integration): the firmware throws FirmwareStartupError, not ArcStartupError, so
+            // this recovery path stops catching it and a device that fails to come up aborts the
+            // whole warm reset instead of being skipped with a warning.
+        } catch (error::FirmwareStartupError& arc_error) {
             log_warning(LogUMD, arc_error.message());
             continue;
         }

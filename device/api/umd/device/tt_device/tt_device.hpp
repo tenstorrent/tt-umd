@@ -26,6 +26,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -107,6 +108,7 @@ public:
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
+    DeviceFirmware *get_device_firmware();
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
@@ -352,13 +354,6 @@ public:
     FirmwareBundleVersion get_firmware_version();
 
     /**
-     * Waits for ARC core to be fully ready for communication.
-     * Must be called before using ArcMessenger.
-     * This ensures the ARC core is completely initialized and operational.
-     */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
-
-    /**
      * Waits for ETH core training to complete.
      * @param eth_core Specific ETH core to wait on.
      * @param timeout_ms Timeout in ms.
@@ -520,6 +515,12 @@ protected:
     std::unique_ptr<architecture_implementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
     LockManager lock_manager;
+
+    // Builds the firmware component for this architecture. Backends without a management firmware
+    // (simulation) keep the default and get none.
+    virtual std::unique_ptr<DeviceFirmware> create_device_firmware() { return nullptr; }
+
+    std::unique_ptr<DeviceFirmware> device_firmware_ = nullptr;
 
     TTDevice() = default;
     TTDevice(

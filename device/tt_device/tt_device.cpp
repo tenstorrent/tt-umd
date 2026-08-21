@@ -148,11 +148,21 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     if (noc_hang_check_result) {
         UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
     }
-    probe_arc();
-    wait_arc_core_start(timeout_ms);
-    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    // Assumes FirmwareTelemetryReader and FirmwareInfoProvider no longer need a live ARC to be
+    // constructed, so they can be built before the firmware that depends on them.
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(this);
+
+    device_firmware_ = create_device_firmware();
+    // Simulation backends have no management firmware, so they get none and skip the startup wait.
+    // Implementing the placeholder simulation DeviceFirmware classes would remove this branch.
+    if (device_firmware_ != nullptr) {
+        device_firmware_->init_firmware(timeout_ms, get_selected_noc_id());
+    }
+
+    // Still built here: its 19 call sites reach it through TTDevice and have not moved to
+    // DeviceFirmware::send_device_command yet.
+    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 
@@ -269,16 +279,16 @@ RemoteCommunication *TTDevice::get_remote_communication() {
     return get_remote_interface()->get_remote_communication();
 }
 
-void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
-    if (is_remote_tt_device || !pcie_capabilities_) {
-        return;
-    }
-    get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
+void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc_id) {
+    // TTDevice::PowerState (BUSY/IDLE) and the firmware's PowerState (HIGH/LOW) are two spellings of
+    // the same request; the mapping is here until callers use the firmware vocabulary directly.
+    get_device_firmware()->set_power_state(
+        state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc_id);
 }
 
-void TTDevice::set_clock_state(TTDevice::PowerState /*state*/, NocId /*noc_id*/) {
-    // No-op by default. Backends with a controllable clock (Wormhole, Blackhole) override this to
-    // drive AICLK via ARC; backends without one (e.g. simulation) keep the no-op.
+void TTDevice::set_clock_state(TTDevice::PowerState state, NocId noc_id) {
+    get_device_firmware()->set_clock_state(
+        state == TTDevice::PowerState::BUSY ? ClockState::BUSY : ClockState::IDLE, noc_id);
 }
 
 void TTDevice::wait_for_aiclk_value(TTDevice::PowerState power_state, const std::chrono::milliseconds timeout_ms) {
@@ -514,60 +524,19 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
-                dram_channel,
-                architecture_impl_->get_dram_banks_number() - 1));
-    }
-    const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
-    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
-    auto start = std::chrono::steady_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status =
-            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
-
-        if (dram_training_status.empty()) {
-            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
-            return;
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            if (num_retrain_dram_core > 0) {
-                log_warning(
-                    LogUMD,
-                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
-                    dram_channel,
-                    num_retrain_dram_core - 1);
-                retrain_dram_core(dram_channel);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                num_retrain_dram_core--;
-            } else {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "DRAM training failed for channel {} after {} retrain attempts.",
-                        dram_channel,
-                        MAX_DRAM_RETRAIN_ATTEMPTS));
-            }
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
-            return;
-        }
-
-        utils::check_timeout(
-            start,
-            timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
-    }
+    get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }
 
 uint32_t TTDevice::bar_read32(uint32_t addr) { return get_pcie_interface()->bar_read32(addr); }
+
+DeviceFirmware *TTDevice::get_device_firmware() {
+    if (device_firmware_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return device_firmware_.get();
+}
 
 ArcMessenger *TTDevice::get_arc_messenger() const {
     if (arc_messenger_ == nullptr) {
@@ -626,19 +595,7 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
-ChipInfo TTDevice::get_chip_info() {
-    if (firmware_info_provider == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    ChipInfo chip_info;
-
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
-    chip_info.board_id = get_board_id();
-    chip_info.board_type = get_board_type();
-    chip_info.asic_location = get_asic_location();
-
-    return chip_info;
-}
+ChipInfo TTDevice::get_chip_info() { return get_device_firmware()->get_chip_info(get_selected_noc_id()); }
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 
@@ -676,7 +633,7 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
+tt_xy_pair TTDevice::get_arc_core() const { return device_firmware_->get_firmware_noc_coord(get_selected_noc_id()); }
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {

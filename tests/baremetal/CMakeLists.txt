@@ -8,6 +8,10 @@ set(BAREMETAL_TESTS_SRCS
     test_long_jump.cpp
     test_notification_mechanism.cpp
     test_cluster.cpp
+    # BlackholeArcApb and BlackholeArcMessageQueue take only protocol interfaces, so they are
+    # verified against mocks with no card and no simulation build.
+    test_blackhole_arc_apb.cpp
+    test_blackhole_arc_message_queue.cpp
     # SimulationServerSocket and SimulationClient have no simulation deps (always compiled), so
     # their tests need no card and no simulation build -- they run in the no-card baremetal CI lane.
     test_simulation_server_socket.cpp

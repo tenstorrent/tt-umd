@@ -51,6 +51,10 @@ public:
     void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_address(NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    std::optional<uint32_t> get_runtime_telemetry_buffer_size(NocId noc_id = NocId::DEFAULT_NOC) override;
 };
 
 }  // namespace tt::umd

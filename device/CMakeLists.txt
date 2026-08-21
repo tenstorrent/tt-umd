@@ -62,6 +62,7 @@ target_sources(
     tt-umd
     PRIVATE
         arch/architecture_implementation.cpp
+        arch/architecture_registers.cpp
         chip/chip.cpp
         chip/local_chip.cpp
         chip/mock_chip.cpp
@@ -183,6 +184,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
                 api/umd/device/arch/architecture_implementation.hpp
+                api/umd/device/arch/architecture_registers.hpp
                 api/umd/device/arc/arc_messenger.hpp
                 api/umd/device/arc/arc_telemetry_reader.hpp
                 api/umd/device/arc/firmware_telemetry_reader.hpp

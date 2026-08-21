@@ -99,34 +99,6 @@ DriverEthInterfaceParams wormhole::get_eth_interface_params() {
 DriverNocParams wormhole::get_noc_params() { return {wormhole::NOC_ADDR_LOCAL_BITS, wormhole::NOC_ADDR_NODE_ID_BITS}; }
 
 // TODO: integrate noc_port for DRAM core type inside the function.
-uint64_t WormholeImplementation::get_noc_reg_base(
-    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
-    if (noc == 0) {
-        for (const auto& noc_pair : wormhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
-            if (core_type == CoreType::DRAM) {
-                return wormhole::DRAM_NOC0_CONTROL_REG_ADDR_BASE_MAP[noc_port];
-            }
-            if (noc_pair.first == core_type) {
-                return noc_pair.second;
-            }
-        }
-        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
-    } else if (noc == 1) {
-        for (const auto& noc_pair : wormhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
-            if (noc_pair.first == core_type) {
-                if (core_type == CoreType::DRAM) {
-                    return wormhole::DRAM_NOC1_CONTROL_REG_ADDR_BASE_MAP[noc_port];
-                    ;
-                }
-                return noc_pair.second;
-            }
-        }
-        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
-    }
-
-    UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
-}
-
 uint32_t WormholeImplementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.

@@ -7,6 +7,7 @@
 
 #include <cstdint>
 
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -25,6 +26,8 @@ private:
     uint32_t read_hang_check_reg_via_noc(NocId noc) override;
 
     static tt_xy_pair get_hang_check_core(NocId noc);
+
+    const ArchitectureRegisters registers_;
 };
 
 }  // namespace tt::umd

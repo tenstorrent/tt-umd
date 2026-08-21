@@ -22,7 +22,7 @@
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -150,10 +150,8 @@ public:
         // NOTE: The noc_port parameter is not used for Blackhole. Unlike Wormhole where DRAM banks
         // have multiple NOC ports with different register base addresses, Blackhole uses a single
         // register base address per core type.
-        const uint64_t noc_node_id_reg_addr =
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_reg_base(
-                core.core_type, noc_index, noc_port) +
-            cluster_->get_tt_device(0)->get_architecture_implementation()->get_noc_node_id_offset();
+        const uint64_t noc_node_id_reg_addr = get_architecture_registers(cluster_->get_tt_device(0)->get_arch())
+                                                  .get_noc_node_id_reg_addr(core.core_type, noc_index, noc_port);
         uint32_t noc_node_id_val;
         cluster_->read_from_device_reg(&noc_node_id_val, chip, core, noc_node_id_reg_addr, sizeof(noc_node_id_val));
         uint32_t x = noc_node_id_val & 0x3F;
@@ -176,9 +174,8 @@ public:
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, tt_xy_pair core, uint8_t noc_index) {
         auto noc_port = get_noc_port(core, noc_index);
         const uint64_t noc_translated_id_reg_addr =
-            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
-                CoreType::DRAM, noc_index, noc_port) +
-            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
+            get_architecture_registers(cluster_->get_tt_device(chip)->get_arch())
+                .get_noc_translated_id_reg_addr(CoreType::DRAM, noc_index, noc_port);
 
         uint32_t noc_translated_id_val;
         cluster_->get_tt_device(chip)->read_from_device_reg(
@@ -194,9 +191,8 @@ public:
     tt_xy_pair read_noc_translated_id_reg(ChipId chip, CoreCoord core, uint8_t noc_index) {
         auto noc_port = get_noc_port(core);
         const uint64_t noc_translated_id_reg_addr =
-            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_reg_base(
-                core.core_type, noc_index, noc_port) +
-            cluster_->get_tt_device(chip)->get_architecture_implementation()->get_noc_node_translated_id_offset();
+            get_architecture_registers(cluster_->get_tt_device(chip)->get_arch())
+                .get_noc_translated_id_reg_addr(core.core_type, noc_index, noc_port);
 
         uint32_t noc_translated_id_val;
         cluster_->read_from_device_reg(
@@ -685,12 +681,10 @@ TEST_F(TestNoc, BlackholeRouterOnlyNoc1TranslatedCoords) {
         get_cluster()->get_soc_descriptor(chip).get_cores(CoreType::ROUTER_ONLY, CoordSystem::NOC1);
 
     auto* device = get_cluster()->get_tt_device(chip);
-    auto* arch_impl = device->get_architecture_implementation();
+    const ArchitectureRegisters registers = get_architecture_registers(device->get_arch());
 
-    const uint64_t noc_node_id_reg_addr =
-        arch_impl->get_noc_reg_base(CoreType::ROUTER_ONLY, 1, 0) + arch_impl->get_noc_node_id_offset();
-    const uint64_t noc_translated_id_reg_addr =
-        arch_impl->get_noc_reg_base(CoreType::ROUTER_ONLY, 1, 0) + arch_impl->get_noc_node_translated_id_offset();
+    const uint64_t noc_node_id_reg_addr = registers.get_noc_node_id_reg_addr(CoreType::ROUTER_ONLY, 1, 0);
+    const uint64_t noc_translated_id_reg_addr = registers.get_noc_translated_id_reg_addr(CoreType::ROUTER_ONLY, 1, 0);
 
     ASSERT_EQ(noc1_to_translated_router_only.size(), noc1_cores.size());
 

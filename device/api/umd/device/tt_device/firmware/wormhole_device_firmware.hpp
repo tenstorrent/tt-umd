@@ -5,26 +5,55 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
+#include "umd/device/tt_device/firmware/wormhole_arc_apb.hpp"
+#include "umd/device/tt_device/firmware/wormhole_arc_csm.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/eth_training_status.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
+class DeviceProtocol;
+class FirmwareInfoProvider;
+class JtagInterface;
+class PcieInterface;
+class RemoteInterface;
+class architecture_implementation;
 
 /**
  * @brief Wormhole management firmware implementation.
+ *
+ * The interfaces this talks to are forward declared above, so this header stays free of the protocol
+ * headers; they are included in the .cpp.
  */
 class WormholeDeviceFirmware : public DeviceFirmware {
 public:
+    /**
+     * @param remote_interface Non-null only for a device reached over ethernet through a gateway. It
+     * selects the remote route for ARC accesses and flushes ethernet writes before a command is
+     * triggered.
+     */
+    WormholeDeviceFirmware(
+        DeviceProtocol* device_protocol,
+        PcieInterface* pcie_interface,
+        JtagInterface* jtag_interface,
+        RemoteInterface* remote_interface,
+        architecture_implementation* architecture_impl,
+        FirmwareInfoProvider* firmware_info_provider);
+
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     DeviceCommandResult send_device_command(
         uint32_t msg_code,
-        const std::vector<uint32_t> &args,
+        const std::vector<uint32_t>& args,
         std::chrono::milliseconds timeout,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
@@ -48,6 +77,44 @@ public:
     void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+private:
+    IODeviceType get_io_device_type() const;
+
+    // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
+    // settle, rather than throwing.
+    void wait_for_aiclk_value(
+        uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
+
+    // Thin wrappers that resolve the ARC core for noc_id and hand the access to arc_apb_/arc_csm_.
+    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    void read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    // All non-owning; they belong to the component that owns this firmware class and must outlive it.
+    DeviceProtocol* device_protocol_ = nullptr;
+    PcieInterface* pcie_interface_ = nullptr;
+    JtagInterface* jtag_interface_ = nullptr;
+    RemoteInterface* remote_interface_ = nullptr;
+    architecture_implementation* architecture_impl_ = nullptr;
+    FirmwareInfoProvider* firmware_info_provider_ = nullptr;
+
+    // Names the ARC message mutex; taken from the protocol so it identifies this device, not the
+    // silicon model. See DeviceProtocol::get_mmio_id().
+    const int device_id_ = 0;
+
+    // ARC core coordinate per NOC. Fixed for Wormhole, so resolved once in the constructor.
+    tt_xy_pair arc_core_noc0_;
+    tt_xy_pair arc_core_noc1_;
+
+    WormholeArcApb arc_apb_;
+    WormholeArcCsm arc_csm_;
+
+    // Serializes ARC messages against other processes driving the same device, exactly as
+    // ArcMessenger does for the path this replaces.
+    LockManager lock_manager_;
 };
 
 }  // namespace tt::umd

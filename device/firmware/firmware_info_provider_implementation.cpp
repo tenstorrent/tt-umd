@@ -59,20 +59,17 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
 /* static */ std::unique_ptr<FirmwareInfoProvider> FirmwareInfoProviderImplementation::create_firmware_info_provider(
     TTDevice* tt_device) {
     std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry = nullptr;
-    switch (tt_device->get_arch()) {
-        case ARCH::WORMHOLE_B0:
-            smbus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
-        case ARCH::BLACKHOLE:
-            return std::make_unique<FirmwareInfoProviderImplementation>(
-                get_firmware_version_util(tt_device),
-                tt_device->get_arch(),
-                tt_device->get_device_protocol(),
-                tt_device->get_arc_core(),
-                tt_device->get_firmware_telemetry_reader(),
-                std::move(smbus_telemetry));
-        default:
-            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
+    auto arch = tt_device->get_arch();
+    if (arch == ARCH::WORMHOLE_B0) {
+        smbus_telemetry = std::make_unique<SmBusArcTelemetryReader>(tt_device);
     }
+    return std::make_unique<FirmwareInfoProviderImplementation>(
+        get_firmware_version_util(tt_device),
+        tt_device->get_arch(),
+        tt_device->get_device_protocol(),
+        tt_device->get_arc_core(),
+        tt_device->get_firmware_telemetry_reader(),
+        std::move(smbus_telemetry));
 }
 
 /* static */ FirmwareFeatures FirmwareInfoProviderImplementation::create_firmware_feature_map(

@@ -4,8 +4,6 @@
 
 #include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 
-#include <optional>
-
 namespace tt::umd {
 
 void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {}

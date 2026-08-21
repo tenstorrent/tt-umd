@@ -164,7 +164,7 @@ void TTDevice::init_tt_device_for_simulation(bool preserve_soc_descriptor, const
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
-    firmware_info_provider = FirmwareInfoProvider::create_firmware_info_provider(this);
+    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(this);
     // Descriptor-backed simulation remotes are seeded before init and may need to preserve that
     // topology metadata. A bootstrap device without a cluster descriptor instead reconstructs its
     // SocDescriptor from firmware, matching silicon initialization.

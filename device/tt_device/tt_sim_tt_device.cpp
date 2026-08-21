@@ -427,7 +427,7 @@ ChipInfo TTSimTTDevice::get_chip_info() {
         return chip_info;
     }
 
-    ArcTelemetryReader* telemetry_reader = get_arc_telemetry_reader();
+    FirmwareTelemetryReader* telemetry_reader = get_firmware_telemetry_reader();
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         tt::ARCH::BLACKHOLE,
         telemetry_reader->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)

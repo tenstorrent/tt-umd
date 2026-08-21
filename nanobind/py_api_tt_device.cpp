@@ -15,6 +15,7 @@
 
 #include <tt-logger/tt-logger.hpp>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/spi_tt_device.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/cluster.hpp"
@@ -195,7 +196,7 @@ void bind_tt_device(nb::module_ &m) {
         .def_static(
             "read_device_info",
             &PCIDevice::read_device_info,
-            nb::arg("fd"),
+            nb::arg("device_path"),
             release_gil(),
             "Read PCI device information.")
         .def_static(
@@ -232,6 +233,10 @@ void bind_tt_device(nb::module_ &m) {
         .value("Throw", TTDevice::HangAction::THROW)
         .value("ReturnValue", TTDevice::HangAction::RETURN);
 
+    nb::enum_<TTDevice::PowerState>(tt_device_class, "PowerState")
+        .value("BUSY", TTDevice::PowerState::BUSY)
+        .value("IDLE", TTDevice::PowerState::IDLE);
+
     tt_device_class
         .def_static(
             "create",
@@ -243,7 +248,12 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("soc_arch_descriptor") = nullptr,
             nb::rv_policy::take_ownership,
             release_gil())
-        .def("set_power_state", &TTDevice::set_power_state, nb::arg("busy"), release_gil())
+        .def(
+            "set_power_state",
+            &TTDevice::set_power_state,
+            nb::arg("state"),
+            nb::arg("noc_id") = NocId::DEFAULT_NOC,
+            release_gil())
         .def(
             "init_tt_device",
             &TTDevice::init_tt_device,
@@ -251,7 +261,12 @@ void bind_tt_device(nb::module_ &m) {
             release_gil())
         .def("get_soc_descriptor", &TTDevice::get_soc_descriptor, release_gil())
         .def("get_chip_info", &TTDevice::get_chip_info, release_gil())
-        .def("get_arc_telemetry_reader", &TTDevice::get_arc_telemetry_reader, nb::rv_policy::reference_internal)
+        .def(
+            "get_firmware_telemetry_reader",
+            &TTDevice::get_firmware_telemetry_reader,
+            nb::rv_policy::reference_internal)
+        // TODO: Update exalens to call get_firmware_telemetry_reader().
+        .def("get_arc_telemetry_reader", &TTDevice::get_firmware_telemetry_reader, nb::rv_policy::reference_internal)
         .def("get_arch", &TTDevice::get_arch, release_gil())
         .def("get_board_id", &TTDevice::get_board_id, release_gil())
         .def("board_id", &TTDevice::get_board_id, release_gil())
@@ -291,7 +306,7 @@ void bind_tt_device(nb::module_ &m) {
                 uint32_t value = 0;
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                    self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
                 return value;
             },
@@ -305,7 +320,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                    self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -320,7 +335,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(buffer.data(), core, addr, size);
+                    self.read_from_device(buffer.data(), core, addr, size, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -336,7 +351,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size());
+                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -352,7 +367,7 @@ void bind_tt_device(nb::module_ &m) {
                 PyBufferView buffer(data);
                 {
                     nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr);
+                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
                 }
             },
             nb::arg("addr"),
@@ -363,7 +378,7 @@ void bind_tt_device(nb::module_ &m) {
         .def(
             "noc_broadcast32",
             [](TTDevice &self, uint64_t addr, uint32_t value) -> void {
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
             },
             nb::arg("addr"),
             nb::arg("value"),
@@ -382,7 +397,8 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core_end = {end_x, end_y};
                 {
                     nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), core_start, core_end, addr);
+                    self.noc_multicast_write(
+                        buffer.readable_data(), buffer.size(), core_start, core_end, addr, get_selected_noc_id());
                 }
             },
             nb::arg("start_x"),
@@ -406,7 +422,7 @@ void bind_tt_device(nb::module_ &m) {
                uint32_t value) -> void {
                 tt_xy_pair core_start = {start_x, start_y};
                 tt_xy_pair core_end = {end_x, end_y};
-                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), core_start, core_end, addr, get_selected_noc_id());
             },
             nb::arg("start_x"),
             nb::arg("start_y"),
@@ -470,7 +486,7 @@ void bind_tt_device(nb::module_ &m) {
                 std::vector<uint8_t> buffer(size);
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(buffer.data(), size, core, addr);
+                    self.dma_read_from_device(buffer.data(), size, core, addr, get_selected_noc_id());
                 }
                 return nb::bytes(reinterpret_cast<const char *>(buffer.data()), buffer.size());
             },
@@ -486,7 +502,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_write_to_device(buffer.readable_data(), buffer.size(), core, addr);
+                    self.dma_write_to_device(buffer.readable_data(), buffer.size(), core, addr, get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
@@ -617,7 +633,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(data_ptr, core, addr, data_size);
+                    self.read_from_device(data_ptr, core, addr, data_size, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -642,7 +658,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.dma_read_from_device(data_ptr, data_size, core, addr);
+                    self.dma_read_from_device(data_ptr, data_size, core, addr, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -663,7 +679,7 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t));
+                self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 return value;
             },
             nb::arg("noc_id"),
@@ -682,7 +698,7 @@ void bind_tt_device(nb::module_ &m) {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size());
+                    self.write_to_device(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -701,7 +717,7 @@ void bind_tt_device(nb::module_ &m) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t));
+                self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
@@ -718,7 +734,7 @@ void bind_tt_device(nb::module_ &m) {
                 PyBufferView buffer(data);
                 {
                     nb::gil_scoped_release release;
-                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr);
+                    self.noc_multicast_write(buffer.readable_data(), buffer.size(), addr, get_selected_noc_id());
                 }
             },
             nb::arg("noc_id"),
@@ -733,7 +749,7 @@ void bind_tt_device(nb::module_ &m) {
                 if (noc_id != 0) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
-                self.noc_multicast_write(&value, sizeof(uint32_t), addr);
+                self.noc_multicast_write(&value, sizeof(uint32_t), addr, get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("addr"),

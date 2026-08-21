@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Temperature: " << device->get_asic_temperature() << "°C" << std::endl;
 
         std::cout << "ArcMessenger available: " << (device->get_arc_messenger() ? "Yes" : "No") << std::endl;
-        std::cout << "ArcTelemetryReader available: " << (device->get_arc_telemetry_reader() ? "Yes" : "No")
+        std::cout << "FirmwareTelemetryReader available: " << (device->get_firmware_telemetry_reader() ? "Yes" : "No")
                   << std::endl;
 
         const std::vector<CoreCoord>& tensix_cores =

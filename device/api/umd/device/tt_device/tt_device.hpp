@@ -18,10 +18,10 @@
 #include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
-#include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
@@ -33,7 +33,6 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
@@ -49,10 +48,12 @@ class ArcMessenger;
 class ArcTelemetryReader;
 class RemoteCommunication;
 class SimulationSysmemManager;
+class DmaInterface;
 class JtagDevice;
 class JtagInterface;
 class PCIDevice;
 class PcieInterface;
+class PcieProtocol;
 class RemoteInterface;
 class TLBManager;
 enum class NocId : uint8_t;
@@ -110,7 +111,6 @@ public:
 
     architecture_implementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
-    JtagDevice *get_jtag_device();
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
@@ -126,6 +126,14 @@ public:
     enum class HangAction {
         THROW,   ///< Throw an exception (depending on type of hang) (default).
         RETURN,  ///< Return instead of throwing.
+    };
+
+    /**
+     * @brief Defines the requested power domain state for the device.
+     */
+    enum class PowerState {
+        BUSY,  ///< Claims all power domains, requesting maximum performance.
+        IDLE,  ///< Releases power domains, allowing the device to enter lower power states.
     };
 
     /**
@@ -158,54 +166,69 @@ public:
      */
     bool is_noc_hung(NocId noc, HangAction action = HangAction::THROW);
 
-    /**
-     * DMA transfer from device to host.
-     *
-     * @param dst destination buffer
-     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_d2h(void *dst, uint32_t src, size_t size);
-
-    /**
-     * DMA transfer from device to host.
-     *
-     * @param dst destination buffer
-     * @param src AXI address corresponding to inbound PCIe TLB window; src % 4 == 0
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size);
-
-    /**
-     * DMA transfer from host to device.
-     *
-     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
-     * @param src source buffer
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_h2d(uint32_t dst, const void *src, size_t size);
-
-    /**
-     * DMA transfer from host to device.
-     *
-     * @param dst AXI address corresponding to inbound PCIe TLB window; dst % 4 == 0
-     * @param src source buffer
-     * @param size number of bytes
-     * @throws std::runtime_error if the DMA transfer fails
-     */
-    virtual void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size);
-
     // Read/write functions that always use same TLB entry. This is not supposed to be used
     // on any code path that is performance critical. It is used to read/write the data needed
     // to get the information to form cluster of chips, or just use base TTDevice functions.
-    virtual void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void read_from_device(
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void write_to_device(
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual void read_from_device_reg(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
-    virtual void write_to_device_reg(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size);
+    virtual void read_from_device_reg(
+        void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+    virtual void write_to_device_reg(
+        const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
+
+    virtual void dma_write_to_device(
+        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+
+    virtual void dma_read_from_device(
+        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
+     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
+     * translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src pointer to memory from which the data is sent
+     * @param size number of bytes
+     * @param core_start starting core coordinates (x,y) of the multicast write
+     * @param core_end ending core coordinates (x,y) of the multicast write
+     * @param addr address on the device where data will be written
+     */
+    virtual void dma_multicast_write(
+        void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param dst_iova IOVA of the destination pinned host memory buffer.
+     * @param src_addr source address on the target core.
+     * @param size number of bytes
+     * @param core source core coordinates
+     */
+    virtual void dma_read_zero_copy(
+        uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
+     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
+     * DMA is unavailable.
+     *
+     * @param src_iova IOVA of the source pinned host memory buffer.
+     * @param dst_addr destination address on the target core.
+     * @param size number of bytes
+     * @param core target core coordinates
+     */
+    virtual void dma_write_zero_copy(
+        uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to multiple cores on NOC grid. Multicast writes data to a grid
@@ -219,9 +242,12 @@ public:
      * @param addr address on the device where data will be written
      */
     virtual void noc_multicast_write(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    virtual void noc_multicast_write(
-        const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * NOC multicast write function that will write data to all TENSIX cores in the grid.
@@ -230,7 +256,7 @@ public:
      * @param size number of bytes
      * @param addr address on the device where data will be written
      */
-    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr) = 0;
+    virtual void noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
      * Read function that will send read message to the ARC core APB peripherals.
@@ -346,7 +372,7 @@ public:
      * @return Time taken in ms.
      */
     virtual std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) = 0;
 
     void wait_dram_channel_training(
         const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms = timeout::DRAM_TRAINING_TIMEOUT);
@@ -357,27 +383,30 @@ public:
 
     ArcMessenger *get_arc_messenger() const;
 
-    ArcTelemetryReader *get_arc_telemetry_reader() const;
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**
-     * Request full power domains from KMD (busy=true) or release them (busy=false).
-     * No-op for remote devices and on KMD versions older than 2.6.0.
+     * @brief Requests a hardware power domain state change.
      *
-     * @param busy true to claim all power domains, false to release them.
+     * Claims or releases full power domains. No-op for remote devices.
+     *
+     * @param state The requested power state (BUSY or IDLE).
      */
-    virtual void set_power_state(bool busy);
+    virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * Set the device clock (AICLK) state by sending the corresponding power-state request to device
-     * and waiting for the clock to settle at the expected frequency.
+     * @brief Sets the device clock frequency.
      *
-     * @param state Target clock state (BUSY, SHORT_IDLE or LONG_IDLE).
+     * Controls the AICLK frequency the device runs at. Distinct from
+     * set_power_state(), which manages hardware power domains.
+     *
+     * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */
-    virtual void set_clock_state(DevicePowerState state);
+    virtual void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual uint32_t get_clock() = 0;
 
@@ -418,7 +447,6 @@ public:
      *
      * @param core Core to get soft reset for, in translated coordinates
      */
-    uint32_t get_risc_reset_state(tt_xy_pair core);
     uint32_t get_risc_reset_state(CoreCoord core);
 
     /**
@@ -427,7 +455,6 @@ public:
      * @param core Core to set soft reset for, in translated coordinates
      * @param risc_flags bitmask of riscs to set soft reset for
      */
-    void set_risc_reset_state(tt_xy_pair core, const uint32_t risc_flags);
     void set_risc_reset_state(CoreCoord core, const uint32_t risc_flags);
 
     /**
@@ -436,8 +463,7 @@ public:
      * @param core Core to assert reset for, in translated coordinates
      * @param selected_riscs Bitmask of riscs to assert reset for
      */
-    virtual void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs);
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
+    virtual void assert_risc_reset(CoreCoord core, const RiscType selected_riscs);
 
     /**
      * Deassert risc reset for a specific core.
@@ -446,8 +472,7 @@ public:
      * @param selected_riscs Bitmask of riscs to deassert reset for
      * @param staggered_start Whether to use staggered start
      */
-    virtual void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start);
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
+    virtual void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start);
 
     virtual SimulationSysmemManager *get_sysmem_manager() { return nullptr; }
 
@@ -466,36 +491,33 @@ public:
     virtual std::unique_ptr<TlbWindow> get_io_window(
         tlb_data config, TlbMapping mapping = TlbMapping::WC, size_t size = 0);
 
-    virtual void dma_write_to_device(const void *src, size_t size, tt_xy_pair core, uint64_t addr);
-    void dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr);
-
-    virtual void dma_read_from_device(void *dst, size_t size, tt_xy_pair core, uint64_t addr);
-    void dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr);
+    /**
+     * Export a NOC-addressable region as a dma-buf file descriptor for peer-to-peer PCIe DMA.
+     * Requires a PCIe-attached device. See PcieInterface::export_dmabuf for the full contract; the
+     * caller owns the returned fd and must close() it.
+     *
+     * @param core Core to target.
+     * @param addr Address within the core to aim the exported region at; must be page-aligned.
+     * @param size Number of bytes to export; must be page-aligned and non-zero.
+     * @param ordering Ordering mode for the TLB window backing the export.
+     * @param noc_id NOC to route the exported traffic over.
+     */
+    virtual int export_dmabuf(
+        CoreCoord core,
+        uint64_t addr,
+        size_t size,
+        uint64_t ordering = tlb_data::Relaxed,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     static void set_sigbus_safe_handler(bool set_safe_handler);
 
     /**
-     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
-     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
-     * translated coordinate system so that the write lands on the intended cores.
-     *
-     * @param src pointer to memory from which the data is sent
-     * @param size number of bytes
-     * @param core_start starting core coordinates (x,y) of the multicast write
-     * @param core_end ending core coordinates (x,y) of the multicast write
-     * @param addr address on the device where data will be written
-     */
-    virtual void dma_multicast_write(void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
-    void dma_multicast_write(void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr);
-
-    /**
      * Read the training status of the given ETH core.
      *
-     * @param eth_core ETH core to read the training status for, in translated coordinates
+     * @param eth_core ETH core to read the training status for.
      * @return Training status
      */
-    virtual EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) = 0;
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core);
+    virtual EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) = 0;
 
     const SocDescriptor &get_soc_descriptor() const;
 
@@ -528,12 +550,17 @@ protected:
     // [core_start, core_end] grid. Simulation backends have no hardware multicast, so they delegate
     // their noc_multicast_write override here instead of duplicating the fallback loop.
     void multicast_write_via_unicast(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr);
+        const void *src,
+        size_t size,
+        CoreCoord core_start,
+        CoreCoord core_end,
+        uint64_t addr,
+        NocId noc_id = NocId::DEFAULT_NOC);
 
     // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
     // returns on timeout.
     void wait_for_aiclk_value(
-        DevicePowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
+        PowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
@@ -556,16 +583,20 @@ private:
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
-    xy_pair resolve_coordinate(CoreCoord core) const;
+    xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
+
+    DmaInterface *get_dma_interface();
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;
+    DmaInterface *dma_capabilities_ = nullptr;
+    PcieProtocol *pcie_protocol_ = nullptr;
     JtagInterface *jtag_capabilities_ = nullptr;
     RemoteInterface *remote_capabilities_ = nullptr;
 };

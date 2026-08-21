@@ -38,11 +38,21 @@ struct CoreDescriptor {
 // per-chip runtime state like harvesting masks or NOC translation settings.
 class SocArchDescriptor {
 public:
+    virtual ~SocArchDescriptor() = default;
+
     // Create from architecture enum (uses hardcoded constants).
     SocArchDescriptor(tt::ARCH arch);
 
     // Create from a YAML SoC descriptor file.
     SocArchDescriptor(const std::string& soc_descriptor_path);
+
+    // Populates the descriptor with the topology data selected at construction (architecture
+    // constants or the YAML file) and rebuilds the derived data. The constructors invoke it
+    // non-virtually (virtual dispatch does not reach derived overrides during base construction),
+    // so it always runs this class' population. It is virtual to reserve an override point for
+    // future TTDeviceModel compositions, which would invoke init() explicitly on a fully
+    // constructed object rather than rely on the base constructor.
+    virtual void init();
 
     // Helpers for extracting info from a YAML descriptor file without fully constructing.
     static tt::ARCH get_arch_from_path(const std::string& soc_descriptor_path);
@@ -64,7 +74,7 @@ public:
 
     const std::vector<tt_xy_pair>& get_eth_cores() const { return eth_cores_; }
 
-    const std::vector<tt_xy_pair>& get_arc_cores() const { return arc_cores_; }
+    const std::vector<tt_xy_pair>& get_firmware_cores() const { return firmware_cores_; }
 
     const std::vector<tt_xy_pair>& get_pcie_cores() const { return pcie_cores_; }
 
@@ -139,7 +149,7 @@ private:
     std::vector<tt_xy_pair> tensix_cores_;
     std::vector<std::vector<tt_xy_pair>> dram_cores_;
     std::vector<tt_xy_pair> eth_cores_;
-    std::vector<tt_xy_pair> arc_cores_;
+    std::vector<tt_xy_pair> firmware_cores_;
     std::vector<tt_xy_pair> pcie_cores_;
     std::vector<tt_xy_pair> router_cores_;
     std::vector<tt_xy_pair> security_cores_;

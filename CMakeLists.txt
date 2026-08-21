@@ -48,6 +48,7 @@ if(MASTER_PROJECT)
     endif()
 
     include(sanitizers)
+    include(sccache)
 endif()
 
 option(TT_UMD_BUILD_TESTS "Enables build of tt_umd tests" OFF)
@@ -142,8 +143,10 @@ if(NOT DEFINED CMAKE_COMPILE_WARNING_AS_ERROR)
     set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 endif()
 
+set(TT_X86_MARCH "x86-64-v3" CACHE STRING "x86_64 architecture passed to -march")
+
 add_compile_options(
-    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=x86-64-v3>"
+    "$<$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>:-march=${TT_X86_MARCH}>"
     -Wall
     -Wno-sign-compare
 )
@@ -159,11 +162,11 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     add_compile_options(-Wno-nonnull)
 endif()
 
+add_subdirectory(tt-kmd-lib)
 add_subdirectory(device)
 if(TT_UMD_BUILD_PYTHON)
     add_subdirectory(nanobind)
 endif()
-add_subdirectory(src)
 if(TT_UMD_BUILD_TOOLS)
     add_subdirectory(tools)
 endif()

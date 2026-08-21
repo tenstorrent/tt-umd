@@ -23,6 +23,16 @@ on:
         required: true
         default: '["Release", "RelWithDebInfo", "Debug", "ASan", "TSan"]'
         type: string
+      repeat-count:
+        description: 'Times to repeat each card. Default 1 (cards x count <= 256).'
+        required: false
+        default: "1"
+        type: string
+      cards-filter:
+        description: 'Cards to run: JSON list of exact names to narrow to. Empty = all cards.'
+        required: false
+        default: ""
+        type: string
   pull_request:
   merge_group:
   push:
@@ -64,6 +74,19 @@ jobs:
     with:
       docker-version: ubuntu-22.04
 
+  # Build the tt-exalens test kernels + source artifact exactly ONCE per workflow run. This
+  # lives here - not inside build-and-run-all-tests.yml, which is invoked once per build-type -
+  # so all build-type runs share one artifact instead of racing to upload identically-named
+  # ones. The build-* jobs below pass build-exalens-kernels: false so they don't build their
+  # own (which would collide); a standalone dispatch of build-and-run-all-tests.yml keeps the
+  # default (true) and builds its own.
+  build-exalens-kernels:
+    name: Build tt-exalens kernels
+    needs: gatekeeper
+    if: always()  # Don't skip if gatekeeper is skipped.
+    secrets: inherit
+    uses: ./.github/workflows/build-exalens-kernels.yml
+
   # On pull_request, only Release should run. But GitHub applies the same required-status-check
   # rules to PRs and merge queues — if a check is required for merge_group it must also be
   # present on the PR. Skipped jobs count as passing, so all jobs are defined for all events
@@ -84,7 +107,7 @@ jobs:
 
   build-release:
     name: "Build and Test (Release)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: (none)
     if: >-
       always() &&
@@ -103,12 +126,14 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-asan:
     name: "Build and Test (ASan)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       always() &&
@@ -125,12 +150,14 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-tsan:
     name: "Build and Test (TSan)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, push
     if: >-
       always() &&
@@ -147,12 +174,14 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-relwithdebinfo:
     name: "Build and Test (RelWithDebInfo)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       always() &&
@@ -168,12 +197,16 @@ jobs:
       timeout: 25
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      # Kernels are built once by the build-exalens-kernels job above and shared across all
+      # build-types; building them here too would collide on the artifact name.
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
   build-debug:
     name: "Build and Test (Debug)"
-    needs: ensure-image
+    needs: [ensure-image, build-exalens-kernels]
     # Skipped: pull_request, merge_group, push
     if: >-
       always() &&
@@ -189,6 +222,8 @@ jobs:
       timeout: 50
       docker-image-tag: ${{ needs.ensure-image.outputs.image-tag }}
       triggering-event: ${{ github.event_name }}
+      repeat-count: ${{ inputs.repeat-count || '1' }}
+      cards-filter: ${{ inputs.cards-filter || '' }}
       log-params: |
         echo build-and-run-all-tests-multiple-builds - build-types: ${{ inputs.build-types }}
 
@@ -197,17 +232,25 @@ jobs:
   all-builds-passed:
     name: All builds and tests passed
     runs-on: ubuntu-latest
-    needs: [ensure-image, build-release, build-asan, build-tsan, build-relwithdebinfo, build-debug]
+    needs:
+      - ensure-image
+      - build-exalens-kernels
+      - build-release
+      - build-asan
+      - build-tsan
+      - build-relwithdebinfo
+      - build-debug
     if: always()
     steps:
       - name: Check no job failed or was cancelled
         run: |
-          echo "ensure-image:         ${{ needs.ensure-image.result }}"
-          echo "build-release:        ${{ needs.build-release.result }}"
-          echo "build-asan:           ${{ needs.build-asan.result }}"
-          echo "build-tsan:           ${{ needs.build-tsan.result }}"
-          echo "build-relwithdebinfo: ${{ needs.build-relwithdebinfo.result }}"
-          echo "build-debug:          ${{ needs.build-debug.result }}"
+          echo "ensure-image:          ${{ needs.ensure-image.result }}"
+          echo "build-exalens-kernels: ${{ needs.build-exalens-kernels.result }}"
+          echo "build-release:         ${{ needs.build-release.result }}"
+          echo "build-asan:            ${{ needs.build-asan.result }}"
+          echo "build-tsan:            ${{ needs.build-tsan.result }}"
+          echo "build-relwithdebinfo:  ${{ needs.build-relwithdebinfo.result }}"
+          echo "build-debug:           ${{ needs.build-debug.result }}"
           results="${{ join(needs.*.result, ' ') }}"
           for r in $results; do
             if [[ "$r" == "failure" || "$r" == "cancelled" ]]; then

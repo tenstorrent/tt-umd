@@ -24,6 +24,7 @@
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -56,8 +57,11 @@ public:
         const tt_xy_pair core_location,
         const CoordSystem input_coord_system,
         const CoordSystem target_coord_system) const;
-    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core) const;
-    CoreCoord translate_chip_coord_to_translated_coord(const CoreCoord core) const;
+    // Returns the coordinates to use for device access over the NOC identified by noc_id. Note that the returned
+    // CoordSystem is not necessarily TRANSLATED — architecture-specific fixups (e.g. Wormhole DRAM/ARC/PCIe cores,
+    // Blackhole ROUTER_ONLY and harvested ETH cores on NOC1) may produce NOC0/NOC1 coordinates instead.
+    tt_xy_pair translate_chip_coord_to_translated(const CoreCoord core, const NocId noc_id) const;
+    CoreCoord translate_chip_coord_to_translated_coord(const CoreCoord core, const NocId noc_id) const;
 
     // Serialize the soc descriptor to a YAML string, or directly to a file.
     // A default file in /tmp directory will be used if no path is passed.
@@ -78,6 +82,9 @@ public:
 
     tt_xy_pair get_grid_size(const CoreType core_type) const;
     tt_xy_pair get_harvested_grid_size(const CoreType core_type) const;
+
+    std::pair<CoreCoord, CoreCoord> get_bounding_rectangle(
+        CoordSystem coord_system = CoordSystem::TRANSLATED, CoreType core_type = CoreType::TENSIX) const;
 
     std::vector<std::vector<CoreCoord>> get_dram_cores() const;
 

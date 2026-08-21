@@ -219,7 +219,7 @@ void CoordinateManager::translate_tensix_coords() {
     for (size_t y = 0; y < grid_size_y; y++) {
         if (!(harvesting_masks.tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
-                const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
+                const tt_xy_pair& tensix_core = tensix_cores.at(y * grid_size_x + x);
 
                 CoreCoord logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, tensix_core);
@@ -849,7 +849,10 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
         for (const tt_xy_pair& tensix_core : cores) {
             add_core_translation(
                 CoreCoord(
-                    noc0_x_to_noc1_x[tensix_core.x], noc0_y_to_noc1_y[tensix_core.y], core_type, CoordSystem::NOC1),
+                    noc0_x_to_noc1_x.at(tensix_core.x),
+                    noc0_y_to_noc1_y.at(tensix_core.y),
+                    core_type,
+                    CoordSystem::NOC1),
                 tensix_core);
         }
     };

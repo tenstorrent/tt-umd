@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "umd/device/tt_kmd_lib/tt_kmd_lib.h"
+#include "tt-kmd-lib/tt_kmd_lib.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -14,8 +14,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "pcie/ioctl.h"
-#include "umd/device/pcie/pci_ids.h"
+#include "ioctl.h"
+#include "tt-kmd-lib/pci_ids.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define DEBUG(fmt, ...)                                                        \
@@ -89,7 +89,7 @@ int tt_device_close(tt_device_t* dev) {
     return 0;
 }
 
-int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value) {
+int tt_device_get_attrs(tt_device_t* dev, tt_device_attrs_t* out_attrs) {
     struct tenstorrent_get_device_info get_device_info = {0};
 
     get_device_info.in.output_size_bytes = sizeof(get_device_info.out);
@@ -105,42 +105,69 @@ int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out
         arch = TT_DEVICE_ARCH_WORMHOLE;
     }
 
+    out_attrs->pci_domain = get_device_info.out.pci_domain;
+    out_attrs->pci_bus = get_device_info.out.bus_dev_fn >> 8;
+    out_attrs->pci_device = (get_device_info.out.bus_dev_fn >> 3) & 0x1F;
+    out_attrs->pci_function = get_device_info.out.bus_dev_fn & 0x07;
+    out_attrs->pci_vendor_id = get_device_info.out.vendor_id;
+    out_attrs->pci_device_id = get_device_info.out.device_id;
+    out_attrs->pci_subsystem_vendor_id = get_device_info.out.subsystem_vendor_id;
+    out_attrs->pci_subsystem_id = get_device_info.out.subsystem_id;
+    out_attrs->chip_arch = arch;
+    out_attrs->num_1m_tlbs = TLB_COUNT_1M[arch];
+    out_attrs->num_2m_tlbs = TLB_COUNT_2M[arch];
+    out_attrs->num_16m_tlbs = TLB_COUNT_16M[arch];
+    out_attrs->num_4g_tlbs = TLB_COUNT_4G[arch];
+
+    return 0;
+}
+
+int tt_device_get_attr(tt_device_t* dev, enum tt_device_attr attr, uint64_t* out_value) {
+    tt_device_attrs_t attrs = {0};
+    int ret = tt_device_get_attrs(dev, &attrs);
+    if (ret != 0) {
+        return ret;
+    }
+
     switch (attr) {
         case TT_DEVICE_ATTR_PCI_DOMAIN:
-            *out_value = get_device_info.out.pci_domain;
+            *out_value = attrs.pci_domain;
             break;
         case TT_DEVICE_ATTR_PCI_BUS:
-            *out_value = get_device_info.out.bus_dev_fn >> 8;
+            *out_value = attrs.pci_bus;
             break;
         case TT_DEVICE_ATTR_PCI_DEVICE:
-            *out_value = (get_device_info.out.bus_dev_fn >> 3) & 0x1F;
+            *out_value = attrs.pci_device;
             break;
         case TT_DEVICE_ATTR_PCI_FUNCTION:
-            *out_value = get_device_info.out.bus_dev_fn & 0x07;
+            *out_value = attrs.pci_function;
             break;
         case TT_DEVICE_ATTR_PCI_VENDOR_ID:
-            *out_value = get_device_info.out.vendor_id;
+            *out_value = attrs.pci_vendor_id;
             break;
         case TT_DEVICE_ATTR_PCI_DEVICE_ID:
-            *out_value = get_device_info.out.device_id;
+            *out_value = attrs.pci_device_id;
+            break;
+        case TT_DEVICE_ATTR_PCI_SUBSYSTEM_VENDOR_ID:
+            *out_value = attrs.pci_subsystem_vendor_id;
             break;
         case TT_DEVICE_ATTR_PCI_SUBSYSTEM_ID:
-            *out_value = get_device_info.out.subsystem_id;
+            *out_value = attrs.pci_subsystem_id;
             break;
         case TT_DEVICE_ATTR_CHIP_ARCH:
-            *out_value = arch;
+            *out_value = attrs.chip_arch;
             break;
         case TT_DEVICE_ATTR_NUM_1M_TLBS:
-            *out_value = TLB_COUNT_1M[arch];
+            *out_value = attrs.num_1m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_2M_TLBS:
-            *out_value = TLB_COUNT_2M[arch];
+            *out_value = attrs.num_2m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_16M_TLBS:
-            *out_value = TLB_COUNT_16M[arch];
+            *out_value = attrs.num_16m_tlbs;
             break;
         case TT_DEVICE_ATTR_NUM_4G_TLBS:
-            *out_value = TLB_COUNT_4G[arch];
+            *out_value = attrs.num_4g_tlbs;
             break;
         default:
             return -EINVAL;
@@ -175,6 +202,61 @@ int tt_driver_get_attr(tt_device_t* dev, enum tt_driver_attr attr, uint64_t* out
             return dev ? 0 : -ENODEV;
         default:
             return -EINVAL;
+    }
+
+    return 0;
+}
+
+int tt_device_query_bar_mappings(tt_device_t* dev, tt_bar_mappings_t* out_mappings) {
+    struct {
+        struct tenstorrent_query_mappings query_mappings;
+        struct tenstorrent_mapping mapping_array[8];
+    } mappings;
+
+    memset(&mappings, 0, sizeof(mappings));
+    mappings.query_mappings.in.output_mapping_count = 8;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_QUERY_MAPPINGS, &mappings.query_mappings) != 0) {
+        return -errno;
+    }
+
+    memset(out_mappings, 0, sizeof(*out_mappings));
+
+    for (unsigned int i = 0; i < mappings.query_mappings.in.output_mapping_count; i++) {
+        struct tenstorrent_mapping* m = &mappings.mapping_array[i];
+        tt_bar_mapping_t* dst = NULL;
+
+        switch (m->mapping_id) {
+            case TENSTORRENT_MAPPING_RESOURCE0_UC:
+                dst = &out_mappings->resource0_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE0_UC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE0_WC:
+                dst = &out_mappings->resource0_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE0_WC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE1_UC:
+                dst = &out_mappings->resource1_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE1_UC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE1_WC:
+                dst = &out_mappings->resource1_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE1_WC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE2_UC:
+                dst = &out_mappings->resource2_uc;
+                dst->id = TT_BAR_MAPPING_RESOURCE2_UC;
+                break;
+            case TENSTORRENT_MAPPING_RESOURCE2_WC:
+                dst = &out_mappings->resource2_wc;
+                dst->id = TT_BAR_MAPPING_RESOURCE2_WC;
+                break;
+            default:
+                continue;
+        }
+
+        dst->base = m->mapping_base;
+        dst->size = m->mapping_size;
     }
 
     return 0;
@@ -322,16 +404,10 @@ int tt_noc_write(tt_device_t* dev, uint8_t x, uint8_t y, uint64_t addr, const vo
     return 0;
 }
 
-int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** out_dma) {
+int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* out_dma_addr, uint64_t* out_noc_addr) {
     int page_size = getpagesize();
-    if (len == 0 || len % page_size != 0 || addr == NULL || (uint64_t)addr % page_size != 0) {
+    if ((uint64_t)addr % page_size != 0 || len % page_size != 0) {
         return -EINVAL;
-    }
-
-    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
-
-    if (!dma) {
-        return -ENOMEM;
     }
 
     struct {
@@ -344,30 +420,69 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
     pin_pages.in.output_size_bytes = sizeof(pin_pages.out);
     pin_pages.in.virtual_address = (uint64_t)addr;
     pin_pages.in.size = len;
+    pin_pages.in.flags = 0;
 
+    if (flags & TT_DMA_FLAG_CONTIGUOUS) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_CONTIGUOUS;
+    }
     if (flags & TT_DMA_FLAG_NOC) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_DMA;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_DMA;
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
-        pin_pages.in.flags = TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
-    } else {
-        pin_pages.in.flags = 0;
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
+    }
+    if (flags & TT_DMA_FLAG_READ_ONLY) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_READ_ONLY;
     }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {
-        int e = errno;
+        return -errno;
+    }
+
+    if (out_dma_addr) {
+        *out_dma_addr = pin_pages.out.physical_address;
+    }
+
+    if (out_noc_addr && (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN))) {
+        *out_noc_addr = pin_pages.out.noc_address;
+    }
+
+    return 0;
+}
+
+int tt_unpin_pages(tt_device_t* dev, void* addr, size_t len) {
+    struct tenstorrent_unpin_pages unpin = {0};
+    unpin.in.virtual_address = (uint64_t)addr;
+    unpin.in.size = len;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin) != 0) {
+        return -errno;
+    }
+
+    return 0;
+}
+
+int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** out_dma) {
+    int page_size = getpagesize();
+    if (len == 0 || len % page_size != 0 || addr == NULL || (uint64_t)addr % page_size != 0) {
+        return -EINVAL;
+    }
+
+    struct tt_dma_t* dma = calloc(1, sizeof(struct tt_dma_t));
+
+    if (!dma) {
+        return -ENOMEM;
+    }
+
+    uint64_t noc = ~0ULL;
+    int ret = tt_pin_pages(dev, addr, len, flags, &dma->iova, &noc);
+    if (ret != 0) {
         free(dma);
-        return -e;
+        return ret;
     }
 
     dma->addr = addr;
     dma->len = len;
-    dma->iova = pin_pages.out.physical_address;
-
-    if (flags & (TT_DMA_FLAG_NOC | TT_DMA_FLAG_NOC_TOP_DOWN)) {
-        dma->noc = pin_pages.out.noc_address;
-    } else {
-        dma->noc = ~0ULL;
-    }
+    dma->noc = noc;
 
     *out_dma = dma;
 
@@ -375,12 +490,9 @@ int tt_dma_map(tt_device_t* dev, void* addr, size_t len, int flags, tt_dma_t** o
 }
 
 int tt_dma_unmap(tt_device_t* dev, tt_dma_t* dma) {
-    struct tenstorrent_unpin_pages unpin = {0};
-    unpin.in.virtual_address = (uint64_t)dma->addr;
-    unpin.in.size = dma->len;
-
-    if (ioctl(dev->fd, TENSTORRENT_IOCTL_UNPIN_PAGES, &unpin) != 0) {
-        return -errno;
+    int ret = tt_unpin_pages(dev, dma->addr, dma->len);
+    if (ret != 0) {
+        return ret;
     }
 
     free(dma);
@@ -399,6 +511,59 @@ int tt_dma_get_noc_addr(tt_dma_t* dma, uint64_t* out_noc_addr) {
     }
 
     *out_noc_addr = dma->noc;
+    return 0;
+}
+
+int tt_allocate_dma_buf(
+    tt_device_t* dev,
+    uint8_t buf_index,
+    size_t size,
+    int flags,
+    void** out_mapping,
+    uint64_t* out_dma_addr,
+    uint64_t* out_noc_addr) {
+    if (!dev || !out_mapping || size == 0) {
+        return -EINVAL;
+    }
+    if (size > UINT32_MAX) {
+        return -EINVAL;
+    }
+    *out_mapping = NULL;
+    if (out_dma_addr) {
+        *out_dma_addr = 0;
+    }
+    if (out_noc_addr) {
+        *out_noc_addr = 0;
+    }
+
+    struct tenstorrent_allocate_dma_buf dma_buf = {0};
+    dma_buf.in.requested_size = (uint32_t)size;
+    dma_buf.in.buf_index = buf_index;
+    dma_buf.in.flags = 0;
+
+    if (flags & TT_DMA_FLAG_NOC) {
+        dma_buf.in.flags |= TENSTORRENT_ALLOCATE_DMA_BUF_NOC_DMA;
+    }
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_ALLOCATE_DMA_BUF, &dma_buf) != 0) {
+        return -errno;
+    }
+
+    void* mapping = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, dev->fd, dma_buf.out.mapping_offset);
+    if (mapping == MAP_FAILED) {
+        return -errno;
+    }
+
+    *out_mapping = mapping;
+
+    if (out_dma_addr) {
+        *out_dma_addr = dma_buf.out.physical_address;
+    }
+
+    if (out_noc_addr && (flags & TT_DMA_FLAG_NOC)) {
+        *out_noc_addr = dma_buf.out.noc_address;
+    }
+
     return 0;
 }
 
@@ -511,6 +676,34 @@ int tt_tlb_map_unicast(tt_device_t* dev, tt_tlb_t* tlb, uint8_t x, uint8_t y, ui
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_CONFIGURE_TLB, &configure_tlb) != 0) {
         return -errno;
     }
+
+    return 0;
+}
+
+int tt_tlb_export_dmabuf(tt_device_t* dev, tt_tlb_t* tlb, uint64_t offset, uint64_t size, int* out_fd) {
+    if (dev == NULL || tlb == NULL || out_fd == NULL) {
+        return -EINVAL;
+    }
+
+    /* The driver rejects a zero size, an offset or size that is not page-aligned, or a range that
+     * runs past the end of the window. */
+    const uint64_t page_size = (uint64_t)getpagesize();
+    if (offset > tlb->size || (offset % page_size) != 0 || size == 0 || (size % page_size) != 0 ||
+        size > (tlb->size - offset)) {
+        return -EINVAL;
+    }
+
+    struct tenstorrent_export_tlb_dmabuf export_dmabuf = {0};
+    export_dmabuf.argsz = sizeof(export_dmabuf);
+    export_dmabuf.tlb_id = tlb->id;
+    export_dmabuf.offset = offset;
+    export_dmabuf.size = size;
+
+    if (ioctl(dev->fd, TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF, &export_dmabuf) != 0) {
+        return -errno;
+    }
+
+    *out_fd = export_dmabuf.fd;
 
     return 0;
 }

@@ -14,9 +14,9 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
@@ -28,7 +28,6 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 
 using namespace tt::umd;
 
@@ -37,7 +36,7 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
         return fmt::format("Could not get information for chip ID {}.", chip_id);
     }
 
-    double asic_temperature = firmware_info_provider->get_asic_temperature();
+    double asic_temperature = firmware_info_provider->get_asic_temperature().value_or(0.0);
     double board_temperature = firmware_info_provider->get_board_temperature().value_or(0);
     uint32_t aiclk = firmware_info_provider->get_aiclk().value_or(0);
     uint32_t axiclk = firmware_info_provider->get_axiclk().value_or(0);
@@ -45,10 +44,11 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
     uint32_t tdp = firmware_info_provider->get_tdp().value_or(0);
     uint32_t tdc = firmware_info_provider->get_tdc().value_or(0);
     uint32_t vcore = firmware_info_provider->get_vcore().value_or(0);
+    std::optional<uint32_t> tdp_limit = firmware_info_provider->get_tdp_limit();
 
     return fmt::format(
         "Chip ID {} - Chip {:.2f} °C, Board {:.2f} °C, AICLK {} MHz, AXICLK {} MHz, ARCCLK {} MHz, "
-        "TDP {} W, TDC {} A, VCORE {} mV",
+        "TDP {}/{} W, TDC {} A, VCORE {} mV",
         chip_id,
         asic_temperature,
         board_temperature,
@@ -56,6 +56,7 @@ std::string run_default_telemetry(tt::ChipId chip_id, FirmwareInfoProvider* firm
         axiclk,
         arcclk,
         tdp,
+        tdp_limit.has_value() ? std::to_string(tdp_limit.value()) : "N/A",
         tdc,
         vcore);
 }

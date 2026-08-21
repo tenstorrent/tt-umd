@@ -1,8 +1,12 @@
-# Destructive NOC hang / MMIO-timeout tests, run ON DEMAND only.
-# Trigger manually from the Actions tab ("Run workflow"), picking the card to run on.
+# Destructive NOC hang / MMIO-timeout tests.
+# Runs automatically every night on a set of cards, and can also be
+# triggered manually from the Actions tab ("Run workflow"), picking the card to run on.
 name: Run hang detection tests
 
 on:
+  schedule:
+    # Run nightly at 1 AM UTC.
+    - cron: "0 1 * * *"
   workflow_dispatch:
     inputs:
       card:
@@ -14,7 +18,7 @@ on:
           - tt-ubuntu-2204-n150-stable
           - tt-ubuntu-2204-n300-stable
           - tt-ubuntu-2204-p150b-stable
-          - bh-gh-07
+          - P300-viommu
           - tt-ubuntu-2204-wh-glx-6u-stable
           - 6u
       build-type:
@@ -42,29 +46,48 @@ on:
         default: 30
         type: number
 
+# Defaults below (via `github.event.inputs.* || '...'`) are used for the nightly scheduled run.
+# Manual dispatch overrides them with the chosen values.
 env:
   TEST_OUTPUT_DIR: ./build/test
-  ARTIFACT_NAME: build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+  ARTIFACT_NAME: >-
+    build-artifacts-${{ github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04'
+    }}-${{ github.event.inputs.build-type || 'Release' }}
 
 jobs:
   build:
     secrets: inherit
     uses: ./.github/workflows/build-tests.yml
     with:
-      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
-      build-type: ${{ inputs.build-type }}
-      timeout: ${{ fromJSON(inputs.timeout) }}
+      ubuntu-docker-version: ${{ github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04' }}
+      build-type: ${{ github.event.inputs.build-type || 'Release' }}
+      timeout: ${{ fromJSON(github.event.inputs.timeout || '30') }}
       build-targets: hang_detection_tests
       build-wheel: false
 
   run:
-    name: Run hang_detection_tests (${{ inputs.card }})
+    name: Run hang_detection_tests (${{ matrix.card }})
     needs: build
-    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.timeout || '30') }}
+    strategy:
+      fail-fast: false
+      # Manual dispatch runs on the single chosen card; the nightly schedule fans out
+      # across the default card set (n150, n300, p150, p300, glx).
+      matrix:
+        card: >-
+          ${{ fromJSON(github.event_name == 'schedule' && '[
+          "tt-ubuntu-2204-n150-stable",
+          "tt-ubuntu-2204-n300-stable",
+          "tt-ubuntu-2204-p150b-stable",
+          "P300-viommu",
+          "tt-ubuntu-2204-wh-glx-6u-stable"
+          ]' || format('["{0}"]', github.event.inputs.card)) }}
     runs-on:
-      - ${{ inputs.card }}
+      - ${{ matrix.card }}
     container:
-      image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:latest
+      image: >-
+        ghcr.io/${{ github.repository }}/tt-umd-ci-${{
+        github.event.inputs.ubuntu-docker-version || 'ubuntu-22.04' }}:latest
       options: --device /dev/tenstorrent
       volumes:
         - /dev/hugepages:/dev/hugepages
@@ -94,3 +117,30 @@ jobs:
       - name: Run hang detection tests
         run: |
           ${{ env.TEST_OUTPUT_DIR }}/umd/hang_detection/hang_detection_tests
+
+  notify-slack:
+    name: 📢 Notify #tt-umd-ci on failure
+    runs-on: ubuntu-latest
+    needs: [build, run]
+    # One message per nightly run, only when the build or any card failed.
+    # Scheduled runs only — manual dispatch is for interactive testing and
+    # shouldn't ping the channel.
+    if: failure() && github.event_name == 'schedule'
+    steps:
+      - name: Send Slack notification
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          cat << EOF > /tmp/slack_message.txt
+          🚨 Nightly hang detection tests failed
+
+          The build or one or more cards failed the destructive NOC hang / warm-reset tests.
+
+          Run: ${RUN_URL}
+          EOF
+
+          jq -n --arg msg "$(cat /tmp/slack_message.txt)" \
+            '{report: $msg}' > /tmp/payload.json
+
+          curl -X POST "${{ secrets.TT_UMD_CI_SLACK_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json

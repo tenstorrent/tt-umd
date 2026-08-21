@@ -678,6 +678,8 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
 
+tt_xy_pair TTDevice::get_arc_core(NocId noc_id) const { return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0; }
+
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(

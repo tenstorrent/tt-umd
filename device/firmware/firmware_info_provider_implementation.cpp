@@ -38,6 +38,7 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     tt::ARCH arch,
     DeviceProtocol* device_protocol,
     xy_pair arc_core_noc0,
+    xy_pair arc_core_noc1,
     FirmwareTelemetryReader* telemetry,
     std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry) :
     arch_(arch),
@@ -45,6 +46,7 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     telemetry_(telemetry),
     smbus_telemetry_(std::move(smbus_telemetry)),
     arc_core_noc0_(arc_core_noc0),
+    arc_core_noc1_(arc_core_noc1),
     firmware_version(firmware_version) {
     if (telemetry_ == nullptr) {
         UMD_THROW(error::RuntimeError, "FirmwareTelemetryReader cannot be nullptr.");
@@ -67,7 +69,8 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
         get_firmware_version_util(tt_device),
         tt_device->get_arch(),
         tt_device->get_device_protocol(),
-        tt_device->get_arc_core(),
+        tt_device->get_arc_core(NocId::NOC0),
+        tt_device->get_arc_core(NocId::NOC1),
         tt_device->get_firmware_telemetry_reader(),
         std::move(smbus_telemetry));
 }
@@ -815,18 +818,29 @@ FirmwareInfoProviderImplementation::get_eth_retrain_status_per_core(NocId noc_id
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_address(NocId noc_id) const {
     uint32_t address = 0;
-    switch (tt_device->get_arch()) {
+    switch (arch_) {
         case ARCH::WORMHOLE_B0:
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
+            device_protocol_->read_ctrl(
+                &address,
+                arc_core_noc0_,
+                wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
+                    wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET,
+                sizeof(address),
+                noc_id);
             return address;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_apb(&address, blackhole::SCRATCH_RAM_22, sizeof(address));
+            device_protocol_->read_ctrl(
+                &address,
+                arc_core_noc0_,
+                blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_22,
+                sizeof(address),
+                noc_id);
             return address;
         default:
             return std::nullopt;
@@ -835,18 +849,29 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
 
 std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_size(NocId noc_id) const {
     uint32_t size = 0;
-    switch (tt_device->get_arch()) {
+    switch (arch_) {
         case ARCH::WORMHOLE_B0:
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
+            device_protocol_->read_ctrl(
+                &size,
+                arc_core_noc0_,
+                wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
+                    wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET,
+                sizeof(size),
+                noc_id);
             return size;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_apb(&size, blackhole::SCRATCH_RAM_23, sizeof(size));
+            device_protocol_->read_ctrl(
+                &size,
+                arc_core_noc0_,
+                blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_23,
+                sizeof(size),
+                noc_id);
             return size;
         default:
             return std::nullopt;

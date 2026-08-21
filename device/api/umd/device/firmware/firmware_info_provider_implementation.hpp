@@ -45,6 +45,7 @@ public:
         tt::ARCH arch,
         DeviceProtocol* device_protocol,
         xy_pair arc_core_noc0,
+        xy_pair arc_core_noc1,
         FirmwareTelemetryReader* telemetry,
         std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry = nullptr);
 
@@ -161,6 +162,7 @@ private:
     FirmwareTelemetryReader* telemetry_ = nullptr;
     std::unique_ptr<SmBusArcTelemetryReader> smbus_telemetry_ = nullptr;
     xy_pair arc_core_noc0_;
+    xy_pair arc_core_noc1_;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 

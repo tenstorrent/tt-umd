@@ -379,6 +379,7 @@ public:
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;
+    tt_xy_pair get_arc_core(NocId noc_id) const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 

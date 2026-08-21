@@ -9,6 +9,7 @@
 #include <functional>
 
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/power_state.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
@@ -42,6 +43,15 @@ public:
      * @return int NUMA node ID, or -1 if the system is non-NUMA.
      */
     virtual int get_numa_node() const = 0;
+
+    /**
+     * @brief Requests a hardware power domain state change through the kernel driver.
+     *
+     * A no-op on architectures or KMD versions without power state management.
+     *
+     * @param state The requested power state.
+     */
+    virtual void set_power_state(PowerState state) = 0;
 
     /**
      * @brief Exports (core, addr) as a dma-buf fd for peer-to-peer PCIe DMA, backed by a dedicated

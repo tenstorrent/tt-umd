@@ -11,20 +11,29 @@
 
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/blackhole_arc_message_queue.hpp"
+#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/tt_device/firmware/blackhole_arc_apb.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
-class TTDevice;
 
 class BlackholeArcMessenger : public ArcMessenger {
 public:
     /**
      * Constructor for BlackholeArcMessenger.
      *
-     * @param tt_device TTDevice object used to communicate with the ARC of the device.
+     * @param device_protocol Protocol used for NOC accesses to the ARC core.
+     * @param arc_core_noc0 ARC core coordinate on NOC0.
+     * @param arc_core_noc1 ARC core coordinate on NOC1.
+     * @param pcie_interface PCIe BAR access; null for a device not reached over PCIe.
+     * @param jtag_interface JTAG access; null for a device not reached over JTAG.
      */
-    BlackholeArcMessenger(TTDevice* tt_device);
+    BlackholeArcMessenger(
+        DeviceProtocol* device_protocol,
+        xy_pair arc_core_noc0,
+        xy_pair arc_core_noc1,
+        PcieInterface* pcie_interface,
+        JtagInterface* jtag_interface = nullptr);
 
     /**
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -41,8 +50,13 @@ public:
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT) override;
 
 private:
+    // The ARC APB window needs an architecture_implementation, and the architecture is fixed for this
+    // class, so it owns one rather than taking it from the caller. Declared before arc_apb so it is
+    // constructed first.
+    std::unique_ptr<architecture_implementation> architecture_impl_;
+
     // Declared before the queue so it outlives it: the queue holds a raw pointer to this.
-    std::unique_ptr<BlackholeArcApb> arc_apb = nullptr;
+    BlackholeArcApb arc_apb;
     std::unique_ptr<BlackholeArcMessageQueue> blackhole_arc_msg_queue = nullptr;
 };
 

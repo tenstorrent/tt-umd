@@ -34,7 +34,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesHarvesting) {
 
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
-        std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+        std::unique_ptr<ArcMessenger> arc_messenger = test_utils::make_arc_messenger(tt_device);
 
         std::vector<uint32_t> arc_msg_return_values = {0};
         arc_messenger->send_message(
@@ -61,7 +61,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
     for (uint32_t chip_id : target_chips) {
         TTDevice* tt_device = cluster->get_tt_device(chip_id);
         tt_devices.emplace(chip_id, tt_device);
-        arc_messengers.emplace(chip_id, ArcMessenger::create_arc_messenger(tt_device));
+        arc_messengers.emplace(chip_id, test_utils::make_arc_messenger(tt_device));
     }
 
     for (uint32_t chip_id : target_chips) {
@@ -105,7 +105,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
         auto harvesting_mask_cluster_desc = cluster->get_cluster_description()->get_harvesting_masks(chip_id);
 
         std::thread thread0([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+            std::unique_ptr<ArcMessenger> arc_messenger = test_utils::make_arc_messenger(tt_device);
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};
@@ -122,7 +122,7 @@ TEST(WormholeArcMessages, MultipleThreadsArcMessages) {
         });
 
         std::thread thread1([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device);
+            std::unique_ptr<ArcMessenger> arc_messenger = test_utils::make_arc_messenger(tt_device);
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 std::vector<uint32_t> arc_msg_return_values = {0};

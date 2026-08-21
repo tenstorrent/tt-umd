@@ -15,13 +15,30 @@
 #include <string>
 #include <vector>
 
+#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 
 using namespace tt;
 using namespace tt::umd;
 
 namespace tt::umd::test_utils {
+
+// Builds a standalone ArcMessenger for a device, the way TTDevice::init_tt_device() does. Only the
+// interface matching the device's communication protocol is handed over; the getters for the others
+// throw, so they must not be called.
+inline std::unique_ptr<ArcMessenger> make_arc_messenger(TTDevice* tt_device) {
+    const bool is_jtag = tt_device->get_communication_device_type() == IODeviceType::JTAG;
+    return ArcMessenger::create_arc_messenger(
+        tt_device->get_arch(),
+        tt_device->get_device_protocol(),
+        tt_device->get_arc_core(NocId::NOC0),
+        tt_device->get_arc_core(NocId::NOC1),
+        is_jtag ? nullptr : tt_device->get_pcie_interface(),
+        is_jtag ? tt_device->get_jtag_interface() : nullptr,
+        tt_device->is_remote() ? tt_device->get_remote_interface() : nullptr);
+}
 
 // Returns true if the system has remote (Ethernet-connected) chips, i.e. an N300 board.
 inline bool has_remote_chips() {

@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 
+#include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -26,7 +27,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = test_utils::make_arc_messenger(tt_device.get());
 
         const uint32_t num_loops = 100;
         for (int i = 0; i < num_loops; i++) {
@@ -45,7 +46,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = test_utils::make_arc_messenger(tt_device.get());
 
         // TEST (0x90) increments the argument and returns it in word[1] of the response.
         unsigned int random_arg = 42;
@@ -68,7 +69,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
 
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = test_utils::make_arc_messenger(tt_device.get());
 
         std::vector<uint32_t> return_values;
         uint32_t exit_code =
@@ -92,7 +93,7 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        std::unique_ptr<ArcMessenger> bh_arc_messenger = test_utils::make_arc_messenger(tt_device.get());
 
         [[maybe_unused]] uint32_t response =
             bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
@@ -129,7 +130,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
         tt_device->init_tt_device();
 
         std::thread thread0([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+            std::unique_ptr<ArcMessenger> arc_messenger = test_utils::make_arc_messenger(tt_device.get());
 
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
@@ -138,7 +139,7 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
         });
 
         std::thread thread1([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+            std::unique_ptr<ArcMessenger> arc_messenger = test_utils::make_arc_messenger(tt_device.get());
             for (uint32_t loop = 0; loop < num_loops; loop++) {
                 uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
                 ASSERT_EQ(response, 0);

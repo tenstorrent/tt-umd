@@ -31,15 +31,17 @@ BlackholeArcMessageQueue::BlackholeArcMessageQueue(
     BlackholeArcApb* arc_apb,
     const uint64_t base_address,
     const uint64_t size,
-    const bool noc_translation_enabled) :
+    const tt_xy_pair arc_core_noc0,
+    const tt_xy_pair arc_core_noc1) :
     base_address(base_address),
     size(size),
     device_protocol(device_protocol),
     arc_apb(arc_apb),
-    noc_translation_enabled(noc_translation_enabled) {}
+    arc_core_noc0(arc_core_noc0),
+    arc_core_noc1(arc_core_noc1) {}
 
 tt_xy_pair BlackholeArcMessageQueue::get_arc_core(const NocId noc_id) const {
-    return blackhole::get_arc_core(noc_translation_enabled, /*use_noc1=*/noc_id == NocId::NOC1);
+    return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0;
 }
 
 void BlackholeArcMessageQueue::read_words(uint32_t* data, size_t num_words, size_t offset, const NocId noc_id) {
@@ -160,10 +162,11 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     DeviceProtocol* device_protocol,
     JtagInterface* jtag_interface,
     BlackholeArcApb* arc_apb,
-    const bool noc_translation_enabled,
+    const tt_xy_pair arc_core_noc0,
+    const tt_xy_pair arc_core_noc1,
     const size_t queue_index,
     const NocId noc_id) {
-    const tt_xy_pair arc_core = blackhole::get_arc_core(noc_translation_enabled, /*use_noc1=*/noc_id == NocId::NOC1);
+    const tt_xy_pair arc_core = noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0;
 
     uint32_t queue_control_block_addr;
     arc_apb->read(&queue_control_block_addr, blackhole::SCRATCH_RAM_11, sizeof(uint32_t), arc_core, noc_id);
@@ -183,7 +186,7 @@ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhol
     uint32_t msg_queue_base = queue_base_addr + queue_index * msg_queue_size;
 
     return std::make_unique<BlackholeArcMessageQueue>(
-        device_protocol, arc_apb, msg_queue_base, num_entries_per_queue, noc_translation_enabled);
+        device_protocol, arc_apb, msg_queue_base, num_entries_per_queue, arc_core_noc0, arc_core_noc1);
 }
 
 }  // namespace tt::umd

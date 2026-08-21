@@ -41,4 +41,12 @@ void SimulationDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
 
 void SimulationDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {}
 
+std::optional<uint32_t> SimulationDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    return std::nullopt;
+}
+
+std::optional<uint32_t> SimulationDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) {
+    return std::nullopt;
+}
+
 }  // namespace tt::umd

@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 
+#include <optional>
+
 namespace tt::umd {
 
 void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {}
@@ -40,5 +42,11 @@ DramTrainingStatus WormholeDeviceFirmware::get_dram_channel_training_status(uint
 void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {}
 
 void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_address(NocId noc_id) {
+    return std::nullopt;
+}
+
+std::optional<uint32_t> WormholeDeviceFirmware::get_runtime_telemetry_buffer_size(NocId noc_id) { return std::nullopt; }
 
 }  // namespace tt::umd

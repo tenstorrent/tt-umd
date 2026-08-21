@@ -398,12 +398,7 @@ std::optional<uint32_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_ad
         return std::nullopt;
     }
     uint32_t address = 0;
-    device_protocol_->read_ctrl(
-        &address,
-        get_firmware_noc_coord(noc_id),
-        blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_22,
-        sizeof(address),
-        noc_id);
+    arc_apb_.read(&address, blackhole::SCRATCH_RAM_22, sizeof address, get_firmware_noc_coord(noc_id), noc_id);
     return address;
 }
 
@@ -412,12 +407,7 @@ std::optional<uint32_t> BlackholeDeviceFirmware::get_runtime_telemetry_buffer_si
         return std::nullopt;
     }
     uint32_t size = 0;
-    device_protocol_->read_ctrl(
-        &size,
-        get_firmware_noc_coord(noc_id),
-        blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_23,
-        sizeof(size),
-        noc_id);
+    arc_apb_.read(&size, blackhole::SCRATCH_RAM_23, sizeof size, get_firmware_noc_coord(noc_id), noc_id);
     return size;
 }
 

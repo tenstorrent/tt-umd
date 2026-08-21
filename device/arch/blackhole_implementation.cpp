@@ -23,17 +23,6 @@ constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h,
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
 }  // namespace blackhole
 
-std::tuple<xy_pair, xy_pair> blackhole_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
-    // TODO: This is copied from wormhole_implementation. It should be implemented properly.
-
-    // When multicasting there is a rare case where including the multicasting node in the box can result in a backup
-    // and the multicasted data not reaching all endpoints specified. As a workaround we exclude the pci endpoint from
-    // the multicast. This doesn't cause any problems with making some tensix cores inaccessible because column 0 (which
-    // we are excluding) doesn't have tensix.
-    start.x = start.x == 0 ? 1 : start.x;
-    return std::make_tuple(start, end);
-}
-
 tlb_configuration blackhole_implementation::get_tlb_configuration(uint32_t tlb_index) const {
     // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {

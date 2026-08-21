@@ -1,9 +1,12 @@
 # Simulation Server
 
-UMD can run against a *simulated* device instead of real hardware. The **simulation server** lets one
-process **host** a simulated device and have other UMD processes **attach** to it and drive it exactly
-as they would a real cluster. That way a single running simulation can be shared by several processes
-at once, instead of each process spinning up its own.
+UMD can run against a *simulated* device instead of real hardware, using
+[ttsim](https://github.com/tenstorrent/ttsim) (a `libttsim.so` for a given architecture) or an RTL
+simulator build. The **simulation server** lets one process **host** a simulated device and have other
+UMD processes **attach** to it and drive it exactly as they would a real cluster.
+
+Without it each process gets its own independent simulation, so two processes never see each other's
+writes.
 
 ## Host and client
 
@@ -15,6 +18,18 @@ You don't pick a role explicitly — UMD decides it from what you point it at:
 
 A host and its clients run on the same machine and communicate over per-chip sockets kept in that
 server's directory (see [Where things live](#where-things-live)).
+
+### Any UMD process can be the host
+
+Hosting is a `Cluster` option, not something special to the tool:
+
+```cpp
+options.serve_simulation_devices_over_sockets = true;   // default: false
+```
+
+It is **off by default**, so an ordinary simulator run — a UMD or tt-metal test pointed at a
+`libttsim.so` — hosts a private in-process simulation and publishes nothing. `sim_server` is just a
+host that sets the flag and stays alive.
 
 ```mermaid
 flowchart TB
@@ -86,11 +101,21 @@ flowchart TB
    1        0      live    blackhole/ttsim  /tmp/tt-umd-sim-server-1/tt-umd-sim-0.sock
    ```
 
-3. **Use it from your program.** Open a UMD cluster in simulation mode pointed at a server's socket
-   directory (the `SOCKET`'s parent above, e.g. `/tmp/tt-umd-sim-server-0`). UMD sees the live
-   sockets there, attaches as a client, and from then on you use the cluster exactly as you would
-   against real hardware — reading and writing device memory and so on. Your program's code is the
-   same whether it runs on hardware or against a shared simulation.
+3. **Use it from your program.** Point UMD at the server *directory* (the `SOCKET`'s parent above,
+   e.g. `/tmp/tt-umd-sim-server-0`) instead of at a simulator. UMD sees the live sockets, attaches as
+   a client, and from then on you drive the cluster exactly as you would real hardware. There is no
+   separate "connect" call — the path you pass is what makes you a client.
+
+   Wherever you would name a `libttsim.so` — `TT_UMD_SIMULATOR`, `TT_METAL_SIMULATOR`, or
+   `ClusterOptions::simulator_directory` — name the server directory instead. So an existing test runs
+   against a server with no code change:
+
+   ```
+   TT_UMD_SIMULATOR=/tmp/tt-umd-sim-server-0 \
+     ./build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.RegReadWrite"
+   ```
+
+   There is no Python entry point today.
 
 4. **Stop the server.**
 
@@ -208,10 +233,11 @@ client — there is no separate "connect" call.
 
 Each simulated chip is exposed as a socket in its server's directory. The host answers device
 operations and describes the cluster topology over that socket; a client forwards its operations to
-the host and applies the replies, so on the client side the device behaves like any other. Stopping a
-server tears it down cleanly and closes its client connections, so a client's in-flight or next
-operation fails with a clear "server stopped" error instead of hanging — letting the client notice
-and exit gracefully.
+the host and applies the replies, so on the client side the device behaves like any other.
+
+Stopping a server does **not** stop its clients — it closes their connections, so a client's next
+operation fails with a clear "server stopped" error instead of hanging, and the client decides what to
+do. Each process is started and stopped on its own.
 
 ## Good to know
 
@@ -220,5 +246,7 @@ and exit gracefully.
   it wants (from `sim_server list`).
 - **Clients fail cleanly.** If the server goes away, a client's next operation raises a clear error
   rather than hanging.
-- **Shared on the machine.** Any user on the same machine can attach to a running server — the sockets
-  are shared, not private to one user.
+- **Shared on the machine.** The sockets are world-writable (`srw-rw-rw-`), so any user can attach —
+  which is also why `kill` goes over the socket rather than by signal.
+- **Sysmem is not carried over the socket.** Device memory and registers work from a client; sysmem
+  access crashes (`TestDeviceIOFixture.SysmemReadWrite` segfaults in client mode).

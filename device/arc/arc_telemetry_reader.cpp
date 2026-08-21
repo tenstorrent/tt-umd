@@ -44,19 +44,15 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     std::unique_ptr<ArcTelemetryReader> reader;
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            // The SMBus telemetry table is the only one guaranteed to exist on all Wormhole firmware versions, so
-            // the bundle version deciding which reader to create has to be read through it.
-            SmBusArcTelemetryReader smbus_reader(device_protocol, arc_core_noc0, arc_core_noc1);
-            const FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
-                smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+            reader = std::make_unique<SmBusArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
+            FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+                reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
 
-            if (fw_bundle_version >= FW_NEW_TELEMETRY) {
-                log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
-                reader = std::make_unique<WormholeArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
-            } else {
-                log_debug(tt::LogUMD, "Creating old-style telemetry reader.");
-                reader = std::make_unique<SmBusArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
+            if (fw_bundle_version < FW_NEW_TELEMETRY) {
+                return reader;
             }
+
+            reader = std::make_unique<WormholeArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
             break;
         }
         case tt::ARCH::BLACKHOLE:

@@ -26,16 +26,24 @@
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/wormhole_dram.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
 
-FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) :
-    tt_device(tt_device), firmware_version(get_firmware_version_util(tt_device)) {
+FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(TTDevice* tt_device) : tt_device(tt_device) {
     FirmwareTelemetryReader* telemetry = tt_device->get_firmware_telemetry_reader();
     if (telemetry == nullptr) {
         UMD_THROW(error::RuntimeError, "No telemetry reader present in tt_device.");
+    }
+    firmware_version = FirmwareBundleVersion(0, 0, 0);
+    if (tt_device->get_arch() == ARCH::WORMHOLE_B0 && dynamic_cast<SmBusArcTelemetryReader*>(telemetry) != nullptr) {
+        firmware_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+            telemetry->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+    } else if (telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)) {
+        firmware_version =
+            FirmwareBundleVersion::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION));
     }
 
     firmware_feature_map = create_firmware_feature_map(tt_device, firmware_version);

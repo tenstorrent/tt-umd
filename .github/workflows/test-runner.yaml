@@ -189,8 +189,9 @@ jobs:
           SYSTEM_HEALTH=/home/user/tt-umd/build/tools/umd/system_health
           export LD_LIBRARY_PATH=/home/user/tt-umd/build/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 
-          if ! command -v ttop-ipmi-reset >/dev/null 2>&1; then
-            echo "ERROR: ttop-ipmi-reset not on PATH"
+          if ! mpirun --pernode --tag-output bash -c \
+            'command -v ttop-ipmi-reset >/dev/null 2>&1 && exit $?'; then
+            echo "ERROR: ttop-ipmi-reset not on PATH on one or more workers"
             echo "Expected from the multihost-ci runner ConfigMap sidecar."
             exit 1
           fi

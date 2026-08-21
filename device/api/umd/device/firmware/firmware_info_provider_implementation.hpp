@@ -134,6 +134,12 @@ public:
     virtual std::optional<double> get_current_max_dram_temperature(
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
+    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_address(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
+    virtual std::optional<uint32_t> get_runtime_telemetry_buffer_size(
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
+
 private:
     /**
      * Parse a 16-bit bitmask into per-core status using the arch-specific bit-to-NOC0 mapping.

@@ -795,4 +795,44 @@ FirmwareInfoProviderImplementation::get_eth_retrain_status_per_core(NocId noc_id
     return parse_eth_status_bitmask(data.value());
 }
 
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_address(NocId noc_id) const {
+    uint32_t address = 0;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
+            return address;
+        case ARCH::BLACKHOLE:
+            if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_apb(&address, blackhole::SCRATCH_RAM_22, sizeof(address));
+            return address;
+        default:
+            return std::nullopt;
+    }
+}
+
+std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetry_buffer_size(NocId noc_id) const {
+    uint32_t size = 0;
+    switch (tt_device->get_arch()) {
+        case ARCH::WORMHOLE_B0:
+            if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
+            return size;
+        case ARCH::BLACKHOLE:
+            if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
+                return std::nullopt;
+            }
+            tt_device->read_from_arc_apb(&size, blackhole::SCRATCH_RAM_23, sizeof(size));
+            return size;
+        default:
+            return std::nullopt;
+    }
+}
+
 }  // namespace tt::umd

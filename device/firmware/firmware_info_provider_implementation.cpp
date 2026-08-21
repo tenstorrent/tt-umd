@@ -802,13 +802,22 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_csm(&address, wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET, sizeof(address));
+            tt_device->read_from_device(
+                &address,
+                tt_device->get_arc_core(),
+                wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
+                    wormhole::RUNTIME_TELEMETRY_ADDR_OFFSET,
+                sizeof(address));
             return address;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_apb(&address, blackhole::SCRATCH_RAM_22, sizeof(address));
+            tt_device->read_from_device_reg(
+                &address,
+                tt_device->get_arc_core(),
+                blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_22,
+                sizeof(address));
             return address;
         default:
             return std::nullopt;
@@ -822,13 +831,22 @@ std::optional<uint32_t> FirmwareInfoProviderImplementation::get_runtime_telemetr
             if (firmware_version < FirmwareBundleVersion(19, 13, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_csm(&size, wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET, sizeof(size));
+            tt_device->read_from_device(
+                &size,
+                tt_device->get_arc_core(),
+                wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START +
+                    wormhole::RUNTIME_TELEMETRY_SIZE_OFFSET,
+                sizeof(size));
             return size;
         case ARCH::BLACKHOLE:
             if (firmware_version < FirmwareBundleVersion(19, 12, 0)) {
                 return std::nullopt;
             }
-            tt_device->read_from_arc_apb(&size, blackhole::SCRATCH_RAM_23, sizeof(size));
+            tt_device->read_from_device_reg(
+                &size,
+                tt_device->get_arc_core(),
+                blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_23,
+                sizeof(size));
             return size;
         default:
             return std::nullopt;

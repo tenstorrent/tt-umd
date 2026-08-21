@@ -111,7 +111,8 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
         device_protocol_,
         jtag_interface_,
         &arc_apb_,
-        get_noc_translation_enabled(noc_id),
+        arc_core_noc0_,
+        arc_core_noc1_,
         BlackholeArcMessageQueueIndex::APPLICATION,
         noc_id);
 }

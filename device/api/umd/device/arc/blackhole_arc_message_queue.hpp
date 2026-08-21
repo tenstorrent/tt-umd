@@ -64,7 +64,8 @@ public:
         BlackholeArcApb* arc_apb,
         const uint64_t base_address,
         const uint64_t size,
-        const bool noc_translation_enabled);
+        const tt_xy_pair arc_core_noc0,
+        const tt_xy_pair arc_core_noc1);
 
     /*
      * Send ARC message. The call of send_message is blocking, timeout is to be implemented.
@@ -80,7 +81,8 @@ public:
         DeviceProtocol* device_protocol,
         JtagInterface* jtag_interface,
         BlackholeArcApb* arc_apb,
-        const bool noc_translation_enabled,
+        const tt_xy_pair arc_core_noc0,
+        const tt_xy_pair arc_core_noc1,
         const size_t queue_index,
         const NocId noc_id = NocId::DEFAULT_NOC);
 
@@ -100,8 +102,7 @@ private:
 
     void trigger_fw_int(const NocId noc_id);
 
-    // The ARC core coordinate depends on the NOC the access is routed over, so it is resolved per
-    // call rather than stored.
+    // Returns the ARC core coordinate for the NOC the access is routed over.
     tt_xy_pair get_arc_core(const NocId noc_id) const;
 
     const uint64_t base_address;
@@ -109,7 +110,8 @@ private:
     // Non-owning; both belong to the component that owns this queue and must outlive it.
     DeviceProtocol* device_protocol;
     BlackholeArcApb* arc_apb;
-    const bool noc_translation_enabled;
+    const tt_xy_pair arc_core_noc0;
+    const tt_xy_pair arc_core_noc1;
 };
 
 }  // namespace tt::umd

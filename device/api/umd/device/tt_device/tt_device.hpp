@@ -380,6 +380,11 @@ public:
 
     tt_xy_pair get_arc_core() const;
 
+    /**
+     * @brief Returns the ARC core coordinate resolved for a specific NOC.
+     */
+    tt_xy_pair get_arc_core(NocId noc_id) const;
+
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
     /**

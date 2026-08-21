@@ -150,7 +150,16 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     }
     probe_arc();
     wait_arc_core_start(timeout_ms);
-    arc_messenger_ = ArcMessenger::create_arc_messenger(this);
+    // Only the interface matching this device's communication protocol is handed over; the others stay
+    // null, which is how the messenger infers the route to the ARC.
+    arc_messenger_ = ArcMessenger::create_arc_messenger(
+        arch,
+        device_protocol_.get(),
+        arc_core_noc0,
+        arc_core_noc1,
+        pcie_capabilities_,
+        jtag_capabilities_,
+        remote_capabilities_);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
     firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(this);
     construct_soc_descriptor(soc_arch_descriptor_);
@@ -677,6 +686,8 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
 }
 
 tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
+
+tt_xy_pair TTDevice::get_arc_core(NocId noc_id) const { return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0; }
 
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {

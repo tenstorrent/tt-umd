@@ -14,7 +14,8 @@
 
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -22,7 +23,35 @@
 
 namespace tt::umd {
 
-WormholeArcMessenger::WormholeArcMessenger(TTDevice* tt_device) : ArcMessenger(tt_device) {}
+// How this class picks a route for ARC accesses: a non-null RemoteInterface means the device is
+// reached over ethernet through a gateway, a non-null JtagInterface means it is reached over JTAG,
+// and otherwise it is reached over PCIe. Inferring the route from which optional interface is present
+// is sound because a device is reached over exactly one communication protocol. The routing itself
+// lives in WormholeArcApb.
+
+WormholeArcMessenger::WormholeArcMessenger(
+    DeviceProtocol* device_protocol,
+    xy_pair arc_core_noc0,
+    xy_pair arc_core_noc1,
+    PcieInterface* pcie_interface,
+    JtagInterface* jtag_interface,
+    RemoteInterface* remote_interface) :
+    ArcMessenger(
+        device_protocol,
+        arc_core_noc0,
+        arc_core_noc1,
+        jtag_interface != nullptr ? IODeviceType::JTAG : IODeviceType::PCIe),
+    remote_interface_(remote_interface),
+    architecture_impl_(architecture_implementation::create(tt::ARCH::WORMHOLE_B0)),
+    arc_apb_(device_protocol, pcie_interface, jtag_interface, remote_interface, architecture_impl_.get()) {}
+
+void WormholeArcMessenger::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
+    arc_apb_.read(mem_ptr, arc_addr_offset, size, get_arc_core(noc_id), noc_id);
+}
+
+void WormholeArcMessenger::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id) {
+    arc_apb_.write(mem_ptr, arc_addr_offset, size, get_arc_core(noc_id), noc_id);
+}
 
 uint32_t WormholeArcMessenger::send_message(
     const uint32_t msg_code,
@@ -65,6 +94,8 @@ uint32_t WormholeArcMessenger::send_message(
         arg1 = static_cast<uint16_t>(args[1]);
     }
 
+    const NocId noc_id = get_selected_noc_id();
+
     // TODO: Once local and remote ttdevice is properly separated, reenable this code.
     // TODO2: Once we have unique chip ids other than PCI dev number, use that for both local and remote chips for
     // locks.
@@ -74,22 +105,26 @@ uint32_t WormholeArcMessenger::send_message(
     // communication. It can also happen that while topology discovery is running on a remote chip through one local
     // chip, regular cluster construction is running through another local chip. Currently there's no other solution
     // than to just lock all arc communication through the same lock. auto lock =
-    //     tt_device->is_remote()
-    //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
-    //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
+    //     remote_interface_ != nullptr
+    //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, mmio_id, io_device_type_)
+    //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, mmio_id, io_device_type_);
     auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;
 
-    tt_device->write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
-    tt_device->write_to_arc_apb(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
+    write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), noc_id);
+    write_to_arc_apb(&msg_code, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), noc_id);
 
-    tt_device->wait_for_non_mmio_flush();
+    // On a remote device the writes above travel over ethernet; make sure they have landed before the
+    // trigger bit is set. A no-op for a local device.
+    if (remote_interface_ != nullptr) {
+        remote_interface_->wait_for_non_mmio_flush();
+    }
 
     uint32_t misc;
     auto trigger_start = std::chrono::steady_clock::now();
-    tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+    read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), noc_id);
     while (misc & (1 << 16)) {
         utils::check_timeout(
             trigger_start,
@@ -97,33 +132,32 @@ uint32_t WormholeArcMessenger::send_message(
             fmt::format(
                 "Timed out after waiting {} ms for ARC to clear trigger bit on device {}",
                 timeout::ARC_TRIGGER_CLEAR_TIMEOUT.count(),
-                tt_device->get_communication_device_id()));
-        tt_device->read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+                mmio_id));
+        read_from_arc_apb(&misc, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), noc_id);
     }
 
     uint32_t val_wr = misc | (1 << 16);
-    tt_device->write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t));
+    write_to_arc_apb(&val_wr, wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET, sizeof(uint32_t), noc_id);
 
     uint32_t status = 0xbadbad;
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        tt_device->read_from_arc_apb(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t));
+        read_from_arc_apb(&status, wormhole::ARC_RESET_SCRATCH_STATUS_OFFSET, sizeof(uint32_t), noc_id);
 
         if ((status & 0xffff) == (msg_code & 0xff)) {
             if (!return_values.empty()) {
-                tt_device->read_from_arc_apb(
-                    return_values.data(), wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t));
+                read_from_arc_apb(
+                    return_values.data(), wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), noc_id);
             }
 
             if (return_values.size() >= 2) {
-                tt_device->read_from_arc_apb(
-                    &return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t));
+                read_from_arc_apb(&return_values[1], wormhole::ARC_RESET_SCRATCH_RES1_OFFSET, sizeof(uint32_t), noc_id);
             }
 
             exit_code = (status & 0xffff0000) >> 16;
             break;
         } else if (status == HANG_READ_VALUE) {
-            log_warning(LogUMD, "On device {}, message code 0x{:x} not recognized by FW", 0, msg_code);
+            log_warning(LogUMD, "On device {}, message code 0x{:x} not recognized by FW", mmio_id, msg_code);
             exit_code = HANG_READ_VALUE;
             break;
         }
@@ -140,15 +174,13 @@ uint32_t WormholeArcMessenger::send_message(
                 arg1));
     }
 
-    tt_device->is_pcie_hung();
-
     log_debug(
         LogUMD,
         "ARC message 0x{:x} completed with exit code 0x{:x} and return values {} on device {}",
         msg_code,
         exit_code,
         fmt::join(return_values, ","),
-        tt_device->get_communication_device_id());
+        mmio_id);
 
     return exit_code;
 }

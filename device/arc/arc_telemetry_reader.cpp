@@ -56,7 +56,6 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
             break;
         }
         case tt::ARCH::BLACKHOLE:
-            log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
             reader = std::make_unique<BlackholeArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
             break;
         default:

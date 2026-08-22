@@ -210,7 +210,7 @@ bool RtlSimulationTTDevice::smn_write(const void* mem_ptr, tt_xy_pair core, uint
     return false;
 }
 
-void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId /*noc_id*/) {
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}.", selected_riscs);
@@ -253,7 +253,8 @@ void RtlSimulationTTDevice::assert_risc_reset(CoreCoord core, const RiscType sel
     }
 }
 
-void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void RtlSimulationTTDevice::deassert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId /*noc_id*/) {
     xy_pair translated_core = get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);

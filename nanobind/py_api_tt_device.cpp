@@ -6,6 +6,7 @@
 #include <nanobind/stl/chrono.h>
 #include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/shared_ptr.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
@@ -13,6 +14,7 @@
 #include <nanobind/stl/unordered_set.h>
 #include <nanobind/stl/vector.h>
 
+#include <optional>
 #include <tt-logger/tt-logger.hpp>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -29,6 +31,7 @@
 #include "umd/device/tt_device/tt_sim_tt_device.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/mmio_timeout_config.hpp"
@@ -462,7 +465,7 @@ void bind_tt_device(nb::module_ &m) {
             "get_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y) -> uint32_t {
                 tt_xy_pair core = {core_x, core_y};
-                return self.get_risc_reset_state(core);
+                return self.get_risc_reset_state(core, get_selected_noc_id());
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -472,7 +475,7 @@ void bind_tt_device(nb::module_ &m) {
             "set_risc_reset_state",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint32_t soft_reset_raw_value) -> void {
                 tt_xy_pair core = {core_x, core_y};
-                self.set_risc_reset_state(core, soft_reset_raw_value);
+                self.set_risc_reset_state(core, soft_reset_raw_value, get_selected_noc_id());
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
@@ -828,17 +831,28 @@ void bind_tt_device(nb::module_ &m) {
             "Creates a TTSimTTDevice for functional simulation communication.")
         .def(
             "assert_risc_reset",
-            &TTSimTTDevice::assert_risc_reset,
+            // noc_id defaults to the NocId selected for the calling thread, preserving set_thread_noc_id().
+            [](TTSimTTDevice &self, CoreCoord core, RiscType selected_riscs, std::optional<NocId> noc_id) {
+                self.assert_risc_reset(core, selected_riscs, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            &TTSimTTDevice::deassert_risc_reset,
+            [](TTSimTTDevice &self,
+               CoreCoord core,
+               RiscType selected_riscs,
+               bool staggered_start,
+               std::optional<NocId> noc_id) {
+                self.deassert_risc_reset(core, selected_riscs, staggered_start, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(
@@ -863,17 +877,28 @@ void bind_tt_device(nb::module_ &m) {
             "Creates an RtlSimulationTTDevice for RTL simulation communication.")
         .def(
             "assert_risc_reset",
-            &RtlSimulationTTDevice::assert_risc_reset,
+            // noc_id defaults to the NocId selected for the calling thread, preserving set_thread_noc_id().
+            [](RtlSimulationTTDevice &self, CoreCoord core, RiscType selected_riscs, std::optional<NocId> noc_id) {
+                self.assert_risc_reset(core, selected_riscs, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
             nb::arg("selected_riscs"),
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Assert RISC reset for selected RISC cores on a given core.")
         .def(
             "deassert_risc_reset",
-            &RtlSimulationTTDevice::deassert_risc_reset,
+            [](RtlSimulationTTDevice &self,
+               CoreCoord core,
+               RiscType selected_riscs,
+               bool staggered_start,
+               std::optional<NocId> noc_id) {
+                self.deassert_risc_reset(core, selected_riscs, staggered_start, noc_id.value_or(get_selected_noc_id()));
+            },
             nb::arg("core"),
             nb::arg("selected_riscs"),
             nb::arg("staggered_start") = false,
+            nb::arg("noc_id") = nb::none(),
             release_gil(),
             "Deassert RISC reset for selected RISC cores on a given core.")
         .def(

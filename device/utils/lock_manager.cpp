@@ -63,51 +63,6 @@ std::optional<std::pair<pid_t, pid_t>> probe_and_release(MutexInterface& mutex) 
     return owner;
 }
 
-// Holds two mutexes as one. This exists only for the move from shared memory locks to KMD resource locks: a process
-// running an older UMD takes the shared memory lock alone and knows nothing about the KMD one, so during the
-// transition both have to be taken or the two processes would not serialize. Once every client takes KMD locks, the
-// shared memory half can go and the KMD mutex can be used on its own.
-// The two are always taken in the same order, which is what keeps processes taking both from deadlocking against each
-// other.
-class CompositeMutex : public MutexInterface {
-public:
-    CompositeMutex(std::unique_ptr<MutexInterface> first, std::unique_ptr<MutexInterface> second) :
-        first_(std::move(first)), second_(std::move(second)) {}
-
-    void initialize() override {
-        first_->initialize();
-        second_->initialize();
-    }
-
-    void lock() override {
-        first_->lock();
-        second_->lock();
-    }
-
-    void unlock() override {
-        second_->unlock();
-        first_->unlock();
-    }
-
-    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout) override {
-        std::optional<std::pair<pid_t, pid_t>> owner = first_->probe_lock(timeout);
-        if (owner.has_value()) {
-            return owner;
-        }
-        // Probing acquired the first one. If the second turns out to be taken, give the first one back, so that a
-        // failed probe leaves nothing held.
-        owner = second_->probe_lock(timeout);
-        if (owner.has_value()) {
-            first_->unlock();
-        }
-        return owner;
-    }
-
-private:
-    std::unique_ptr<MutexInterface> first_;
-    std::unique_ptr<MutexInterface> second_;
-};
-
 }  // namespace
 
 std::string to_string(MutexType mutex_type) { return MUTEX_TYPE_TO_STRING.at(mutex_type); }
@@ -173,14 +128,9 @@ std::optional<std::pair<pid_t, pid_t>> LockManager::probe_robust_mutex(const std
 }
 
 void LockManager::initialize_kmd_mutex(MutexType mutex_type, int pci_device_num) {
-    // Registered under the name its shared memory half keeps, so that a process on an older UMD, which takes only that
-    // half, contends on the very same lock.
-    std::string mutex_name = get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe);
     add_mutex(
-        mutex_name,
-        std::make_unique<CompositeMutex>(
-            std::make_unique<RobustMutex>(mutex_name),
-            std::make_unique<KmdMutex>(pci_device_num, get_kmd_lock_index(mutex_type))));
+        get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe),
+        std::make_unique<KmdMutex>(pci_device_num, get_kmd_lock_index(mutex_type)));
 }
 
 void LockManager::clear_kmd_mutex(MutexType mutex_type, int pci_device_num) {

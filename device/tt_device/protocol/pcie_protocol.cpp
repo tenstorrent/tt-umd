@@ -366,6 +366,10 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
         addr += transfer_size;
         buf += transfer_size;
 
+        if (size == 0) {
+            break;
+        }
+
         config.local_offset = addr;
         tlb_window->configure(config);
         axi_address = axi_address_base + (addr - (addr & ~(tlb_handle_size - 1)));
@@ -406,6 +410,10 @@ bool PcieProtocol::dma_transfer_zero_copy(
         size -= transfer_size;
         addr += transfer_size;
         iova += transfer_size;
+
+        if (size == 0) {
+            break;
+        }
 
         config.local_offset = addr;
         tlb_window->configure(config);

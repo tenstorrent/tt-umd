@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <unordered_map>
 #include <unordered_set>
@@ -32,7 +33,17 @@ class SimulationSysmemManager;
 /// All non-memory operations (barriers, resets, power management) are no-ops.
 class SWEmuleChip : public Chip {
 public:
+    // chip_uid is the chip's GLOBALLY stable unique id, used to name the shared L1 segment under
+    // TT_EMULE_CHIP_SHM. It must not be the ChipId: TT_VISIBLE_DEVICES makes the cluster descriptor
+    // renumber each process's visible chips to 0..N-1, so two processes holding different physical
+    // chips would both call theirs chip 0 and collide on one segment.
+    //
+    // Two overloads rather than a defaulted parameter, so the one-argument signature keeps compiling
+    // for existing callers; a default argument is applied at the call site and would remove it.
     explicit SWEmuleChip(const SocDescriptor& soc_descriptor);
+    // std::nullopt means "this chip has no stable identity", which is distinct from an id that
+    // happens to be 0 -- the legacy descriptor computes chip << 32, so chip 0 has exactly that id.
+    SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid);
     ~SWEmuleChip() override;
 
     // Chip lifecycle — no-ops.
@@ -94,16 +105,28 @@ public:
     // coord of a channel resolves here, so a noc=1 read sees a noc=0 / host write.
     tt_emule::Core* get_dram_channel_backing(uint32_t channel);
 
+    // Pool slot for a worker core, or SIZE_MAX if it has none. The map is derived from the SoC
+    // descriptor alone, so a chip owned by a PEER PROCESS with the same arch and harvesting has an
+    // identical layout — which is what lets a rank resolve a NOC address into a chip it does not own,
+    // from the peer's shared segment. See tt-emule docs/fabric-ccl-emulation.md.
+    size_t slot_of(tt_xy_pair core_xy) const;
+
+    // Slots in the worker pool; with SLOT_SIZE this is the shared segment's exact size.
+    size_t num_pool_slots() const;
+
+    // Identity of this chip's shared segment: the harvesting mask folded exactly as the ctor folds it.
+    uint64_t shm_harvest_mask() const;
+
 private:
     std::mutex core_mutex_;
 
-    // L1Pool for worker cores — single contiguous MAP_32BIT mmap with
-    // 2 MB aligned slots for bitmask offset extraction.
+    // L1Pool for worker cores — one contiguous mmap carved into fixed-size slots.
     std::unique_ptr<tt_emule::L1Pool> worker_pool_;
-    size_t next_slot_ = 0;
 
-    // Slot index tracking: physical core → pool slot.
-    std::unordered_map<tt_xy_pair, size_t> core_to_slot_;
+    // Tensix core → pool slot, built ONCE from the SoC descriptor rather than on first touch.
+    // Touch order differs between a process that dispatches kernels (grid walk) and one that only
+    // host-writes buffers (write order), so a first-touch counter gives the same core a different
+    // slot in each — invisible today, silent cross-process corruption once the pool is shared.
 
     // All cores (worker + DRAM), keyed by physical {x,y}.
     std::unordered_map<tt_xy_pair, std::unique_ptr<tt_emule::Core>> cores_;
@@ -116,12 +139,21 @@ private:
     uint32_t l1_size_;
     uint64_t dram_bank_size_;
 
+    // Folded once in the ctor so the segment key and the peer-side lookup cannot drift apart.
+
     SocDescriptor soc_descriptor_;
 
     // Host-facing (PCIe) address resolution — an existing, already-upstream UMD class (also used
     // by TTSimTTDevice), not emule-specific. No host-memory channels to pre-reserve (SWEmuleChip
     // has no hugepage concept), so 0.
     std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
+
+    // NOTE: this is an ABI BREAK for emule builds. Members were removed and added, so both offsets
+    // and sizeof(SWEmuleChip) change, and a client that allocated the old size cannot be reused --
+    // rebuild anything linking it. The one-argument constructor below is kept for SOURCE
+    // compatibility only. emule is an opt-in component (TT_UMD_BUILD_EMULE) with no ABI promise.
+    std::unordered_map<tt_xy_pair, size_t> slot_of_;
+    uint64_t shm_harvest_mask_ = 0;
 };
 
 }  // namespace tt::umd

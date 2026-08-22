@@ -10,6 +10,7 @@
 
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/utils/error.hpp"
@@ -131,7 +132,7 @@ void SimulationTlbAllocator::initialize_architecture_config() {
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         tlb_reg_size_bytes_ = 8;  // wormhole::TLB_CFG_REG_SIZE_BYTES.
 
-        const auto& tlb_sizes = arch_impl_->get_tlb_sizes();
+        const auto& tlb_sizes = get_architecture_tlbs(architecture_).sizes;
         size_classes_[ONE_MB].size = tlb_sizes[0];  // 1MB.
         size_classes_[ONE_MB].count = 156;
         size_classes_[TWO_MB].size = tlb_sizes[1];  // 2MB.
@@ -143,7 +144,7 @@ void SimulationTlbAllocator::initialize_architecture_config() {
     } else if (architecture_ == tt::ARCH::BLACKHOLE) {
         tlb_reg_size_bytes_ = 12;  // blackhole::TLB_CFG_REG_SIZE_BYTES.
 
-        const auto& tlb_sizes = arch_impl_->get_tlb_sizes();
+        const auto& tlb_sizes = get_architecture_tlbs(architecture_).sizes;
         size_classes_[TWO_MB].size = tlb_sizes[0];  // 2MB.
         size_classes_[TWO_MB].count = 202;
         size_classes_[FOUR_GB].size = tlb_sizes[1];  // 4GB.

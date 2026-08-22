@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -26,18 +27,18 @@
 using namespace tt::umd;
 
 // Helper function to get TLB count for a given size from architecture.
-uint32_t get_tlb_count_for_size(ArchitectureImplementation* arch_impl, size_t tlb_size) {
+uint32_t get_tlb_count_for_size(const ArchitectureTlbs& tlbs, size_t tlb_size) {
     static constexpr size_t one_mb = 1 << 20;
     static constexpr size_t one_gb = 1 << 30;
 
     if (tlb_size == 1 * one_mb) {
-        return arch_impl->get_tlb_1m_base_and_count().second;
+        return tlbs.base_and_count_1m.second;
     } else if (tlb_size == 2 * one_mb) {
-        return arch_impl->get_tlb_2m_base_and_count().second;
+        return tlbs.base_and_count_2m.second;
     } else if (tlb_size == 16 * one_mb) {
-        return arch_impl->get_tlb_16m_base_and_count().second;
+        return tlbs.base_and_count_16m.second;
     } else if (tlb_size == 4ULL * one_gb) {
-        return arch_impl->get_tlb_4g_base_and_count().second;
+        return tlbs.base_and_count_4g.second;
     }
     return 0;
 }
@@ -64,9 +65,8 @@ int main(int argc, char* argv[]) {
             tt_device->init_tt_device();
             tt::ARCH arch = tt_device->get_arch();
             auto pci_device = tt_device->get_pci_device();
-            auto arch_impl = tt_device->get_architecture_implementation();
-
-            const std::vector<size_t>& tlb_sizes = arch_impl->get_tlb_sizes();
+            const ArchitectureTlbs& tlbs = get_architecture_tlbs(arch);
+            const std::vector<size_t>& tlb_sizes = tlbs.sizes;
 
             log_info(
                 tt::LogUMD,
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 
             // Fetch and log TLB counts per size for this architecture.
             for (size_t tlb_size : tlb_sizes) {
-                uint32_t total_count = get_tlb_count_for_size(arch_impl, tlb_size);
+                uint32_t total_count = get_tlb_count_for_size(tlbs, tlb_size);
                 // Initialize tracking for this device and size.
                 tlb_allocation_summary[pci_device_id][tlb_size] = {0, total_count};
             }

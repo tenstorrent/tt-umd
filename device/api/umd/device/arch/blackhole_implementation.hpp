@@ -369,45 +369,7 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
 
-    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
-        return {blackhole::TLB_BASE_2M, blackhole::TLB_COUNT_2M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override { return {0, 0}; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override {
-        return {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G};
-    }
-
-    const std::vector<size_t>& get_tlb_sizes() const override {
-        static constexpr uint32_t one_mb = 1 << 20;
-        static constexpr size_t one_gb = 1024ULL * one_mb;
-        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
-        return tlb_sizes;
-    }
-
-    tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-
-    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
-
-    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
-
-    size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
-
-    bool get_static_vc() const override { return false; }  // False due to a known HW issue.
-
-    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
-        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
-        auto it = std::find(blackhole::UBB_TRAY_BUS_IDS.begin(), blackhole::UBB_TRAY_BUS_IDS.end(), bus_high);
-        if (it == blackhole::UBB_TRAY_BUS_IDS.end()) {
-            return std::nullopt;
-        }
-        return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
-    }
 };
 
 }  // namespace tt::umd

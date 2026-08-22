@@ -234,6 +234,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/warm_reset.hpp
                 api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
+                api/umd/device/utils/mutex_interface.hpp
                 api/umd/device/utils/robust_mutex.hpp
                 api/umd/device/utils/kmd_mutex.hpp
                 api/umd/device/cluster_descriptor.hpp

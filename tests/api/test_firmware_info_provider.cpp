@@ -17,7 +17,9 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/grendel_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -185,6 +187,20 @@ TEST_F(TestFirmwareInfoProvider, Temperature) {
     }
 }
 
+// AICLK the chip claims when busy, which is what firmware should report as the maximum.
+static uint32_t expected_max_clock_freq(const tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            return wormhole::AICLK_BUSY_VAL;
+        case tt::ARCH::BLACKHOLE:
+            return blackhole::AICLK_BUSY_VAL;
+        case tt::ARCH::QUASAR:
+            return grendel::AICLK_BUSY_VAL;
+        default:
+            throw std::runtime_error("No busy AICLK known for the tested architecture.");
+    }
+}
+
 TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
     for (const auto& tt_device : get_tt_devices()) {
         FirmwareInfoProvider* fw_info = tt_device->get_firmware_info_provider();
@@ -192,10 +208,9 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
 
         tt::ARCH arch = tt_device->get_arch();
         FirmwareBundleVersion fw_version = fw_info->get_firmware_version();
-        auto arch_impl = tt_device->get_architecture_implementation();
 
         std::string range = fw_range_label(fw_version);
-        uint32_t aiclk_busy_val = arch_impl->get_aiclk_busy_val();
+        uint32_t aiclk_busy_val = expected_max_clock_freq(arch);
 
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();

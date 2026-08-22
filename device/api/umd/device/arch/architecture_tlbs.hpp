@@ -6,7 +6,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 #include <vector>
 
 #include "umd/device/types/arch.hpp"
@@ -14,23 +13,25 @@
 
 namespace tt::umd {
 
+// A set of TLB windows which all share one size, contiguous in the window index space.
+struct TlbSizeClass {
+    size_t size;
+    uint32_t count;
+    uint32_t base_index;
+    // Blackhole and Grendel map their largest windows through BAR4, everything else is in BAR0.
+    bool in_bar4;
+};
+
 // Resolves a TLB window index to its configuration.
 using TlbConfigurationResolver = tlb_configuration (*)(uint32_t tlb_index);
 
 // The TLB window layout of one architecture. Architecture specific code reads its own constants
 // directly; this exists for callers which are not tied to one architecture.
 struct ArchitectureTlbs {
-    // Base index and window count per window size. A zero count means the architecture has no
-    // windows of that size.
-    std::pair<uint32_t, uint32_t> base_and_count_1m;
-    std::pair<uint32_t, uint32_t> base_and_count_2m;
-    std::pair<uint32_t, uint32_t> base_and_count_16m;
-    std::pair<uint32_t, uint32_t> base_and_count_4g;
+    // Size classes the architecture provides, smallest size first.
+    std::vector<TlbSizeClass> size_classes;
 
-    // Window sizes the architecture provides, smallest first.
-    std::vector<size_t> sizes;
-
-    // Preferred window size, the group with the largest count available.
+    // Preferred window size, the size class with the most windows.
     size_t cached_window_size;
 
     // Whether static_vc should be used for window configuration.

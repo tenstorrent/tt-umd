@@ -67,9 +67,7 @@ constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {
-    UMD_ASSERT(model_ != nullptr, error::RuntimeError, "TTDeviceModel pointer cannot be null.");
-}
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {}
 
 TTDevice::TTDevice(
     std::unique_ptr<TTDeviceModel> model,
@@ -77,8 +75,7 @@ TTDevice::TTDevice(
     std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
-    TTDevice(std::move(model)) {
-    architecture_impl_ = std::move(architecture_impl);
+    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {
     assign_soc_arch_descriptor(soc_arch_descriptor);
 
     auto pcie_protocol = std::make_unique<PcieProtocol>(std::move(pci_device), use_safe_api);
@@ -99,8 +96,7 @@ TTDevice::TTDevice(
     uint8_t jlink_id,
     std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(model)) {
-    architecture_impl_ = std::move(architecture_impl);
+    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {
     assign_soc_arch_descriptor(soc_arch_descriptor);
 
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
@@ -113,8 +109,7 @@ TTDevice::TTDevice(
     std::unique_ptr<RemoteCommunication> remote_communication,
     std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(model)) {
-    architecture_impl_ = std::move(architecture_impl);
+    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {
     assign_soc_arch_descriptor(soc_arch_descriptor);
 
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));

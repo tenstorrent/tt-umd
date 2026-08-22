@@ -26,7 +26,7 @@ RtlSimTlbHandle::RtlSimTlbHandle(
     // QUASAR bypasses the simulation TLB allocator (see the Quasar branch in
     // RtlSimulationTTDevice's constructor); skip the allocator query for it so
     // get_tlb_address_from_index doesn't throw on the empty pool.
-    if (allocator_ && allocator_->get_architecture_impl()->get_architecture() != tt::ARCH::QUASAR) {
+    if (allocator_ && allocator_->get_architecture() != tt::ARCH::QUASAR) {
         // This is a fake, non-dereferenceable pointer used only for address arithmetic.
         // For RTL sim, bar0_base is 0, so this will be a near-null address.
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));

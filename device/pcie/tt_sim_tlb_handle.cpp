@@ -37,7 +37,7 @@ TTSimTlbHandle::TTSimTlbHandle(
     // handles all I/O), so the allocator has no pools and the get_*_from_index
     // calls would throw. Skip them for QUASAR; tlb_base_ / tlb_reg_addr_ stay at
     // their defaults (nullptr / 0), which the QUASAR path never dereferences.
-    if (allocator_ && allocator_->get_architecture_impl()->get_architecture() != tt::ARCH::QUASAR) {
+    if (allocator_ && allocator_->get_architecture() != tt::ARCH::QUASAR) {
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }

@@ -33,7 +33,6 @@
 #include "tracy.hpp"
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -394,8 +393,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
     revision(read_sysfs<int>(info, "revision")),
     arch(info.get_arch()),
     kmd_version(PCIDevice::read_kmd_version()),
-    iommu_enabled(detect_iommu(info)),
-    arch_impl_(ArchitectureImplementation::create(arch)) {
+    iommu_enabled(detect_iommu(info)) {
     if (kmd_version < KMD_MINIMUM_VERSION) {
         UMD_THROW(
             error::RuntimeError,

@@ -5,7 +5,6 @@ target_link_libraries(
         umd::tt-umd
         gtest_main
         gtest
-        gmock
         pthread
         spdlog::spdlog_header_only
         fmt::fmt-header-only

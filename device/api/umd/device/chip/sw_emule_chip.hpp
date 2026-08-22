@@ -22,6 +22,8 @@ class L1Pool;
 
 namespace tt::umd {
 
+class SimulationSysmemManager;
+
 /// SWEmuleChip extends Chip with real memory-backed I/O.
 ///
 /// Worker L1 regions are allocated from a single contiguous L1Pool
@@ -62,13 +64,12 @@ public:
     void noc_multicast_write(
         const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
-    // Barriers, resets, power — no-ops.
+    // Barriers and resets — no-ops.
     void wait_for_non_mmio_flush() override;
     void l1_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<CoreCoord>& cores = {}) override;
     void dram_membar(const std::unordered_set<uint32_t>& channels, uint32_t subchannel = 0) override;
     void deassert_risc_resets() override;
-    void set_power_state(DevicePowerState state) override;
     int arc_msg(
         uint32_t msg_code,
         bool wait_for_done = true,
@@ -116,6 +117,11 @@ private:
     uint64_t dram_bank_size_;
 
     SocDescriptor soc_descriptor_;
+
+    // Host-facing (PCIe) address resolution — an existing, already-upstream UMD class (also used
+    // by TTSimTTDevice), not emule-specific. No host-memory channels to pre-reserve (SWEmuleChip
+    // has no hugepage concept), so 0.
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
 };
 
 }  // namespace tt::umd

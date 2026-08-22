@@ -85,8 +85,6 @@ void MockChip::assert_risc_reset(const RiscType selected_riscs) {}
 
 void MockChip::deassert_risc_reset(const RiscType selected_riscs, bool staggered_start) {}
 
-void MockChip::set_power_state(DevicePowerState state) {}
-
 int MockChip::get_clock() { return 0; }
 
 int MockChip::get_numa_node() { return 0; }

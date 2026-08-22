@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 
 #include "umd/device/pcie/tlb_handle.hpp"
@@ -118,10 +119,14 @@ public:
         NocId noc_id,
         uint64_t ordering = tlb_data::Strict);
 
+    // Installs a per-op MMIO timeout hang check used by the timed memcpy path. No-op by default; only
+    // SiliconTlbWindow consults it (simulation windows do not run the timed path). See SiliconTlbWindow.
+    virtual void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) {}
+
     // Shared utility methods.
     TlbHandle& handle_ref() const;
     size_t get_size() const;
-    void configure(const tlb_data& new_config);
+    virtual void configure(const tlb_data& new_config);
     uint64_t get_base_address() const;
 
 protected:

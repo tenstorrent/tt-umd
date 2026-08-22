@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -57,12 +58,12 @@ public:
     void read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) override;
     void write_to_device_reg(CoreCoord core, const void* src, uint64_t reg_dest, uint32_t size) override;
     void read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_src, uint32_t size) override;
-    void noc_multicast_write(
-        const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
 
     void dma_write_to_device(const void* src, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_read_from_device(void* dst, size_t size, CoreCoord core, uint64_t addr) override;
     void dma_multicast_write(void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr) override;
+
+    int export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering);
 
     void wait_for_non_mmio_flush() override;
 
@@ -73,9 +74,6 @@ public:
     void deassert_risc_resets() override;
     int get_clock() override;
     int get_numa_node() override;
-
-    std::unique_lock<RobustMutex> acquire_mutex(const std::string& mutex_name, int pci_device_id);
-    std::unique_lock<RobustMutex> acquire_mutex(MutexType mutex_type, int pci_device_id);
 
 private:
     LocalChip(
@@ -95,8 +93,6 @@ private:
     void initialize_default_chip_mutexes();
     void initialize_membars(uint32_t dram_subchannel);
 
-    void init_pcie_iatus();
-
     void set_membar_flag(
         const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr);
     void insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr);
@@ -105,6 +101,8 @@ private:
 
     TlbWindow* get_cached_wc_tlb_window();
     TlbWindow* get_cached_uc_tlb_window();
+
+    std::function<bool(NocId)> make_io_timeout_hang_check();
 
     std::unique_ptr<TlbWindow> cached_wc_tlb_window = nullptr;
     std::unique_ptr<TlbWindow> cached_uc_tlb_window = nullptr;

@@ -23,7 +23,6 @@
 #include <utility>
 #include <vector>
 
-#include "noc_access.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -128,7 +127,7 @@ void SocDescriptor::init_from_arch_descriptor(const ChipInfo &chip_info) {
 void SocDescriptor::create_coordinate_manager(const BoardType board_type, const uint8_t asic_location) {
     const auto &dram_cores = arch_desc_->get_dram_cores();
     const tt_xy_pair dram_grid_size = tt_xy_pair(dram_cores.size(), dram_cores.empty() ? 0 : dram_cores[0].size());
-    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_arc_cores());
+    tt_xy_pair arc_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_firmware_cores());
     tt_xy_pair pcie_grid_size = SocArchDescriptor::calculate_grid_size(arch_desc_->get_pcie_cores());
 
     std::vector<tt_xy_pair> dram_cores_unpacked;
@@ -169,7 +168,7 @@ void SocDescriptor::create_coordinate_manager(const BoardType board_type, const 
         dram_cores_unpacked,
         arch_desc_->get_eth_cores(),
         arc_grid_size,
-        arch_desc_->get_arc_cores(),
+        arch_desc_->get_firmware_cores(),
         pcie_grid_size,
         arch_desc_->get_pcie_cores(),
         arch_desc_->get_router_cores(),
@@ -212,22 +211,23 @@ CoreCoord SocDescriptor::translate_coord_to(
 }
 
 // Translates a chip coordinate to the correct device coordinates, returning a CoreCoord.
-// Returns the correct pre-translation coordinates for the given architecture. Note that
-// the returned CoordSystem is not necessarily TRANSLATED — architecture-specific fixups
-// (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1 coordinates instead.
+// Returns the correct pre-translation coordinates for the given architecture and the NOC
+// identified by noc_id. Note that the returned CoordSystem is not necessarily TRANSLATED —
+// architecture-specific fixups (e.g., Wormhole DRAM/ARC/PCIe cores) may produce NOC0/NOC1
+// coordinates instead.
 // The key guarantee is that the returned coordinates will be correct for device access
-// on the given architecture.
-CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core) const {
+// on the given architecture over the given NOC.
+CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoord core, const NocId noc_id) const {
     if (core.coord_system == CoordSystem::LITERAL) {
         return xy_pair(core.x, core.y);
     }
     if (!noc_translation_enabled) {
-        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        return translate_coord_to(core, (noc_id == NocId::NOC1) ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     // Blackhole-specific workaround: ROUTER_ONLY and harvested ETH cores need
     // special translation when using NOC1.
-    if ((arch == tt::ARCH::BLACKHOLE) && is_selected_noc1()) {
+    if ((arch == tt::ARCH::BLACKHOLE) && (noc_id == NocId::NOC1)) {
         // For ROUTER_ONLY cores, the translated coordinate space differs depending on
         // whether the NOC0 or NOC1 network is used. Use the NOC1 -> TRANSLATED mapping
         // from ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE so that accesses over the NOC1
@@ -235,7 +235,7 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
         if (core.core_type == CoreType::ROUTER_ONLY) {
             CoreCoord noc1_core = translate_coord_to(core, CoordSystem::NOC1);
             return CoreCoord(
-                ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(static_cast<tt_xy_pair>(noc1_core)),
+                ROUTER_NOC1_TO_TRANSLATED_BLACKHOLE.at(noc1_core.to_pair()),
                 CoreType::ROUTER_ONLY,
                 CoordSystem::TRANSLATED);
         }
@@ -257,7 +257,7 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
     // Task to address this: https://github.com/tenstorrent/tt-umd/issues/2176.
     if ((arch == tt::ARCH::WORMHOLE_B0) &&
         (core.core_type == CoreType::DRAM || core.core_type == CoreType::ARC || core.core_type == CoreType::PCIE)) {
-        return translate_coord_to(core, is_selected_noc1() ? CoordSystem::NOC1 : CoordSystem::NOC0);
+        return translate_coord_to(core, (noc_id == NocId::NOC1) ? CoordSystem::NOC1 : CoordSystem::NOC0);
     }
 
     return translate_coord_to(core, CoordSystem::TRANSLATED);
@@ -265,8 +265,8 @@ CoreCoord SocDescriptor::translate_chip_coord_to_translated_coord(const CoreCoor
 
 // Convenience wrapper returning tt_xy_pair; the actual logic lives in
 // translate_chip_coord_to_translated_coord.
-tt_xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core) const {
-    return translate_chip_coord_to_translated_coord(core);
+xy_pair SocDescriptor::translate_chip_coord_to_translated(const CoreCoord core, const NocId noc_id) const {
+    return translate_chip_coord_to_translated_coord(core, noc_id).to_pair();
 }
 
 int SocDescriptor::get_num_dram_channels() const { return get_grid_size(CoreType::DRAM).x; }
@@ -546,6 +546,30 @@ uint32_t SocDescriptor::get_num_eth_channels() const { return coordinate_manager
 
 uint32_t SocDescriptor::get_num_harvested_eth_channels() const {
     return coordinate_manager->get_num_harvested_eth_channels();
+}
+
+std::pair<CoreCoord, CoreCoord> SocDescriptor::get_bounding_rectangle(
+    CoordSystem coord_system, CoreType core_type) const {
+    const std::vector<CoreCoord> cores = get_cores(core_type, coord_system);
+    if (cores.empty()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Cannot compute bounding rectangle: no cores of type {} found.", to_str(core_type)));
+    }
+
+    CoreCoord upper_left = cores.front();
+    CoreCoord lower_right = cores.front();
+    for (const CoreCoord &core : cores) {
+        // Upper-left: smallest x, then smallest y. Lower-right: largest x, then largest y.
+        if (core.x < upper_left.x || (core.x == upper_left.x && core.y < upper_left.y)) {
+            upper_left = core;
+        }
+        if (core.x > lower_right.x || (core.x == lower_right.x && core.y > lower_right.y)) {
+            lower_right = core;
+        }
+    }
+
+    return {upper_left, lower_right};
 }
 
 }  // namespace tt::umd

@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 
@@ -17,7 +18,7 @@
 #include "umd/device/simulation/simulation_host.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/simulation_tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -28,16 +29,19 @@ namespace tt::umd {
 class TTSimCommunicator;
 class SimulationSysmemManager;
 class SimulationServerSocket;
+class SimulationClient;
 class SocDescriptor;
 
-class TTSimTTDevice : public TTDevice {
+class TTSimTTDevice : public SimulationTTDevice {
 public:
     TTSimTTDevice(
         const std::filesystem::path &simulator_directory,
         const SocDescriptor &soc_descriptor,
         ChipId chip_id,
         bool copy_sim_binary = false,
-        int num_host_mem_channels = 0);
+        int num_host_mem_channels = 0,
+        size_t num_chips = 1);
+
     ~TTSimTTDevice();
 
     static std::unique_ptr<TTSimTTDevice> create(
@@ -54,38 +58,29 @@ public:
         int num_host_mem_channels = 0,
         bool copy_sim_binary = false);
 
-    void read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
-    void write_to_device(const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size) override;
+    // Builds a client-mode device from device identity the connector already fetched over the
+    // socket (build_soc_descriptor(device_info)); discovery uses this for a client that talks to a
+    // live host. The connector owns the single GET_DEVICE_INFO fetch (it needs the backend kind to
+    // pick this class), so it passes the result in rather than having this re-fetch it.
+    static std::unique_ptr<TTSimTTDevice> create_client(
+        ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo &device_info);
 
-    void dma_d2h(void *dst, uint32_t src, size_t size) override;
-    void dma_d2h_zero_copy(void *dst, uint32_t src, size_t size) override;
-    void dma_h2d(uint32_t dst, const void *src, size_t size) override;
-    void dma_h2d_zero_copy(uint32_t dst, const void *src, size_t size) override;
-    void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
-    void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
+    // Configure this chip's outbound iATU (NOC->host) the silicon way: iATU register writes via BAR2.
+    // The simulator decodes these into its iATU model and honors them at DMA egress, so the chip's DMA
+    // resolves to this chip's distinct host base (configured as the region target) purely by address.
+    void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
+
     void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
-        const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-    EthTrainingStatus read_eth_core_training_status(tt_xy_pair eth_core) override;
-    uint32_t get_clock() override;
-    uint32_t get_min_clock_freq() override;
-    bool get_noc_translation_enabled() override;
+        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
+    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
     ChipInfo get_chip_info() override;
-    void dma_multicast_write(
-        void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
     void close_device();
     void start_device();
-    void noc_multicast_write(
-        const void *src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr) override;
 
-    using TTDevice::noc_multicast_write;
-    void noc_multicast_write(const void *src, size_t size, uint64_t addr) override;
-
-    void assert_risc_reset(tt_xy_pair core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(tt_xy_pair core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
+    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
 
     void advance_device_execution() override;
 
@@ -95,41 +90,51 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    SimulationSysmemManager *get_sysmem_manager() override { return sysmem_manager_.get(); }
-
-    std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
-
-    SimulationTlbAllocator *get_tlb_allocator() { return tlb_allocator_.get(); }
-
-    // Takes ownership of the serving socket that exposes this device (created by discovery).
-    void adopt_socket(std::unique_ptr<SimulationServerSocket> socket);
-
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
 
 protected:
-    void retrain_dram_core(const uint32_t dram_channel) override;
+    SimulationBackendType backend_type() const override { return SimulationBackendType::TTSim; }
+
+    std::unique_ptr<TlbWindow> create_tlb_window(
+        int tlb_index, size_t size, TlbMapping mapping, tlb_data config) override;
+    void tile_read_bytes(tt_xy_pair core, uint64_t addr, void *mem_ptr, size_t size) override;
+    void tile_write_bytes(tt_xy_pair core, uint64_t addr, const void *mem_ptr, size_t size) override;
+    bool is_device_closed() override;
+    bool handle_special_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool handle_special_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size) override;
+    bool should_use_cached_tlb_window() override;
+    void after_read() override;
 
 private:
+    // DRAM teleport fast path, gated on TT_SIMULATOR_DRAM_TELEPORT. `core` is a TRANSLATED
+    // coordinate; returns true when the access was serviced against the backend DRAM model. These
+    // back handle_special_read/write and can grow to dispatch additional special cases later.
+    bool special_dram_read(void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+    bool special_dram_write(const void *mem_ptr, tt_xy_pair core, uint64_t addr, size_t size);
+
+    // Client-mode constructor: this device does not own a simulator (.so); it forwards device
+    // operations to a remote host through client. Reached only via create_client(), which
+    // validates the arguments before construction.
+    TTSimTTDevice(const SocDescriptor &soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client);
+
     void initialize_sysmem_functions();
     void pci_dma_read_bytes(uint64_t paddr, void *p, uint32_t size);
     void pci_dma_write_bytes(uint64_t paddr, const void *p, uint32_t size);
 
+    // Host-mode backend bring-up (.so init, PCI read, TLB setup).
+    void initialize_backend();
+
+    // setup_ runs at construction, teardown_ at destruction -- the one real host-vs-client
+    // difference today: host mode drives the in-process .so backend (communicator_), client mode
+    // drives the remote host (attach_client()/detach_client()). Note client_ is owned by the
+    // SimulationTTDevice base (pulled up there), not declared in this class.
+    std::function<void()> setup_;
+    std::function<void()> teardown_;
+
     uint32_t tlb_region_size_ = 0;
     std::unique_ptr<TTSimCommunicator> communicator_;
-    std::recursive_mutex device_lock;
-
-    std::filesystem::path simulator_directory_;
     ChipId chip_id_;
-    std::unique_ptr<SimulationSysmemManager> sysmem_manager_;
-
-    // Exposes this device on disk as a UNIX socket ("the card"), so other UMD clients can find
-    // it. The host keeps its own direct in-process fast path; the socket is for remote clients.
-    std::unique_ptr<SimulationServerSocket> socket_;
-
     uint32_t libttsim_pci_device_id;
-
-    std::shared_ptr<SimulationTlbAllocator> tlb_allocator_;
-    std::unique_ptr<TlbWindow> cached_tlb_window_ = nullptr;
 };
 }  // namespace tt::umd

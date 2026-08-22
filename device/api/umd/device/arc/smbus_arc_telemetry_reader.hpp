@@ -20,9 +20,9 @@ class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:
     SmBusArcTelemetryReader(TTDevice* tt_device);
 
-    uint32_t read_entry(const uint8_t telemetry_tag) override;
+    uint32_t read_entry(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
-    bool is_entry_available(const uint8_t telemetry_tag) override;
+    bool is_entry_available(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
 protected:
     // Polls LegacyTelemetryTag::FW_BUNDLE_VERSION (the last entry written to the SMBus
@@ -35,7 +35,7 @@ protected:
     void get_telemetry_address() override;
 
 private:
-    uint64_t telemetry_base_noc_addr;
+    static constexpr uint64_t SMBUS_TELEMETRY_NOC_ADDR = 0x820078d60;
 };
 
 }  // namespace tt::umd

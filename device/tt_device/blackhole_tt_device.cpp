@@ -32,6 +32,7 @@
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
@@ -43,7 +44,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     std::unique_ptr<PCIDevice> pci_device,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<blackhole_implementation>(), soc_arch_descriptor, use_safe_api) {
+    TTDevice(std::move(pci_device), std::make_unique<BlackholeImplementation>(), soc_arch_descriptor, use_safe_api) {
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
@@ -53,7 +54,7 @@ BlackholeTTDevice::BlackholeTTDevice(
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<blackhole_implementation>(), soc_arch_descriptor) {
+    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<BlackholeImplementation>(), soc_arch_descriptor) {
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), get_architecture_implementation(), BlackholeTTDevice::get_noc_translation_enabled()));
@@ -137,7 +138,7 @@ bool BlackholeTTDevice::get_noc_translation_enabled() {
 
     if (get_communication_device_type() == IODeviceType::JTAG) {
         // Target arc core.
-        niu_cfg = get_jtag_device()->read32_axi(0, blackhole::NIU_CFG_NOC0_ARC_ADDR).value();
+        niu_cfg = get_jtag_interface()->mmio_read32(blackhole::NIU_CFG_NOC0_ARC_ADDR);
     } else {
         niu_cfg = bar_read32(addr);
     }
@@ -148,22 +149,22 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     ChipInfo chip_info = TTDevice::get_chip_info();
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
         tt::ARCH::BLACKHOLE,
-        get_arc_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
-            ? (~get_arc_telemetry_reader()->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
+        get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
+            ? (~get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
             : 0);
     chip_info.harvesting_masks.dram_harvesting_mask =
-        get_arc_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_GDDR)
-            ? (~get_arc_telemetry_reader()->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
+        get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_GDDR)
+            ? (~get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
             : 0;
 
     chip_info.harvesting_masks.eth_harvesting_mask =
-        get_arc_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_ETH)
-            ? (~get_arc_telemetry_reader()->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
+        get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_ETH)
+            ? (~get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
             : 0;
 
     chip_info.harvesting_masks.pcie_harvesting_mask = 0;
-    if (get_arc_telemetry_reader()->is_entry_available(TelemetryTag::PCIE_USAGE)) {
-        uint32_t pcie_usage = get_arc_telemetry_reader()->read_entry(TelemetryTag::PCIE_USAGE);
+    if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::PCIE_USAGE)) {
+        uint32_t pcie_usage = get_firmware_telemetry_reader()->read_entry(TelemetryTag::PCIE_USAGE);
 
         uint32_t pcie0_usage = pcie_usage & 0x3;
         uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
@@ -180,9 +181,9 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     }
 
     chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
-    if (get_arc_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
+    if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
         chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
-            tt::ARCH::BLACKHOLE, get_arc_telemetry_reader()->read_entry(TelemetryTag::ENABLED_L2CPU));
+            tt::ARCH::BLACKHOLE, get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_L2CPU));
     }
 
     return chip_info;
@@ -221,8 +222,8 @@ void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds time
 }
 
 uint32_t BlackholeTTDevice::get_clock() {
-    if (get_arc_telemetry_reader()->is_entry_available(TelemetryTag::AICLK)) {
-        return get_arc_telemetry_reader()->read_entry(TelemetryTag::AICLK);
+    if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::AICLK)) {
+        return get_firmware_telemetry_reader()->read_entry(TelemetryTag::AICLK);
     }
 
     UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Blackhole device.");
@@ -230,22 +231,41 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
 
+void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
+    ZoneScoped;
+    int exit_code = 0;
+    switch (state) {
+        case TTDevice::PowerState::BUSY:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            break;
+        case TTDevice::PowerState::IDLE:
+            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            break;
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
+    }
+    UMD_ASSERT(
+        exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
+    wait_for_aiclk_value(state);
+}
+
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->read(
-            communication_device_id_,
+        get_device_protocol()->read_ctrl(
             mem_ptr,
-            blackhole::ARC_CORES_NOC0[0].x,
-            blackhole::ARC_CORES_NOC0[0].y,
+            blackhole::ARC_CORES_NOC0[0],
             blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     if (!is_arc_available_over_axi()) {
-        read_from_device(
+        read_from_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -258,17 +278,16 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
-        get_jtag_device()->write(
-            communication_device_id_,
+        get_device_protocol()->write_ctrl(
             mem_ptr,
-            blackhole::ARC_CORES_NOC0[0].x,
-            blackhole::ARC_CORES_NOC0[0].y,
+            blackhole::ARC_CORES_NOC0[0],
             blackhole::ARC_NOC_XBAR_ADDRESS_START + arc_addr_offset,
-            sizeof(uint32_t));
+            sizeof(uint32_t),
+            NocId::DEFAULT_NOC);
         return;
     }
     if (!is_arc_available_over_axi()) {
-        write_to_device(
+        write_to_device_reg(
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
@@ -285,7 +304,7 @@ void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offse
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
-    const tt_xy_pair eth_core, const std::chrono::milliseconds timeout_ms) {
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     auto time_taken = std::chrono::milliseconds(0);
 
@@ -306,7 +325,7 @@ std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(
     return time_taken;
 }
 
-EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(tt_xy_pair eth_core) {
+EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     uint32_t port_status_addr = blackhole::BOOT_RESULTS_ADDR + offsetof(blackhole::eth_status_t, port_status);
     uint32_t port_status_val;
     read_from_device(&port_status_val, eth_core, port_status_addr, sizeof(port_status_val));
@@ -330,29 +349,6 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
             error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
-}
-
-void BlackholeTTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr) {
-    // BH grid is 17x12. Broadcast coordinates depend on NOC translation:
-    //   Translation disabled: full grid hardware multicast, skipping NOC controller row at y=0.
-    //   Translation enabled:  hardware broadcast is avoided; use a software multicast with
-    //                         wraparound coordinates that differ per NOC:
-    //                           NOC0: start=(2,3), end=(1,2)
-    //                           NOC1: start=(1,2), end=(2,3).
-    xy_pair start_coord;
-    xy_pair end_coord;
-    UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
-        error::RuntimeError,
-        "Multicast not implemented for BH devices without NOC translation enabled.");
-    if (is_selected_noc1()) {
-        start_coord = xy_pair{1, 2};
-        end_coord = xy_pair{2, 3};
-    } else {
-        start_coord = xy_pair{2, 3};
-        end_coord = xy_pair{1, 2};
-    }
-    noc_multicast_write(src, size, start_coord, end_coord, addr);
 }
 
 void BlackholeTTDevice::set_arc_coordinate() {

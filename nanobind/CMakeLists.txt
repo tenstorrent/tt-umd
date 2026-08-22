@@ -145,8 +145,6 @@ endfunction()
 option(TT_UMD_BUILD_PIP "By default build pip package" ON)
 if(TT_UMD_BUILD_PIP)
     # --- PIP WHEEL LOGIC ---
-    message(STATUS "Configuring Python bindings for pip wheel")
-
     # Set RPATH: BUILD_RPATH for stub generation, INSTALL_RPATH for runtime
     set_target_properties(
         nanobind_tt_umd
@@ -184,8 +182,6 @@ if(TT_UMD_BUILD_PIP)
     endif()
 else()
     # --- FHS/CPACK LOGIC ---
-    message(STATUS "Configuring Python bindings for FHS package")
-
     # Set RPATH for system lib directory (clear for lib64 per rpmbuild requirements)
     if(CMAKE_INSTALL_LIBDIR MATCHES "lib64")
         set_target_properties(

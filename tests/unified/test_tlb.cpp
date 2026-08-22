@@ -2,12 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -23,7 +26,11 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/kmd_versions.hpp"
+#include "umd/device/utils/mmio_timeout_config.hpp"
 #include "umd/device/utils/semver.hpp"
+#include "umd/device/utils/timeouts.hpp"
+#include "utils.hpp"
 
 using namespace tt;
 using namespace tt::umd;
@@ -34,7 +41,18 @@ bool is_kmd_version_good() {
     return kmd_ver.major > 1 || (kmd_ver.major == 1 && kmd_ver.minor >= 34);
 }
 
-TEST(TestTlb, TestTlbWindowAllocateNew) {
+// Every TestTlb case drives a TLB window directly (raw SiliconTlbWindow / static TLB window), so the
+// op carries no hang-detector veto: a single MMIO transfer that stalls on a contended host would trip
+// the tight default per-op budget and throw DeviceTimeoutError. Widen the budget for the duration of
+// each test and restore the default afterwards so the override never leaks into other tests.
+class TestTlb : public ::testing::Test {
+protected:
+    void SetUp() override { MmioTimeoutConfig::set_op_timeout(std::chrono::milliseconds(100)); }
+
+    void TearDown() override { MmioTimeoutConfig::set_op_timeout(timeout::MMIO_OP_TIMEOUT); }
+};
+
+TEST_F(TestTlb, TestTlbWindowAllocateNew) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -80,7 +98,46 @@ TEST(TestTlb, TestTlbWindowAllocateNew) {
     }
 }
 
-TEST(TestTlb, TestTlbWindowReuse) {
+TEST_F(TestTlb, TestClusterExportDmabuf) {
+    if (PCIDevice::read_kmd_version() < KMD_TLB_DMABUF_EXPORT) {
+        GTEST_SKIP() << "KMD version " << PCIDevice::read_kmd_version().str() << " is below required "
+                     << KMD_TLB_DMABUF_EXPORT.str();
+    }
+
+    if (!tt::umd::utils::has_any_active_rdma_port()) {
+        GTEST_SKIP() << "No active RDMA NIC (RoCE/InfiniBand) found under /sys/class/infiniband.";
+    }
+
+    const ChipId chip = 0;
+    const uint64_t two_mb_size = 1 << 21;
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    std::vector<CoreCoord> tensix_cores =
+        cluster->get_soc_descriptor(chip).get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED);
+    ASSERT_FALSE(tensix_cores.empty());
+    CoreCoord core = tensix_cores.front();
+
+    int fd = cluster->export_dmabuf(chip, core, 0, two_mb_size);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
+
+    // An address that is page-aligned but not TLB-window-aligned exercises TlbWindow's
+    // offset_from_aligned_addr translation: the window's NOC base is rounded down to a size-aligned
+    // boundary, so the export starts `addr % window_size` bytes into the window, not at its base.
+    const uint64_t page_size = static_cast<uint64_t>(getpagesize());
+    fd = cluster->export_dmabuf(chip, core, page_size, page_size);
+    EXPECT_GE(fd, 0);
+    EXPECT_GE(fcntl(fd, F_GETFD), 0);
+    close(fd);
+
+    // Misaligned requests are rejected up front, before a window is allocated or an ioctl issued.
+    EXPECT_THROW(cluster->export_dmabuf(chip, core, 1, page_size), std::runtime_error);
+    EXPECT_THROW(cluster->export_dmabuf(chip, core, 0, page_size + 1), std::runtime_error);
+}
+
+TEST_F(TestTlb, TestTlbWindowReuse) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -132,7 +189,7 @@ TEST(TestTlb, TestTlbWindowReuse) {
 }
 
 // TODO: debug this test failing on T3K.
-TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
+TEST_F(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -179,7 +236,7 @@ TEST(TestTlb, DISABLED_TestTlbWindowReadRegister) {
     }
 }
 
-TEST(TestTlb, TestTlbWindowReadWrite) {
+TEST_F(TestTlb, TestTlbWindowReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -223,7 +280,7 @@ TEST(TestTlb, TestTlbWindowReadWrite) {
     }
 }
 
-TEST(TestTlb, TestTlbWindowReadWrite16) {
+TEST_F(TestTlb, TestTlbWindowReadWrite16) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -292,7 +349,7 @@ TEST(TestTlb, TestTlbWindowReadWrite16) {
     }
 }
 
-TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
+TEST_F(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -345,7 +402,7 @@ TEST(TestTlb, TestTlbWrite16DoesNotCorruptAdjacentData) {
     }
 }
 
-TEST(TestTlb, TestTlbOffsetReadWrite) {
+TEST_F(TestTlb, TestTlbOffsetReadWrite) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -408,7 +465,7 @@ TEST(TestTlb, TestTlbOffsetReadWrite) {
     }
 }
 
-TEST(TestTlb, TestTlbAccessOutofBounds) {
+TEST_F(TestTlb, TestTlbAccessOutofBounds) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }
@@ -462,7 +519,7 @@ TEST(TestTlb, TestTlbAccessOutofBounds) {
     }
 }
 
-TEST(TestTlb, TLBStaticTensix) {
+TEST_F(TestTlb, TLBStaticTensix) {
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
     const size_t tlb_size = cluster->get_tt_device(0)->get_arch() == tt::ARCH::WORMHOLE_B0 ? (1 << 20) : (1 << 21);
@@ -495,7 +552,7 @@ TEST(TestTlb, TLBStaticTensix) {
     }
 }
 
-TEST(TestTlb, TestRegisterReconfigureL1RoundTrip) {
+TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
     if (!is_kmd_version_good()) {
         GTEST_SKIP() << "Skipping test because of old KMD version. Required version of KMD is 1.34 or higher.";
     }

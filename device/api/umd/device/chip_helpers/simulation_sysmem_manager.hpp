@@ -21,8 +21,20 @@ namespace tt::umd {
 
 class SimulationSysmemManager : public SysmemManager {
 public:
-    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch);
+    SimulationSysmemManager(uint32_t num_host_mem_channels, tt::ARCH arch, uint32_t chip_id = 0);
     ~SimulationSysmemManager() override;
+
+    // Per-chip host base for this chip's sysmem. On silicon each chip's pinned host memory lives at a
+    // distinct host physical address; UMD programs that address into the chip's outbound iATU as the
+    // region target, and the chip's DMA resolves there purely by address (no per-chip "magic"). We
+    // model that by giving chip N a distinct host base (N * PER_CHIP_HOST_STRIDE) and using it as the
+    // hugepage physical_address (= iATU target). The simulator's host-side DMA router (dma_route) then
+    // routes by which chip's [host_base, host_base + PER_CHIP_HOST_STRIDE) window contains the address.
+    static constexpr uint64_t PER_CHIP_HOST_STRIDE = 1ULL << 36;  // 64 GiB; >> per-chip sysmem, non-overlapping
+
+    uint64_t get_host_base() const { return host_base_; }
+
+    uint64_t get_host_region_size() const { return PER_CHIP_HOST_STRIDE; }
 
     bool pin_or_map_sysmem_to_device() override;
 
@@ -32,7 +44,10 @@ public:
         size_t sysmem_buffer_size, const bool map_to_noc = false) override;
 
     std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
-        void* buffer, size_t sysmem_buffer_size, const bool map_to_noc = false) override;
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
     // Called by TTSimTTDevice::pci_dma_{read,write}_bytes when the simulator
     // fires a DMA callback with a raw device IO address (pcie_base_ + offset).
@@ -49,6 +64,18 @@ public:
     // class (sysmem_dest is a within-channel offset, not an absolute address).
     bool write_mapped_buffer(uint64_t device_io_addr, const void* src, uint32_t size);
     bool read_mapped_buffer(uint64_t device_io_addr, void* dst, uint32_t size);
+
+    // Zero-copy address→host-pointer lookup (nullptr on a miss). Unlike
+    // write/read_mapped_buffer, which copy, this returns the mapping directly for in-place
+    // access. emule needs it: its NOC address resolver (__emule_resolve_noc_addr) maps a
+    // host-facing (PCIe) NOC address to a host pointer the emulated kernel dereferences
+    // directly — the way silicon's NOC reaches host memory — and a copy cannot back the
+    // kernel's in-place read/write. The pointer is valid only while the mapped buffer stays
+    // mapped: the caller must not retain it across an unpin_or_unmap_sysmem()/SysmemBuffer
+    // teardown. The registry lock guards the lookup, not the returned pointer's lifetime.
+    // This is a pure address translation — the caller owns the access length (the returned bare
+    // pointer carries none); the bounded copies write/read_mapped_buffer are where a size is checked.
+    void* get_mapped_host_ptr(uint64_t device_io_addr);
 
 protected:
     bool init_sysmem(uint32_t num_host_mem_channels) override;
@@ -76,6 +103,7 @@ private:
 
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
+    uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * PER_CHIP_HOST_STRIDE)
     std::vector<std::pair<void*, size_t>> owned_allocations_;
     std::shared_ptr<MappedBufferRegistry> registry_;
 };

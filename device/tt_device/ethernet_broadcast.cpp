@@ -26,7 +26,7 @@
 namespace tt::umd {
 
 static bool tensix_or_eth_in_broadcast(
-    const std::set<uint32_t>& cols_to_exclude, const architecture_implementation* arch_impl) {
+    const std::set<uint32_t>& cols_to_exclude, const ArchitectureImplementation* arch_impl) {
     bool found_tensix_or_eth = false;
     for (const auto& col : arch_impl->get_t6_x_locations()) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
@@ -37,7 +37,7 @@ static bool tensix_or_eth_in_broadcast(
 static bool valid_tensix_broadcast_grid(
     const std::set<uint32_t>& rows_to_exclude,
     const std::set<uint32_t>& cols_to_exclude,
-    const architecture_implementation* arch_impl) {
+    const ArchitectureImplementation* arch_impl) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
@@ -290,7 +290,7 @@ void EthernetBroadcast::broadcast_write_to_cluster(
     adjust_coordinates_for_ethernet_broadcast(
         rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
 
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
+    auto arch_impl = ArchitectureImplementation::create(tt::ARCH::WORMHOLE_B0);
     if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
         cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
         UMD_ASSERT(

@@ -34,7 +34,7 @@ apt-get update && apt-get install -y \
     fakeroot
 
 # Install Python dependencies
-python3 -m pip install --no-cache-dir pytest
+python3 -m pip install --no-cache-dir pytest pyyaml
 
 # gcc-11 should be available only for ubuntu 22 and not 20
 if apt-cache show gcc-11 > /dev/null 2>&1; then

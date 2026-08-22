@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "hugepage.hpp"
+#include "simulation/simulation_server_socket.hpp"
 #include "tracy.hpp"
 #include "umd/device/chip/local_chip.hpp"
 #include "umd/device/chip/mock_chip.hpp"
@@ -48,6 +49,9 @@
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
+#include "umd/device/simulation/simulation_client.hpp"
+#include "umd/device/simulation/simulation_connector.hpp"
+#include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/topology/topology_discovery_options.hpp"
@@ -56,6 +60,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
@@ -198,6 +203,35 @@ void Cluster::construct_cluster(const uint32_t& num_host_mem_ch_per_mmio_device,
     }
 }
 
+#ifdef TT_UMD_BUILD_SIMULATION
+std::unique_ptr<RemoteChip> Cluster::create_simulation_remote_chip(
+    ChipId chip_id, ClusterDescriptor* cluster_desc, const SocDescriptor& soc_desc) {
+    ChipId gateway_id = cluster_desc->get_closest_mmio_capable_chip(chip_id);
+    Chip* gateway_chip = get_chip(gateway_id);
+    SysmemManager* sysmem_manager = gateway_chip->get_sysmem_manager();
+    if (sysmem_manager != nullptr && sysmem_manager->get_num_host_mem_channels() == 0) {
+        sysmem_manager = nullptr;
+    }
+    auto remote_communication = RemoteCommunication::create_remote_communication(
+        gateway_chip->get_tt_device(), cluster_desc->get_chip_location(chip_id), sysmem_manager);
+    remote_communication->set_remote_transfer_ethernet_cores(
+        gateway_chip->get_soc_descriptor().get_eth_xy_pairs_for_channels(
+            cluster_desc->get_active_eth_channels(gateway_id), CoordSystem::TRANSLATED));
+
+    ChipInfo chip_info;
+    chip_info.noc_translation_enabled = soc_desc.noc_translation_enabled;
+    chip_info.harvesting_masks = soc_desc.harvesting_masks;
+    chip_info.board_type = cluster_desc->get_board_type(chip_id);
+    chip_info.board_id = cluster_desc->get_board_id_for_chip(chip_id);
+    chip_info.asic_location = cluster_desc->get_asic_location(chip_id);
+
+    // The simulated remote chip has no ARC, so hand its SocDescriptor to the remote TTDevice directly
+    // instead of letting init_tt_device construct one.
+    auto remote_tt_device = TTDevice::create_simulation_remote(std::move(remote_communication), soc_desc);
+    return RemoteChip::create_for_simulation(std::move(remote_tt_device), gateway_chip, chip_info);
+}
+#endif  // TT_UMD_BUILD_SIMULATION
+
 std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     ChipId chip_id,
     const ChipType& chip_type,
@@ -220,6 +254,15 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
     }
     if (chip_type == ChipType::SIMULATION) {
 #ifdef TT_UMD_BUILD_SIMULATION
+        if (tt_device != nullptr) {
+            // A device the connector already created (client mode): wrap it rather than building a
+            // new backend. Its SoC descriptor was sourced over the socket, so read it back.
+            SocDescriptor device_soc = tt_device->get_soc_descriptor();
+            return std::make_unique<SimulationChip>(simulator_directory, device_soc, chip_id, std::move(tt_device));
+        }
+        if (simulator_directory.extension() == ".so" && cluster_desc->is_chip_remote(chip_id)) {
+            return create_simulation_remote_chip(chip_id, cluster_desc, soc_desc);
+        }
         log_info(LogUMD, "Creating Simulation device");
         return SimulationChip::create(
             simulator_directory, soc_desc, chip_id, cluster_desc->get_number_of_chips(), num_host_mem_channels);
@@ -332,9 +375,7 @@ void Cluster::add_chip(const ChipId& chip_id, const ChipType& chip_type, std::un
         error::RuntimeError,
         fmt::format("Chip with id {} already exists in cluster. Cannot add another chip with the same id.", chip_id));
     all_chip_ids_.insert(chip_id);
-    // All non silicon chip types are considered local chips.
-    if (chip_type == ChipType::SIMULATION || chip_type == ChipType::SWEMULE ||
-        cluster_desc->is_chip_mmio_capable(chip_id)) {
+    if (chip_type == ChipType::SWEMULE || cluster_desc->is_chip_mmio_capable(chip_id)) {
         local_chip_ids_.insert(chip_id);
     } else {
         remote_chip_ids_.insert(chip_id);
@@ -366,7 +407,87 @@ Cluster::Cluster(ClusterOptions options) {
         case ChipType::MOCK:
         case ChipType::SWEMULE:
         case ChipType::SIMULATION: {
+#ifdef TT_UMD_BUILD_SIMULATION
+            // Client simulation Cluster: simulator_directory is a directory of live host sockets, not
+            // a local build. Reconstruct the ClusterDescriptor from the host over the socket, then
+            // let the connector attach one client device per socket (populating tt_devices, which the
+            // chip loop wraps in SimulationChips).
+            if (options.chip_type == ChipType::SIMULATION &&
+                SimulationConnector::role_for(options.simulator_directory) == SimulationConnector::Role::Client) {
+                const std::map<ChipId, std::filesystem::path> sockets =
+                    SimulationServerSocket::sockets_in_directory(options.simulator_directory);
+                UMD_ASSERT(
+                    !sockets.empty(),
+                    error::RuntimeError,
+                    fmt::format(
+                        "No simulation sockets found in {}; nothing to attach to.",
+                        options.simulator_directory.string()));
+
+                // Fetch the topology from one host. Empty YAML => the host has no cluster descriptor,
+                // so build a mock from the served device info (mirrors the host's own mock fallback).
+                SimulationClient probe(sockets.begin()->second);
+                const std::string yaml = fetch_cluster_descriptor_yaml(probe);
+                std::unique_ptr<ClusterDescriptor> served;
+                if (!yaml.empty()) {
+                    served = ClusterDescriptor::create_from_yaml_content(yaml);
+                } else {
+                    const SimulationServerDeviceInfo info = fetch_device_info_from_host(probe);
+                    std::unordered_set<ChipId> chip_ids;
+                    for (const auto& [id, socket_path] : sockets) {
+                        chip_ids.insert(id);
+                    }
+                    served = ClusterDescriptor::create_mock_cluster(
+                        chip_ids, static_cast<tt::ARCH>(info.arch), info.noc_translation_enabled);
+                }
+                cluster_desc =
+                    ClusterDescriptor::create_constrained_cluster_descriptor(served.get(), options.target_devices);
+
+                SimulationConnectorOptions connector_options;
+                connector_options.simulator_directory = options.simulator_directory;
+                connector_options.num_host_mem_channels =
+                    static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(0));
+                tt_devices = SimulationConnector::discover(connector_options);
+
+                // Every chip the topology names must have a socket-backed device (single-chip today;
+                // a multichip host will publish one socket per chip). Fail clearly rather than later
+                // trying to build a local backend for a chip that has no socket.
+                for (const ChipId reconciled_chip_id : cluster_desc->get_all_chips()) {
+                    UMD_ASSERT(
+                        tt_devices.count(reconciled_chip_id) != 0,
+                        error::RuntimeError,
+                        fmt::format(
+                            "Cluster descriptor names chip {} but no simulation socket for it was found in {}.",
+                            reconciled_chip_id,
+                            options.simulator_directory.string()));
+                }
+                break;
+            }
+#endif
             if (options.cluster_descriptor == nullptr) {
+#ifdef TT_UMD_BUILD_SIMULATION
+                // A ttsim .so may ship a cluster_descriptor.yaml beside it describing a real (possibly multichip)
+                // topology, mirroring the soc_descriptor.yaml convention. When present, use it; otherwise fall
+                // through to the mock single-chip descriptor below (unchanged behaviour).
+                const bool is_ttsim_build =
+                    (options.chip_type == ChipType::SIMULATION && options.simulator_directory.extension() == ".so");
+                const std::string cluster_desc_path =
+                    is_ttsim_build
+                        ? SimulationChip::get_cluster_descriptor_path_from_simulator_path(options.simulator_directory)
+                        : "";
+
+                if (is_ttsim_build && std::filesystem::exists(cluster_desc_path)) {
+                    // Resolve the simulator's soc_descriptor.yaml as well, so the per-chip SocDescriptors built
+                    // below are populated from the simulator-provided data instead of a default arch descriptor
+                    // (matches the fallback path's sdesc_path resolution).
+                    if (options.sdesc_path.empty()) {
+                        options.sdesc_path =
+                            SimulationChip::get_soc_descriptor_path_from_simulator_path(options.simulator_directory);
+                    }
+                    cluster_desc = ClusterDescriptor::create_constrained_cluster_descriptor(
+                        ClusterDescriptor::create_from_yaml(cluster_desc_path).get(), options.target_devices);
+                    break;
+                }
+#endif
                 // If no custom descriptor is provided, in case of mock or simulation chip type, we create a mock
                 // cluster descriptor from passed target devices.
                 auto arch = tt::ARCH::WORMHOLE_B0;
@@ -513,6 +634,13 @@ Cluster::Cluster(ClusterOptions options) {
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
+#ifdef TT_UMD_BUILD_SIMULATION
+    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
+        serve_simulation_devices_over_sockets(
+            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+    }
+#endif  // TT_UMD_BUILD_SIMULATION
+
     construct_cluster(options.num_host_mem_ch_per_mmio_device.value(), options.chip_type);
     // Overwrite with the final (possibly mutated) options: sdesc_path may have been
     // resolved and num_host_mem_ch_per_mmio_device auto-detected above.
@@ -521,6 +649,35 @@ Cluster::Cluster(ClusterOptions options) {
 }
 
 #ifdef TT_UMD_BUILD_SIMULATION
+void Cluster::serve_simulation_devices_over_sockets(
+    const std::filesystem::path& simulator_directory,
+    const std::filesystem::path& simulator_server_directory,
+    const std::function<void()>& shutdown_handler) {
+    // A client Cluster skips this: its simulator_directory is a socket directory (not a .so/RTL
+    // build), so role_for returns Client. On the host, expose each simulation chip's device on its
+    // per-chip socket so a separate client process (a Cluster pointed at the socket directory) can
+    // attach and drive it. Each device serves device-memory I/O plus GET_DEVICE_INFO and
+    // GET_CLUSTER_DESCRIPTOR (handle_request); create() throws if a live host already holds a chip's
+    // socket. The optional shutdown_handler (e.g. from the sim_server tool) is handed to each device
+    // so a client's SHUTDOWN can signal the owner to stop.
+    if (SimulationConnector::role_for(simulator_directory) != SimulationConnector::Role::Host) {
+        return;
+    }
+    // Serve in a dedicated directory -- the caller's, or a fresh one -- so two hosts on the same
+    // machine never collide even when they serve the same chip id.
+    const std::filesystem::path server_directory = simulator_server_directory.empty()
+                                                       ? SimulationServerSocket::allocate_server_directory()
+                                                       : simulator_server_directory;
+    log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
+    for (const auto& [chip_id, chip] : chips_) {
+        if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
+            sim_device->adopt_socket(
+                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
+                shutdown_handler);
+        }
+    }
+}
+
 // Passthroughs to libttsim_switch_register_fabric_* -- allow tt-metal fabric
 // init to wire mock multichip topologies under craq-sim.
 
@@ -605,7 +762,7 @@ void Cluster::assert_risc_reset() {
     }
 
     uint32_t reset_reg_value =
-        architecture_implementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
+        ArchitectureImplementation::create(arch_name)->get_soft_reset_reg_value(RiscType::ALL_TENSIX);
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
 }
 
@@ -625,7 +782,7 @@ void Cluster::deassert_risc_reset() {
         return;
     }
 
-    auto arch_impl = architecture_implementation::create(arch_name);
+    auto arch_impl = ArchitectureImplementation::create(arch_name);
     uint32_t reset_reg_value = arch_impl->get_soft_reset_reg_value(RiscType::ALL_TENSIX & ~RiscType::BRISC) |
                                arch_impl->get_soft_reset_staggered_start();
     broadcast_tensix_risc_reset_to_cluster(reset_reg_value);
@@ -738,8 +895,13 @@ void Cluster::refresh_cluster_description() {
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
+}
+
+int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
+    return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
 }
 
 std::map<int, int> Cluster::get_clocks() {
@@ -758,7 +920,8 @@ Cluster::~Cluster() {
 }
 
 tlb_configuration Cluster::get_tlb_configuration(const ChipId chip, CoreCoord core) {
-    tt_xy_pair translated_core = get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_configuration(translated_core);
 }
 
@@ -777,8 +940,9 @@ void Cluster::configure_tlb(
 void Cluster::configure_tlb(
     ChipId logical_device_id, CoreCoord core, size_t tlb_size, uint64_t address, uint64_t ordering) {
     ZoneScopedC(tracy::Color::Cyan);
-    tt_xy_pair translated_core =
-        get_chip(logical_device_id)->get_soc_descriptor().translate_chip_coord_to_translated(core);
+    tt_xy_pair translated_core = get_chip(logical_device_id)
+                                     ->get_soc_descriptor()
+                                     .translate_chip_coord_to_translated(core, get_selected_noc_id());
     get_tlb_manager(logical_device_id)->configure_tlb(translated_core, tlb_size, address, ordering);
 }
 
@@ -993,13 +1157,20 @@ void Cluster::broadcast_tensix_risc_reset_to_cluster(uint32_t reg_value) {
     wait_for_non_mmio_flush();
 }
 
-void Cluster::set_power_state(DevicePowerState device_state) {
+void Cluster::set_clock_state(DevicePowerState device_state) {
     for (auto& [_, chip] : chips_) {
-        chip->set_power_state(device_state);
+        // No ttsim chip can service ARC messages, not even the gateway (a SimulationChip, whose is_mmio_capable()
+        // is also false), so skip power state transitions for every chip in a simulation cluster. This is
+        // deliberately not keyed on remote_chip_ids_: the gateway must be skipped too. Silicon chips are handled
+        // over ARC/ethernet as before.
+        if (options_.chip_type == ChipType::SIMULATION && !chip->is_mmio_capable()) {
+            continue;
+        }
+        chip->set_clock_state(device_state);
     }
 }
 
-void Cluster::deassert_resets_and_set_power_state() {
+void Cluster::deassert_resets_and_set_clock_state() {
     ZoneScopedC(tracy::Color::DarkGreen);
     // Assert tensix resets on all chips in cluster.
     assert_risc_reset();
@@ -1008,15 +1179,8 @@ void Cluster::deassert_resets_and_set_power_state() {
         chip->deassert_risc_resets();
     }
 
-    // MT Initial BH - ARC messages not supported in Blackhole.
-    if (arch_name != tt::ARCH::BLACKHOLE && arch_name != tt::ARCH::QUASAR) {
-        for (const ChipId& chip : all_chip_ids_) {
-            get_chip(chip)->enable_ethernet_queue();
-        }
-    }
-
-    // Set power state to busy.
-    set_power_state(DevicePowerState::BUSY);
+    // Set clock state to busy.
+    set_clock_state(DevicePowerState::BUSY);
 }
 
 void Cluster::start_device(const DeviceParams& device_params) {
@@ -1027,7 +1191,7 @@ void Cluster::start_device(const DeviceParams& device_params) {
             get_chip(chip_id)->start_device(device_params.dram_membar_subchannel);
         }
 
-        deassert_resets_and_set_power_state();
+        deassert_resets_and_set_clock_state();
     }
     log_info(LogUMD, "Starting devices in cluster completed.");
 }

@@ -219,7 +219,7 @@ void CoordinateManager::translate_tensix_coords() {
     for (size_t y = 0; y < grid_size_y; y++) {
         if (!(harvesting_masks.tensix_harvesting_mask & (1 << y))) {
             for (size_t x = 0; x < grid_size_x; x++) {
-                const tt_xy_pair& tensix_core = tensix_cores[y * grid_size_x + x];
+                const tt_xy_pair& tensix_core = tensix_cores.at(y * grid_size_x + x);
 
                 CoreCoord logical_coord = CoreCoord(x, logical_y, CoreType::TENSIX, CoordSystem::LOGICAL);
                 add_core_translation(logical_coord, tensix_core);
@@ -408,7 +408,7 @@ HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvest
 
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
-        architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
@@ -432,7 +432,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     tt::ARCH arch, uint32_t tensix_harvesting_logical_layout) {
     std::vector<uint32_t> sorted_harvesting_locations =
-        architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
     size_t new_harvesting_mask = 0;
@@ -849,7 +849,10 @@ void CoordinateManager::add_noc1_to_noc0_mapping() {
         for (const tt_xy_pair& tensix_core : cores) {
             add_core_translation(
                 CoreCoord(
-                    noc0_x_to_noc1_x[tensix_core.x], noc0_y_to_noc1_y[tensix_core.y], core_type, CoordSystem::NOC1),
+                    noc0_x_to_noc1_x.at(tensix_core.x),
+                    noc0_y_to_noc1_y.at(tensix_core.y),
+                    core_type,
+                    CoordSystem::NOC1),
                 tensix_core);
         }
     };

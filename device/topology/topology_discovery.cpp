@@ -40,6 +40,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -182,7 +183,7 @@ void TopologyDiscovery::get_connected_devices() {
                 "file descriptors.");
         } else {
             // set_power_state is currently a no-op until https://github.com/tenstorrent/tt-umd/issues/2531 is resolved.
-            tt_device->set_power_state(true);
+            tt_device->set_power_state(TTDevice::PowerState::BUSY);
         }
         if (tt_device->get_arch() != get_topology_arch()) {
             log_warning(
@@ -572,15 +573,20 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
     const tt::ARCH arch = tt_device->get_arch();
     first_fw_bundle_version = fw_bundle_version;
     log_info(LogUMD, "Established firmware bundle version: {}", fw_bundle_version.to_string());
-    FirmwareBundleVersion minimum_compatible_fw_bundle_version =
-        FirmwareInfoProvider::get_minimum_compatible_firmware_version(arch);
-    FirmwareBundleVersion latest_supported_fw_bundle_version =
-        FirmwareInfoProvider::get_latest_supported_firmware_version(arch);
+    FirmwareBundleVersion minimum_compatible_fw_bundle_version = get_minimum_compatible_firmware_version(arch);
+    FirmwareBundleVersion latest_supported_fw_bundle_version = get_latest_supported_firmware_version(arch);
     log_debug(
         LogUMD,
-        "UMD supported firmware bundle versions: {} - {}",
+        "System firmware bundle version: {}. UMD supported firmware bundle versions: {} - {}.{}",
+        fw_bundle_version.to_string(),
         minimum_compatible_fw_bundle_version.to_string(),
-        latest_supported_fw_bundle_version.to_string());
+        latest_supported_fw_bundle_version.to_string(),
+        fw_bundle_version > latest_supported_fw_bundle_version
+            ? fmt::format(
+                  " Firmware bundle version is newer than the latest fully tested version for {} architecture. Newest "
+                  "features may not be supported.",
+                  arch_to_str(arch))
+            : "");
 
     if (fw_bundle_version < minimum_compatible_fw_bundle_version) {
         auto err = UMD_THROW_OR_RETURN(
@@ -594,16 +600,6 @@ void TopologyDiscovery::verify_fw_bundle_version(TTDevice* tt_device, uint64_t a
         health_errors[asic_id].push_back(std::move(err));
         return;
     }
-
-    if (fw_bundle_version > latest_supported_fw_bundle_version) {
-        log_info(
-            LogUMD,
-            "Firmware bundle version {} on the system is newer than the latest fully tested version {} for {} "
-            "architecture. Newest features may not be supported.",
-            fw_bundle_version.to_string(),
-            latest_supported_fw_bundle_version.to_string(),
-            arch_to_str(arch));
-    }
 }
 
 void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::chrono::milliseconds timeout_ms) {
@@ -613,7 +609,7 @@ void TopologyDiscovery::wait_eth_cores_training(TTDevice* tt_device, const std::
     const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
     const std::vector<CoreCoord> eth_cores = soc_desc.get_cores(CoreType::ETH);
     for (const CoreCoord& eth_core : eth_cores) {
-        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core);
+        tt_xy_pair actual_eth_core = soc_desc.translate_chip_coord_to_translated(eth_core, get_selected_noc_id());
         timeout_left -= tt_device->wait_eth_core_training(actual_eth_core, timeout_left);
     }
     log_debug(

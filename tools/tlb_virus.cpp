@@ -26,23 +26,6 @@
 
 using namespace tt::umd;
 
-// Helper function to get TLB count for a given size from architecture.
-uint32_t get_tlb_count_for_size(const ArchitectureTlbs& tlbs, size_t tlb_size) {
-    static constexpr size_t one_mb = 1 << 20;
-    static constexpr size_t one_gb = 1 << 30;
-
-    if (tlb_size == 1 * one_mb) {
-        return tlbs.base_and_count_1m.second;
-    } else if (tlb_size == 2 * one_mb) {
-        return tlbs.base_and_count_2m.second;
-    } else if (tlb_size == 16 * one_mb) {
-        return tlbs.base_and_count_16m.second;
-    } else if (tlb_size == 4ULL * one_gb) {
-        return tlbs.base_and_count_4g.second;
-    }
-    return 0;
-}
-
 int main(int argc, char* argv[]) {
     cxxopts::Options options("tlb_virus", "Allocate TLBs in an infinite loop until failure for all sizes.");
 
@@ -65,8 +48,7 @@ int main(int argc, char* argv[]) {
             tt_device->init_tt_device();
             tt::ARCH arch = tt_device->get_arch();
             auto pci_device = tt_device->get_pci_device();
-            const ArchitectureTlbs& tlbs = get_architecture_tlbs(arch);
-            const std::vector<size_t>& tlb_sizes = tlbs.sizes;
+            const std::vector<TlbWindowGroup>& tlb_groups = get_architecture_tlbs(arch).window_groups;
 
             log_info(
                 tt::LogUMD,
@@ -74,14 +56,13 @@ int main(int argc, char* argv[]) {
                 pci_device_id,
                 tt::arch_to_str(arch));
 
-            // Fetch and log TLB counts per size for this architecture.
-            for (size_t tlb_size : tlb_sizes) {
-                uint32_t total_count = get_tlb_count_for_size(tlbs, tlb_size);
-                // Initialize tracking for this device and size.
-                tlb_allocation_summary[pci_device_id][tlb_size] = {0, total_count};
+            // Initialize tracking for this device, per window size.
+            for (const TlbWindowGroup& group : tlb_groups) {
+                tlb_allocation_summary[pci_device_id][group.size] = {0, group.count};
             }
 
-            for (size_t tlb_size : tlb_sizes) {
+            for (const TlbWindowGroup& group : tlb_groups) {
+                const size_t tlb_size = group.size;
                 int total_allocated = 0;
                 log_info(tt::LogUMD, "Testing TLB size: {} bytes", tlb_size);
 

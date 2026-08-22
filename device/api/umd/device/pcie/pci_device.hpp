@@ -332,11 +332,6 @@ public:
         const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag, bool ignore_failures = true);
 
     /**
-     * Temporary function which allows us to support both ways of mapping buffers during the transition period.
-     */
-    static bool is_mapping_buffer_to_noc_supported();
-
-    /**
      * Get the architecture of the PCIe device driver. The function enumerates PCIe devices on the system
      * and returns the architecture of the first device it finds. If no devices are found, returns Invalid architecture.
      * It also caches the value so subsequent calls are faster.

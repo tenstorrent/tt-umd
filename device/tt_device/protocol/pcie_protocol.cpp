@@ -204,11 +204,11 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
         error::RuntimeError,
         fmt::format("Size {} must be a multiple of the host page size ({} bytes) to be exported.", size, page_size));
 
-    const std::vector<size_t>& size_classes = get_architecture_tlbs(pci_device_->get_arch()).sizes;
+    const std::vector<TlbWindowGroup>& window_groups = get_architecture_tlbs(pci_device_->get_arch()).window_groups;
     size_t window_size = 0;
-    for (const size_t candidate : size_classes) {
-        if (size <= candidate - (addr % candidate)) {
-            window_size = candidate;
+    for (const TlbWindowGroup& group : window_groups) {
+        if (size <= group.size - (addr % group.size)) {
+            window_size = group.size;
             break;
         }
     }
@@ -220,7 +220,7 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
             "size-aligned. Use a smaller size or a more aligned address.",
             size,
             addr,
-            size_classes.back()));
+            window_groups.back().size));
 
     const uint64_t window_offset = addr % window_size;
 

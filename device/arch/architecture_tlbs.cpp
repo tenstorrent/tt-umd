@@ -110,11 +110,10 @@ static tlb_configuration tlb_configuration_for(const uint32_t tlb_index) {
 
 const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     static const ArchitectureTlbs wormhole_tlbs = {
-        .base_and_count_1m = {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M},
-        .base_and_count_2m = {wormhole::TLB_BASE_2M, wormhole::TLB_COUNT_2M},
-        .base_and_count_16m = {wormhole::TLB_BASE_16M, wormhole::TLB_COUNT_16M},
-        .base_and_count_4g = {0, 0},
-        .sizes = {ONE_MB, 2 * ONE_MB, 16 * ONE_MB},
+        .window_groups =
+            {{ONE_MB, wormhole::TLB_COUNT_1M, wormhole::TLB_BASE_INDEX_1M, false},
+             {2 * ONE_MB, wormhole::TLB_COUNT_2M, wormhole::TLB_BASE_INDEX_2M, false},
+             {16 * ONE_MB, wormhole::TLB_COUNT_16M, wormhole::TLB_BASE_INDEX_16M, false}},
         .cached_window_size = wormhole::STATIC_TLB_SIZE,
         .use_static_vc = true,
         .static_cfg_addr = wormhole::STATIC_TLB_CFG_ADDR,
@@ -123,11 +122,9 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     };
 
     static const ArchitectureTlbs blackhole_tlbs = {
-        .base_and_count_1m = {0, 0},
-        .base_and_count_2m = {blackhole::TLB_BASE_2M, blackhole::TLB_COUNT_2M},
-        .base_and_count_16m = {0, 0},
-        .base_and_count_4g = {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G},
-        .sizes = {2 * ONE_MB, 4 * ONE_GB},
+        .window_groups =
+            {{2 * ONE_MB, blackhole::TLB_COUNT_2M, blackhole::TLB_BASE_INDEX_2M, false},
+             {4 * ONE_GB, blackhole::TLB_COUNT_4G, blackhole::TLB_BASE_INDEX_4G, true}},
         .cached_window_size = blackhole::STATIC_TLB_SIZE,
         // False due to a known HW issue.
         .use_static_vc = false,
@@ -137,11 +134,9 @@ const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     };
 
     static const ArchitectureTlbs grendel_tlbs = {
-        .base_and_count_1m = {0, 0},
-        .base_and_count_2m = {grendel::TLB_BASE_2M, grendel::TLB_COUNT_2M},
-        .base_and_count_16m = {0, 0},
-        .base_and_count_4g = {grendel::TLB_BASE_4G, grendel::TLB_COUNT_4G},
-        .sizes = {2 * ONE_MB, 4 * ONE_GB},
+        .window_groups =
+            {{2 * ONE_MB, grendel::TLB_COUNT_2M, grendel::TLB_BASE_INDEX_2M, false},
+             {4 * ONE_GB, grendel::TLB_COUNT_4G, grendel::TLB_BASE_INDEX_4G, true}},
         .cached_window_size = grendel::STATIC_TLB_SIZE,
         .use_static_vc = true,
         .static_cfg_addr = grendel::STATIC_TLB_CFG_ADDR,

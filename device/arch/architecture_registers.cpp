@@ -121,6 +121,11 @@ ArchitectureRegisters get_architecture_registers(const tt::ARCH arch) {
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return {
+                .arc_apb_bar0_offset = wormhole::ARC_APB_BAR0_XBAR_OFFSET_START,
+                .arc_csm_bar0_mailbox_offset = wormhole::ARC_CSM_BAR0_MAILBOX_OFFSET,
+                .arc_reset_scratch_offset = wormhole::ARC_RESET_SCRATCH_OFFSET,
+                .arc_reset_scratch_2_offset = wormhole::ARC_RESET_SCRATCH_2_OFFSET,
+                .arc_apb_noc_base_address = wormhole::ARC_APB_NOC_BASE_ADDRESS,
                 .noc_node_id_bar_offset = wormhole::NIU_CFG_NOC0_BAR_ARC_ADDR + wormhole::NOC_NODE_ID_OFFSET,
                 .riscv_debug_bus_cntl_reg = wormhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG,
                 .get_noc_node_id_reg_addr = &wormhole::noc_node_id_reg_addr,
@@ -128,6 +133,11 @@ ArchitectureRegisters get_architecture_registers(const tt::ARCH arch) {
             };
         case tt::ARCH::BLACKHOLE:
             return {
+                .arc_apb_bar0_offset = blackhole::ARC_APB_BAR0_XBAR_OFFSET_START,
+                .arc_csm_bar0_mailbox_offset = blackhole::ARC_CSM_MAILBOX_OFFSET,
+                .arc_reset_scratch_offset = blackhole::ARC_RESET_SCRATCH_OFFSET,
+                .arc_reset_scratch_2_offset = blackhole::ARC_RESET_SCRATCH_2_OFFSET,
+                .arc_apb_noc_base_address = blackhole::ARC_NOC_XBAR_ADDRESS_START,
                 .noc_node_id_bar_offset = blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + blackhole::NOC_NODE_ID_OFFSET,
                 .riscv_debug_bus_cntl_reg = blackhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG,
                 .get_noc_node_id_reg_addr = &blackhole::noc_node_id_reg_addr,
@@ -135,6 +145,11 @@ ArchitectureRegisters get_architecture_registers(const tt::ARCH arch) {
             };
         case tt::ARCH::QUASAR:
             return {
+                .arc_apb_bar0_offset = grendel::ARC_APB_BAR0_XBAR_OFFSET_START,
+                .arc_csm_bar0_mailbox_offset = grendel::ARC_CSM_MAILBOX_OFFSET,
+                .arc_reset_scratch_offset = grendel::ARC_RESET_SCRATCH_OFFSET,
+                .arc_reset_scratch_2_offset = grendel::ARC_RESET_SCRATCH_2_OFFSET,
+                .arc_apb_noc_base_address = grendel::ARC_NOC_XBAR_ADDRESS_START,
                 .noc_node_id_bar_offset = grendel::BH_NOC_NODE_ID_OFFSET,
                 .riscv_debug_bus_cntl_reg = grendel::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG,
                 .get_noc_node_id_reg_addr = &grendel::noc_node_id_reg_addr,

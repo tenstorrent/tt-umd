@@ -45,9 +45,9 @@ std::string to_string(MutexType mutex_type);
 // is not needed, and they are initialized every time they're locked, but since that communicates with the OS filesystem
 // it might be slower do to it each time. This way, locking/unlocking should be faster.
 //
-// Chip specific locks on a PCIe device are additionally backed by a KMD resource lock, so that processes which share
-// the device but not /dev/shm still serialize against each other. Everything else - system wide locks and locks on a
-// JTAG device - is backed by RobustMutex alone, since a KMD resource lock exists only per local PCIe device.
+// Chip specific locks on a PCIe device are backed by a KMD resource lock, so that processes which share the device but
+// not /dev/shm still serialize against each other. Everything else - system wide locks and locks on a JTAG device - is
+// backed by RobustMutex, since a KMD resource lock exists only per local PCIe device.
 class LockManager {
 public:
     // Mutex types that are initialized per chip (combined with device_id + device_type).
@@ -91,8 +91,7 @@ private:
     std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
     std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
 
-    // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
-    // well, for as long as clients on an older UMD exist which know only about that one.
+    // Locks backed by a KMD resource lock on the device owning the lock table.
     void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
     void clear_kmd_mutex(MutexType mutex_type, int pci_device_num);
     std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);

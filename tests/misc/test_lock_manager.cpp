@@ -27,10 +27,9 @@ std::string mem_barrier_lock_name(int device_num) { return "MEM_BARRIER_" + std:
 
 }  // namespace
 
-// A chip specific lock on a PCIe device has to be held in both places at once: in KMD, so that processes sharing only
-// the device serialize, and in shared memory, so that processes on an older UMD - which know only about that one -
-// still serialize too.
-TEST(TestLockManager, ChipSpecificPcieLockIsHeldInBothBackends) {
+// A chip specific lock on a PCIe device is held in KMD, and only there. Nothing takes the shared memory lock of the
+// same name any more, which is what makes it safe to remove.
+TEST(TestLockManager, ChipSpecificPcieLockIsHeldInKmd) {
     std::vector<int> devices = PCIDevice::enumerate_devices();
     if (devices.empty()) {
         GTEST_SKIP() << "No /dev/tenstorrent device present";
@@ -49,11 +48,10 @@ TEST(TestLockManager, ChipSpecificPcieLockIsHeldInBothBackends) {
         auto lock = lock_manager.acquire_mutex(MutexType::MEM_BARRIER, device_num);
 
         EXPECT_TRUE(kmd_lock.is_locked_by_anyone()) << "KMD resource lock should be held";
-        EXPECT_TRUE(shm_lock.probe_lock(std::chrono::seconds(0)).has_value()) << "Shared memory lock should be held";
+        EXPECT_FALSE(shm_lock.probe_lock(std::chrono::seconds(0)).has_value())
+            << "Shared memory lock should no longer be taken";
+        shm_lock.unlock();
     }
 
     EXPECT_FALSE(kmd_lock.is_locked_by_anyone()) << "KMD resource lock should have been released";
-    EXPECT_FALSE(shm_lock.probe_lock(std::chrono::seconds(0)).has_value())
-        << "Shared memory lock should have been released";
-    shm_lock.unlock();
 }

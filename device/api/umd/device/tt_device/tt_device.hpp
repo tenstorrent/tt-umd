@@ -532,7 +532,7 @@ protected:
     // Every TTDevice is built around a model, which supplies its identity and -- as components are
     // decoupled from TTDevice -- the components it runs on. This overload is for backends with no
     // host transport; the others additionally take the transport pieces TTDevice still owns itself.
-    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
+    TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
     TTDevice(
         std::unique_ptr<TTDeviceModel> model,
         std::unique_ptr<PCIDevice> pci_device,

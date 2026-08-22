@@ -392,25 +392,27 @@ class WormholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::WORMHOLE_B0; }
 
-    uint32_t get_arc_message_arc_go_busy() const override {
+    uint32_t get_firmware_message_go_busy() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_BUSY);
     }
 
-    uint32_t get_arc_message_arc_go_long_idle() const override {
+    uint32_t get_firmware_message_go_idle() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
 
-    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
+    uint64_t get_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 
-    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
+    uint64_t get_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
 
-    uint32_t get_aiclk_busy_val() const override { return wormhole::AICLK_BUSY_VAL; }
+    uint32_t get_min_clock_freq() const override { return wormhole::AICLK_IDLE_VAL; }
+
+    uint32_t get_max_clock_freq() const override { return wormhole::AICLK_BUSY_VAL; }
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
+    uint64_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
 
     uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 

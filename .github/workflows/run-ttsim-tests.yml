@@ -128,7 +128,7 @@ jobs:
           cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/blackhole_P300_both_mmio.yaml \
             sim_bh_x2/cluster_descriptor.yaml
 
-      - name: Build UMD api_tests and microbenchmark with simulation support
+      - name: Build UMD api_tests, microbenchmark and sim_server with simulation support
         run: |
           cmake -B tt-metal/tt_metal/third_party/umd/build -G Ninja \
             -S tt-metal/tt_metal/third_party/umd \
@@ -136,11 +136,37 @@ jobs:
             -DTT_UMD_BUILD_SIMULATION=ON \
             -DTT_UMD_BUILD_PYTHON=OFF \
             -DTT_UMD_BUILD_EXAMPLES=OFF \
-            -DTT_UMD_BUILD_TOOLS=OFF \
+            -DTT_UMD_BUILD_TOOLS=ON \
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=OFF \
             -DCMAKE_BUILD_TYPE=Release
-          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark
+          # sim_server is the simulation-gated tool; this is the only lane that builds it (build-tests
+          # builds the tools with simulation OFF, which excludes it).
+          cmake --build tt-metal/tt_metal/third_party/umd/build --target api_tests umd_microbenchmark sim_server
+
+      # Exercises the tool, not just its build: a single-chip simulator ships no cluster_descriptor.yaml,
+      # which is the case where a host with no chips would serve no sockets and still look like it started.
+      # `list` must report the chip as live, and `kill` must be able to reach it over that socket.
+      - name: Run sim_server start / list / kill on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          # Resolve the simulator before cd'ing: this job runs in a container, where github.workspace
+          # is the *host* path, so use the working directory the sim paths were prepared in instead.
+          simulator=$(pwd)/sim_bh/libttsim.so
+          cd tt-metal/tt_metal/third_party/umd/build/tools/umd
+          ./sim_server.sh start "$simulator"
+          ./sim_server.sh list | tee /tmp/sim_server_list.txt
+          grep -q "live" /tmp/sim_server_list.txt
+          ./sim_server.sh kill 0
+
+      # The point of the server: a second process attaches to a hosted simulation and device I/O
+      # crosses the socket. SimulationConnector covers exactly that at the Cluster level (a host
+      # Cluster writes, a client Cluster reads it back), but was in no gtest filter, so it never ran.
+      - name: Run UMD SimulationConnector tests on tt-sim blackhole
+        timeout-minutes: 2
+        run: |
+          export TT_UMD_SIMULATOR=$(pwd)/sim_bh/libttsim.so
+          tt-metal/tt_metal/third_party/umd/build/test/umd/api/api_tests --gtest_filter="SimulationConnector.*"
 
       # Following single card tests should be really fast, only a couple of seconds each, so we set a short timeout for
       # them and if they time out, it indicates some issue with the simulator setup rather than an actual test failure.

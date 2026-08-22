@@ -15,8 +15,6 @@
 
 namespace tt::umd {
 
-class ArchitectureImplementation;
-
 /**
  * In-process allocator for simulation TLB indices.
  *
@@ -26,7 +24,7 @@ class ArchitectureImplementation;
  */
 class SimulationTlbAllocator {
 public:
-    SimulationTlbAllocator(uint64_t bar0_base, const ArchitectureImplementation* arch_impl, uint64_t bar4_base = 0);
+    SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base = 0);
 
     /**
      * Allocate the smallest TLB whose size class is >= the requested size. If no
@@ -66,8 +64,6 @@ public:
      */
     uint64_t get_tlb_reg_address_from_index(int tlb_index);
 
-    const ArchitectureImplementation* get_architecture_impl() const;
-
     tt::ARCH get_architecture() const;
 
 private:
@@ -91,7 +87,6 @@ private:
 
     uint64_t bar0_base_ = 0;
     uint64_t bar4_base_ = 0;
-    const ArchitectureImplementation* arch_impl_ = nullptr;
     tt::ARCH architecture_;
     size_t tlb_reg_size_bytes_ = 8;  // Default to Wormhole size.
 

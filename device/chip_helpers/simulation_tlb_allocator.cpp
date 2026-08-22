@@ -9,17 +9,13 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "tracy.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
-#include "umd/device/arch/blackhole_implementation.hpp"
-#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
-SimulationTlbAllocator::SimulationTlbAllocator(
-    uint64_t bar0_base, const ArchitectureImplementation* arch_impl, uint64_t bar4_base) :
-    bar0_base_(bar0_base), bar4_base_(bar4_base), arch_impl_(arch_impl) {
+SimulationTlbAllocator::SimulationTlbAllocator(uint64_t bar0_base, tt::ARCH arch, uint64_t bar4_base) :
+    bar0_base_(bar0_base), bar4_base_(bar4_base), architecture_(arch) {
     initialize_architecture_config();
 }
 
@@ -107,8 +103,6 @@ uint64_t SimulationTlbAllocator::get_tlb_reg_address_from_index(int tlb_index) {
     return bar0_base_ + TLB_CONFIG_REG_BASE_OFFSET + tlb_index * tlb_reg_size_bytes_;
 }
 
-const ArchitectureImplementation* SimulationTlbAllocator::get_architecture_impl() const { return arch_impl_; }
-
 tt::ARCH SimulationTlbAllocator::get_architecture() const { return architecture_; }
 
 SimulationTlbAllocator::TlbSizeClass* SimulationTlbAllocator::find_size_class_for_index(int tlb_index) {
@@ -127,8 +121,6 @@ SimulationTlbAllocator::TlbSizeClass* SimulationTlbAllocator::find_size_class_fo
 }
 
 void SimulationTlbAllocator::initialize_architecture_config() {
-    architecture_ = arch_impl_->get_architecture();
-
     if (architecture_ == tt::ARCH::WORMHOLE_B0) {
         tlb_reg_size_bytes_ = 8;  // wormhole::TLB_CFG_REG_SIZE_BYTES.
 

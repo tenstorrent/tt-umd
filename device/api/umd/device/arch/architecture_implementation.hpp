@@ -16,7 +16,6 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -47,28 +46,9 @@ public:
     virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
     virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
 
-    // TLB related. Move other functions here as well.
-    virtual std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const = 0;
-    virtual std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const = 0;
-    virtual std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const = 0;
-    virtual std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const = 0;
-
-    // Get available TLB sizes for this architecture.
-    virtual const std::vector<size_t>& get_tlb_sizes() const = 0;
-
-    virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
-    virtual uint64_t get_tlb_cfg_reg_size_bytes() const = 0;
-    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
-
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
 
     static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
-
-    // Get preferred tlb size, which is the tlb group with the largest count available.
-    virtual size_t get_cached_tlb_size() const = 0;
-
-    // Whether static_vc should be used for tlb configuration.
-    virtual bool get_static_vc() const = 0;
 
     // Map a PCI bus id to a UBB tray id (1..4). Returns std::nullopt for archs without UBB
     // boards or when the bus id does not correspond to a known tray.

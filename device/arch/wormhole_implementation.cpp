@@ -25,40 +25,6 @@ constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h,
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
 }  // namespace wormhole
 
-tlb_configuration WormholeImplementation::get_tlb_configuration(uint32_t tlb_index) const {
-    if (tlb_index >= wormhole::TLB_BASE_INDEX_16M) {
-        return tlb_configuration{
-            .size = wormhole::DYNAMIC_TLB_16M_SIZE,
-            .base = wormhole::DYNAMIC_TLB_16M_BASE,
-            .cfg_addr = wormhole::DYNAMIC_TLB_16M_CFG_ADDR,
-            .index_offset = tlb_index - wormhole::TLB_BASE_INDEX_16M,
-            .tlb_offset = wormhole::DYNAMIC_TLB_16M_BASE +
-                          (tlb_index - wormhole::TLB_BASE_INDEX_16M) * wormhole::DYNAMIC_TLB_16M_SIZE,
-            .offset = wormhole::TLB_16M_OFFSET,
-        };
-    } else if (tlb_index >= wormhole::TLB_BASE_INDEX_2M) {
-        return tlb_configuration{
-            .size = wormhole::DYNAMIC_TLB_2M_SIZE,
-            .base = wormhole::DYNAMIC_TLB_2M_BASE,
-            .cfg_addr = wormhole::DYNAMIC_TLB_2M_CFG_ADDR,
-            .index_offset = tlb_index - wormhole::TLB_BASE_INDEX_2M,
-            .tlb_offset = wormhole::DYNAMIC_TLB_2M_BASE +
-                          (tlb_index - wormhole::TLB_BASE_INDEX_2M) * wormhole::DYNAMIC_TLB_2M_SIZE,
-            .offset = wormhole::TLB_2M_OFFSET,
-        };
-    } else {
-        return tlb_configuration{
-            .size = wormhole::DYNAMIC_TLB_1M_SIZE,
-            .base = wormhole::DYNAMIC_TLB_1M_BASE,
-            .cfg_addr = wormhole::DYNAMIC_TLB_1M_CFG_ADDR,
-            .index_offset = tlb_index - wormhole::TLB_BASE_INDEX_1M,
-            .tlb_offset = wormhole::DYNAMIC_TLB_1M_BASE +
-                          (tlb_index - wormhole::TLB_BASE_INDEX_1M) * wormhole::DYNAMIC_TLB_1M_SIZE,
-            .offset = wormhole::TLB_1M_OFFSET,
-        };
-    }
-}
-
 DeviceL1AddressParams WormholeImplementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.

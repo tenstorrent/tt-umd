@@ -426,37 +426,7 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
 
-    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override {
-        return {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
-        return {wormhole::TLB_BASE_2M, wormhole::TLB_COUNT_2M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override {
-        return {wormhole::TLB_BASE_16M, wormhole::TLB_COUNT_16M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override { return {0, 0}; }
-
-    const std::vector<size_t>& get_tlb_sizes() const override {
-        static constexpr uint32_t one_mb = 1 << 20;
-        static const std::vector<size_t> tlb_sizes = {1 * one_mb, 2 * one_mb, 16 * one_mb};
-        return tlb_sizes;
-    }
-
-    tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-
-    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 8; }
-
-    uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
-
-    size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
-
-    bool get_static_vc() const override { return true; }
 
     std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
         const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);

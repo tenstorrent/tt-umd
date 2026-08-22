@@ -17,31 +17,6 @@
 
 namespace tt::umd {
 
-tlb_configuration BlackholeImplementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
-    if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
-        return tlb_configuration{
-            .size = blackhole::DYNAMIC_TLB_4G_SIZE,
-            .base = blackhole::DYNAMIC_TLB_4G_BASE,
-            .cfg_addr = blackhole::DYNAMIC_TLB_4G_CFG_ADDR,
-            .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_4G,
-            .tlb_offset = blackhole::DYNAMIC_TLB_4G_BASE +
-                          (tlb_index - blackhole::TLB_BASE_INDEX_4G) * blackhole::DYNAMIC_TLB_4G_SIZE,
-            .offset = blackhole::TLB_4G_OFFSET,
-        };
-    }
-
-    return tlb_configuration{
-        .size = blackhole::DYNAMIC_TLB_2M_SIZE,
-        .base = blackhole::DYNAMIC_TLB_2M_BASE,
-        .cfg_addr = blackhole::DYNAMIC_TLB_2M_CFG_ADDR,
-        .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_2M,
-        .tlb_offset = blackhole::DYNAMIC_TLB_2M_BASE +
-                      (tlb_index - blackhole::TLB_BASE_INDEX_2M) * blackhole::DYNAMIC_TLB_2M_SIZE,
-        .offset = blackhole::TLB_2M_OFFSET,
-    };
-}
-
 DeviceL1AddressParams BlackholeImplementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.

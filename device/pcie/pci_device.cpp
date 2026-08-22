@@ -34,6 +34,7 @@
 #include "tt-kmd-lib/pci_ids.h"
 #include "tt-kmd-lib/tt_kmd_lib.h"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/utils/error.hpp"
@@ -489,7 +490,7 @@ PCIDevice::PCIDevice(int pci_device_number) :
         PROT_READ | PROT_WRITE,
         MAP_SHARED,
         pci_device_file_desc,
-        bar0_uc_mapping.base + arch_impl_->get_static_tlb_cfg_addr());
+        bar0_uc_mapping.base + get_architecture_tlbs(arch).static_cfg_addr);
 
     if (tlb_config_space == MAP_FAILED) {
         UMD_THROW(
@@ -825,13 +826,13 @@ std::unique_ptr<TlbHandle> PCIDevice::allocate_tlb(
 
 void PCIDevice::configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify) {
     // Get the TLB configuration for this index.
-    auto tlb_configuration = arch_impl_->get_tlb_configuration(tlb_index);
+    auto tlb_configuration = get_architecture_tlbs(arch).get_configuration(tlb_index);
 
     // Apply the architecture-specific bit field offsets to pack the TLB data.
     auto [lower_64, upper_64] = tlb_config.apply_offset(tlb_configuration.offset);
 
     // Calculate the register address for this TLB index using architecture-specific register size.
-    const uint64_t tlb_cfg_reg_size_bytes = arch_impl_->get_tlb_cfg_reg_size_bytes();
+    const uint64_t tlb_cfg_reg_size_bytes = get_architecture_tlbs(arch).cfg_reg_size_bytes;
     uint64_t tlb_register_addr = tlb_index * tlb_cfg_reg_size_bytes;
 
     // Write to the appropriate location in BAR0.

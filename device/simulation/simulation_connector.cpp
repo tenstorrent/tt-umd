@@ -84,9 +84,9 @@ std::unique_ptr<TTDevice> make_host_device(
 std::unique_ptr<TTDevice> make_client_device(
     ChipId chip_id, std::unique_ptr<SimulationClient> client, const SimulationServerDeviceInfo& info) {
     switch (info.backend_type) {
-        case SimulationBackendType::TTSim:
+        case SimulationBackendType::TTSIM:
             return TTSimTTDevice::create_client(chip_id, std::move(client), info);
-        case SimulationBackendType::Rtl:
+        case SimulationBackendType::RTL:
             return RtlSimulationTTDevice::create_client(chip_id, std::move(client), info);
     }
     // A value outside the enum means a corrupt/incompatible reply from the host; fail loudly rather

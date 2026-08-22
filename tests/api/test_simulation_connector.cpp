@@ -94,7 +94,7 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     // Host writes directly; the client reads the same location over the socket.
     host->write_to_device(pattern.data(), tensix, addr, pattern.size());
     SimulationServerRequest read_req;
-    read_req.command = SimulationServerCommand::Read;
+    read_req.command = SimulationServerCommand::READ;
     read_req.x = static_cast<uint32_t>(noc.x);
     read_req.y = static_cast<uint32_t>(noc.y);
     read_req.address = addr;
@@ -107,7 +107,7 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     const std::vector<uint8_t> pattern2 = {0x55, 0x66, 0x77, 0x88};
     constexpr uint64_t addr2 = 0x2000;
     SimulationServerRequest write_req;
-    write_req.command = SimulationServerCommand::Write;
+    write_req.command = SimulationServerCommand::WRITE;
     write_req.x = static_cast<uint32_t>(noc.x);
     write_req.y = static_cast<uint32_t>(noc.y);
     write_req.address = addr2;
@@ -145,13 +145,13 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
     SimulationClient client(socket);
     client.attach();
     SimulationServerRequest info_request;
-    info_request.command = SimulationServerCommand::GetDeviceInfo;
+    info_request.command = SimulationServerCommand::GET_DEVICE_INFO;
     const SimulationServerDeviceInfo info = decode_device_info(client.transact(encode(info_request)));
 
     EXPECT_EQ(info.status, 0);
     EXPECT_EQ(info.arch, static_cast<int32_t>(soc.arch));
     const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
-    EXPECT_EQ(info.backend_type, is_ttsim ? SimulationBackendType::TTSim : SimulationBackendType::Rtl);
+    EXPECT_EQ(info.backend_type, is_ttsim ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
     EXPECT_FALSE(info.soc_descriptor_yaml.empty());
     EXPECT_EQ(info.noc_translation_enabled, soc.noc_translation_enabled);
     EXPECT_EQ(info.tensix_harvesting_mask, soc.harvesting_masks.tensix_harvesting_mask);

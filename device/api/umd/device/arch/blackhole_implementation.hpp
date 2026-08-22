@@ -365,10 +365,6 @@ public:
         return blackhole::HARVESTING_NOC_LOCATIONS;
     }
 
-    const std::vector<uint32_t>& get_t6_x_locations() const override { return blackhole::T6_X_LOCATIONS; }
-
-    const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
 };
 

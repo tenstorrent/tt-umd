@@ -41,27 +41,44 @@
 namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<TTDeviceModel> model,
     std::unique_ptr<PCIDevice> pci_device,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
     bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<wormhole_implementation>(), soc_arch_descriptor, use_safe_api) {
+    TTDevice(
+        std::move(model),
+        std::move(pci_device),
+        std::make_unique<wormhole_implementation>(),
+        soc_arch_descriptor,
+        use_safe_api) {
     WormholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<TTDeviceModel> model,
     std::unique_ptr<JtagDevice> jtag_device,
     uint8_t jlink_id,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
+    TTDevice(
+        std::move(model),
+        std::move(jtag_device),
+        jlink_id,
+        std::make_unique<wormhole_implementation>(),
+        soc_arch_descriptor) {
     WormholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
 }
 
 WormholeTTDevice::WormholeTTDevice(
+    std::unique_ptr<TTDeviceModel> model,
     std::unique_ptr<RemoteCommunication> remote_communication,
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(remote_communication), std::make_unique<wormhole_implementation>(), soc_arch_descriptor) {
+    TTDevice(
+        std::move(model),
+        std::move(remote_communication),
+        std::make_unique<wormhole_implementation>(),
+        soc_arch_descriptor) {
     WormholeTTDevice::set_arc_coordinate();
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
@@ -150,7 +167,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
                                // space with the correct start offset
     }
 
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         UMD_THROW(error::RuntimeError, "configure_iatu_region is redundant for JTAG communication type.");
     }
 
@@ -182,7 +199,7 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->read_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
@@ -204,7 +221,7 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->write_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
@@ -226,7 +243,7 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->read_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
@@ -248,7 +265,7 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
             mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->write_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],

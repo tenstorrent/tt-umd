@@ -22,7 +22,7 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/utils/lock_manager.hpp"
-#include "umd/device/utils/robust_mutex.hpp"
+#include "umd/device/utils/mutex_interface.hpp"
 
 namespace tt::umd {
 class SocDescriptor;
@@ -85,9 +85,9 @@ private:
     std::unique_ptr<SysmemManager> sysmem_manager_;
     LockManager lock_manager_;
 
-    // unique_lock is RAII, so if this member holds an object, the RobustMutex is locked, if it is empty, the
-    // RobustMutex is unlocked.
-    std::optional<std::unique_lock<RobustMutex>> chip_started_lock_;
+    // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
+    // mutex is unlocked.
+    std::optional<std::unique_lock<MutexInterface>> chip_started_lock_;
 
     void initialize_tlb_manager();
     void initialize_default_chip_mutexes();

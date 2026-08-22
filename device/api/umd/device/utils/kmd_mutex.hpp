@@ -12,6 +12,8 @@
 #include <string>
 #include <utility>
 
+#include "umd/device/utils/mutex_interface.hpp"
+
 // tt-kmd-lib device handle. Forward declared so this public header does not require tt-kmd-lib's
 // include path, which UMD links privately.
 struct tt_device_t;
@@ -70,7 +72,7 @@ enum class KmdLockIndex : uint8_t {
 //
 // It meets the C++ Lockable requirement (lock()/try_lock()/unlock()), so it can be used with RAII
 // helpers like std::lock_guard and std::unique_lock.
-class KmdMutex {
+class KmdMutex : public MutexInterface {
 public:
     // @param pci_device_num  N in /dev/tenstorrent/N (a UMD logical device id / PCIDevice number).
     // @param lock_index      KMD resource lock index in [0, 64). Avoid 0..15 (reserved, see
@@ -81,7 +83,7 @@ public:
     // Opens the dedicated device handle used to hold the lock. Must be called before
     // lock()/try_lock(). Kept separate from the constructor so that failures during setup are still
     // cleaned up by the destructor.
-    void initialize();
+    void initialize() override;
 
     // Move-only so it can live in STL containers. Copying would alias the owned handle.
     KmdMutex(KmdMutex&& other) noexcept;
@@ -91,7 +93,7 @@ public:
 
     // Blocks until the lock is acquired. If a reset is detected while waiting (the handle becomes
     // unusable), the handle is transparently reopened and the wait is retried.
-    void lock();
+    void lock() override;
 
     // Attempts to acquire without blocking. Returns true if acquired, false if held by another
     // handle.
@@ -101,11 +103,11 @@ public:
     // Returns std::nullopt if the lock was acquired (the caller now holds it). On contention returns a
     // {pid, tid} pair, but KMD does not expose the owner, so it is always {0, 0} here - the pair's
     // presence signals "held by someone else", nothing more.
-    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout = std::chrono::seconds(0));
+    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout = std::chrono::seconds(0)) override;
 
     // Releases the lock. It is also released automatically when this object (and thus its handle) is
     // destroyed, or when the owning process exits.
-    void unlock();
+    void unlock() override;
 
     // Best-effort query of whether the lock is currently held by any handle (including this one).
     // This is inherently racy and intended for debugging/diagnostics only.

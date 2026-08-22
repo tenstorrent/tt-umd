@@ -32,12 +32,18 @@ namespace tt::umd {
 // public header only forward-declares SimulationServerSocket.
 SimulationTTDevice::SimulationTTDevice(
     std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<architecture_implementation> architecture_impl,
     const std::filesystem::path& simulator_directory,
     std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
-    TTDevice(std::move(model)), simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
+    TTDevice(std::move(model), std::move(architecture_impl)),
+    simulator_directory_(simulator_directory),
+    sysmem_manager_(std::move(sysmem_manager)) {}
 
-SimulationTTDevice::SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client) :
-    TTDevice(std::move(model)), client_(std::move(client)) {}
+SimulationTTDevice::SimulationTTDevice(
+    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<architecture_implementation> architecture_impl,
+    std::unique_ptr<SimulationClient> client) :
+    TTDevice(std::move(model), std::move(architecture_impl)), client_(std::move(client)) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 

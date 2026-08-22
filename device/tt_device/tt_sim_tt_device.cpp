@@ -101,6 +101,7 @@ TTSimTTDevice::TTSimTTDevice(
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
         std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
+        architecture_implementation::create(soc_descriptor.arch),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(
             num_host_mem_channels, soc_descriptor.arch, static_cast<uint32_t>(chip_id))),
@@ -113,7 +114,6 @@ TTSimTTDevice::TTSimTTDevice(
         simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
@@ -184,10 +184,12 @@ void TTSimTTDevice::initialize_backend() {
 
 TTSimTTDevice::TTSimTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)),
+    SimulationTTDevice(
+        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
+        architecture_implementation::create(soc_descriptor.arch),
+        std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
-    architecture_impl_ = architecture_implementation::create(soc_descriptor.arch);
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.

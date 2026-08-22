@@ -66,7 +66,9 @@ constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {}
+TTDevice::TTDevice(
+    std::unique_ptr<TTDeviceModel> model, std::unique_ptr<architecture_implementation> architecture_impl) :
+    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {}
 
 TTDevice::TTDevice(
     std::unique_ptr<TTDeviceModel> model,

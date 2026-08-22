@@ -16,6 +16,8 @@
 #include <string_view>
 #include <utility>
 
+#include "umd/device/utils/mutex_interface.hpp"
+
 namespace tt::umd {
 
 // RobustMutex is a class that provides a robust locking mechanism using POSIX shared memory mutexes.
@@ -25,7 +27,7 @@ namespace tt::umd {
 // Note that the implementation relies on the client not deleting underlying /dev/shm files.
 // Also, if the pthread implementation changes, we can enter some weird states if one process is holding the old mutex,
 // and the new one tries to initialize it with the new pthread.
-class RobustMutex {
+class RobustMutex : public MutexInterface {
 public:
     // Prefix used for shared memory files backing each mutex.
     static constexpr std::string_view SHM_FILE_PREFIX = "TT_UMD_LOCK.";
@@ -37,7 +39,7 @@ public:
     // The initialization can fail and throw an exception. In case of failure we still want to clean up the resources.
     // For easier handling of such case, the destructor cleans up the resources if they were taken. Having this code out
     // of constructor will guarantee that the destructor is called in case of exception.
-    void initialize();
+    void initialize() override;
 
     // Move constructor and assignment are defined so that this class can be used with c++ stl containers, like
     // unordered_map.
@@ -50,10 +52,10 @@ public:
 
     // Locks the mutex, blocking indefinitely.  Uses a 1-second timed attempt first so that a
     // warning can be emitted when the lock is contended before blocking without a timeout.
-    void lock();
+    void lock() override;
 
     // Unlocks the mutex.
-    void unlock();
+    void unlock() override;
 
     // Attempts to acquire the lock and returns immediately if timeout is zero (default), or waits
     // up to `timeout` seconds before giving up.
@@ -63,7 +65,7 @@ public:
     // Note: the returned PID/TID pair is a snapshot that may already be stale, since there is a race condition inherent
     // in trying to inspect a lock without acquiring it. So consider the information best-effort and for debugging
     // purposes only.
-    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout = std::chrono::seconds(0));
+    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout = std::chrono::seconds(0)) override;
 
 private:
     // A wrapper which holds the flag for whether the mutex has been initialized or not,

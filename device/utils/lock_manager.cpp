@@ -14,23 +14,41 @@
 
 namespace tt::umd {
 
-std::string to_string(MutexType mutex_type) { return LockManager::MUTEX_TYPE_TO_STRING.at(mutex_type); }
+namespace {
+
+// Names of the shared memory files backing each mutex.
+const std::unordered_map<MutexType, std::string> MUTEX_TYPE_TO_STRING = {
+    {MutexType::ARC_MSG, "ARC_MSG"},
+    {MutexType::REMOTE_ARC_MSG, "REMOTE_ARC_MSG"},
+    {MutexType::NON_MMIO, "NON_MMIO"},
+    {MutexType::MEM_BARRIER, "MEM_BARRIER"},
+    {MutexType::CREATE_ETH_MAP, "CREATE_ETH_MAP"},
+    {MutexType::CHIP_IN_USE, "CHIP_IN_USE"},
+    {MutexType::PCIE_DMA, "PCIE_DMA"},
+};
+
+std::string get_mutex_name(MutexType mutex_type, int device_id, IODeviceType device_type) {
+    return MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
+           DeviceTypeToString.at(device_type);
+}
+
+}  // namespace
+
+std::string to_string(MutexType mutex_type) { return MUTEX_TYPE_TO_STRING.at(mutex_type); }
 
 void LockManager::initialize_mutex(MutexType mutex_type) {
     initialize_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
 void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
+    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
     initialize_mutex_internal(mutex_name);
 }
 
 void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type)); }
 
 void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
+    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
     clear_mutex_internal(mutex_name);
 }
 
@@ -40,24 +58,7 @@ std::unique_lock<MutexInterface> LockManager::acquire_mutex(MutexType mutex_type
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
-    return acquire_mutex_internal(mutex_name);
-}
-
-void LockManager::initialize_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    initialize_mutex_internal(mutex_name);
-}
-
-void LockManager::clear_mutex(const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
-    clear_mutex_internal(mutex_name);
-}
-
-std::unique_lock<MutexInterface> LockManager::acquire_mutex(
-    const std::string& mutex_prefix, int device_id, IODeviceType device_type) {
-    std::string mutex_name = mutex_prefix + "_" + std::to_string(device_id) + "_" + DeviceTypeToString.at(device_type);
+    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
     return acquire_mutex_internal(mutex_name);
 }
 
@@ -67,8 +68,7 @@ std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(MutexType mutex_
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = MUTEX_TYPE_TO_STRING.at(mutex_type) + "_" + std::to_string(device_id) + "_" +
-                             DeviceTypeToString.at(device_type);
+    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
     return probe_mutex_internal(mutex_name);
 }
 

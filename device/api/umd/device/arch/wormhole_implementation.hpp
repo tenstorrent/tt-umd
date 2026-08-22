@@ -422,20 +422,7 @@ public:
         return wormhole::HARVESTING_NOC_LOCATIONS;
     }
 
-    const std::vector<uint32_t>& get_t6_x_locations() const override { return wormhole::T6_X_LOCATIONS; }
-
-    const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
-
-    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
-        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
-        auto it = std::find(wormhole::UBB_TRAY_BUS_IDS.begin(), wormhole::UBB_TRAY_BUS_IDS.end(), bus_high);
-        if (it == wormhole::UBB_TRAY_BUS_IDS.end()) {
-            return std::nullopt;
-        }
-        return static_cast<uint8_t>(std::distance(wormhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
-    }
 };
 
 }  // namespace tt::umd

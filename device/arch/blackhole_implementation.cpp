@@ -48,27 +48,6 @@ DeviceL1AddressParams BlackholeImplementation::get_l1_address_params() const {
     return {blackhole::L1_BARRIER_BASE, blackhole::ERISC_BARRIER_BASE, blackhole::ETH_FW_VERSION_ADDR};
 }
 
-uint64_t BlackholeImplementation::get_noc_reg_base(
-    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
-    if (noc == 0) {
-        for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
-            if (noc_pair.first == core_type) {
-                return noc_pair.second;
-            }
-        }
-        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
-    } else if (noc == 1) {
-        for (const auto& noc_pair : blackhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
-            if (noc_pair.first == core_type) {
-                return noc_pair.second;
-            }
-        }
-        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
-    }
-
-    UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
-}
-
 uint32_t BlackholeImplementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_NEO) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.

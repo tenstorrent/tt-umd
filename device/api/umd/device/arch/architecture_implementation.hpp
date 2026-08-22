@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -25,8 +26,6 @@ enum class CoreType;
 }  // namespace tt
 
 namespace tt::umd {
-
-static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
 
 class ArchitectureImplementation {
 public:
@@ -48,9 +47,7 @@ public:
     virtual uint32_t get_dram_banks_number() const = 0;
     virtual uint32_t get_aiclk_busy_val() const = 0;
     virtual uint32_t get_num_eth_channels() const = 0;
-    virtual uint32_t get_read_checking_offset() const = 0;
     virtual uint32_t get_tensix_soft_reset_addr() const = 0;
-    virtual uint32_t get_debug_reg_addr() const = 0;
     virtual uint32_t get_soft_reset_reg_value(RiscType risc_type) const = 0;
     virtual RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
@@ -77,11 +74,6 @@ public:
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
 
     static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
-
-    virtual uint64_t get_noc_node_id_offset() const = 0;
-    virtual uint64_t get_noc_node_translated_id_offset() const = 0;
-    virtual uint64_t get_noc_reg_base(
-        const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
 
     // Get preferred tlb size, which is the tlb group with the largest count available.
     virtual size_t get_cached_tlb_size() const = 0;

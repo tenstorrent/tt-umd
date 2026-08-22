@@ -370,11 +370,7 @@ public:
 
     uint32_t get_num_eth_channels() const override { return grendel::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override { return grendel::BH_NOC_NODE_ID_OFFSET; }
-
     uint32_t get_tensix_soft_reset_addr() const override { return grendel::TENSIX_SOFT_RESET_ADDR; }
-
-    uint32_t get_debug_reg_addr() const override { return grendel::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
 
     uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
@@ -424,12 +420,6 @@ public:
     uint32_t get_static_tlb_cfg_addr() const override { return grendel::STATIC_TLB_CFG_ADDR; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
-
-    uint64_t get_noc_node_id_offset() const override { return grendel::NOC_NODE_ID_OFFSET; }
-
-    uint64_t get_noc_node_translated_id_offset() const override { return grendel::BH_NOC_ID_TRANSLATED_OFFSET; }
-
-    uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
 
     size_t get_cached_tlb_size() const override { return grendel::STATIC_TLB_SIZE; }
 

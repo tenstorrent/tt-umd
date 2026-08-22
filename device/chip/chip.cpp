@@ -88,11 +88,22 @@ RiscType Chip::get_risc_reset_state(CoreCoord core) {
 }
 
 void Chip::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
-    get_tt_device()->assert_risc_reset(core, selected_riscs);
+    TTDevice* tt_device = get_tt_device();
+    // Chips without a backing TTDevice (e.g. mock / sw-emule) have no physical
+    // RISCs to reset. The Quasar reset workaround in Cluster::assert_risc_reset()
+    // iterates every chip, so guard here rather than dereferencing a null device.
+    if (tt_device == nullptr) {
+        return;
+    }
+    tt_device->assert_risc_reset(core, selected_riscs);
 }
 
 void Chip::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
-    get_tt_device()->deassert_risc_reset(core, selected_riscs, staggered_start);
+    TTDevice* tt_device = get_tt_device();
+    if (tt_device == nullptr) {
+        return;
+    }
+    tt_device->deassert_risc_reset(core, selected_riscs, staggered_start);
 }
 
 void Chip::assert_risc_reset(const RiscType selected_riscs) {

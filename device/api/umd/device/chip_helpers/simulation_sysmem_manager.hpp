@@ -31,10 +31,20 @@ public:
     // hugepage physical_address (= iATU target). The simulator's host-side DMA router (dma_route) then
     // routes by which chip's [host_base, host_base + PER_CHIP_HOST_STRIDE) window contains the address.
     static constexpr uint64_t PER_CHIP_HOST_STRIDE = 1ULL << 36;  // 64 GiB; >> per-chip sysmem, non-overlapping
+    // The modeled outbound iATU uses 32-bit base/limit registers. Mapped-buffer IOVAs share this
+    // device-visible window with the fixed-stride host-memory channels.
+    // WH's modeled PCIe DMA aperture ends at offset 0xFFFE0000. Use that
+    // conservative limit for every simulated architecture so allocated IOVAs
+    // are valid for both WH and BH.
+    static constexpr uint64_t DEVICE_IO_WINDOW_SIZE = 0xFFFE0000ULL;
 
     uint64_t get_host_base() const { return host_base_; }
 
     uint64_t get_host_region_size() const { return PER_CHIP_HOST_STRIDE; }
+
+    uint64_t get_mapped_arena_offset() const { return system_memory_size_; }
+
+    uint64_t get_mapped_arena_size() const { return DEVICE_IO_WINDOW_SIZE - system_memory_size_; }
 
     bool pin_or_map_sysmem_to_device() override;
 

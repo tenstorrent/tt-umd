@@ -66,7 +66,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
     for (uint32_t chip_id : target_chips) {
         [[maybe_unused]] uint32_t response = arc_messengers.at(chip_id)->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_devices.at(chip_id)->get_architecture_implementation()->get_arc_message_arc_go_busy(),
+                tt_devices.at(chip_id)->get_architecture_implementation()->get_firmware_message_go_busy(),
             {0, 0});
     }
 
@@ -80,7 +80,7 @@ TEST(WormholeArcMessages, WormholeArcMessagesAICLK) {
 
         [[maybe_unused]] uint32_t response = arc_messengers.at(chip_id)->send_message(
             wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_devices.at(chip_id)->get_architecture_implementation()->get_arc_message_arc_go_long_idle(),
+                tt_devices.at(chip_id)->get_architecture_implementation()->get_firmware_message_go_idle(),
             {0, 0});
     }
 

@@ -195,7 +195,7 @@ TEST_F(TestFirmwareInfoProvider, ClockFrequencies) {
         auto arch_impl = tt_device->get_architecture_implementation();
 
         std::string range = fw_range_label(fw_version);
-        uint32_t aiclk_busy_val = arch_impl->get_aiclk_busy_val();
+        uint32_t aiclk_busy_val = arch_impl->get_max_clock_freq();
 
         std::optional<uint32_t> aiclk = fw_info->get_aiclk();
         std::optional<uint32_t> axiclk = fw_info->get_axiclk();

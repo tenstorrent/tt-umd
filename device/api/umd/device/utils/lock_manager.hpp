@@ -4,7 +4,10 @@
 
 #pragma once
 
+#include <sys/types.h>
+
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -31,6 +34,9 @@ enum class MutexType {
     // Used for guarding PCIe DMA operations against concurrent access from multiple processes.
     PCIE_DMA,
 };
+
+// Name of a mutex type, for logging and diagnostics.
+std::string to_string(MutexType mutex_type);
 
 // Note that the returned std::unique_lock<RobustMutex> should never outlive the LockManager which holds underlying
 // RobustMutexes. Also note that clear_mutex doesn't need to be explicitly called, since the mutexes will all get
@@ -84,10 +90,18 @@ public:
     std::unique_lock<RobustMutex> acquire_mutex(
         const std::string& mutex_prefix, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
+    // Reports whether a mutex is currently held, without holding it afterwards. Returns std::nullopt if the mutex was
+    // free, otherwise the owning {pid, tid}. Since a free mutex has to be acquired to find that out, and is released
+    // again right after, the answer is best effort and may be stale as soon as it is returned.
+    std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type);
+    std::optional<std::pair<pid_t, pid_t>> probe_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
+
 private:
     void initialize_mutex_internal(const std::string& mutex_name);
     void clear_mutex_internal(const std::string& mutex_name);
     std::unique_lock<RobustMutex> acquire_mutex_internal(const std::string& mutex_name);
+    std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
 
     // Maps from mutex name to an initialized mutex.
     // Mutex names are made from mutex type name or directly mutex name combined with device number.

@@ -99,14 +99,14 @@ void LocalChip::initialize_default_chip_mutexes() {
     // Initialize non-MMIO mutexes for WH devices regardless of number of chips, since these may be used for
     // ethernet broadcast
     if (tt_device_->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id);
+        lock_manager_.initialize_mutex(MutexType::REMOTE_ARC_MSG, pci_device_id, IODeviceType::PCIe);
     }
 
     // Initialize interprocess mutexes to make host -> device memory barriers atomic.
-    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id);
+    lock_manager_.initialize_mutex(MutexType::MEM_BARRIER, pci_device_id, IODeviceType::PCIe);
 
     // Initialize mutex guarding initialized chips.
-    lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id);
+    lock_manager_.initialize_mutex(MutexType::CHIP_IN_USE, pci_device_id, IODeviceType::PCIe);
 }
 
 void LocalChip::initialize_membars(uint32_t dram_subchannel) {
@@ -145,8 +145,8 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(
-        lock_manager_.acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(lock_manager_.acquire_mutex(
+        MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num(), IODeviceType::PCIe));
 
     sysmem_manager_->pin_or_map_sysmem_to_device();
     initialize_membars(dram_membar_subchannel);
@@ -434,7 +434,8 @@ void LocalChip::set_membar_flag(
 
 void LocalChip::insert_host_to_device_barrier(const std::vector<CoreCoord>& cores, const uint32_t barrier_addr) {
     // Ensure that this memory barrier is atomic across processes/threads.
-    auto lock = lock_manager_.acquire_mutex(MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num());
+    auto lock = lock_manager_.acquire_mutex(
+        MutexType::MEM_BARRIER, tt_device_->get_pci_device()->get_device_num(), IODeviceType::PCIe);
     set_membar_flag(cores, MemBarFlag::SET, barrier_addr);
     set_membar_flag(cores, MemBarFlag::RESET, barrier_addr);
 }

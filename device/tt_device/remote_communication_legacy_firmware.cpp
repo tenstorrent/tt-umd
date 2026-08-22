@@ -109,7 +109,10 @@ void RemoteCommunicationLegacyFirmware::read_non_mmio(
     uint64_t core_src,
     uint32_t size_in_bytes,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
+    auto lock = lock_manager_.acquire_mutex(
+        MutexType::NON_MMIO,
+        local_tt_device_->get_communication_device_id(),
+        local_tt_device_->get_communication_device_type());
 
     using data_word_t = uint32_t;
     constexpr int DATA_WORD_SIZE = sizeof(data_word_t);
@@ -376,7 +379,10 @@ void RemoteCommunicationLegacyFirmware::write_to_non_mmio(
     bool broadcast,
     std::vector<int> broadcast_header,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager_.acquire_mutex(MutexType::NON_MMIO, local_tt_device_->get_communication_device_id());
+    auto lock = lock_manager_.acquire_mutex(
+        MutexType::NON_MMIO,
+        local_tt_device_->get_communication_device_id(),
+        local_tt_device_->get_communication_device_type());
     flush_non_mmio_ = true;
 
     using data_word_t = uint32_t;

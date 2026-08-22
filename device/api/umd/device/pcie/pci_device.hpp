@@ -29,7 +29,6 @@
 struct tt_device_t;
 
 namespace tt::umd {
-class ArchitectureImplementation;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -129,7 +128,6 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const SemVer kmd_version;        // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
-    std::unique_ptr<ArchitectureImplementation> arch_impl_;  // Architecture-specific implementation
     DmaBuffer dma_buffer{};
 
 public:
@@ -210,8 +208,6 @@ public:
     /**
      * @return the architecture-specific implementation for this device
      */
-    ArchitectureImplementation *get_architecture_implementation() const { return arch_impl_.get(); }
-
     /**
      * @return whether the system is protected from this device by an IOMMU
      */

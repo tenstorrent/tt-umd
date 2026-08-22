@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "umd/device/utils/error.hpp"
+#include "umd/device/utils/kmd_mutex.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 
 namespace tt::umd {
@@ -32,58 +33,179 @@ std::string get_mutex_name(MutexType mutex_type, int device_id, IODeviceType dev
            DeviceTypeToString.at(device_type);
 }
 
+// KMD resource lock index used for each chip specific mutex type. Indices 0..15 are reserved for ERISC cores (see
+// KmdLockIndex), so UMD's own locks start above that range. Processes serialize against each other only if they agree
+// on the index, so these values must never be renumbered.
+const std::unordered_map<MutexType, uint8_t> MUTEX_TYPE_TO_KMD_LOCK_INDEX = {
+    {MutexType::ARC_MSG, 16},
+    {MutexType::REMOTE_ARC_MSG, 17},
+    {MutexType::NON_MMIO, 18},
+    {MutexType::MEM_BARRIER, 19},
+    {MutexType::CHIP_IN_USE, 20},
+    {MutexType::PCIE_DMA, 21},
+};
+
+uint8_t get_kmd_lock_index(MutexType mutex_type) {
+    auto it = MUTEX_TYPE_TO_KMD_LOCK_INDEX.find(mutex_type);
+    UMD_ASSERT(
+        it != MUTEX_TYPE_TO_KMD_LOCK_INDEX.end(),
+        error::RuntimeError,
+        "Mutex " + MUTEX_TYPE_TO_STRING.at(mutex_type) + " has no KMD resource lock index assigned to it");
+    return it->second;
+}
+
+// Probing has to acquire a free mutex to find out it was free, so release it again to keep probing a query.
+std::optional<std::pair<pid_t, pid_t>> probe_and_release(MutexInterface& mutex) {
+    std::optional<std::pair<pid_t, pid_t>> owner = mutex.probe_lock(std::chrono::seconds(0));
+    if (!owner.has_value()) {
+        mutex.unlock();
+    }
+    return owner;
+}
+
+// Holds two mutexes as one. This exists only for the move from shared memory locks to KMD resource locks: a process
+// running an older UMD takes the shared memory lock alone and knows nothing about the KMD one, so during the
+// transition both have to be taken or the two processes would not serialize. Once every client takes KMD locks, the
+// shared memory half can go and the KMD mutex can be used on its own.
+// The two are always taken in the same order, which is what keeps processes taking both from deadlocking against each
+// other.
+class CompositeMutex : public MutexInterface {
+public:
+    CompositeMutex(std::unique_ptr<MutexInterface> first, std::unique_ptr<MutexInterface> second) :
+        first_(std::move(first)), second_(std::move(second)) {}
+
+    void initialize() override {
+        first_->initialize();
+        second_->initialize();
+    }
+
+    void lock() override {
+        first_->lock();
+        second_->lock();
+    }
+
+    void unlock() override {
+        second_->unlock();
+        first_->unlock();
+    }
+
+    std::optional<std::pair<pid_t, pid_t>> probe_lock(std::chrono::seconds timeout) override {
+        std::optional<std::pair<pid_t, pid_t>> owner = first_->probe_lock(timeout);
+        if (owner.has_value()) {
+            return owner;
+        }
+        // Probing acquired the first one. If the second turns out to be taken, give the first one back, so that a
+        // failed probe leaves nothing held.
+        owner = second_->probe_lock(timeout);
+        if (owner.has_value()) {
+            first_->unlock();
+        }
+        return owner;
+    }
+
+private:
+    std::unique_ptr<MutexInterface> first_;
+    std::unique_ptr<MutexInterface> second_;
+};
+
 }  // namespace
 
 std::string to_string(MutexType mutex_type) { return MUTEX_TYPE_TO_STRING.at(mutex_type); }
 
 void LockManager::initialize_mutex(MutexType mutex_type) {
-    initialize_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
+    initialize_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
 void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
-    initialize_mutex_internal(mutex_name);
+    if (device_type == IODeviceType::PCIe) {
+        initialize_kmd_mutex(mutex_type, device_id);
+    } else {
+        initialize_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
+    }
 }
 
-void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type)); }
+void LockManager::clear_mutex(MutexType mutex_type) { clear_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type)); }
 
 void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
-    clear_mutex_internal(mutex_name);
+    if (device_type == IODeviceType::PCIe) {
+        clear_kmd_mutex(mutex_type, device_id);
+    } else {
+        clear_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
+    }
 }
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex(MutexType mutex_type) {
-    return acquire_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
+    return acquire_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
-    return acquire_mutex_internal(mutex_name);
+    if (device_type == IODeviceType::PCIe) {
+        return acquire_kmd_mutex(mutex_type, device_id);
+    }
+    return acquire_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(MutexType mutex_type) {
-    return probe_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
+    return probe_robust_mutex(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
 
 std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex(
     MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
-    return probe_mutex_internal(mutex_name);
+    if (device_type == IODeviceType::PCIe) {
+        return probe_kmd_mutex(mutex_type, device_id);
+    }
+    return probe_robust_mutex(get_mutex_name(mutex_type, device_id, device_type));
 }
 
-void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
+void LockManager::initialize_robust_mutex(const std::string& mutex_name) {
+    add_mutex(mutex_name, std::make_unique<RobustMutex>(mutex_name));
+}
+
+void LockManager::clear_robust_mutex(const std::string& mutex_name) { remove_mutex(mutex_name); }
+
+std::unique_lock<MutexInterface> LockManager::acquire_robust_mutex(const std::string& mutex_name) {
+    return std::unique_lock(get_mutex(mutex_name));
+}
+
+std::optional<std::pair<pid_t, pid_t>> LockManager::probe_robust_mutex(const std::string& mutex_name) {
+    return probe_and_release(get_mutex(mutex_name));
+}
+
+void LockManager::initialize_kmd_mutex(MutexType mutex_type, int pci_device_num) {
+    // Registered under the name its shared memory half keeps, so that a process on an older UMD, which takes only that
+    // half, contends on the very same lock.
+    std::string mutex_name = get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe);
+    add_mutex(
+        mutex_name,
+        std::make_unique<CompositeMutex>(
+            std::make_unique<RobustMutex>(mutex_name),
+            std::make_unique<KmdMutex>(pci_device_num, get_kmd_lock_index(mutex_type))));
+}
+
+void LockManager::clear_kmd_mutex(MutexType mutex_type, int pci_device_num) {
+    remove_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe));
+}
+
+std::unique_lock<MutexInterface> LockManager::acquire_kmd_mutex(MutexType mutex_type, int pci_device_num) {
+    return std::unique_lock(get_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe)));
+}
+
+std::optional<std::pair<pid_t, pid_t>> LockManager::probe_kmd_mutex(MutexType mutex_type, int pci_device_num) {
+    return probe_and_release(get_mutex(get_mutex_name(mutex_type, pci_device_num, IODeviceType::PCIe)));
+}
+
+void LockManager::add_mutex(const std::string& mutex_name, std::unique_ptr<MutexInterface> mutex) {
     if (mutexes.find(mutex_name) != mutexes.end()) {
         log_warning(LogUMD, "Mutex already initialized: {}", mutex_name);
         return;
     }
 
-    std::unique_ptr<MutexInterface> mutex = std::make_unique<RobustMutex>(mutex_name);
     mutex->initialize();
     mutexes.emplace(mutex_name, std::move(mutex));
 }
 
-void LockManager::clear_mutex_internal(const std::string& mutex_name) {
+void LockManager::remove_mutex(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         log_warning(LogUMD, "Mutex not initialized or already cleared: {}", mutex_name);
         return;
@@ -92,24 +214,11 @@ void LockManager::clear_mutex_internal(const std::string& mutex_name) {
     mutexes.erase(mutex_name);
 }
 
-std::unique_lock<MutexInterface> LockManager::acquire_mutex_internal(const std::string& mutex_name) {
+MutexInterface& LockManager::get_mutex(const std::string& mutex_name) {
     if (mutexes.find(mutex_name) == mutexes.end()) {
         UMD_THROW(error::RuntimeError, "Mutex not initialized: " + mutex_name);
     }
-    return std::unique_lock(*mutexes.at(mutex_name));
-}
-
-std::optional<std::pair<pid_t, pid_t>> LockManager::probe_mutex_internal(const std::string& mutex_name) {
-    if (mutexes.find(mutex_name) == mutexes.end()) {
-        UMD_THROW(error::RuntimeError, "Mutex not initialized: " + mutex_name);
-    }
-    MutexInterface& mutex = *mutexes.at(mutex_name);
-    std::optional<std::pair<pid_t, pid_t>> owner = mutex.probe_lock(std::chrono::seconds(0));
-    if (!owner.has_value()) {
-        // The mutex was free, which means probing it took it. Release it so that probing stays a query.
-        mutex.unlock();
-    }
-    return owner;
+    return *mutexes.at(mutex_name);
 }
 
 }  // namespace tt::umd

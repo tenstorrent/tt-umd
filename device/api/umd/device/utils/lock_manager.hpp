@@ -44,6 +44,10 @@ std::string to_string(MutexType mutex_type);
 // cleared automatically when the LockManager goes out of scope. We could implement these lock such that initialization
 // is not needed, and they are initialized every time they're locked, but since that communicates with the OS filesystem
 // it might be slower do to it each time. This way, locking/unlocking should be faster.
+//
+// Chip specific locks on a PCIe device are additionally backed by a KMD resource lock, so that processes which share
+// the device but not /dev/shm still serialize against each other. Everything else - system wide locks and locks on a
+// JTAG device - is backed by RobustMutex alone, since a KMD resource lock exists only per local PCIe device.
 class LockManager {
 public:
     // Mutex types that are initialized per chip (combined with device_id + device_type).
@@ -81,10 +85,23 @@ public:
         MutexType mutex_type, int device_id, IODeviceType device_type = IODeviceType::PCIe);
 
 private:
-    void initialize_mutex_internal(const std::string& mutex_name);
-    void clear_mutex_internal(const std::string& mutex_name);
-    std::unique_lock<MutexInterface> acquire_mutex_internal(const std::string& mutex_name);
-    std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
+    // Locks backed by a shared memory RobustMutex, addressed by their name.
+    void initialize_robust_mutex(const std::string& mutex_name);
+    void clear_robust_mutex(const std::string& mutex_name);
+    std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
+    std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
+
+    // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
+    // well, for as long as clients on an older UMD exist which know only about that one.
+    void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    void clear_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    std::optional<std::pair<pid_t, pid_t>> probe_kmd_mutex(MutexType mutex_type, int pci_device_num);
+
+    // Operations on the mutex registry, shared by both.
+    void add_mutex(const std::string& mutex_name, std::unique_ptr<MutexInterface> mutex);
+    void remove_mutex(const std::string& mutex_name);
+    MutexInterface& get_mutex(const std::string& mutex_name);
 
     // Maps from mutex name to an initialized mutex.
     // Mutex names are made from the mutex type name, combined with device number for chip specific ones.

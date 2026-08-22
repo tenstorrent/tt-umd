@@ -358,10 +358,6 @@ public:
         return grendel::HARVESTING_NOC_LOCATIONS;
     }
 
-    const std::vector<uint32_t>& get_t6_x_locations() const override { return grendel::T6_X_LOCATIONS; }
-
-    const std::vector<uint32_t>& get_t6_y_locations() const override { return grendel::T6_Y_LOCATIONS; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
 };
 

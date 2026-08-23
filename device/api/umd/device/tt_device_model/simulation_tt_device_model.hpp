@@ -23,6 +23,10 @@ public:
 
     DeviceProtocol *get_device_protocol() override;
 
+    SocArchDescriptor *get_soc_arch_descriptor() override;
+
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
+
 private:
     tt::ARCH arch_;
 };

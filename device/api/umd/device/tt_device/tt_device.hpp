@@ -530,13 +530,9 @@ protected:
     LockManager lock_manager;
 
     // Every TTDevice is built around a model, which supplies its identity, the protocol it talks to
-    // hardware over and -- as components are decoupled from TTDevice -- the components it runs on.
-    // The transport no longer reaches TTDevice at all; the model owns it.
+    // hardware over, its SoC architecture descriptor and -- as components are decoupled from
+    // TTDevice -- the components it runs on.
     TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
-    TTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<ArchitectureImplementation> architecture_impl,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -575,14 +571,11 @@ protected:
 private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
-    void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();
 
     std::unique_ptr<TTDeviceModel> model_;
-    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;

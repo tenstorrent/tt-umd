@@ -18,4 +18,10 @@ int SimulationTTDeviceModel::get_communication_device_id() const { return -1; }
 // simulation TTDevice overrides the read/write paths instead of routing them through one.
 DeviceProtocol *SimulationTTDeviceModel::get_device_protocol() { return nullptr; }
 
+// A simulation backend supplies a full SocDescriptor of its own rather than an architecture
+// descriptor for TTDevice to build one from.
+SocArchDescriptor *SimulationTTDeviceModel::get_soc_arch_descriptor() { return nullptr; }
+
+std::shared_ptr<SocArchDescriptor> SimulationTTDeviceModel::get_shared_soc_arch_descriptor() { return nullptr; }
+
 }  // namespace tt::umd

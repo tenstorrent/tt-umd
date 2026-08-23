@@ -291,7 +291,7 @@ RemoteCommunication *TTDevice::get_remote_communication() {
 }
 
 void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
-    if (is_remote_tt_device || !pcie_capabilities_) {
+    if (is_remote() || !pcie_capabilities_) {
         return;
     }
     get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
@@ -619,7 +619,7 @@ void TTDevice::wait_for_non_mmio_flush() {
     get_remote_interface()->get_remote_communication()->wait_for_non_mmio_flush();
 }
 
-bool TTDevice::is_remote() { return is_remote_tt_device; }
+bool TTDevice::is_remote() { return remote_capabilities_ != nullptr; }
 
 int TTDevice::get_communication_device_id() const { return model_->get_communication_device_id(); }
 
@@ -731,13 +731,13 @@ void TTDevice::noc_multicast_write(
     log_trace(
         LogUMD,
         "Multicast on {} chip write to cores {} - {} {}",
-        is_remote_tt_device ? "remote" : "local",
+        is_remote() ? "remote" : "local",
         translated_start.str(),
         translated_end.str(),
         multicast_success ? "succeeded" : "failed, running unicast fallback.");
 
     // We need to flush the writes in case of remote communication.
-    if (multicast_success && is_remote_tt_device) {
+    if (multicast_success && is_remote()) {
         get_remote_communication()->wait_for_non_mmio_flush();
     }
 
@@ -746,7 +746,7 @@ void TTDevice::noc_multicast_write(
     }
 
     multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         get_remote_communication()->wait_for_non_mmio_flush();
     }
 }
@@ -781,7 +781,7 @@ void TTDevice::multicast_write_via_unicast(
 }
 
 int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t ordering, NocId noc_id) {
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         UMD_THROW(error::RuntimeError, "Exporting a dma-buf is not supported for remote device.");
     }
     return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
@@ -789,7 +789,7 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t
 
 void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
     }
     auto pcie_dma_lock =
@@ -808,7 +808,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core,
 
 void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
     }
     auto pcie_dma_lock =
@@ -828,7 +828,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
 void TTDevice::dma_multicast_write(
     void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
     }
     auto pcie_dma_lock =
@@ -849,7 +849,7 @@ void TTDevice::dma_multicast_write(
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
     }
     auto pcie_dma_lock =
@@ -864,7 +864,7 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
 
 void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
     }
     auto pcie_dma_lock =

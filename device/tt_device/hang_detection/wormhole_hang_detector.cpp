@@ -16,7 +16,7 @@
 
 namespace tt::umd {
 
-WormholeHangDetector::WormholeHangDetector(DeviceProtocol* protocol, architecture_implementation* arch_impl) :
+WormholeHangDetector::WormholeHangDetector(DeviceProtocol* protocol, ArchitectureImplementation* arch_impl) :
     HangDetectorImplementation(protocol, arch_impl) {}
 
 uint32_t WormholeHangDetector::read_hang_check_reg_via_bar() {

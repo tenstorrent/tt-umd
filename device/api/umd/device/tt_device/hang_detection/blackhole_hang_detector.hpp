@@ -12,7 +12,7 @@
 
 namespace tt::umd {
 class DeviceProtocol;
-class architecture_implementation;
+class ArchitectureImplementation;
 enum class NocId : uint8_t;
 
 // Blackhole variant: reads BAR and NOC node ID from the PCIe tile.
@@ -21,7 +21,7 @@ enum class NocId : uint8_t;
 class BlackholeHangDetector : public HangDetectorImplementation {
 public:
     BlackholeHangDetector(
-        DeviceProtocol* protocol, architecture_implementation* arch_impl, bool noc_translation_enabled);
+        DeviceProtocol* protocol, ArchitectureImplementation* arch_impl, bool noc_translation_enabled);
 
 private:
     uint32_t read_hang_check_reg_via_bar() override;

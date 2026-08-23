@@ -23,18 +23,7 @@ constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h,
 constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
 }  // namespace grendel
 
-std::tuple<xy_pair, xy_pair> grendel_implementation::multicast_workaround(xy_pair start, xy_pair end) const {
-    // TODO: This is copied from wormhole_implementation. It should be implemented properly.
-
-    // When multicasting there is a rare case where including the multicasting node in the box can result in a backup
-    // and the multicasted data not reaching all endpoints specified. As a workaround we exclude the pci endpoint from
-    // the multicast. This doesn't cause any problems with making some tensix cores inaccessible because column 0 (which
-    // we are excluding) doesn't have tensix.
-    start.x = start.x == 0 ? 1 : start.x;
-    return std::make_tuple(start, end);
-}
-
-tlb_configuration grendel_implementation::get_tlb_configuration(uint32_t tlb_index) const {
+tlb_configuration GrendelImplementation::get_tlb_configuration(uint32_t tlb_index) const {
     // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
     if (tlb_index >= grendel::TLB_COUNT_2M && tlb_index < grendel::TLB_COUNT_2M + grendel::TLB_COUNT_4G) {
         return tlb_configuration{
@@ -59,18 +48,18 @@ tlb_configuration grendel_implementation::get_tlb_configuration(uint32_t tlb_ind
     };
 }
 
-DeviceL1AddressParams grendel_implementation::get_l1_address_params() const {
+DeviceL1AddressParams GrendelImplementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
     return {blackhole::L1_BARRIER_BASE, blackhole::ERISC_BARRIER_BASE, blackhole::ETH_FW_VERSION_ADDR};
 }
 
-DriverHostAddressParams grendel_implementation::get_host_address_params() const {
+DriverHostAddressParams GrendelImplementation::get_host_address_params() const {
     return {
         erisc_firmware::eth_routing::ETH_ROUTING_BLOCK_SIZE, erisc_firmware::eth_routing::ETH_ROUTING_BUFFERS_START};
 }
 
-DriverEthInterfaceParams grendel_implementation::get_eth_interface_params() const {
+DriverEthInterfaceParams GrendelImplementation::get_eth_interface_params() const {
     using namespace erisc_firmware::eth_routing;
     return {
         ETH_RACK_COORD_WIDTH,
@@ -96,11 +85,11 @@ DriverEthInterfaceParams grendel_implementation::get_eth_interface_params() cons
     };
 }
 
-DriverNocParams grendel_implementation::get_noc_params() const {
+DriverNocParams GrendelImplementation::get_noc_params() const {
     return {grendel::NOC_ADDR_LOCAL_BITS, grendel::NOC_ADDR_NODE_ID_BITS};
 }
 
-uint64_t grendel_implementation::get_noc_reg_base(
+uint64_t GrendelImplementation::get_noc_reg_base(
     const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
     if (noc == 0) {
         for (const auto& noc_pair : grendel::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
@@ -121,7 +110,7 @@ uint64_t grendel_implementation::get_noc_reg_base(
     UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
 }
 
-uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) const {
+uint32_t GrendelImplementation::get_soft_reset_reg_value(RiscType risc_type) const {
     if ((risc_type & RiscType::ALL_TENSIX) != RiscType::NONE) {
         // Throw if any of the NEO cores are selected.
         UMD_THROW(error::RuntimeError, "TENSIX risc cores should not be used on Grendel architecture.");
@@ -179,7 +168,7 @@ uint32_t grendel_implementation::get_soft_reset_reg_value(RiscType risc_type) co
     return soft_reset_reg_value;
 }
 
-RiscType grendel_implementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
+RiscType GrendelImplementation::get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const {
     RiscType risc_type = RiscType::NONE;
     if (soft_reset_reg_value & grendel::SOFT_RESET_DM0) {
         risc_type |= RiscType::DM0;

@@ -26,7 +26,7 @@
 using namespace tt::umd;
 
 // Helper function to get TLB count for a given size from architecture.
-uint32_t get_tlb_count_for_size(architecture_implementation* arch_impl, size_t tlb_size) {
+uint32_t get_tlb_count_for_size(ArchitectureImplementation* arch_impl, size_t tlb_size) {
     static constexpr size_t one_mb = 1 << 20;
     static constexpr size_t one_gb = 1 << 30;
 

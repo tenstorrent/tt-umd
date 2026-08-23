@@ -75,9 +75,6 @@ public:
     virtual uint32_t get_static_tlb_cfg_addr() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
-    virtual DriverHostAddressParams get_host_address_params() const = 0;
-    virtual DriverEthInterfaceParams get_eth_interface_params() const = 0;
-    virtual DriverNocParams get_noc_params() const = 0;
 
     static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
 

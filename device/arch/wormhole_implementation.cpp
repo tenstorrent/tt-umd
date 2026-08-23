@@ -65,12 +65,12 @@ DeviceL1AddressParams WormholeImplementation::get_l1_address_params() const {
     return {wormhole::L1_BARRIER_BASE, wormhole::ERISC_BARRIER_BASE, wormhole::ETH_FW_VERSION_ADDR};
 }
 
-DriverHostAddressParams WormholeImplementation::get_host_address_params() const {
+DriverHostAddressParams wormhole::get_host_address_params() {
     return {
         erisc_firmware::eth_routing::ETH_ROUTING_BLOCK_SIZE, erisc_firmware::eth_routing::ETH_ROUTING_BUFFERS_START};
 }
 
-DriverEthInterfaceParams WormholeImplementation::get_eth_interface_params() const {
+DriverEthInterfaceParams wormhole::get_eth_interface_params() {
     using namespace erisc_firmware::eth_routing;
     return {
         ETH_RACK_COORD_WIDTH,
@@ -96,9 +96,7 @@ DriverEthInterfaceParams WormholeImplementation::get_eth_interface_params() cons
     };
 }
 
-DriverNocParams WormholeImplementation::get_noc_params() const {
-    return {wormhole::NOC_ADDR_LOCAL_BITS, wormhole::NOC_ADDR_NODE_ID_BITS};
-}
+DriverNocParams wormhole::get_noc_params() { return {wormhole::NOC_ADDR_LOCAL_BITS, wormhole::NOC_ADDR_NODE_ID_BITS}; }
 
 // TODO: integrate noc_port for DRAM core type inside the function.
 uint64_t WormholeImplementation::get_noc_reg_base(

@@ -21,6 +21,8 @@ public:
 
     int get_communication_device_id() const override;
 
+    DeviceProtocol *get_device_protocol() override;
+
 private:
     tt::ARCH arch_;
 };

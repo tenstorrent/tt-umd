@@ -14,7 +14,7 @@ namespace tt::umd {
 class DeviceProtocol;
 class JtagInterface;
 class PcieInterface;
-class architecture_implementation;
+class ArchitectureImplementation;
 
 /**
  * @brief Access to the Blackhole ARC APB register window.
@@ -32,7 +32,7 @@ public:
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
-        architecture_implementation* architecture_impl);
+        ArchitectureImplementation* architecture_impl);
 
     /**
      * @brief Reads from the ARC APB window.
@@ -63,7 +63,7 @@ private:
     DeviceProtocol* device_protocol_ = nullptr;
     PcieInterface* pcie_interface_ = nullptr;
     JtagInterface* jtag_interface_ = nullptr;
-    architecture_implementation* architecture_impl_ = nullptr;
+    ArchitectureImplementation* architecture_impl_ = nullptr;
 };
 
 }  // namespace tt::umd

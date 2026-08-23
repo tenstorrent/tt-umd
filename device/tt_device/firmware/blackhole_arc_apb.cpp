@@ -24,7 +24,7 @@ BlackholeArcApb::BlackholeArcApb(
     DeviceProtocol* device_protocol,
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
-    architecture_implementation* architecture_impl) :
+    ArchitectureImplementation* architecture_impl) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),

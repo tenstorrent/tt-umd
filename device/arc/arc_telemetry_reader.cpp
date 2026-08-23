@@ -39,8 +39,7 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     DeviceProtocol* device_protocol,
     const tt::ARCH arch,
     const tt_xy_pair arc_core_noc0,
-    const tt_xy_pair arc_core_noc1,
-    std::chrono::milliseconds timeout_ms) {
+    const tt_xy_pair arc_core_noc1) {
     std::unique_ptr<ArcTelemetryReader> reader;
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {

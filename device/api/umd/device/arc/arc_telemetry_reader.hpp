@@ -30,8 +30,7 @@ public:
         DeviceProtocol* device_protocol,
         const tt::ARCH arch,
         const tt_xy_pair arc_core_noc0,
-        const tt_xy_pair arc_core_noc1,
-        std::chrono::milliseconds timeout_ms = timeout::TELEMETRY_INIT_TIMEOUT);
+        const tt_xy_pair arc_core_noc1);
 
 protected:
     ArcTelemetryReader(DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1);

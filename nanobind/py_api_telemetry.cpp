@@ -16,6 +16,7 @@
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/firmware/firmware_utils.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
@@ -369,7 +370,14 @@ void bind_telemetry(nb::module_& m) {
             release_gil())
         .def_static(
             "create_firmware_info_provider",
-            &FirmwareInfoProviderImplementation::create_firmware_info_provider,
+            [](TTDevice* tt_device) {
+                return FirmwareInfoProviderImplementation::create_firmware_info_provider(
+                    tt_device->get_arch(),
+                    tt_device->get_device_protocol(),
+                    tt_device->get_arc_core(NocId::NOC0),
+                    tt_device->get_arc_core(NocId::NOC1),
+                    tt_device->get_firmware_telemetry_reader());
+            },
             nb::arg("tt_device"),
             release_gil());
 

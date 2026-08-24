@@ -20,6 +20,7 @@
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -334,7 +335,7 @@ EthTrainingStatus BlackholeTTDevice::read_eth_core_training_status(CoreCoord eth
 
 int BlackholeTTDevice::get_pcie_x_coordinate() {
     // Extract the x-coordinate from the register using the lower 6 bits.
-    return bar_read32(get_architecture_implementation()->get_read_checking_offset()) & 0x3F;
+    return bar_read32(get_architecture_registers(tt::ARCH::BLACKHOLE).noc_node_id_bar_offset) & 0x3F;
 }
 
 // ARC tile accessibility over AXI via PCIe depends on the PCIe tile's x-coordinate:

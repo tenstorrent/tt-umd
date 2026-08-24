@@ -472,12 +472,11 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     }
 
     // Caller didn't specify a size — try arch-supported sizes in preference order.
-    const std::vector<size_t> &possible_sizes = get_architecture_tlbs(arch).sizes;
-    for (const auto &s : possible_sizes) {
+    for (const TlbSizeClass &size_class : get_architecture_tlbs(arch).size_classes) {
         try {
-            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
+            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size_class.size, mapping), config);
         } catch (const std::exception &e) {
-            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
         }
     }
 

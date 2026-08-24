@@ -4,13 +4,13 @@
 
 #pragma once
 
-#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <mutex>
 #include <vector>
 
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
@@ -67,23 +67,17 @@ public:
     tt::ARCH get_architecture() const;
 
 private:
-    // A pool of TLB indices that all share a single size.
-    struct TlbSizeClass {
-        size_t size = 0;         // Bytes per TLB; 0 means unused on the current arch.
-        size_t count = 0;        // Number of TLBs in the pool.
-        size_t start_index = 0;  // First global TLB index belonging to this pool.
+    // A size class and which of its windows are currently allocated.
+    struct TlbPool {
+        TlbSizeClass layout;
         std::vector<bool> allocated;
     };
-
-    // Indices into size_classes_; ordered smallest -> largest so allocate-with-escalation
-    // and address-layout iteration both Just Work.
-    enum SizeClass : size_t { ONE_MB = 0, TWO_MB = 1, SIXTEEN_MB = 2, FOUR_GB = 3, NUM_SIZE_CLASSES = 4 };
 
     void initialize_architecture_config();
 
     // Returns the pool that owns `tlb_index`, or nullptr if no pool covers it
     // (including for negative indices).
-    TlbSizeClass* find_size_class_for_index(int tlb_index);
+    TlbPool* find_pool_for_index(int tlb_index);
 
     uint64_t bar0_base_ = 0;
     uint64_t bar4_base_ = 0;
@@ -91,7 +85,9 @@ private:
     size_t tlb_reg_size_bytes_ = 8;  // Default to Wormhole size.
 
     std::mutex allocation_mutex_;
-    std::array<TlbSizeClass, NUM_SIZE_CLASSES> size_classes_;
+    // Ordered smallest window size first, so allocate-with-escalation and the BAR0 address
+    // layout both follow the iteration order.
+    std::vector<TlbPool> pools_;
 
     // Counter for the Quasar bypass branch of allocate_tlb_index(); see its docstring.
     std::atomic<int> next_bypass_tlb_id_{0};

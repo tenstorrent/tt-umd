@@ -22,36 +22,41 @@ class RemoteInterface;
  * A model is built before the TTDevice that consumes it and handed over at construction, so
  * device-specific choices are made here rather than spread across TTDevice subclasses.
  *
- * Models are specialized by architecture, and for simulation by backend. The transport is
- * deliberately not a subclass axis: transport-specific components (the DeviceProtocol and its
- * interface facets, system memory, I/O windows) are built from the transport object and injected, so
- * one architecture model serves every transport that architecture supports.
+ * Models are specialized by architecture, and by backend for simulation. The transport is
+ * deliberately not a subclass axis, so one architecture model serves every transport that
+ * architecture supports.
  *
- * Optional components return nullptr; concrete models override only what they provide.
+ * This is a pure interface: it holds no state and provides no constructor, so each concrete model
+ * declares whatever it needs to answer with. Required components are pure virtual; optional ones
+ * return nullptr, and a concrete model overrides only those it actually provides.
  *
- * TODO: temporary note - components move into the model one at a time as they are decoupled from
- * TTDevice, so for now a model carries nothing but device identity and no component getter is
- * overridden anywhere. That is also why the concrete models currently differ only in the
- * architecture they report: each is already its own class so it has somewhere to wire its
- * architecture-specific components -- architecture implementation, hang detector, device firmware --
- * as those arrive. Remove this note once the migration is done.
+ * TODO: temporary note - components are declared here as they are decoupled from TTDevice, so no
+ * required component appears yet. Remove this note once the migration is done.
  */
 class TTDeviceModel {
 public:
     virtual ~TTDeviceModel() = default;
 
-    tt::ARCH get_arch() const;
+    // Device identity.
+    //
+    // TODO: temporary - not part of the Base API. TTDevice derived its identity from the transport
+    // object it used to own; the model answers for it during the migration. These go away once the
+    // components that carry this information (DeviceProtocol, ArchitectureImplementation) have moved
+    // here and can be asked directly.
+    virtual tt::ARCH get_arch() const = 0;
 
-    IODeviceType get_communication_device_type() const;
+    virtual IODeviceType get_communication_device_type() const = 0;
 
     // Identifies the device within its transport: the PCI device number for PCIe, the JLink id for
     // JTAG. A remote device reports the identity of the local device it is reached through.
-    int get_communication_device_id() const;
+    virtual int get_communication_device_id() const = 0;
 
+    // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
     virtual FirmwareTelemetryReader *get_firmware_telemetry_reader() { return nullptr; }
 
+    // Optional transport interfaces.
     virtual PcieInterface *get_pcie_interface() { return nullptr; }
 
     virtual DmaInterface *get_dma_interface() { return nullptr; }
@@ -59,14 +64,6 @@ public:
     virtual JtagInterface *get_jtag_interface() { return nullptr; }
 
     virtual RemoteInterface *get_remote_interface() { return nullptr; }
-
-protected:
-    TTDeviceModel(tt::ARCH arch, IODeviceType communication_device_type, int communication_device_id);
-
-private:
-    tt::ARCH arch_;
-    IODeviceType communication_device_type_;
-    int communication_device_id_;
 };
 
 }  // namespace tt::umd

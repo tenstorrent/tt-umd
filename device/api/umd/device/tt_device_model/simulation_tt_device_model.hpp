@@ -16,6 +16,15 @@ namespace tt::umd {
 class SimulationTTDeviceModel : public TTDeviceModel {
 public:
     explicit SimulationTTDeviceModel(tt::ARCH arch);
+
+    tt::ARCH get_arch() const override;
+
+    IODeviceType get_communication_device_type() const override;
+
+    int get_communication_device_id() const override;
+
+private:
+    tt::ARCH arch_;
 };
 
 }  // namespace tt::umd

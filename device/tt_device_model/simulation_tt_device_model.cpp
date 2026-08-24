@@ -6,8 +6,14 @@
 
 namespace tt::umd {
 
+SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) : arch_(arch) {}
+
+tt::ARCH SimulationTTDeviceModel::get_arch() const { return arch_; }
+
+IODeviceType SimulationTTDeviceModel::get_communication_device_type() const { return IODeviceType::UNDEFINED; }
+
 // A simulation backend has no host transport to be addressed within, so it reports no communication
 // device at all.
-SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) : TTDeviceModel(arch, IODeviceType::UNDEFINED, -1) {}
+int SimulationTTDeviceModel::get_communication_device_id() const { return -1; }
 
 }  // namespace tt::umd

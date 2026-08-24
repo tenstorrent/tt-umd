@@ -362,36 +362,7 @@ public:
 
     const std::vector<uint32_t>& get_t6_y_locations() const override { return grendel::T6_Y_LOCATIONS; }
 
-    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
-        return {grendel::TLB_BASE_2M, grendel::TLB_COUNT_2M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override { return {0, 0}; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override {
-        return {grendel::TLB_BASE_4G, grendel::TLB_COUNT_4G};
-    }
-
-    const std::vector<size_t>& get_tlb_sizes() const override {
-        static constexpr uint32_t one_mb = 1 << 20;
-        static constexpr size_t one_gb = 1024ULL * one_mb;
-        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
-        return tlb_sizes;
-    }
-
-    tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-
-    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
-
-    uint32_t get_static_tlb_cfg_addr() const override { return grendel::STATIC_TLB_CFG_ADDR; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
-
-    size_t get_cached_tlb_size() const override { return grendel::STATIC_TLB_SIZE; }
-
-    bool get_static_vc() const override { return true; }
 };
 
 }  // namespace tt::umd

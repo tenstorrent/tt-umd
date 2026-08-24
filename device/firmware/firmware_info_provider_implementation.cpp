@@ -74,7 +74,7 @@ FirmwareInfoProviderImplementation::FirmwareInfoProviderImplementation(
     if (dynamic_cast<SmBusArcTelemetryReader*>(telemetry) != nullptr) {
         firmware_version = FirmwareBundleVersion::from_firmware_bundle_tag(
             telemetry->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
-    } else {
+    } else if (telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)) {
         firmware_version =
             FirmwareBundleVersion::from_firmware_bundle_tag(telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION));
     }

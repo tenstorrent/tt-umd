@@ -12,13 +12,13 @@
 #include <vector>
 
 #include "noc_access.hpp"
-#include "tt-logger/tt-logger.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -44,10 +44,10 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId 
     uint32_t telemetry_value;
     device_protocol->read_data(
         &telemetry_value,
-        get_arc_core(noc_id),
+        get_arc_core(get_selected_noc_id()),
         SMBUS_TELEMETRY_NOC_ADDR + telemetry_tag * sizeof(uint32_t),
         sizeof(uint32_t),
-        noc_id);
+        get_selected_noc_id());
 
     return telemetry_value;
 }
@@ -57,16 +57,19 @@ bool SmBusArcTelemetryReader::is_entry_available(const uint8_t telemetry_tag, No
 }
 
 void SmBusArcTelemetryReader::wait_for_telemetry_initialized(std::chrono::milliseconds timeout_ms) {
-    auto start = std::chrono::steady_clock::now();
+    constexpr auto busy_poll_window = std::chrono::microseconds(10);
     constexpr auto poll_interval = std::chrono::milliseconds(10);
 
-    while (SmBusArcTelemetryReader::read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION) == 0) {
-        if (std::chrono::steady_clock::now() - start > timeout_ms) {
-            log_warning(
-                tt::LogUMD, "Timeout waiting for SMBus telemetry initialization (FW_BUNDLE_VERSION not populated).");
-            return;
-        }
-        std::this_thread::sleep_for(poll_interval);
+    const bool initialized = utils::poll_until(
+        [this]() { return SmBusArcTelemetryReader::read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION) != 0; },
+        timeout_ms,
+        busy_poll_window,
+        poll_interval);
+
+    if (!initialized) {
+        UMD_THROW(
+            error::RuntimeError,
+            "Timeout waiting for SMBus telemetry initialization (FW_BUNDLE_VERSION not populated).");
     }
 }
 

@@ -28,7 +28,13 @@ BlackholeArcApb::BlackholeArcApb(
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
-    architecture_impl_(architecture_impl) {}
+    architecture_impl_(architecture_impl) {
+    UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeArcApb requires a DeviceProtocol.");
+    UMD_ASSERT(
+        architecture_impl_ != nullptr,
+        error::RuntimeError,
+        "BlackholeArcApb requires an ArchitectureImplementation.");
+}
 
 void BlackholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {

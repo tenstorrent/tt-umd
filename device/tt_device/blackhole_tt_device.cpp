@@ -235,7 +235,7 @@ uint32_t BlackholeTTDevice::get_clock() {
     UMD_THROW(error::RuntimeError, "AICLK telemetry not available for Blackhole device.");
 }
 
-uint32_t BlackholeTTDevice::get_min_clock_freq() { return blackhole::AICLK_IDLE_VAL; }
+uint32_t BlackholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
 void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;

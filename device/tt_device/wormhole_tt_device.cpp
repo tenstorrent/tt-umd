@@ -108,17 +108,17 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
-uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
+uint32_t WormholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
 uint32_t WormholeTTDevice::get_power_state_arc_msg(TTDevice::PowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case TTDevice::PowerState::BUSY: {
-            msg |= get_architecture_implementation()->get_arc_message_arc_go_busy();
+            msg |= get_architecture_implementation()->get_firmware_message_go_busy();
             break;
         }
         case TTDevice::PowerState::IDLE: {
-            msg |= get_architecture_implementation()->get_arc_message_arc_go_long_idle();
+            msg |= get_architecture_implementation()->get_firmware_message_go_idle();
             break;
         }
         default:

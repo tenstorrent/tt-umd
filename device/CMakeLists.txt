@@ -222,6 +222,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/tt_sim_tlb_handle.hpp
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
+                api/umd/device/io_window/io_window.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
@@ -296,6 +297,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/host_memory.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
+                api/umd/device/types/io_window_config.hpp
                 api/umd/device/types/wormhole_dram.hpp
                 api/umd/device/types/wormhole_eth.hpp
                 api/umd/device/types/wormhole_l1.hpp

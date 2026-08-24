@@ -15,6 +15,7 @@
 
 #include "architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -376,6 +377,12 @@ inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 // High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Wormhole boards.
 inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0xC0, 0x80, 0x00, 0x40};
 
+// Parameters of the legacy ETH routing firmware protocol and of the NOC address layout, used when
+// talking to remote chips over that firmware.
+DriverHostAddressParams get_host_address_params();
+DriverEthInterfaceParams get_eth_interface_params();
+DriverNocParams get_noc_params();
+
 }  // namespace wormhole
 
 class WormholeImplementation : public ArchitectureImplementation {
@@ -483,9 +490,6 @@ public:
     uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
 
     DeviceL1AddressParams get_l1_address_params() const override;
-    DriverHostAddressParams get_host_address_params() const override;
-    DriverEthInterfaceParams get_eth_interface_params() const override;
-    DriverNocParams get_noc_params() const override;
 
     uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
 

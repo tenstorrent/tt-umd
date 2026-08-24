@@ -24,7 +24,7 @@ void WormholeArcTelemetryReader::get_telemetry_address() {
     uint32_t telemetry_table_arc_addr;
     device_protocol->read_data(
         &telemetry_table_arc_addr,
-        get_arc_core(),
+        get_arc_core(get_selected_noc_id()),
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_X_0,
         sizeof(uint32_t),
         get_selected_noc_id());
@@ -35,7 +35,7 @@ void WormholeArcTelemetryReader::get_telemetry_address() {
     uint32_t telemetry_values_arc_addr;
     device_protocol->read_data(
         &telemetry_values_arc_addr,
-        get_arc_core(),
+        get_arc_core(get_selected_noc_id()),
         wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_Y_0,
         sizeof(uint32_t),
         get_selected_noc_id());

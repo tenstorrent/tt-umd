@@ -23,7 +23,7 @@ void BlackholeArcTelemetryReader::get_telemetry_address() {
     uint32_t telemetry_table_addr_u32;
     device_protocol->read_ctrl(
         &telemetry_table_addr_u32,
-        get_arc_core(),
+        get_arc_core(get_selected_noc_id()),
         blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_13,
         sizeof(uint32_t),
         get_selected_noc_id());
@@ -32,7 +32,7 @@ void BlackholeArcTelemetryReader::get_telemetry_address() {
     uint32_t telemetry_values_addr_u32;
     device_protocol->read_ctrl(
         &telemetry_values_addr_u32,
-        get_arc_core(),
+        get_arc_core(get_selected_noc_id()),
         blackhole::ARC_NOC_XBAR_ADDRESS_START + blackhole::SCRATCH_RAM_12,
         sizeof(uint32_t),
         get_selected_noc_id());

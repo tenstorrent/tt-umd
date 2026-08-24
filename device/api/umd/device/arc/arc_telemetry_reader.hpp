@@ -12,6 +12,7 @@
 
 #include "firmware_telemetry_reader.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -68,12 +69,7 @@ protected:
     std::map<uint32_t, uint32_t> telemetry_values;
     std::map<uint32_t, uint32_t> telemetry_offset;
 
-    // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
-    // Both sets of ARC core coordinates are kept, get_arc_core() picks the one for the selected NOC.
-    tt_xy_pair arc_core_noc0;
-    tt_xy_pair arc_core_noc1;
-
-    tt_xy_pair get_arc_core() const;
+    tt_xy_pair get_arc_core(NocId noc_id) const;
 
     DeviceProtocol* device_protocol;
 
@@ -96,6 +92,11 @@ private:
         TelemetryTag::ENABLED_GDDR,
         TelemetryTag::ENABLED_L2CPU,
         TelemetryTag::PCIE_USAGE};
+
+    // During initialization of telemetry, if the NOC0 is hung then we need to read the telemetry values from NOC1.
+    // Both sets of ARC core coordinates are kept, get_arc_core() picks the one for the selected NOC.
+    tt_xy_pair arc_core_noc0;
+    tt_xy_pair arc_core_noc1;
 };
 
 }  // namespace tt::umd

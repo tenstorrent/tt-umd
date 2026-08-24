@@ -44,7 +44,7 @@ uint32_t SmBusArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId 
     uint32_t telemetry_value;
     device_protocol->read_data(
         &telemetry_value,
-        get_arc_core(),
+        get_arc_core(noc_id),
         SMBUS_TELEMETRY_NOC_ADDR + telemetry_tag * sizeof(uint32_t),
         sizeof(uint32_t),
         get_selected_noc_id());

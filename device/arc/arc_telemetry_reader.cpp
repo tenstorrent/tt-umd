@@ -31,9 +31,11 @@ static constexpr FirmwareBundleVersion FW_NEW_TELEMETRY = FirmwareBundleVersion(
 
 ArcTelemetryReader::ArcTelemetryReader(
     DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1) :
-    arc_core_noc0(arc_core_noc0), arc_core_noc1(arc_core_noc1), device_protocol(device_protocol) {}
+    device_protocol(device_protocol), arc_core_noc0(arc_core_noc0), arc_core_noc1(arc_core_noc1) {}
 
-tt_xy_pair ArcTelemetryReader::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
+tt_xy_pair ArcTelemetryReader::get_arc_core(NocId noc_id) const {
+    return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0;
+}
 
 std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(
     DeviceProtocol* device_protocol,
@@ -65,7 +67,11 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
 
 void ArcTelemetryReader::initialize_telemetry() {
     device_protocol->read_data(
-        &entry_count, get_arc_core(), telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t), get_selected_noc_id());
+        &entry_count,
+        get_arc_core(get_selected_noc_id()),
+        telemetry_table_addr + sizeof(uint32_t),
+        sizeof(uint32_t),
+        get_selected_noc_id());
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at telemetry.h
@@ -73,7 +79,7 @@ void ArcTelemetryReader::initialize_telemetry() {
     std::vector<TelemetryTagEntry> telemetry_tag_entries(entry_count);
     device_protocol->read_data(
         telemetry_tag_entries.data(),
-        get_arc_core(),
+        get_arc_core(get_selected_noc_id()),
         tag_table_address,
         entry_count * sizeof(TelemetryTagEntry),
         get_selected_noc_id());
@@ -81,7 +87,7 @@ void ArcTelemetryReader::initialize_telemetry() {
     std::vector<uint32_t> telemetry_data(entry_count);
     device_protocol->read_data(
         telemetry_data.data(),
-        get_arc_core(),
+        get_arc_core(get_selected_noc_id()),
         telemetry_values_addr,
         entry_count * sizeof(uint32_t),
         get_selected_noc_id());
@@ -92,7 +98,11 @@ void ArcTelemetryReader::initialize_telemetry() {
         // 4 * i is to get to the i-th entry in the tag table where each entry is 4 bytes big.
         // Looking at layout in arc_telemetry_reader.h for reference.
         device_protocol->read_data(
-            &tag_offset, get_arc_core(), telemetry_table_addr + 8 + 4 * i, sizeof(uint32_t), get_selected_noc_id());
+            &tag_offset,
+            get_arc_core(get_selected_noc_id()),
+            telemetry_table_addr + 8 + 4 * i,
+            sizeof(uint32_t),
+            get_selected_noc_id());
 
         const uint16_t tag_val = tag_offset & 0xFFFF;
         const uint16_t offset_val = tag_offset >> 16;
@@ -120,7 +130,7 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_i
     uint32_t telemetry_val;
     device_protocol->read_data(
         &telemetry_val,
-        get_arc_core(),
+        get_arc_core(noc_id),
         telemetry_values_addr + offset * sizeof(uint32_t),
         sizeof(uint32_t),
         get_selected_noc_id());

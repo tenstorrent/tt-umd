@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -43,16 +42,10 @@ public:
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
     // Replace with std::span once we enable C++20.
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
-    virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
-    virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
 
     static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
-
-    // Map a PCI bus id to a UBB tray id (1..4). Returns std::nullopt for archs without UBB
-    // boards or when the bus id does not correspond to a known tray.
-    virtual std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const { return std::nullopt; }
 };
 
 }  // namespace tt::umd

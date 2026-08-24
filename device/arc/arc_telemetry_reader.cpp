@@ -133,7 +133,7 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_i
         get_arc_core(noc_id),
         telemetry_values_addr + offset * sizeof(uint32_t),
         sizeof(uint32_t),
-        get_selected_noc_id());
+        noc_id);
 
     telemetry_values[telemetry_tag] = telemetry_val;
     return telemetry_values[telemetry_tag];

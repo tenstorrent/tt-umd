@@ -46,7 +46,7 @@ WormholeTTDevice::WormholeTTDevice(
     bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<WormholeImplementation>(), soc_arch_descriptor, use_safe_api) {
     WormholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol()));
 }
 
 WormholeTTDevice::WormholeTTDevice(
@@ -55,7 +55,7 @@ WormholeTTDevice::WormholeTTDevice(
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
     WormholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol()));
 }
 
 WormholeTTDevice::WormholeTTDevice(
@@ -65,8 +65,7 @@ WormholeTTDevice::WormholeTTDevice(
     WormholeTTDevice::set_arc_coordinate();
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
-        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
-        get_architecture_implementation()));
+        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol()));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {

@@ -44,13 +44,11 @@ public:
     void set_noc_reg_reader(NocRegReader reader);
 
 protected:
-    HangDetectorImplementation(DeviceProtocol* protocol, ArchitectureImplementation* arch_impl);
+    HangDetectorImplementation(DeviceProtocol* protocol);
 
     DeviceProtocol* get_protocol() const { return protocol_; }
 
     PcieInterface* get_pcie_interface() const { return pcie_interface_; }
-
-    ArchitectureImplementation* get_arch_impl() const { return arch_impl_; }
 
     // Reads a 32-bit NOC register through the configured NocRegReader. Arch-specific variants compute the
     // (core, addr) for their hang-check register and route the actual read through here.
@@ -64,7 +62,6 @@ private:
     DeviceProtocol* protocol_;
     PcieInterface* pcie_interface_;
     bool is_mmio_protocol_;
-    ArchitectureImplementation* arch_impl_;
     NocRegReader noc_reg_reader_;
 };
 

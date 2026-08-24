@@ -16,9 +16,8 @@
 
 namespace tt::umd {
 
-BlackholeHangDetector::BlackholeHangDetector(
-    DeviceProtocol* protocol, ArchitectureImplementation* arch_impl, bool noc_translation_enabled) :
-    HangDetectorImplementation(protocol, arch_impl),
+BlackholeHangDetector::BlackholeHangDetector(DeviceProtocol* protocol, bool noc_translation_enabled) :
+    HangDetectorImplementation(protocol),
     noc_translation_enabled_(noc_translation_enabled),
     registers_(get_architecture_registers(tt::ARCH::BLACKHOLE)) {}
 

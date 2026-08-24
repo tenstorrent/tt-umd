@@ -1,4 +1,5 @@
 set(BAREMETAL_TESTS_SRCS
+    test_architecture_tlbs.cpp
     test_cluster_descriptor_offline.cpp
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp

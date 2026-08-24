@@ -153,7 +153,12 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
         get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);
-    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(this);
+    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+        get_arch(),
+        get_device_protocol(),
+        get_arc_core(NocId::NOC0),
+        get_arc_core(NocId::NOC1),
+        get_firmware_telemetry_reader());
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 

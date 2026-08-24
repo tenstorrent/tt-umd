@@ -12,6 +12,7 @@
 
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_telemetry_mapping.hpp"
+#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/gddr_telemetry.hpp"
@@ -23,7 +24,8 @@ enum class ARCH;
 }  // namespace tt
 
 namespace tt::umd {
-class TTDevice;
+class DeviceProtocol;
+class FirmwareTelemetryReader;
 
 /*
  * FirmwareInfoProvider is a data-driven class that abstracts away the details of specific firmware
@@ -34,9 +36,20 @@ class TTDevice;
  */
 class FirmwareInfoProviderImplementation : public FirmwareInfoProvider {
 public:
-    static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(TTDevice* tt_device);
+    static std::unique_ptr<FirmwareInfoProvider> create_firmware_info_provider(
+        tt::ARCH arch,
+        DeviceProtocol* device_protocol,
+        xy_pair arc_core_noc0,
+        xy_pair arc_core_noc1,
+        FirmwareTelemetryReader* telemetry);
 
-    FirmwareInfoProviderImplementation(TTDevice* tt_device);
+    FirmwareInfoProviderImplementation(
+        FirmwareBundleVersion firmware_version,
+        tt::ARCH arch,
+        DeviceProtocol* device_protocol,
+        xy_pair arc_core_noc0,
+        xy_pair arc_core_noc1,
+        FirmwareTelemetryReader* telemetry);
 
     virtual FirmwareBundleVersion get_firmware_version([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const;
 
@@ -146,7 +159,11 @@ private:
      */
     std::vector<std::pair<CoreCoord, bool>> parse_eth_status_bitmask(uint16_t bitmask) const;
 
-    TTDevice* tt_device = nullptr;
+    tt::ARCH arch_ = ARCH::Invalid;
+    DeviceProtocol* device_protocol_ = nullptr;
+    FirmwareTelemetryReader* telemetry_ = nullptr;
+    xy_pair arc_core_noc0_;
+    xy_pair arc_core_noc1_;
 
     FirmwareBundleVersion firmware_version = FirmwareBundleVersion(0, 0, 0);
 
@@ -154,7 +171,7 @@ private:
     FirmwareFeatures firmware_feature_map;
 
     // Factory helpers for creating telemetry feature configuration maps.
-    static FirmwareFeatures create_firmware_feature_map(TTDevice* tt_device, const FirmwareBundleVersion& fw_version);
+    static FirmwareFeatures create_firmware_feature_map(tt::ARCH arch, const FirmwareBundleVersion& fw_version);
     static FirmwareFeatures create_18_4_new_telemetry_base();
     static FirmwareFeatures create_wormhole_18_3_base();
     static FirmwareFeatures create_wormhole_18_4_base();

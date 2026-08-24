@@ -501,8 +501,7 @@ void LocalChip::deassert_risc_resets() {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (get_soc_descriptor().arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::DEASSERT_RISCV_RESET),
             true,
             {0, 0});
     }

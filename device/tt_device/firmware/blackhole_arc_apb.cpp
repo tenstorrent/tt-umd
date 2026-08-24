@@ -31,9 +31,7 @@ BlackholeArcApb::BlackholeArcApb(
     architecture_impl_(architecture_impl) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeArcApb requires a DeviceProtocol.");
     UMD_ASSERT(
-        architecture_impl_ != nullptr,
-        error::RuntimeError,
-        "BlackholeArcApb requires an ArchitectureImplementation.");
+        architecture_impl_ != nullptr, error::RuntimeError, "BlackholeArcApb requires an ArchitectureImplementation.");
 }
 
 void BlackholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id) {

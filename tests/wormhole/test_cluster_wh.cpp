@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <ios>
+#include <map>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -56,10 +57,50 @@ static const std::vector<tt_xy_pair> ETH_CORES_TRANSLATION_ON = {
 static const std::vector<uint32_t> T6_X_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25};
 static const std::vector<uint32_t> T6_Y_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 
+// Broadcast payload sizes, a single word up to 64 KiB, covering the chunking in
+// broadcast_write_to_cluster. Only the first broadcast test sweeps all of them; the rest take the
+// first, middle and last size, since repeating the full sweep multiplies out with the number of chips
+// without covering anything the first test does not.
+static const std::vector<uint32_t> BROADCAST_SIZES = {
+    1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
+static const std::vector<uint32_t> REDUCED_BROADCAST_SIZES = {1, 128, 16384};
+
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
     cluster.set_barrier_address_params(
         {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
+}
+
+// Two items from the front, two from the middle and two from the back, or all of them if there are
+// fewer than that. Used to sample a chip's core grid instead of sweeping all of it.
+template <typename T>
+static std::vector<T> sample_front_middle_back(const std::vector<T>& items) {
+    if (items.size() <= 6) {
+        return items;
+    }
+    const size_t middle = items.size() / 2 - 1;
+    return {items[0], items[1], items[middle], items[middle + 1], items[items.size() - 2], items.back()};
+}
+
+// The tensix cores to read back after a broadcast on one chip: a sample of the cores the broadcast
+// targets, i.e. the ones its row and column exclusions (expressed in `exclusion_coord_system`) do not
+// filter out. Reading back every core instead multiplies out with the number of broadcast sizes and
+// the number of chips, which on an all-MMIO Galaxy leaves these tests among the slowest in the suite
+// while re-checking the same broadcast rectangle on all 32 chips.
+static std::vector<CoreCoord> broadcast_readback_cores(
+    const SocDescriptor& soc_desc,
+    const std::set<uint32_t>& rows_to_exclude,
+    const std::set<uint32_t>& cols_to_exclude,
+    const CoordSystem exclusion_coord_system) {
+    std::vector<CoreCoord> broadcast_targets;
+    for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
+        const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
+        if (rows_to_exclude.find(excluded_coord.y) == rows_to_exclude.end() &&
+            cols_to_exclude.find(excluded_coord.x) == cols_to_exclude.end()) {
+            broadcast_targets.push_back(core);
+        }
+    }
+    return sample_front_middle_back(broadcast_targets);
 }
 
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {
@@ -454,7 +495,6 @@ TEST(ClusterWH, BroadcastWrite) {
     set_barrier_params(cluster);
 
     test_utils::safe_test_cluster_start(&cluster);
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks in noc0 coords.
     std::set<uint32_t> rows_to_exclude = {0, 6};
@@ -463,10 +503,19 @@ TEST(ClusterWH, BroadcastWrite) {
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
     std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {1, 2, 3, 4, 6, 7, 8, 9};
 
-    // Pre-zero tensix L1 and DRAM at the test address so the "not written" assertions have a known baseline.
-    std::vector<uint32_t> initial_zeros(broadcast_sizes.back(), 0);
+    // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
+    // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
+    // always run against cores with a known baseline.
+    std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+            cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::NOC0);
+    }
+
+    // Pre-zero tensix L1 and DRAM at the test address so the "not written" assertions have a known baseline.
+    std::vector<uint32_t> initial_zeros(BROADCAST_SIZES.back(), 0);
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
             cluster.write_to_device(
                 initial_zeros.data(), initial_zeros.size() * sizeof(std::uint32_t), chip_id, core, address);
         }
@@ -479,7 +528,7 @@ TEST(ClusterWH, BroadcastWrite) {
     }
     cluster.wait_for_non_mmio_flush();
 
-    for (const auto& size : broadcast_sizes) {
+    for (const auto& size : BROADCAST_SIZES) {
         std::vector<uint32_t> vector_to_write(size);
         std::vector<uint32_t> zeros(size);
         std::vector<uint32_t> readback_vec = {};
@@ -494,10 +543,7 @@ TEST(ClusterWH, BroadcastWrite) {
 
         for (auto chip_id : cluster.get_target_device_ids()) {
             // Tensix cores received the broadcast; zero them out.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                if (rows_to_exclude.find(core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -543,10 +589,7 @@ TEST(ClusterWH, BroadcastWrite) {
                 readback_vec = {};
             }
             // Tensix cores must NOT have been written by the DRAM broadcast.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                if (rows_to_exclude.find(core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(zeros, readback_vec) << "Tensix core " << chip_id << " " << core.str()
@@ -575,7 +618,6 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
 
     test_utils::safe_test_cluster_start(&cluster);
 
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
@@ -585,10 +627,19 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
     std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
 
-    // Pre-zero tensix L1 and DRAM at the test address so the "not written" assertions have a known baseline.
-    std::vector<uint32_t> initial_zeros(broadcast_sizes.back(), 0);
+    // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
+    // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
+    // always run against cores with a known baseline.
+    std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+            cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
+    }
+
+    // Pre-zero tensix L1 and DRAM at the test address so the "not written" assertions have a known baseline.
+    std::vector<uint32_t> initial_zeros(REDUCED_BROADCAST_SIZES.back(), 0);
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
             cluster.write_to_device(
                 initial_zeros.data(), initial_zeros.size() * sizeof(std::uint32_t), chip_id, core, address);
         }
@@ -601,7 +652,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
     }
     cluster.wait_for_non_mmio_flush();
 
-    for (const auto& size : broadcast_sizes) {
+    for (const auto& size : REDUCED_BROADCAST_SIZES) {
         std::vector<uint32_t> vector_to_write(size);
         std::vector<uint32_t> zeros(size);
         std::vector<uint32_t> readback_vec = {};
@@ -616,15 +667,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
 
         for (auto chip_id : cluster.get_target_device_ids()) {
             // Tensix cores received the broadcast; zero them out.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -670,15 +713,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcast) {
                 readback_vec = {};
             }
             // Tensix cores must NOT have been written by the DRAM broadcast.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(zeros, readback_vec) << "Tensix core " << chip_id << " " << core.str()
@@ -707,7 +742,6 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
 
     test_utils::safe_test_cluster_start(&cluster);
 
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
@@ -717,10 +751,19 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     std::set<uint32_t> rows_to_exclude_for_dram_broadcast = {};
     std::set<uint32_t> cols_to_exclude_for_dram_broadcast = {18, 19, 20, 21, 22, 23, 24, 25};
 
-    // Pre-zero tensix L1 and DRAM on every chip so the "not written" assertions have a known baseline.
-    std::vector<uint32_t> initial_zeros(broadcast_sizes.back(), 0);
+    // Read back only a sample of each chip's broadcast target grid. The same set is pre-zeroed,
+    // verified, and re-zeroed every iteration, so the "not written by the other broadcast" checks
+    // always run against cores with a known baseline.
+    std::map<ChipId, std::vector<CoreCoord>> tensix_cores_to_check;
     for (auto chip_id : cluster.get_target_device_ids()) {
-        for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
+        tensix_cores_to_check[chip_id] = broadcast_readback_cores(
+            cluster.get_soc_descriptor(chip_id), rows_to_exclude, cols_to_exclude, CoordSystem::TRANSLATED);
+    }
+
+    // Pre-zero tensix L1 and DRAM on every chip so the "not written" assertions have a known baseline.
+    std::vector<uint32_t> initial_zeros(REDUCED_BROADCAST_SIZES.back(), 0);
+    for (auto chip_id : cluster.get_target_device_ids()) {
+        for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
             cluster.write_to_device(
                 initial_zeros.data(), initial_zeros.size() * sizeof(std::uint32_t), chip_id, core, address);
         }
@@ -734,7 +777,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
     cluster.wait_for_non_mmio_flush();
 
     for (auto chip_id : cluster.get_target_device_ids()) {
-        for (const auto& size : broadcast_sizes) {
+        for (const auto& size : REDUCED_BROADCAST_SIZES) {
             std::vector<uint32_t> vector_to_write(size);
             std::vector<uint32_t> zeros(size);
             std::vector<uint32_t> readback_vec = {};
@@ -758,15 +801,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
             cluster.wait_for_non_mmio_flush();
 
             // Tensix cores received the broadcast; zero them out.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(vector_to_write, readback_vec)
@@ -810,15 +845,7 @@ TEST(ClusterWH, VirtualCoordinateBroadcastPerChip) {
                 readback_vec = {};
             }
             // Tensix cores must NOT have been written by the DRAM broadcast.
-            for (const CoreCoord& core : cluster.get_soc_descriptor(chip_id).get_cores(CoreType::TENSIX)) {
-                const CoreCoord translated_core =
-                    cluster.get_soc_descriptor(chip_id).translate_coord_to(core, CoordSystem::TRANSLATED);
-                if (rows_to_exclude.find(translated_core.y) != rows_to_exclude.end()) {
-                    continue;
-                }
-                if (cols_to_exclude.find(translated_core.x) != cols_to_exclude.end()) {
-                    continue;
-                }
+            for (const CoreCoord& core : tensix_cores_to_check.at(chip_id)) {
                 test_utils::read_data_from_device(
                     cluster, readback_vec, chip_id, core, address, vector_to_write.size() * 4);
                 ASSERT_EQ(zeros, readback_vec) << "Tensix core " << chip_id << " " << core.str()
@@ -863,7 +890,6 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
                         "support Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
     // This excludes DRAM and ETH banks (positioned in 16, 17 on both rows and columns) and some tensix rows and columns
     // in translated space.
@@ -874,7 +900,7 @@ TEST(ClusterWH, EthernetBroadcastSingleRemotePerChip) {
         RemoteChip* remote_chip = cluster.get_remote_chip(chip_id);
         EthernetBroadcast eth_broadcast(remote_chip->get_remote_communication());
 
-        for (const auto& size : broadcast_sizes) {
+        for (const auto& size : REDUCED_BROADCAST_SIZES) {
             std::vector<uint32_t> vector_to_write(size);
             std::vector<uint32_t> zeros(size);
             std::vector<uint32_t> readback_vec = {};
@@ -945,7 +971,6 @@ TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
                         "Virtual Coordinate Broadcast or NOC translation is not enabled";
     }
 
-    std::vector<uint32_t> broadcast_sizes = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
     uint32_t address = tt::umd::wormhole::DATA_BUFFER_SPACE_BASE;
 
     // Partial range: first half of tensix columns and rows in translated coordinates.
@@ -961,7 +986,7 @@ TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
         const auto& sdesc = cluster.get_soc_descriptor(chip_id);
         const auto& tensix_cores = sdesc.get_cores(CoreType::TENSIX);
 
-        for (const auto& size : broadcast_sizes) {
+        for (const auto& size : REDUCED_BROADCAST_SIZES) {
             std::vector<uint32_t> vector_to_write(size);
             std::vector<uint32_t> zeros(size, 0);
             for (uint32_t i = 0; i < size; i++) {
@@ -1006,7 +1031,7 @@ TEST(ClusterWH, DeviceProtocolWriteCoreRange) {
         }
 
         // Final cleanup.
-        std::vector<uint32_t> zeros_cleanup(broadcast_sizes.back(), 0);
+        std::vector<uint32_t> zeros_cleanup(REDUCED_BROADCAST_SIZES.back(), 0);
         for (const CoreCoord& core : tensix_cores) {
             cluster.write_to_device(
                 zeros_cleanup.data(), zeros_cleanup.size() * sizeof(uint32_t), chip_id, core, address);

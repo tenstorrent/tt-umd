@@ -50,11 +50,9 @@ convention for ERISC cores; use higher indices for general coordination.
 - Coordination **without** a shared filesystem (e.g. across containers that only share the device) →
   `KmdMutex`, accepting the per-device scope.
 
-`LockManager` makes this choice for UMD's own locks. A chip specific lock on a PCIe device takes both:
-the KMD lock is the one that works across containers, and the shared memory lock is kept for as long
-as clients on an older UMD exist, since those take only that one and would otherwise not serialize
-against a process on this one. System wide locks and locks on a JTAG device use `RobustMutex` alone,
-since a KMD resource lock exists only per local PCIe device.
+`LockManager` makes this choice for UMD's own locks: a chip specific lock on a PCIe device uses
+`KmdMutex`, so that processes sharing only the device still serialize. System wide locks and locks on
+a JTAG device use `RobustMutex`, since a KMD resource lock exists only per local PCIe device.
 
 ## Benchmark
 

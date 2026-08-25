@@ -15,7 +15,6 @@ class DeviceProtocol;
 class JtagInterface;
 class PcieInterface;
 class RemoteInterface;
-class architecture_implementation;
 
 /**
  * @brief Access to the Wormhole ARC CSM memory window.
@@ -28,12 +27,20 @@ class architecture_implementation;
  */
 class WormholeArcCsm {
 public:
+    /**
+     * @brief Builds ARC CSM access over one communication protocol.
+     * @param device_protocol Protocol to issue NOC accesses through. Required.
+     * @param pcie_interface BAR access, when the device is reached over PCIe.
+     * @param jtag_interface JTAG access, when the device is reached over JTAG.
+     * @param remote_interface Ethernet access, when the device is reached through a gateway.
+     *
+     * Exactly one of the three transport interfaces must be given, as for WormholeArcApb.
+     */
     WormholeArcCsm(
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
-        RemoteInterface* remote_interface,
-        architecture_implementation* architecture_impl);
+        RemoteInterface* remote_interface);
 
     /**
      * @brief Reads from the ARC CSM window.
@@ -61,7 +68,6 @@ private:
     PcieInterface* pcie_interface_ = nullptr;
     JtagInterface* jtag_interface_ = nullptr;
     RemoteInterface* remote_interface_ = nullptr;
-    architecture_implementation* architecture_impl_ = nullptr;
 };
 
 }  // namespace tt::umd

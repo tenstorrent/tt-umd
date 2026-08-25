@@ -100,6 +100,45 @@ TEST(ApiSimulationSysmemManager, TestFourChannels) {
     }
 }
 
+// A buffer owns its memory through a deleter composed at construction. The deleter must run exactly
+// once, and it must receive the page-aligned start of the mapping rather than the caller's VA — that
+// is the address the pages were pinned at and the one that has to be released.
+TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+
+    std::vector<uint8_t> backing(3 * page_size, 0);
+    const uintptr_t raw = reinterpret_cast<uintptr_t>(backing.data());
+    void* aligned_start = reinterpret_cast<void*>((raw + page_size - 1) & ~(page_size - 1));
+    // Deliberately offset into the page so the buffer has to align downwards.
+    void* user_va = static_cast<uint8_t*>(aligned_start) + 64;
+
+    int deleter_calls = 0;
+    void* deleter_saw = nullptr;
+    {
+        SysmemBuffer buffer(
+            user_va, 128, /*device_io_addr=*/0x1000, /*communication_id=*/7, std::nullopt, [&](void* released) {
+                ++deleter_calls;
+                deleter_saw = released;
+            });
+
+        EXPECT_EQ(buffer.get_buffer_va(), user_va);
+        EXPECT_EQ(buffer.get_buffer_size(), 128u);
+        EXPECT_EQ(deleter_calls, 0);
+    }
+
+    EXPECT_EQ(deleter_calls, 1);
+    EXPECT_EQ(deleter_saw, aligned_start);
+}
+
+// A buffer given no deleter must still destruct cleanly. unique_ptr with an empty std::function
+// deleter would otherwise throw bad_function_call.
+TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
+    std::vector<uint8_t> backing(4096, 0);
+    EXPECT_NO_THROW({
+        SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x2000, /*communication_id=*/1);
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Mapped buffer tests — parametrized over ARCH (WH and BH).
 //

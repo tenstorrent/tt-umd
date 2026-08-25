@@ -23,7 +23,8 @@ namespace tt::umd {
 // structs and free functions. Stream framing (length-prefixing messages on the socket) is a
 // transport concern and lives with the socket send/recv helpers, not here.
 
-// Direction of a device-memory access; mirrors wire::SimulationServerCommand in the schema.
+// What a client asks the host to do: a device-memory access (READ/WRITE), an identity or topology
+// query, or a graceful shutdown. Mirrors wire::SimulationServerCommand in the schema.
 enum class SimulationServerCommand : int8_t {
     READ = 0,
     WRITE = 1,

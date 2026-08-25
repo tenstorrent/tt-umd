@@ -11,10 +11,26 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Whether NOC address translation is on, read from the NOC0 NIU config. The Blackhole hang detector
+// needs this at construction to pick the core it probes.
+// TODO: temporary - BlackholeTTDevice reads the same register for its own callers; both collapse into
+// DeviceFirmware::get_noc_translation_enabled() once that component exists.
+bool read_noc_translation_enabled(PcieInterface *pcie_interface, JtagInterface *jtag_interface) {
+    const uint32_t niu_cfg = jtag_interface != nullptr
+                                 ? jtag_interface->mmio_read32(blackhole::NIU_CFG_NOC0_ARC_ADDR)
+                                 : pcie_interface->bar_read32(blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + 0x100);
+    return ((niu_cfg >> 14) & 0x1) != 0;
+}
+
+}  // namespace
 
 BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     std::unique_ptr<PCIDevice> pci_device,
@@ -28,6 +44,8 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
+    hang_detector_ = std::make_unique<BlackholeHangDetector>(
+        protocol_.get(), read_noc_translation_enabled(pcie_interface_, /*jtag_interface=*/nullptr));
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -43,6 +61,8 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_interface_ = jtag_protocol.get();
     protocol_ = std::move(jtag_protocol);
+    hang_detector_ = std::make_unique<BlackholeHangDetector>(
+        protocol_.get(), read_noc_translation_enabled(/*pcie_interface=*/nullptr, jtag_interface_));
 }
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
@@ -62,6 +82,8 @@ ArchitectureImplementation *BlackholeTTDeviceModel::get_architecture_impl() { re
 std::shared_ptr<SocArchDescriptor> BlackholeTTDeviceModel::get_shared_soc_arch_descriptor() {
     return soc_arch_descriptor_;
 }
+
+HangDetector *BlackholeTTDeviceModel::get_hang_detector() { return hang_detector_.get(); }
 
 PcieInterface *BlackholeTTDeviceModel::get_pcie_interface() { return pcie_interface_; }
 

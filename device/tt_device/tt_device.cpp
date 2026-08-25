@@ -73,6 +73,7 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
         lock_manager.initialize_mutex(
             MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
     }
+    wire_hang_detector();
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
@@ -81,7 +82,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         is_pcie_hung();
     }
     bool noc_hang_check_result =
-        hang_detector_->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
+        model_->get_hang_detector()->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
     if (noc_hang_check_result) {
         UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
     }
@@ -327,10 +328,11 @@ RemoteInterface *TTDevice::get_remote_interface() {
 tt::ARCH TTDevice::get_arch() const { return model_->get_arch(); }
 
 bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action) {
-    if (!hang_detector_) {
+    HangDetector *hang_detector = model_->get_hang_detector();
+    if (hang_detector == nullptr) {
         UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
-    auto result = hang_detector_->is_bus_hung(data_read);
+    auto result = hang_detector->is_bus_hung(data_read);
     if (!result.has_value()) {
         log_warning(LogUMD, "Bus hang detection is not supported for this device.");
         return false;
@@ -345,10 +347,11 @@ bool TTDevice::is_pcie_hung(std::uint32_t data_read, TTDevice::HangAction action
 }
 
 bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
-    if (!hang_detector_) {
+    HangDetector *hang_detector = model_->get_hang_detector();
+    if (hang_detector == nullptr) {
         UMD_THROW(error::RuntimeError, "HangDetector is not available for this device.");
     }
-    auto result = hang_detector_->is_noc_hung(noc);
+    auto result = hang_detector->is_noc_hung(noc);
     if (!result.has_value()) {
         log_warning(LogUMD, "NOC hang detection is not supported for this device.");
         return false;
@@ -364,8 +367,8 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
     return false;
 }
 
-void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
-    hang_detector_ = std::move(hang_detector);
+void TTDevice::wire_hang_detector() {
+    HangDetector *hang_detector = model_->get_hang_detector();
 
     // The per-op timed MMIO path is PCIe-specific, so the hang-check wiring only applies to PCIe devices.
     if (model_->get_pcie_interface() == nullptr) {
@@ -374,7 +377,7 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
 
     // A null detector disables hang detection: clear any previously wired callback and stop before
     // dereferencing it below.
-    if (hang_detector_ == nullptr) {
+    if (hang_detector == nullptr) {
         get_pcie_interface()->set_io_timeout_callback({});
         return;
     }
@@ -387,9 +390,13 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
     // The liveness check runs from inside a timed-out memcpy that holds io_lock_, so it must read through a
     // dedicated, separately-locked window rather than the protocol's cached window. The window and lock live
     // in the lambda's capture; HangDetector only sees the std::function and stays unaware of either.
+    //
+    // get_io_window() is virtual and this runs during TTDevice's own construction, so it resolves to the
+    // base implementation. That is the right one: only a PCIe device gets this far (the guard above), and
+    // the sole override belongs to the simulation backends, which have no PCIe interface.
     auto window = std::shared_ptr<TlbWindow>(get_io_window({}, TlbMapping::UC));
     auto window_lock = std::make_shared<std::mutex>();
-    HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector_.get());
+    HangDetectorImplementation *hang_detector_impl = dynamic_cast<HangDetectorImplementation *>(hang_detector);
     UMD_ASSERT(
         hang_detector_impl != nullptr,
         error::RuntimeError,

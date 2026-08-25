@@ -11,6 +11,7 @@
 namespace tt::umd {
 
 class ArchitectureImplementation;
+class HangDetector;
 class JtagDevice;
 class SocArchDescriptor;
 class RemoteCommunication;
@@ -42,6 +43,8 @@ public:
 
     ArchitectureImplementation *get_architecture_impl() override;
 
+    HangDetector *get_hang_detector() override;
+
     SocArchDescriptor *get_soc_arch_descriptor() override;
 
     PcieInterface *get_pcie_interface() override;
@@ -60,6 +63,7 @@ private:
     int communication_device_id_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
+    std::unique_ptr<HangDetector> hang_detector_;
 
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;

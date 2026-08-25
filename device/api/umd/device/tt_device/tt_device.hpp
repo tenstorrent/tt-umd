@@ -577,8 +577,6 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
-    void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
-
     xy_pair arc_core_noc0;
     xy_pair arc_core_noc1;
 
@@ -594,6 +592,10 @@ protected:
 private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
+    // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness
+    // check, and gives the detector a separately-locked window to probe through.
+    void wire_hang_detector();
+
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();
@@ -603,7 +605,6 @@ private:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    std::unique_ptr<HangDetector> hang_detector_;
 };
 
 }  // namespace tt::umd

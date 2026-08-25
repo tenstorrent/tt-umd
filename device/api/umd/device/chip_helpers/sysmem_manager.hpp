@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/system_memory_allocator.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
@@ -23,10 +23,23 @@ namespace tt::umd {
 class PCIDevice;
 class TTDevice;
 
-class SysmemManager {
+class SysmemManager : public SystemMemoryAllocator {
 public:
     SysmemManager() = default;
-    virtual ~SysmemManager() = default;
+    ~SysmemManager() override = default;
+
+    /**
+     * SystemMemoryAllocator surface. These are the Base API Specification names; they forward to the
+     * allocate_sysmem_buffer() / map_sysmem_buffer() implementations below, which the legacy
+     * channel-based paths still call directly.
+     */
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override;
+
+    std::unique_ptr<SysmemBuffer> map_user_buffer(
+        void* user_ptr,
+        size_t size,
+        bool bind_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE) override;
 
     virtual void write_to_sysmem(uint16_t channel, const void* src, uint64_t sysmem_dest, uint32_t size);
     virtual void read_from_sysmem(uint16_t channel, void* dest, uint64_t sysmem_src, uint32_t size);
@@ -69,7 +82,7 @@ public:
      * Returns the identifier of the device context this manager pins memory for. A manager pins for
      * exactly one device and stamps this value into every buffer it produces.
      */
-    int get_communication_id() const { return communication_id_; }
+    int get_communication_id() const override { return communication_id_; }
 
     static uint64_t get_pcie_base_for_arch(tt::ARCH arch);
 

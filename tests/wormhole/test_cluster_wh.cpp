@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -16,6 +17,7 @@
 #include <string>
 #include <thread>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "tests/test_utils/device_test_utils.hpp"
@@ -58,12 +60,14 @@ static const std::vector<uint32_t> T6_X_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 
 static const std::vector<uint32_t> T6_Y_TRANSLATED_LOCATIONS = {18, 19, 20, 21, 22, 23, 24, 25, 26, 27};
 
 // Broadcast payload sizes, a single word up to 64 KiB, covering the chunking in
-// broadcast_write_to_cluster. Only the first broadcast test sweeps all of them; the rest take the
-// first, middle and last size, since repeating the full sweep multiplies out with the number of chips
-// without covering anything the first test does not.
+// broadcast_write_to_cluster. Only the first broadcast test sweeps all of them; repeating the full
+// sweep in the others multiplies out with the number of chips without covering anything new. The
+// reduced set keeps both extremes plus 256 words, which is the exact boundary of the
+// `size_in_bytes > 256 * DATA_WORD_SIZE` check deciding whether a remote write stages through host
+// DRAM, so a `>` vs `>=` slip there still fails.
 static const std::vector<uint32_t> BROADCAST_SIZES = {
     1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384};
-static const std::vector<uint32_t> REDUCED_BROADCAST_SIZES = {1, 128, 16384};
+static const std::vector<uint32_t> REDUCED_BROADCAST_SIZES = {1, 128, 256, 16384};
 
 static void set_barrier_params(Cluster& cluster) {
     // Populate address map and NOC parameters that the driver needs for memory barriers and remote transactions.
@@ -71,36 +75,51 @@ static void set_barrier_params(Cluster& cluster) {
         {tt::umd::wormhole::L1_BARRIER_BASE, tt::umd::wormhole::ERISC_BARRIER_BASE, DRAM_BARRIER_BASE});
 }
 
-// Two items from the front, two from the middle and two from the back, or all of them if there are
-// fewer than that. Used to sample a chip's core grid instead of sweeping all of it.
-template <typename T>
-static std::vector<T> sample_front_middle_back(const std::vector<T>& items) {
-    if (items.size() <= 6) {
-        return items;
-    }
-    const size_t middle = items.size() / 2 - 1;
-    return {items[0], items[1], items[middle], items[middle + 1], items[items.size() - 2], items.back()};
-}
-
-// The tensix cores to read back after a broadcast on one chip: a sample of the cores the broadcast
-// targets, i.e. the ones its row and column exclusions (expressed in `exclusion_coord_system`) do not
-// filter out. Reading back every core instead multiplies out with the number of broadcast sizes and
-// the number of chips, which on an all-MMIO Galaxy leaves these tests among the slowest in the suite
-// while re-checking the same broadcast rectangle on all 32 chips.
+// The tensix cores to read back after a broadcast on one chip. Reading back every targeted core
+// multiplies out with the number of broadcast sizes and the number of chips, which on an all-MMIO
+// Galaxy leaves these tests among the slowest in the suite while re-checking the same rectangle on
+// all 32 chips. Instead walk a staircase through the target rectangle: pair the i-th target row with
+// the i-th target column, cycling the shorter axis. That reads back every row and every column the
+// broadcast should reach, so a row or column strip wrongly dropped or added by the exclusion masks
+// still fails, at max(rows, columns) readbacks rather than rows x columns. Taking a contiguous run of
+// cores instead would not do: get_cores() is row major, so a short run collapses onto a couple of
+// rows and leaves whole columns unread - including the ones flanking an excluded column, which is
+// where an off-by-one in the masks shows up.
+//
+// `rows_to_exclude` and `cols_to_exclude` are the masks handed to the broadcast, expressed in
+// `exclusion_coord_system`. Returned cores are in the SocDescriptor's default coordinate system.
 static std::vector<CoreCoord> broadcast_readback_cores(
     const SocDescriptor& soc_desc,
     const std::set<uint32_t>& rows_to_exclude,
     const std::set<uint32_t>& cols_to_exclude,
     const CoordSystem exclusion_coord_system) {
-    std::vector<CoreCoord> broadcast_targets;
+    std::set<uint32_t> target_rows;
+    std::set<uint32_t> target_cols;
+    std::map<std::pair<uint32_t, uint32_t>, CoreCoord> targets_by_row_and_col;
     for (const CoreCoord& core : soc_desc.get_cores(CoreType::TENSIX)) {
         const CoreCoord excluded_coord = soc_desc.translate_coord_to(core, exclusion_coord_system);
-        if (rows_to_exclude.find(excluded_coord.y) == rows_to_exclude.end() &&
-            cols_to_exclude.find(excluded_coord.x) == cols_to_exclude.end()) {
-            broadcast_targets.push_back(core);
+        if (rows_to_exclude.count(excluded_coord.y) > 0 || cols_to_exclude.count(excluded_coord.x) > 0) {
+            continue;
+        }
+        target_rows.insert(excluded_coord.y);
+        target_cols.insert(excluded_coord.x);
+        targets_by_row_and_col.emplace(std::make_pair(excluded_coord.y, excluded_coord.x), core);
+    }
+    if (target_rows.empty() || target_cols.empty()) {
+        return {};
+    }
+
+    const std::vector<uint32_t> rows(target_rows.begin(), target_rows.end());
+    const std::vector<uint32_t> cols(target_cols.begin(), target_cols.end());
+    std::vector<CoreCoord> sampled;
+    for (size_t step = 0; step < std::max(rows.size(), cols.size()); step++) {
+        // Harvesting can leave the target set non-rectangular, so a row/column pair may not exist.
+        const auto target = targets_by_row_and_col.find({rows[step % rows.size()], cols[step % cols.size()]});
+        if (target != targets_by_row_and_col.end()) {
+            sampled.push_back(target->second);
         }
     }
-    return sample_front_middle_back(broadcast_targets);
+    return sampled;
 }
 
 TEST(ClusterWH, OneDramOneTensixNoEthSocDesc) {

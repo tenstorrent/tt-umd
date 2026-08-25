@@ -98,6 +98,22 @@ set_target_properties(
             lock_virus
 )
 
+# sim_server manages simulation host processes, so it is only built when the simulation backend is.
+if(TT_UMD_BUILD_SIMULATION)
+    add_executable(sim_server sim_server.cpp)
+    target_link_libraries(sim_server PRIVATE tools_common)
+    set_target_properties(
+        sim_server
+        PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY
+                ${CMAKE_BINARY_DIR}/tools/umd/
+            OUTPUT_NAME
+                sim_server
+    )
+    # The wrapper that backgrounds `start`; ships beside the binary, which is where it looks for it.
+    configure_file(sim_server.sh ${CMAKE_BINARY_DIR}/tools/umd/sim_server.sh COPYONLY USE_SOURCE_PERMISSIONS)
+endif()
+
 add_custom_target(
     umd_tools
     DEPENDS
@@ -109,3 +125,6 @@ add_custom_target(
         tlb_virus
         lock_virus
 )
+if(TT_UMD_BUILD_SIMULATION)
+    add_dependencies(umd_tools sim_server)
+endif()

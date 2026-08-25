@@ -24,6 +24,7 @@
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
@@ -63,7 +64,7 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     // PCIe device this is the same key BlackholeArcMessenger uses (its device-number argument
     // defaults the type to PCIe), so this path and the messenger - still alive for tests - exclude
     // each other; the messenger never worked over JTAG, where this adds the missing key.
-    lock_manager_.initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+    LockManager::initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
 
     // Resolve both ARC coordinates once. The NOC translation state they depend on is fixed for the
     // device's lifetime and is read over BAR/JTAG, so this does not need the firmware to be up.
@@ -129,7 +130,7 @@ DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
     }
 
     // Serializes against other processes messaging the same device's ARC.
-    auto lock = lock_manager_.acquire_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+    auto lock = LockManager::acquire_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
 
     std::vector<uint32_t> return_values;
     uint32_t exit_code = arc_msg_queue_->send_message((ArcMessageType)msg_code, return_values, args, timeout, noc_id);

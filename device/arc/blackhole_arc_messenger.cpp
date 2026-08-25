@@ -26,8 +26,7 @@ BlackholeArcMessenger::BlackholeArcMessenger(TTDevice* tt_device) : ArcMessenger
     JtagInterface* jtag_interface = is_jtag ? tt_device->get_jtag_interface() : nullptr;
     PcieInterface* pcie_interface = is_jtag ? nullptr : tt_device->get_pcie_interface();
 
-    arc_apb = std::make_unique<BlackholeArcApb>(
-        tt_device->get_device_protocol(), pcie_interface, jtag_interface, tt_device->get_architecture_implementation());
+    arc_apb = std::make_unique<BlackholeArcApb>(tt_device->get_device_protocol(), pcie_interface, jtag_interface);
 
     blackhole_arc_msg_queue = BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
         tt_device->get_device_protocol(),

@@ -189,7 +189,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
         device_io_addr,
         communication_id_,
         noc_addr,
-        [weak_reg, device_io_addr]() {
+        [weak_reg, device_io_addr](void*) {
             if (auto reg = weak_reg.lock()) {
                 std::lock_guard<std::mutex> lock(reg->mutex);
                 reg->buffers.erase(

@@ -22,6 +22,7 @@
 #include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 
@@ -59,7 +60,7 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
 
     // acquire_mutex() throws unless the mutex was initialized first, so claim it up front the way
     // ArcMessenger's constructor does.
-    lock_manager_.initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+    LockManager::initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
 
     // Resolve both ARC coordinates once. The NOC translation state they depend on is fixed for the
     // device's lifetime and is read over BAR/JTAG, so this does not need the firmware to be up.
@@ -123,7 +124,7 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
 DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
     uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id) {
     // Serializes against other processes messaging the same device's ARC.
-    auto lock = lock_manager_.acquire_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+    auto lock = LockManager::acquire_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
 
     if (arc_msg_queue_ == nullptr) {
         UMD_THROW(error::RuntimeError, "ARC message queue is unavailable because init_firmware() has not been run.");

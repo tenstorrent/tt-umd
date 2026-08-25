@@ -20,6 +20,7 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/common.hpp"
 #include "utils.hpp"
 
@@ -51,7 +52,7 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     // several topology discovery instances can reach the same remote chip through different local
     // chips, so a per-device lock would let concurrent messages interleave on that chip. This mirrors
     // WormholeArcMessenger::send_message and the TODO recorded there.
-    lock_manager_.initialize_mutex(MutexType::ARC_MSG);
+    LockManager::initialize_mutex(MutexType::ARC_MSG);
 
     // The ARC core is at a fixed NOC0 coordinate on Wormhole, so both coordinates are known without
     // reading anything from the device.
@@ -217,7 +218,7 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
 
     // Serializes against other processes messaging any device's ARC; see the constructor for why the
     // lock is system-wide on Wormhole.
-    auto lock = lock_manager_.acquire_mutex(MutexType::ARC_MSG);
+    auto lock = LockManager::acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     write_to_arc_apb(&fw_arg, wormhole::ARC_RESET_SCRATCH_RES0_OFFSET, sizeof(uint32_t), noc_id);

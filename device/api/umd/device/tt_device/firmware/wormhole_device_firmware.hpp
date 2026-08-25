@@ -16,7 +16,6 @@
 #include "umd/device/types/eth_training_status.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -110,10 +109,6 @@ private:
 
     WormholeArcWindow arc_apb_;
     WormholeArcWindow arc_csm_;
-
-    // Serializes ARC messages against other processes driving the same device, exactly as
-    // ArcMessenger does for the path this replaces.
-    LockManager lock_manager_;
 };
 
 }  // namespace tt::umd

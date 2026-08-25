@@ -17,7 +17,6 @@
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -103,10 +102,6 @@ private:
     tt_xy_pair arc_core_noc1_;
 
     BlackholeArcApb arc_apb_;
-
-    // Serializes ARC messages against other processes driving the same device, exactly as
-    // ArcMessenger does for the path this replaces.
-    LockManager lock_manager_;
 
     // Created by init_firmware(), not by the constructor: building it reads the queue descriptor
     // from the device, which the ARC firmware only publishes once it is up. Declared after arc_apb_

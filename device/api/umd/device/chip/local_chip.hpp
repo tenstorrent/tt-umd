@@ -83,7 +83,6 @@ private:
 
     std::unique_ptr<TLBManager> tlb_manager_;
     std::unique_ptr<SysmemManager> sysmem_manager_;
-    LockManager lock_manager_;
 
     // unique_lock is RAII, so if this member holds an object, the mutex is locked, if it is empty, the
     // mutex is unlocked.

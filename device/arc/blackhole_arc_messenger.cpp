@@ -42,7 +42,7 @@ uint32_t BlackholeArcMessenger::send_message(
     std::vector<uint32_t>& return_values,
     const std::vector<uint32_t>& args,
     const std::chrono::milliseconds timeout_ms) {
-    auto lock = lock_manager.acquire_mutex(
+    auto lock = LockManager::acquire_mutex(
         MutexType::ARC_MSG, tt_device->get_communication_device_id(), tt_device->get_communication_device_type());
     uint32_t exit_code = blackhole_arc_msg_queue->send_message(
         (ArcMessageType)msg_code, return_values, args, timeout_ms, get_selected_noc_id());

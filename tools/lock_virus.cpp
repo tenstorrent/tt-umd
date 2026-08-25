@@ -48,10 +48,10 @@ static void report_state(const std::string& mutex_name, const std::optional<std:
     }
 }
 
-static void report_device_locks(LockManager& lock_manager, int device_id, IODeviceType device_type) {
+static void report_device_locks(int device_id, IODeviceType device_type) {
     for (MutexType mutex_type : LockManager::CHIP_SPECIFIC_MUTEX_TYPES) {
-        lock_manager.initialize_mutex(mutex_type, device_id, device_type);
-        report_state(to_string(mutex_type), lock_manager.probe_mutex(mutex_type, device_id, device_type));
+        LockManager::initialize_mutex(mutex_type, device_id, device_type);
+        report_state(to_string(mutex_type), LockManager::probe_mutex(mutex_type, device_id, device_type));
     }
 }
 
@@ -105,15 +105,14 @@ static void spin_forever() {
 }
 
 static void hold_lock(MutexType mutex_type, std::optional<int> device_id, IODeviceType device_type) {
-    LockManager lock_manager;
     if (device_id.has_value()) {
-        lock_manager.initialize_mutex(mutex_type, *device_id, device_type);
-        auto lock = lock_manager.acquire_mutex(mutex_type, *device_id, device_type);
+        LockManager::initialize_mutex(mutex_type, *device_id, device_type);
+        auto lock = LockManager::acquire_mutex(mutex_type, *device_id, device_type);
         log_info(tt::LogUMD, "Holding lock — press Ctrl-C to release.");
         spin_forever();
     } else {
-        lock_manager.initialize_mutex(mutex_type);
-        auto lock = lock_manager.acquire_mutex(mutex_type);
+        LockManager::initialize_mutex(mutex_type);
+        auto lock = LockManager::acquire_mutex(mutex_type);
         log_info(tt::LogUMD, "Holding lock — press Ctrl-C to release.");
         spin_forever();
     }
@@ -190,12 +189,10 @@ int main(int argc, char* argv[]) {
             hold_lock(*mutex_type, device_id, device_type);
         }
 
-        LockManager lock_manager;
-
         log_info(tt::LogUMD, "=== System wide locks ===");
         for (MutexType mutex_type : LockManager::SYSTEM_WIDE_MUTEX_TYPES) {
-            lock_manager.initialize_mutex(mutex_type);
-            report_state(to_string(mutex_type), lock_manager.probe_mutex(mutex_type));
+            LockManager::initialize_mutex(mutex_type);
+            report_state(to_string(mutex_type), LockManager::probe_mutex(mutex_type));
         }
 
         std::vector<int> pcie_device_ids = PCIDevice::enumerate_devices();
@@ -203,7 +200,7 @@ int main(int argc, char* argv[]) {
         log_info(tt::LogUMD, "=== PCIe devices found ({}) ===", pcie_device_ids.size());
         for (int device_id : pcie_device_ids) {
             log_info(tt::LogUMD, "  device {}", device_id);
-            report_device_locks(lock_manager, device_id, IODeviceType::PCIe);
+            report_device_locks(device_id, IODeviceType::PCIe);
         }
 
         std::vector<int> jtag_device_ids = enumerate_jtag_devices();
@@ -211,7 +208,7 @@ int main(int argc, char* argv[]) {
         log_info(tt::LogUMD, "=== JTAG devices found ({}) ===", jtag_device_ids.size());
         for (int device_id : jtag_device_ids) {
             log_info(tt::LogUMD, "  device {}", device_id);
-            report_device_locks(lock_manager, device_id, IODeviceType::JTAG);
+            report_device_locks(device_id, IODeviceType::JTAG);
         }
     } catch (const std::exception& e) {
         log_error(tt::LogUMD, "Error: {}", e.what());

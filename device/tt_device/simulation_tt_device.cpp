@@ -24,6 +24,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
+#include "utils.hpp"
 
 namespace tt::umd {
 
@@ -154,6 +155,17 @@ void SimulationTTDevice::read_from_device(void* mem_ptr, CoreCoord core, uint64_
     } else {
         host_read(core, addr, mem_ptr, size);
     }
+}
+
+void SimulationTTDevice::read_from_device_reg(void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    read_from_device(mem_ptr, core, addr, size, noc_id);
+}
+
+void SimulationTTDevice::write_to_device_reg(
+    const void* mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
+    validate_register_access(addr, size);
+    write_to_device(mem_ptr, core, addr, size, noc_id);
 }
 
 void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* mem_ptr, size_t size) {

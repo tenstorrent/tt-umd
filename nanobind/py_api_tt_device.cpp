@@ -306,28 +306,30 @@ void bind_tt_device(nb::module_ &m) {
                 uint32_t value = 0;
                 {
                     nb::gil_scoped_release release;
-                    self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
+                    self.read_from_device_reg(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
                 return value;
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
-            "Read a 32-bit value from a core at the specified address")
+            "Read a 32-bit value from a core at the specified address. Goes over the register (UC) path, so "
+            "addr must be 4-byte aligned.")
         .def(
             "noc_write32",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value) -> void {
                 tt_xy_pair core = {core_x, core_y};
                 {
                     nb::gil_scoped_release release;
-                    self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
+                    self.write_to_device_reg(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 }
             },
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("value"),
-            "Write a 32-bit value to a core at the specified address")
+            "Write a 32-bit value to a core at the specified address. Goes over the register (UC) path, so "
+            "addr must be 4-byte aligned.")
         .def(
             "noc_read",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
@@ -646,6 +648,32 @@ void bind_tt_device(nb::module_ &m) {
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
             "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
         .def(
+            "noc_read_reg",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)
+                -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0");
+                }
+                PyBufferView view(buffer, /*writable=*/true);
+                void *data_ptr = view.writable_data();
+                size_t data_size = view.size();
+                tt_xy_pair core = {core_x, core_y};
+                {
+                    nb::gil_scoped_release release;
+                    self.read_from_device_reg(data_ptr, core, addr, data_size, get_selected_noc_id());
+                }
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("buffer"),
+            nb::sig("def noc_read_reg(self, noc_id: int, core_x: int, core_y: int, addr: int, buffer: bytearray | "
+                    "memoryview) -> None"),
+            "Read registers into the provided buffer from a core at the specified address. Unlike noc_read, this goes "
+            "over the uncached (UC) mapping with strict ordering, which is what NOC register space requires; addr and "
+            "the buffer size must be 4-byte aligned. noc_id must be 0 for now.")
+        .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)
                 -> void {
@@ -679,14 +707,15 @@ void bind_tt_device(nb::module_ &m) {
                 }
                 tt_xy_pair core = {core_x, core_y};
                 uint32_t value = 0;
-                self.read_from_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
+                self.read_from_device_reg(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
                 return value;
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
-            "Read a 32-bit value from a core at the specified address. noc_id must be 0 for now.")
+            "Read a 32-bit value from a core at the specified address. Goes over the register (UC) path, so "
+            "addr must be 4-byte aligned. noc_id must be 0 for now.")
         .def(
             "noc_write",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data)
@@ -710,6 +739,30 @@ void bind_tt_device(nb::module_ &m) {
                     "memoryview) -> None"),
             "Write arbitrary-length data to a core at the specified address. noc_id must be 0 for now.")
         .def(
+            "noc_write_reg",
+            [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data)
+                -> void {
+                if (noc_id != 0) {
+                    UMD_THROW(error::RuntimeError, "noc_id must be 0.");
+                }
+                PyBufferView buffer(data);
+                tt_xy_pair core = {core_x, core_y};
+                {
+                    nb::gil_scoped_release release;
+                    self.write_to_device_reg(buffer.readable_data(), core, addr, buffer.size(), get_selected_noc_id());
+                }
+            },
+            nb::arg("noc_id"),
+            nb::arg("core_x"),
+            nb::arg("core_y"),
+            nb::arg("addr"),
+            nb::arg("data"),
+            nb::sig("def noc_write_reg(self, noc_id: int, core_x: int, core_y: int, addr: int, data: bytes | bytearray "
+                    "| memoryview) -> None"),
+            "Write registers to a core at the specified address. Unlike noc_write, this goes over the uncached (UC) "
+            "mapping with strict ordering, which is what NOC register space requires; addr and the data size must be "
+            "4-byte aligned. noc_id must be 0 for now.")
+        .def(
             "noc_write32",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, uint32_t value)
                 -> void {
@@ -717,14 +770,15 @@ void bind_tt_device(nb::module_ &m) {
                     UMD_THROW(error::RuntimeError, "noc_id must be 0.");
                 }
                 tt_xy_pair core = {core_x, core_y};
-                self.write_to_device(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
+                self.write_to_device_reg(&value, core, addr, sizeof(uint32_t), get_selected_noc_id());
             },
             nb::arg("noc_id"),
             nb::arg("core_x"),
             nb::arg("core_y"),
             nb::arg("addr"),
             nb::arg("value"),
-            "Write a 32-bit value to a core at the specified address. noc_id must be 0 for now.")
+            "Write a 32-bit value to a core at the specified address. Goes over the register (UC) path, so "
+            "addr must be 4-byte aligned. noc_id must be 0 for now.")
         .def(
             "noc_broadcast",
             [](TTDevice &self, uint32_t noc_id, uint64_t addr, nb::handle data) -> void {

@@ -56,7 +56,7 @@ std::string probe_socket(const std::filesystem::path& socket_path) {
         return fmt::format(
             "{}/{}",
             tt::arch_to_str(static_cast<tt::ARCH>(info.arch)),
-            info.backend_type == SimulationBackendType::TTSim ? "ttsim" : "rtl");
+            info.backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl");
     } catch (const std::exception&) {
         return "";  // socket file present, but no live host answering
     }
@@ -141,7 +141,7 @@ int cmd_kill(int server_index) {
     SimulationClient client(it->sockets.begin()->second);
     client.attach();
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Shutdown;
+    request.command = SimulationServerCommand::SHUTDOWN;
     const SimulationServerResponse response = decode_response(client.transact(encode(request)));
     if (response.status != 0) {
         log_error(tt::LogUMD, "Server {} did not acknowledge shutdown (status {}).", server_index, response.status);

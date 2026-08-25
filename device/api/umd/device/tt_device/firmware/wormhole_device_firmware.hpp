@@ -26,7 +26,7 @@ class FirmwareInfoProvider;
 class JtagInterface;
 class PcieInterface;
 class RemoteInterface;
-class architecture_implementation;
+class ArchitectureImplementation;
 
 /**
  * @brief Wormhole management firmware implementation.
@@ -46,7 +46,7 @@ public:
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
         RemoteInterface* remote_interface,
-        architecture_implementation* architecture_impl,
+        ArchitectureImplementation* architecture_impl,
         FirmwareInfoProvider* firmware_info_provider);
 
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
@@ -98,7 +98,7 @@ private:
     PcieInterface* pcie_interface_ = nullptr;
     JtagInterface* jtag_interface_ = nullptr;
     RemoteInterface* remote_interface_ = nullptr;
-    architecture_implementation* architecture_impl_ = nullptr;
+    ArchitectureImplementation* architecture_impl_ = nullptr;
     FirmwareInfoProvider* firmware_info_provider_ = nullptr;
 
     // Names the ARC message mutex; taken from the protocol so it identifies this device, not the

@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
@@ -35,7 +36,7 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
-    architecture_implementation* architecture_impl,
+    ArchitectureImplementation* architecture_impl,
     FirmwareInfoProvider* firmware_info_provider) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
@@ -44,8 +45,8 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     architecture_impl_(architecture_impl),
     firmware_info_provider_(firmware_info_provider),
     device_id_(device_protocol->get_mmio_id()),
-    arc_apb_(device_protocol, pcie_interface, jtag_interface, remote_interface, architecture_impl),
-    arc_csm_(device_protocol, pcie_interface, jtag_interface, remote_interface, architecture_impl) {
+    arc_apb_(device_protocol, pcie_interface, jtag_interface, remote_interface),
+    arc_csm_(device_protocol, pcie_interface, jtag_interface, remote_interface) {
     // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one:
     // several topology discovery instances can reach the same remote chip through different local
     // chips, so a per-device lock would let concurrent messages interleave on that chip. This mirrors
@@ -102,8 +103,7 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
                 sizeof(arc_reset_scratch_status),
                 noc_id);
 
-            read_from_arc_apb(
-                &arc_post_code, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(arc_post_code), noc_id);
+            read_from_arc_apb(&arc_post_code, wormhole::ARC_RESET_SCRATCH_OFFSET, sizeof(arc_post_code), noc_id);
 
             uint32_t arc_csm_pcie_dma_request = 0;
             read_from_arc_csm(
@@ -295,7 +295,7 @@ ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
     // Wormhole reports harvesting through an ARC message rather than telemetry, and only the tensix
     // mask is available.
     DeviceCommandResult result = send_device_command(
-        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_arc_get_harvesting(),
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
         {0, 0},
         timeout::ARC_MESSAGE_TIMEOUT,
         noc_id);
@@ -454,11 +454,11 @@ void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
     uint32_t target_aiclk = 0;
     switch (state) {
         case ClockState::BUSY:
-            msg_code |= architecture_impl_->get_arc_message_arc_go_busy();
+            msg_code |= architecture_impl_->get_firmware_message_go_busy();
             target_aiclk = firmware_info_provider_->get_max_clock_freq().value_or(0);
             break;
         case ClockState::IDLE:
-            msg_code |= architecture_impl_->get_arc_message_arc_go_long_idle();
+            msg_code |= architecture_impl_->get_firmware_message_go_idle();
             target_aiclk = wormhole::AICLK_IDLE_VAL;
             break;
         default:
@@ -483,7 +483,7 @@ void WormholeDeviceFirmware::wait_for_aiclk_value(
         [&] {
             // Wormhole reads AICLK through an ARC message rather than telemetry.
             DeviceCommandResult result = send_device_command(
-                wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_get_aiclk(),
+                wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
                 {0, 0},
                 timeout::ARC_MESSAGE_TIMEOUT,
                 noc_id);

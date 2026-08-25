@@ -41,8 +41,7 @@
 
 namespace tt::umd {
 
-BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model) :
-    TTDevice(std::move(model), std::make_unique<BlackholeImplementation>()) {
+BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), BlackholeTTDevice::get_noc_translation_enabled()));

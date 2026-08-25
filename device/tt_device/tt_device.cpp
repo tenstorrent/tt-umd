@@ -67,9 +67,7 @@ constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(
-    std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {
     if (model_->get_pcie_interface() != nullptr) {
         // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
         lock_manager.initialize_mutex(
@@ -195,7 +193,7 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
 }
 #endif  // TT_UMD_BUILD_SIMULATION
 
-ArchitectureImplementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
+ArchitectureImplementation *TTDevice::get_architecture_implementation() { return model_->get_architecture_impl(); }
 
 // The nullptr check for capabilities in the APIs get_pci_device and get_remote_communication
 // exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
@@ -457,20 +455,20 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
+    if (dram_channel >= get_architecture_implementation()->get_dram_banks_number()) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
                 dram_channel,
-                architecture_impl_->get_dram_banks_number() - 1));
+                get_architecture_implementation()->get_dram_banks_number() - 1));
     }
     const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
     uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        std::vector<DramTrainingStatus> dram_training_status =
-            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
+        std::vector<DramTrainingStatus> dram_training_status = get_firmware_info_provider()->get_dram_training_status(
+            get_architecture_implementation()->get_dram_banks_number());
 
         if (dram_training_status.empty()) {
             log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
@@ -569,11 +567,15 @@ uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0;
     uint32_t high2_addr = 0;
     uint32_t low_addr = 0;
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(
+        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(
+        &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc_apb(
+        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     if (high2_addr > high1_addr) {
-        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
+        read_from_arc_apb(
+            &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
@@ -608,29 +610,31 @@ void TTDevice::advance_device_execution() {
 
 uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
     uint32_t tensix_risc_state;
-    read_from_device_reg(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    read_from_device_reg(
+        &tensix_risc_state, core, get_architecture_implementation()->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
 
 void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
-    write_to_device_reg(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    write_to_device_reg(
+        &risc_flags, core, get_architecture_implementation()->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     set_risc_reset_state(core, soft_reset_new);
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
-        soft_reset_new | (staggered_start ? architecture_impl_->get_soft_reset_staggered_start() : 0);
+        soft_reset_new | (staggered_start ? get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 

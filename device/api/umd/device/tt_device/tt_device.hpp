@@ -526,13 +526,12 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     LockManager lock_manager;
 
-    // Every TTDevice is built around a model, which supplies its identity, the protocol it talks to
-    // hardware over, its SoC architecture descriptor and -- as components are decoupled from
-    // TTDevice -- the components it runs on.
-    TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
+    // Every TTDevice is built around a model, which supplies its identity and the components it
+    // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
+    // architecture descriptor.
+    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 

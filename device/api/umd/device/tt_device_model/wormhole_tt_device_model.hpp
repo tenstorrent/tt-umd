@@ -10,6 +10,7 @@
 
 namespace tt::umd {
 
+class ArchitectureImplementation;
 class JtagDevice;
 class SocArchDescriptor;
 class RemoteCommunication;
@@ -37,6 +38,8 @@ public:
 
     DeviceProtocol *get_device_protocol() override;
 
+    ArchitectureImplementation *get_architecture_impl() override;
+
     SocArchDescriptor *get_soc_arch_descriptor() override;
 
     PcieInterface *get_pcie_interface() override;
@@ -54,6 +57,7 @@ public:
 private:
     int communication_device_id_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
 
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;

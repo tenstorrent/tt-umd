@@ -11,6 +11,7 @@
 
 namespace tt::umd {
 
+class ArchitectureImplementation;
 class DmaInterface;
 class FirmwareTelemetryReader;
 class HangDetector;
@@ -53,6 +54,8 @@ public:
 
     // Required components.
     virtual DeviceProtocol *get_device_protocol() = 0;
+
+    virtual ArchitectureImplementation *get_architecture_impl() = 0;
 
     // The model resolves this from what the caller supplied, or from its architecture's constants.
     virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;

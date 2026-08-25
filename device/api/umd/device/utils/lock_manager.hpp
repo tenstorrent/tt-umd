@@ -49,6 +49,10 @@ std::string to_string(MutexType mutex_type);
 // Locks are only ever added to the registry, never removed, and that is what makes the returned
 // std::unique_lock<MutexInterface> safe to hold for as long as the caller likes: the mutex it refers to stays where it
 // is for the lifetime of the process. Anything that removed locks again would leave every outstanding one dangling.
+//
+// Chip specific locks on a PCIe device are backed by a KMD resource lock, so that processes which share the device but
+// not /dev/shm still serialize against each other. Everything else - system wide locks and locks on a JTAG device - is
+// backed by RobustMutex, since a KMD resource lock exists only per local PCIe device.
 class LockManager {
 public:
     LockManager() = delete;
@@ -88,9 +92,16 @@ public:
         MutexType mutex_type, int device_id, IODeviceType device_type);
 
 private:
-    static void initialize_mutex_internal(const std::string& mutex_name);
-    static std::unique_lock<MutexInterface> acquire_mutex_internal(const std::string& mutex_name);
-    static std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
+    // Locks backed by a shared memory RobustMutex, addressed by their name.
+    static void initialize_robust_mutex(const std::string& mutex_name);
+    static std::unique_lock<MutexInterface> acquire_robust_mutex(const std::string& mutex_name);
+    static std::optional<std::pair<pid_t, pid_t>> probe_robust_mutex(const std::string& mutex_name);
+
+    // Locks backed by a KMD resource lock on the device owning the lock table. They take the shared memory lock as
+    // well, for as long as clients on an older UMD exist which know only about that one.
+    static void initialize_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    static std::unique_lock<MutexInterface> acquire_kmd_mutex(MutexType mutex_type, int pci_device_num);
+    static std::optional<std::pair<pid_t, pid_t>> probe_kmd_mutex(MutexType mutex_type, int pci_device_num);
 };
 
 }  // namespace tt::umd

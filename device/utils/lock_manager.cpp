@@ -45,13 +45,6 @@ void LockManager::initialize_mutex(MutexType mutex_type, int device_id, IODevice
     initialize_mutex_internal(mutex_name);
 }
 
-void LockManager::clear_mutex(MutexType mutex_type) { clear_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type)); }
-
-void LockManager::clear_mutex(MutexType mutex_type, int device_id, IODeviceType device_type) {
-    std::string mutex_name = get_mutex_name(mutex_type, device_id, device_type);
-    clear_mutex_internal(mutex_name);
-}
-
 std::unique_lock<MutexInterface> LockManager::acquire_mutex(MutexType mutex_type) {
     return acquire_mutex_internal(MUTEX_TYPE_TO_STRING.at(mutex_type));
 }
@@ -81,15 +74,6 @@ void LockManager::initialize_mutex_internal(const std::string& mutex_name) {
     std::unique_ptr<MutexInterface> mutex = std::make_unique<RobustMutex>(mutex_name);
     mutex->initialize();
     mutexes.emplace(mutex_name, std::move(mutex));
-}
-
-void LockManager::clear_mutex_internal(const std::string& mutex_name) {
-    if (mutexes.find(mutex_name) == mutexes.end()) {
-        log_warning(LogUMD, "Mutex not initialized or already cleared: {}", mutex_name);
-        return;
-    }
-    // The destructor will automatically close the underlying mutex.
-    mutexes.erase(mutex_name);
 }
 
 std::unique_lock<MutexInterface> LockManager::acquire_mutex_internal(const std::string& mutex_name) {

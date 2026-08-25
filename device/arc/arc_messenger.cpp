@@ -50,13 +50,4 @@ uint32_t ArcMessenger::send_message(
     return send_message(msg_code, return_values, args, timeout_ms);
 }
 
-ArcMessenger::~ArcMessenger() {
-    lock_manager.clear_mutex(
-        MutexType::ARC_MSG, tt_device->get_communication_device_id(), tt_device->get_communication_device_type());
-    lock_manager.clear_mutex(
-        MutexType::REMOTE_ARC_MSG,
-        tt_device->get_communication_device_id(),
-        tt_device->get_communication_device_type());
-}
-
 }  // namespace tt::umd

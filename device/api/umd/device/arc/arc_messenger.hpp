@@ -56,7 +56,7 @@ public:
         const std::vector<uint32_t>& args = {},
         const std::chrono::milliseconds timeout_ms = timeout::ARC_MESSAGE_TIMEOUT);
 
-    virtual ~ArcMessenger();
+    virtual ~ArcMessenger() = default;
 
 protected:
     /**

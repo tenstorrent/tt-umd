@@ -6,11 +6,12 @@
 
 #include <cstddef>
 #include <memory>
+#include <utility>
 
+#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/types/host_memory.hpp"
 
 namespace tt::umd {
-class SysmemBuffer;
 
 /**
  * Creates or maps device-visible host memory buffers for a single device.
@@ -65,6 +66,20 @@ public:
      * and stamps this value into every buffer it produces.
      */
     virtual int get_communication_id() const = 0;
+
+protected:
+    /**
+     * Creates a buffer. SysmemBuffer's constructors are private with this class as their only
+     * friend, so that buffers cannot be built outside an allocator — every buffer has to carry the
+     * device id and the cleanup behaviour of the allocator that pinned it.
+     *
+     * Friendship is not inherited, so derived allocators construct through this rather than calling the
+     * constructors themselves. Arguments are forwarded to the matching SysmemBuffer constructor.
+     */
+    template <typename... Args>
+    static std::unique_ptr<SysmemBuffer> create_buffer(Args&&... args) {
+        return std::unique_ptr<SysmemBuffer>(new SysmemBuffer(std::forward<Args>(args)...));
+    }
 };
 
 }  // namespace tt::umd

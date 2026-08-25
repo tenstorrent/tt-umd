@@ -40,54 +40,6 @@ public:
      */
     using Deleter = std::function<void(void*)>;
 
-    /**
-     * Constructor for SysmemBuffer. Start of the buffer must be aligned
-     * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
-     * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
-     * see a buffer of the original size. Same as for buffer size, user won't be able to access the memory before the
-     * start of the buffer, aligning is transparent to the user.
-     * Pages separated by | AB - Aligned buffer,
-     * UB - Unaligned buffer, UE - Unaligned end, AE - Aligned end
-     *
-     * |     Page 0     |     Page 1     |     Page 2     |     Page 3     |
-     * +----------------+----------------+----------------+----------------+
-     * ^                ^       ^                    ^    ^
-     * Page Start       AB      UB                   UE   AE
-     *                          |<--- buffer_size -->|
-     *                  |<----- mapped_buffer_size ----->|
-     *
-     * @param tt_device Pointer to the TTDevice. Used directly for DMA transfers, and to access the underlying
-     * PCIDevice for mapping/unmapping and TLB allocation.
-     * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
-     * @param buffer_size Size of the buffer requested by the user.
-     * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
-     * @param release_backing_memory Optional callable that frees the pages behind buffer_va, invoked after
-     * the buffer has been unpinned from the device. Pass it when the allocator owns the memory it is handing
-     * over; leave it empty when the caller owns the memory and only wants it unpinned on destruction.
-     */
-    SysmemBuffer(
-        TTDevice* tt_device,
-        void* buffer_va,
-        size_t buffer_size,
-        bool map_to_noc = false,
-        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
-        Deleter release_backing_memory = {});
-    /**
-     * Constructor for a buffer that was already made visible to the device by the caller.
-     *
-     * @param communication_id Identifier of the device this buffer's IOVA is valid for. Supplied by the
-     * allocator, which pins for exactly one device. Matches TTDevice::get_communication_device_id().
-     * @param deleter Cleanup callable invoked on destruction with the page-aligned start of the buffer.
-     * Defaults to releasing nothing, since this constructor takes a mapping the caller already owns.
-     */
-    SysmemBuffer(
-        void* buffer_va,
-        size_t buffer_size,
-        uint64_t device_io_addr,
-        int communication_id,
-        std::optional<uint64_t> noc_addr = std::nullopt,
-        Deleter deleter = {},
-        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
     ~SysmemBuffer();
 
     /**
@@ -177,6 +129,60 @@ public:
     void dma_read_from_device(size_t offset, size_t size, tt_xy_pair core, uint64_t addr);
 
 private:
+    // Buffers are created only by an allocator, which pins for exactly one device and stamps that
+    // device's id into every buffer it produces. SystemMemoryAllocator constructs through its
+    // protected create_buffer() helper.
+    friend class SystemMemoryAllocator;
+
+    /**
+     * Constructor for SysmemBuffer. Start of the buffer must be aligned
+     * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
+     * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
+     * see a buffer of the original size. Same as for buffer size, user won't be able to access the memory before the
+     * start of the buffer, aligning is transparent to the user.
+     * Pages separated by | AB - Aligned buffer,
+     * UB - Unaligned buffer, UE - Unaligned end, AE - Aligned end
+     *
+     * |     Page 0     |     Page 1     |     Page 2     |     Page 3     |
+     * +----------------+----------------+----------------+----------------+
+     * ^                ^       ^                    ^    ^
+     * Page Start       AB      UB                   UE   AE
+     *                          |<--- buffer_size -->|
+     *                  |<----- mapped_buffer_size ----->|
+     *
+     * @param tt_device Pointer to the TTDevice. Used directly for DMA transfers, and to access the underlying
+     * PCIDevice for mapping/unmapping and TLB allocation.
+     * @param buffer_va Pointer to the virtual address of the buffer in the process address space.
+     * @param buffer_size Size of the buffer requested by the user.
+     * @param map_to_noc If true, the buffer will be mapped to be accessible over NOC from device.
+     * @param release_backing_memory Optional callable that frees the pages behind buffer_va, invoked after
+     * the buffer has been unpinned from the device. Pass it when the allocator owns the memory it is handing
+     * over; leave it empty when the caller owns the memory and only wants it unpinned on destruction.
+     */
+    SysmemBuffer(
+        TTDevice* tt_device,
+        void* buffer_va,
+        size_t buffer_size,
+        bool map_to_noc = false,
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
+        Deleter release_backing_memory = {});
+    /**
+     * Constructor for a buffer that was already made visible to the device by the caller.
+     *
+     * @param communication_id Identifier of the device this buffer's IOVA is valid for. Supplied by the
+     * allocator, which pins for exactly one device. Matches TTDevice::get_communication_device_id().
+     * @param deleter Cleanup callable invoked on destruction with the page-aligned start of the buffer.
+     * Defaults to releasing nothing, since this constructor takes a mapping the caller already owns.
+     */
+    SysmemBuffer(
+        void* buffer_va,
+        size_t buffer_size,
+        uint64_t device_io_addr,
+        int communication_id,
+        std::optional<uint64_t> noc_addr = std::nullopt,
+        Deleter deleter = {},
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
+
     /**
      * Aligns the address and size of the buffer to the page size. If the buffer is not aligned to the page size,
      * it will be aligned and the size will be adjusted accordingly. The original buffer size will not be changed.

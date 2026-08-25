@@ -183,7 +183,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     // Capture a weak_ptr so the unmap callback is a safe no-op if the manager
     // has already been destroyed (unpin_or_unmap_sysmem clears the registry).
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
-    return std::make_unique<SysmemBuffer>(
+    return create_buffer(
         buffer,
         sysmem_buffer_size,
         device_io_addr,

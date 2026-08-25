@@ -450,7 +450,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
     // This mapping belongs to the buffer, so hand it a deleter that frees it. mmap returns a page-aligned
     // address, so the pointer the deleter receives is the one to munmap.
     const size_t mapping_size = sysmem_buffer_size;
-    return std::make_unique<SysmemBuffer>(
+    return create_buffer(
         tt_device_,
         mapping,
         sysmem_buffer_size,
@@ -471,7 +471,7 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(
     void *buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     log_debug(LogUMD, "Mapping sysmem buffer to NOC: {:#x}", sysmem_buffer_size);
-    return std::make_unique<SysmemBuffer>(tt_device_, buffer, sysmem_buffer_size, map_to_noc, device_access);
+    return create_buffer(tt_device_, buffer, sysmem_buffer_size, map_to_noc, device_access);
 }
 
 }  // namespace tt::umd

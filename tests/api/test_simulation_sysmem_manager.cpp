@@ -101,6 +101,26 @@ TEST(ApiSimulationSysmemManager, TestFourChannels) {
     }
 }
 
+namespace {
+
+// SysmemBuffer's constructors are private to allocators. Tests that need a hand-built buffer —
+// with a specific deleter or NOC address — go through a minimal allocator of their own rather than
+// weakening the encapsulation.
+class TestBufferFactory : public SystemMemoryAllocator {
+public:
+    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t, bool) override { return nullptr; }
+
+    std::unique_ptr<SysmemBuffer> map_user_buffer(void*, size_t, bool, DeviceBufferAccess) override {
+        return nullptr;
+    }
+
+    int get_communication_id() const override { return 0; }
+
+    using SystemMemoryAllocator::create_buffer;
+};
+
+}  // namespace
+
 // A buffer owns its memory through a deleter composed at construction. The deleter must run exactly
 // once, and it must receive the page-aligned start of the mapping rather than the caller's VA — that
 // is the address the pages were pinned at and the one that has to be released.
@@ -116,14 +136,14 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
     int deleter_calls = 0;
     void* deleter_saw = nullptr;
     {
-        SysmemBuffer buffer(
+        auto buffer = TestBufferFactory::create_buffer(
             user_va, 128, /*device_io_addr=*/0x1000, /*communication_id=*/7, std::nullopt, [&](void* released) {
                 ++deleter_calls;
                 deleter_saw = released;
             });
 
-        EXPECT_EQ(buffer.get_buffer_va(), user_va);
-        EXPECT_EQ(buffer.get_buffer_size(), 128u);
+        EXPECT_EQ(buffer->get_buffer_va(), user_va);
+        EXPECT_EQ(buffer->get_buffer_size(), 128u);
         EXPECT_EQ(deleter_calls, 0);
     }
 
@@ -136,30 +156,30 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
 TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
     std::vector<uint8_t> backing(4096, 0);
 
-    SysmemBuffer buffer(
+    auto buffer = TestBufferFactory::create_buffer(
         backing.data(),
         backing.size(),
         /*device_io_addr=*/0x1000,
         /*communication_id=*/2,
         std::optional<uint64_t>(0x1234));
 
-    EXPECT_NO_THROW(buffer.bind_noc_address());
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+    EXPECT_NO_THROW(buffer->bind_noc_address());
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
 
     // Idempotent.
-    EXPECT_NO_THROW(buffer.bind_noc_address());
-    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+    EXPECT_NO_THROW(buffer->bind_noc_address());
+    EXPECT_EQ(buffer->get_noc_addr().value(), 0x1234u);
 }
 
 // A buffer whose pages were not pinned with NOC access can never be given a NOC address, so asking
 // must fail loudly rather than leave the caller believing the buffer is reachable over the NOC.
 TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
     std::vector<uint8_t> backing(4096, 0);
-    SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x1000, /*communication_id=*/2);
+    auto buffer = TestBufferFactory::create_buffer(backing.data(), backing.size(), /*device_io_addr=*/0x1000, 2);
 
-    EXPECT_FALSE(buffer.get_noc_addr().has_value());
-    EXPECT_THROW(buffer.bind_noc_address(), std::exception);
-    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+    EXPECT_FALSE(buffer->get_noc_addr().has_value());
+    EXPECT_THROW(buffer->bind_noc_address(), std::exception);
+    EXPECT_FALSE(buffer->get_noc_addr().has_value());
 }
 
 // A buffer given no deleter must still destruct cleanly. unique_ptr with an empty std::function
@@ -167,7 +187,7 @@ TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
 TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {
     std::vector<uint8_t> backing(4096, 0);
     EXPECT_NO_THROW({
-        SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x2000, /*communication_id=*/1);
+        auto buffer = TestBufferFactory::create_buffer(backing.data(), backing.size(), /*device_io_addr=*/0x2000, 1);
     });
 }
 

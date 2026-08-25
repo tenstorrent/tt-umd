@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -29,6 +30,8 @@
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -1372,16 +1375,29 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     return it->second;
 }
 
+namespace {
+
+// High nibble of the PCI bus id identifies which UBB tray a chip sits on.
+std::optional<uint8_t> ubb_tray_id(const std::array<uint16_t, 4> &tray_bus_ids, const uint16_t bus_id) {
+    const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
+    const auto it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(), bus_high);
+    if (it == tray_bus_ids.end()) {
+        return std::nullopt;
+    }
+    return static_cast<uint8_t>(std::distance(tray_bus_ids.begin(), it) + 1);
+}
+
+}  // namespace
+
 std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
-    const BoardType board = get_board_type(chip_id);
-    if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
-        return std::nullopt;
+    switch (get_board_type(chip_id)) {
+        case BoardType::UBB_WORMHOLE:
+            return ubb_tray_id(wormhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
+        case BoardType::UBB_BLACKHOLE:
+            return ubb_tray_id(blackhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
+        default:
+            return std::nullopt;
     }
-    auto arch_impl = ArchitectureImplementation::create(get_arch(chip_id));
-    if (!arch_impl) {
-        return std::nullopt;
-    }
-    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
 }
 
 const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }

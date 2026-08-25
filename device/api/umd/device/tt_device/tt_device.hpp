@@ -20,6 +20,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -576,9 +577,11 @@ protected:
 
     virtual void set_arc_coordinate() {}
 
-private:
-    void probe_arc();
+    // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
+    // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.
+    virtual void probe_arc() {}
 
+private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);

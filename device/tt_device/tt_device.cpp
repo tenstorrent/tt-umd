@@ -22,6 +22,7 @@
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/driver_atomics.hpp"
 #include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
@@ -116,11 +117,6 @@ TTDevice::TTDevice(
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_capabilities_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
-}
-
-void TTDevice::probe_arc() {
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy));  // SCRATCH_0
 }
 
 void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
@@ -476,12 +472,11 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     }
 
     // Caller didn't specify a size — try arch-supported sizes in preference order.
-    const std::vector<size_t> &possible_sizes = get_architecture_implementation()->get_tlb_sizes();
-    for (const auto &s : possible_sizes) {
+    for (const TlbSizeClass &size_class : get_architecture_tlbs(arch).size_classes) {
         try {
-            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(s, mapping), config);
+            return std::make_unique<SiliconTlbWindow>(pci->allocate_tlb(size_class.size, mapping), config);
         } catch (const std::exception &e) {
-            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", s, e.what());
+            log_debug(LogUMD, "Failed to allocate TLB window of size {}: {}", size_class.size, e.what());
         }
     }
 
@@ -611,11 +606,11 @@ uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0;
     uint32_t high2_addr = 0;
     uint32_t low_addr = 0;
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_arc_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     if (high2_addr > high1_addr) {
-        read_from_arc_apb(&low_addr, architecture_impl_->get_arc_reset_unit_refclk_low_offset(), sizeof(low_addr));
+        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }

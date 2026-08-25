@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <optional>
 
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/types/noc_id.hpp"
 
 namespace tt::umd {

@@ -231,9 +231,6 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
         GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
     }
-    if (!PCIDevice(pci_device_ids[0]).is_mapping_buffer_to_noc_supported()) {
-        GTEST_SKIP() << "Skipping test since KMD doesn't support noc address mapping.";
-    }
 
     std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
 
@@ -298,9 +295,6 @@ TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {
     if (!sysmem_manager->is_read_only_page_pinning_supported()) {
         GTEST_SKIP() << "Device-read-only page pinning requires an active IOMMU and KMD "
                      << KMD_READ_ONLY_PAGE_PINNING.str() << " or newer.";
-    }
-    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
-        GTEST_SKIP() << "KMD does not support mapping host buffers to NOC.";
     }
 
     const size_t mapping_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));

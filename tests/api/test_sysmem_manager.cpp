@@ -7,6 +7,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -224,6 +225,55 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
+}
+
+// Host-side copies must land at the user's VA, not at the page-aligned start the buffer
+// pins internally. This uses a deliberately unaligned mapping to exercise that.
+TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const size_t mmap_size = 2 * sysconf(_SC_PAGESIZE);
+    const size_t buf_offset = 10;  // Deliberately not page aligned.
+    const size_t buf_size = 128;
+
+    void* mapping = mmap(nullptr, mmap_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
+    ASSERT_NE(mapping, MAP_FAILED);
+
+    void* mapped_buffer = static_cast<uint8_t*>(mapping) + buf_offset;
+
+    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapped_buffer, buf_size);
+
+    const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
+
+    sysmem_buffer->write_to_sysmem(pattern.data(), pattern.size(), 0);
+    // The bytes must be visible at the caller's VA, which is the unaligned one.
+    EXPECT_EQ(0, std::memcmp(mapped_buffer, pattern.data(), pattern.size()));
+
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    sysmem_buffer->read_from_sysmem(readback.data(), readback.size(), 0);
+    EXPECT_EQ(pattern, readback);
+
+    const size_t offset = 64;
+    sysmem_buffer->write_to_sysmem(pattern.data(), pattern.size(), offset);
+    std::fill(readback.begin(), readback.end(), 0);
+    sysmem_buffer->read_from_sysmem(readback.data(), readback.size(), offset);
+    EXPECT_EQ(pattern, readback);
+
+    // Bounds are the user-requested size, not the larger page-aligned mapping.
+    EXPECT_THROW(sysmem_buffer->write_to_sysmem(pattern.data(), 1, buf_size), std::exception);
+    EXPECT_THROW(sysmem_buffer->read_from_sysmem(readback.data(), 2, buf_size - 1), std::exception);
+
+    sysmem_buffer.reset();
+    munmap(mapping, mmap_size);
 }
 
 TEST(ApiSysmemManager, SysmemBufferNocAddress) {

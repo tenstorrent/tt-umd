@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -116,6 +117,18 @@ void SysmemBuffer::align_address_and_size() {
     offset_from_aligned_addr_ = reinterpret_cast<uint64_t>(buffer_va_) - aligned_buffer_va;
     buffer_va_ = reinterpret_cast<void*>(aligned_buffer_va);
     mapped_buffer_size_ = (mapped_buffer_size_ + offset_from_aligned_addr_ + page_size - 1) & ~(page_size - 1);
+}
+
+void SysmemBuffer::write_to_sysmem(const void* src, const size_t size, const size_t offset) {
+    ZoneScopedC(tracy::Color::Yellow);
+    validate(offset, size);
+    memcpy(static_cast<uint8_t*>(get_buffer_va()) + offset, src, size);
+}
+
+void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t offset) {
+    ZoneScopedC(tracy::Color::Yellow);
+    validate(offset, size);
+    memcpy(dest, static_cast<const uint8_t*>(get_buffer_va()) + offset, size);
 }
 
 void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }

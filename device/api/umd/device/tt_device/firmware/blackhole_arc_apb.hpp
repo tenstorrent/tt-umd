@@ -14,7 +14,6 @@ namespace tt::umd {
 class DeviceProtocol;
 class JtagInterface;
 class PcieInterface;
-class ArchitectureImplementation;
 
 /**
  * @brief Access to the Blackhole ARC APB register window.
@@ -28,11 +27,16 @@ class ArchitectureImplementation;
  */
 class BlackholeArcApb {
 public:
-    BlackholeArcApb(
-        DeviceProtocol* device_protocol,
-        PcieInterface* pcie_interface,
-        JtagInterface* jtag_interface,
-        ArchitectureImplementation* architecture_impl);
+    /**
+     * @brief Builds ARC APB access over one communication protocol.
+     * @param device_protocol Protocol to issue NOC accesses through. Required.
+     * @param pcie_interface BAR access, when the device is reached over PCIe.
+     * @param jtag_interface JTAG access, when the device is reached over JTAG.
+     *
+     * Exactly one of pcie_interface and jtag_interface must be given: which one is present is how
+     * the route is picked, and a TTDevice is built for exactly one communication protocol.
+     */
+    BlackholeArcApb(DeviceProtocol* device_protocol, PcieInterface* pcie_interface, JtagInterface* jtag_interface);
 
     /**
      * @brief Reads from the ARC APB window.
@@ -63,7 +67,6 @@ private:
     DeviceProtocol* device_protocol_ = nullptr;
     PcieInterface* pcie_interface_ = nullptr;
     JtagInterface* jtag_interface_ = nullptr;
-    ArchitectureImplementation* architecture_impl_ = nullptr;
 };
 
 }  // namespace tt::umd

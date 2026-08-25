@@ -73,7 +73,8 @@ protected:
             }));
         // The ARC tile is reachable over AXI, so APB accesses land on the BAR and never disturb the
         // data path the queue uses.
-        ON_CALL(pcie_, bar_read32(arch_.get_read_checking_offset())).WillByDefault(Return(11));
+        ON_CALL(pcie_, bar_read32(blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + blackhole::NOC_NODE_ID_OFFSET))
+            .WillByDefault(Return(11));
     }
 
     // Pre-arms the response the firmware would have published, so pop_response returns immediately.
@@ -86,7 +87,6 @@ protected:
         }
     }
 
-    blackhole_implementation arch_;
     NiceMock<MockDeviceProtocol> protocol_;
     NiceMock<MockPcieInterface> pcie_;
     NiceMock<MockJtagInterface> jtag_;
@@ -94,7 +94,7 @@ protected:
 };
 
 TEST_F(BlackholeArcMessageQueueTest, SendMessagePushesRequestAndReturnsResponse) {
-    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr, &arch_);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
     BlackholeArcMessageQueue queue(&protocol_, &apb, QUEUE_BASE, QUEUE_ENTRIES, /*noc_translation_enabled=*/false);
 
     publish_response(/*status=*/0, /*payload=*/0x1234, /*return_values=*/{0xAA, 0xBB});
@@ -123,7 +123,7 @@ TEST_F(BlackholeArcMessageQueueTest, SendMessagePushesRequestAndReturnsResponse)
 }
 
 TEST_F(BlackholeArcMessageQueueTest, SendMessageTriggersFirmwareInterrupt) {
-    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr, &arch_);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
     BlackholeArcMessageQueue queue(&protocol_, &apb, QUEUE_BASE, QUEUE_ENTRIES, /*noc_translation_enabled=*/false);
 
     publish_response(/*status=*/0, /*payload=*/0, /*return_values=*/{});
@@ -137,7 +137,7 @@ TEST_F(BlackholeArcMessageQueueTest, SendMessageTriggersFirmwareInterrupt) {
 }
 
 TEST_F(BlackholeArcMessageQueueTest, SendMessageRejectsMoreThanSevenArguments) {
-    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr, &arch_);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
     BlackholeArcMessageQueue queue(&protocol_, &apb, QUEUE_BASE, QUEUE_ENTRIES, /*noc_translation_enabled=*/false);
 
     std::vector<uint32_t> return_values;
@@ -150,7 +150,7 @@ TEST_F(BlackholeArcMessageQueueTest, SendMessageRejectsMoreThanSevenArguments) {
 }
 
 TEST_F(BlackholeArcMessageQueueTest, SendMessageThrowsOnFirmwareErrorStatus) {
-    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr, &arch_);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
     BlackholeArcMessageQueue queue(&protocol_, &apb, QUEUE_BASE, QUEUE_ENTRIES, /*noc_translation_enabled=*/false);
 
     // 0xFF is the "message not recognized" status.
@@ -164,7 +164,7 @@ TEST_F(BlackholeArcMessageQueueTest, SendMessageThrowsOnFirmwareErrorStatus) {
 
 // The queue holds no NOC state: the ARC core it targets is derived from the NOC of each call.
 TEST_F(BlackholeArcMessageQueueTest, TargetsTheArcCoreForTheRequestedNoc) {
-    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr, &arch_);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
     BlackholeArcMessageQueue queue(&protocol_, &apb, QUEUE_BASE, QUEUE_ENTRIES, /*noc_translation_enabled=*/false);
 
     publish_response(/*status=*/0, /*payload=*/0, /*return_values=*/{});
@@ -184,7 +184,7 @@ TEST_F(BlackholeArcMessageQueueTest, TargetsTheArcCoreForTheRequestedNoc) {
 
 // The queue descriptor is read from ARC scratch and decoded into a base address and entry count.
 TEST_F(BlackholeArcMessageQueueTest, FactoryDecodesTheQueueDescriptor) {
-    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr, &arch_);
+    BlackholeArcApb apb(&protocol_, &pcie_, /*jtag_interface=*/nullptr);
 
     constexpr uint32_t CONTROL_BLOCK_ADDR = 0x50000;
     constexpr uint32_t FIRST_QUEUE_BASE = 0x60000;
@@ -226,7 +226,7 @@ TEST_F(BlackholeArcMessageQueueTest, FactoryDecodesTheQueueDescriptor) {
 
 // Over JTAG the descriptor is read as two 32-bit MMIO accesses instead of one 64-bit NOC read.
 TEST_F(BlackholeArcMessageQueueTest, FactoryReadsTheDescriptorOverJtagWhenPresent) {
-    BlackholeArcApb apb(&protocol_, /*pcie_interface=*/nullptr, &jtag_, &arch_);
+    BlackholeArcApb apb(&protocol_, /*pcie_interface=*/nullptr, &jtag_);
 
     constexpr uint32_t CONTROL_BLOCK_ADDR = 0x50000;
     constexpr uint32_t FIRST_QUEUE_BASE = 0x60000;

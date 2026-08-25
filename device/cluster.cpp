@@ -247,12 +247,16 @@ std::unique_ptr<Chip> Cluster::construct_chip_from_cluster(
 #ifdef TT_UMD_BUILD_EMULE
         // Pass the chip's globally stable unique id (NOT chip_id, which cluster_desc renumbers to
         // 0..N-1 per visible-device subset) so a shared L1 segment can be keyed on it.
+        // Only an AUTHENTIC id may name a shared segment. When the descriptor had no
+        // chip_unique_ids block it synthesizes them per-process (chip << 32, or the logical id for
+        // mock), so two ranks each holding a different physical chip 0 would compute the same key
+        // and attach to each other's L1 -- the exact collision the uid is meant to prevent.
         std::optional<uint64_t> chip_uid;
-        if (cluster_desc != nullptr) {
+        if (cluster_desc->has_authentic_chip_unique_ids()) {
             const auto& uids = cluster_desc->get_chip_unique_ids();
             auto it = uids.find(chip_id);
             if (it != uids.end()) {
-                chip_uid = it->second;  // 0 is a legitimate id: the legacy descriptor computes chip << 32
+                chip_uid = it->second;  // 0 is a legitimate id here: the key came from the descriptor
             }
         }
         // Whether a missing identity is fatal depends on whether shared backing was requested, and

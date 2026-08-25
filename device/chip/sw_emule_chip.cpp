@@ -8,7 +8,6 @@
 #include <cstring>
 #include <mutex>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
@@ -17,14 +16,27 @@
 #include "tt_emule/l1_pool.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/soc_descriptor.hpp"
-#include "umd/device/utils/error_detail.hpp"
+#include "umd/device/types/noc_id.hpp"
+#include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
 
+std::unordered_map<tt_xy_pair, size_t> build_worker_slot_map(const SocDescriptor& soc_descriptor) {
+    // TRANSLATED, because that is the naming get_core() resolves in: write_to_device normalizes
+    // every incoming CoreCoord to it before looking a core up. The descriptor's core order is a
+    // deterministic walk, so this map is identical in every process given the same descriptor and
+    // harvesting mask -- which is what makes a slot index a portable identity.
+    const auto tensix = soc_descriptor.get_cores(tt::CoreType::TENSIX, CoordSystem::TRANSLATED);
+    std::unordered_map<tt_xy_pair, size_t> slot_of;
+    slot_of.reserve(tensix.size());
+    for (size_t i = 0; i < tensix.size(); ++i) {
+        slot_of[tt_xy_pair(tensix[i].x, tensix[i].y)] = i;
+    }
+    return slot_of;
+}
+
 // Out-of-line destructor — tt_emule::Core and L1Pool must be complete for unique_ptr destruction.
 SWEmuleChip::~SWEmuleChip() = default;
-
-SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor) : SWEmuleChip(soc_descriptor, std::nullopt) {}
 
 SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint64_t> chip_uid) :
     Chip(soc_descriptor.arch),
@@ -44,26 +56,14 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
     // resting on it implicitly.
     assert(dram_bank_size_ < SysmemManager::get_pcie_base_for_arch(soc_descriptor.arch));
 
-    // One slot per Tensix core (all coord namings for a worker resolve to one Core, and
-    // only WORKER cores use the pool), so num_tensix is an exact bound — no padding.
-    //
-    // TRANSLATED, because that is the naming get_core() is keyed on. The descriptor's core order is
-    // a deterministic row-major walk, so this map is identical in every process given the same
-    // descriptor + harvesting mask — which is what makes a slot index a portable identity.
-    const auto tensix = soc.get_cores(tt::CoreType::TENSIX, CoordSystem::TRANSLATED);
-    // TRANSLATED only, and deliberately not aliased into other namings. get_core() is reached through
-    // write_to_device, which passes a CoreCoord's raw x/y and drops both its coord_system and its
-    // core_type -- so a raw {x,y} key cannot say which space it came from. Aliasing would then be
-    // unsound in two ways on Blackhole: logical Tensix (1,2) and translated (1,2) can be different
-    // workers, and logical TENSIX (0,0) collides with logical PCIE/ARC (0,0), which would resolve a
-    // non-Tensix access into a pooled slot. Keying on one naming keeps a wrong answer impossible; the
-    // cost is that an access expressed in another naming misses the pool and is reported below.
-    for (size_t i = 0; i < tensix.size(); ++i) {
-        slot_of_[tt_xy_pair(tensix[i].x, tensix[i].y)] = i;
-    }
-    size_t pool_size = (!tensix.empty() ? tensix.size() : 128);  // 128 = WH/BH fallback if SOC reports 0
-    // A slot must hold a whole core's L1. Quasar's worker_l1_size (4 MiB) exceeds L1Pool's 2 MB
-    // slot stride, which would silently overrun into the next core's slot.
+    // One slot per Tensix core, and only WORKER cores use the pool, so num_tensix is an exact
+    // bound. No fallback for an empty core list: nothing could index those slots, and the pool
+    // sits in the scarce low-4 GB MAP_32BIT window where over-sizing costs mesh capacity.
+    slot_of_ = build_worker_slot_map(soc);
+    const size_t pool_size = slot_of_.size();
+    // A slot must hold a whole core's L1. A descriptor whose worker_l1_size exceeds the slot stride
+    // (e.g. tests/soc_descs/quasar_simulation_1x1.yaml, 4 MiB) would silently overrun into the next
+    // core's slot, so refuse it at construction.
     if (static_cast<size_t>(l1_size_) > tt_emule::L1Pool::SLOT_SIZE) {
         UMD_THROW(
             error::RuntimeError,
@@ -107,9 +107,9 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
     }
 }
 
-size_t SWEmuleChip::slot_of(tt_xy_pair core_xy) const {
-    auto it = slot_of_.find(core_xy);
-    return (it == slot_of_.end()) ? SIZE_MAX : it->second;
+std::optional<size_t> SWEmuleChip::slot_of(tt_xy_pair translated_core_xy) const {
+    auto it = slot_of_.find(translated_core_xy);
+    return (it == slot_of_.end()) ? std::nullopt : std::optional<size_t>(it->second);
 }
 
 size_t SWEmuleChip::num_pool_slots() const { return worker_pool_ ? worker_pool_->num_slots() : 0; }
@@ -139,9 +139,8 @@ tt_emule::Core* SWEmuleChip::get_dram_channel_backing(uint32_t channel) {
 tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     std::lock_guard<std::mutex> lock(core_mutex_);
 
-    // Keyed on raw (x,y): callers must use one canonical naming per worker (today
-    // TRANSLATED) — a tile's names share one L1 on silicon, so two encodings for the same
-    // worker must not split it into two Core backings.
+    // Keyed on the TRANSLATED (x,y) the entry points normalize to — a tile's names share one L1 on
+    // silicon, so two encodings for the same worker must not split it into two Core backings.
     auto it = cores_.find(core_xy);
     if (it != cores_.end()) {
         return it->second.get();
@@ -153,22 +152,34 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     std::unique_ptr<tt_emule::Core> core;
     auto slot = slot_of_.find(core_xy);
     if (slot != slot_of_.end()) {
+        // Defensive: a shared pool's slot count comes from the segment, so a peer that computed a
+        // different layout under the same key would put this index out of range. slot_ptr answers
+        // null there, and the memcpy below would fault with nothing said.
+        UMD_ASSERT(
+            slot->second < worker_pool_->num_slots(),
+            error::RuntimeError,
+            "SWEmuleChip: slot " + std::to_string(slot->second) + " for core (" + std::to_string(core_xy.x) + "," +
+                std::to_string(core_xy.y) + ") is outside the " + std::to_string(worker_pool_->num_slots()) +
+                "-slot worker pool");
         core = std::make_unique<tt_emule::Core>(
             coord, worker_pool_->slot_ptr(slot->second), static_cast<size_t>(l1_size_));
     } else {
-        // No slot: either a genuinely non-pooled core (write_to_device routes ETH/PCIE/DISPATCH/ARC
-        // here too, since it only special-cases DRAM) or a worker addressed in a naming this map is
-        // not keyed on. A raw (x,y) cannot tell those apart, so this stays a private mapping rather
-        // than a hard error -- but under a shared pool it is invisible to peers, so say which.
+        // No slot: a non-pooled core, which is expected traffic — write_to_device routes
+        // ETH/PCIE/DISPATCH/ARC here too, since it only special-cases DRAM. Only a SHARED pool
+        // makes this actionable, because the private mapping is then invisible to peer ranks.
         if (worker_pool_ && worker_pool_->is_shared()) {
-            log_warning(
-                LogUMD,
-                "core ({},{}) has no slot in the SHARED worker pool; backing it with a private mmap "
-                "that peer ranks cannot see",
-                core_xy.x,
-                core_xy.y);
+            static std::once_flag warned;
+            std::call_once(warned, [&]() {
+                log_warning(
+                    LogUMD,
+                    "{} core ({},{}) has no slot in the SHARED worker pool; backing it with a private "
+                    "mmap that peer ranks cannot see (warned once)",
+                    tt::arch_to_str(soc_descriptor_.arch),
+                    core_xy.x,
+                    core_xy.y);
+            });
         } else {
-            log_warning(
+            log_debug(
                 LogUMD,
                 "core ({},{}) is not a pooled Tensix core; backing it with an individual mmap",
                 core_xy.x,
@@ -182,19 +193,25 @@ tt_emule::Core* SWEmuleChip::get_core(tt_xy_pair core_xy) {
     return raw_ptr;
 }
 
+// Normalize to TRANSLATED before resolving a worker, as LocalChip does: Cluster forwards the
+// caller's CoreCoord untranslated, so a raw {x,y} would otherwise be looked up in whichever naming
+// the caller happened to pick, and only TRANSLATED has a pool slot. A LITERAL coord passes through
+// unchanged, which is the pre-existing behaviour for callers that already resolved the coordinate.
 void SWEmuleChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_dest, size_t size) {
-    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
-                                      ? get_dram_channel_backing(static_cast<uint32_t>(
-                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
-                                      : get_core(tt_xy_pair(core.x, core.y));
+    tt_emule::Core* target_core =
+        (core.core_type == CoreType::DRAM)
+            ? get_dram_channel_backing(
+                  static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
+            : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
     std::memcpy(target_core->l1_ptr(l1_dest), src, size);
 }
 
 void SWEmuleChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, size_t size) {
-    tt_emule::Core* target_core = (core.core_type == CoreType::DRAM)
-                                      ? get_dram_channel_backing(static_cast<uint32_t>(
-                                            get_soc_descriptor().get_dram_channel_for_core(core).first))
-                                      : get_core(tt_xy_pair(core.x, core.y));
+    tt_emule::Core* target_core =
+        (core.core_type == CoreType::DRAM)
+            ? get_dram_channel_backing(
+                  static_cast<uint32_t>(get_soc_descriptor().get_dram_channel_for_core(core).first))
+            : get_core(get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id()));
     std::memcpy(dest, target_core->l1_ptr(l1_src), size);
 }
 

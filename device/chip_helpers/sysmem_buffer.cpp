@@ -96,7 +96,8 @@ SysmemBuffer::SysmemBuffer(
     int communication_id,
     std::optional<uint64_t> noc_addr,
     Deleter deleter,
-    DeviceBufferAccess device_access) :
+    DeviceBufferAccess device_access,
+    NocBinder noc_binder) :
     pci_device_(nullptr),
     tt_device_(nullptr),
     buffer_va_(buffer_va),
@@ -104,6 +105,7 @@ SysmemBuffer::SysmemBuffer(
     buffer_size_(buffer_size),
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
+    noc_binder_(std::move(noc_binder)),
     device_access_(device_access),
     communication_id_(communication_id) {
     align_address_and_size();
@@ -166,6 +168,19 @@ void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t 
     ZoneScopedC(tracy::Color::Yellow);
     validate(offset, size);
     memcpy(dest, static_cast<const uint8_t*>(get_buffer_va()) + offset, size);
+}
+
+void SysmemBuffer::bind_noc_address() {
+    if (noc_addr_.has_value()) {
+        return;
+    }
+    if (!noc_binder_) {
+        UMD_THROW(
+            error::RuntimeError,
+            "This sysmem buffer has no NOC address and no way to bind one. Its allocator binds at pin time, so "
+            "allocate or map the buffer with bind_to_noc set instead.");
+    }
+    noc_addr_ = noc_binder_();
 }
 
 void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }

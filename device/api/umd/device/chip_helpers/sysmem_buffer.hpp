@@ -48,6 +48,16 @@ public:
     using Deleter = std::function<void(void*)>;
 
     /**
+     * Callable that programs the hardware address translation binding this buffer to the NOC, returning
+     * the resulting NOC address.
+     *
+     * Injected by the allocator, which holds the device context the translation needs. Optional: an
+     * allocator whose driver assigns the NOC address at pin time supplies none, and a buffer without one
+     * cannot be bound after construction.
+     */
+    using NocBinder = std::function<uint64_t()>;
+
+    /**
      * Constructor for SysmemBuffer. Start of the buffer must be aligned
      * to page size. In case of unaligned buffer start address, the buffer will be aligned to the page size and the
      * buffer size will be adjusted accordingly. However, the adjusted buffer size won't be visible to the user. It will
@@ -96,7 +106,8 @@ public:
         int communication_id,
         std::optional<uint64_t> noc_addr = std::nullopt,
         Deleter deleter = {},
-        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
+        DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE,
+        NocBinder noc_binder = {});
     ~SysmemBuffer();
 
     /**
@@ -142,6 +153,16 @@ public:
     uint64_t get_device_io_addr(const size_t offset = 0) const;
 
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
+
+    /**
+     * Binds a NOC address to this buffer, so every tile on the device can reach it rather than only the
+     * PCIe tile.
+     *
+     * Idempotent: a no-op once bound, whether that happened here or at pin time. Throws when the buffer is
+     * unbound and has no binder, which is the case for a buffer whose pages were not pinned with NOC access
+     * on a driver that only assigns NOC addresses at pin time.
+     */
+    void bind_noc_address();
 
     DeviceBufferAccess get_device_access() const { return device_access_; }
 
@@ -214,6 +235,9 @@ private:
     // Address that is used on the NOC to access the buffer.  NOC target must be
     // the PCIE core that is connected to the host and this address.
     std::optional<uint64_t> noc_addr_;
+
+    // Programs the NOC translation on demand. Empty when the buffer cannot be bound after construction.
+    NocBinder noc_binder_;
 
     // Owns the buffer's page-aligned start. Releasing it runs the deleter composed at construction,
     // which unpins the pages from the device and, for buffers this class allocated, frees them.

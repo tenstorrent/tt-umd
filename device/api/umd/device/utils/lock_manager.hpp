@@ -6,11 +6,9 @@
 
 #include <sys/types.h>
 
-#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -39,12 +37,19 @@ enum class MutexType {
 // Name of a mutex type, for logging and diagnostics.
 std::string to_string(MutexType mutex_type);
 
-// Note that the returned std::unique_lock<MutexInterface> should never outlive the LockManager which holds
-// underlying mutexes, which are cleared when the LockManager goes out of scope. We could implement these lock such that
-// initialization is not needed, and they are initialized every time they're locked, but since that communicates with
-// the OS filesystem it might be slower do to it each time. This way, locking/unlocking should be faster.
+// The locks handed out here are process wide, and the underlying ones system wide, so LockManager holds them in a
+// single registry for the whole process rather than one per owner. A lock is initialized once, by whoever needs it
+// first, and lives until the process exits.
+// Besides being the honest model, this bounds how many locks a process can have open at a time. An initialized mutex
+// may hold a file descriptor for as long as it lives, so a registry per owner meant the same lock was opened once per
+// chip, per device and per cluster, and a process working with many chips could run itself out of descriptors.
+// We could implement these locks such that initialization is not needed, and they are initialized every time they're
+// locked, but since that communicates with the OS it might be slower to do it each time. This way, locking/unlocking
+// should be faster.
 class LockManager {
 public:
+    LockManager() = delete;
+
     // Mutex types that are initialized per chip (combined with device_id + device_type).
     inline static const std::vector<MutexType> CHIP_SPECIFIC_MUTEX_TYPES = {
         MutexType::ARC_MSG,
@@ -62,28 +67,25 @@ public:
     };
 
     // This set of functions is used to manage mutexes which are system wide and not chip specific.
-    void initialize_mutex(MutexType mutex_type);
-    std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
+    static void initialize_mutex(MutexType mutex_type);
+    static std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type);
 
     // This set of functions is used to manage mutexes which are chip specific.
-    void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
-    std::unique_lock<MutexInterface> acquire_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    static void initialize_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    static std::unique_lock<MutexInterface> acquire_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type);
 
     // Reports whether a mutex is currently held, without holding it afterwards. Returns std::nullopt if the mutex was
     // free, otherwise the owning {pid, tid}. Since a free mutex has to be acquired to find that out, and is released
     // again right after, the answer is best effort and may be stale as soon as it is returned.
-    std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type);
-    std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type, int device_id, IODeviceType device_type);
+    static std::optional<std::pair<pid_t, pid_t>> probe_mutex(MutexType mutex_type);
+    static std::optional<std::pair<pid_t, pid_t>> probe_mutex(
+        MutexType mutex_type, int device_id, IODeviceType device_type);
 
 private:
-    void initialize_mutex_internal(const std::string& mutex_name);
-    std::unique_lock<MutexInterface> acquire_mutex_internal(const std::string& mutex_name);
-    std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
-
-    // Maps from mutex name to an initialized mutex.
-    // Mutex names are made from the mutex type name, combined with device number for chip specific ones.
-    // Note that once LockManager is out of scope, all the mutexes will be cleared up automatically.
-    std::unordered_map<std::string, std::unique_ptr<MutexInterface>> mutexes;
+    static void initialize_mutex_internal(const std::string& mutex_name);
+    static std::unique_lock<MutexInterface> acquire_mutex_internal(const std::string& mutex_name);
+    static std::optional<std::pair<pid_t, pid_t>> probe_mutex_internal(const std::string& mutex_name);
 };
 
 }  // namespace tt::umd

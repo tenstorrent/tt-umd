@@ -526,7 +526,6 @@ protected:
     int communication_device_id_ = -1;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     tt::ARCH arch = tt::ARCH::Invalid;
-    LockManager lock_manager;
 
     TTDevice() = default;
     TTDevice(

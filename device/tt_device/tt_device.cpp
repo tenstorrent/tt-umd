@@ -81,7 +81,7 @@ TTDevice::TTDevice(
     pcie_protocol_ = pcie_protocol.get();
     device_protocol_ = std::move(pcie_protocol);
     // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
-    lock_manager.initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+    LockManager::initialize_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
@@ -755,7 +755,7 @@ void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core,
         UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
     }
     auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+        LockManager::acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_write(src, addr, size, resolve_coordinate(core, noc_id), noc_id);
@@ -774,7 +774,7 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
     }
     auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+        LockManager::acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_read(dst, addr, size, resolve_coordinate(core, noc_id), noc_id);
@@ -794,7 +794,7 @@ void TTDevice::dma_multicast_write(
         UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
     }
     auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+        LockManager::acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_multicast_write(
@@ -815,7 +815,7 @@ void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t s
         UMD_THROW(error::RuntimeError, "DMA zero-copy read not supported for remote device.");
     }
     auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+        LockManager::acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     bool dma_success =
         get_dma_interface()->dma_read_zero_copy(dst_iova, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
@@ -830,7 +830,7 @@ void TTDevice::dma_write_zero_copy(uint64_t src_iova, uint64_t dst_addr, size_t 
         UMD_THROW(error::RuntimeError, "DMA zero-copy write not supported for remote device.");
     }
     auto pcie_dma_lock =
-        lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
+        LockManager::acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
 
     bool dma_success =
         get_dma_interface()->dma_write_zero_copy(src_iova, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);

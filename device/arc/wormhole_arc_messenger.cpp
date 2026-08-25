@@ -77,7 +77,7 @@ uint32_t WormholeArcMessenger::send_message(
     //     tt_device->is_remote()
     //         ? lock_manager.acquire_mutex(MutexType::REMOTE_ARC_MSG, tt_device->get_pci_device()->get_device_num())
     //         : lock_manager.acquire_mutex(MutexType::ARC_MSG, tt_device->get_pci_device()->get_device_num());
-    auto lock = lock_manager.acquire_mutex(MutexType::ARC_MSG);
+    auto lock = LockManager::acquire_mutex(MutexType::ARC_MSG);
 
     uint32_t fw_arg = arg0 | (arg1 << 16);
     int exit_code = 0;

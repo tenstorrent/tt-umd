@@ -34,14 +34,14 @@ std::unique_ptr<ArcMessenger> ArcMessenger::create_arc_messenger(TTDevice* tt_de
 }
 
 ArcMessenger::ArcMessenger(TTDevice* tt_device) : tt_device(tt_device) {
-    lock_manager.initialize_mutex(
+    LockManager::initialize_mutex(
         MutexType::ARC_MSG, tt_device->get_communication_device_id(), tt_device->get_communication_device_type());
-    lock_manager.initialize_mutex(
+    LockManager::initialize_mutex(
         MutexType::REMOTE_ARC_MSG,
         tt_device->get_communication_device_id(),
         tt_device->get_communication_device_type());
     // TODO: Remove this once we have proper mutex usage.
-    lock_manager.initialize_mutex(MutexType::ARC_MSG);
+    LockManager::initialize_mutex(MutexType::ARC_MSG);
 }
 
 uint32_t ArcMessenger::send_message(

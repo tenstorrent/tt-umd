@@ -262,7 +262,7 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
 }
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, arch);
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {

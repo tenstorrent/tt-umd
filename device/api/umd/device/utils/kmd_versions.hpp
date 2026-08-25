@@ -14,14 +14,6 @@ namespace tt::umd {
 inline constexpr SemVer KMD_MINIMUM_VERSION = SemVer(2, 0, 0);
 
 /**
- * KMD version 2.0.0 introduced support for mapping buffers to NOC by using IOCTL. Before 2.0.0, UMD used to access
- * iATU configuration registers directly to perform such mappings. KMD exposed this functionality via IOCTL which brings
- * the ability to map buffers from multiple processes safely. While it's still possible to use direct register access
- * for mapping buffers to NOC on KMD versions older than 2.0.0, it's discouraged to do so.
- */
-inline constexpr SemVer KMD_MAP_TO_NOC = SemVer(2, 0, 0);
-
-/**
  * KMD version 2.4.1 introduced architecture agnostic reset support. With the new IOCTL in KMD 2.4.1, by using the same
  * IOCTL UMD can now reset different architectures without needing to have architecture specific reset IOCTLs.
  */

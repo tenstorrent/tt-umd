@@ -335,57 +335,25 @@ class BlackholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::BLACKHOLE; }
 
-    uint32_t get_arc_message_arc_get_harvesting() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GET_HARVESTING);
-    }
-
-    uint32_t get_arc_message_arc_go_busy() const override {
+    uint32_t get_firmware_message_go_busy() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_BUSY);
     }
 
-    uint32_t get_arc_message_arc_go_long_idle() const override {
+    uint32_t get_firmware_message_go_idle() const override {
         return static_cast<uint32_t>(blackhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
 
-    uint32_t get_arc_message_deassert_riscv_reset() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::DEASSERT_RISCV_RESET);
-    }
+    uint64_t get_reset_unit_refclk_low_offset() const override { return blackhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 
-    uint32_t get_arc_message_get_aiclk() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::GET_AICLK);
-    }
-
-    uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const override {
-        return static_cast<uint32_t>(blackhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER);
-    }
-
-    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
-        UMD_THROW(error::RuntimeError, "Not implemented for Blackhole architecture.");
-    }
-
-    uint32_t get_arc_axi_apb_peripheral_offset() const override { return blackhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
-
-    uint32_t get_arc_reset_scratch_offset() const override { return blackhole::ARC_RESET_SCRATCH_OFFSET; }
-
-    uint32_t get_arc_reset_scratch_2_offset() const override { return blackhole::ARC_RESET_SCRATCH_2_OFFSET; }
-
-    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return blackhole::ARC_RESET_REFCLK_LOW_OFFSET; }
-
-    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return blackhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
+    uint64_t get_reset_unit_refclk_high_offset() const override { return blackhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_banks_number() const override { return blackhole::NUM_DRAM_BANKS; }
 
-    uint32_t get_aiclk_busy_val() const override { return blackhole::AICLK_BUSY_VAL; }
+    uint32_t get_min_clock_freq() const override { return blackhole::AICLK_IDLE_VAL; }
 
     uint32_t get_num_eth_channels() const override { return blackhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override {
-        return blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + blackhole::NOC_NODE_ID_OFFSET;
-    }
-
-    uint32_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }
-
-    uint32_t get_debug_reg_addr() const override { return blackhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
+    uint64_t get_tensix_soft_reset_addr() const override { return blackhole::TENSIX_SOFT_RESET_ADDR; }
 
     uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
@@ -393,68 +361,11 @@ public:
 
     uint32_t get_soft_reset_staggered_start() const override { return blackhole::SOFT_RESET_STAGGERED_START; }
 
-    uint64_t get_arc_apb_noc_base_address() const override { return blackhole::ARC_NOC_XBAR_ADDRESS_START; }
-
-    uint64_t get_arc_csm_noc_base_address() const override {
-        UMD_THROW(error::RuntimeError, "CSM fetch base address not implemented for Blackhole architecture.");
-    }
-
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return blackhole::HARVESTING_NOC_LOCATIONS;
     }
 
-    const std::vector<uint32_t>& get_t6_x_locations() const override { return blackhole::T6_X_LOCATIONS; }
-
-    const std::vector<uint32_t>& get_t6_y_locations() const override { return blackhole::T6_Y_LOCATIONS; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override { return {0, 0}; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
-        return {blackhole::TLB_BASE_2M, blackhole::TLB_COUNT_2M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override { return {0, 0}; }
-
-    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override {
-        return {blackhole::TLB_BASE_4G, blackhole::TLB_COUNT_4G};
-    }
-
-    const std::vector<size_t>& get_tlb_sizes() const override {
-        static constexpr uint32_t one_mb = 1 << 20;
-        static constexpr size_t one_gb = 1024ULL * one_mb;
-        static const std::vector<size_t> tlb_sizes = {2 * one_mb, 4ULL * one_gb};
-        return tlb_sizes;
-    }
-
-    tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-
-    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 12; }
-
-    uint32_t get_static_tlb_cfg_addr() const override { return blackhole::STATIC_TLB_CFG_ADDR; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
-    DriverHostAddressParams get_host_address_params() const override;
-    DriverEthInterfaceParams get_eth_interface_params() const override;
-    DriverNocParams get_noc_params() const override;
-
-    uint64_t get_noc_node_id_offset() const override { return blackhole::NOC_NODE_ID_OFFSET; }
-
-    uint64_t get_noc_node_translated_id_offset() const override { return blackhole::NOC_ID_TRANSLATED_OFFSET; }
-
-    uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
-
-    size_t get_cached_tlb_size() const override { return blackhole::STATIC_TLB_SIZE; }
-
-    bool get_static_vc() const override { return false; }  // False due to a known HW issue.
-
-    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
-        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
-        auto it = std::find(blackhole::UBB_TRAY_BUS_IDS.begin(), blackhole::UBB_TRAY_BUS_IDS.end(), bus_high);
-        if (it == blackhole::UBB_TRAY_BUS_IDS.end()) {
-            return std::nullopt;
-        }
-        return static_cast<uint8_t>(std::distance(blackhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
-    }
 };
 
 }  // namespace tt::umd

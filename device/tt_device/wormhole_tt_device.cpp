@@ -46,7 +46,7 @@ WormholeTTDevice::WormholeTTDevice(
     bool use_safe_api) :
     TTDevice(std::move(pci_device), std::make_unique<WormholeImplementation>(), soc_arch_descriptor, use_safe_api) {
     WormholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol()));
 }
 
 WormholeTTDevice::WormholeTTDevice(
@@ -55,7 +55,7 @@ WormholeTTDevice::WormholeTTDevice(
     const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(jtag_device), jlink_id, std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
     WormholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol(), get_architecture_implementation()));
+    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol()));
 }
 
 WormholeTTDevice::WormholeTTDevice(
@@ -65,8 +65,7 @@ WormholeTTDevice::WormholeTTDevice(
     WormholeTTDevice::set_arc_coordinate();
     is_remote_tt_device = true;
     set_hang_detector(std::make_unique<WormholeHangDetector>(
-        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol(),
-        get_architecture_implementation()));
+        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol()));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -82,7 +81,7 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
     std::vector<uint32_t> arc_msg_return_values = {0};
     uint32_t ret_code = get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
         arc_msg_return_values,
         {0, 0});
 
@@ -100,7 +99,7 @@ uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
     std::vector<uint32_t> arc_msg_return_values = {0};
     auto exit_code = get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_get_aiclk(),
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
         arc_msg_return_values,
         {0xFFFF, 0xFFFF});
     if (exit_code != 0) {
@@ -109,17 +108,17 @@ uint32_t WormholeTTDevice::get_clock() {
     return arc_msg_return_values[0];
 }
 
-uint32_t WormholeTTDevice::get_min_clock_freq() { return wormhole::AICLK_IDLE_VAL; }
+uint32_t WormholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
 uint32_t WormholeTTDevice::get_power_state_arc_msg(TTDevice::PowerState state) {
     uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
     switch (state) {
         case TTDevice::PowerState::BUSY: {
-            msg |= get_architecture_implementation()->get_arc_message_arc_go_busy();
+            msg |= get_architecture_implementation()->get_firmware_message_go_busy();
             break;
         }
         case TTDevice::PowerState::IDLE: {
-            msg |= get_architecture_implementation()->get_arc_message_arc_go_long_idle();
+            msg |= get_architecture_implementation()->get_firmware_message_go_idle();
             break;
         }
         default:
@@ -154,12 +153,14 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         UMD_THROW(error::RuntimeError, "configure_iatu_region is redundant for JTAG communication type.");
     }
 
-    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 0 * 4, region_id_to_use);
-    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 1 * 4, dest_bar_lo);
-    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 2 * 4, dest_bar_hi);
-    bar_write32(architecture_impl_->get_arc_csm_bar0_mailbox_offset() + 3 * 4, region_size);
+    bar_write32(registers_.arc_csm_bar0_mailbox_offset + 0 * 4, region_id_to_use);
+    bar_write32(registers_.arc_csm_bar0_mailbox_offset + 1 * 4, dest_bar_lo);
+    bar_write32(registers_.arc_csm_bar0_mailbox_offset + 2 * 4, dest_bar_hi);
+    bar_write32(registers_.arc_csm_bar0_mailbox_offset + 3 * 4, region_size);
     get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | architecture_impl_->get_arc_message_setup_iatu_for_peer_to_peer(), {0, 0});
+        wormhole::ARC_MSG_COMMON_PREFIX |
+            static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER),
+        {0, 0});
 
     // Print what just happened.
     uint32_t peer_region_start = region_id_to_use * region_size;
@@ -178,20 +179,19 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     if (is_remote_tt_device) {
-        read_from_device_reg(
-            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        read_from_device_reg(mem_ptr, get_arc_core(), registers_.arc_apb_noc_base_address + arc_addr_offset, size);
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_device_protocol()->read_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
-            architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+            registers_.arc_apb_noc_base_address + arc_addr_offset,
             sizeof(uint32_t),
             NocId::DEFAULT_NOC);
         return;
     }
-    auto result = bar_read32(wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset);
+    auto result = bar_read32(registers_.arc_apb_bar0_offset + arc_addr_offset);
     *(reinterpret_cast<uint32_t *>(mem_ptr)) = result;
 }
 
@@ -200,21 +200,19 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
     if (is_remote_tt_device) {
-        write_to_device_reg(
-            mem_ptr, get_arc_core(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        write_to_device_reg(mem_ptr, get_arc_core(), registers_.arc_apb_noc_base_address + arc_addr_offset, size);
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_device_protocol()->write_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
-            architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset,
+            registers_.arc_apb_noc_base_address + arc_addr_offset,
             sizeof(uint32_t),
             NocId::DEFAULT_NOC);
         return;
     }
-    bar_write32(
-        wormhole::ARC_APB_BAR0_XBAR_OFFSET_START + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
+    bar_write32(registers_.arc_apb_bar0_offset + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
 }
 
 void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
@@ -222,15 +220,14 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
         UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
     if (is_remote_tt_device) {
-        read_from_device(
-            mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        read_from_device(mem_ptr, get_arc_core(), wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset, size);
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_device_protocol()->read_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
-            architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
+            wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset,
             sizeof(uint32_t),
             NocId::DEFAULT_NOC);
         return;
@@ -244,15 +241,14 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
         UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
     if (is_remote_tt_device) {
-        write_to_device(
-            mem_ptr, get_arc_core(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+        write_to_device(mem_ptr, get_arc_core(), wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset, size);
         return;
     }
     if (communication_device_type_ == IODeviceType::JTAG) {
         get_device_protocol()->write_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
-            architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset,
+            wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset,
             sizeof(uint32_t),
             NocId::DEFAULT_NOC);
         return;
@@ -321,6 +317,11 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(CoreCoord eth_
     return static_cast<EthTrainingStatus>(training_status);
 }
 
+void WormholeTTDevice::probe_arc() {
+    uint32_t dummy;
+    read_from_arc_apb(&dummy, registers_.arc_reset_scratch_offset, sizeof(dummy));  // SCRATCH_0
+}
+
 void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
@@ -359,9 +360,7 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
                 sizeof(bar_read_arc_reset_scratch_status));
 
             read_from_arc_apb(
-                &bar_read_arc_post_code,
-                architecture_impl_->get_arc_reset_scratch_offset(),
-                sizeof(bar_read_arc_post_code));
+                &bar_read_arc_post_code, registers_.arc_reset_scratch_offset, sizeof(bar_read_arc_post_code));
 
             uint32_t bar_read_arc_csm_pcie_dma_request = 0;
             read_from_arc_csm(

@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <tuple>
 
-#include "umd/device/firmware/erisc_firmware.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/blackhole_l1.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -18,96 +17,10 @@
 
 namespace tt::umd {
 
-namespace blackhole {
-constexpr std::uint32_t NOC_ADDR_LOCAL_BITS = 36;   // source: noc_parameters.h, common for WH && BH
-constexpr std::uint32_t NOC_ADDR_NODE_ID_BITS = 6;  // source: noc_parameters.h, common for WH && BH
-}  // namespace blackhole
-
-tlb_configuration BlackholeImplementation::get_tlb_configuration(uint32_t tlb_index) const {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
-    if (tlb_index >= blackhole::TLB_COUNT_2M && tlb_index < blackhole::TLB_COUNT_2M + blackhole::TLB_COUNT_4G) {
-        return tlb_configuration{
-            .size = blackhole::DYNAMIC_TLB_4G_SIZE,
-            .base = blackhole::DYNAMIC_TLB_4G_BASE,
-            .cfg_addr = blackhole::DYNAMIC_TLB_4G_CFG_ADDR,
-            .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_4G,
-            .tlb_offset = blackhole::DYNAMIC_TLB_4G_BASE +
-                          (tlb_index - blackhole::TLB_BASE_INDEX_4G) * blackhole::DYNAMIC_TLB_4G_SIZE,
-            .offset = blackhole::TLB_4G_OFFSET,
-        };
-    }
-
-    return tlb_configuration{
-        .size = blackhole::DYNAMIC_TLB_2M_SIZE,
-        .base = blackhole::DYNAMIC_TLB_2M_BASE,
-        .cfg_addr = blackhole::DYNAMIC_TLB_2M_CFG_ADDR,
-        .index_offset = tlb_index - blackhole::TLB_BASE_INDEX_2M,
-        .tlb_offset = blackhole::DYNAMIC_TLB_2M_BASE +
-                      (tlb_index - blackhole::TLB_BASE_INDEX_2M) * blackhole::DYNAMIC_TLB_2M_SIZE,
-        .offset = blackhole::TLB_2M_OFFSET,
-    };
-}
-
 DeviceL1AddressParams BlackholeImplementation::get_l1_address_params() const {
     // L1 barrier base and erisc barrier base should be explicitly set by the client.
     // Setting some default values here, but it should be ultimately overridden by the client.
     return {blackhole::L1_BARRIER_BASE, blackhole::ERISC_BARRIER_BASE, blackhole::ETH_FW_VERSION_ADDR};
-}
-
-DriverHostAddressParams BlackholeImplementation::get_host_address_params() const {
-    return {
-        erisc_firmware::eth_routing::ETH_ROUTING_BLOCK_SIZE, erisc_firmware::eth_routing::ETH_ROUTING_BUFFERS_START};
-}
-
-DriverEthInterfaceParams BlackholeImplementation::get_eth_interface_params() const {
-    using namespace erisc_firmware::eth_routing;
-    return {
-        ETH_RACK_COORD_WIDTH,
-        CMD_BUF_SIZE_MASK,
-        MAX_BLOCK_SIZE,
-        REQUEST_CMD_QUEUE_BASE,
-        RESPONSE_CMD_QUEUE_BASE,
-        CMD_COUNTERS_SIZE_BYTES,
-        REMOTE_UPDATE_PTR_SIZE_BYTES,
-        CMD_DATA_BLOCK,
-        CMD_WR_REQ,
-        CMD_WR_ACK,
-        CMD_RD_REQ,
-        CMD_RD_DATA,
-        CMD_BUF_SIZE,
-        CMD_DATA_BLOCK_DRAM,
-        ETH_ROUTING_DATA_BUFFER_ADDR,
-        REQUEST_ROUTING_CMD_QUEUE_BASE,
-        RESPONSE_ROUTING_CMD_QUEUE_BASE,
-        CMD_BUF_PTR_MASK,
-        CMD_ORDERED,
-        CMD_BROADCAST,
-    };
-}
-
-DriverNocParams BlackholeImplementation::get_noc_params() const {
-    return {blackhole::NOC_ADDR_LOCAL_BITS, blackhole::NOC_ADDR_NODE_ID_BITS};
-}
-
-uint64_t BlackholeImplementation::get_noc_reg_base(
-    const CoreType core_type, const uint32_t noc, const uint32_t noc_port) const {
-    if (noc == 0) {
-        for (const auto& noc_pair : blackhole::NOC0_CONTROL_REG_ADDR_BASE_MAP) {
-            if (noc_pair.first == core_type) {
-                return noc_pair.second;
-            }
-        }
-        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
-    } else if (noc == 1) {
-        for (const auto& noc_pair : blackhole::NOC1_CONTROL_REG_ADDR_BASE_MAP) {
-            if (noc_pair.first == core_type) {
-                return noc_pair.second;
-            }
-        }
-        UMD_THROW(error::RuntimeError, "Invalid core type for getting NOC register addr base.");
-    }
-
-    UMD_THROW(error::RuntimeError, fmt::format("Invalid NOC: {} for getting NOC register addr base.", noc));
 }
 
 uint32_t BlackholeImplementation::get_soft_reset_reg_value(RiscType risc_type) const {

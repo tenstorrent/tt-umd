@@ -158,6 +158,16 @@ void SysmemBuffer::read_from_sysmem(void* dest, const size_t size, const size_t 
     memcpy(dest, static_cast<const uint8_t*>(get_buffer_va()) + offset, size);
 }
 
+void SysmemBuffer::bind_noc_address() {
+    if (noc_addr_.has_value()) {
+        return;
+    }
+    UMD_THROW(
+        error::RuntimeError,
+        "This sysmem buffer has no NOC address and cannot be given one: the driver assigns it when the pages "
+        "are pinned. Allocate or map the buffer with bind_to_noc set instead.");
+}
+
 void* SysmemBuffer::get_buffer_va() const { return static_cast<uint8_t*>(buffer_va_) + offset_from_aligned_addr_; }
 
 size_t SysmemBuffer::get_buffer_size() const { return buffer_size_; }

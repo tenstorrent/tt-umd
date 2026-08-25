@@ -131,6 +131,37 @@ TEST(ApiSimulationSysmemManager, BufferDeleterRunsOnceWithAlignedStart) {
     EXPECT_EQ(deleter_saw, aligned_start);
 }
 
+// The driver assigns the NOC address at pin time, so bind_noc_address() only confirms what already
+// happened. On a bound buffer it is a no-op.
+TEST(ApiSimulationSysmemManager, BindNocAddressIsNoOpWhenAlreadyBound) {
+    std::vector<uint8_t> backing(4096, 0);
+
+    SysmemBuffer buffer(
+        backing.data(),
+        backing.size(),
+        /*device_io_addr=*/0x1000,
+        /*communication_id=*/2,
+        std::optional<uint64_t>(0x1234));
+
+    EXPECT_NO_THROW(buffer.bind_noc_address());
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+
+    // Idempotent.
+    EXPECT_NO_THROW(buffer.bind_noc_address());
+    EXPECT_EQ(buffer.get_noc_addr().value(), 0x1234u);
+}
+
+// A buffer whose pages were not pinned with NOC access can never be given a NOC address, so asking
+// must fail loudly rather than leave the caller believing the buffer is reachable over the NOC.
+TEST(ApiSimulationSysmemManager, BindNocAddressThrowsWhenUnbound) {
+    std::vector<uint8_t> backing(4096, 0);
+    SysmemBuffer buffer(backing.data(), backing.size(), /*device_io_addr=*/0x1000, /*communication_id=*/2);
+
+    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+    EXPECT_THROW(buffer.bind_noc_address(), std::exception);
+    EXPECT_FALSE(buffer.get_noc_addr().has_value());
+}
+
 // A buffer given no deleter must still destruct cleanly. unique_ptr with an empty std::function
 // deleter would otherwise throw bad_function_call.
 TEST(ApiSimulationSysmemManager, BufferWithoutDeleterDestructsCleanly) {

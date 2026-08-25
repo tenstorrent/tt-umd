@@ -134,6 +134,17 @@ public:
 
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
 
+    /**
+     * Confirms this buffer is bound to a NOC address, so that every tile on the device can reach it rather
+     * than only the PCIe tile.
+     *
+     * The driver assigns the NOC address when the pages are pinned, so binding is decided at construction
+     * by the bind_to_noc argument on the allocator, not here. This is therefore a no-op on a bound buffer
+     * and throws on an unbound one, which turns a buffer that can never be reached over the NOC into an
+     * error at the point of the mistaken assumption rather than at a much later device access.
+     */
+    void bind_noc_address();
+
     DeviceBufferAccess get_device_access() const { return device_access_; }
 
     /**

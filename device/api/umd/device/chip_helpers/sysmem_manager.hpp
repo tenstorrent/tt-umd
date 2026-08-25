@@ -65,6 +65,12 @@ public:
 
     uint64_t get_pcie_base() const { return pcie_base_; }
 
+    /**
+     * Returns the identifier of the device context this manager pins memory for. A manager pins for
+     * exactly one device and stamps this value into every buffer it produces.
+     */
+    int get_communication_id() const { return communication_id_; }
+
     static uint64_t get_pcie_base_for_arch(tt::ARCH arch);
 
 protected:
@@ -74,6 +80,9 @@ protected:
     TTDevice* tt_device_ = nullptr;
     // TODO: Properly initialize for SimulationSysmemManager.
     uint64_t pcie_base_ = 0;
+
+    // Device this manager pins for. Set by the concrete manager's constructor. -1 when unknown.
+    int communication_id_ = -1;
 
     std::vector<HugepageMapping> hugepage_mapping_per_channel;
     void* iommu_mapping = nullptr;

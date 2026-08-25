@@ -30,7 +30,8 @@ SysmemBuffer::SysmemBuffer(
     buffer_va_(buffer_va),
     mapped_buffer_size_(buffer_size),
     buffer_size_(buffer_size),
-    device_access_(device_access) {
+    device_access_(device_access),
+    communication_id_(tt_device->get_communication_device_id()) {
     UMD_ASSERT(pci_device_ != nullptr, error::RuntimeError, "PCI device not available in TTDevice.");
     align_address_and_size();
     if (map_to_noc) {
@@ -47,6 +48,7 @@ SysmemBuffer::SysmemBuffer(
     void* buffer_va,
     size_t buffer_size,
     uint64_t device_io_addr,
+    int communication_id,
     std::optional<uint64_t> noc_addr,
     std::function<void()> unmap_callback,
     DeviceBufferAccess device_access) :
@@ -58,7 +60,8 @@ SysmemBuffer::SysmemBuffer(
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
     unmap_callback_(std::move(unmap_callback)),
-    device_access_(device_access) {
+    device_access_(device_access),
+    communication_id_(communication_id) {
     align_address_and_size();
     // Pair with TracyFreeN in the destructor so Tracy sees balanced alloc/free.
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");

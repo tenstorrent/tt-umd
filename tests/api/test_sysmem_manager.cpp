@@ -227,6 +227,33 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
 }
 
+// The manager pins for exactly one device and stamps that device's id into every buffer, so the id
+// on a buffer must match the TTDevice it was pinned against.
+TEST(ApiSysmemManager, SysmemBufferCommunicationId) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    for (const ChipId mmio_chip : cluster->get_target_mmio_device_ids()) {
+        Chip* chip = cluster->get_chip(mmio_chip);
+        SysmemManager* sysmem_manager = chip->get_sysmem_manager();
+        const int expected_id = chip->get_tt_device()->get_communication_device_id();
+
+        EXPECT_EQ(sysmem_manager->get_communication_id(), expected_id);
+
+        const size_t buf_size = 1 << 20;
+        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        ASSERT_NE(sysmem_buffer, nullptr);
+        EXPECT_EQ(sysmem_buffer->get_communication_id(), expected_id);
+    }
+}
+
 // Host-side copies must land at the user's VA, not at the page-aligned start the buffer
 // pins internally. This uses a deliberately unaligned mapping to exercise that.
 TEST(ApiSysmemManager, SysmemBufferHostCopyUnaligned) {

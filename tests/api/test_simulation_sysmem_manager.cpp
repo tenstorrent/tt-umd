@@ -17,8 +17,10 @@
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/system_memory_allocator.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
+#include "umd/device/types/host_memory.hpp"
 
 using namespace tt::umd;
 
@@ -269,6 +271,42 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     uint8_t sentinel_readback = 0;
     buffer->read_from_sysmem(&sentinel_readback, sizeof(sentinel_readback), buffer_size - 1);
     EXPECT_EQ(sentinel, sentinel_readback);
+}
+
+// A manager must be usable purely through the SystemMemoryAllocator interface, since that is what the
+// Base API hands to upper layers.
+TEST_P(ApiSimulationSysmemManagerByArch, UsableThroughTheAllocatorInterface) {
+    const uint32_t chip_id = 5;
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id);
+    SystemMemoryAllocator* allocator = sysmem.get();
+
+    EXPECT_EQ(allocator->get_communication_id(), static_cast<int>(chip_id));
+
+    auto allocated = allocator->allocate_buffer(4096);
+    ASSERT_NE(allocated, nullptr);
+    EXPECT_NE(allocated->get_buffer_va(), nullptr);
+    EXPECT_EQ(allocated->get_communication_id(), static_cast<int>(chip_id));
+    EXPECT_FALSE(allocated->get_noc_addr().has_value());
+
+    std::vector<uint8_t> external(8192, 0);
+    auto mapped = allocator->map_user_buffer(external.data(), external.size());
+    ASSERT_NE(mapped, nullptr);
+    EXPECT_EQ(mapped->get_buffer_va(), external.data());
+    // Mappings are read-write unless the caller asks otherwise.
+    EXPECT_EQ(mapped->get_device_access(), DeviceBufferAccess::READ_WRITE);
+
+    // The interface carries device access, so a read-only mapping is reachable without dropping to the
+    // concrete manager.
+    std::vector<uint8_t> read_only(4096, 0);
+    auto pinned_read_only = allocator->map_user_buffer(
+        read_only.data(), read_only.size(), /*bind_to_noc=*/false, DeviceBufferAccess::READ_ONLY);
+    ASSERT_NE(pinned_read_only, nullptr);
+    EXPECT_EQ(pinned_read_only->get_device_access(), DeviceBufferAccess::READ_ONLY);
+
+    // bind_to_noc reaches the same path as the concrete map_to_noc flag.
+    auto bound = allocator->allocate_buffer(4096, /*bind_to_noc=*/true);
+    ASSERT_NE(bound, nullptr);
+    EXPECT_TRUE(bound->get_noc_addr().has_value());
 }
 
 // The manager stamps its communication id into every buffer it produces, so a caller can confirm a

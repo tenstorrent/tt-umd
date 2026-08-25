@@ -38,7 +38,7 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     DeviceProtocol* device_protocol,
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
-    architecture_implementation* architecture_impl,
+    ArchitectureImplementation* architecture_impl,
     FirmwareInfoProvider* firmware_info_provider,
     FirmwareTelemetryReader* firmware_telemetry_reader) :
     device_protocol_(device_protocol),
@@ -48,9 +48,14 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     firmware_info_provider_(firmware_info_provider),
     firmware_telemetry_reader_(firmware_telemetry_reader),
     device_id_(device_protocol->get_mmio_id()),
-    arc_apb_(device_protocol, pcie_interface, jtag_interface, architecture_impl) {
-    // add a throw here if architecture impl and device protocol are nullptr, pcie interface and jtag interface are
-    // optional
+    arc_apb_(device_protocol, pcie_interface, jtag_interface) {
+    UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeDeviceFirmware requires a DeviceProtocol.");
+    UMD_ASSERT(
+        architecture_impl_ != nullptr,
+        error::RuntimeError,
+        "BlackholeDeviceFirmware requires an ArchitectureImplementation.");
+    // The exactly-one-transport invariant that get_io_device_type() and the ARC APB routing rely on
+    // is enforced by arc_apb_, which is constructed from the same two interfaces above.
 
     // acquire_mutex() throws unless the mutex was initialized first, so claim it up front the way
     // ArcMessenger's constructor does.
@@ -71,7 +76,7 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
     // Probe the ARC APB path before waiting on boot status, as TTDevice::init_tt_device does with
     // probe_arc() on the line right before wait_arc_core_start().
     uint32_t dummy;
-    read_from_arc_apb(&dummy, architecture_impl_->get_arc_reset_scratch_offset(), sizeof(dummy), noc_id);
+    read_from_arc_apb(&dummy, blackhole::ARC_RESET_SCRATCH_OFFSET, sizeof(dummy), noc_id);
 
     uint32_t arc_boot_status = 0;
     uint32_t arc_postcode = 0;
@@ -82,8 +87,7 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
     const bool arc_core_started = utils::poll_until(
         [this, &arc_boot_status, &arc_postcode, &noc_id]() {
             read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status, noc_id);
-            read_from_arc_apb(
-                &arc_postcode, architecture_impl_->get_arc_reset_scratch_offset(), sizeof arc_postcode, noc_id);
+            read_from_arc_apb(&arc_postcode, blackhole::ARC_RESET_SCRATCH_OFFSET, sizeof arc_postcode, noc_id);
             return (arc_boot_status & 0x7) == 0x5;
         },
         timeout_ms,

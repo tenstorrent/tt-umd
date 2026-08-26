@@ -134,9 +134,21 @@ void TlbWindow::configure(const tlb_data& new_config) {
     offset_from_aligned_addr = new_config.local_offset - (new_config.local_offset & ~(tlb_handle->get_size() - 1));
 }
 
-void TlbWindow::write_aligned(uint64_t offset, const void* data, size_t size) { write_register(offset, data, size); }
+void TlbWindow::write_aligned(uint64_t offset, const void* data, size_t size) {
+    UMD_ASSERT(
+        offset % sizeof(uint32_t) == 0 && size % sizeof(uint32_t) == 0,
+        error::RuntimeError,
+        "write_aligned offset and size must be 4-byte aligned.");
+    write_register(offset, data, size);
+}
 
-void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) { read_register(offset, data, size); }
+void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
+    UMD_ASSERT(
+        offset % sizeof(uint32_t) == 0 && size % sizeof(uint32_t) == 0,
+        error::RuntimeError,
+        "read_aligned offset and size must be 4-byte aligned.");
+    read_register(offset, data, size);
+}
 
 void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
 
@@ -147,11 +159,13 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
         error::RuntimeError,
         "WindowFlags are not supported by TLB-backed IoWindows.");
 
+    UMD_ASSERT(config.noc.has_value(), error::RuntimeError, "TLB-backed IoWindows must specify a NOC.");
+
     const bool mcast = config.core_end.has_value();
     configure(make_tlb_config(
         config.addr,
         mcast ? config.core_end.value() : config.core_start,
-        config.noc.value_or(NocId::NOC0),
+        config.noc.value(),
         static_cast<uint64_t>(ordering),
         mcast,
         config.core_start));

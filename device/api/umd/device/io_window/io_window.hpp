@@ -96,7 +96,7 @@ public:
      * Updates the underlying hardware mapping so that subsequent read/write operations
      * target the new device address.
      *
-     * Applies IoOrdering::Strict. Callers that need another ordering mode must use the
+     * By default ordering is IoOrdering::Strict. Callers that need another ordering mode must use the
      * two-argument overload below.
      *
      * @param config Device-side target describing the core, address, and optional NOC.
@@ -104,7 +104,7 @@ public:
     virtual void configure(const TargetIoWindowConfig& config) = 0;
 
     /**
-     * @brief Reconfigures the window, selecting the transaction ordering mode explicitly.
+     * @brief Configures the window with the transaction ordering mode explicitly set.
      *
      * @param config Device-side target describing the core, address, and optional NOC.
      * @param ordering Transaction ordering mode to apply to the new mapping.

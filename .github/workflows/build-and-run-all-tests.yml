@@ -155,6 +155,9 @@ jobs:
         # - bh-loudbox is a single machine in CIv2. It also has an additional problem where
         #   it actually has a ~20min startup time for viommu variant, so this one can be really slow.
         # - The wh-glx-6u is also one machine, but not yet fully proven, so don't want to block merge queue with it.
+        # - 6u is a single machine and the main merge queue bottleneck, so in the merge queue it
+        #   runs on one build type only. Release is dropped because the PR gate already covers it,
+        #   and of the two sanitizer builds ASan is kept over TSan as the more valuable of the two.
         # - p100a is similar to p150, and the pool can get bogged down; only run it on main to keep
         #   PR/merge queue runtime down.
         # - g13blx01 is the Blackhole Galaxy machine. It is fully disabled on all events for now as
@@ -170,6 +173,8 @@ jobs:
             'merge_group|TSan|tt-ubuntu-2204-bh-loudbox-stable' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \
             'merge_group|*|tt-ubuntu-2204-wh-glx-6u-*' \
+            'merge_group|Release|6u' \
+            'merge_group|TSan|6u' \
             'pull_request|*|tt-ubuntu-2204-p100a-*' \
             'merge_group|*|tt-ubuntu-2204-p100a-*' \
             '*|*|g13blx01' \

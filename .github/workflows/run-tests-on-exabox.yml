@@ -182,10 +182,10 @@ jobs:
       - name: Install tt-smi on workers
         run: |
           set -euo pipefail
-          # User install lands in ~/.local/bin; login shells on workers need it on PATH.
+          # Install system-wide so root and non-login shells can find tt-smi
+          # (a user install only lands in /home/user/.local/bin).
           mpirun --pernode --tag-output bash -lc \
-            'export PATH="$HOME/.local/bin:$PATH"
-             python3 -m pip install --no-cache-dir "tt-smi==5.2.0"
+            'sudo python3 -m pip install --no-cache-dir "tt-smi==5.2.0"
              command -v tt-smi
              tt-smi --version'
 

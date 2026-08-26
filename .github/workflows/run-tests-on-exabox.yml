@@ -200,7 +200,7 @@ jobs:
           export LD_LIBRARY_PATH=/home/user/tt-umd/build/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 
           if ! mpirun --pernode --tag-output bash -c \
-            'command -v ttop-ipmi-reset >/dev/null 2>&1 && exit $?'; then
+            "command -v ttop-ipmi-reset >/dev/null 2>&1 && exit \$?"; then
             echo "ERROR: ttop-ipmi-reset not on PATH on one or more workers"
             echo "Expected from the multihost-ci runner ConfigMap sidecar."
             exit 1
@@ -228,10 +228,10 @@ jobs:
             validation_success=false
 
             echo "--- Resetting cards with ttop-ipmi-reset ---"
-            # Wrap in bash -c && exit $? so mpirun propagates the remote exit
-            # code (same quirk as metal's ttop-recovery ConfigMap script).
+            # Match metal's ttop-recovery quoting: \$ so MPI/SSH does not expand $?
+            # before the remote bash -c runs (premature expansion → exit 127).
             set +e
-            mpirun --pernode --tag-output bash -c 'ttop-ipmi-reset && exit $?'
+            mpirun --pernode --tag-output bash -c "ttop-ipmi-reset && exit \$?"
             reset_rc=$?
             set -e
             if [ "$reset_rc" -eq 0 ]; then
@@ -249,6 +249,11 @@ jobs:
                   echo "socket=/run/ttop-ipmi/reset MISSING"
                   ls -la /run/ttop-ipmi 2>&1 || echo "/run/ttop-ipmi directory missing"
                 fi
+                echo "--- re-run ttop-ipmi-reset with captured output ---"
+                set +e
+                /usr/local/bin/ttop-ipmi-reset
+                echo "direct_rc=$?"
+                set -e
                 exit 0
               ' || true
             fi

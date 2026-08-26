@@ -78,7 +78,7 @@ bool SimulationSysmemManager::init_sysmem(uint32_t num_host_mem_channels) {
         size_t channel_size = (i == 3 && num_host_mem_channels == 4) ? (768 * (1ULL << 20)) : (1ULL << 30);
         // physical_address is this chip's host base for the channel -- what UMD programs as the outbound
         // iATU region target (host_base_ is per-chip distinct). The chip-side NOC sysmem-window address is
-        // separate (get_pcie_base_addr_from_device), so the iATU maps NOC-window offset -> this host base.
+        // separate (get_sysmem_window_noc_base), so the iATU maps NOC-window offset -> this host base.
         hugepage_mapping_per_channel.push_back(
             {system_memory_ + i * (1ULL << 30), channel_size, host_base_ + i * (1ULL << 30)});
     }

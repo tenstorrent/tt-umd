@@ -1222,7 +1222,7 @@ std::uint32_t Cluster::get_numa_node_for_pcie_device(std::uint32_t device_id) {
     return chips_.at(device_id)->get_numa_node();
 }
 
-std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
+std::uint64_t Cluster::get_sysmem_window_noc_base(const ChipId chip_id) const {
     // TODO: Should probably be lowered to TTDevice.
     tt::ARCH arch = get_soc_descriptor(chip_id).arch;
     if (arch == tt::ARCH::WORMHOLE_B0) {
@@ -1233,6 +1233,10 @@ std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) cons
     } else {
         return 0;
     }
+}
+
+std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
+    return get_sysmem_window_noc_base(chip_id);
 }
 
 std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }

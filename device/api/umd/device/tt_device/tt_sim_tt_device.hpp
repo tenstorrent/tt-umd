@@ -70,7 +70,6 @@ public:
     // resolves to this chip's distinct host base (configured as the region target) purely by address.
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
     std::chrono::milliseconds wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;

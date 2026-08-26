@@ -27,6 +27,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -108,6 +109,7 @@ public:
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
+    DeviceFirmware *get_device_firmware();
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
@@ -353,13 +355,6 @@ public:
     FirmwareBundleVersion get_firmware_version();
 
     /**
-     * Waits for ARC core to be fully ready for communication.
-     * Must be called before using ArcMessenger.
-     * This ensures the ARC core is completely initialized and operational.
-     */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
-
-    /**
      * Waits for ETH core training to complete.
      * @param eth_core Specific ETH core to wait on.
      * @param timeout_ms Timeout in ms.
@@ -587,9 +582,15 @@ private:
 
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
+    // Selects and builds the per-arch firmware, handing it references to the two slots below. This
+    // switch is what becomes TTDeviceModelFactory's dispatch once the model owns the components.
+    void build_device_firmware();
+
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
+    // Declared after the two slots: it holds references to them, so it must be destroyed first.
+    std::unique_ptr<DeviceFirmware> device_firmware_ = nullptr;
     std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
     PcieInterface *pcie_capabilities_ = nullptr;

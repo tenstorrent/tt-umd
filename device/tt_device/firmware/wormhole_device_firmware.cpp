@@ -9,11 +9,13 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -37,12 +39,14 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
     ArchitectureImplementation* architecture_impl,
-    FirmwareInfoProvider* firmware_info_provider) :
+    std::unique_ptr<FirmwareTelemetryReader>& firmware_telemetry_reader,
+    std::unique_ptr<FirmwareInfoProvider>& firmware_info_provider) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
     remote_interface_(remote_interface),
     architecture_impl_(architecture_impl),
+    firmware_telemetry_reader_(firmware_telemetry_reader),
     firmware_info_provider_(firmware_info_provider),
     device_id_(device_protocol->get_mmio_id()),
     arc_apb_(device_protocol, pcie_interface, jtag_interface, remote_interface),
@@ -66,6 +70,12 @@ IODeviceType WormholeDeviceFirmware::get_io_device_type() const {
 }
 
 void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // TODO: temporary. See the matching guard in BlackholeDeviceFirmware::init_firmware(): this goes
+    // away once waiting for the firmware and building what depends on it are separate API calls.
+    if (firmware_info_provider_ != nullptr) {
+        return;
+    }
+
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -177,6 +187,15 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
             timeout_ms,
             message_id);
     }
+
+    // The telemetry reader and info provider read state the firmware publishes, so this is the
+    // earliest point they can exist. Wormhole does not read either itself - harvesting and AICLK
+    // come from ARC messages - but the owner requires them, and only here can they be built.
+    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
+        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_);
+
+    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+        tt::ARCH::WORMHOLE_B0, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
 }
 
 DeviceCommandResult WormholeDeviceFirmware::send_device_command(

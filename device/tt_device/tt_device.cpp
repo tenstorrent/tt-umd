@@ -31,6 +31,8 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
+#include "umd/device/tt_device/firmware/wormhole_device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/tt_device/protocol/dma_interface.hpp"
@@ -86,6 +88,8 @@ TTDevice::TTDevice(
     if (use_safe_api) {
         set_sigbus_safe_handler(true);
     }
+
+    build_device_firmware();
 }
 
 TTDevice::TTDevice(
@@ -102,6 +106,8 @@ TTDevice::TTDevice(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_capabilities_ = jtag_protocol.get();
     device_protocol_ = std::move(jtag_protocol);
+
+    build_device_firmware();
 }
 
 TTDevice::TTDevice(
@@ -117,6 +123,42 @@ TTDevice::TTDevice(
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_capabilities_ = remote_protocol.get();
     device_protocol_ = std::move(remote_protocol);
+
+    build_device_firmware();
+}
+
+void TTDevice::build_device_firmware() {
+    switch (arch) {
+        case tt::ARCH::BLACKHOLE:
+            device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
+                device_protocol_.get(),
+                pcie_capabilities_,
+                jtag_capabilities_,
+                architecture_impl_.get(),
+                telemetry,
+                firmware_info_provider);
+            break;
+        case tt::ARCH::WORMHOLE_B0:
+            device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
+                device_protocol_.get(),
+                pcie_capabilities_,
+                jtag_capabilities_,
+                remote_capabilities_,
+                architecture_impl_.get(),
+                telemetry,
+                firmware_info_provider);
+            break;
+        default:
+            // Simulation backends have no management firmware.
+            break;
+    }
+}
+
+DeviceFirmware *TTDevice::get_device_firmware() {
+    if (device_firmware_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+    return device_firmware_.get();
 }
 
 void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
@@ -145,16 +187,13 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
     }
     probe_arc();
-    wait_arc_core_start(timeout_ms);
+
+    // Waits for the firmware and fills the telemetry/info-provider slots this object owns.
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
+
+    // Still built here: its callers reach it through TTDevice and have not moved to
+    // DeviceFirmware::send_device_command yet.
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
-        get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);
-    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        get_arch(),
-        get_device_protocol(),
-        get_arc_core(NocId::NOC0),
-        get_arc_core(NocId::NOC1),
-        get_firmware_telemetry_reader());
     construct_soc_descriptor(soc_arch_descriptor_);
 }
 

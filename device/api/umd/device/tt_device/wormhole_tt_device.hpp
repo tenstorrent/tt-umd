@@ -26,8 +26,6 @@ class WormholeTTDevice : public TTDevice {
 public:
     void configure_iatu_region(size_t region, uint64_t target, size_t region_size) override;
 
-    void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) override;
-
     uint32_t get_clock() override;
 
     uint32_t get_min_clock_freq() override;

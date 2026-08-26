@@ -10,11 +10,13 @@
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
+#include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
+#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
@@ -39,14 +41,14 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     ArchitectureImplementation* architecture_impl,
-    FirmwareInfoProvider* firmware_info_provider,
-    FirmwareTelemetryReader* firmware_telemetry_reader) :
+    std::unique_ptr<FirmwareTelemetryReader>& firmware_telemetry_reader,
+    std::unique_ptr<FirmwareInfoProvider>& firmware_info_provider) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
     architecture_impl_(architecture_impl),
-    firmware_info_provider_(firmware_info_provider),
     firmware_telemetry_reader_(firmware_telemetry_reader),
+    firmware_info_provider_(firmware_info_provider),
     device_id_(device_protocol->get_mmio_id()),
     arc_apb_(device_protocol, pcie_interface, jtag_interface) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeDeviceFirmware requires a DeviceProtocol.");
@@ -73,6 +75,18 @@ IODeviceType BlackholeDeviceFirmware::get_io_device_type() const {
 }
 
 void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // TODO: temporary. init_firmware() currently does two jobs - waiting for the firmware and
+    // building everything downstream of it - so callers that only need the first (warm reset, for
+    // one) still run the second, and a rebuild here would discard a live set and pay the telemetry
+    // table's readiness wait again. The intended fix is to split the two into separate API calls, at
+    // which point this guard goes away.
+    //
+    // Safe today only because every caller creates the TTDevice after a reset rather than reusing
+    // one across it, so there is never pre-reset state to preserve.
+    if (arc_msg_queue_ != nullptr) {
+        return;
+    }
+
     // Probe the ARC APB path before waiting on boot status, as TTDevice::init_tt_device does with
     // probe_arc() on the line right before wait_arc_core_start().
     uint32_t dummy;
@@ -118,6 +132,14 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
         get_noc_translation_enabled(noc_id),
         BlackholeArcMessageQueueIndex::APPLICATION,
         noc_id);
+
+    // The telemetry reader and info provider read state the firmware publishes, so this is the
+    // earliest point they can exist. They are filled into the owner's slots rather than owned here.
+    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
+        device_protocol_, tt::ARCH::BLACKHOLE, arc_core_noc0_, arc_core_noc1_);
+
+    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+        tt::ARCH::BLACKHOLE, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
 }
 
 DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
@@ -143,11 +165,10 @@ DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
 }
 
 ChipInfo BlackholeDeviceFirmware::get_chip_info(NocId noc_id) {
-    if (firmware_info_provider_ == nullptr || firmware_telemetry_reader_ == nullptr) {
-        UMD_THROW(
-            error::RuntimeError,
-            "Chip info is unavailable without a FirmwareInfoProvider and a FirmwareTelemetryReader.");
-    }
+    UMD_ASSERT(
+        firmware_info_provider_ != nullptr && firmware_telemetry_reader_ != nullptr,
+        error::RuntimeError,
+        "Chip info is unavailable because init_firmware() has not been run.");
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled(noc_id);

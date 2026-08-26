@@ -13,7 +13,6 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/tlb.hpp"
-#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 class TlbHandle;
@@ -36,54 +35,8 @@ public:
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
 
-    void safe_write16(uint64_t offset, uint16_t value) override;
-
-    uint16_t safe_read16(uint64_t offset) override;
-
-    void safe_write32(uint64_t offset, uint32_t value) override;
-
-    uint32_t safe_read32(uint64_t offset) override;
-
-    void safe_write_register(uint64_t offset, const void* data, size_t size) override;
-
-    void safe_read_register(uint64_t offset, void* data, size_t size) override;
-
-    void safe_write_block(uint64_t offset, const void* data, size_t size) override;
-
-    void safe_read_block(uint64_t offset, void* data, size_t size) override;
-
-    void safe_write_block_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
-
-    void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict)
-        override;
-
-    void safe_read_register_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict)
-        override;
-
-    void safe_write_register_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
-
-    void safe_noc_multicast_write_reconfigure(
-        const void* src,
-        size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict) override;
+    // Enables/disables SIGBUS recovery (see execute_safe below) for the memory-access methods above.
+    void set_safe_io(bool enable) override;
 
     // Wires the per-op MMIO timeout: on a single-op overrun hang_check is consulted for the window's
     // currently configured NOC. Returning true means that NOC is hung (the transfer aborts with
@@ -130,6 +83,18 @@ private:
     template <typename Func, typename... Args>
     decltype(auto) execute_safe(Func&& func, Args&&... args);
 
+    // Unguarded bodies of the memory-access methods above; the public overrides route through
+    // execute_safe() when safe_io_ is enabled and call these directly otherwise.
+    void write16_impl(uint64_t offset, uint16_t value);
+    uint16_t read16_impl(uint64_t offset);
+    void write32_impl(uint64_t offset, uint32_t value);
+    uint32_t read32_impl(uint64_t offset);
+    void write_register_impl(uint64_t offset, const void* data, size_t size);
+    void read_register_impl(uint64_t offset, void* data, size_t size);
+    void write_block_impl(uint64_t offset, const void* data, size_t size);
+    void read_block_impl(uint64_t offset, void* data, size_t size);
+
+    bool safe_io_ = false;
     std::function<bool(NocId)> hang_check_;
     // Cached is_false_alarm callback bound to the currently configured NOC; refreshed by
     // update_io_timeout_callback() so the IO paths need not rebuild it per call.

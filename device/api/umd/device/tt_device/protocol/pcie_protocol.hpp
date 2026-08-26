@@ -97,11 +97,6 @@ private:
     bool dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
     bool dma_transfer_zero_copy(uint64_t iova, size_t size, uint64_t addr, tlb_data config, DmaDirection direction);
 
-    template <bool safe>
-    void write_data_impl(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
-    template <bool safe>
-    void read_data_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id);
-
     // Offset used to access NOC2AXI config + ARC specific memory (ICCM + CSM + APB).
     static constexpr uint32_t BAR0_OFFSET = 0x1FD00000;
 

@@ -13,6 +13,7 @@
 #include <stdexcept>
 #include <vector>
 
+#include "pcie/io_window_reconfigure.hpp"
 #include "tests/test_utils/device_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/io_window/io_window.hpp"
@@ -653,10 +654,10 @@ TEST_F(TestTlb, TestRegisterReconfigureL1RoundTrip) {
 
         auto tlb_window = std::make_unique<SiliconTlbWindow>(pci_device->allocate_tlb(tlb_size, TlbMapping::UC));
 
-        tlb_window->write_register_reconfigure(pattern.data(), xy, l1_start, test_size, NocId::NOC0);
+        write_register_reconfigure(*tlb_window, pattern.data(), xy, l1_start, test_size, NocId::NOC0);
 
         std::vector<uint32_t> readback(num_words, 0);
-        tlb_window->read_register_reconfigure(readback.data(), xy, l1_start, test_size, NocId::NOC0);
+        read_register_reconfigure(*tlb_window, readback.data(), xy, l1_start, test_size, NocId::NOC0);
 
         EXPECT_EQ(readback, pattern) << "Mismatch on core " << it->str();
     }

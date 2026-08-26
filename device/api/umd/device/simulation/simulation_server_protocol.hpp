@@ -23,27 +23,28 @@ namespace tt::umd {
 // structs and free functions. Stream framing (length-prefixing messages on the socket) is a
 // transport concern and lives with the socket send/recv helpers, not here.
 
-// Direction of a device-memory access; mirrors wire::SimulationServerCommand in the schema.
+// What a client asks the host to do: a device-memory access (READ/WRITE), an identity or topology
+// query, or a graceful shutdown. Mirrors wire::SimulationServerCommand in the schema.
 enum class SimulationServerCommand : int8_t {
-    Read = 0,
-    Write = 1,
-    GetDeviceInfo = 2,
-    GetClusterDescriptor = 3,
+    READ = 0,
+    WRITE = 1,
+    GET_DEVICE_INFO = 2,
+    GET_CLUSTER_DESCRIPTOR = 3,
     // Asks the host to shut down gracefully; the host acks with a SimulationServerResponse then tears
     // down (closing every client connection). A host that didn't opt in acks as a no-op.
-    Shutdown = 4,
+    SHUTDOWN = 4,
 };
 
 // Which simulator the host runs; mirrors wire::SimulationBackendType. Served as part of the device
 // identity so a client can build the matching device class without a local simulator build.
 enum class SimulationBackendType : int8_t {
-    TTSim = 0,
-    Rtl = 1,
+    TTSIM = 0,
+    RTL = 1,
 };
 
 // A device-memory access request addressed by (core x/y, address, size).
 struct SimulationServerRequest {
-    SimulationServerCommand command = SimulationServerCommand::Read;
+    SimulationServerCommand command = SimulationServerCommand::READ;
     uint32_t x = 0;
     uint32_t y = 0;
     uint64_t address = 0;
@@ -68,7 +69,7 @@ struct SimulationServerDeviceInfo {
     // tt::ARCH value of the served device.
     int32_t arch = 0;
     // Which simulator the host runs, so the client instantiates the matching device class.
-    SimulationBackendType backend_type = SimulationBackendType::TTSim;
+    SimulationBackendType backend_type = SimulationBackendType::TTSIM;
     // Full text of the host's SoC descriptor YAML file, so the client can build a matching one.
     std::string soc_descriptor_yaml;
     // Whether the host applies NOC translation.

@@ -76,11 +76,6 @@ void SiliconTlbWindow::set_io_timeout_hang_check(const std::function<bool(NocId)
     update_io_timeout_callback();
 }
 
-void SiliconTlbWindow::configure(const tlb_data &new_config) {
-    TlbWindow::configure(new_config);
-    update_io_timeout_callback();
-}
-
 void SiliconTlbWindow::update_io_timeout_callback() {
     if (!hang_check_) {
         // No hang check wired: default to treating every overrun as a false alarm so a bare per-op
@@ -173,6 +168,19 @@ void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
     } else {
         read_block_impl(offset, data, size);
     }
+}
+
+void SiliconTlbWindow::configure(const tlb_data &new_config) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::configure_impl, new_config);
+    } else {
+        configure_impl(new_config);
+    }
+}
+
+void SiliconTlbWindow::configure_impl(const tlb_data &new_config) {
+    TlbWindow::configure(new_config);
+    update_io_timeout_callback();
 }
 
 void SiliconTlbWindow::write16_impl(uint64_t offset, uint16_t value) {

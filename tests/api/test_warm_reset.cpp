@@ -200,26 +200,33 @@ TEST(WarmResetTest, DISABLED_SafeApiMultiThreaded) {
         try {
             // This thread hammers the device and waits for the reset to kill it.
             while (true) {
+                std::cout << "start" << std::endl;
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                std::cout << "read" << std::endl;
                 tt_devices[pci_device_ids[0]]->read_from_device(
                     data_read.data(), tensix_core, SAFE_IO_L1_ADDRESS, data_read.size() * sizeof(uint32_t));
-                std::this_thread::sleep_for(std::chrono::microseconds(100));
             }
         } catch (const SigbusError& e) {
             caught_sigbus++;
         } catch (const std::exception& e) {
+            std::cout << e.what() << std::endl;
         }
     };
 
     std::thread t1(worker, 1);
     std::thread t2(worker, 2);
 
-    // Trigger the reset after a small delay.
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    WarmResetWithRecovery::warm_reset();
+    // Dedicated worker that triggers the reset while t1/t2 are actively reading, so the
+    // reset races the in-flight reads instead of being serialized with them from the main thread.
+    std::thread reset_worker([&]() {
+        WarmResetWithRecovery::warm_reset();
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    });
 
     t1.join();
     t2.join();
-
+    reset_worker.join();
+    std::cout << "after joinss" << std::endl;
     EXPECT_EQ(caught_sigbus, 2);
 }
 

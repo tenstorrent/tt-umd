@@ -17,7 +17,12 @@ class PcieInterface;
 class RemoteInterface;
 
 /**
- * @brief Access to the Wormhole ARC APB register window.
+ * @brief Access to one of the Wormhole ARC address windows.
+ *
+ * The ARC tile exposes several windows that differ only in where they sit and whether they hold
+ * registers or memory; how an access reaches them is the same for all of them. This holds that
+ * common routing and takes the differences as a Config, so a window is added by naming its
+ * constants rather than by copying the class.
  *
  * A single access is routed one of three ways, in order: over the NOC when the device is reached
  * remotely, over JTAG when it is reached that way, and otherwise through the PCIe BAR. Callers pass
@@ -31,10 +36,36 @@ class RemoteInterface;
  *
  * The interfaces are non-owning and must outlive this object.
  */
-class WormholeArcApb {
+class WormholeArcWindow {
 public:
     /**
-     * @brief Builds ARC APB access over one communication protocol.
+     * @brief What a window holds, which is what the remote route has to match.
+     */
+    enum class Content : uint8_t {
+        /** Registers, reached over the protocol's register path. */
+        REGISTERS,
+        /** Memory, reached over the protocol's data path. */
+        MEMORY,
+    };
+
+    /**
+     * @brief Where one window sits and what it holds.
+     */
+    struct Config {
+        /** Name of the window, used in error messages. */
+        const char* name;
+        /** Base of the window in the ARC core's NOC address space. */
+        uint64_t noc_base_address;
+        /** Base of the window in PCIe BAR0. */
+        uint32_t bar0_offset_start;
+        /** Size of the window in bytes. */
+        uint32_t size_bytes;
+        /** Whether the remote route issues a register or a data access. */
+        Content content;
+    };
+
+    /**
+     * @brief Builds access to the ARC APB register window over one communication protocol.
      * @param device_protocol Protocol to issue NOC accesses through. Required.
      * @param pcie_interface BAR access, when the device is reached over PCIe.
      * @param jtag_interface JTAG access, when the device is reached over JTAG.
@@ -43,17 +74,17 @@ public:
      * Exactly one of the three transport interfaces must be given: which one is present is how the
      * route is picked, and a TTDevice is built for exactly one communication protocol.
      */
-    WormholeArcApb(
+    static WormholeArcWindow arc_apb(
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
         RemoteInterface* remote_interface);
 
     /**
-     * @brief Reads from the ARC APB window.
+     * @brief Reads from the window.
      * @param mem_ptr Destination buffer.
-     * @param arc_addr_offset Offset into the ARC APB window. The whole transfer has to fit inside
-     * it, so the largest valid offset is the window size less size.
+     * @param arc_addr_offset Offset into the window. The whole transfer has to fit inside it, so the
+     * largest valid offset is the window size less size.
      * @param size Bytes to read. The remote path honors any size; the JTAG and BAR paths read one
      * word and reject anything other than sizeof(uint32_t) rather than silently widening.
      * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
@@ -63,10 +94,10 @@ public:
     void read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);
 
     /**
-     * @brief Writes to the ARC APB window.
+     * @brief Writes to the window.
      * @param mem_ptr Source buffer.
-     * @param arc_addr_offset Offset into the ARC APB window. The whole transfer has to fit inside
-     * it, so the largest valid offset is the window size less size.
+     * @param arc_addr_offset Offset into the window. The whole transfer has to fit inside it, so the
+     * largest valid offset is the window size less size.
      * @param size Bytes to write. The remote path honors any size; the JTAG and BAR paths write one
      * word and reject anything other than sizeof(uint32_t) rather than silently widening.
      * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
@@ -76,6 +107,16 @@ public:
     void write(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);
 
 private:
+    WormholeArcWindow(
+        const Config& config,
+        DeviceProtocol* device_protocol,
+        PcieInterface* pcie_interface,
+        JtagInterface* jtag_interface,
+        RemoteInterface* remote_interface);
+
+    void check_access(uint64_t arc_addr_offset, size_t size) const;
+
+    Config config_;
     // All non-owning; they belong to the component that owns this object and must outlive it.
     DeviceProtocol* device_protocol_ = nullptr;
     PcieInterface* pcie_interface_ = nullptr;

@@ -5,7 +5,6 @@
 #pragma once
 
 #include "umd/device/types/arch.hpp"
-#include "umd/device/types/communication_protocol.hpp"
 
 namespace tt::umd {
 
@@ -37,18 +36,14 @@ class TTDeviceModel {
 public:
     virtual ~TTDeviceModel() = default;
 
-    // Device identity.
-    //
-    // TODO: temporary - not part of the Base API. TTDevice derived its identity from the transport
-    // object it used to own; the model answers for it during the migration. These go away once the
-    // components that carry this information (DeviceProtocol, ArchitectureImplementation) have moved
-    // here and can be asked directly.
+    // TODO: temporary - not part of the Base API. Answered by
+    // get_architecture_impl()->get_architecture() once ArchitectureImplementation moves here.
     virtual tt::ARCH get_arch() const = 0;
-
-    virtual IODeviceType get_communication_device_type() const = 0;
 
     // Identifies the device within its transport: the PCI device number for PCIe, the JLink id for
     // JTAG. A remote device reports the identity of the local device it is reached through.
+    // TODO: temporary - not part of the Base API. Answered by get_device_protocol()->get_mmio_id()
+    // once DeviceProtocol moves here.
     virtual int get_communication_device_id() const = 0;
 
     // Optional components.

@@ -175,13 +175,13 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         switch (arch) {
             case ARCH::WORMHOLE_B0:
                 return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                    std::make_unique<WormholeTTDeviceModel>(IODeviceType::JTAG, device_number),
+                    std::make_unique<WormholeTTDeviceModel>(device_number),
                     std::move(jtag_device),
                     device_number,
                     soc_arch_descriptor));
             case ARCH::BLACKHOLE:
                 return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
-                    std::make_unique<BlackholeTTDeviceModel>(IODeviceType::JTAG, device_number),
+                    std::make_unique<BlackholeTTDeviceModel>(device_number),
                     std::move(jtag_device),
                     device_number,
                     soc_arch_descriptor));
@@ -200,13 +200,13 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     switch (arch) {
         case ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(IODeviceType::PCIe, pci_device_num),
+                std::make_unique<WormholeTTDeviceModel>(pci_device_num),
                 std::move(pci_device),
                 soc_arch_descriptor,
                 use_safe_api));
         case ARCH::BLACKHOLE:
             return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
-                std::make_unique<BlackholeTTDeviceModel>(IODeviceType::PCIe, pci_device_num),
+                std::make_unique<BlackholeTTDeviceModel>(pci_device_num),
                 std::move(pci_device),
                 soc_arch_descriptor,
                 use_safe_api));
@@ -226,7 +226,6 @@ std::unique_ptr<TTDevice> TTDevice::create(
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             auto model = std::make_unique<WormholeTTDeviceModel>(
-                remote_communication->get_local_device()->get_communication_device_type(),
                 remote_communication->get_local_device()->get_communication_device_id());
             return std::unique_ptr<WormholeTTDevice>(
                 new WormholeTTDevice(std::move(model), std::move(remote_communication), soc_arch_descriptor));
@@ -254,7 +253,6 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
             auto model = std::make_unique<WormholeTTDeviceModel>(
-                remote_communication->get_local_device()->get_communication_device_type(),
                 remote_communication->get_local_device()->get_communication_device_id());
             auto device = std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
                 std::move(model), std::move(remote_communication), /*soc_arch_descriptor=*/nullptr));
@@ -625,7 +623,21 @@ bool TTDevice::is_remote() { return is_remote_tt_device; }
 
 int TTDevice::get_communication_device_id() const { return model_->get_communication_device_id(); }
 
-IODeviceType TTDevice::get_communication_device_type() const { return model_->get_communication_device_type(); }
+// Derived from the transport the device actually has, rather than stored: exactly one of these
+// interfaces is present, and a remote device reports the transport of the local device it is
+// reached through.
+IODeviceType TTDevice::get_communication_device_type() const {
+    if (pcie_capabilities_ != nullptr) {
+        return IODeviceType::PCIe;
+    }
+    if (jtag_capabilities_ != nullptr) {
+        return IODeviceType::JTAG;
+    }
+    if (remote_capabilities_ != nullptr) {
+        return remote_capabilities_->get_remote_communication()->get_local_device()->get_communication_device_type();
+    }
+    return IODeviceType::UNDEFINED;
+}
 
 BoardType TTDevice::get_board_type() { return get_board_type_from_board_id(get_board_id()); }
 

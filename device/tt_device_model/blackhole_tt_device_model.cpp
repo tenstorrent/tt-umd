@@ -6,12 +6,10 @@
 
 namespace tt::umd {
 
-BlackholeTTDeviceModel::BlackholeTTDeviceModel(IODeviceType communication_device_type, int communication_device_id) :
-    communication_device_type_(communication_device_type), communication_device_id_(communication_device_id) {}
+BlackholeTTDeviceModel::BlackholeTTDeviceModel(int communication_device_id) :
+    communication_device_id_(communication_device_id) {}
 
 tt::ARCH BlackholeTTDeviceModel::get_arch() const { return tt::ARCH::BLACKHOLE; }
-
-IODeviceType BlackholeTTDeviceModel::get_communication_device_type() const { return communication_device_type_; }
 
 int BlackholeTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }
 

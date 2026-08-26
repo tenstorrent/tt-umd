@@ -228,8 +228,10 @@ jobs:
             validation_success=false
 
             echo "--- Resetting cards with ttop-ipmi-reset ---"
+            # Invoke via bash so a broken shebang (e.g. CRLF from ConfigMap) does
+            # not surface as a silent exit 127 ("bad interpreter").
             set +e
-            mpirun --pernode --tag-output ttop-ipmi-reset
+            mpirun --pernode --tag-output bash /usr/local/bin/ttop-ipmi-reset
             reset_rc=$?
             set -e
             if [ "$reset_rc" -eq 0 ]; then
@@ -238,20 +240,33 @@ jobs:
               echo "WARNING: ttop-ipmi-reset failed on attempt $attempt (mpirun exit=$reset_rc)"
               echo "--- Per-host diagnostics after ttop-ipmi-reset failure ---"
               mpirun --pernode --tag-output bash -c '
+                set +e
                 echo "hostname=$(hostname)"
                 echo "ttop-ipmi-reset=$(command -v ttop-ipmi-reset || echo MISSING)"
                 echo "socat=$(command -v socat || echo MISSING)"
+                ls -l /usr/local/bin/ttop-ipmi-reset 2>&1
+                echo "--- shebang (cat -A) ---"
+                head -1 /usr/local/bin/ttop-ipmi-reset | cat -A
                 if [ -S /run/ttop-ipmi/reset ]; then
                   ls -l /run/ttop-ipmi/reset
                 else
                   echo "socket=/run/ttop-ipmi/reset MISSING"
                   ls -la /run/ttop-ipmi 2>&1 || echo "/run/ttop-ipmi directory missing"
                 fi
-                echo "--- re-run ttop-ipmi-reset with captured output ---"
-                set +e
-                /usr/local/bin/ttop-ipmi-reset
+                echo "--- raw socket response (cat -A) ---"
+                tmp=$(mktemp)
+                socat -u UNIX-CONNECT:/run/ttop-ipmi/reset - >"$tmp" 2>"$tmp.err"
+                echo "socat_rc=$?"
+                cat -A "$tmp" 2>&1 || true
+                echo "--- socat stderr ---"
+                cat -A "$tmp.err" 2>&1 || true
+                rm -f "$tmp" "$tmp.err"
+                echo "--- exec direct ---"
+                /usr/local/bin/ttop-ipmi-reset 2>&1
                 echo "direct_rc=$?"
-                set -e
+                echo "--- exec via bash ---"
+                bash /usr/local/bin/ttop-ipmi-reset 2>&1
+                echo "bash_rc=$?"
                 exit 0
               ' || true
             fi

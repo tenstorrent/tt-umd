@@ -20,9 +20,15 @@ struct SimulationConnectorOptions {
     // The simulator build to host: a TTSim .so (when the path ends in .so) or an RTL simulator
     // directory. The backend is selected from the path, mirroring the simulation device factory.
     std::filesystem::path simulator_directory;
-    // Host path only: the directory this server serves its per-chip sockets in. Empty means
-    // allocate a fresh one (allocate_server_directory), so distinct hosts never collide; set it to
-    // serve in a specific directory (e.g. one the caller pre-allocated to report to the user).
+    // Host path only: publish each simulated chip over a per-chip socket so other processes can
+    // attach as clients. Disabled by default so a direct discover() call yields private in-process
+    // devices (the hot path) -- opt in only for a shared-simulation/server workflow. Ignored on the
+    // client path (attaching to a live host is always over sockets).
+    bool serve_over_sockets = false;
+    // Host path only: the directory this server serves its per-chip sockets in (when
+    // serve_over_sockets is set). Empty means allocate a fresh one (allocate_server_directory), so
+    // distinct hosts never collide; set it to serve in a specific directory (e.g. one the caller
+    // pre-allocated to report to the user).
     std::filesystem::path server_directory;
     // Connectivity/topology used to configure the simulator on the host path. Optional; when
     // attaching to a live host the topology comes from the host instead.

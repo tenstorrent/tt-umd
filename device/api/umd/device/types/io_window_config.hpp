@@ -36,6 +36,20 @@ enum class IoOrdering : uint8_t {
 };
 
 /**
+ * @brief Traffic an IoWindow mapping carries until the next configure().
+ *
+ * A window reconfigured before every transfer can commit to one direction, which lets an
+ * implementation route reads and writes over separate interconnect resources and so keep writes to a
+ * target ordered against each other. A window that serves both from one mapping asks for
+ * Bidirectional. Implementations with nothing to gain from the distinction ignore it.
+ */
+enum class IoDirection : uint8_t {
+    Bidirectional,  ///< Mapping serves both reads and writes.
+    Read,           ///< Mapping serves reads until it is configured again.
+    Write,          ///< Mapping serves writes until it is configured again.
+};
+
+/**
  * @brief Type-safe transaction attributes for an IoWindow target.
  */
 enum class WindowFlags : uint32_t {
@@ -78,6 +92,7 @@ struct TargetIoWindowConfig {
     uint64_t addr;                            ///< Destination address on the target core(s).
     std::optional<NocId> noc = std::nullopt;  ///< Optional routing selection.
     WindowFlags flags = WindowFlags::None;    ///< Transaction attributes.
+    IoDirection direction = IoDirection::Bidirectional;  ///< Traffic the mapping will carry.
 };
 
 /**

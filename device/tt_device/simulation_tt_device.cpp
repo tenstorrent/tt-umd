@@ -12,6 +12,7 @@
 #include <tt-logger/tt-logger.hpp>
 
 #include "noc_access.hpp"
+#include "pcie/io_window_reconfigure.hpp"
 #include "simulation/simulation_server_socket.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -169,7 +170,7 @@ void SimulationTTDevice::host_write(CoreCoord core, uint64_t addr, const void* m
         return;
     }
     if (should_use_cached_tlb_window()) {
-        cached_tlb_window_->write_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        write_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
         tile_write_bytes(translated_core, addr, mem_ptr, size);
     }
@@ -185,7 +186,7 @@ void SimulationTTDevice::host_read(CoreCoord core, uint64_t addr, void* mem_ptr,
         return;
     }
     if (should_use_cached_tlb_window()) {
-        cached_tlb_window_->read_block_reconfigure(mem_ptr, translated_core, addr, size, get_selected_noc_id());
+        read_block_reconfigure(*cached_tlb_window_, mem_ptr, translated_core, addr, size, get_selected_noc_id());
     } else {
         tile_read_bytes(translated_core, addr, mem_ptr, size);
     }

@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
@@ -258,8 +259,14 @@ void LocalChip::write_to_device(CoreCoord core, const void* src, uint64_t l1_des
         tlb_window->write_block(l1_dest - tlb_window->get_base_address(), src, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->write_block_reconfigure(
-            src, translated_core, l1_dest, size, get_selected_noc_id(), tlb_data::Relaxed);
+        write_block_reconfigure(
+            *get_cached_wc_tlb_window(),
+            src,
+            translated_core,
+            l1_dest,
+            size,
+            get_selected_noc_id(),
+            IoOrdering::Relaxed);
     }
 }
 
@@ -284,8 +291,14 @@ void LocalChip::read_from_device(CoreCoord core, void* dest, uint64_t l1_src, si
         tlb_window->read_block(l1_src - tlb_window->get_base_address(), dest, size);
     } else {
         std::lock_guard<std::mutex> lock(wc_tlb_lock);
-        get_cached_wc_tlb_window()->read_block_reconfigure(
-            dest, translated_core, l1_src, size, get_selected_noc_id(), tlb_data::Relaxed);
+        read_block_reconfigure(
+            *get_cached_wc_tlb_window(),
+            dest,
+            translated_core,
+            l1_src,
+            size,
+            get_selected_noc_id(),
+            IoOrdering::Relaxed);
     }
 }
 

@@ -13,9 +13,14 @@
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
+#include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/power_state.hpp"
 #include "umd/device/types/xy_pair.hpp"
+
+namespace tt::umd {
+class RemoteCommunication;
+}
 
 namespace tt::umd::test_utils {
 
@@ -45,6 +50,14 @@ class MockJtagInterface : public JtagInterface {
 public:
     MOCK_METHOD(void, mmio_write32, (uint32_t, uint32_t), (override));
     MOCK_METHOD(uint32_t, mmio_read32, (uint32_t), (override));
+};
+
+// Components that route on "is this device remote" only ever check this interface for null, so the
+// mock exists to be non-null; neither method is reached on those paths.
+class MockRemoteInterface : public RemoteInterface {
+public:
+    MOCK_METHOD(RemoteCommunication*, get_remote_communication, (), (override));
+    MOCK_METHOD(void, wait_for_non_mmio_flush, (), (override));
 };
 
 }  // namespace tt::umd::test_utils

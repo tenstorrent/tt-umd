@@ -24,6 +24,7 @@
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/error.hpp"
+#include "umd/device/tt_device/firmware/simulation_device_firmware.hpp"
 
 namespace tt::umd {
 
@@ -37,6 +38,10 @@ SimulationTTDevice::SimulationTTDevice(
 SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
+std::unique_ptr<DeviceFirmware> SimulationTTDevice::create_device_firmware() {
+    return std::make_unique<SimulationDeviceFirmware>();
+}
+
 
 void SimulationTTDevice::attach_client() { client_->attach(); }
 

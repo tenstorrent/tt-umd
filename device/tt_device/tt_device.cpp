@@ -127,19 +127,20 @@ TTDevice::TTDevice(
     build_device_firmware();
 }
 
-void TTDevice::build_device_firmware() {
+void TTDevice::build_device_firmware() { device_firmware_ = create_device_firmware(); }
+
+std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
     switch (arch) {
         case tt::ARCH::BLACKHOLE:
-            device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
+            return std::make_unique<BlackholeDeviceFirmware>(
                 device_protocol_.get(),
                 pcie_capabilities_,
                 jtag_capabilities_,
                 architecture_impl_.get(),
                 telemetry,
                 firmware_info_provider);
-            break;
         case tt::ARCH::WORMHOLE_B0:
-            device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
+            return std::make_unique<WormholeDeviceFirmware>(
                 device_protocol_.get(),
                 pcie_capabilities_,
                 jtag_capabilities_,
@@ -147,10 +148,10 @@ void TTDevice::build_device_firmware() {
                 architecture_impl_.get(),
                 telemetry,
                 firmware_info_provider);
-            break;
         default:
-            // Simulation backends have no management firmware.
-            break;
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("No DeviceFirmware implementation for {} architecture.", arch_to_str(arch)));
     }
 }
 

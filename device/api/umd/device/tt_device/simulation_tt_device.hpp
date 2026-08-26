@@ -36,6 +36,13 @@ class TlbWindow;
 // concretely-typed communicator.
 class SimulationTTDevice : public TTDevice {
 public:
+    /**
+     * @brief Firmware common to every simulation backend.
+     *
+     * Overridden by the backends that need more than the shared no-ops.
+     */
+    std::unique_ptr<DeviceFirmware> create_device_firmware() override;
+
     ~SimulationTTDevice() override;
 
     // Takes ownership of the serving socket that exposes this device (created by discovery) and

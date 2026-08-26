@@ -34,6 +34,8 @@ class SocDescriptor;
 
 class TTSimTTDevice : public SimulationTTDevice {
 public:
+    std::unique_ptr<DeviceFirmware> create_device_firmware() override;
+
     TTSimTTDevice(
         const std::filesystem::path &simulator_directory,
         const SocDescriptor &soc_descriptor,

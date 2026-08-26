@@ -117,7 +117,7 @@ SocDescriptor build_soc_descriptor(const SimulationServerDeviceInfo& device_info
 SimulationServerDeviceInfo fetch_device_info_from_host(SimulationClient& client) {
     client.attach();  // idempotent; safe if already attached
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::GetDeviceInfo;
+    request.command = SimulationServerCommand::GET_DEVICE_INFO;
     const SimulationServerDeviceInfo info = decode_device_info(client.transact(encode(request)));
     UMD_ASSERT(
         info.status == 0,
@@ -156,7 +156,7 @@ SimulationServerClusterDescriptor describe_cluster(const std::filesystem::path& 
 std::string fetch_cluster_descriptor_yaml(SimulationClient& client) {
     client.attach();  // idempotent; safe if already attached
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::GetClusterDescriptor;
+    request.command = SimulationServerCommand::GET_CLUSTER_DESCRIPTOR;
     const SimulationServerClusterDescriptor cluster_descriptor =
         decode_cluster_descriptor(client.transact(encode(request)));
     UMD_ASSERT(

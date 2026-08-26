@@ -20,11 +20,9 @@
 #include <string>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
-#include <utility>
-#include <vector>
 
 #include "common.hpp"
-#include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/topology/topology_discovery.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
@@ -99,32 +97,19 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    std::vector<std::pair<tt::ChipId, std::unique_ptr<ArcTelemetryReader>>> telemetry_readers;
-    std::vector<std::unique_ptr<TTDevice>> tt_devices;
-    for (auto& [chip_id, tt_device] : tt_devices_map) {
-        std::unique_ptr<ArcTelemetryReader> arc_telemetry_reader =
-            ArcTelemetryReader::create_arc_telemetry_reader(tt_device.get());
-        tt_devices.push_back(std::move(tt_device));
-        telemetry_readers.push_back(std::make_pair(chip_id, std::move(arc_telemetry_reader)));
-    }
-
     for (int iteration = 0; max_count == 0 || iteration < max_count; iteration++) {
         auto start_time = std::chrono::steady_clock::now();
-        for (int i = 0; i < (int)telemetry_readers.size(); i++) {
-            tt::ChipId chip_id = telemetry_readers.at(i).first;
-            auto& telemetry_reader = telemetry_readers.at(i).second;
-            auto firmware_info_provider = tt_devices.at(i)->get_firmware_info_provider();
-
+        for (auto& [chip_id, tt_device] : tt_devices_map) {
             std::string telemetry_message;
             if (telemetry_tag == -1) {
-                auto arch = tt_devices.at(i)->get_arch();
+                auto arch = tt_device->get_arch();
                 if (arch == tt::ARCH::WORMHOLE_B0 || arch == tt::ARCH::BLACKHOLE) {
-                    telemetry_message = run_default_telemetry(chip_id, firmware_info_provider);
+                    telemetry_message = run_default_telemetry(chip_id, tt_device->get_firmware_info_provider());
                 } else {
                     UMD_THROW(error::RuntimeError, "Unsupported device architecture.");
                 }
             } else {
-                uint32_t telemetry_value = telemetry_reader->read_entry(telemetry_tag);
+                uint32_t telemetry_value = tt_device->get_firmware_telemetry_reader()->read_entry(telemetry_tag);
                 telemetry_message = fmt::format("Chip ID {} - Telemetry value: 0x{:x}", chip_id, telemetry_value);
             }
             if (output_file.is_open()) {

@@ -595,8 +595,6 @@ uint64_t PCIDevice::map_for_hugepage(void *buffer, size_t size) {
     return physical_address;
 }
 
-bool PCIDevice::is_mapping_buffer_to_noc_supported() { return PCIDevice::read_kmd_version() >= KMD_MAP_TO_NOC; }
-
 bool PCIDevice::is_read_only_page_pinning_supported() const {
     // Use the version cached at construction: this is reached from the mapping path, once per pinned buffer, and
     // read_kmd_version() re-opens and re-parses sysfs on every call.
@@ -605,9 +603,6 @@ bool PCIDevice::is_read_only_page_pinning_supported() const {
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
     void *buffer, size_t size, DeviceBufferAccess device_access) {
-    if (kmd_version < KMD_MAP_TO_NOC) {
-        UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use buffer with NOC mapping.");
-    }
     if (device_access == DeviceBufferAccess::READ_ONLY && !is_read_only_page_pinning_supported()) {
         UMD_THROW(
             error::RuntimeError, "Device-read-only page pinning requires KMD 2.9.0 or newer and an active IOMMU.");
@@ -656,10 +651,6 @@ std::pair<uint64_t, uint64_t> PCIDevice::map_buffer_to_noc(
 }
 
 std::pair<uint64_t, uint64_t> PCIDevice::map_hugepage_to_noc(void *hugepage, size_t size) {
-    if (kmd_version < KMD_MAP_TO_NOC) {
-        UMD_THROW(error::RuntimeError, "KMD version must be at least 2.0.0 to use hugepages with NOC mapping.");
-    }
-
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t virtual_address = reinterpret_cast<uint64_t>(hugepage);
 

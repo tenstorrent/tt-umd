@@ -99,15 +99,8 @@ bool KmdMutex::try_lock() {
 }
 
 void KmdMutex::lock() {
-    UMD_ASSERT(device_ != nullptr, error::RuntimeError, "KmdMutex::lock() called before initialize()");
-
-    // KMD exposes only non-blocking acquire, so a blocking lock is implemented by polling it with a
-    // short backoff. This also deliberately avoids KMD's blocking-acquire path, which has had a
-    // deadlock against the reset ioctl. try_lock() already handles a reset (ENODEV) by reopening the
-    // handle.
-    while (!try_lock()) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    // EXPERIMENT, DO NOT MERGE: locking is a no-op, so that a test run shows what these locks are
+    // actually preventing. Failures under this branch are the point.
 }
 
 std::optional<std::pair<pid_t, pid_t>> KmdMutex::probe_lock(std::chrono::seconds timeout) {
@@ -133,32 +126,7 @@ std::optional<std::pair<pid_t, pid_t>> KmdMutex::probe_lock(std::chrono::seconds
 }
 
 void KmdMutex::unlock() {
-    UMD_ASSERT(device_ != nullptr, error::RuntimeError, "KmdMutex::unlock() called before initialize()");
-
-    int was_held = 0;
-    int result = tt_lock_release(device_, lock_index_, &was_held);
-
-    // If the handle died due to a reset, the lock is still held in KMD until the handle is closed;
-    // the destructor's close will release it, so this is not fatal.
-    if (result == -ENODEV) {
-        log_warning(
-            tt::LogUMD,
-            "tt_lock_release() for lock {} on {} hit ENODEV (device reset); lock will be released on close",
-            lock_index_,
-            device_path_);
-        return;
-    }
-
-    UMD_ASSERT(
-        result == 0,
-        error::RuntimeError,
-        fmt::format("tt_lock_release() failed for lock {} on {} errno: {}", lock_index_, device_path_, -result));
-
-    // Not having held the lock is benign (e.g. double unlock), but worth a debug trace.
-    if (!was_held) {
-        log_debug(
-            tt::LogUMD, "tt_lock_release() for lock {} on {}: lock was not held by us", lock_index_, device_path_);
-    }
+    // EXPERIMENT, DO NOT MERGE: see lock(). Nothing was taken, so nothing is released.
 }
 
 bool KmdMutex::is_locked_by_anyone() {

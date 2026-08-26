@@ -23,6 +23,12 @@ class RemoteInterface;
  * remotely, over JTAG when it is reached that way, and otherwise through the PCIe BAR. Callers pass
  * the ARC core coordinate and the NOC to route over, so this holds no NOC state of its own.
  *
+ * Taking both per call is a deliberate difference from WormholeTTDevice::read_from_arc_apb, which
+ * pinned its JTAG branch to wormhole::ARC_CORES_NOC0[0] and NocId::DEFAULT_NOC whatever NOC the
+ * thread had selected, and only used a NOC-dependent core on the remote branch. Every route here
+ * uses what the caller passed, so a caller that wants the old JTAG behaviour has to pass the NOC0
+ * coordinate itself. Routing is otherwise unchanged.
+ *
  * The interfaces are non-owning and must outlive this object.
  */
 class WormholeArcApb {
@@ -48,7 +54,8 @@ public:
      * @param mem_ptr Destination buffer.
      * @param arc_addr_offset Offset into the ARC APB window.
      * @param size Bytes to read; only honored on the remote path, the other paths read one word.
-     * @param arc_core NOC coordinate of the ARC core, resolved for noc_id.
+     * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
+     * including JTAG, which WormholeTTDevice pinned to NOC0 instead.
      * @param noc_id NOC to route through.
      */
     void read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);
@@ -58,7 +65,8 @@ public:
      * @param mem_ptr Source buffer.
      * @param arc_addr_offset Offset into the ARC APB window.
      * @param size Bytes to write; only honored on the remote path, the other paths write one word.
-     * @param arc_core NOC coordinate of the ARC core, resolved for noc_id.
+     * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
+     * including JTAG, which WormholeTTDevice pinned to NOC0 instead.
      * @param noc_id NOC to route through.
      */
     void write(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);

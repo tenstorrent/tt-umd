@@ -81,10 +81,11 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     if (model_->get_pcie_interface() != nullptr) {
         is_pcie_hung();
     }
-    bool noc_hang_check_result =
-        model_->get_hang_detector()->is_noc_hung(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0).value_or(false);
-    if (noc_hang_check_result) {
-        UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
+    // The hang detector is an optional component, so a model that provides none simply skips the check.
+    HangDetector *hang_detector = model_->get_hang_detector();
+    const NocId hang_check_noc = is_selected_noc1() ? NocId::NOC1 : NocId::NOC0;
+    if (hang_detector != nullptr && hang_detector->is_noc_hung(hang_check_noc).value_or(false)) {
+        UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
     probe_arc();
     wait_arc_core_start(timeout_ms);

@@ -114,7 +114,7 @@ jobs:
         ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version
         }}:${{ needs.ensure-docker-image.outputs.image-tag }}
     env:
-      PATH: /opt/openmpi-v5.0.7-ulfm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      PATH: /home/user/.local/bin:/opt/openmpi-v5.0.7-ulfm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       HOME: /home/user
       LD_LIBRARY_PATH: /home/user/tt-umd/build/lib
 
@@ -182,8 +182,12 @@ jobs:
       - name: Install tt-smi on workers
         run: |
           set -euo pipefail
+          # User install lands in ~/.local/bin; login shells on workers need it on PATH.
           mpirun --pernode --tag-output bash -lc \
-            'python3 -m pip install --no-cache-dir "tt-smi" && command -v tt-smi'
+            'export PATH="$HOME/.local/bin:$PATH"
+             python3 -m pip install --no-cache-dir "tt-smi==5.2.0"
+             command -v tt-smi
+             tt-smi --version'
 
       - name: Reset cards and validate cluster
         working-directory: /tmp

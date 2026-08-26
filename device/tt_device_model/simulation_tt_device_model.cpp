@@ -11,6 +11,10 @@ namespace tt::umd {
 SimulationTTDeviceModel::SimulationTTDeviceModel(tt::ARCH arch) :
     arch_(arch), architecture_impl_(ArchitectureImplementation::create(arch)) {}
 
+// Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
+// complete type where the destructor is instantiated.
+SimulationTTDeviceModel::~SimulationTTDeviceModel() = default;
+
 tt::ARCH SimulationTTDeviceModel::get_arch() const { return arch_; }
 
 // A simulation backend has no host transport to be addressed within, so it reports no communication

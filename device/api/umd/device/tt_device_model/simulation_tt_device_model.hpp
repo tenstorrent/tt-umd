@@ -19,6 +19,8 @@ class SimulationTTDeviceModel : public TTDeviceModel {
 public:
     explicit SimulationTTDeviceModel(tt::ARCH arch);
 
+    ~SimulationTTDeviceModel() override;
+
     tt::ARCH get_arch() const override;
 
     int get_communication_device_id() const override;

@@ -29,6 +29,8 @@ public:
         uint8_t jlink_id,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
+    ~BlackholeTTDeviceModel() override;
+
     tt::ARCH get_arch() const override;
 
     int get_communication_device_id() const override;

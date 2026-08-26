@@ -32,6 +32,8 @@ public:
         std::unique_ptr<RemoteCommunication> remote_communication,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
+    ~WormholeTTDeviceModel() override;
+
     tt::ARCH get_arch() const override;
 
     int get_communication_device_id() const override;

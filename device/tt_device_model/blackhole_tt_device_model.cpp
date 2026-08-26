@@ -45,6 +45,10 @@ BlackholeTTDeviceModel::BlackholeTTDeviceModel(
     protocol_ = std::move(jtag_protocol);
 }
 
+// Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
+// complete type where the destructor is instantiated.
+BlackholeTTDeviceModel::~BlackholeTTDeviceModel() = default;
+
 tt::ARCH BlackholeTTDeviceModel::get_arch() const { return tt::ARCH::BLACKHOLE; }
 
 int BlackholeTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }

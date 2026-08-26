@@ -60,6 +60,10 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     protocol_ = std::move(remote_protocol);
 }
 
+// Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
+// complete type where the destructor is instantiated.
+WormholeTTDeviceModel::~WormholeTTDeviceModel() = default;
+
 tt::ARCH WormholeTTDeviceModel::get_arch() const { return tt::ARCH::WORMHOLE_B0; }
 
 int WormholeTTDeviceModel::get_communication_device_id() const { return communication_device_id_; }

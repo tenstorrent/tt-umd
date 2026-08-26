@@ -15,7 +15,7 @@ using namespace tt::umd;
 // A read request carries the access geometry and no payload; encode -> decode reproduces it.
 TEST(SimulationServerProtocol, ReadRequestRoundTrip) {
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Read;
+    request.command = SimulationServerCommand::READ;
     request.x = 3;
     request.y = 5;
     request.address = 0x1000'2000'3000'4000ULL;
@@ -23,7 +23,7 @@ TEST(SimulationServerProtocol, ReadRequestRoundTrip) {
 
     const SimulationServerRequest decoded = decode_request(encode(request));
 
-    EXPECT_EQ(decoded.command, SimulationServerCommand::Read);
+    EXPECT_EQ(decoded.command, SimulationServerCommand::READ);
     EXPECT_EQ(decoded.x, request.x);
     EXPECT_EQ(decoded.y, request.y);
     EXPECT_EQ(decoded.address, request.address);
@@ -34,7 +34,7 @@ TEST(SimulationServerProtocol, ReadRequestRoundTrip) {
 // A write request carries its payload; encode -> decode reproduces geometry and bytes.
 TEST(SimulationServerProtocol, WriteRequestRoundTrip) {
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Write;
+    request.command = SimulationServerCommand::WRITE;
     request.x = 1;
     request.y = 2;
     request.address = 0xDEAD'BEEFULL;
@@ -43,7 +43,7 @@ TEST(SimulationServerProtocol, WriteRequestRoundTrip) {
 
     const SimulationServerRequest decoded = decode_request(encode(request));
 
-    EXPECT_EQ(decoded.command, SimulationServerCommand::Write);
+    EXPECT_EQ(decoded.command, SimulationServerCommand::WRITE);
     EXPECT_EQ(decoded.x, request.x);
     EXPECT_EQ(decoded.y, request.y);
     EXPECT_EQ(decoded.address, request.address);
@@ -85,7 +85,7 @@ TEST(SimulationServerProtocol, DecodeEmptyBufferThrows) {
 // verification instead of reading out of bounds.
 TEST(SimulationServerProtocol, DecodeTruncatedBufferThrows) {
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Read;
+    request.command = SimulationServerCommand::READ;
     request.size = 64;
     std::vector<uint8_t> encoded = encode(request);
     ASSERT_GT(encoded.size(), 4u);
@@ -99,7 +99,7 @@ TEST(SimulationServerProtocol, DeviceInfoSerializationRoundTrip) {
     SimulationServerDeviceInfo info;
     info.status = 0;
     info.arch = 2;  // arbitrary tt::ARCH value
-    info.backend_type = SimulationBackendType::Rtl;
+    info.backend_type = SimulationBackendType::RTL;
     info.soc_descriptor_yaml = "arch: wormhole_b0\ngrid: [10, 12]\n";
     info.noc_translation_enabled = false;
     info.tensix_harvesting_mask = 0x5;
@@ -125,9 +125,9 @@ TEST(SimulationServerProtocol, DeviceInfoSerializationRoundTrip) {
 // The GetDeviceInfo command survives a request round-trip.
 TEST(SimulationServerProtocol, GetDeviceInfoRequestRoundTrip) {
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::GetDeviceInfo;
+    request.command = SimulationServerCommand::GET_DEVICE_INFO;
     const SimulationServerRequest decoded = decode_request(encode(request));
-    EXPECT_EQ(decoded.command, SimulationServerCommand::GetDeviceInfo);
+    EXPECT_EQ(decoded.command, SimulationServerCommand::GET_DEVICE_INFO);
 }
 
 // The cluster-descriptor message round-trips its status and YAML text.
@@ -153,15 +153,15 @@ TEST(SimulationServerProtocol, ClusterDescriptorEmptyYamlRoundTrip) {
 // The GetClusterDescriptor command survives a request round-trip.
 TEST(SimulationServerProtocol, GetClusterDescriptorRequestRoundTrip) {
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::GetClusterDescriptor;
+    request.command = SimulationServerCommand::GET_CLUSTER_DESCRIPTOR;
     const SimulationServerRequest decoded = decode_request(encode(request));
-    EXPECT_EQ(decoded.command, SimulationServerCommand::GetClusterDescriptor);
+    EXPECT_EQ(decoded.command, SimulationServerCommand::GET_CLUSTER_DESCRIPTOR);
 }
 
 // The Shutdown command survives a request round-trip (its reply is a plain SimulationServerResponse).
 TEST(SimulationServerProtocol, ShutdownRequestRoundTrip) {
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Shutdown;
+    request.command = SimulationServerCommand::SHUTDOWN;
     const SimulationServerRequest decoded = decode_request(encode(request));
-    EXPECT_EQ(decoded.command, SimulationServerCommand::Shutdown);
+    EXPECT_EQ(decoded.command, SimulationServerCommand::SHUTDOWN);
 }

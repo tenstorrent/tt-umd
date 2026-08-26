@@ -179,6 +179,12 @@ jobs:
             mpirun --pernode bash -lc "python3 -m pip install --force-reinstall '${wheels[0]}'"
           fi
 
+      - name: Install tt-smi on workers
+        run: |
+          set -euo pipefail
+          mpirun --pernode --tag-output bash -lc \
+            'python3 -m pip install --no-cache-dir "tt-smi" && command -v tt-smi'
+
       - name: Reset cards and validate cluster
         working-directory: /tmp
         timeout-minutes: 45

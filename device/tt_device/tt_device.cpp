@@ -686,7 +686,7 @@ tt_xy_pair TTDevice::get_arc_core(const NocId noc_id) const {
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
+        get_soc_descriptor().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
@@ -720,7 +720,7 @@ void TTDevice::noc_multicast_write(
 
 void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
+        get_soc_descriptor().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =

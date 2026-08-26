@@ -191,7 +191,7 @@ jobs:
 
       - name: Reset cards and validate cluster
         working-directory: /tmp
-        timeout-minutes: 45
+        timeout-minutes: 90
         run: |
           set -euo pipefail
           MAX_RECOVERY_ATTEMPTS=10
@@ -295,8 +295,8 @@ jobs:
             fi
 
             if [ "$attempt" -lt "$MAX_RECOVERY_ATTEMPTS" ]; then
-              echo "Sleeping 30s before retry..."
-              sleep 30
+              echo "Sleeping 5m before retry (live debug window)..."
+              sleep 300
             fi
           done
 

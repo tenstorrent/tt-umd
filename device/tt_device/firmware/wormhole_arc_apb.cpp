@@ -4,6 +4,8 @@
 
 #include "umd/device/tt_device/firmware/wormhole_arc_apb.hpp"
 
+#include <fmt/format.h>
+
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -12,6 +14,20 @@
 #include "umd/device/utils/error.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// The JTAG and BAR routes move exactly one word whatever size the caller asked for, so anything
+// else is a caller error: a smaller size overruns mem_ptr, a larger one leaves it short. Both were
+// silent in WormholeTTDevice, where the accessors were private and every caller passed a word.
+void check_word_sized_access(size_t size) {
+    UMD_ASSERT(
+        size == sizeof(uint32_t),
+        error::RuntimeError,
+        fmt::format("ARC APB access over JTAG or the PCIe BAR must be {} bytes, got {}.", sizeof(uint32_t), size));
+}
+
+}  // namespace
 
 // How this class picks a route, mirroring WormholeTTDevice::read_from_arc_apb: a non-null
 // RemoteInterface means the device is reached over ethernet through a gateway, a non-null
@@ -48,6 +64,7 @@ void WormholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, 
             mem_ptr, arc_core, wormhole::ARC_APB_NOC_BASE_ADDRESS + arc_addr_offset, size, noc_id);
         return;
     }
+    check_word_sized_access(size);
     if (jtag_interface_ != nullptr) {
         device_protocol_->read_ctrl(
             mem_ptr, arc_core, wormhole::ARC_APB_NOC_BASE_ADDRESS + arc_addr_offset, sizeof(uint32_t), noc_id);
@@ -68,6 +85,7 @@ void WormholeArcApb::write(
             mem_ptr, arc_core, wormhole::ARC_APB_NOC_BASE_ADDRESS + arc_addr_offset, size, noc_id);
         return;
     }
+    check_word_sized_access(size);
     if (jtag_interface_ != nullptr) {
         device_protocol_->write_ctrl(
             mem_ptr, arc_core, wormhole::ARC_APB_NOC_BASE_ADDRESS + arc_addr_offset, sizeof(uint32_t), noc_id);

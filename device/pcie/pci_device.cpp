@@ -99,7 +99,7 @@ T read_sysfs(const PciDeviceInfo &device_info, const std::string &attribute_name
     return result.value_or(default_value);
 }
 
-static bool detect_iommu(const PciDeviceInfo &device_info) {
+bool PCIDevice::detect_iommu(const PciDeviceInfo &device_info) {
     auto iommu_type = try_read_sysfs<std::string>(device_info, "iommu_group/type");
     if (iommu_type) {
         return iommu_type->substr(0, 3) == "DMA";  // DMA or DMA-FQ

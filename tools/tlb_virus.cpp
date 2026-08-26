@@ -69,7 +69,9 @@ int main(int argc, char* argv[]) {
                 while (true) {
                     try {
                         auto tlb_handle = pci_device->allocate_tlb(tlb_size, TlbMapping::WC);
-                        log_info(
+                        // One line per allocated TLB, and the loop deliberately allocates until it
+                        // fails; the per-size summary below reports the counts that matter.
+                        log_debug(
                             tt::LogUMD, "Allocated TLB id: {} of size {} bytes", tlb_handle->get_tlb_id(), tlb_size);
                         allocated_tlbs.emplace_back(std::move(tlb_handle));
                         total_allocated++;

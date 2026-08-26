@@ -17,8 +17,10 @@ using ::testing::Return;
 
 namespace {
 
-// The PCIe tile's x-coordinate decides whether the ARC tile is reachable over AXI: 11 means it is,
-// anything else means the access has to go over the NOC.
+// Blackhole has two PCIe tiles and only one of them is wired to ARC over AXI, so which tile the
+// board brought up decides whether an ARC access can bypass the NOC. The tile identifies itself by
+// its x-coordinate: blackhole::PCIE_CORES_TYPE1_NOC0 at x=11 has the direct AXI path, while
+// blackhole::PCIE_CORES_TYPE2_NOC0 at x=2 does not and has to go over the NOC.
 constexpr uint32_t PCIE_X_ARC_OVER_AXI = 11;
 constexpr uint32_t PCIE_X_ARC_OVER_NOC = 2;
 

@@ -29,7 +29,7 @@ namespace tt::umd {
 // reached over ethernet through a gateway, a non-null JtagInterface means it is reached over JTAG,
 // and otherwise it is reached over PCIe. Inferring the route from which optional interface is present
 // is sound because a TTDevice is built for exactly one communication protocol. The routing itself
-// lives in WormholeArcApb and WormholeArcCsm.
+// lives in WormholeArcWindow.
 
 WormholeDeviceFirmware::WormholeDeviceFirmware(
     DeviceProtocol* device_protocol,
@@ -45,8 +45,8 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     architecture_impl_(architecture_impl),
     firmware_info_provider_(firmware_info_provider),
     device_id_(device_protocol->get_mmio_id()),
-    arc_apb_(device_protocol, pcie_interface, jtag_interface, remote_interface),
-    arc_csm_(device_protocol, pcie_interface, jtag_interface, remote_interface) {
+    arc_apb_(WormholeArcWindow::arc_apb(device_protocol, pcie_interface, jtag_interface, remote_interface)),
+    arc_csm_(WormholeArcWindow::arc_csm(device_protocol, pcie_interface, jtag_interface, remote_interface)) {
     // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one:
     // several topology discovery instances can reach the same remote chip through different local
     // chips, so a per-device lock would let concurrent messages interleave on that chip. This mirrors

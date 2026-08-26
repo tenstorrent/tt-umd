@@ -10,8 +10,7 @@
 #include <vector>
 
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
-#include "umd/device/tt_device/firmware/wormhole_arc_apb.hpp"
-#include "umd/device/tt_device/firmware/wormhole_arc_csm.hpp"
+#include "umd/device/tt_device/firmware/wormhole_arc_window.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/eth_training_status.hpp"
@@ -109,8 +108,8 @@ private:
     tt_xy_pair arc_core_noc0_;
     tt_xy_pair arc_core_noc1_;
 
-    WormholeArcApb arc_apb_;
-    WormholeArcCsm arc_csm_;
+    WormholeArcWindow arc_apb_;
+    WormholeArcWindow arc_csm_;
 
     // Serializes ARC messages against other processes driving the same device, exactly as
     // ArcMessenger does for the path this replaces.

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "noc_access.hpp"
+#include "pcie/io_window_reconfigure.hpp"
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
@@ -462,7 +463,7 @@ void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {
             // DeviceTimeoutError propagating out of the probe read is therefore not expected — let it surface
             // rather than silently masking it as a hang.
             uint32_t value = 0;
-            window->read_block_reconfigure(&value, core, addr, sizeof(value), noc);
+            read_block_reconfigure(*window, &value, core, addr, sizeof(value), noc);
             return value;
         });
 }

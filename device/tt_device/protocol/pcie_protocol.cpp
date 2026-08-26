@@ -18,6 +18,7 @@
 #include <variant>
 #include <vector>
 
+#include "pcie/io_window_reconfigure.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -103,7 +104,7 @@ void PcieProtocol::write_data_impl(const void* mem_ptr, tt_xy_pair core, uint64_
     if constexpr (safe) {
         get_cached_tlb_window()->safe_write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->write_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        write_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -112,7 +113,7 @@ void PcieProtocol::read_data_impl(void* mem_ptr, tt_xy_pair core, uint64_t addr,
     if constexpr (safe) {
         get_cached_tlb_window()->safe_read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->read_block_reconfigure(mem_ptr, core, addr, size, noc_id);
+        read_block_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -122,7 +123,7 @@ void PcieProtocol::write_ctrl(const void* mem_ptr, tt_xy_pair core, uint64_t add
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->write_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+        write_register_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -132,7 +133,7 @@ void PcieProtocol::read_ctrl(void* mem_ptr, tt_xy_pair core, uint64_t addr, size
     if (use_safe_api_) {
         get_cached_tlb_window()->safe_read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
     } else {
-        get_cached_tlb_window()->read_register_reconfigure(mem_ptr, core, addr, size, noc_id);
+        read_register_reconfigure(*get_cached_tlb_window(), mem_ptr, core, addr, size, noc_id);
     }
 }
 
@@ -156,8 +157,7 @@ void PcieProtocol::noc_multicast_write(
         get_cached_tlb_window()->safe_noc_multicast_write_reconfigure(
             src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
     } else {
-        get_cached_tlb_window()->noc_multicast_write_reconfigure(
-            src, size, core_start, core_end, addr, noc_id, tlb_data::Strict);
+        noc_multicast_write_reconfigure(*get_cached_tlb_window(), src, size, core_start, core_end, addr, noc_id);
     }
 }
 

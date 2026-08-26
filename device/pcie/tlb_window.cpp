@@ -4,13 +4,12 @@
 
 #include "umd/device/pcie/tlb_window.hpp"
 
-#include <algorithm>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <utility>
 
+#include "pcie/io_window_reconfigure.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/io_window_config.hpp"
@@ -54,52 +53,28 @@ tlb_data TlbWindow::make_tlb_config(
     return config;
 }
 
-template <typename buffer_pointer, typename io_operation>
-void TlbWindow::transfer_and_reconfigure(tlb_data config, buffer_pointer buffer, size_t size, io_operation op) {
-    while (size > 0) {
-        configure(config);
-        size_t transfer_size = std::min(size, get_size());
-        op(buffer, transfer_size);
-        size -= transfer_size;
-        config.local_offset += transfer_size;
-        buffer += transfer_size;
-    }
-}
-
+// Thin forwarders onto the free-function family in io_window_reconfigure.hpp, kept as virtual
+// members solely so SiliconTlbWindow's safe_* variants (execute_safe, taking a pointer-to-member)
+// keep working unchanged. Callers with no safe/unsafe distinction to make should call the free
+// functions directly instead of going through a TlbWindow.
 void TlbWindow::read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
-        static_cast<uint8_t*>(mem_ptr),
-        size,
-        [this](uint8_t* buf, size_t sz) { read_block(0, buf, sz); });
+    tt::umd::read_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::read_register_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
-        static_cast<uint8_t*>(mem_ptr),
-        size,
-        [this](uint8_t* buf, size_t sz) { read_register(0, buf, sz); });
+    tt::umd::read_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
-        static_cast<const uint8_t*>(mem_ptr),
-        size,
-        [this](const uint8_t* buf, size_t sz) { write_block(0, buf, sz); });
+    tt::umd::write_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::write_register_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core, noc_id, ordering),
-        static_cast<const uint8_t*>(mem_ptr),
-        size,
-        [this](const uint8_t* buf, size_t sz) { write_register(0, buf, sz); });
+    tt::umd::write_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::noc_multicast_write_reconfigure(
@@ -110,11 +85,8 @@ void TlbWindow::noc_multicast_write_reconfigure(
     uint64_t addr,
     NocId noc_id,
     uint64_t ordering) {
-    transfer_and_reconfigure(
-        make_tlb_config(addr, core_end, noc_id, ordering, true, core_start),
-        static_cast<const uint8_t*>(src),
-        size,
-        [this](const uint8_t* buf, size_t sz) { write_block(0, buf, sz); });
+    tt::umd::noc_multicast_write_reconfigure(
+        *this, src, size, core_start, core_end, addr, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 TlbHandle& TlbWindow::handle_ref() const { return *tlb_handle; }

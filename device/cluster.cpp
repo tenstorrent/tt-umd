@@ -1235,10 +1235,6 @@ std::uint64_t Cluster::get_sysmem_window_noc_base(const ChipId chip_id) const {
     }
 }
 
-std::uint64_t Cluster::get_pcie_base_addr_from_device(const ChipId chip_id) const {
-    return get_sysmem_window_noc_base(chip_id);
-}
-
 std::optional<SemVer> Cluster::get_ethernet_firmware_version() const { return eth_fw_version; }
 
 std::optional<FirmwareBundleVersion> Cluster::get_firmware_bundle_version() const { return fw_bundle_version; }

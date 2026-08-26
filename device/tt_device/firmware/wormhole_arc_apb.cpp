@@ -27,6 +27,22 @@ void check_word_sized_access(size_t size) {
         fmt::format("ARC APB access over JTAG or the PCIe BAR must be {} bytes, got {}.", sizeof(uint32_t), size));
 }
 
+// ARC_APB_ADDRESS_RANGE is the size of the window, not its last valid offset, so the whole transfer
+// has to fit: the last access that fits starts size bytes before the end. Checking only the first
+// byte, as WormholeTTDevice did, let a word read at the very end run past the window. The bound is
+// a subtraction rather than an addition so it cannot wrap.
+void check_access_in_range(uint64_t arc_addr_offset, size_t size) {
+    UMD_ASSERT(size != 0, error::RuntimeError, "Zero-length ARC APB access.");
+    UMD_ASSERT(
+        size <= wormhole::ARC_APB_ADDRESS_RANGE && arc_addr_offset <= wormhole::ARC_APB_ADDRESS_RANGE - size,
+        error::RuntimeError,
+        fmt::format(
+            "ARC APB access of {} bytes at offset {:#x} does not fit in the {:#x} byte window.",
+            size,
+            arc_addr_offset,
+            wormhole::ARC_APB_ADDRESS_RANGE));
+}
+
 }  // namespace
 
 // How this class picks a route, mirroring WormholeTTDevice::read_from_arc_apb: a non-null
@@ -55,9 +71,7 @@ WormholeArcApb::WormholeArcApb(
 }
 
 void WormholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id) {
-    if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
-    }
+    check_access_in_range(arc_addr_offset, size);
 
     if (remote_interface_ != nullptr) {
         device_protocol_->read_ctrl(
@@ -76,9 +90,7 @@ void WormholeArcApb::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, 
 
 void WormholeArcApb::write(
     const void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id) {
-    if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
-        UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
-    }
+    check_access_in_range(arc_addr_offset, size);
 
     if (remote_interface_ != nullptr) {
         device_protocol_->write_ctrl(

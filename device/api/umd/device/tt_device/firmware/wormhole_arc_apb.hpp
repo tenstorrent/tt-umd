@@ -52,7 +52,8 @@ public:
     /**
      * @brief Reads from the ARC APB window.
      * @param mem_ptr Destination buffer.
-     * @param arc_addr_offset Offset into the ARC APB window.
+     * @param arc_addr_offset Offset into the ARC APB window. The whole transfer has to fit inside
+     * it, so the largest valid offset is the window size less size.
      * @param size Bytes to read. The remote path honors any size; the JTAG and BAR paths read one
      * word and reject anything other than sizeof(uint32_t) rather than silently widening.
      * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
@@ -64,7 +65,8 @@ public:
     /**
      * @brief Writes to the ARC APB window.
      * @param mem_ptr Source buffer.
-     * @param arc_addr_offset Offset into the ARC APB window.
+     * @param arc_addr_offset Offset into the ARC APB window. The whole transfer has to fit inside
+     * it, so the largest valid offset is the window size less size.
      * @param size Bytes to write. The remote path honors any size; the JTAG and BAR paths write one
      * word and reject anything other than sizeof(uint32_t) rather than silently widening.
      * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,

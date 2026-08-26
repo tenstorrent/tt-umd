@@ -49,90 +49,16 @@ public:
     IoOrdering get_io_ordering() const override;
     HostMemoryCaching get_memory_caching_type() const override;
 
-    // Shared higher-level methods that use the virtual methods above.
-    virtual void read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void write_block_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void noc_multicast_write_reconfigure(
-        const void* src,
-        size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    // Register reconfigure methods perform 32-bit chunked transfers with strict ordering.
-    // Alignment enforcement is the caller's responsibility.
-    virtual void read_register_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void write_register_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_write16(uint64_t offset, uint16_t value) = 0;
-
-    virtual uint16_t safe_read16(uint64_t offset) = 0;
-
-    virtual void safe_write32(uint64_t offset, uint32_t value);
-
-    virtual uint32_t safe_read32(uint64_t offset);
-
-    virtual void safe_write_register(uint64_t offset, const void* data, size_t size);
-
-    virtual void safe_read_register(uint64_t offset, void* data, size_t size);
-
-    virtual void safe_write_block(uint64_t offset, const void* data, size_t size);
-
-    virtual void safe_read_block(uint64_t offset, void* data, size_t size);
-
-    virtual void safe_write_block_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_read_block_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_read_register_reconfigure(
-        void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_write_register_reconfigure(
-        const void* mem_ptr,
-        tt_xy_pair core,
-        uint64_t addr,
-        size_t size,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
-    virtual void safe_noc_multicast_write_reconfigure(
-        const void* src,
-        size_t size,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        NocId noc_id,
-        uint64_t ordering = tlb_data::Strict);
-
     // Installs a per-op MMIO timeout hang check used by the timed memcpy path. No-op by default; only
     // SiliconTlbWindow consults it (simulation windows do not run the timed path). See SiliconTlbWindow.
     virtual void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) {}
+
+    // Installs safe-I/O as window-level policy: once enabled, the memory-access methods above recover
+    // from SIGBUS by throwing SigbusError instead of crashing the process. No-op by default; only
+    // SiliconTlbWindow can actually offer this (simulation windows never touch mapped device memory).
+    // Callers needing chunked transfers use the free functions in io_window_reconfigure.hpp, which honor
+    // whatever policy is installed here since they operate through this window's ops.
+    virtual void set_safe_io(bool enable) {}
 
     // Shared utility methods.
     TlbHandle& handle_ref() const;

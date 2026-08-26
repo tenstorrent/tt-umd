@@ -9,7 +9,6 @@
 #include <stdexcept>
 #include <utility>
 
-#include "pcie/io_window_reconfigure.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -58,62 +57,6 @@ tlb_data TlbWindow::make_tlb_config(
         config.y_start = core_start.y;
     }
     return config;
-}
-
-// Thin forwarders onto the free-function family in io_window_reconfigure.hpp, kept as virtual
-// members solely so SiliconTlbWindow's safe_* variants (execute_safe, taking a pointer-to-member)
-// keep working unchanged. Callers with no safe/unsafe distinction to make should call the free
-// functions directly instead of going through a TlbWindow.
-void TlbWindow::read_block_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    UMD_ASSERT(
-        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
-        error::RuntimeError,
-        "Invalid ordering value passed to TlbWindow::read_block_reconfigure");
-    tt::umd::read_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
-}
-
-void TlbWindow::read_register_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    UMD_ASSERT(
-        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
-        error::RuntimeError,
-        "Invalid ordering value passed to TlbWindow::read_register_reconfigure");
-    tt::umd::read_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
-}
-
-void TlbWindow::write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    UMD_ASSERT(
-        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
-        error::RuntimeError,
-        "Invalid ordering value passed to TlbWindow::write_block_reconfigure");
-    tt::umd::write_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
-}
-
-void TlbWindow::write_register_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    UMD_ASSERT(
-        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
-        error::RuntimeError,
-        "Invalid ordering value passed to TlbWindow::write_register_reconfigure");
-    tt::umd::write_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
-}
-
-void TlbWindow::noc_multicast_write_reconfigure(
-    const void* src,
-    size_t size,
-    tt_xy_pair core_start,
-    tt_xy_pair core_end,
-    uint64_t addr,
-    NocId noc_id,
-    uint64_t ordering) {
-    UMD_ASSERT(
-        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
-        error::RuntimeError,
-        "Invalid ordering value passed to TlbWindow::noc_multicast_write_reconfigure");
-    tt::umd::noc_multicast_write_reconfigure(
-        *this, src, size, core_start, core_end, addr, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 TlbHandle& TlbWindow::handle_ref() const { return *tlb_handle; }
@@ -199,51 +142,6 @@ uint64_t TlbWindow::get_total_offset(uint64_t offset) const { return offset + of
 
 uint64_t TlbWindow::get_base_address() const {
     return handle_ref().get_config().local_offset + offset_from_aligned_addr;
-}
-
-void TlbWindow::safe_write32(uint64_t offset, uint32_t value) { write32(offset, value); }
-
-uint32_t TlbWindow::safe_read32(uint64_t offset) { return read32(offset); }
-
-void TlbWindow::safe_write_register(uint64_t offset, const void* data, size_t size) {
-    write_register(offset, data, size);
-}
-
-void TlbWindow::safe_read_register(uint64_t offset, void* data, size_t size) { read_register(offset, data, size); }
-
-void TlbWindow::safe_write_block(uint64_t offset, const void* data, size_t size) { write_block(offset, data, size); }
-
-void TlbWindow::safe_read_block(uint64_t offset, void* data, size_t size) { read_block(offset, data, size); }
-
-void TlbWindow::safe_write_block_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    write_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void TlbWindow::safe_read_block_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    read_block_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void TlbWindow::safe_read_register_reconfigure(
-    void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    read_register_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void TlbWindow::safe_write_register_reconfigure(
-    const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
-    write_register_reconfigure(mem_ptr, core, addr, size, noc_id, ordering);
-}
-
-void TlbWindow::safe_noc_multicast_write_reconfigure(
-    const void* src,
-    size_t size,
-    tt_xy_pair core_start,
-    tt_xy_pair core_end,
-    uint64_t addr,
-    NocId noc_id,
-    uint64_t ordering) {
-    noc_multicast_write_reconfigure(src, size, core_start, core_end, addr, noc_id, ordering);
 }
 
 }  // namespace tt::umd

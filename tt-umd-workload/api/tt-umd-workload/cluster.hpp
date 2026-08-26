@@ -668,17 +668,6 @@ public:
      */
     std::uint64_t get_sysmem_window_noc_base(const ChipId chip_id) const;
 
-    /**
-     * Get the NOC base address of the chip's sysmem (PCIe) window.
-     *
-     * @param chip_id Chip to target.
-     *
-     * @deprecated Renamed to get_sysmem_window_noc_base(), which describes what the returned address
-     * actually is. This overload only forwards to it and will be removed once all clients migrate.
-     */
-    [[deprecated("Use get_sysmem_window_noc_base() instead.")]] std::uint64_t get_pcie_base_addr_from_device(
-        const ChipId chip_id) const;
-
     //---------- Misc system functions
 
     /**

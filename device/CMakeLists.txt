@@ -98,6 +98,7 @@ target_sources(
         tt_device/hang_detection/hang_detector_implementation.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
         tt_device/hang_detection/blackhole_hang_detector.cpp
+        tt_device/firmware/blackhole_arc_apb.cpp
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
@@ -254,6 +255,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/hang_detection/hang_detector_implementation.hpp
                 api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
+                api/umd/device/tt_device/firmware/blackhole_arc_apb.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/ethernet_broadcast.hpp

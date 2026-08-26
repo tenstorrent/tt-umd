@@ -36,7 +36,10 @@ BlackholeArcMessageQueue::BlackholeArcMessageQueue(
     size(size),
     device_protocol(device_protocol),
     arc_apb(arc_apb),
-    noc_translation_enabled(noc_translation_enabled) {}
+    noc_translation_enabled(noc_translation_enabled) {
+    UMD_ASSERT(device_protocol != nullptr, error::RuntimeError, "BlackholeArcMessageQueue requires a DeviceProtocol.");
+    UMD_ASSERT(arc_apb != nullptr, error::RuntimeError, "BlackholeArcMessageQueue requires a BlackholeArcApb.");
+}
 
 tt_xy_pair BlackholeArcMessageQueue::get_arc_core(const NocId noc_id) const {
     return blackhole::get_arc_core(noc_translation_enabled, /*use_noc1=*/noc_id == NocId::NOC1);

@@ -1,0 +1,203 @@
+name: Setup Multihost Job
+description: >
+  Shared exabox multihost setup: download build (and optional wheel) artifacts,
+  fan them out to workers with mpirun --pernode, then reset cards with
+  ttop-ipmi-reset and validate with UMD system_health. Caller must already
+  have checked out the repo.
+
+inputs:
+  build-artifact-name:
+    description: Name of the build artifact (artifact.tar)
+    required: true
+  wheel-artifact-name:
+    description: Name of the tt_umd wheel artifact (required when install-wheel is true)
+    required: false
+    default: ""
+  install-wheel:
+    description: Download and pip-install the tt_umd wheel on every worker
+    required: false
+    default: "false"
+  artifacts-path:
+    description: Directory to download artifacts into (shared NFS recommended)
+    required: false
+    default: /ci/artifacts
+  max-recovery-attempts:
+    description: Max ttop-ipmi-reset + system_health attempts
+    required: false
+    default: "10"
+  retry-sleep-seconds:
+    description: Seconds to sleep between recovery attempts
+    required: false
+    default: "30"
+
+runs:
+  using: composite
+  steps:
+    - name: Print hostnames
+      shell: bash
+      working-directory: /tmp
+      run: |
+        mpirun --pernode --tag-output hostname
+
+    - name: Download build artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.build-artifact-name }}
+        path: ${{ inputs.artifacts-path }}
+
+    - name: Download wheel artifact
+      if: ${{ inputs.install-wheel == 'true' }}
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.wheel-artifact-name }}
+        path: ${{ inputs.artifacts-path }}
+
+    - name: Unpack artifacts onto workers
+      shell: bash
+      env:
+        ARTIFACTS_PATH: ${{ inputs.artifacts-path }}
+        INSTALL_WHEEL: ${{ inputs.install-wheel }}
+      run: |
+        set -euo pipefail
+
+        rm -rf /ci/tt-umd
+        cp -r "$GITHUB_WORKSPACE" /ci/tt-umd
+
+        BUILD_ARCHIVE="${ARTIFACTS_PATH}/artifact.tar"
+        if [ ! -f "$BUILD_ARCHIVE" ]; then
+          echo "ERROR: expected $BUILD_ARCHIVE"
+          ls -R "${ARTIFACTS_PATH}"
+          exit 1
+        fi
+
+        # Local copy on the runner (handy for commands that launch from here).
+        sudo rm -rf /home/user/tt-umd
+        sudo mkdir -p /home/user
+        sudo chown "$(id -u):$(id -g)" /home/user
+        cp -r /ci/tt-umd /home/user/
+        tar xf "$BUILD_ARCHIVE" -C /home/user/tt-umd
+
+        # Fan out source + build to every allocated host via NFS + mpirun.
+        mpirun --pernode bash -lc 'rm -rf /home/user/tt-umd && cp -r /ci/tt-umd /home/user/'
+        mpirun --pernode tar xf "$BUILD_ARCHIVE" -C /home/user/tt-umd
+
+        if [ "${INSTALL_WHEEL}" = "true" ]; then
+          shopt -s nullglob globstar
+          wheels=("${ARTIFACTS_PATH}"/tt_umd-*.whl "${ARTIFACTS_PATH}"/**/tt_umd-*.whl)
+          if [ ${#wheels[@]} -eq 0 ]; then
+            echo "ERROR: install-wheel requested but no tt_umd-*.whl under ${ARTIFACTS_PATH}"
+            ls -R "${ARTIFACTS_PATH}"
+            exit 1
+          fi
+          echo "Installing wheel: ${wheels[0]}"
+          mpirun --pernode bash -lc "python3 -m pip install --force-reinstall '${wheels[0]}'"
+        fi
+
+    - name: Reset cards and validate cluster
+      shell: bash
+      working-directory: /tmp
+      env:
+        MAX_RECOVERY_ATTEMPTS: ${{ inputs.max-recovery-attempts }}
+        RETRY_SLEEP_SECONDS: ${{ inputs.retry-sleep-seconds }}
+      run: |
+        set -euo pipefail
+        TOPOLOGY=/home/user/tt-umd/build/tools/umd/topology
+        SYSTEM_HEALTH=/home/user/tt-umd/build/tools/umd/system_health
+        export LD_LIBRARY_PATH=/home/user/tt-umd/build/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
+        if ! mpirun --pernode --tag-output bash -c \
+          'command -v ttop-ipmi-reset >/dev/null 2>&1'; then
+          echo "ERROR: ttop-ipmi-reset not on PATH on one or more workers"
+          echo "Expected from the multihost-ci runner ConfigMap sidecar."
+          exit 1
+        fi
+
+        echo "--- Checking socat availability (needed by ttop-ipmi-reset) ---"
+        if ! mpirun --pernode bash -c 'command -v socat >/dev/null 2>&1'; then
+          echo "Socat missing on some nodes, installing..."
+          mpirun --pernode bash -c \
+            'sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq socat >/dev/null'
+        fi
+
+        echo "--- Pre-check: topology visibility on all hosts ---"
+        mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
+          bash -lc "cd /home/user/tt-umd && '${TOPOLOGY}'" || true
+
+        run_system_health() {
+          mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
+            bash -lc "cd /home/user/tt-umd && '${SYSTEM_HEALTH}'"
+        }
+
+        for attempt in $(seq 1 "$MAX_RECOVERY_ATTEMPTS"); do
+          echo "=== Recovery attempt $attempt of $MAX_RECOVERY_ATTEMPTS ==="
+          reset_success=false
+          validation_success=false
+
+          echo "--- Resetting cards with ttop-ipmi-reset ---"
+          # Sidecar may require root peer creds; user has passwordless sudo.
+          set +e
+          mpirun --pernode --tag-output sudo /usr/local/bin/ttop-ipmi-reset
+          reset_rc=$?
+          set -e
+          if [ "$reset_rc" -eq 0 ]; then
+            reset_success=true
+          else
+            echo "WARNING: ttop-ipmi-reset failed on attempt $attempt (mpirun exit=$reset_rc)"
+            echo "--- Per-host diagnostics after ttop-ipmi-reset failure ---"
+            mpirun --pernode --tag-output bash -c '
+              set +e
+              echo "hostname=$(hostname)"
+              echo "uid=$(id -u) user=$(id -un)"
+              echo "ttop-ipmi-reset=$(command -v ttop-ipmi-reset || echo MISSING)"
+              echo "socat=$(command -v socat || echo MISSING)"
+              ls -l /usr/local/bin/ttop-ipmi-reset 2>&1
+              if [ -S /run/ttop-ipmi/reset ]; then
+                ls -l /run/ttop-ipmi/reset
+              else
+                echo "socket=/run/ttop-ipmi/reset MISSING"
+                ls -la /run/ttop-ipmi 2>&1 || echo "/run/ttop-ipmi directory missing"
+              fi
+              echo "--- raw socket as root ---"
+              tmp=$(mktemp)
+              sudo socat -u UNIX-CONNECT:/run/ttop-ipmi/reset - >"$tmp" 2>"$tmp.err"
+              echo "socat_rc=$?"
+              cat -A "$tmp" 2>&1 || true
+              rm -f "$tmp" "$tmp.err"
+              echo "--- exec via sudo ---"
+              sudo /usr/local/bin/ttop-ipmi-reset 2>&1
+              echo "sudo_rc=$?"
+              exit 0
+            ' || true
+          fi
+
+          if [ "$reset_success" = true ]; then
+            echo "--- Sleeping 5s after reset to allow links/services to settle ---"
+            sleep 5
+
+            echo "--- Running UMD system_health ---"
+            set +e
+            run_system_health
+            health_rc=$?
+            set -e
+            if [ "$health_rc" -eq 0 ]; then
+              validation_success=true
+            else
+              echo "WARNING: system_health failed on attempt $attempt (mpirun exit=$health_rc)"
+            fi
+          else
+            echo "WARNING: Skipping system_health because reset failed on attempt $attempt"
+          fi
+
+          if [ "$reset_success" = true ] && [ "$validation_success" = true ]; then
+            echo "SUCCESS: Reset and system_health passed on attempt $attempt"
+            exit 0
+          fi
+
+          if [ "$attempt" -lt "$MAX_RECOVERY_ATTEMPTS" ]; then
+            echo "Sleeping ${RETRY_SLEEP_SECONDS}s before retry..."
+            sleep "$RETRY_SLEEP_SECONDS"
+          fi
+        done
+
+        echo "ERROR: Recovery failed after $MAX_RECOVERY_ATTEMPTS attempts"
+        exit 1

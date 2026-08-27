@@ -17,7 +17,7 @@
 
 #include "tests/test_utils/device_test_utils.hpp"
 #include "tests/test_utils/test_api_common.hpp"
-#include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/chip/chip.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
@@ -73,19 +73,19 @@ TEST(ApiTTDeviceTest, TTDeviceRegIO) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
-        uint64_t address = tt_device->get_architecture_implementation()->get_debug_reg_addr();
+        uint64_t address = get_architecture_registers(tt_device->get_arch()).riscv_debug_bus_cntl_reg;
 
         const SocDescriptor& soc_desc = tt_device->get_soc_descriptor();
 
         CoreCoord tensix_core = soc_desc.get_cores(CoreType::TENSIX, CoordSystem::TRANSLATED)[0];
 
-        tt_device->write_to_device_reg(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
-        tt_device->read_from_device_reg(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->write_to_device(data_write0.data(), tensix_core, address, data_write0.size() * sizeof(uint32_t));
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
         ASSERT_EQ(data_write0, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
 
-        tt_device->write_to_device_reg(data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
-        tt_device->read_from_device_reg(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
+        tt_device->write_to_device(data_write1.data(), tensix_core, address, data_write1.size() * sizeof(uint32_t));
+        tt_device->read_from_device(data_read.data(), tensix_core, address, data_read.size() * sizeof(uint32_t));
         ASSERT_EQ(data_write1, data_read);
         data_read = std::vector<uint32_t>(data_write0.size(), 0);
 

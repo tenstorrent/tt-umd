@@ -16,7 +16,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/types/arch.hpp"
@@ -25,23 +24,20 @@
 
 namespace tt::umd {
 
-static bool tensix_or_eth_in_broadcast(
-    const std::set<uint32_t>& cols_to_exclude, const ArchitectureImplementation* arch_impl) {
+static bool tensix_or_eth_in_broadcast(const std::set<uint32_t>& cols_to_exclude) {
     bool found_tensix_or_eth = false;
-    for (const auto& col : arch_impl->get_t6_x_locations()) {
+    for (const auto& col : wormhole::T6_X_LOCATIONS) {
         found_tensix_or_eth |= (cols_to_exclude.find(col) == cols_to_exclude.end());
     }
     return found_tensix_or_eth;
 }
 
 static bool valid_tensix_broadcast_grid(
-    const std::set<uint32_t>& rows_to_exclude,
-    const std::set<uint32_t>& cols_to_exclude,
-    const ArchitectureImplementation* arch_impl) {
+    const std::set<uint32_t>& rows_to_exclude, const std::set<uint32_t>& cols_to_exclude) {
     bool t6_bcast_rows_complete = true;
     bool t6_bcast_rows_empty = true;
 
-    for (const auto& row : arch_impl->get_t6_y_locations()) {
+    for (const auto& row : wormhole::T6_Y_LOCATIONS) {
         t6_bcast_rows_complete &= (rows_to_exclude.find(row) == rows_to_exclude.end());
         t6_bcast_rows_empty &= (rows_to_exclude.find(row) != rows_to_exclude.end());
     }
@@ -290,11 +286,10 @@ void EthernetBroadcast::broadcast_write_to_cluster(
     adjust_coordinates_for_ethernet_broadcast(
         rows_to_exclude, columns_to_exclude, use_translated_coords, rows_to_exclude_virtual, cols_to_exclude_virtual);
 
-    auto arch_impl = ArchitectureImplementation::create(tt::ARCH::WORMHOLE_B0);
     if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end() or
         cols_to_exclude_virtual.find(5) == cols_to_exclude_virtual.end()) {
         UMD_ASSERT(
-            !tensix_or_eth_in_broadcast(cols_to_exclude_virtual, arch_impl.get()),
+            !tensix_or_eth_in_broadcast(cols_to_exclude_virtual),
             error::RuntimeError,
             "Cannot broadcast to tensix/ethernet and DRAM simultaneously on Wormhole.");
         if (cols_to_exclude_virtual.find(0) == cols_to_exclude_virtual.end()) {
@@ -328,8 +323,7 @@ void EthernetBroadcast::broadcast_write_to_cluster(
         }
     } else {
         UMD_ASSERT(
-            use_translated_coords or
-                valid_tensix_broadcast_grid(rows_to_exclude_virtual, cols_to_exclude_virtual, arch_impl.get()),
+            use_translated_coords || valid_tensix_broadcast_grid(rows_to_exclude_virtual, cols_to_exclude_virtual),
             error::RuntimeError,
             "Must broadcast to all tensix rows when using noc0 coordinates.");
         ethernet_broadcast_write(

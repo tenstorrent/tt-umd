@@ -12,6 +12,7 @@
 #include <set>
 
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_eth.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -72,7 +73,11 @@ protected:
 
     void set_arc_coordinate() override;
 
+    void probe_arc() override;
+
 private:
+    const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::BLACKHOLE);
+
     int get_pcie_x_coordinate();
 
     friend std::unique_ptr<TTDevice> TTDevice::create(

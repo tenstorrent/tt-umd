@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -16,7 +15,6 @@
 #include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/risc_type.hpp"
-#include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/semver.hpp"
 
@@ -26,75 +24,31 @@ enum class CoreType;
 
 namespace tt::umd {
 
-static const uint32_t HANG_READ_VALUE = 0xFFFFFFFFu;
-
 class ArchitectureImplementation {
 public:
     virtual ~ArchitectureImplementation() = default;
 
     virtual tt::ARCH get_architecture() const = 0;
-    virtual uint32_t get_arc_message_arc_get_harvesting() const = 0;
-    virtual uint32_t get_arc_message_arc_go_busy() const = 0;
-    virtual uint32_t get_arc_message_arc_go_long_idle() const = 0;
-    virtual uint32_t get_arc_message_deassert_riscv_reset() const = 0;
-    virtual uint32_t get_arc_message_get_aiclk() const = 0;
-    virtual uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const = 0;
-    virtual uint32_t get_arc_csm_bar0_mailbox_offset() const = 0;
-    virtual uint32_t get_arc_axi_apb_peripheral_offset() const = 0;
-    virtual uint32_t get_arc_reset_scratch_offset() const = 0;
-    virtual uint32_t get_arc_reset_scratch_2_offset() const = 0;
-    virtual uint32_t get_arc_reset_unit_refclk_low_offset() const = 0;
-    virtual uint32_t get_arc_reset_unit_refclk_high_offset() const = 0;
+    virtual uint32_t get_firmware_message_go_busy() const = 0;
+    virtual uint32_t get_firmware_message_go_idle() const = 0;
+    virtual uint64_t get_reset_unit_refclk_low_offset() const = 0;
+    virtual uint64_t get_reset_unit_refclk_high_offset() const = 0;
     virtual uint32_t get_dram_banks_number() const = 0;
-    virtual uint32_t get_aiclk_busy_val() const = 0;
+    // AICLK frequency the chip parks at when idle, in MHz.
+    virtual uint32_t get_min_clock_freq() const = 0;
     virtual uint32_t get_num_eth_channels() const = 0;
-    virtual uint32_t get_read_checking_offset() const = 0;
-    virtual uint32_t get_tensix_soft_reset_addr() const = 0;
-    virtual uint32_t get_debug_reg_addr() const = 0;
+    virtual uint64_t get_tensix_soft_reset_addr() const = 0;
     virtual uint32_t get_soft_reset_reg_value(RiscType risc_type) const = 0;
     virtual RiscType get_soft_reset_risc_type(uint32_t soft_reset_reg_value) const = 0;
     virtual uint32_t get_soft_reset_staggered_start() const = 0;
-    virtual uint64_t get_arc_apb_noc_base_address() const = 0;
-    virtual uint64_t get_arc_csm_noc_base_address() const = 0;
+    // Maps the harvesting indexes firmware reports onto NOC coordinates along the harvesting axis,
+    // rows for Wormhole and columns for Blackhole.
     // Replace with std::span once we enable C++20.
     virtual const std::vector<uint32_t>& get_harvesting_noc_locations() const = 0;
-    virtual const std::vector<uint32_t>& get_t6_x_locations() const = 0;
-    virtual const std::vector<uint32_t>& get_t6_y_locations() const = 0;
-
-    // TLB related. Move other functions here as well.
-    virtual std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const = 0;
-    virtual std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const = 0;
-    virtual std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const = 0;
-    virtual std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const = 0;
-
-    // Get available TLB sizes for this architecture.
-    virtual const std::vector<size_t>& get_tlb_sizes() const = 0;
-
-    virtual tlb_configuration get_tlb_configuration(uint32_t tlb_index) const = 0;
-    virtual uint64_t get_tlb_cfg_reg_size_bytes() const = 0;
-    virtual uint32_t get_static_tlb_cfg_addr() const = 0;
 
     virtual DeviceL1AddressParams get_l1_address_params() const = 0;
-    virtual DriverHostAddressParams get_host_address_params() const = 0;
-    virtual DriverEthInterfaceParams get_eth_interface_params() const = 0;
-    virtual DriverNocParams get_noc_params() const = 0;
 
     static std::unique_ptr<ArchitectureImplementation> create(tt::ARCH architecture);
-
-    virtual uint64_t get_noc_node_id_offset() const = 0;
-    virtual uint64_t get_noc_node_translated_id_offset() const = 0;
-    virtual uint64_t get_noc_reg_base(
-        const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const = 0;
-
-    // Get preferred tlb size, which is the tlb group with the largest count available.
-    virtual size_t get_cached_tlb_size() const = 0;
-
-    // Whether static_vc should be used for tlb configuration.
-    virtual bool get_static_vc() const = 0;
-
-    // Map a PCI bus id to a UBB tray id (1..4). Returns std::nullopt for archs without UBB
-    // boards or when the bus id does not correspond to a known tray.
-    virtual std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const { return std::nullopt; }
 };
 
 }  // namespace tt::umd

@@ -16,6 +16,9 @@ set(BAREMETAL_TESTS_SRCS
     test_simulation_server_socket.cpp
     test_simulation_client.cpp
     test_simulation_server_transport.cpp
+    # WormholeArcWindow takes only protocol interfaces, so it is verified against mocks with no
+    # card and no simulation build.
+    test_wormhole_arc_window.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

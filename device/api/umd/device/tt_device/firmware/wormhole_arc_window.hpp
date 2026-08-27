@@ -35,6 +35,11 @@ class RemoteInterface;
  * coordinate itself. Routing is otherwise unchanged.
  *
  * The interfaces are non-owning and must outlive this object.
+ *
+ * TODO: WormholeTTDevice and BlackholeTTDevice still hold their own copies of this routing,
+ * with the original bound check that validates only the first byte of a transfer. Those are the
+ * copies that currently run; this one is not reached yet. They are retired as each API is
+ * delegated to DeviceFirmware -- until then the two can drift, and have.
  */
 class WormholeArcWindow {
 public:

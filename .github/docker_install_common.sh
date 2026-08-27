@@ -44,22 +44,27 @@ else
     echo "gcc-11 is not available in the repository."
 fi
 
+# llvm.sh probes apt.llvm.org with wget --method=HEAD and treats a failed HEAD
+# as "distro not supported". Pass -n so it uses OS_CODENAME (jammy/noble/focal)
+# instead of the os-release VERSION string, and use --spider (GET) for the probe.
+run_llvm_sh() {
+    wget -q -O llvm.sh https://apt.llvm.org/llvm.sh
+    chmod u+x llvm.sh
+    sed -i 's/wget -q --method=HEAD/wget -q --spider/' llvm.sh
+    ./llvm.sh "$1" -n "$OS_CODENAME"
+}
+
 # Install clang 13 only on Ubuntu 22.04 (obsolete on 24.04, so skip there).
 UBUNTU_VERSION=$(grep VERSION_ID /etc/os-release | cut -d'"' -f2)
 if [ "${UBUNTU_VERSION}" = "22.04" ]; then
     echo "Installing clang-13 for minimum compiler version testing..."
-    wget https://apt.llvm.org/llvm.sh && \
-        chmod u+x llvm.sh && \
-        ./llvm.sh 13 && \
-        apt install -y libc++-13-dev libc++abi-13-dev
+    run_llvm_sh 13 && apt install -y libc++-13-dev libc++abi-13-dev
 else
     echo "Skipping clang-13 (Ubuntu ${UBUNTU_VERSION}); not available or obsolete."
 fi
 
 # Install clang 20 as the default compiler.
-wget https://apt.llvm.org/llvm.sh && \
-    chmod u+x llvm.sh && \
-    ./llvm.sh 20 && \
+run_llvm_sh 20 && \
     apt install -y libc++-20-dev libc++abi-20-dev && \
     ln -s /usr/bin/clang-20 /usr/bin/clang && \
     ln -s /usr/bin/clang++-20 /usr/bin/clang++

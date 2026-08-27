@@ -53,11 +53,4 @@ inline constexpr SemVer KMD_TLB_DMABUF_EXPORT = SemVer(2, 10, 0, 1);
  * introduced in that release.
  */
 inline constexpr SemVer MIN_KERNEL_TLB_DMABUF_EXPORT = SemVer(5, 8, 0);
-
-/**
- * KMD version 1.26.0 introduced the TENSTORRENT_IOCTL_LOCK_CTL IOCTL, a generic per-device resource
- * locking primitive (acquire/release/test of one of TENSTORRENT_RESOURCE_LOCK_COUNT named locks).
- * KmdMutex requires at least this version.
- */
-inline constexpr SemVer KMD_RESOURCE_LOCKS = SemVer(1, 26, 0);
 }  // namespace tt::umd

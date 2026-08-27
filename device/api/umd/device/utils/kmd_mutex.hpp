@@ -18,29 +18,6 @@ struct tt_device_t;
 
 namespace tt::umd {
 
-// Conventional KMD resource-lock indices. These mirror the TENSTORRENT_LOCK_INDEX_* defines in KMD's
-// ioctl.h: indices 0..15 are reserved by convention for ERISC cores. They are copied here (the KMD
-// header lives in a separate repo and cannot be included/linked from UMD); keep this in sync with
-// KMD. Callers coordinating their own resources should use indices outside this reserved range.
-enum class KmdLockIndex : uint8_t {
-    ETH00 = 0,
-    ETH01 = 1,
-    ETH02 = 2,
-    ETH03 = 3,
-    ETH04 = 4,
-    ETH05 = 5,
-    ETH06 = 6,
-    ETH07 = 7,
-    ETH08 = 8,
-    ETH09 = 9,
-    ETH10 = 10,
-    ETH11 = 11,
-    ETH12 = 12,
-    ETH13 = 13,
-    ETH14 = 14,
-    ETH15 = 15,
-};
-
 // KmdMutex is a cross-process lock backed by the Tenstorrent kernel-mode driver (KMD) resource locks,
 // which it drives through tt-kmd-lib's tt_lock_* API. See device/utils/README.md for how the
 // available locking backends compare.
@@ -51,15 +28,21 @@ enum class KmdLockIndex : uint8_t {
 //     namespaces, with no /dev/shm (or other filesystem) sharing required. This makes it the right
 //     primitive for serializing whole workloads against one device.
 //   - Every operation is an ioctl (a syscall); there is no userspace fast path. A contended lock()
-//     polls the non-blocking acquire with a short backoff (the ioctl set has no efficient blocking
+//     polls the non-blocking acquire once a millisecond (the ioctl set has no efficient blocking
 //     wait), so waiting for a held lock costs more than a single syscall.
 //   - The lock is held by the open file descriptor, and KMD releases all of an fd's locks when the
 //     fd is closed. Since the kernel closes every fd of a process when it dies, a crashed holder
 //     cannot leak the lock - it is reclaimed automatically.
 //   - Scope is limited to a single local device: there is no global lock that spans devices.
-//
-// Each KMD device exposes TT_RESOURCE_LOCK_COUNT (64) independent lock indices (see KmdLockIndex for
-// the reserved ones).
+//   - Threads of one process contend for the lock like separate processes do, even when they share
+//     one KmdMutex, because KMD arbitrates on a device wide bit rather than on the file descriptor:
+//     an acquire fails if the lock is held, including by the handle asking for it. So a single
+//     instance can be shared by every thread that needs the lock.
+//   - Releasing is not owner checked. KMD tracks which handle holds a lock, not which thread, so a
+//     thread can release a lock another thread of the same process took. Taking the lock through
+//     std::lock_guard or std::unique_lock keeps that from happening.
+//   - Nothing here is annotated for TSAN, unlike RobustMutex, so data that is guarded only by a
+//     KmdMutex is reported as racing under a TSAN build.
 //
 // This class owns its own dedicated device handle (chardev fd), separate from any fd used to run a
 // workload. That is deliberate: a device reset invalidates every fd that was open across it (further
@@ -73,14 +56,14 @@ enum class KmdLockIndex : uint8_t {
 class KmdMutex {
 public:
     // @param pci_device_num  N in /dev/tenstorrent/N (a UMD logical device id / PCIDevice number).
-    // @param lock_index      KMD resource lock index in [0, 64). Avoid 0..15 (reserved, see
-    //                        KmdLockIndex).
+    // @param lock_index      KMD resource lock index in [0, TT_RESOURCE_LOCK_COUNT). See
+    //                        tt_kmd_lib.h for which indices KMD suggests for which purpose.
     KmdMutex(int pci_device_num, uint8_t lock_index);
     ~KmdMutex() noexcept;
 
     // Opens the dedicated device handle used to hold the lock. Must be called before
     // lock()/try_lock(). Kept separate from the constructor so that failures during setup are still
-    // cleaned up by the destructor.
+    // cleaned up by the destructor. Calling it again once the handle is open does nothing.
     void initialize();
 
     // Move-only so it can live in STL containers. Copying would alias the owned handle.
@@ -114,6 +97,10 @@ public:
 private:
     void open_device();
     void close_device() noexcept;
+
+    // Closes and reopens the handle after a reset made it unusable. Closing is what releases any lock
+    // KMD still has recorded against the old handle. Returns whether the handle is usable again.
+    bool reopen_device() noexcept;
 
     int pci_device_num_;
     uint8_t lock_index_;

@@ -17,6 +17,9 @@
 
 namespace tt::umd {
 
+// How long a contended lock() waits before reporting, once, that it is waiting.
+constexpr auto WAIT_WARNING_DELAY = std::chrono::seconds(1);
+
 KmdMutex::KmdMutex(int pci_device_num, uint8_t lock_index) :
     pci_device_num_(pci_device_num),
     lock_index_(lock_index),
@@ -62,7 +65,25 @@ void KmdMutex::open_device() {
         fmt::format("tt_device_open() failed for KMD lock device {} errno: {}", device_path_, -result));
 }
 
-void KmdMutex::initialize() { open_device(); }
+void KmdMutex::initialize() {
+    if (device_ != nullptr) {
+        // Already open. Opening again would overwrite the handle and leak the old one, along with any
+        // lock KMD has recorded against it.
+        return;
+    }
+    open_device();
+}
+
+bool KmdMutex::reopen_device() noexcept {
+    close_device();
+    try {
+        open_device();
+    } catch (const std::exception& e) {
+        log_warning(tt::LogUMD, "Reopening KMD lock device {} failed: {}", device_path_, e.what());
+        return false;
+    }
+    return true;
+}
 
 void KmdMutex::close_device() noexcept {
     if (device_ != nullptr) {
@@ -101,11 +122,24 @@ bool KmdMutex::try_lock() {
 void KmdMutex::lock() {
     UMD_ASSERT(device_ != nullptr, error::RuntimeError, "KmdMutex::lock() called before initialize()");
 
-    // KMD exposes only non-blocking acquire, so a blocking lock is implemented by polling it with a
-    // short backoff. This also deliberately avoids KMD's blocking-acquire path, which has had a
+    // KMD exposes only non-blocking acquire, so a blocking lock is implemented by polling it once a
+    // millisecond. This also deliberately avoids KMD's blocking-acquire path, which has had a
     // deadlock against the reset ioctl. try_lock() already handles a reset (ENODEV) by reopening the
     // handle.
+    // A lock that is taking a while is reported once, the way RobustMutex reports it, so that a lock
+    // nobody releases shows up in the log instead of looking like a hang. KMD does not say which
+    // handle holds the lock, so there is no owner to name.
+    const auto warn_at = std::chrono::steady_clock::now() + WAIT_WARNING_DELAY;
+    bool warned = false;
     while (!try_lock()) {
+        if (!warned && std::chrono::steady_clock::now() >= warn_at) {
+            log_warning(
+                tt::LogUMD,
+                "Waiting for KMD lock {} on {}, which is currently held by another handle",
+                lock_index_,
+                device_path_);
+            warned = true;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -138,14 +172,17 @@ void KmdMutex::unlock() {
     int was_held = 0;
     int result = tt_lock_release(device_, lock_index_, &was_held);
 
-    // If the handle died due to a reset, the lock is still held in KMD until the handle is closed;
-    // the destructor's close will release it, so this is not fatal.
+    // A reset made the handle unusable, and the release did not go through. KMD still has the lock
+    // recorded against the old handle and only closing it gives the lock back, so close here rather
+    // than leaving it held for as long as this object lives - which, since locks are kept for the
+    // lifetime of the process, would be until the process exits.
     if (result == -ENODEV) {
         log_warning(
             tt::LogUMD,
-            "tt_lock_release() for lock {} on {} hit ENODEV (device reset); lock will be released on close",
+            "tt_lock_release() for lock {} on {} hit ENODEV (device reset); reopening the handle to release it",
             lock_index_,
             device_path_);
+        reopen_device();
         return;
     }
 

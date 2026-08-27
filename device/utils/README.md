@@ -26,14 +26,17 @@ layout, pthread-version assumptions, dead-owner recovery).
 A lock backed by the kernel-mode driver's resource locks, driven through tt-kmd-lib's `tt_lock_*`
 API (`TENSTORRENT_IOCTL_LOCK_CTL` under the hood). It is
 **slower** than `RobustMutex` because every operation is a (custom) `ioctl` syscall, with no userspace
-fast path. The ioctl set used exposes only a non-blocking acquire, so a contended `lock()` polls with a
-short backoff rather than waiting efficiently in the kernel (this also avoids KMD's blocking-acquire
+fast path. The ioctl set used exposes only a non-blocking acquire, so a contended `lock()` polls once a
+millisecond rather than waiting efficiently in the kernel (this also avoids KMD's blocking-acquire
 path, which has had a deadlock against device reset).
 
 Its distinguishing property: it needs **no filesystem sharing beyond the device itself**. The lock
 lives in the driver, keyed by the device and a lock index, so any process that can open
 `/dev/tenstorrent/<N>` contends over the same lock — across containers and mount namespaces, with no
 `/dev/shm` to share. The lock is released automatically on fd close / process death.
+
+Unlike `RobustMutex`, it carries no TSAN annotations, so data guarded only by a `KmdMutex` is
+reported as racing under a TSAN build.
 
 Limitation: the lock is **tied to a single silicon device**. There is no global lock spanning
 devices, and a remote chip reachable through more than one local gateway cannot be serialized by a

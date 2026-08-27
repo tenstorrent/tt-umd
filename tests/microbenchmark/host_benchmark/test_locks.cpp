@@ -6,9 +6,6 @@
 //   - RobustMutex     : pthread robust mutex in a /dev/shm file (userspace fast path).
 //   - KmdMutex        : KMD resource lock via ioctl (syscall per op, tied to a silicon device).
 //
-// FlockMutex (flock(2) over a /dev/shm file) was a third backend; its implementation has been
-// removed, but its benchmark wiring is kept commented out below so it can be re-enabled easily.
-//
 // What is measured, per mechanism:
 //   - Initialize        : construct + initialize() + destroy.
 //   - LockUnlock         : uncontended lock() + unlock() on one thread.
@@ -16,7 +13,7 @@
 //   - LockUnlockThreads  : aggregate lock()/unlock() throughput under N contending threads.
 //
 // KmdMutex benchmarks are skipped when no /dev/tenstorrent device is present. They use a high
-// resource-lock index that does not collide with ERISC (0..15) or the device-exclusive convention.
+// resource-lock index, so they do not collide with the locks UMD itself takes.
 
 #include <gtest/gtest.h>
 #include <nanobench.h>
@@ -35,7 +32,6 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-// #include "umd/device/utils/flock_mutex.hpp"  // FlockMutex removed; see note at top of file.
 #include "umd/device/utils/kmd_mutex.hpp"
 #include "umd/device/utils/robust_mutex.hpp"
 
@@ -45,7 +41,6 @@ namespace {
 
 // Names/index used only by these benchmarks, kept distinct from real UMD locks.
 constexpr std::string_view BENCH_ROBUST_NAME = "MICROBENCH_ROBUST";
-// constexpr std::string_view BENCH_FLOCK_NAME = "MICROBENCH_FLOCK";  // FlockMutex removed.
 constexpr uint8_t BENCH_KMD_LOCK_INDEX = 32;
 
 // Thread counts exercised by the contended throughput benchmark.
@@ -70,13 +65,6 @@ RobustMutex make_robust() {
     m.initialize();
     return m;
 }
-
-// FlockMutex removed; factory kept commented out so the benchmark can be re-enabled easily.
-// FlockMutex make_flock() {
-//     FlockMutex m(BENCH_FLOCK_NAME);
-//     m.initialize();
-//     return m;
-// }
 
 KmdMutex make_kmd(int device_num) {
     KmdMutex m(device_num, BENCH_KMD_LOCK_INDEX);
@@ -150,8 +138,6 @@ TEST(MicrobenchmarkLocks, Initialize) {
         auto m = make_robust();
         ankerl::nanobench::doNotOptimizeAway(&m);
     });
-    // FlockMutex removed; kept commented out so the benchmark can be re-enabled easily.
-    // bench.name("FlockMutex").run([&] { auto m = make_flock(); ankerl::nanobench::doNotOptimizeAway(&m); });
     if (device_num.has_value()) {
         bench.name("KmdMutex").run([&] {
             auto m = make_kmd(*device_num);
@@ -173,13 +159,6 @@ TEST(MicrobenchmarkLocks, LockUnlock) {
         robust.lock();
         robust.unlock();
     });
-
-    // FlockMutex removed; kept commented out so the benchmark can be re-enabled easily.
-    // auto flock = make_flock();
-    // bench.name("FlockMutex").run([&] {
-    //     flock.lock();
-    //     flock.unlock();
-    // });
 
     if (device_num.has_value()) {
         auto kmd = make_kmd(*device_num);
@@ -208,17 +187,6 @@ TEST(MicrobenchmarkLocks, ProbeContended) {
         });
         holder.unlock();
     }
-    // FlockMutex removed; kept commented out so the benchmark can be re-enabled easily.
-    // {
-    //     auto holder = make_flock();
-    //     auto prober = make_flock();
-    //     holder.lock();
-    //     bench.name("FlockMutex").run([&] {
-    //         auto owner = prober.probe_lock();
-    //         ankerl::nanobench::doNotOptimizeAway(owner);
-    //     });
-    //     holder.unlock();
-    // }
     if (device_num.has_value()) {
         auto holder = make_kmd(*device_num);
         auto prober = make_kmd(*device_num);
@@ -271,8 +239,6 @@ TEST(MicrobenchmarkLocks, LockUnlockThreads) {
     std::cout << "|" << std::endl;
 
     print_backend_row("RobustMutex", make_robust);
-    // FlockMutex removed; kept commented out so the benchmark can be re-enabled easily.
-    // print_backend_row("FlockMutex", make_flock);
     if (device_num.has_value()) {
         print_backend_row("KmdMutex", [&] { return make_kmd(*device_num); });
     }

@@ -179,17 +179,6 @@ jobs:
             mpirun --pernode bash -lc "python3 -m pip install --force-reinstall '${wheels[0]}'"
           fi
 
-      - name: Install tt-smi on workers
-        run: |
-          set -euo pipefail
-          # The ipmi-reset sidecar runs `tt-smi` (see ipmi-reset-exec.sh). It must
-          # be on a shared PATH like /usr/local/bin — a user install under
-          # ~/.local/bin is invisible to the sidecar and yields __EXIT__:127.
-          mpirun --pernode --tag-output bash -lc \
-            'sudo python3 -m pip install --no-cache-dir "tt-smi==5.2.0"
-             test -x /usr/local/bin/tt-smi
-             /usr/local/bin/tt-smi --version'
-
       - name: Reset cards and validate cluster
         working-directory: /tmp
         timeout-minutes: 90

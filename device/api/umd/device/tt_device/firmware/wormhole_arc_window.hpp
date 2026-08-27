@@ -52,15 +52,10 @@ public:
      * @brief Where one window sits and what it holds.
      */
     struct Config {
-        /** Name of the window, used in error messages. */
         const char* name;
-        /** Base of the window in the ARC core's NOC address space. */
         uint64_t noc_base_address;
-        /** Base of the window in PCIe BAR0. */
         uint32_t bar0_offset_start;
-        /** Size of the window in bytes. */
         uint32_t size_bytes;
-        /** Whether the remote route issues a register or a data access. */
         Content content;
     };
 

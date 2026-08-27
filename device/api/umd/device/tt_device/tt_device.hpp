@@ -18,7 +18,9 @@
 #include "tt_device_error.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -30,6 +32,7 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/tt_device_model/tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -108,7 +111,7 @@ public:
 
     virtual ~TTDevice() = default;
 
-    architecture_implementation *get_architecture_implementation();
+    ArchitectureImplementation *get_architecture_implementation();
     PCIDevice *get_pci_device();
     RemoteCommunication *get_remote_communication();
 
@@ -382,9 +385,11 @@ public:
 
     ArcMessenger *get_arc_messenger() const;
 
-    ArcTelemetryReader *get_arc_telemetry_reader() const;
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;
+
+    tt_xy_pair get_arc_core(const NocId noc_id) const;
 
     FirmwareInfoProvider *get_firmware_info_provider() const;
 
@@ -521,26 +526,16 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
-    int communication_device_id_ = -1;
-    std::unique_ptr<architecture_implementation> architecture_impl_;
-    tt::ARCH arch = tt::ARCH::Invalid;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     LockManager lock_manager;
 
-    TTDevice() = default;
+    // Every TTDevice is built around a model, which supplies its identity, the protocol it talks to
+    // hardware over and -- as components are decoupled from TTDevice -- the components it runs on.
+    // The transport no longer reaches TTDevice at all; the model owns it.
+    TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
     TTDevice(
-        std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<architecture_implementation> architecture_impl,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-        bool use_safe_api);
-    TTDevice(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        std::unique_ptr<architecture_implementation> architecture_impl,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-    TTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        std::unique_ptr<architecture_implementation> architecture_impl,
+        std::unique_ptr<TTDeviceModel> model,
+        std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
@@ -565,8 +560,6 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
-    bool is_remote_tt_device = false;
-
     xy_pair arc_core_noc0;
     xy_pair arc_core_noc1;
 
@@ -575,9 +568,11 @@ protected:
 
     virtual void set_arc_coordinate() {}
 
-private:
-    void probe_arc();
+    // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
+    // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.
+    virtual void probe_arc() {}
 
+private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
     void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
@@ -586,18 +581,13 @@ private:
 
     DmaInterface *get_dma_interface();
 
+    std::unique_ptr<TTDeviceModel> model_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    std::unique_ptr<ArcTelemetryReader> telemetry = nullptr;
+    std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
-    PcieInterface *pcie_capabilities_ = nullptr;
-    DmaInterface *dma_capabilities_ = nullptr;
-    PcieProtocol *pcie_protocol_ = nullptr;
-    JtagInterface *jtag_capabilities_ = nullptr;
-    RemoteInterface *remote_capabilities_ = nullptr;
 };
 
 }  // namespace tt::umd

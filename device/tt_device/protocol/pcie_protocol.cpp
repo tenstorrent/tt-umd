@@ -19,12 +19,14 @@
 #include <vector>
 
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/blackhole_dma_transfer.hpp"
 #include "umd/device/tt_device/protocol/pcie_dma/wormhole_dma_transfer.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/power_state.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "utils.hpp"
 
@@ -70,7 +72,7 @@ void PcieProtocol::set_io_timeout_callback(const std::function<bool(NocId)>& han
 TlbWindow* PcieProtocol::get_cached_tlb_window() {
     if (cached_tlb_window_ == nullptr) {
         cached_tlb_window_ = std::make_unique<SiliconTlbWindow>(pci_device_->allocate_tlb(
-            pci_device_->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+            get_architecture_tlbs(pci_device_->get_arch()).cached_window_size, TlbMapping::UC));
         cached_tlb_window_->set_io_timeout_hang_check(hang_check_);
     }
     return cached_tlb_window_.get();
@@ -140,7 +142,12 @@ bool PcieProtocol::write_to_core_range(
     return true;
 }
 
-int PcieProtocol::get_mmio_id() { return pci_device_->get_pci_device_id(); }
+int PcieProtocol::get_mmio_id() { return pci_device_->get_device_num(); }
+
+// PCIDevice takes a bool, so the requested state is narrowed here rather than in the interface.
+void PcieProtocol::set_power_state(PowerState state) {
+    pci_device_->set_power_state(/*busy=*/state == PowerState::HIGH);
+}
 
 void PcieProtocol::noc_multicast_write(
     const void* src, size_t size, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, NocId noc_id) {
@@ -203,11 +210,11 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
         error::RuntimeError,
         fmt::format("Size {} must be a multiple of the host page size ({} bytes) to be exported.", size, page_size));
 
-    const std::vector<size_t>& size_classes = pci_device_->get_architecture_implementation()->get_tlb_sizes();
+    const std::vector<TlbSizeClass>& size_classes = get_architecture_tlbs(pci_device_->get_arch()).size_classes;
     size_t window_size = 0;
-    for (const size_t candidate : size_classes) {
-        if (size <= candidate - (addr % candidate)) {
-            window_size = candidate;
+    for (const TlbSizeClass& size_class : size_classes) {
+        if (size <= size_class.size - (addr % size_class.size)) {
+            window_size = size_class.size;
             break;
         }
     }
@@ -219,7 +226,7 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
             "size-aligned. Use a smaller size or a more aligned address.",
             size,
             addr,
-            size_classes.back()));
+            size_classes.back().size));
 
     const uint64_t window_offset = addr % window_size;
 
@@ -229,7 +236,7 @@ int PcieProtocol::export_dmabuf(tt_xy_pair core, uint64_t addr, size_t size, uin
     config.y_end = core.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+    config.static_vc = get_architecture_tlbs(pci_device_->get_arch()).use_static_vc;
 
     log_debug(
         LogUMD,
@@ -301,7 +308,7 @@ tlb_data PcieProtocol::create_dma_tlb_config(
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = tlb_data::Relaxed;
-    config.static_vc = pci_device_->get_architecture_implementation()->get_static_vc();
+    config.static_vc = get_architecture_tlbs(pci_device_->get_arch()).use_static_vc;
     if (core_start) {
         config.x_start = core_start->x;
         config.y_start = core_start->y;
@@ -323,8 +330,8 @@ bool PcieProtocol::dma_transfer(void* buffer, size_t size, uint64_t addr, tlb_da
     size_t dmabuf_size = dma_buffer.size;
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
-    auto axi_address_base = pci_device_->get_architecture_implementation()
-                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+    auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
+                                .get_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();
@@ -366,8 +373,8 @@ bool PcieProtocol::dma_transfer_zero_copy(
 
     TlbWindow* tlb_window = get_cached_dma_tlb_window(config);
 
-    auto axi_address_base = pci_device_->get_architecture_implementation()
-                                ->get_tlb_configuration(tlb_window->handle_ref().get_tlb_id())
+    auto axi_address_base = get_architecture_tlbs(pci_device_->get_arch())
+                                .get_configuration(tlb_window->handle_ref().get_tlb_id())
                                 .tlb_offset;
 
     const size_t tlb_handle_size = tlb_window->handle_ref().get_size();

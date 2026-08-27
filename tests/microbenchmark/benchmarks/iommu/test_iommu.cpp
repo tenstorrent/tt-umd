@@ -275,10 +275,6 @@ TEST(MicrobenchmarkIOMMU, MapDifferentSizesBufferToNOC) {
         GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
                      << OUTPUT_ENV_VAR;
     }
-    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
-        GTEST_SKIP() << "Skipping test since mapping buffers to NOC is not supported (requires KMD >= 2.0).";
-    }
-
     auto bench = ankerl::nanobench::Bench()
                      .title("IOMMU_MapDifferentSizesBufferToNOC")
                      .unit("byte")
@@ -338,10 +334,6 @@ TEST(MicrobenchmarkIOMMU, Map1GBPages) {
     if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
         GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
                      << OUTPUT_ENV_VAR;
-    }
-
-    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
-        GTEST_SKIP() << "Skipping test since mapping buffers to NOC is not supported (requires KMD >= 2.0).";
     }
 
     constexpr size_t NUM_PAGES = 3;
@@ -407,10 +399,6 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     if (std::getenv(OUTPUT_ENV_VAR) == nullptr) {
         GTEST_SKIP() << "This benchmark does not output results to std. output. Please define output path: "
                      << OUTPUT_ENV_VAR;
-    }
-
-    if (!PCIDevice::is_mapping_buffer_to_noc_supported()) {
-        GTEST_SKIP() << "Skipping test since mapping buffers to NOC is not supported (requires KMD >= 2.0).";
     }
 
     constexpr size_t NUM_PAGES = 3;

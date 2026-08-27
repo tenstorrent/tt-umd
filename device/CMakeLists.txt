@@ -62,6 +62,8 @@ target_sources(
     tt-umd
     PRIVATE
         arch/architecture_implementation.cpp
+        arch/architecture_registers.cpp
+        arch/architecture_tlbs.cpp
         chip/chip.cpp
         chip/local_chip.cpp
         chip/mock_chip.cpp
@@ -77,6 +79,9 @@ target_sources(
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
         cluster.cpp
+        tt_device_model/wormhole_tt_device_model.cpp
+        tt_device_model/blackhole_tt_device_model.cpp
+        tt_device_model/simulation_tt_device_model.cpp
         tt_device/ethernet_broadcast.cpp
         coordinates/coordinate_manager.cpp
         cpuset_lib.cpp
@@ -96,12 +101,13 @@ target_sources(
         tt_device/hang_detection/hang_detector_implementation.cpp
         tt_device/hang_detection/wormhole_hang_detector.cpp
         tt_device/hang_detection/blackhole_hang_detector.cpp
+        tt_device/firmware/blackhole_arc_apb.cpp
         tt_device/protocol/pcie_protocol.cpp
         tt_device/protocol/jtag_protocol.cpp
         tt_device/protocol/remote_protocol.cpp
         tt_device/protocol/pcie_dma/wormhole_dma_transfer.cpp
         tt_device/protocol/pcie_dma/blackhole_dma_transfer.cpp
-        firmware/firmware_info_provider.cpp
+        firmware/firmware_info_provider_implementation.cpp
         firmware/firmware_utils.cpp
         types/risc_type.cpp
         soc_arch_descriptor.cpp
@@ -183,8 +189,11 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
             BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/api
             FILES
                 api/umd/device/arch/architecture_implementation.hpp
+                api/umd/device/arch/architecture_registers.hpp
+                api/umd/device/arch/architecture_tlbs.hpp
                 api/umd/device/arc/arc_messenger.hpp
                 api/umd/device/arc/arc_telemetry_reader.hpp
+                api/umd/device/arc/firmware_telemetry_reader.hpp
                 api/umd/device/arc/blackhole_arc_message_queue.hpp
                 api/umd/device/arc/blackhole_arc_messenger.hpp
                 api/umd/device/arc/smbus_arc_telemetry_reader.hpp
@@ -219,6 +228,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/tt_sim_tlb_handle.hpp
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
+                api/umd/device/io_window/io_window.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp
@@ -248,14 +258,21 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/hang_detection/hang_detector_implementation.hpp
                 api/umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp
                 api/umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp
+                api/umd/device/tt_device/firmware/blackhole_arc_apb.hpp
                 api/umd/device/tt_device/remote_communication.hpp
                 api/umd/device/tt_device/remote_communication_legacy_firmware.hpp
                 api/umd/device/tt_device/ethernet_broadcast.hpp
+                api/umd/device/tt_device_model/tt_device_model.hpp
+                api/umd/device/tt_device_model/wormhole_tt_device_model.hpp
+                api/umd/device/tt_device_model/blackhole_tt_device_model.hpp
+                api/umd/device/tt_device_model/simulation_tt_device_model.hpp
                 api/umd/device/firmware/erisc_firmware.hpp
                 api/umd/device/firmware/firmware_info_provider.hpp
+                api/umd/device/firmware/firmware_info_provider_implementation.hpp
                 api/umd/device/firmware/firmware_telemetry_mapping.hpp
                 api/umd/device/firmware/firmware_utils.hpp
                 api/umd/device/types/noc_id.hpp
+                api/umd/device/types/power_state.hpp
                 api/umd/device/types/risc_type.hpp
                 api/umd/device/simulation/simulation_chip.hpp
                 api/umd/device/simulation/simulation_connector.hpp
@@ -291,6 +308,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/types/host_memory.hpp
                 api/umd/device/types/telemetry.hpp
                 api/umd/device/types/tlb.hpp
+                api/umd/device/types/io_window_config.hpp
                 api/umd/device/types/wormhole_dram.hpp
                 api/umd/device/types/wormhole_eth.hpp
                 api/umd/device/types/wormhole_l1.hpp

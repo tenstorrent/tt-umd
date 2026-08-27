@@ -18,7 +18,6 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
@@ -29,7 +28,6 @@
 struct tt_device_t;
 
 namespace tt::umd {
-class architecture_implementation;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -129,7 +127,6 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const SemVer kmd_version;        // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
-    std::unique_ptr<architecture_implementation> arch_impl_;  // Architecture-specific implementation
     DmaBuffer dma_buffer{};
 
 public:
@@ -155,6 +152,12 @@ public:
      * @return PciDeviceInfo struct containing the device information.
      */
     static PciDeviceInfo read_device_info(const std::string &device_path);
+
+    /**
+     * Whether an IOMMU protects the host from the given device. Reads sysfs only, so callers that
+     * just need the IOMMU state do not have to open the device.
+     */
+    static bool detect_iommu(const PciDeviceInfo &device_info);
 
     /**
      * PCI device constructor.
@@ -206,11 +209,6 @@ public:
      * @return what architecture this device is (e.g. Wormhole, Blackhole, etc.)
      */
     tt::ARCH get_arch() const { return arch; }
-
-    /**
-     * @return the architecture-specific implementation for this device
-     */
-    architecture_implementation *get_architecture_implementation() const { return arch_impl_.get(); }
 
     /**
      * @return whether the system is protected from this device by an IOMMU
@@ -330,11 +328,6 @@ public:
      */
     static void send_reset_ioctl_to_devices(
         const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag, bool ignore_failures = true);
-
-    /**
-     * Temporary function which allows us to support both ways of mapping buffers during the transition period.
-     */
-    static bool is_mapping_buffer_to_noc_supported();
 
     /**
      * Get the architecture of the PCIe device driver. The function enumerates PCIe devices on the system

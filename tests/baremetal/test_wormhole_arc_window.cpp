@@ -238,11 +238,13 @@ TEST_F(WormholeArcCsmWindowTest, AccessIsBoundedByTheCsmWindow) {
     auto window = over_remote();
     uint32_t value = 0;
 
-    constexpr uint32_t RANGE = wormhole::ARC_CSM_ADDRESS_RANGE;
-    EXPECT_THROW(window.read(&value, RANGE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    constexpr uint64_t WINDOW_SIZE = static_cast<uint64_t>(wormhole::ARC_CSM_ADDRESS_RANGE) + 1;
+    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(
+        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
 
     EXPECT_CALL(protocol_, read_data(_, _, _, _, _));
-    window.read(&value, RANGE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);
+    window.read(&value, WINDOW_SIZE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);
 }
 
 }  // namespace

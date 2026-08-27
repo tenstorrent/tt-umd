@@ -48,7 +48,7 @@ namespace tt::umd {
         .name = "ARC CSM",
         .noc_base_address = wormhole::ARC_CSM_NOC_BASE_ADDRESS,
         .bar0_offset_start = wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START,
-        .size_bytes = wormhole::ARC_CSM_ADDRESS_RANGE,
+        .size_bytes = wormhole::ARC_CSM_ADDRESS_RANGE + 1,
         .content = Content::MEMORY,
     };
     return WormholeArcWindow(config, device_protocol, pcie_interface, jtag_interface, remote_interface);

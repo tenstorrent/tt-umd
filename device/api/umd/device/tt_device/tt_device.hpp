@@ -351,7 +351,7 @@ public:
      */
     virtual void configure_iatu_region(size_t region, uint64_t target, size_t region_size);
 
-    virtual ChipInfo get_chip_info();
+    ChipInfo get_chip_info();
 
     FirmwareBundleVersion get_firmware_version();
 

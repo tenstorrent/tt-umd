@@ -53,25 +53,6 @@ WormholeTTDevice::WormholeTTDevice(
     set_hang_detector(std::make_unique<WormholeHangDetector>(hang_check_protocol));
 }
 
-ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info = TTDevice::get_chip_info();
-
-    std::vector<uint32_t> arc_msg_return_values = {0};
-    uint32_t ret_code = get_arc_messenger()->send_message(
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
-        arc_msg_return_values,
-        {0, 0});
-
-    if (ret_code != 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to get harvesting masks with exit code: {}", ret_code));
-    }
-
-    chip_info.harvesting_masks.tensix_harvesting_mask =
-        CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, arc_msg_return_values[0]);
-
-    return chip_info;
-}
-
 uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
     std::vector<uint32_t> arc_msg_return_values = {0};

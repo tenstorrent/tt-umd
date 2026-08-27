@@ -121,50 +121,6 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
         target);
 }
 
-ChipInfo BlackholeTTDevice::get_chip_info() {
-    ChipInfo chip_info = TTDevice::get_chip_info();
-    chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
-        tt::ARCH::BLACKHOLE,
-        get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
-            ? (~get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
-            : 0);
-    chip_info.harvesting_masks.dram_harvesting_mask =
-        get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_GDDR)
-            ? (~get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
-            : 0;
-
-    chip_info.harvesting_masks.eth_harvesting_mask =
-        get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_ETH)
-            ? (~get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
-            : 0;
-
-    chip_info.harvesting_masks.pcie_harvesting_mask = 0;
-    if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::PCIE_USAGE)) {
-        uint32_t pcie_usage = get_firmware_telemetry_reader()->read_entry(TelemetryTag::PCIE_USAGE);
-
-        uint32_t pcie0_usage = pcie_usage & 0x3;
-        uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
-
-        const uint32_t pcie_usage_endpoint = 1;
-        chip_info.harvesting_masks.pcie_harvesting_mask = 0;
-        if (pcie0_usage != pcie_usage_endpoint) {
-            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
-        }
-
-        if (pcie1_usage != pcie_usage_endpoint) {
-            chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
-        }
-    }
-
-    chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
-    if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
-        chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
-            tt::ARCH::BLACKHOLE, get_firmware_telemetry_reader()->read_entry(TelemetryTag::ENABLED_L2CPU));
-    }
-
-    return chip_info;
-}
-
 void BlackholeTTDevice::probe_arc() {
     uint32_t dummy;
     read_from_arc_apb(&dummy, registers_.arc_reset_scratch_offset, sizeof(dummy));  // SCRATCH_0

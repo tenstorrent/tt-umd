@@ -1,145 +1,156 @@
-# Build UMD and run an arbitrary test command on dedicated exabox runners
-# (sc1 / sc4 / sc16). Trigger from the Actions tab: pick hardware, paste a
-# test command, and run.
-#
-# Uses exabox-multihost-ci-* labels (same model as tt-metal PR 52803). The
-# runner hook provisions worker pods from container.image; there is no TTOP
-# allocation/environment lifecycle in this workflow (that was the closed
-# tt-umd PR 3090 approach).
-#
-# Setup (artifact fan-out, ttop-ipmi-reset, system_health) lives in
-# .github/actions/setup-multihost.
-#
-# Closes https://github.com/tenstorrent/tt-umd/issues/3089
-# Supersedes https://github.com/tenstorrent/tt-umd/pull/3090
-name: Run tests on exabox
+name: Check runner
 
 on:
   workflow_dispatch:
     inputs:
-      hardware:
-        description: >-
-          Exabox hardware (sc1 = 1 Galaxy, sc4 = 4-Galaxy quad,
-          sc16 = 16-Galaxy SC16). Maps to runner label
-          exabox-multihost-ci-<hardware>.
-        required: true
-        type: choice
-        default: sc1
-        options:
-          - sc1
-          - sc4
-          - sc16
-      test-command:
-        description: >-
-          Shell command run on every allocated host via mpirun --pernode
-          (cwd /home/user/tt-umd, LD_LIBRARY_PATH includes build/lib). Example:
-          ./build/test/umd/galaxy/unit_tests_glx
-        required: true
-        type: string
-      build-type:
-        description: CMake build type
-        required: true
-        default: Release
-        type: choice
-        options:
-          - Release
-          - RelWithDebInfo
-          - Debug
-          - ASan
-          - TSan
-      ubuntu-docker-version:
-        description: Ubuntu docker image version to build and use as worker image
-        required: true
-        default: ubuntu-22.04
-        type: choice
-        options:
-          - ubuntu-22.04
-          - ubuntu-24.04
       timeout:
-        description: Per-job timeout in minutes (build and run)
         required: true
-        default: 120
+        description: 'The timeout for the job in minutes'
         type: number
-      build-wheel:
-        description: Also build and install the Python wheel on workers
-        required: false
-        default: false
-        type: boolean
-
-# id-token: write — multihost-ci runner chart may need OIDC.
-permissions:
-  id-token: write
-  contents: read
-  packages: write
-
-env:
-  ARTIFACT_NAME: >-
-    build-artifacts-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
-  WHEEL_ARTIFACT_NAME: >-
-    wheel-artifact-${{ inputs.ubuntu-docker-version }}-${{ inputs.build-type }}
+        default: 10
 
 jobs:
-  ensure-docker-image:
-    secrets: inherit
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/docker-image.yml
-    with:
-      docker-version: ${{ inputs.ubuntu-docker-version }}
-
-  build:
-    needs: ensure-docker-image
-    secrets: inherit
-    uses: ./.github/workflows/build-tests.yml
-    with:
-      ubuntu-docker-version: ${{ inputs.ubuntu-docker-version }}
-      build-type: ${{ inputs.build-type }}
-      timeout: ${{ fromJSON(inputs.timeout) }}
-      build-wheel: ${{ inputs.build-wheel }}
-      image-tag: ${{ needs.ensure-docker-image.outputs.image-tag }}
-
-  run:
-    name: Run on exabox (${{ inputs.hardware }})
-    needs: [ensure-docker-image, build]
+  check-runners-host:
+    # Due to parsing bug, fromJSON is used to convert string to number
     timeout-minutes: ${{ fromJSON(inputs.timeout) }}
-    runs-on:
-      - exabox-multihost-ci-${{ inputs.hardware }}
-    # Consumed by the multihost runner container hook to provision remote
-    # worker pods. Job steps still run on the CPU/control runner; the hook
-    # handles worker image setup.
-    container:
-      image: >-
-        ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version
-        }}:${{ needs.ensure-docker-image.outputs.image-tag }}
-    env:
-      PATH: /opt/openmpi-v5.0.7-ulfm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      HOME: /home/user
-      LD_LIBRARY_PATH: /home/user/tt-umd/build/lib
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: [
+          ubuntu-22.04,
+          ubuntu-24.04,
+          tt-ubuntu-2204-large-stable,
+          tt-ubuntu-2204-n150-stable,
+          tt-ubuntu-2204-n150-viommu-stable,
+          tt-ubuntu-2204-n300-stable,
+          tt-ubuntu-2204-n300-viommu-stable,
+          tt-ubuntu-2204-n300-llmbox-stable,
+          tt-ubuntu-2204-n300-llmbox-viommu-stable,
+          tt-ubuntu-2204-p150b-stable,
+          tt-ubuntu-2204-p150b-viommu-stable,
+          P300-viommu,
+          tt-ubuntu-2204-bh-loudbox-viommu-stable]
+
+    name: Check runner
+    runs-on: ${{ matrix.machine }}
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - name: Fix ownership
+        run: |
+          sudo chown -R ubuntu:ubuntu $GITHUB_WORKSPACE || true
+
+      - uses: actions/checkout@v6
+
+      - name: Print machine info
+        run: |
+          # Print machine name
+          echo "Machine Name: $(hostname)"
+
+          # Print OS information
+          echo "Operating System: $(lsb_release -d | cut -f2-)"
+          echo "Kernel Version: $(uname -r)"
+          echo "Architecture: $(uname -m)"
+
+          # Print current user
+          echo "Current User: $(whoami)"
+
+          # Print number of CPU cores
+          echo "Number of CPU Cores: $(nproc)"
+
+          # Print CPU information
+          echo "CPU Information:"
+          lscpu
+
+          # Print Memory information
+          echo "Memory Information:"
+          free -h
+
+          # Print Disk usage
+          echo "Disk Usage:"
+          df -h
+
+          # Print usage of landing folder
+          echo "Show file usage"
+          du -h --max-depth=1 | sort -rh
+
+  check-runners-docker:
+    # Due to parsing bug, fromJSON is used to convert string to number
+    timeout-minutes: ${{ fromJSON(inputs.timeout) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        machine: [
+          ubuntu-22.04,
+          ubuntu-24.04,
+          tt-ubuntu-2204-large-stable,
+          tt-ubuntu-2204-n150-stable,
+          tt-ubuntu-2204-n150-viommu-stable,
+          tt-ubuntu-2204-n300-stable,
+          tt-ubuntu-2204-n300-viommu-stable,
+          tt-ubuntu-2204-n300-llmbox-stable,
+          tt-ubuntu-2204-n300-llmbox-viommu-stable,
+          tt-ubuntu-2204-p150b-stable,
+          tt-ubuntu-2204-p150b-viommu-stable,
+          P300-viommu,
+          tt-ubuntu-2204-bh-loudbox-viommu-stable]
+        image: [tt-umd-ci-ubuntu-22.04, tt-umd-ci-ubuntu-24.04]
+
+    name: Check runner docker
+    needs: check-runners-host
+    runs-on: ${{ matrix.machine }}
+
+    container:
+      image: ghcr.io/${{ github.repository }}/${{ matrix.image }}:latest
+      volumes:
+        - /dev/hugepages:/dev/hugepages
+        - /dev/hugepages-1G:/dev/hugepages-1G
+
+    steps:
+      - name: Set working directory env variable
+        id: strings
+        shell: bash
+        run: |
+          echo "WORK_DIR=$(pwd)" >> $GITHUB_ENV
+
+      - name: Git add safe dir for working directory
+        run: |
+          # Mark the main repository as safe
+          git config --global --add safe.directory ${{ env.WORK_DIR }} || true
+          # Iterate over all submodules and mark them as safe
+          git submodule foreach 'git config --global --add safe.directory "$toplevel/$sm_path"' || true
+
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      - name: Setup multihost job
-        uses: ./.github/actions/setup-multihost
-        with:
-          build-artifact-name: ${{ env.ARTIFACT_NAME }}
-          wheel-artifact-name: ${{ env.WHEEL_ARTIFACT_NAME }}
-          install-wheel: ${{ inputs.build-wheel }}
-
-      - name: Run test command
-        id: run-test
-        # TEST_COMMAND is expanded by this job's shell into the remote bash -lc
-        # string (trusted workflow_dispatch). No eval — the remote shell runs the
-        # command text directly. mpirun --pernode wraps it for every host.
-        env:
-          TEST_COMMAND: ${{ inputs.test-command }}
+      - name: Print machine info
         run: |
-          set -euo pipefail
-          echo "Running on every host via mpirun --pernode:"
-          echo "$TEST_COMMAND"
-          mpirun --pernode --tag-output -x LD_LIBRARY_PATH \
-            bash -lc "cd /home/user/tt-umd && $TEST_COMMAND"
+          # Print machine name
+          echo "Machine Name: $(hostname)"
+
+          # Print OS information
+          echo "Operating System: $(lsb_release -d | cut -f2-)"
+          echo "Kernel Version: $(uname -r)"
+          echo "Architecture: $(uname -m)"
+
+          # Print current user
+          echo "Current User: $(whoami)"
+
+          # Print number of CPU cores
+          echo "Number of CPU Cores: $(nproc)"
+
+          # Print CPU information
+          echo "CPU Information:"
+          lscpu
+
+          # Print Memory information
+          echo "Memory Information:"
+          free -h
+
+          # Print Disk usage
+          echo "Disk Usage:"
+          df -h
+
+          # Print usage of landing folder
+          echo "Show file usage"
+          du -h --max-depth=1 | sort -rh

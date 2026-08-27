@@ -571,6 +571,11 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
+    // Devices whose transport is not one of the constructor-selected ones (PCIe, JTAG, remote)
+    // install their protocol here. Must run before init_tt_device*(), which hands the protocol to
+    // components that take a DeviceProtocol* rather than a TTDevice*.
+    void set_device_protocol(std::unique_ptr<DeviceProtocol> device_protocol);
+
     bool is_remote_tt_device = false;
 
     xy_pair arc_core_noc0;

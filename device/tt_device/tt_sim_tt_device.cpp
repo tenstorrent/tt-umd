@@ -411,7 +411,7 @@ ChipInfo TTSimTTDevice::get_chip_info() {
     if (arch == tt::ARCH::WORMHOLE_B0) {
         std::vector<uint32_t> arc_msg_return_values = {0};
         const uint32_t ret_code = get_arc_messenger()->send_message(
-            wormhole::ARC_MSG_COMMON_PREFIX | get_architecture_implementation()->get_arc_message_arc_get_harvesting(),
+            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
             arc_msg_return_values,
             {0, 0});
         UMD_ASSERT(

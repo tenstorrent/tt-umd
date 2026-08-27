@@ -160,10 +160,16 @@ void TTDevice::init_tt_device_for_simulation(bool preserve_soc_descriptor, const
     if (arch == tt::ARCH::QUASAR) {
         return;
     }
+    // The silicon devices set this from their constructors, but the simulation devices derive from
+    // SimulationTTDevice rather than the concrete silicon classes, so nothing has run it yet. The
+    // telemetry reader below is handed these coordinates by value, so they must be resolved first or
+    // it reads ARC registers from core (0, 0).
+    set_arc_coordinate();
     probe_arc();
     wait_arc_core_start(timeout_ms);
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(this, timeout_ms);
+    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
+        get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);
     firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(this);
     // Descriptor-backed simulation remotes are seeded before init and may need to preserve that
     // topology metadata. A bootstrap device without a cluster descriptor instead reconstructs its
@@ -448,6 +454,10 @@ bool TTDevice::is_noc_hung(NocId noc, TTDevice::HangAction action) {
         return true;
     }
     return false;
+}
+
+void TTDevice::set_device_protocol(std::unique_ptr<DeviceProtocol> device_protocol) {
+    device_protocol_ = std::move(device_protocol);
 }
 
 void TTDevice::set_hang_detector(std::unique_ptr<HangDetector> hang_detector) {

@@ -44,6 +44,47 @@ protected:
     bool is_noc_available() override { return true; }
 };
 
+// Simulation reaches the device through SimulationTTDevice's own I/O overrides rather than one of
+// the transports (PCIe, JTAG, Ethernet) that implement DeviceProtocol. Components which were
+// rewritten to take a DeviceProtocol* instead of a TTDevice* -- ArcTelemetryReader -- would
+// otherwise get a null pointer here, so this forwards those calls back to the device.
+//
+// Coordinates arrive already resolved to NOC coordinates, because protocols sit below coordinate
+// translation, so they are passed down as LITERAL rather than translated a second time.
+class SimulationProtocol final : public DeviceProtocol {
+public:
+    explicit SimulationProtocol(SimulationTTDevice* device) : device_(device) {}
+
+    void read_data(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        device_->read_from_device(dst, CoreCoord(core), addr, size, noc_id);
+    }
+
+    void write_data(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        device_->write_to_device(src, CoreCoord(core), addr, size, noc_id);
+    }
+
+    void read_ctrl(void* dst, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        device_->read_from_device_reg(dst, CoreCoord(core), addr, size, noc_id);
+    }
+
+    void write_ctrl(const void* src, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override {
+        device_->write_to_device_reg(src, CoreCoord(core), addr, size, noc_id);
+    }
+
+    // No hardware multicast engine behind this path; report that the caller must fall back to
+    // software unicast, which is what the device's own multicast helpers already do.
+    bool write_to_core_range(
+        const void* src, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, size_t size, NocId noc_id)
+        override {
+        return false;
+    }
+
+    int get_mmio_id() override { return device_->get_communication_device_id(); }
+
+private:
+    SimulationTTDevice* device_;
+};
+
 }  // namespace
 
 // The constructor and destructor are defined out-of-line so that socket_
@@ -53,10 +94,12 @@ SimulationTTDevice::SimulationTTDevice(
     const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
     simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {
     set_hang_detector(std::make_unique<SimulationHangDetector>());
+    set_device_protocol(std::make_unique<SimulationProtocol>(this));
 }
 
 SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {
     set_hang_detector(std::make_unique<SimulationHangDetector>());
+    set_device_protocol(std::make_unique<SimulationProtocol>(this));
 }
 
 SimulationTTDevice::~SimulationTTDevice() = default;
@@ -354,28 +397,61 @@ void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offs
     const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
     UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
     read_from_device(
-        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        mem_ptr, arc_cores.front(), get_architecture_registers(arch).arc_apb_noc_base_address + arc_addr_offset, size);
 }
 
 void SimulationTTDevice::write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
     const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
     UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
     write_to_device(
-        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_apb_noc_base_address() + arc_addr_offset, size);
+        mem_ptr, arc_cores.front(), get_architecture_registers(arch).arc_apb_noc_base_address + arc_addr_offset, size);
+}
+
+void SimulationTTDevice::set_arc_coordinate() {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0:
+            arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
+            arc_core_noc1 = tt_xy_pair(
+                wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
+                wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
+            return;
+        case tt::ARCH::BLACKHOLE:
+            arc_core_noc0 = blackhole::get_arc_core(get_noc_translation_enabled(), /*use_noc1=*/false);
+            arc_core_noc1 = blackhole::get_arc_core(get_noc_translation_enabled(), /*use_noc1=*/true);
+            return;
+        case tt::ARCH::QUASAR:
+            arc_core_noc0 = grendel::get_arc_core(get_noc_translation_enabled(), /*use_noc1=*/false);
+            arc_core_noc1 = grendel::get_arc_core(get_noc_translation_enabled(), /*use_noc1=*/true);
+            return;
+        default:
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("No ARC core coordinates defined for {} architecture.", arch_to_str(arch)));
+    }
+}
+
+// The simulation backend reaches ARC over the NOC, so CSM access uses the CSM NOC base address, not
+// the BAR0 mailbox offset. Architectures which expose no CSM window over the NOC leave that base at
+// zero; reject those rather than issuing a read at a bogus address.
+uint64_t SimulationTTDevice::get_arc_csm_noc_base_address() const {
+    const uint64_t base = get_architecture_registers(arch).arc_csm_noc_base_address;
+    UMD_ASSERT(
+        base != 0,
+        error::RuntimeError,
+        fmt::format("ARC CSM access over NOC is not supported for {} architecture.", arch_to_str(arch)));
+    return base;
 }
 
 void SimulationTTDevice::read_from_arc_csm(void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
     const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
     UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
-    read_from_device(
-        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+    read_from_device(mem_ptr, arc_cores.front(), get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
 void SimulationTTDevice::write_to_arc_csm(const void* mem_ptr, uint64_t arc_addr_offset, size_t size) {
     const std::vector<CoreCoord> arc_cores = get_soc_descriptor().get_cores(CoreType::ARC);
     UMD_ASSERT(!arc_cores.empty(), error::RuntimeError, "Simulation SoC descriptor has no ARC core.");
-    write_to_device(
-        mem_ptr, arc_cores.front(), architecture_impl_->get_arc_csm_noc_base_address() + arc_addr_offset, size);
+    write_to_device(mem_ptr, arc_cores.front(), get_arc_csm_noc_base_address() + arc_addr_offset, size);
 }
 
 uint32_t SimulationTTDevice::get_clock() {

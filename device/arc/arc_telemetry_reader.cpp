@@ -17,17 +17,14 @@
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/noc_id.hpp"
-#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
-#include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {
-
-static constexpr FirmwareBundleVersion FW_NEW_TELEMETRY = FirmwareBundleVersion(18, 4, 0);
 
 ArcTelemetryReader::ArcTelemetryReader(
     DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1) :
@@ -45,12 +42,22 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
     std::unique_ptr<ArcTelemetryReader> reader;
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            reader = std::make_unique<SmBusArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
-            FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
-                reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+            // Wormhole presents two telemetry flavours. Firmware bundle 18.4 and later publish the
+            // BH style telemetry table pointer in the reset unit; older firmware leaves that
+            // register zero and offers only the legacy SMBus array. Reading the reset unit is the
+            // documented way to tell them apart, and it is the cheaper probe: the legacy array does
+            // not live at a fixed address (it has to be asked for over an ARC message), so probing
+            // SMBus first would read an address that need not be backed on every target.
+            uint32_t telemetry_table_addr_reg = 0;
+            device_protocol->read_data(
+                &telemetry_table_addr_reg,
+                get_selected_noc_id() == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0,
+                wormhole::ARC_NOC_RESET_UNIT_BASE_ADDR + wormhole::NOC_NODEID_X_0,
+                sizeof(uint32_t),
+                get_selected_noc_id());
 
-            if (fw_bundle_version < FW_NEW_TELEMETRY) {
-                return reader;
+            if (telemetry_table_addr_reg == 0) {
+                return std::make_unique<SmBusArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
             }
 
             reader = std::make_unique<WormholeArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);

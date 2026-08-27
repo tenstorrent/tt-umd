@@ -110,6 +110,15 @@ protected:
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
+    // NOC base address of the ARC CSM window for this architecture. Throws for architectures which
+    // do not expose CSM over the NOC.
+    uint64_t get_arc_csm_noc_base_address() const;
+
+    // The silicon devices resolve these in their constructors, keyed off the concrete architecture
+    // class. Simulation devices derive from this class instead, so the same coordinates are resolved
+    // here by dispatching on the arch the SoC descriptor reported.
+    void set_arc_coordinate() override;
+
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
     // the client here so client_ is initialized through the base, not written by each derived ctor.

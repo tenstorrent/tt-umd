@@ -27,6 +27,9 @@ struct ArchitectureRegisters {
     uint32_t arc_reset_scratch_offset;
     uint32_t arc_reset_scratch_2_offset;
     uint64_t arc_apb_noc_base_address;
+    // Base of the ARC CSM window in NOC address space. Distinct from arc_csm_bar0_mailbox_offset,
+    // which addresses the mailbox through BAR0 rather than over the NOC.
+    uint64_t arc_csm_noc_base_address;
 
     // BAR0 offset of the NOC0 node id register. Reachable before the NOC is up, which is what makes
     // it usable as the bus hang check.

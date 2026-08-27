@@ -160,4 +160,91 @@ TEST_F(WormholeArcApbWindowTest, ZeroLengthAccessIsRejected) {
     EXPECT_THROW(window.write(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), std::exception);
 }
 
+constexpr uint64_t CSM_OFFSET = 0x200;
+
+class WormholeArcCsmWindowTest : public ::testing::Test {
+protected:
+    uint64_t noc_address() const { return wormhole::ARC_CSM_NOC_BASE_ADDRESS + CSM_OFFSET; }
+
+    uint32_t bar_address() const { return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + CSM_OFFSET; }
+
+    WormholeArcWindow over_pcie() { return WormholeArcWindow::arc_csm(&protocol_, &pcie_, nullptr, nullptr); }
+
+    WormholeArcWindow over_jtag() { return WormholeArcWindow::arc_csm(&protocol_, nullptr, &jtag_, nullptr); }
+
+    WormholeArcWindow over_remote() { return WormholeArcWindow::arc_csm(&protocol_, nullptr, nullptr, &remote_); }
+
+    NiceMock<MockDeviceProtocol> protocol_;
+    NiceMock<MockPcieInterface> pcie_;
+    NiceMock<MockJtagInterface> jtag_;
+    NiceMock<MockRemoteInterface> remote_;
+};
+
+// CSM holds memory rather than registers, so a remote access takes the data path where the APB
+// window takes the register one. This is the only routing difference between the two.
+TEST_F(WormholeArcCsmWindowTest, RemoteReadIsADataAccess) {
+    auto window = over_remote();
+
+    EXPECT_CALL(protocol_, read_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0));
+    EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _)).Times(0);
+
+    std::array<uint32_t, 4> values{};
+    window.read(values.data(), CSM_OFFSET, sizeof(values), ARC_CORE, NocId::NOC0);
+}
+
+TEST_F(WormholeArcCsmWindowTest, RemoteWriteIsADataAccess) {
+    auto window = over_remote();
+
+    EXPECT_CALL(protocol_, write_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0));
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).Times(0);
+
+    std::array<uint32_t, 4> values{};
+    window.write(values.data(), CSM_OFFSET, sizeof(values), ARC_CORE, NocId::NOC0);
+}
+
+// The memory-vs-registers distinction is a remote-route one only: JTAG reaches every window over
+// the register path, as WormholeTTDevice::read_from_arc_csm did.
+TEST_F(WormholeArcCsmWindowTest, JtagReadStaysOnTheRegisterPath) {
+    auto window = over_jtag();
+
+    EXPECT_CALL(protocol_, read_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1));
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _)).Times(0);
+
+    uint32_t value = 0;
+    window.read(&value, CSM_OFFSET, sizeof(value), ARC_CORE, NocId::NOC1);
+}
+
+TEST_F(WormholeArcCsmWindowTest, PcieReadGoesThroughTheCsmBarOffset) {
+    auto window = over_pcie();
+
+    EXPECT_CALL(pcie_, bar_read32(bar_address())).WillOnce(Return(0x12345678));
+
+    uint32_t value = 0;
+    window.read(&value, CSM_OFFSET, sizeof(value), ARC_CORE, NocId::NOC0);
+    EXPECT_EQ(value, 0x12345678);
+}
+
+TEST_F(WormholeArcCsmWindowTest, PcieWriteGoesThroughTheCsmBarOffset) {
+    auto window = over_pcie();
+
+    EXPECT_CALL(pcie_, bar_write32(bar_address(), 0x87654321));
+
+    uint32_t value = 0x87654321;
+    window.write(&value, CSM_OFFSET, sizeof(value), ARC_CORE, NocId::NOC0);
+}
+
+// The two windows are separate address ranges, so each is bounded by its own size.
+TEST_F(WormholeArcCsmWindowTest, AccessIsBoundedByTheCsmWindow) {
+    auto window = over_remote();
+    uint32_t value = 0;
+
+    constexpr uint64_t WINDOW_SIZE = static_cast<uint64_t>(wormhole::ARC_CSM_ADDRESS_RANGE) + 1;
+    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(
+        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+
+    EXPECT_CALL(protocol_, read_data(_, _, _, _, _));
+    window.read(&value, WINDOW_SIZE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);
+}
+
 }  // namespace

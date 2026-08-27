@@ -45,11 +45,16 @@ class WormholeArcWindow {
 public:
     /**
      * @brief What a window holds, which is what the remote route has to match.
+     *
+     * This only selects the remote route's access kind. The JTAG route issues a register access for
+     * every window, memory ones included, which is what WormholeTTDevice::read_from_arc_csm did: it
+     * is reading a single word out of the ARC's address space over a debug transport, where the
+     * register path is the one that is wired up, so the distinction does not arise.
      */
     enum class Content : uint8_t {
         /** Registers, reached over the protocol's register path. */
         REGISTERS,
-        /** Memory, reached over the protocol's data path. */
+        /** Memory, reached over the protocol's data path when remote. */
         MEMORY,
     };
 
@@ -75,6 +80,25 @@ public:
      * route is picked, and a TTDevice is built for exactly one communication protocol.
      */
     static WormholeArcWindow arc_apb(
+        DeviceProtocol* device_protocol,
+        PcieInterface* pcie_interface,
+        JtagInterface* jtag_interface,
+        RemoteInterface* remote_interface);
+
+    /**
+     * @brief Builds access to the ARC CSM memory window over one communication protocol.
+     * @param device_protocol Protocol to issue NOC accesses through. Required.
+     * @param pcie_interface BAR access, when the device is reached over PCIe.
+     * @param jtag_interface JTAG access, when the device is reached over JTAG.
+     * @param remote_interface Ethernet access, when the device is reached through a gateway.
+     *
+     * Same transport rule as arc_apb(). CSM holds memory rather than registers, so a remote access
+     * takes the data path; see Content for why JTAG does not.
+     *
+     * Blackhole has no counterpart: BlackholeTTDevice's CSM accessors only throw, so there is
+     * nothing to extract there.
+     */
+    static WormholeArcWindow arc_csm(
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,

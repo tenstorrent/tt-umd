@@ -39,6 +39,21 @@ namespace tt::umd {
     return WormholeArcWindow(config, device_protocol, pcie_interface, jtag_interface, remote_interface);
 }
 
+/* static */ WormholeArcWindow WormholeArcWindow::arc_csm(
+    DeviceProtocol* device_protocol,
+    PcieInterface* pcie_interface,
+    JtagInterface* jtag_interface,
+    RemoteInterface* remote_interface) {
+    static constexpr Config config{
+        .name = "ARC CSM",
+        .noc_base_address = wormhole::ARC_CSM_NOC_BASE_ADDRESS,
+        .bar0_offset_start = wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START,
+        .size_bytes = wormhole::ARC_CSM_ADDRESS_RANGE + 1,
+        .content = Content::MEMORY,
+    };
+    return WormholeArcWindow(config, device_protocol, pcie_interface, jtag_interface, remote_interface);
+}
+
 WormholeArcWindow::WormholeArcWindow(
     const Config& config,
     DeviceProtocol* device_protocol,

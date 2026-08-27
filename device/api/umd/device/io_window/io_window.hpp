@@ -96,15 +96,32 @@ public:
      * Updates the underlying hardware mapping so that subsequent read/write operations
      * target the new device address.
      *
+     * By default ordering is IoOrdering::Strict. Callers that need another ordering mode must use the
+     * two-argument overload below.
+     *
      * @param config Device-side target describing the core, address, and optional NOC.
      */
     virtual void configure(const TargetIoWindowConfig& config) = 0;
+
+    /**
+     * @brief Configures the window with the transaction ordering mode explicitly set.
+     *
+     * @param config Device-side target describing the core, address, and optional NOC.
+     * @param ordering Transaction ordering mode to apply to the new mapping.
+     */
+    virtual void configure(const TargetIoWindowConfig& config, IoOrdering ordering) = 0;
 
     /**
      * @brief Returns the current device-side target configuration of this window.
      * @return TargetIoWindowConfig The core, address, and optional NOC of the current mapping.
      */
     virtual TargetIoWindowConfig get_target_config() const = 0;
+
+    /**
+     * @brief Returns the transaction ordering mode of the current mapping.
+     * @return IoOrdering The ordering applied by the most recent configure().
+     */
+    virtual IoOrdering get_io_ordering() const = 0;
 
     /**
      * @brief Returns the actual size of this I/O window in bytes.

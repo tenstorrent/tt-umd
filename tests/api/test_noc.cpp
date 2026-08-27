@@ -516,7 +516,8 @@ TEST_P(TestNocTranslatedCoordinates, VerifyNocIdTranslatedCoordinatesMatch) {
                 expected_translated = tt_xy_pair(translated_coord.x, translated_coord.y);
             }
 
-            log_info(
+            // Per chip, per core, per NOC: on a 32-chip cluster this is ~15k lines of a passing run.
+            log_debug(
                 tt::LogUMD,
                 "Chip {} {} core {}=({},{}) NOC{} -> EXPECTED_TRANSLATED=({},{}) vs TRANSLATED_REG=({},{})",
                 chip,

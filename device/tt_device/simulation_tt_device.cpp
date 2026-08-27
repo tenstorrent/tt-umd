@@ -31,10 +31,19 @@ namespace tt::umd {
 // (unique_ptr<SimulationServerSocket>) is constructed/destroyed where the type is complete; the
 // public header only forward-declares SimulationServerSocket.
 SimulationTTDevice::SimulationTTDevice(
-    const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
-    simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
+    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
+    const std::filesystem::path& simulator_directory,
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
+    TTDevice(std::move(model), std::move(architecture_impl)),
+    simulator_directory_(simulator_directory),
+    sysmem_manager_(std::move(sysmem_manager)) {}
 
-SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {}
+SimulationTTDevice::SimulationTTDevice(
+    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
+    std::unique_ptr<SimulationClient> client) :
+    TTDevice(std::move(model), std::move(architecture_impl)), client_(std::move(client)) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
@@ -250,7 +259,7 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
 }
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, arch);
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch());
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {
@@ -260,7 +269,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    switch (arch) {
+    switch (get_arch()) {
         case tt::ARCH::BLACKHOLE:
             cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
             break;
@@ -274,7 +283,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
             log_debug(
                 LogUMD,
                 "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
-                tt::arch_to_str(arch));
+                tt::arch_to_str(get_arch()));
             break;
     }
 }

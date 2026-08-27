@@ -9,7 +9,7 @@ on:
         required: true
         description: 'The timeout for the job in minutes'
         type: number
-        default: 30
+        default: 45
       use-sccache:
         required: false
         description: >-
@@ -121,7 +121,8 @@ jobs:
   build:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    # 45, not 30: the heaviest matrix entries build the tree twice and land around 35 min.
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '45') }}
     needs:
       - pr-gate
       - ensure-ubuntu-2204-image
@@ -442,7 +443,7 @@ jobs:
   build-manylinux-wheels:
     # Due to parsing bug, fromJSON is used to convert string to number.
     # In pull_request or push events, the input context is not available, stating the default again here.
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '45') }}
     needs: [pr-gate, ensure-manylinux-image, ensure-manylinux-aarch64-image]
     strategy:
       fail-fast: false
@@ -498,7 +499,7 @@ jobs:
 
   test-packages:
     needs: [pr-gate, build, ensure-ubuntu-2204-image, ensure-ubuntu-2404-image, ensure-fedora-39-image]
-    timeout-minutes: ${{ fromJSON(inputs.timeout || '30') }}
+    timeout-minutes: ${{ fromJSON(inputs.timeout || '45') }}
     strategy:
       fail-fast: false
       matrix:

@@ -43,7 +43,6 @@ namespace tt::umd {
 WormholeTTDevice::WormholeTTDevice(
     std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     TTDevice(std::move(model), std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
-    WormholeTTDevice::set_arc_coordinate();
     // A remote device has no protocol of its own to probe; its liveness is that of the local device
     // it is reached through.
     DeviceProtocol *hang_check_protocol =
@@ -254,13 +253,6 @@ void WormholeTTDevice::probe_arc() {
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
-}
-
-void WormholeTTDevice::set_arc_coordinate() {
-    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
-    arc_core_noc1 = tt_xy_pair(
-        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 }
 
 }  // namespace tt::umd

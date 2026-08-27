@@ -116,7 +116,7 @@ std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
     }
 }
 
-DeviceFirmware *TTDevice::get_device_firmware() {
+DeviceFirmware *TTDevice::get_device_firmware() const {
     if (device_firmware_ == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
@@ -608,10 +608,10 @@ void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
-tt_xy_pair TTDevice::get_arc_core() const { return is_selected_noc1() ? arc_core_noc1 : arc_core_noc0; }
+tt_xy_pair TTDevice::get_arc_core() const { return get_arc_core(is_selected_noc1() ? NocId::NOC1 : NocId::NOC0); }
 
 tt_xy_pair TTDevice::get_arc_core(const NocId noc_id) const {
-    return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0;
+    return get_device_firmware()->get_firmware_noc_coord(noc_id);
 }
 
 void TTDevice::noc_multicast_write(

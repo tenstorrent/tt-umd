@@ -110,7 +110,7 @@ public:
     RemoteCommunication *get_remote_communication();
 
     DeviceProtocol *get_device_protocol();
-    DeviceFirmware *get_device_firmware();
+    DeviceFirmware *get_device_firmware() const;
     PcieInterface *get_pcie_interface();
     JtagInterface *get_jtag_interface();
     RemoteInterface *get_remote_interface();
@@ -533,13 +533,10 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
-    xy_pair arc_core_noc0;
-    xy_pair arc_core_noc1;
 
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
-    virtual void set_arc_coordinate() {}
 
     // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
     // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.

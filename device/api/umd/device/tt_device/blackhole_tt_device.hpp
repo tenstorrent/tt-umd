@@ -58,7 +58,6 @@ protected:
     // Number of retrain attempts is chosen based on syseng team testing.
     uint32_t get_max_dram_retrain_attempts() const override { return 3; }
 
-    void set_arc_coordinate() override;
 
     void probe_arc() override;
 

@@ -216,6 +216,7 @@ void ClusterDescriptor::apply_chip_id_remapping(
     remap_map_keys(remapped->chip_board_type, desc->chip_board_type, old_to_new);
     remap_map_keys(remapped->chip_arch, desc->chip_arch, old_to_new);
     remap_map_keys(remapped->chip_unique_ids, desc->chip_unique_ids, old_to_new);
+    remapped->authentic_chip_unique_ids = desc->authentic_chip_unique_ids;
     remap_map_keys(remapped->noc_translation_enabled, desc->noc_translation_enabled, old_to_new);
     remap_map_keys(remapped->chip_to_bus_id, desc->chip_to_bus_id, old_to_new);
     remap_map_keys(remapped->chip_pci_bdfs, desc->chip_pci_bdfs, old_to_new);
@@ -399,6 +400,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, visible_chips);
     desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, visible_chips);
     desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, visible_chips);
+    desc->authentic_chip_unique_ids = full_cluster_desc->authentic_chip_unique_ids;
     // Note that these preserve the full set of channels. So some channels will be reported as active
     // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
     // so that the client doesn't try to do anything on these ETH cores which could break these links.
@@ -809,6 +811,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     }
 
     if (yaml["chip_unique_ids"]) {
+        authentic_chip_unique_ids = true;
         for (const auto &chip_unique_id : yaml["chip_unique_ids"].as<std::map<int, uint64_t>>()) {
             auto &chip = chip_unique_id.first;
             auto &unique_id = chip_unique_id.second;
@@ -935,6 +938,8 @@ const std::unordered_map<ChipId, EthCoord> &ClusterDescriptor::get_chip_location
 // Note: this API works only for Wormhole 6U galaxy at the moment.
 // TODO: implement this for Blackhole and old Wormhole configurations.
 const std::unordered_map<ChipId, uint64_t> &ClusterDescriptor::get_chip_unique_ids() const { return chip_unique_ids; }
+
+bool ClusterDescriptor::has_authentic_chip_unique_ids() const { return authentic_chip_unique_ids; }
 
 // Return map, but filter by enabled active chips.
 const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio() const { return chips_with_mmio; }

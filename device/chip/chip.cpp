@@ -18,6 +18,7 @@
 #include "tracy.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -147,8 +148,8 @@ void Chip::advance_device_execution() {
 
 void Chip::set_clock_state(DevicePowerState state) {
     if (auto* tt_device = get_tt_device()) {
-        tt_device->set_clock_state(
-            state == DevicePowerState::BUSY ? TTDevice::PowerState::BUSY : TTDevice::PowerState::IDLE);
+        tt_device->get_device_firmware()->set_clock_state(
+            state == DevicePowerState::BUSY ? ClockState::BUSY : ClockState::IDLE);
     }
 }
 

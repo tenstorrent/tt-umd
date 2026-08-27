@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
@@ -12,6 +13,7 @@ class DmaInterface;
 class FirmwareTelemetryReader;
 class HangDetector;
 class JtagInterface;
+class PCIDevice;
 class PcieInterface;
 class RemoteInterface;
 
@@ -22,15 +24,15 @@ class RemoteInterface;
  * device-specific choices are made here rather than spread across TTDevice subclasses.
  *
  * Models are specialized by architecture, and by backend for simulation. The transport is
- * deliberately not a subclass axis, so one architecture model serves every transport that
- * architecture supports.
+ * deliberately not a subclass axis: it selects a constructor instead, so one architecture model
+ * serves every transport that architecture supports.
  *
  * This is a pure interface: it holds no state and provides no constructor, so each concrete model
  * declares whatever it needs to answer with. Required components are pure virtual; optional ones
  * return nullptr, and a concrete model overrides only those it actually provides.
  *
- * TODO: temporary note - components are declared here as they are decoupled from TTDevice, so no
- * required component appears yet. Remove this note once the migration is done.
+ * TODO: temporary note - components are declared here as they are decoupled from TTDevice, so only
+ * some of the required ones appear so far. Remove this note once the migration is done.
  */
 class TTDeviceModel {
 public:
@@ -46,6 +48,9 @@ public:
     // once DeviceProtocol moves here.
     virtual int get_communication_device_id() const = 0;
 
+    // Required components.
+    virtual DeviceProtocol *get_device_protocol() = 0;
+
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
@@ -59,6 +64,10 @@ public:
     virtual JtagInterface *get_jtag_interface() { return nullptr; }
 
     virtual RemoteInterface *get_remote_interface() { return nullptr; }
+
+    // TODO: temporary - delete along with TTDevice::get_pci_device() once callers go through
+    // PcieInterface only.
+    virtual PCIDevice *get_pci_device() { return nullptr; }
 };
 
 }  // namespace tt::umd

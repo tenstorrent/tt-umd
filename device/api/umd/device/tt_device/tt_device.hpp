@@ -529,24 +529,12 @@ protected:
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     LockManager lock_manager;
 
-    // This overload is for backends with no host transport; the others additionally take the
-    // transport pieces TTDevice still owns itself.
+    // Every TTDevice is built around a model, which supplies its identity, the protocol it talks to
+    // hardware over and -- as components are decoupled from TTDevice -- the components it runs on.
+    // The transport no longer reaches TTDevice at all; the model owns it.
     TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
     TTDevice(
         std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<PCIDevice> pci_device,
-        std::unique_ptr<ArchitectureImplementation> architecture_impl,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-        bool use_safe_api);
-    TTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        std::unique_ptr<ArchitectureImplementation> architecture_impl,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-    TTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<RemoteCommunication> remote_communication,
         std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
@@ -599,13 +587,7 @@ private:
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
     std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    std::unique_ptr<DeviceProtocol> device_protocol_;
     std::unique_ptr<HangDetector> hang_detector_;
-    PcieInterface *pcie_capabilities_ = nullptr;
-    DmaInterface *dma_capabilities_ = nullptr;
-    PcieProtocol *pcie_protocol_ = nullptr;
-    JtagInterface *jtag_capabilities_ = nullptr;
-    RemoteInterface *remote_capabilities_ = nullptr;
 };
 
 }  // namespace tt::umd

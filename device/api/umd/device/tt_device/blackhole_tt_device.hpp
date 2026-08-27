@@ -56,15 +56,7 @@ public:
 
 protected:
     BlackholeTTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<PCIDevice> pci_device,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-        bool use_safe_api);
-    BlackholeTTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+        std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     virtual bool is_arc_available_over_axi();
 

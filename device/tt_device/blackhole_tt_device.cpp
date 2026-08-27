@@ -42,32 +42,8 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(
-    std::unique_ptr<TTDeviceModel> model,
-    std::unique_ptr<PCIDevice> pci_device,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-    bool use_safe_api) :
-    TTDevice(
-        std::move(model),
-        std::move(pci_device),
-        std::make_unique<BlackholeImplementation>(),
-        soc_arch_descriptor,
-        use_safe_api) {
-    BlackholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<BlackholeHangDetector>(
-        get_device_protocol(), BlackholeTTDevice::get_noc_translation_enabled()));
-}
-
-BlackholeTTDevice::BlackholeTTDevice(
-    std::unique_ptr<TTDeviceModel> model,
-    std::unique_ptr<JtagDevice> jtag_device,
-    uint8_t jlink_id,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(
-        std::move(model),
-        std::move(jtag_device),
-        jlink_id,
-        std::make_unique<BlackholeImplementation>(),
-        soc_arch_descriptor) {
+    std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    TTDevice(std::move(model), std::make_unique<BlackholeImplementation>(), soc_arch_descriptor) {
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), BlackholeTTDevice::get_noc_translation_enabled()));

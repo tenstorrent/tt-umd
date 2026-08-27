@@ -69,35 +69,12 @@ constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
 
 TTDevice::TTDevice(
     std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {}
-
-TTDevice::TTDevice(
-    std::unique_ptr<TTDeviceModel> model,
-    std::unique_ptr<ArchitectureImplementation> architecture_impl,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
     architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {
-    assign_soc_arch_descriptor(soc_arch_descriptor);
-
     if (model_->get_pcie_interface() != nullptr) {
         // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
         lock_manager.initialize_mutex(
             MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
     }
-}
-
-void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
-    if (soc_arch_descriptor == nullptr) {
-        soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
-        return;
-    }
-    UMD_ASSERT(
-        soc_arch_descriptor->get_arch() == get_arch(),
-        error::RuntimeError,
-        fmt::format(
-            "SocArchDescriptor architecture {} does not match device architecture {}.",
-            arch_to_str(soc_arch_descriptor->get_arch()),
-            arch_to_str(get_arch())));
-    soc_arch_descriptor_ = soc_arch_descriptor;
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
@@ -121,7 +98,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         get_arc_core(NocId::NOC0),
         get_arc_core(NocId::NOC1),
         get_firmware_telemetry_reader());
-    construct_soc_descriptor(soc_arch_descriptor_);
+    construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -140,13 +117,12 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         arch = jtag_device->get_jtag_arch(device_number);
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                    std::make_unique<WormholeTTDeviceModel>(std::move(jtag_device), device_number),
-                    soc_arch_descriptor));
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
+                    std::move(jtag_device), device_number, soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
-                    std::make_unique<BlackholeTTDeviceModel>(std::move(jtag_device), device_number),
-                    soc_arch_descriptor));
+                return std::unique_ptr<BlackholeTTDevice>(
+                    new BlackholeTTDevice(std::make_unique<BlackholeTTDeviceModel>(
+                        std::move(jtag_device), device_number, soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -160,10 +136,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     switch (arch) {
         case ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(std::move(pci_device), use_safe_api), soc_arch_descriptor));
+                std::make_unique<WormholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         case ARCH::BLACKHOLE:
             return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
-                std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api), soc_arch_descriptor));
+                std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -180,7 +156,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication)), soc_arch_descriptor));
+                std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication), soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -203,9 +179,9 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
             arch_to_str(arch)));
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            auto device = std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication)),
-                /*soc_arch_descriptor=*/nullptr));
+            auto device =
+                std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
+                    std::move(remote_communication), /*soc_arch_descriptor=*/nullptr)));
             // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
             // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
             device->set_soc_descriptor(soc_descriptor);

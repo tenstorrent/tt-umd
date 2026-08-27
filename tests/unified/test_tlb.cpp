@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -438,8 +439,8 @@ void rdma_read(
             wr.wr.rdma.rkey = rkey;
 
             struct ibv_send_wr* bad = nullptr;
-            if (ibv_post_send(c.qp_req, &wr, &bad)) {
-                throw std::runtime_error(std::string("ibv_post_send failed: ") + strerror(errno));
+            if (int rc = ibv_post_send(c.qp_req, &wr, &bad)) {
+                throw std::runtime_error(std::string("ibv_post_send failed: ") + strerror(rc));
             }
             off += len;
             inflight++;
@@ -463,7 +464,10 @@ void rdma_read(
 }  // namespace
 #endif  // UMD_HAS_IBVERBS
 
-TEST_F(TestTlb, TestClusterExportDmabufLoopback) {
+// DISABLED_ so it doesn't run automatically as part of the suite / CI; run explicitly with
+// --gtest_also_run_disabled_tests --gtest_filter=*TestClusterExportDmabufLoopback when RDMA
+// hardware is available.
+TEST_F(TestTlb, DISABLED_TestClusterExportDmabufLoopback) {
 #ifndef UMD_HAS_IBVERBS
     GTEST_SKIP() << "libibverbs-dev not available at build time.";
 #else

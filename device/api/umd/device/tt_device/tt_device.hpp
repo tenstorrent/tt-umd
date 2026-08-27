@@ -572,8 +572,6 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
-    bool is_remote_tt_device = false;
-
     xy_pair arc_core_noc0;
     xy_pair arc_core_noc1;
 

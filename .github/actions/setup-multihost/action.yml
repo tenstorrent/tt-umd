@@ -18,9 +18,9 @@ inputs:
     required: false
     default: "false"
   artifacts-path:
-    description: Directory to download artifacts into (shared NFS recommended)
+    description: Directory to download artifacts into (runner-local; same as tt-metal)
     required: false
-    default: /ci/artifacts
+    default: /home/user/artifacts
   max-recovery-attempts:
     description: Max ttop-ipmi-reset + system_health attempts
     required: false
@@ -38,6 +38,12 @@ runs:
       working-directory: /tmp
       run: |
         mpirun --pernode --tag-output hostname
+
+    - name: Create user directory
+      shell: bash
+      run: |
+        sudo mkdir -p /home/user/tt-umd
+        sudo chown -R "$(id -u):$(id -g)" /home/user
 
     - name: Download build artifact
       uses: actions/download-artifact@v8
@@ -59,38 +65,57 @@ runs:
         INSTALL_WHEEL: ${{ inputs.install-wheel }}
       run: |
         set -euo pipefail
+        shopt -s globstar nullglob
 
-        rm -rf /ci/tt-umd
-        cp -r "$GITHUB_WORKSPACE" /ci/tt-umd
-
-        BUILD_ARCHIVE="${ARTIFACTS_PATH}/artifact.tar"
-        if [ ! -f "$BUILD_ARCHIVE" ]; then
-          echo "ERROR: expected $BUILD_ARCHIVE"
+        build_archives=("${ARTIFACTS_PATH}"/**/artifact.tar)
+        echo "Found ${#build_archives[@]} artifact.tar candidate(s) under ${ARTIFACTS_PATH}"
+        printf ' - %s\n' "${build_archives[@]}"
+        if [ ${#build_archives[@]} -eq 0 ]; then
+          echo "ERROR: Could not find artifact.tar under ${ARTIFACTS_PATH}"
+          echo "Artifact directory layout:"
           ls -R "${ARTIFACTS_PATH}"
           exit 1
         fi
+        BUILD_ARCHIVE="${build_archives[0]}"
+        echo "Using build archive: ${BUILD_ARCHIVE}"
 
-        # Local copy on the runner (handy for commands that launch from here).
-        sudo rm -rf /home/user/tt-umd
-        sudo mkdir -p /home/user
-        sudo chown "$(id -u):$(id -g)" /home/user
-        cp -r /ci/tt-umd /home/user/
-        tar xf "$BUILD_ARCHIVE" -C /home/user/tt-umd
-
-        # Fan out source + build to every allocated host via NFS + mpirun.
-        mpirun --pernode bash -lc 'rm -rf /home/user/tt-umd && cp -r /ci/tt-umd /home/user/'
-        mpirun --pernode tar xf "$BUILD_ARCHIVE" -C /home/user/tt-umd
-
+        WHEEL=""
         if [ "${INSTALL_WHEEL}" = "true" ]; then
-          shopt -s nullglob globstar
-          wheels=("${ARTIFACTS_PATH}"/tt_umd-*.whl "${ARTIFACTS_PATH}"/**/tt_umd-*.whl)
+          wheels=("${ARTIFACTS_PATH}"/**/tt_umd-*.whl)
+          echo "Found ${#wheels[@]} tt_umd wheel candidate(s) under ${ARTIFACTS_PATH}"
+          printf ' - %s\n' "${wheels[@]}"
           if [ ${#wheels[@]} -eq 0 ]; then
             echo "ERROR: install-wheel requested but no tt_umd-*.whl under ${ARTIFACTS_PATH}"
             ls -R "${ARTIFACTS_PATH}"
             exit 1
           fi
-          echo "Installing wheel: ${wheels[0]}"
-          mpirun --pernode bash -lc "python3 -m pip install --force-reinstall '${wheels[0]}'"
+          WHEEL="${wheels[0]}"
+          echo "Using wheel: ${WHEEL}"
+        fi
+
+        # Workers + runner local copy for runtime (local disk). Same layout as
+        # tt-metal setup-multihost-job: stage source + archive on NFS (/ci), then
+        # copy onto each host and extract from the local copy — do not tar from
+        # ARTIFACTS_PATH during mpirun (that path may be runner-local only).
+        rm -rf /ci/tt-umd
+        cp -r "$GITHUB_WORKSPACE" /ci/tt-umd
+        cp "${BUILD_ARCHIVE}" /ci/tt-umd/
+        if [ -n "${WHEEL}" ]; then
+          cp "${WHEEL}" /ci/tt-umd/
+        fi
+
+        rm -rf /home/user/tt-umd
+        cp -r /ci/tt-umd /home/user/
+        tar xf "${BUILD_ARCHIVE}" -C /home/user/tt-umd
+
+        mpirun --pernode bash -lc 'rm -rf /home/user/tt-umd && cp -r /ci/tt-umd /home/user/'
+        mpirun --pernode git -C /home/user/tt-umd submodule update --init --recursive
+        mpirun --pernode tar xf "/home/user/tt-umd/$(basename "${BUILD_ARCHIVE}")" -C /home/user/tt-umd
+
+        if [ -n "${WHEEL}" ]; then
+          echo "Installing wheel: ${WHEEL}"
+          mpirun --pernode bash -lc \
+            "python3 -m pip install --force-reinstall '/home/user/tt-umd/$(basename "${WHEEL}")'"
         fi
 
     - name: Reset cards and validate cluster

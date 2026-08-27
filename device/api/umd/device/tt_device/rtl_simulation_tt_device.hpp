@@ -56,8 +56,9 @@ public:
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 
-    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs) override;
-    void deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) override;
+    void assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) override;
+    void deassert_risc_reset(
+        CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) override;
 
     RtlSimCommunicator* get_communicator() { return communicator_.get(); }
 

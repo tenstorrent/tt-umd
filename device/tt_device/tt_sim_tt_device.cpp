@@ -291,26 +291,27 @@ bool TTSimTTDevice::special_dram_read(void* mem_ptr, tt_xy_pair core, uint64_t a
     return true;
 }
 
-void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
+void TTSimTTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'assert_risc_reset' signal for risc_type {}", selected_riscs);
     uint64_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
     uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
     if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
         reset_value &=
             ~(uint64_t)soft_reset_update;  // QSR logic is reversed for DM cores, so we need to invert the update.
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
     } else {
         uint32_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
         reset_value |= soft_reset_update;
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
     }
 }
 
-void TTSimTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
+void TTSimTTDevice::deassert_risc_reset(
+    CoreCoord core, const RiscType selected_riscs, bool staggered_start, NocId noc_id) {
     std::lock_guard<std::recursive_mutex> lock(device_lock);
     log_debug(tt::LogEmulationDriver, "Sending 'deassert_risc_reset' signal for risc_type {}", selected_riscs);
     uint64_t soft_reset_addr = architecture_impl_->get_tensix_soft_reset_addr();
@@ -318,15 +319,15 @@ void TTSimTTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_
 
     if (libttsim_pci_device_id == 0xFEED) {  // QSR
         uint64_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
         reset_value |=
             (uint64_t)soft_reset_update;  // QSR logic is reversed for DM cores, so we need to invert the update.
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
     } else {
         uint32_t reset_value;
-        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        read_from_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
         reset_value &= ~soft_reset_update;
-        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value));
+        write_to_device(&reset_value, core, soft_reset_addr, sizeof(reset_value), noc_id);
     }
 }
 

@@ -7,6 +7,9 @@ This directory contains examples demonstrating how to use various software compo
 ### `tt_device_example/`
 Demonstrates TTDevice usage, showcasing basic device operations and the difference between functionality available before and after calling `init_tt_device()`.
 
+### `rdma_dmabuf_p2p/`
+Two-host benchmark for `Cluster::export_dmabuf()`: a peer NIC RDMA-writes (or reads) directly against a TLB window over a DRAM core on the other host's card. Requires RDMA hardware on both hosts and `libibverbs`; skipped at configure time if `libibverbs` is missing.
+
 ## Building Examples
 
 Examples are not built by default. To build them:

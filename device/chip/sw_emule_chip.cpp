@@ -71,25 +71,35 @@ SWEmuleChip::SWEmuleChip(const SocDescriptor& soc_descriptor, std::optional<uint
                 std::to_string(tt_emule::L1Pool::SLOT_SIZE) + " — adjacent cores' L1 would overlap");
     }
     // Shared backing needs a stable identity; without a uid we can only be process-private.
-    // The harvesting mask joins the key because it changes the core list, hence the slot layout.
+    //
+    // The harvesting masks join the key because a PEER reconstructs this chip's SocDescriptor from
+    // the segment name alone, and that reconstruction must produce a *constructible* descriptor:
+    // Blackhole rejects an eth mask harvesting neither 2 nor 14 channels, so a name carrying only
+    // the tensix mask makes every peer rebuild throw and every cross-rank delivery vanish. The
+    // masks are not here because they move the slot layout -- only the tensix mask does that.
+    //
     // Packed into disjoint 20-bit fields, never XOR-folded: folding overlapping shifts is not
-    // injective, so two chips with genuinely different core lists can collide on one key, attach to
-    // each other's segment and resolve through the wrong slot map. 20 bits is far above any real
+    // injective, so two chips with genuinely different core lists could collide on one key, attach
+    // to each other's segment and resolve through the wrong slot map. 20 bits is far above any real
     // per-chip mask; a wider one would alias, so refuse it rather than corrupt silently.
+    //
+    // pcie/l2cpu are omitted because five 20-bit fields do not fit a 64-bit name component. That is
+    // safe while they cannot change the worker list -- verified on Blackhole, where dropping a
+    // non-zero pcie mask yields an identical translated Tensix core list. Revisit if that changes.
     {
         const auto& hm = soc.harvesting_masks;
-        constexpr uint64_t kField = 20;
-        constexpr uint64_t kMax = (1ull << kField) - 1;
+        constexpr uint64_t HARVEST_FIELD_BITS = 20;
+        constexpr uint64_t HARVEST_FIELD_MASK = (1ull << HARVEST_FIELD_BITS) - 1;
         const uint64_t tensix_mask = hm.tensix_harvesting_mask;
         const uint64_t dram_mask = hm.dram_harvesting_mask;
         const uint64_t eth_mask = hm.eth_harvesting_mask;
-        if (tensix_mask > kMax || dram_mask > kMax || eth_mask > kMax) {
+        if (tensix_mask > HARVEST_FIELD_MASK || dram_mask > HARVEST_FIELD_MASK || eth_mask > HARVEST_FIELD_MASK) {
             UMD_THROW(
                 error::RuntimeError,
-                "SWEmuleChip: harvesting mask exceeds the " + std::to_string(kField) +
+                "SWEmuleChip: harvesting mask exceeds the " + std::to_string(HARVEST_FIELD_BITS) +
                     "-bit field width of the shared-segment key; widen the key before sharing this chip");
         }
-        shm_harvest_mask_ = tensix_mask | (dram_mask << kField) | (eth_mask << (2 * kField));
+        shm_harvest_mask_ = tensix_mask | (dram_mask << HARVEST_FIELD_BITS) | (eth_mask << (2 * HARVEST_FIELD_BITS));
     }
     if (chip_uid.has_value() && tt_emule::chip_store_shared()) {
         worker_pool_ = std::make_unique<tt_emule::L1Pool>(pool_size, *chip_uid, shm_harvest_mask_);

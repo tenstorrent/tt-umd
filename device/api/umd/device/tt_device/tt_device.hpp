@@ -32,6 +32,7 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
+#include "umd/device/tt_device_model/tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -525,24 +526,26 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    IODeviceType communication_device_type_ = IODeviceType::UNDEFINED;
-    int communication_device_id_ = -1;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
-    tt::ARCH arch = tt::ARCH::Invalid;
     LockManager lock_manager;
 
-    TTDevice() = default;
+    // This overload is for backends with no host transport; the others additionally take the
+    // transport pieces TTDevice still owns itself.
+    TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
     TTDevice(
+        std::unique_ptr<TTDeviceModel> model,
         std::unique_ptr<PCIDevice> pci_device,
         std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
         bool use_safe_api);
     TTDevice(
+        std::unique_ptr<TTDeviceModel> model,
         std::unique_ptr<JtagDevice> jtag_device,
         uint8_t jlink_id,
         std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     TTDevice(
+        std::unique_ptr<TTDeviceModel> model,
         std::unique_ptr<RemoteCommunication> remote_communication,
         std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
@@ -592,6 +595,7 @@ private:
 
     DmaInterface *get_dma_interface();
 
+    std::unique_ptr<TTDeviceModel> model_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;

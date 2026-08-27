@@ -21,7 +21,9 @@ namespace tt::umd {
 class TTDevice;
 class SocDescriptor;
 
-FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device);
+FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch);
+
+FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch);
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data);
 

@@ -15,6 +15,7 @@
 
 #include "architecture_implementation.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/cluster_types.hpp"
 #include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -254,8 +255,18 @@ inline constexpr uint32_t ARC_CSM_NOC_XBAR_OFFSET_END = 0x1007FFFF;
 inline constexpr uint32_t ARC_CSM_ADDRESS_RANGE = ARC_CSM_NOC_XBAR_OFFSET_END - ARC_CSM_NOC_XBAR_OFFSET_START;
 
 inline constexpr uint32_t ARC_CSM_MAILBOX_OFFSET = 0x783C4;
+inline constexpr uint32_t ARC_CSM_BAR0_MAILBOX_OFFSET = ARC_CSM_BAR0_XBAR_OFFSET_START + ARC_CSM_MAILBOX_OFFSET;
 inline constexpr uint32_t ARC_CSM_MAILBOX_SIZE_OFFSET = 0x784C4;
 inline constexpr uint32_t ARC_CSM_ARC_PCIE_DMA_REQUEST = 0x784D4;
+
+// SCRATCH_REG_EXT: a fixed, host-readable CSM window carved into 32-bit slots that firmware uses to
+// publish locators for the host runtime. Offsets are relative to the ARC CSM base (0x10000000) and are
+// meant to be passed to read_from_arc_csm. Firmware publishes the runtime telemetry buffer address in
+// slot 0 and its size in slot 1. See syseng src/hardware/soc/tb/arc_fw/lib/scratch_reg_ext.h
+// (SCRATCH_REG_EXT_START_ADDR = 0x10075C00).
+inline constexpr uint32_t SCRATCH_REG_EXT_OFFSET = 0x75C00;
+inline constexpr uint32_t RUNTIME_TELEMETRY_ADDR_OFFSET = SCRATCH_REG_EXT_OFFSET + 0x0;
+inline constexpr uint32_t RUNTIME_TELEMETRY_SIZE_OFFSET = SCRATCH_REG_EXT_OFFSET + 0x4;
 
 // ARC APB absolute addresses in BAR0 memory space.
 inline constexpr uint32_t ARC_APB_BAR0_XBAR_OFFSET_START = 0x1FF00000;
@@ -295,6 +306,8 @@ inline constexpr uint32_t ARC_RESET_REFCLK_HIGH_OFFSET = ARC_RESET_UNIT_OFFSET +
 inline constexpr uint32_t ARC_RESET_ARC_MISC_CNTL_OFFSET = ARC_RESET_UNIT_OFFSET + 0x0100;
 
 inline constexpr uint64_t ARC_NOC_ADDRESS_START = 0x800000000;
+inline constexpr uint64_t ARC_APB_NOC_BASE_ADDRESS = ARC_NOC_ADDRESS_START + ARC_APB_NOC_XBAR_OFFSET_START;
+inline constexpr uint64_t ARC_CSM_NOC_BASE_ADDRESS = ARC_NOC_ADDRESS_START + ARC_CSM_NOC_XBAR_OFFSET_START;
 
 inline constexpr uint64_t ARC_RESET_SCRATCH_ADDR = 0x880030060;
 inline constexpr uint64_t ARC_RESET_MISC_CNTL_ADDR = 0x880030100;
@@ -367,95 +380,37 @@ inline constexpr uint32_t ARC_SPI_CHUNK_SIZE = SPI_PAGE_ERASE_SIZE;
 // High nibble of the PCI bus id (bus_id & 0xF0) for trays 1..4 on UBB Wormhole boards.
 inline constexpr std::array<uint16_t, 4> UBB_TRAY_BUS_IDS = {0xC0, 0x80, 0x00, 0x40};
 
+// Parameters of the legacy ETH routing firmware protocol and of the NOC address layout, used when
+// talking to remote chips over that firmware.
+DriverHostAddressParams get_host_address_params();
+DriverEthInterfaceParams get_eth_interface_params();
+DriverNocParams get_noc_params();
+
 }  // namespace wormhole
 
-class wormhole_implementation : public architecture_implementation {
+class WormholeImplementation : public ArchitectureImplementation {
 public:
     tt::ARCH get_architecture() const override { return tt::ARCH::WORMHOLE_B0; }
 
-    uint32_t get_arc_message_arc_get_harvesting() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING);
-    }
-
-    uint32_t get_arc_message_arc_go_busy() const override {
+    uint32_t get_firmware_message_go_busy() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_BUSY);
     }
 
-    uint32_t get_arc_message_arc_go_long_idle() const override {
+    uint32_t get_firmware_message_go_idle() const override {
         return static_cast<uint32_t>(wormhole::arc_message_type::ARC_GO_LONG_IDLE);
     }
 
-    uint32_t get_arc_message_deassert_riscv_reset() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::DEASSERT_RISCV_RESET);
-    }
+    uint64_t get_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
 
-    uint32_t get_arc_message_get_aiclk() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK);
-    }
-
-    uint32_t get_arc_message_setup_iatu_for_peer_to_peer() const override {
-        return static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER);
-    }
-
-    uint32_t get_arc_message_test() const override { return static_cast<uint32_t>(wormhole::arc_message_type::TEST); }
-
-    uint32_t get_arc_csm_bar0_mailbox_offset() const override {
-        return wormhole::ARC_CSM_BAR0_XBAR_OFFSET_START + wormhole::ARC_CSM_MAILBOX_OFFSET;
-    }
-
-    uint32_t get_arc_axi_apb_peripheral_offset() const override { return wormhole::ARC_APB_BAR0_XBAR_OFFSET_START; }
-
-    uint32_t get_arc_reset_arc_misc_cntl_offset() const override { return wormhole::ARC_RESET_ARC_MISC_CNTL_OFFSET; }
-
-    uint32_t get_arc_reset_scratch_offset() const override { return wormhole::ARC_RESET_SCRATCH_OFFSET; }
-
-    uint32_t get_arc_reset_scratch_2_offset() const override { return wormhole::ARC_RESET_SCRATCH_2_OFFSET; }
-
-    uint32_t get_arc_reset_unit_refclk_low_offset() const override { return wormhole::ARC_RESET_REFCLK_LOW_OFFSET; }
-
-    uint32_t get_arc_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
-
-    uint32_t get_dram_channel_0_peer2peer_region_start() const override {
-        return wormhole::DRAM_CHANNEL_0_PEER2PEER_REGION_START;
-    }
-
-    uint32_t get_dram_channel_0_x() const override { return wormhole::DRAM_CHANNEL_0_X; }
-
-    uint32_t get_dram_channel_0_y() const override { return wormhole::DRAM_CHANNEL_0_Y; }
+    uint64_t get_reset_unit_refclk_high_offset() const override { return wormhole::ARC_RESET_REFCLK_HIGH_OFFSET; }
 
     uint32_t get_dram_banks_number() const override { return wormhole::NUM_DRAM_BANKS; }
 
-    uint32_t get_aiclk_busy_val() const override { return wormhole::AICLK_BUSY_VAL; }
-
-    uint32_t get_broadcast_tlb_index() const override { return wormhole::BROADCAST_TLB_INDEX; }
-
-    uint32_t get_dynamic_tlb_2m_base() const override { return wormhole::DYNAMIC_TLB_2M_BASE; }
-
-    uint32_t get_dynamic_tlb_2m_size() const override { return wormhole::DYNAMIC_TLB_2M_SIZE; }
-
-    uint32_t get_dynamic_tlb_16m_base() const override { return wormhole::DYNAMIC_TLB_16M_BASE; }
-
-    uint32_t get_dynamic_tlb_16m_size() const override { return wormhole::DYNAMIC_TLB_16M_SIZE; }
-
-    uint32_t get_dynamic_tlb_16m_cfg_addr() const override { return wormhole::DYNAMIC_TLB_16M_CFG_ADDR; }
-
-    uint32_t get_mem_large_read_tlb() const override { return wormhole::MEM_LARGE_READ_TLB; }
-
-    uint32_t get_mem_large_write_tlb() const override { return wormhole::MEM_LARGE_WRITE_TLB; }
+    uint32_t get_min_clock_freq() const override { return wormhole::AICLK_IDLE_VAL; }
 
     uint32_t get_num_eth_channels() const override { return wormhole::NUM_ETH_CHANNELS; }
 
-    uint32_t get_read_checking_offset() const override {
-        return wormhole::NIU_CFG_NOC0_BAR_ARC_ADDR + wormhole::NOC_NODE_ID_OFFSET;
-    }
-
-    uint32_t get_reg_tlb() const override { return wormhole::REG_TLB; }
-
-    uint32_t get_tlb_base_index_16m() const override { return wormhole::TLB_BASE_INDEX_16M; }
-
-    uint32_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
-
-    uint32_t get_debug_reg_addr() const override { return wormhole::RISCV_DEBUG_REG_DBG_BUS_CNTL_REG; }
+    uint64_t get_tensix_soft_reset_addr() const override { return wormhole::TENSIX_SOFT_RESET_ADDR; }
 
     uint32_t get_soft_reset_reg_value(RiscType risc_type) const override;
 
@@ -463,80 +418,11 @@ public:
 
     uint32_t get_soft_reset_staggered_start() const override { return wormhole::SOFT_RESET_STAGGERED_START; }
 
-    uint32_t get_grid_size_x() const override { return wormhole::GRID_SIZE_X; }
-
-    uint32_t get_grid_size_y() const override { return wormhole::GRID_SIZE_Y; }
-
-    uint64_t get_arc_apb_noc_base_address() const override {
-        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_APB_NOC_XBAR_OFFSET_START;
-    }
-
-    uint64_t get_arc_csm_noc_base_address() const override {
-        return wormhole::ARC_NOC_ADDRESS_START + wormhole::ARC_CSM_NOC_XBAR_OFFSET_START;
-    }
-
     const std::vector<uint32_t>& get_harvesting_noc_locations() const override {
         return wormhole::HARVESTING_NOC_LOCATIONS;
     }
 
-    const std::vector<uint32_t>& get_t6_x_locations() const override { return wormhole::T6_X_LOCATIONS; }
-
-    const std::vector<uint32_t>& get_t6_y_locations() const override { return wormhole::T6_Y_LOCATIONS; }
-
-    const std::vector<std::vector<tt_xy_pair>>& get_dram_cores_noc0() const override {
-        return wormhole::DRAM_CORES_NOC0;
-    };
-
-    std::pair<uint32_t, uint32_t> get_tlb_1m_base_and_count() const override {
-        return {wormhole::TLB_BASE_1M, wormhole::TLB_COUNT_1M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_2m_base_and_count() const override {
-        return {wormhole::TLB_BASE_2M, wormhole::TLB_COUNT_2M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_16m_base_and_count() const override {
-        return {wormhole::TLB_BASE_16M, wormhole::TLB_COUNT_16M};
-    }
-
-    std::pair<uint32_t, uint32_t> get_tlb_4g_base_and_count() const override { return {0, 0}; }
-
-    const std::vector<size_t>& get_tlb_sizes() const override {
-        static constexpr uint32_t one_mb = 1 << 20;
-        static const std::vector<size_t> tlb_sizes = {1 * one_mb, 2 * one_mb, 16 * one_mb};
-        return tlb_sizes;
-    }
-
-    std::tuple<xy_pair, xy_pair> multicast_workaround(xy_pair start, xy_pair end) const override;
-    tlb_configuration get_tlb_configuration(uint32_t tlb_index) const override;
-
-    uint64_t get_tlb_cfg_reg_size_bytes() const override { return 8; }
-
-    uint32_t get_static_tlb_cfg_addr() const override { return wormhole::STATIC_TLB_CFG_ADDR; }
-
     DeviceL1AddressParams get_l1_address_params() const override;
-    DriverHostAddressParams get_host_address_params() const override;
-    DriverEthInterfaceParams get_eth_interface_params() const override;
-    DriverNocParams get_noc_params() const override;
-
-    uint64_t get_noc_node_id_offset() const override { return wormhole::NOC_NODE_ID_OFFSET; }
-
-    uint64_t get_noc_node_translated_id_offset() const override { return wormhole::NOC_ID_TRANSLATED_OFFSET; }
-
-    uint64_t get_noc_reg_base(const CoreType core_type, const uint32_t noc, const uint32_t noc_port = 0) const override;
-
-    size_t get_cached_tlb_size() const override { return wormhole::STATIC_TLB_SIZE; }
-
-    bool get_static_vc() const override { return true; }
-
-    std::optional<uint8_t> get_ubb_tray_id(uint16_t bus_id) const override {
-        const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
-        auto it = std::find(wormhole::UBB_TRAY_BUS_IDS.begin(), wormhole::UBB_TRAY_BUS_IDS.end(), bus_high);
-        if (it == wormhole::UBB_TRAY_BUS_IDS.end()) {
-            return std::nullopt;
-        }
-        return static_cast<uint8_t>(std::distance(wormhole::UBB_TRAY_BUS_IDS.begin(), it) + 1);
-    }
 };
 
 }  // namespace tt::umd

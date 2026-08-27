@@ -21,6 +21,7 @@
 #include "noc_access.hpp"
 #include "tracy.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/chip_helpers/silicon_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
@@ -143,13 +144,10 @@ void LocalChip::start_device(uint32_t dram_membar_subchannel) {
 
     // TODO: acquire mutex should live in Chip class. Currently we don't have unique id for all chips.
     // The lock here should suffice since we have to open Local chip to have Remote chips initialized.
-    chip_started_lock_.emplace(acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
+    chip_started_lock_.emplace(
+        lock_manager_.acquire_mutex(MutexType::CHIP_IN_USE, tt_device_->get_pci_device()->get_device_num()));
 
     sysmem_manager_->pin_or_map_sysmem_to_device();
-    if (!tt_device_->get_pci_device()->is_mapping_buffer_to_noc_supported()) {
-        // If this is supported by the newer KMD, UMD doesn't have to program the iatu.
-        init_pcie_iatus();
-    }
     initialize_membars(dram_membar_subchannel);
 }
 
@@ -330,7 +328,7 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.y_end = translated_core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
+    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
@@ -361,7 +359,7 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.y_end = translated_core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_tt_device()->get_architecture_implementation()->get_static_vc();
+    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
@@ -377,36 +375,6 @@ void LocalChip::wait_for_non_mmio_flush() {}
 void LocalChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>&) {}
 
 void LocalChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>&) {}
-
-std::unique_lock<RobustMutex> LocalChip::acquire_mutex(const std::string& mutex_name, int pci_device_id) {
-    return lock_manager_.acquire_mutex(mutex_name, pci_device_id);
-}
-
-std::unique_lock<RobustMutex> LocalChip::acquire_mutex(MutexType mutex_type, int pci_device_id) {
-    return lock_manager_.acquire_mutex(mutex_type, pci_device_id);
-}
-
-void LocalChip::init_pcie_iatus() {
-    ZoneScopedC(tracy::Color::DarkGreen);
-    // TODO: this should go away soon; KMD knows how to do this at page pinning time.
-    for (size_t channel = 0; channel < sysmem_manager_->get_num_host_mem_channels(); channel++) {
-        HugepageMapping hugepage_map = sysmem_manager_->get_hugepage_mapping(channel);
-        size_t region_size = hugepage_map.mapping_size;
-
-        if (!hugepage_map.mapping) {
-            UMD_THROW(error::RuntimeError, fmt::format("Hugepages are not allocated for channel: {}", channel));
-        }
-
-        if (get_soc_descriptor().arch == tt::ARCH::WORMHOLE_B0) {
-            // TODO: stop doing this.  The intent was good, but it's not
-            // documented and nothing takes advantage of it.
-            if (channel == 3) {
-                region_size = HUGEPAGE_CHANNEL_3_SIZE_LIMIT;
-            }
-        }
-        tt_device_->configure_iatu_region(channel, hugepage_map.physical_address, region_size);
-    }
-}
 
 void LocalChip::set_membar_flag(
     const std::vector<CoreCoord>& cores, const uint32_t barrier_value, const uint32_t barrier_addr) {
@@ -534,8 +502,7 @@ void LocalChip::deassert_risc_resets() {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (get_soc_descriptor().arch != tt::ARCH::BLACKHOLE) {
         arc_msg(
-            wormhole::ARC_MSG_COMMON_PREFIX |
-                tt_device_->get_architecture_implementation()->get_arc_message_deassert_riscv_reset(),
+            wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::DEASSERT_RISCV_RESET),
             true,
             {0, 0});
     }
@@ -548,7 +515,7 @@ int LocalChip::get_numa_node() { return tt_device_->get_pci_device()->get_numa_n
 TlbWindow* LocalChip::get_cached_wc_tlb_window() {
     if (cached_wc_tlb_window == nullptr) {
         cached_wc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::WC));
+            get_architecture_tlbs(get_tt_device()->get_arch()).cached_window_size, TlbMapping::WC));
         cached_wc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_wc_tlb_window.get();
     }
@@ -559,7 +526,7 @@ TlbWindow* LocalChip::get_cached_wc_tlb_window() {
 TlbWindow* LocalChip::get_cached_uc_tlb_window() {
     if (cached_uc_tlb_window == nullptr) {
         cached_uc_tlb_window = std::make_unique<SiliconTlbWindow>(get_tt_device()->get_pci_device()->allocate_tlb(
-            get_tt_device()->get_architecture_implementation()->get_cached_tlb_size(), TlbMapping::UC));
+            get_architecture_tlbs(get_tt_device()->get_arch()).cached_window_size, TlbMapping::UC));
         cached_uc_tlb_window->set_io_timeout_hang_check(make_io_timeout_hang_check());
         return cached_uc_tlb_window.get();
     }

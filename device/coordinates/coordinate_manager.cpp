@@ -408,7 +408,7 @@ HarvestingMasks CoordinateManager::get_harvesting_masks() const { return harvest
 
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32_t tensix_harvesting_physical_layout) {
     std::vector<uint32_t> harvesting_locations =
-        architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
     std::vector<uint32_t> sorted_harvesting_locations = harvesting_locations;
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
@@ -432,7 +432,7 @@ uint32_t CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH arch, uint32
 uint32_t CoordinateManager::shuffle_tensix_harvesting_mask_to_noc0_coords(
     tt::ARCH arch, uint32_t tensix_harvesting_logical_layout) {
     std::vector<uint32_t> sorted_harvesting_locations =
-        architecture_implementation::create(arch)->get_harvesting_noc_locations();
+        ArchitectureImplementation::create(arch)->get_harvesting_noc_locations();
 
     std::sort(sorted_harvesting_locations.begin(), sorted_harvesting_locations.end());
     size_t new_harvesting_mask = 0;

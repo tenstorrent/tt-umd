@@ -31,10 +31,19 @@ namespace tt::umd {
 // (unique_ptr<SimulationServerSocket>) is constructed/destroyed where the type is complete; the
 // public header only forward-declares SimulationServerSocket.
 SimulationTTDevice::SimulationTTDevice(
-    const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
-    simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
+    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
+    const std::filesystem::path& simulator_directory,
+    std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
+    TTDevice(std::move(model), std::move(architecture_impl)),
+    simulator_directory_(simulator_directory),
+    sysmem_manager_(std::move(sysmem_manager)) {}
 
-SimulationTTDevice::SimulationTTDevice(std::unique_ptr<SimulationClient> client) : client_(std::move(client)) {}
+SimulationTTDevice::SimulationTTDevice(
+    std::unique_ptr<TTDeviceModel> model,
+    std::unique_ptr<ArchitectureImplementation> architecture_impl,
+    std::unique_ptr<SimulationClient> client) :
+    TTDevice(std::move(model), std::move(architecture_impl)), client_(std::move(client)) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
@@ -63,7 +72,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
     // GetDeviceInfo returns a different wire message (SimulationServerDeviceInfo) than the
     // read/write skeleton below (SimulationServerResponse), so it is handled up front.
-    if (request.command == SimulationServerCommand::GetDeviceInfo) {
+    if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
         try {
             return encode(describe_device(get_soc_descriptor(), backend_type()));
         } catch (const std::exception& e) {
@@ -76,7 +85,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
 
     // GetClusterDescriptor also returns its own wire message; serve the build's cluster-descriptor
     // YAML (empty when the build ships none) so a client can rebuild the full topology.
-    if (request.command == SimulationServerCommand::GetClusterDescriptor) {
+    if (request.command == SimulationServerCommand::GET_CLUSTER_DESCRIPTOR) {
         try {
             return encode(describe_cluster(simulator_directory_));
         } catch (const std::exception& e) {
@@ -92,7 +101,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     // ack. The handler was fixed before serving started, so it is read here without locking; it must
     // only signal -- it must not tear down from this serving thread. The ack is sent before any
     // teardown, and this serving thread hits EOF and is joined during that teardown.
-    if (request.command == SimulationServerCommand::Shutdown) {
+    if (request.command == SimulationServerCommand::SHUTDOWN) {
         if (shutdown_handler) {
             shutdown_handler();
         }
@@ -107,11 +116,11 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     SimulationServerResponse response;
     try {
         switch (request.command) {
-            case SimulationServerCommand::Read:
+            case SimulationServerCommand::READ:
                 response.data.resize(request.size);
                 read_from_device(response.data.data(), core, request.address, request.size);
                 break;
-            case SimulationServerCommand::Write:
+            case SimulationServerCommand::WRITE:
                 UMD_ASSERT(
                     request.data.size() >= request.size,
                     error::RuntimeError,
@@ -203,7 +212,7 @@ void SimulationTTDevice::client_write(CoreCoord core, uint64_t addr, const void*
     const xy_pair translated_core =
         get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Write;
+    request.command = SimulationServerCommand::WRITE;
     request.x = static_cast<uint32_t>(translated_core.x);
     request.y = static_cast<uint32_t>(translated_core.y);
     request.address = addr;
@@ -229,7 +238,7 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
     const xy_pair translated_core =
         get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     SimulationServerRequest request;
-    request.command = SimulationServerCommand::Read;
+    request.command = SimulationServerCommand::READ;
     request.x = static_cast<uint32_t>(translated_core.x);
     request.y = static_cast<uint32_t>(translated_core.y);
     request.address = addr;
@@ -250,7 +259,7 @@ void SimulationTTDevice::client_read(CoreCoord core, uint64_t addr, void* mem_pt
 }
 
 void SimulationTTDevice::init_tlb_allocator(uint64_t bar0_base) {
-    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, architecture_impl_.get());
+    tlb_allocator_ = std::make_shared<SimulationTlbAllocator>(bar0_base, get_arch());
 }
 
 void SimulationTTDevice::setup_cached_tlb_window() {
@@ -260,7 +269,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
     static constexpr size_t SIZE_2MB = 2 * 1024 * 1024;
     static constexpr size_t SIZE_16MB = 16 * 1024 * 1024;
     static constexpr size_t SIZE_4GB = 4ULL * 1024 * 1024 * 1024;
-    switch (arch) {
+    switch (get_arch()) {
         case tt::ARCH::BLACKHOLE:
             cached_tlb_window_ = get_io_window({}, TlbMapping::WC, SIZE_2MB);
             break;
@@ -274,7 +283,7 @@ void SimulationTTDevice::setup_cached_tlb_window() {
             log_debug(
                 LogUMD,
                 "Architecture {} does not support TLB allocation, leaving cached_tlb_window_ null.",
-                tt::arch_to_str(arch));
+                tt::arch_to_str(get_arch()));
             break;
     }
 }

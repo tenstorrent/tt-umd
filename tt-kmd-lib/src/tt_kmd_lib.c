@@ -430,6 +430,9 @@ int tt_pin_pages(tt_device_t* dev, void* addr, size_t len, int flags, uint64_t* 
     } else if (flags & TT_DMA_FLAG_NOC_TOP_DOWN) {
         pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_NOC_TOP_DOWN;
     }
+    if (flags & TT_DMA_FLAG_READ_ONLY) {
+        pin_pages.in.flags |= TENSTORRENT_PIN_PAGES_READ_ONLY;
+    }
 
     if (ioctl(dev->fd, TENSTORRENT_IOCTL_PIN_PAGES, &pin_pages) != 0) {
         return -errno;

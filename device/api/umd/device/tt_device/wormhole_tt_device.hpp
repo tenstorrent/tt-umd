@@ -10,6 +10,7 @@
 #include <memory>
 #include <mutex>
 
+#include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -54,22 +55,17 @@ public:
 
 protected:
     WormholeTTDevice(
-        std::unique_ptr<PCIDevice> pci_device,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-        bool use_safe_api);
-    WormholeTTDevice(
-        std::unique_ptr<JtagDevice> jtag_device,
-        uint8_t jlink_id,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
-    WormholeTTDevice(
-        std::unique_ptr<RemoteCommunication> remote_communication,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+        std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
     void set_arc_coordinate() override;
 
+    void probe_arc() override;
+
 private:
+    const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::WORMHOLE_B0);
+
     // Builds the ARC message (with the common prefix) that requests the given clock state.
     uint32_t get_power_state_arc_msg(PowerState state);
 

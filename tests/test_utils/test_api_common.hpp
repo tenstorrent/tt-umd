@@ -12,7 +12,9 @@
 #include <cstdlib>
 #include <filesystem>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
+#include <tuple>
 #include <vector>
 
 #include "test_utils/assembly_programs_for_tests.hpp"
@@ -21,7 +23,23 @@
 using namespace tt::umd;
 
 using RiscCoreProgramConfig = std::tuple<uint64_t, uint32_t, std::array<uint32_t, 6>, RiscType>;
-using RiscSetUnderTest = std::vector<RiscCoreProgramConfig>;
+
+// One ClusterAssertDeassertRiscsTest case: a non-empty subset of the RISC cores to bring up together,
+// plus that subset's position in the generated list. The index is what lets the test spread its cases
+// over the available chips instead of re-running every case on every chip.
+struct RiscSetUnderTest {
+    size_t index;
+    std::vector<RiscCoreProgramConfig> riscs;
+};
+
+// Without this gtest prints the parameter as a raw byte dump in failure messages.
+inline void PrintTo(const RiscSetUnderTest& risc_set, std::ostream* os) {
+    *os << "case " << risc_set.index << " {";
+    for (size_t i = 0; i < risc_set.riscs.size(); i++) {
+        *os << (i == 0 ? "" : ", ") << std::get<RiscType>(risc_set.riscs[i]);
+    }
+    *os << "}";
+}
 
 class ClusterAssertDeassertRiscsTest : public ::testing::TestWithParam<RiscSetUnderTest> {
 public:
@@ -75,13 +93,13 @@ private:
         const size_t n = cores.size();
 
         for (size_t bitmask = 1; bitmask < (1 << n); ++bitmask) {
-            RiscSetUnderTest risc_core_subset;
+            std::vector<RiscCoreProgramConfig> risc_core_subset;
             for (size_t i = 0; i < n; ++i) {
                 if (bitmask & (1 << i)) {
                     risc_core_subset.push_back(cores[i]);
                 }
             }
-            risc_core_combinations.push_back(std::move(risc_core_subset));
+            risc_core_combinations.push_back({risc_core_combinations.size(), std::move(risc_core_subset)});
         }
         return risc_core_combinations;
     }

@@ -168,6 +168,12 @@ public:
      */
     const std::unordered_map<ChipId, uint64_t> &get_chip_unique_ids() const;
 
+    // True only when the ids came from the source (a chip_unique_ids block, or real hardware).
+    // False when they were synthesized for backward compatibility, in which case they are stable
+    // WITHIN a process but say nothing about which physical chip they name -- so they must not be
+    // used as a cross-process identity.
+    bool has_authentic_chip_unique_ids() const;
+
     /**
      * Returns the map of logical chip IDs and their PCIe ids as reported by the operating system.
      */
@@ -319,6 +325,7 @@ private:
     std::unordered_map<ChipId, std::unordered_set<ChipId>> chips_grouped_by_closest_mmio;
     std::unordered_map<ChipId, tt::ARCH> chip_arch;
     std::unordered_map<ChipId, uint64_t> chip_unique_ids;
+    bool authentic_chip_unique_ids = false;
     std::map<ChipId, std::set<uint32_t>> active_eth_channels;
     std::map<ChipId, std::set<uint32_t>> idle_eth_channels;
     std::map<uint64_t, std::unordered_set<ChipId>> board_to_chips;

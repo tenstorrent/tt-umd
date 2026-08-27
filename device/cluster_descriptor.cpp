@@ -8,6 +8,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -29,6 +30,8 @@
 #include "common/utils.hpp"
 #include "disjoint_set.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
+#include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
@@ -213,6 +216,7 @@ void ClusterDescriptor::apply_chip_id_remapping(
     remap_map_keys(remapped->chip_board_type, desc->chip_board_type, old_to_new);
     remap_map_keys(remapped->chip_arch, desc->chip_arch, old_to_new);
     remap_map_keys(remapped->chip_unique_ids, desc->chip_unique_ids, old_to_new);
+    remapped->authentic_chip_unique_ids = desc->authentic_chip_unique_ids;
     remap_map_keys(remapped->noc_translation_enabled, desc->noc_translation_enabled, old_to_new);
     remap_map_keys(remapped->chip_to_bus_id, desc->chip_to_bus_id, old_to_new);
     remap_map_keys(remapped->chip_pci_bdfs, desc->chip_pci_bdfs, old_to_new);
@@ -396,6 +400,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->chip_board_type = filter_chip_collection(full_cluster_desc->chip_board_type, visible_chips);
     desc->chip_arch = filter_chip_collection(full_cluster_desc->chip_arch, visible_chips);
     desc->chip_unique_ids = filter_chip_collection(full_cluster_desc->chip_unique_ids, visible_chips);
+    desc->authentic_chip_unique_ids = full_cluster_desc->authentic_chip_unique_ids;
     // Note that these preserve the full set of channels. So some channels will be reported as active
     // even though their corresponding entries won't be found in ethernet_connections. We want this behavior
     // so that the client doesn't try to do anything on these ETH cores which could break these links.
@@ -616,7 +621,7 @@ void ClusterDescriptor::load_ethernet_connections_from_connectivity_descriptor(Y
                 ? 0
                 : CoordinateManager::get_num_harvested(harvesting_masks_map.at(chip).eth_harvesting_mask);
         int num_channels =
-            architecture_implementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
+            ArchitectureImplementation::create(chip_arch.at(chip))->get_num_eth_channels() - num_harvested_channels;
         for (int i = 0; i < num_channels; i++) {
             idle_eth_channels[chip].insert(i);
         }
@@ -806,6 +811,7 @@ void ClusterDescriptor::load_chips_from_connectivity_descriptor(YAML::Node &yaml
     }
 
     if (yaml["chip_unique_ids"]) {
+        authentic_chip_unique_ids = true;
         for (const auto &chip_unique_id : yaml["chip_unique_ids"].as<std::map<int, uint64_t>>()) {
             auto &chip = chip_unique_id.first;
             auto &unique_id = chip_unique_id.second;
@@ -932,6 +938,8 @@ const std::unordered_map<ChipId, EthCoord> &ClusterDescriptor::get_chip_location
 // Note: this API works only for Wormhole 6U galaxy at the moment.
 // TODO: implement this for Blackhole and old Wormhole configurations.
 const std::unordered_map<ChipId, uint64_t> &ClusterDescriptor::get_chip_unique_ids() const { return chip_unique_ids; }
+
+bool ClusterDescriptor::has_authentic_chip_unique_ids() const { return authentic_chip_unique_ids; }
 
 // Return map, but filter by enabled active chips.
 const std::unordered_map<ChipId, ChipId> &ClusterDescriptor::get_chips_with_mmio() const { return chips_with_mmio; }
@@ -1372,16 +1380,29 @@ uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     return it->second;
 }
 
+namespace {
+
+// High nibble of the PCI bus id identifies which UBB tray a chip sits on.
+std::optional<uint8_t> ubb_tray_id(const std::array<uint16_t, 4> &tray_bus_ids, const uint16_t bus_id) {
+    const uint16_t bus_high = static_cast<uint16_t>(bus_id & 0xF0);
+    const auto it = std::find(tray_bus_ids.begin(), tray_bus_ids.end(), bus_high);
+    if (it == tray_bus_ids.end()) {
+        return std::nullopt;
+    }
+    return static_cast<uint8_t>(std::distance(tray_bus_ids.begin(), it) + 1);
+}
+
+}  // namespace
+
 std::optional<uint8_t> ClusterDescriptor::get_tray_id(ChipId chip_id) const {
-    const BoardType board = get_board_type(chip_id);
-    if (board != BoardType::UBB_WORMHOLE && board != BoardType::UBB_BLACKHOLE) {
-        return std::nullopt;
+    switch (get_board_type(chip_id)) {
+        case BoardType::UBB_WORMHOLE:
+            return ubb_tray_id(wormhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
+        case BoardType::UBB_BLACKHOLE:
+            return ubb_tray_id(blackhole::UBB_TRAY_BUS_IDS, get_bus_id(chip_id));
+        default:
+            return std::nullopt;
     }
-    auto arch_impl = architecture_implementation::create(get_arch(chip_id));
-    if (!arch_impl) {
-        return std::nullopt;
-    }
-    return arch_impl->get_ubb_tray_id(get_bus_id(chip_id));
 }
 
 const std::unordered_map<ChipId, uint16_t> &ClusterDescriptor::get_chip_to_bus_id() const { return chip_to_bus_id; }

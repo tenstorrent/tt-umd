@@ -18,17 +18,16 @@
 #include <utility>
 #include <vector>
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/pcie/silicon_tlb_handle.hpp"
 #include "umd/device/pcie/tlb_handle.hpp"
 #include "umd/device/types/arch.hpp"
+#include "umd/device/types/host_memory.hpp"
 #include "umd/device/types/tlb.hpp"
 #include "umd/device/utils/semver.hpp"
 
 struct tt_device_t;
 
 namespace tt::umd {
-class architecture_implementation;
 
 struct PciDeviceInfo {
     uint16_t vendor_id;
@@ -128,7 +127,6 @@ class PCIDevice {
     const tt::ARCH arch;             // e.g. Wormhole, Blackhole
     const SemVer kmd_version;        // KMD version
     const bool iommu_enabled;        // Whether the system is protected from this device by an IOMMU
-    std::unique_ptr<architecture_implementation> arch_impl_;  // Architecture-specific implementation
     DmaBuffer dma_buffer{};
 
 public:
@@ -154,6 +152,12 @@ public:
      * @return PciDeviceInfo struct containing the device information.
      */
     static PciDeviceInfo read_device_info(const std::string &device_path);
+
+    /**
+     * Whether an IOMMU protects the host from the given device. Reads sysfs only, so callers that
+     * just need the IOMMU state do not have to open the device.
+     */
+    static bool detect_iommu(const PciDeviceInfo &device_info);
 
     /**
      * PCI device constructor.
@@ -207,11 +211,6 @@ public:
     tt::ARCH get_arch() const { return arch; }
 
     /**
-     * @return the architecture-specific implementation for this device
-     */
-    architecture_implementation *get_architecture_implementation() const { return arch_impl_.get(); }
-
-    /**
      * @return whether the system is protected from this device by an IOMMU
      */
     bool is_iommu_enabled() const { return iommu_enabled; }
@@ -229,9 +228,11 @@ public:
      * Map a buffer so it is accessible by the device NOC.
      * @param buffer must be page-aligned
      * @param size must be a multiple of the page size
+     * @param device_access READ_ONLY requires is_read_only_page_pinning_supported()
      * @return uint64_t NOC address, uint64_t PA or IOVA
      */
-    std::pair<uint64_t, uint64_t> map_buffer_to_noc(void *buffer, size_t size);
+    std::pair<uint64_t, uint64_t> map_buffer_to_noc(
+        void *buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
 
     /**
      * Map a hugepage so it is accessible by the device NOC.
@@ -249,9 +250,15 @@ public:
      *
      * @param buffer must be page-aligned
      * @param size must be a multiple of the page size
+     * @param device_access READ_ONLY requires is_read_only_page_pinning_supported()
      * @return uint64_t PA (no IOMMU) or IOVA (with IOMMU) for use by the device
      */
-    uint64_t map_for_dma(void *buffer, size_t size);
+    uint64_t map_for_dma(void *buffer, size_t size, DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
+
+    /**
+     * @return whether this device and KMD support device-read-only host mappings
+     */
+    bool is_read_only_page_pinning_supported() const;
 
     /**
      * Access the device's DMA buffer.  This buffer is not guaranteed to exist.
@@ -284,16 +291,24 @@ public:
      *
      * @param tlb_size Size of the TLB caller wants to allocate.
      * @param mapping_type Type of TLB mapping to allocate (UC or WC).
+     * @param verify_config Whether the handle should confirm each configure() reached the device
+     *                      before returning; see TlbHandle's protected verify_config constructor.
      */
-    std::unique_ptr<TlbHandle> allocate_tlb(const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC);
+    std::unique_ptr<TlbHandle> allocate_tlb(
+        const size_t tlb_size, const TlbMapping tlb_mapping = TlbMapping::UC, const bool verify_config = false);
 
     /**
      * Configure TLB register in user space by writing directly to BAR0.
      *
      * @param tlb_index The TLB index/ID to configure
      * @param tlb_config The TLB configuration data
+     * @param verify Read the register back and wait until it holds the written configuration before
+     *               returning. MMIO writes are posted, so without this the mapping is not
+     *               guaranteed live on return. Only needed when the next user of the window is not
+     *               the host itself -- see TlbHandle's protected verify_config constructor. Costs a
+     *               PCIe round trip.
      */
-    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config);
+    void configure_tlb(const uint32_t tlb_index, const tlb_data &tlb_config, const bool verify = false);
 
     /**
      * Read command byte.
@@ -313,11 +328,6 @@ public:
      */
     static void send_reset_ioctl_to_devices(
         const std::unordered_set<int> &pci_target_devices, TenstorrentResetDevice flag, bool ignore_failures = true);
-
-    /**
-     * Temporary function which allows us to support both ways of mapping buffers during the transition period.
-     */
-    static bool is_mapping_buffer_to_noc_supported();
 
     /**
      * Get the architecture of the PCIe device driver. The function enumerates PCIe devices on the system

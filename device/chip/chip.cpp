@@ -33,10 +33,10 @@ Chip::Chip(const ChipInfo chip_info, tt::ARCH arch) : chip_info_(chip_info) { se
 
 // TODO: This will be moved to LocalChip.
 void Chip::set_default_params(ARCH arch) {
-    auto architecture_implementation = architecture_implementation::create(arch);
+    auto arch_impl = ArchitectureImplementation::create(arch);
 
     // Default initialize l1_address_params based on detected arch.
-    l1_address_params = architecture_implementation->get_l1_address_params();
+    l1_address_params = arch_impl->get_l1_address_params();
 
     // Default initialize dram_address_params.
     dram_address_params = {0u};

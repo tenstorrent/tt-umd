@@ -34,17 +34,19 @@
 
 namespace tt::umd {
 
-FirmwareBundleVersion get_firmware_version_util(TTDevice* tt_device) {
-    if (tt_device->get_arch() == tt::ARCH::WORMHOLE_B0) {
-        SmBusArcTelemetryReader smbus_reader(tt_device);
-        return FirmwareBundleVersion::from_firmware_bundle_tag(
-            smbus_reader.read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
+FirmwareBundleVersion get_latest_supported_firmware_version(tt::ARCH arch) { return FirmwareBundleVersion(19, 7, 1); }
+
+FirmwareBundleVersion get_minimum_compatible_firmware_version(tt::ARCH arch) {
+    switch (arch) {
+        case tt::ARCH::WORMHOLE_B0: {
+            return FirmwareBundleVersion(18, 3, 0);
+        }
+        case tt::ARCH::BLACKHOLE: {
+            return FirmwareBundleVersion(18, 5, 0);
+        }
+        default:
+            UMD_THROW(error::RuntimeError, "Unsupported architecture for firmware info provider.");
     }
-    ArcTelemetryReader* telemetry = tt_device->get_arc_telemetry_reader();
-    return telemetry->is_entry_available(TelemetryTag::FLASH_BUNDLE_VERSION)
-               ? FirmwareBundleVersion::from_firmware_bundle_tag(
-                     telemetry->read_entry(TelemetryTag::FLASH_BUNDLE_VERSION))
-               : FirmwareBundleVersion(0, 0, 0);
 }
 
 SemVer get_tt_flash_version_from_telemetry(const uint32_t telemetry_data) {

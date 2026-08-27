@@ -159,13 +159,19 @@ uint32_t BlackholeArcMessageQueue::send_message(
     }
 }
 
-std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
+/* static */ std::unique_ptr<BlackholeArcMessageQueue> BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
     DeviceProtocol* device_protocol,
     JtagInterface* jtag_interface,
     BlackholeArcApb* arc_apb,
     const bool noc_translation_enabled,
     const size_t queue_index,
     const NocId noc_id) {
+    // Checked here as well as in the constructor: both are dereferenced below to read the queue
+    // descriptor, which happens before there is an object to construct. jtag_interface is exempt --
+    // it is optional, and its being null is what selects the non-JTAG route.
+    UMD_ASSERT(device_protocol != nullptr, error::RuntimeError, "BlackholeArcMessageQueue requires a DeviceProtocol.");
+    UMD_ASSERT(arc_apb != nullptr, error::RuntimeError, "BlackholeArcMessageQueue requires a BlackholeArcApb.");
+
     const tt_xy_pair arc_core = blackhole::get_arc_core(noc_translation_enabled, /*use_noc1=*/noc_id == NocId::NOC1);
 
     uint32_t queue_control_block_addr;

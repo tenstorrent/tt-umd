@@ -752,7 +752,7 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t
 void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
-        UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);
@@ -791,7 +791,7 @@ void TTDevice::dma_write_to_core_range(
     const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote_tt_device) {
-        UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write to core range not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, communication_device_id_, communication_device_type_);

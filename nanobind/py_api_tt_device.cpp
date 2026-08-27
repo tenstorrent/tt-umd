@@ -473,8 +473,10 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("soft_reset_raw_value"),
             release_gil(),
             "Set the raw soft reset register value for a core in translated coordinates. ")
-        // TODO: rename to dma_read to match TTDevice::dma_read once tt-exalens's umd_device.py (which
-        // calls this by name) is updated in lockstep.
+        // TODO: rename dma_read_from_device/dma_write_to_device to dma_read/dma_write to match
+        // TTDevice. tt-exalens vendors a UMD version and uplifts on its own schedule, so there's no
+        // atomic flip: register the new name as an additional alias here, let tt-exalens's
+        // umd_device.py migrate to it, then drop the old name once nothing calls it.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, size_t size) -> nb::bytes {
@@ -491,8 +493,7 @@ void bind_tt_device(nb::module_ &m) {
             nb::arg("addr"),
             nb::arg("size"),
             "Read arbitrary-length data from a core at the specified address")
-        // TODO: rename to dma_write to match TTDevice::dma_write once tt-exalens's umd_device.py (which
-        // calls this by name) is updated in lockstep.
+        // TODO: rename, see dma_read_from_device above.
         .def(
             "dma_write_to_device",
             [](TTDevice &self, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle data) -> void {
@@ -643,8 +644,7 @@ void bind_tt_device(nb::module_ &m) {
                     "memoryview) -> None"),
             "Read data into the provided buffer from a core at the specified address. noc_id must be 0 for now. buffer "
             "must be a writable buffer-protocol object (bytearray, writable memoryview, ...).")
-        // TODO: rename to dma_read to match TTDevice::dma_read once tt-exalens's umd_device.py (which
-        // calls this by name) is updated in lockstep.
+        // TODO: rename, see dma_read_from_device above.
         .def(
             "dma_read_from_device",
             [](TTDevice &self, uint32_t noc_id, uint32_t core_x, uint32_t core_y, uint64_t addr, nb::handle buffer)

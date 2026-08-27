@@ -315,7 +315,7 @@ void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint6
 
 void SimulationTTDevice::dma_write_to_core_range(
     const void* src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
+    UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
 }
 
 void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {

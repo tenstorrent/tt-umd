@@ -37,6 +37,7 @@
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/core_coordinates.hpp"
+#include "umd/device/types/eth_training_status.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/risc_type.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -61,14 +62,6 @@ class TLBManager;
 enum class NocId : uint8_t;
 enum class RiscType : std::uint64_t;
 struct CoreCoord;
-
-// Represents the status of the ETH core.
-enum class EthTrainingStatus {
-    IN_PROGRESS = 0,
-    SUCCESS = 1,
-    FAIL = 2,
-    NOT_CONNECTED = 3,  // Maybe unconnected, not guaranteed. Detecting eth connection is unreliable.
-};
 
 class TTDevice {
 public:

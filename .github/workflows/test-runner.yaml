@@ -186,7 +186,7 @@ jobs:
           # be on a shared PATH like /usr/local/bin — a user install under
           # ~/.local/bin is invisible to the sidecar and yields __EXIT__:127.
           mpirun --pernode --tag-output bash -lc \
-            'sudo python3 -m pip install --no-cache-dir --break-system-packages "tt-smi==5.2.0"
+            'sudo python3 -m pip install --no-cache-dir "tt-smi==5.2.0"
              test -x /usr/local/bin/tt-smi
              /usr/local/bin/tt-smi --version'
 

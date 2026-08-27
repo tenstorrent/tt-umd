@@ -90,7 +90,6 @@ public:
 protected:
     SimulationTTDevice(
         std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<ArchitectureImplementation> architecture_impl,
         const std::filesystem::path& simulator_directory,
         std::unique_ptr<SimulationSysmemManager> sysmem_manager);
 
@@ -99,10 +98,7 @@ protected:
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
     // the client here so client_ is initialized through the base, not written by each derived ctor.
-    SimulationTTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<ArchitectureImplementation> architecture_impl,
-        std::unique_ptr<SimulationClient> client);
+    SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client);
 
     // Attach to / detach from the remote host in client mode. Both derived devices drive their
     // client-mode lifecycle (setup_/teardown_) through these rather than touching client_ directly.

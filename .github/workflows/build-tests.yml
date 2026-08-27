@@ -91,10 +91,23 @@ env:
   CLUSTER_DESCRIPTORS_DIR: ./tests/cluster_descriptor_examples
   SOC_DESCRIPTORS_DIR: ./tests/soc_descs
   NANOBIND_TEST_DIR: ./nanobind/tests
-  # Env. vars related to SCCache:
-  SCCACHE_GHA_ENABLED: ${{ inputs.use-sccache }}
+  # Env. vars related to SCCache, which uses an S3 backend (Garage).
+  # The bucket must be configured as well as the input set: fork PRs get no
+  # secrets, and repos without the vars set should build uncached rather than
+  # stall on a cache they can't reach.
+  SCCACHE_ENABLED: ${{ inputs.use-sccache && vars.SCCACHE_S3_BUCKET != '' }}
+  SCCACHE_BUCKET: ${{ vars.SCCACHE_S3_BUCKET }}
+  SCCACHE_ENDPOINT: ${{ vars.SCCACHE_S3_ENDPOINT }}
+  SCCACHE_REGION: ${{ vars.SCCACHE_S3_REGION || 'garage' }}
+  # Garage addresses objects path-style (http://host:port/bucket/key), so
+  # virtual-host style must stay off. SSL is off for plain-HTTP endpoints such
+  # as an in-cluster Service; override the var for an HTTPS ingress.
+  SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: "false"
+  SCCACHE_S3_USE_SSL: ${{ vars.SCCACHE_S3_USE_SSL || 'false' }}
   # Only the main branch may write to the sccache; all other branches read only.
-  SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
+  SCCACHE_S3_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_S3_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_S3_SECRET_ACCESS_KEY }}
 
 jobs:
   build:
@@ -116,7 +129,9 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     env:
-      SCCACHE_GHA_VERSION: >-
+      # Namespaces cache entries per build config so configs don't collide
+      # inside the shared bucket.
+      SCCACHE_S3_KEY_PREFIX: >-
         build-tests-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version
         }}${{ matrix.use_tracy && '-tracy' || '' }}
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
@@ -133,16 +148,8 @@ jobs:
           echo build-tests - use_tracy: ${{ matrix.use_tracy }}
 
       - name: Run sccache-cache
-        if: ${{ inputs.use-sccache }}
+        if: ${{ env.SCCACHE_ENABLED == 'true' }}
         uses: mozilla-actions/sccache-action@v0.0.10
-
-      - name: Configure sccache to access GHA cache
-        if: ${{ inputs.use-sccache }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - uses: actions/checkout@v6
         with:
@@ -151,7 +158,7 @@ jobs:
       # In container jobs the runtime $GITHUB_WORKSPACE is the container mount path
       # (/__w/<repo>/<repo>), which is where the build runs.
       - name: Export SCCACHE_BASEDIRS
-        if: ${{ inputs.use-sccache }}
+        if: ${{ env.SCCACHE_ENABLED == 'true' }}
         shell: bash
         run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
 
@@ -168,7 +175,7 @@ jobs:
             -DTT_UMD_ENABLE_CLANG_TIDY=OFF \
             -DTT_UMD_ENABLE_TRACY=${{ matrix.use_tracy && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_LOGGING=${{ secrets.ACTIONS_RUNNER_DEBUG == 'true' && 'ON' || 'OFF' }} \
-            -DTT_UMD_ENABLE_SCCACHE=${{ inputs.use-sccache && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_ENABLED == 'true' && 'ON' || 'OFF' }} \
             -DCMAKE_BUILD_TYPE=${{ inputs.build-type || 'Release' }}
           cmake --build ${{ env.BUILD_OUTPUT_DIR }} --target ${{ inputs.build-targets || env.BUILD_TARGETS }}
           echo "Compile complete."
@@ -204,7 +211,9 @@ jobs:
       image: ghcr.io/${{ github.repository }}/tt-umd-ci-${{ inputs.ubuntu-docker-version }}:${{ inputs.image-tag }}
 
     env:
-      SCCACHE_GHA_VERSION: build-wheel-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version }}
+      # Namespaces cache entries per build config so configs don't collide
+      # inside the shared bucket.
+      SCCACHE_S3_KEY_PREFIX: build-wheel-${{ inputs.build-type }}-${{ inputs.ubuntu-docker-version }}
 
     steps:
       - uses: actions/checkout@v6
@@ -212,21 +221,13 @@ jobs:
           submodules: recursive
 
       - name: Run sccache-cache
-        if: ${{ inputs.use-sccache }}
+        if: ${{ env.SCCACHE_ENABLED == 'true' }}
         uses: mozilla-actions/sccache-action@v0.0.10
-
-      - name: Configure sccache to access GHA cache
-        if: ${{ inputs.use-sccache }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       # In container jobs the runtime $GITHUB_WORKSPACE is the container mount path
       # (/__w/<repo>/<repo>), which is where the build runs.
       - name: Export SCCACHE_BASEDIRS
-        if: ${{ inputs.use-sccache }}
+        if: ${{ env.SCCACHE_ENABLED == 'true' }}
         shell: bash
         run: echo "SCCACHE_BASEDIRS=${GITHUB_WORKSPACE}" >> "$GITHUB_ENV"
 
@@ -253,7 +254,7 @@ jobs:
           fi
           python -m pip wheel . --wheel-dir ${{ env.WHEEL_OUTPUT_DIR }} \
             --config-settings=cmake.build-type="$WHEEL_BUILD_TYPE" \
-            --config-settings=cmake.define.TT_UMD_ENABLE_SCCACHE=ON \
+            --config-settings=cmake.define.TT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_ENABLED == 'true' && 'ON' || 'OFF' }} \
             -v
 
           # This is done so that all the necessary libraries are included in the wheel.

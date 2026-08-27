@@ -1,6 +1,6 @@
 # Populate the sccache with ASan and TSan build artifacts.
 #
-# Only the main branch may write to the GHA sccache (see SCCACHE_GHA_RW_MODE in build-tests.yml),
+# Only the main branch may write to the sccache (see SCCACHE_S3_RW_MODE in build-tests.yml),
 # and the sanitizer builds are not part of the push-to-main test run - on main only Release builds
 # (build-and-run-all-tests-multiple-builds.yml). That leaves ASan/TSan compiling cold in the merge
 # queue, where they are required checks and TSan costs ~10x runtime. This workflow builds them on

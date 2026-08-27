@@ -135,14 +135,21 @@ TEST_F(WormholeArcApbWindowTest, AccessMustFitEntirelyInsideTheWindow) {
     auto window = over_remote();
     uint32_t value = 0;
 
-    constexpr uint32_t RANGE = wormhole::ARC_APB_ADDRESS_RANGE;
-    EXPECT_THROW(window.read(&value, RANGE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
-    EXPECT_THROW(window.read(&value, RANGE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
-    EXPECT_THROW(window.read(&value, 0, static_cast<size_t>(RANGE) + 1, ARC_CORE, NocId::NOC0), std::exception);
+    // ARC_APB_ADDRESS_RANGE is END - START with an inclusive END, so the window is one byte larger
+    // than it.
+    constexpr uint64_t WINDOW_SIZE = static_cast<uint64_t>(wormhole::ARC_APB_ADDRESS_RANGE) + 1;
 
-    // The last word that fits starts exactly sizeof(uint32_t) before the end.
+    // Starts inside the window but runs past its end.
+    EXPECT_THROW(
+        window.read(&value, WINDOW_SIZE - sizeof(value) + 1, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    // Starts at the first byte past the window.
+    EXPECT_THROW(window.read(&value, WINDOW_SIZE, sizeof(value), ARC_CORE, NocId::NOC0), std::exception);
+    // Starts at zero but is larger than the whole window.
+    EXPECT_THROW(window.read(&value, 0, WINDOW_SIZE + 1, ARC_CORE, NocId::NOC0), std::exception);
+
+    // The last word that fits ends exactly on the window's last byte.
     EXPECT_CALL(protocol_, read_ctrl(_, _, _, _, _));
-    window.read(&value, RANGE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);
+    window.read(&value, WINDOW_SIZE - sizeof(value), sizeof(value), ARC_CORE, NocId::NOC0);
 }
 
 TEST_F(WormholeArcApbWindowTest, ZeroLengthAccessIsRejected) {

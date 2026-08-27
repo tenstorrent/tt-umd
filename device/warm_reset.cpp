@@ -328,17 +328,17 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
         refclk_values_old.emplace_back(tt_device->get_refclk_counter());
     }
 
-    std::vector<uint32_t> arc_msg_return_values(1);
     for (const auto& tt_device : tt_devices) {
-        tt_device->get_arc_messenger()->send_message(
-            MSG_TYPE_ARC_STATE3, arc_msg_return_values, {default_arg_value, default_arg_value});
+        auto* firmware = tt_device->get_device_firmware();
+        firmware->send_device_command(
+            MSG_TYPE_ARC_STATE3, {default_arg_value, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
         usleep(30'000);
         if (reset_m3) {
-            tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {3, default_arg_value});
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
         } else {
-            tt_device->get_arc_messenger()->send_message(
-                MSG_TYPE_TRIGGER_RESET, arc_msg_return_values, {default_arg_value, default_arg_value});
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET, {default_arg_value, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
         }
     }
 

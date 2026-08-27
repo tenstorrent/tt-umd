@@ -15,3 +15,4 @@ endif()
 # Add all example subdirectories
 add_subdirectory(tt_device_example)
 add_subdirectory(reset_notification_example)
+add_subdirectory(rdma_dmabuf_p2p)

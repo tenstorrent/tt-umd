@@ -74,6 +74,10 @@ apt-get install -y clang-tidy-20
 # OpenSSH server for dedicated exabox multihost workers (mpirun SSHes into this image).
 # Keep config tweaks after the apt install so openssh-server does not overwrite them.
 apt-get install -y --no-install-recommends openssh-server sudo
+
+# ipmitool for UMD warm_reset (Wormhole UBB raw IPMI) and host BMC access.
+# The container still needs /dev/ipmi* from the host; this only installs the CLI.
+apt-get install -y --no-install-recommends ipmitool
 if ! id -u user >/dev/null 2>&1; then
     adduser --uid 1001 --shell /bin/bash --disabled-password --gecos "" user
 fi

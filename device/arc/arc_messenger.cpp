@@ -50,13 +50,17 @@ uint32_t ArcMessenger::send_message(
     return send_message(msg_code, return_values, args, timeout_ms);
 }
 
-ArcMessenger::~ArcMessenger() {
-    lock_manager.clear_mutex(
-        MutexType::ARC_MSG, tt_device->get_communication_device_id(), tt_device->get_communication_device_type());
-    lock_manager.clear_mutex(
-        MutexType::REMOTE_ARC_MSG,
-        tt_device->get_communication_device_id(),
-        tt_device->get_communication_device_type());
-}
+// The mutex clearing below is commented out to avoid a segfault, and is going away shortly in a
+// separate PR. On a remote device get_communication_device_type() reaches through to the local device
+// it is routed through, which teardown does not keep alive: a caller that drops TopologyDiscovery's
+// device map destroys the two in unspecified order. LockManager documents that clear_mutex need not
+// be called explicitly anyway.
+//     lock_manager.clear_mutex(
+//         MutexType::ARC_MSG, tt_device->get_communication_device_id(), tt_device->get_communication_device_type());
+//     lock_manager.clear_mutex(
+//         MutexType::REMOTE_ARC_MSG,
+//         tt_device->get_communication_device_id(),
+//         tt_device->get_communication_device_type());
+ArcMessenger::~ArcMessenger() = default;
 
 }  // namespace tt::umd

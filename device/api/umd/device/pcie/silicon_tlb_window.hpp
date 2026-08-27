@@ -91,6 +91,12 @@ public:
     // When empty (the default), overruns are treated as false alarms and never abort on time alone.
     void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) override;
 
+    // TEMP: keeps the base's IoWindow configure() overloads visible -- the declaration below would
+    // otherwise hide them from UMD-internal callers holding a SiliconTlbWindow rather than an IoWindow.
+    // Goes away together with the configure(tlb_data) override below, once tlb_data leaves the window
+    // API and every caller configures through TargetIoWindowConfig + IoOrdering.
+    using TlbWindow::configure;
+
     // Reconfigures the window and refreshes the cached timeout callback, since the NOC may have changed.
     void configure(const tlb_data& new_config) override;
 

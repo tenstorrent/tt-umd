@@ -285,6 +285,8 @@ TEST(TestRiscProgram, RiscResetStateRoundTrip) {
         GTEST_SKIP() << "Tensix soft reset masks are only defined for Wormhole and Blackhole.";
     }
 
+    constexpr uint64_t brisc_code_address = 0x20;
+
     const auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
     const std::vector<uint8_t> zero_data(tensix_l1_size, 0);
 
@@ -297,12 +299,18 @@ TEST(TestRiscProgram, RiscResetStateRoundTrip) {
         EXPECT_EQ(cluster->get_risc_reset_state(chip_id, tensix_core) & RiscType::ALL_TENSIX, RiscType::ALL_TENSIX)
             << "chip " << chip_id << ": not all Tensix RISCs reported in reset after asserting ALL_TENSIX";
 
-        // Give BRISC a defined program before releasing it, so it does not execute stale L1.
+        // BRISC must park in a defined program before it is released: SOFT_RESET is mapped into its
+        // own address space, so a core executing stale L1 can clear its own reset bit.
         cluster->write_to_device(zero_data.data(), zero_data.size(), chip_id, tensix_core, 0);
         cluster->write_to_device(&BRISC_TRAMPOLINE_JMP, sizeof(BRISC_TRAMPOLINE_JMP), chip_id, tensix_core, 0);
+        cluster->write_to_device(
+            simple_brisc_program.data(),
+            simple_brisc_program.size() * sizeof(uint32_t),
+            chip_id,
+            tensix_core,
+            brisc_code_address);
         cluster->l1_membar(chip_id, {tensix_core});
 
-        // Staggered start sets a bit outside the RISC mask, so it must not appear in the state.
         cluster->deassert_risc_reset(chip_id, tensix_core, RiscType::BRISC, /*staggered_start=*/true);
 
         EXPECT_EQ(

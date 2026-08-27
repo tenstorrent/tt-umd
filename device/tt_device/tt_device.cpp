@@ -276,6 +276,8 @@ void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc_id) {
         state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc_id);
 }
 
+bool TTDevice::get_noc_translation_enabled() { return get_device_firmware()->get_noc_translation_enabled(); }
+
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
 
 PcieInterface *TTDevice::get_pcie_interface() {

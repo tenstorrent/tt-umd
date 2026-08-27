@@ -408,7 +408,7 @@ public:
 
     BoardType get_board_type();
 
-    virtual bool get_noc_translation_enabled() = 0;
+    bool get_noc_translation_enabled();
 
     double get_asic_temperature();
 

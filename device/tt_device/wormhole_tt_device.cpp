@@ -41,31 +41,16 @@
 namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(
-    std::unique_ptr<PCIDevice> pci_device,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor,
-    bool use_safe_api) :
-    TTDevice(std::move(pci_device), std::make_unique<WormholeImplementation>(), soc_arch_descriptor, use_safe_api) {
+    std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
+    TTDevice(std::move(model), std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
     WormholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol()));
-}
-
-WormholeTTDevice::WormholeTTDevice(
-    std::unique_ptr<JtagDevice> jtag_device,
-    uint8_t jlink_id,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(jtag_device), jlink_id, std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
-    WormholeTTDevice::set_arc_coordinate();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(get_device_protocol()));
-}
-
-WormholeTTDevice::WormholeTTDevice(
-    std::unique_ptr<RemoteCommunication> remote_communication,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(remote_communication), std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
-    WormholeTTDevice::set_arc_coordinate();
-    is_remote_tt_device = true;
-    set_hang_detector(std::make_unique<WormholeHangDetector>(
-        TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol()));
+    // A remote device has no protocol of its own to probe; its liveness is that of the local device
+    // it is reached through.
+    DeviceProtocol *hang_check_protocol =
+        is_remote()
+            ? TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol()
+            : get_device_protocol();
+    set_hang_detector(std::make_unique<WormholeHangDetector>(hang_check_protocol));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {
@@ -149,7 +134,7 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
                                // space with the correct start offset
     }
 
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         UMD_THROW(error::RuntimeError, "configure_iatu_region is redundant for JTAG communication type.");
     }
 
@@ -178,11 +163,11 @@ void WormholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         read_from_device_reg(mem_ptr, get_arc_core(), registers_.arc_apb_noc_base_address + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->read_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
@@ -199,11 +184,11 @@ void WormholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_o
     if (arc_addr_offset > wormhole::ARC_APB_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC APB address range.");
     }
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         write_to_device_reg(mem_ptr, get_arc_core(), registers_.arc_apb_noc_base_address + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->write_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
@@ -219,11 +204,11 @@ void WormholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         read_from_device(mem_ptr, get_arc_core(), wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->read_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],
@@ -240,11 +225,11 @@ void WormholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_o
     if (arc_addr_offset > wormhole::ARC_CSM_ADDRESS_RANGE) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC CSM address range.");
     }
-    if (is_remote_tt_device) {
+    if (is_remote()) {
         write_to_device(mem_ptr, get_arc_core(), wormhole::ARC_CSM_NOC_BASE_ADDRESS + arc_addr_offset, size);
         return;
     }
-    if (communication_device_type_ == IODeviceType::JTAG) {
+    if (get_communication_device_type() == IODeviceType::JTAG) {
         get_device_protocol()->write_ctrl(
             mem_ptr,
             wormhole::ARC_CORES_NOC0[0],

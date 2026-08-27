@@ -154,6 +154,12 @@ public:
     static PciDeviceInfo read_device_info(const std::string &device_path);
 
     /**
+     * Whether an IOMMU protects the host from the given device. Reads sysfs only, so callers that
+     * just need the IOMMU state do not have to open the device.
+     */
+    static bool detect_iommu(const PciDeviceInfo &device_info);
+
+    /**
      * PCI device constructor.
      *
      * Opens the character device file descriptor, reads device information from

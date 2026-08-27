@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
@@ -183,7 +184,7 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
         }
     };
 
-    const auto& configurations_of_risc_cores = GetParam();
+    const auto& configurations_of_risc_cores = GetParam().riscs;
 
     constexpr uint64_t brisc_code_address = 0x20;
 
@@ -193,7 +194,15 @@ TEST_P(ClusterAssertDeassertRiscsTest, TriscNcriscAssertDeassertTest) {
     auto tensix_l1_size = cluster->get_soc_descriptor(0).worker_l1_size;
     std::vector<uint32_t> zero_data(tensix_l1_size / sizeof(uint32_t), 0);
 
-    auto chip_ids = cluster->get_target_device_ids();
+    // Every parameter runs the same sequence over the same core grid, differing only in which RISCs it
+    // brings up, so running each of them on every chip is redundant work that grows with cluster size.
+    // Give each parameter one chip instead: on a cluster with at least as many chips as parameters each
+    // one lands on a different chip. All-chip coverage of assert/deassert stays with
+    // TestRiscProgram.DeassertResetBrisc, which still sweeps every chip and core.
+    const auto cluster_chip_ids = cluster->get_target_device_ids();
+    const std::vector<ChipId> chip_ids = {
+        *std::next(cluster_chip_ids.begin(), GetParam().index % cluster_chip_ids.size())};
+
     for (auto& chip_id : chip_ids) {
         auto brisc_configuration_program = get_brisc_configuration_program_for_chip(cluster.get(), chip_id);
 

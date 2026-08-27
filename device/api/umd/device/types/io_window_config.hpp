@@ -24,6 +24,18 @@ enum class HostMemoryCaching {
 };
 
 /**
+ * @brief Transaction ordering mode for an IoWindow target.
+ *
+ * The enumerator values intentionally match the TLB hardware encoding in tlb_data, so that
+ * translating between the two is a cast rather than a switch.
+ */
+enum class IoOrdering : uint8_t {
+    Relaxed = 0,  ///< No ordering guarantees between transactions.
+    Strict = 1,   ///< Transactions complete in issue order.
+    Posted = 2,   ///< Writes are posted; no completion acknowledgement.
+};
+
+/**
  * @brief Type-safe transaction attributes for an IoWindow target.
  */
 enum class WindowFlags : uint32_t {

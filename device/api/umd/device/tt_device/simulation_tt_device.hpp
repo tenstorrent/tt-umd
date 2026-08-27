@@ -64,12 +64,12 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
-    void dma_multicast_write(
-        void* src,
+    void dma_write_to_core_range(
+        const void* src,
+        uint64_t dst_addr,
         size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
-        uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void noc_multicast_write(

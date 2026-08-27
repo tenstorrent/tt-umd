@@ -735,26 +735,26 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t
     return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
-        UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_write(src, addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular write.
     pcie_dma_lock.unlock();
-    write_to_device(src, core, addr, size, noc_id);
+    write_to_device(src, core, dst_addr, size, noc_id);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
@@ -763,28 +763,28 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_read(dst, addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success = get_dma_interface()->dma_read(dst, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular read.
     pcie_dma_lock.unlock();
-    read_from_device(dst, core, addr, size, noc_id);
+    read_from_device(dst, core, src_addr, size, noc_id);
 }
 
-void TTDevice::dma_multicast_write(
-    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_write_to_core_range(
+    const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
-        UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write to core range not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_multicast_write(
-        src, addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
+        src, dst_addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
 
     if (dma_success) {
         return;
@@ -792,7 +792,7 @@ void TTDevice::dma_multicast_write(
 
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
-    noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
+    noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
 }
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {

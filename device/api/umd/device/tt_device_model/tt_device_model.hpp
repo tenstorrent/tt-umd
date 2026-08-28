@@ -4,11 +4,14 @@
 
 #pragma once
 
+#include <memory>
+
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
 
+class ArchitectureImplementation;
 class DmaInterface;
 class FirmwareTelemetryReader;
 class HangDetector;
@@ -16,6 +19,7 @@ class JtagInterface;
 class PCIDevice;
 class PcieInterface;
 class RemoteInterface;
+class SocArchDescriptor;
 
 /**
  * Composition root for a single device's hardware-facing components.
@@ -51,6 +55,11 @@ public:
     // Required components.
     virtual DeviceProtocol *get_device_protocol() = 0;
 
+    virtual ArchitectureImplementation *get_architecture_impl() = 0;
+
+    // The model resolves this from what the caller supplied, or from its architecture's constants.
+    virtual SocArchDescriptor *get_soc_arch_descriptor() = 0;
+
     // Optional components.
     virtual HangDetector *get_hang_detector() { return nullptr; }
 
@@ -64,6 +73,11 @@ public:
     virtual JtagInterface *get_jtag_interface() { return nullptr; }
 
     virtual RemoteInterface *get_remote_interface() { return nullptr; }
+
+    // TODO: temporary - SocDescriptor shares ownership of the architecture descriptor, so TTDevice
+    // needs the shared_ptr rather than the raw pointer the Base API exposes above. Delete once
+    // SocDescriptor's ownership model is revisited.
+    virtual std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() = 0;
 
     // TODO: temporary - delete along with TTDevice::get_pci_device() once callers go through
     // PcieInterface only.

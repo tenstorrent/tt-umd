@@ -43,6 +43,7 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
+    IoWindow* get_static_io_window(tt_xy_pair translated_core) override;
 
     const SocDescriptor& get_soc_descriptor() const override { return tt_device_->get_soc_descriptor(); }
 

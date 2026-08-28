@@ -197,6 +197,13 @@ SysmemManager* SimulationChip::get_sysmem_manager() { return tt_device_->get_sys
 
 TLBManager* SimulationChip::get_tlb_manager() { return tlb_manager_.get(); }
 
+IoWindow* SimulationChip::get_static_io_window(tt_xy_pair translated_core) {
+    if (tlb_manager_ == nullptr || !tlb_manager_->is_tlb_mapped(translated_core)) {
+        return nullptr;
+    }
+    return tlb_manager_->get_tlb_window(translated_core);
+}
+
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::unordered_set<CoreCoord>& cores) {}
 
 void SimulationChip::set_remote_transfer_ethernet_cores(const std::set<uint32_t>& channels) {}

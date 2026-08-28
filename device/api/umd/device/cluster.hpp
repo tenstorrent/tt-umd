@@ -56,6 +56,7 @@ class RemoteChip;
 class PCIDevice;
 class TLBManager;
 class TlbWindow;
+class IoWindow;
 
 /**
  * Chip type to create under the Cluster class.
@@ -552,6 +553,16 @@ public:
      * @param core The core to access.
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
+
+    /**
+     * Base API lookup for a statically-mapped IoWindow. Never throws: returns nullptr when the core
+     * has no static window, the chip does not support static windows, or the coord is absent from
+     * the SOC's translated map.
+     *
+     * @param chip The chip to access.
+     * @param core The core to access.
+     */
+    IoWindow* get_static_io_window(const ChipId chip, const CoreCoord core);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return

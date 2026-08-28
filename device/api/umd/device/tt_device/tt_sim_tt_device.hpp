@@ -42,7 +42,10 @@ public:
         bool copy_sim_binary = false,
         int num_host_mem_channels = 0,
         size_t num_chips = 1,
-        bool force_shared_bdf_mode = false);
+        bool force_shared_bdf_mode = false,
+        // Slot this chip was enumerated at, when the simulator places endpoints somewhere other
+        // than bus 0 / device chip_id. Bound before config space is read for the BARs.
+        std::optional<uint32_t> assigned_bdf = std::nullopt);
 
     ~TTSimTTDevice();
 
@@ -93,16 +96,19 @@ public:
      */
     TTSimCommunicator *get_communicator() { return communicator_.get(); }
 
-    uint32_t get_num_mmio_devices() { return communicator_->get_num_mmio_devices(); }
+    uint32_t get_num_mmio_devices(bool multi_bus_capable) {
+        return communicator_->get_num_mmio_devices(multi_bus_capable);
+    }
 
-    // Physical PCI bus id this simulator reports for the chip, read from the standard Subsystem ID
-    // field of its PCI config space at bring-up. There is no PCIe enumeration and no PCIDevice in
-    // simulation, so this is how a simulated board's placement (for UBB parts, tray + ASIC slot
-    // encoded in the bus id nibbles) reaches topology discovery.
+    // PCI bus this chip answered on during enumeration of the simulated hierarchy. Set by the code
+    // that performs that enumeration (Cluster, before the per-chip devices are built); the endpoint
+    // never reports its own position, mirroring silicon where the kernel assigns the BDF.
     //
-    // std::nullopt when the simulator does not model a board (subsystem id reads 0) and in client
-    // mode, where there is no local communicator to read config space from.
-    std::optional<uint16_t> get_reported_pci_bus_id() const { return reported_pci_bus_id_; }
+    // Consumers decode board placement from the bus id -- for UBB parts, tray and ASIC slot. Left
+    // unset for simulators enumerating a single flat bus, and in client mode.
+    void set_enumerated_pci_bus(uint16_t bus) { enumerated_pci_bus_ = bus; }
+
+    std::optional<uint16_t> get_reported_pci_bus_id() const { return enumerated_pci_bus_; }
 
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
@@ -150,6 +156,6 @@ private:
     std::unique_ptr<TTSimCommunicator> communicator_;
     ChipId chip_id_;
     uint32_t libttsim_pci_device_id;
-    std::optional<uint16_t> reported_pci_bus_id_;
+    std::optional<uint16_t> enumerated_pci_bus_;
 };
 }  // namespace tt::umd

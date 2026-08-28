@@ -530,7 +530,9 @@ Cluster::Cluster(ClusterOptions options) {
                         ttsim_device != nullptr,
                         error::RuntimeError,
                         "A .so simulator path did not create a TTSimTTDevice.");
-                    const uint32_t num_mmio_devices = ttsim_device->get_num_mmio_devices();
+                    const bool multi_bus_capable =
+                        options.topology_discovery_options.simulator_models_multiple_pci_buses;
+                    const uint32_t num_mmio_devices = ttsim_device->get_num_mmio_devices(multi_bus_capable);
                     UMD_ASSERT(
                         num_mmio_devices > 0,
                         error::RuntimeError,
@@ -544,18 +546,50 @@ Cluster::Cluster(ClusterOptions options) {
                             options.sdesc_path);
                     } else {
                         const SocDescriptor bootstrap_soc_descriptor = local_device->get_soc_descriptor();
+
+                        // Walk the simulated PCI hierarchy before tearing down the bootstrap device:
+                        // a chip's bus number is where it answers during enumeration, not something
+                        // it reports about itself (mirroring silicon, where the kernel assigns the
+                        // BDF and the endpoint is never asked). Entry i belongs to chip_id i, since
+                        // the loop below creates chips in that same enumeration order.
+                        const std::vector<TTSimCommunicator::EnumeratedEndpoint> endpoints =
+                            ttsim_device->get_communicator()->enumerate_endpoints(multi_bus_capable);
                         local_device.reset();
 
                         std::map<ChipId, std::unique_ptr<TTDevice>> local_devices;
                         for (ChipId chip_id = 0; chip_id < static_cast<ChipId>(num_mmio_devices); ++chip_id) {
+                            // Address the chip at the slot enumeration found it on. This must be
+                            // known at construction: the constructor reads config space for the
+                            // BARs, and a chip placed anywhere other than bus 0 / device chip_id
+                            // would otherwise read another device's.
+                            std::optional<uint32_t> assigned_bdf;
+                            if (static_cast<size_t>(chip_id) < endpoints.size()) {
+                                assigned_bdf = (static_cast<uint32_t>(endpoints[chip_id].bus) << 8) |
+                                               (static_cast<uint32_t>(endpoints[chip_id].device) << 3);
+                            }
                             auto device = create_simulation_tt_device(
                                 options.simulator_directory,
                                 bootstrap_soc_descriptor,
                                 chip_id,
                                 num_mmio_devices,
                                 bootstrap_host_mem_channels,
-                                /*force_shared_bdf_mode=*/true);
+                                /*force_shared_bdf_mode=*/true,
+                                assigned_bdf);
                             device->init_tt_device_for_simulation();
+                            if (static_cast<size_t>(chip_id) < endpoints.size()) {
+                                auto* sim = dynamic_cast<TTSimTTDevice*>(device.get());
+                                UMD_ASSERT(
+                                    sim != nullptr,
+                                    error::RuntimeError,
+                                    "A .so simulator path did not create a TTSimTTDevice.");
+                                // Consumers read placement out of a single bus id value: for UBB
+                                // parts tt-metal's get_ubb_id() takes the tray from (bus_id & 0xF0)
+                                // and the ASIC slot from (bus_id & 0x0F). Enumeration yields those
+                                // as two separate fields -- the bus answered on, and the device
+                                // number within it -- so recompose them here. Dropping the device
+                                // number would leave every chip at ASIC slot 0.
+                                sim->set_enumerated_pci_bus(endpoints[chip_id].compose_bus_id());
+                            }
                             local_devices.emplace(chip_id, std::move(device));
                         }
                         std::tie(cluster_desc, tt_devices) = TopologyDiscovery::discover_from_local_devices(

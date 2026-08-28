@@ -5,8 +5,10 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
 
@@ -42,6 +44,7 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     ChipId chip_id,
     size_t num_chips,
     int num_host_mem_channels = 0,
-    bool force_shared_bdf_mode = false);
+    bool force_shared_bdf_mode = false,
+    std::optional<uint32_t> assigned_bdf = std::nullopt);
 
 }  // namespace tt::umd

@@ -101,7 +101,8 @@ TTSimTTDevice::TTSimTTDevice(
     bool copy_sim_binary,
     int num_host_mem_channels,
     size_t num_chips,
-    bool force_shared_bdf_mode) :
+    bool force_shared_bdf_mode,
+    std::optional<uint32_t> assigned_bdf) :
     // Each chip gets a distinct host base derived from chip_id, so its outbound-iATU DMA routes to its
     // own host window by address (see configure_iatu_region / SimulationSysmemManager).
     SimulationTTDevice(
@@ -128,6 +129,12 @@ TTSimTTDevice::TTSimTTDevice(
     // consumers (e.g. tt-exalens constructing a SocDescriptor from the device) see the wrong arch.
     arch = soc_descriptor.arch;
     architecture_impl_ = ArchitectureImplementation::create(soc_descriptor.arch);
+    // Bind the communicator to this chip's enumerated slot before setup_() runs: initialize_backend()
+    // reads config space for the BARs, and that has to address the slot the chip actually occupies.
+    // Unset means the simulator lays chips out at bus 0 / device chip_id, the legacy addressing.
+    if (assigned_bdf.has_value()) {
+        communicator_->set_assigned_bdf(*assigned_bdf);
+    }
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
@@ -140,8 +147,24 @@ void TTSimTTDevice::initialize_backend() {
     communicator_->start_sim();
     // Read the PCI ID (first 32 bits of PCI config space).
     uint32_t pci_id = communicator_->pci_config_read32(0, 0);
+    if ((pci_id & 0xFFFF) == 0xFFFF) {
+        // The slot this device assumed is empty. A simulator that places endpoints by physical
+        // position need not populate bus 0 device 0 -- a UBB layout starts ASIC slots at device 1 --
+        // so bind to the first slot that actually answers instead of failing the vendor check.
+        // Enumeration later assigns each chip its own slot; this only needs to find a live one to
+        // bootstrap from.
+        for (const auto &endpoint : communicator_->enumerate_endpoints(/*multi_bus_capable=*/false)) {
+            const uint32_t bdf = (static_cast<uint32_t>(endpoint.bus) << 8) |
+                                 (static_cast<uint32_t>(endpoint.device) << 3);
+            communicator_->set_assigned_bdf(bdf);
+            pci_id = communicator_->pci_config_read32(0, 0);
+            if ((pci_id & 0xFFFF) != 0xFFFF) {
+                break;
+            }
+        }
+    }
     uint32_t vendor_id = pci_id & 0xFFFF;
-    libttsim_pci_device_id = communicator_->pci_config_read32(0, 0) >> 16;
+    libttsim_pci_device_id = pci_id >> 16;
     log_info(
         tt::LogEmulationDriver,
         "TTSimTTDevice chip_id={} PCI vendor_id=0x{:x} device_id=0x{:x}",
@@ -150,25 +173,6 @@ void TTSimTTDevice::initialize_backend() {
         libttsim_pci_device_id);
     UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
 
-    // Physical PCI bus id, reported through the standard Subsystem ID field (config offset 0x2C,
-    // upper 16 bits). On silicon UMD gets pci_bus from the kernel's PCIe enumeration; there is no
-    // enumeration here and no PCIDevice to read, so a simulator that models a physical board
-    // reports it via the subsystem id -- the conventional home for board/variant identity.
-    //
-    // This matters for UBB parts, where consumers decode board placement (tray + ASIC slot) from
-    // the bus id nibbles. Without it every chip resolves to tray 0 / ASIC 0.
-    //
-    // 0 means "not reported" (the field reads 0 on simulators that do not model a board), so those
-    // targets keep the previous behavior of contributing no bus id at all.
-    const uint32_t subsystem = communicator_->pci_config_read32(0, 0x2C) >> 16;
-    if (subsystem != 0) {
-        reported_pci_bus_id_ = static_cast<uint16_t>(subsystem);
-        log_info(
-            tt::LogEmulationDriver,
-            "TTSimTTDevice chip_id={} reported PCI bus id=0x{:x} (from subsystem id)",
-            chip_id_,
-            subsystem);
-    }
 
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {

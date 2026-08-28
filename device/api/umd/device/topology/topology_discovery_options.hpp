@@ -95,5 +95,19 @@ struct TopologyDiscoveryOptions {
      * Defaults to false.
      */
     bool use_safe_api = false;
+
+    /**
+     * @brief Simulation only: whether the loaded simulator models more than one PCI bus.
+     *
+     * When true, PCI enumeration probes every bus, so a simulated chip's bus number comes from the
+     * slot it answers on -- the same way a kernel derives it on silicon, rather than the endpoint
+     * reporting its own position.
+     *
+     * Set false for simulators that fault on a non-zero bus field in the BDF instead of reporting
+     * an empty slot; such a fault is a process abort, not a catchable exception, so probing beyond
+     * bus 0 against those builds is fatal. With false, only bus 0 is scanned.
+     * Defaults to true, matching simulators that model a full PCI hierarchy.
+     */
+    bool simulator_models_multiple_pci_buses = true;
 };
 }  // namespace tt::umd

@@ -26,7 +26,8 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
     ChipId chip_id,
     size_t num_chips,
     int num_host_mem_channels,
-    bool force_shared_bdf_mode) {
+    bool force_shared_bdf_mode,
+    std::optional<uint32_t> assigned_bdf) {
     if (simulator_directory.extension() == ".so") {
         return std::make_unique<TTSimTTDevice>(
             simulator_directory,
@@ -35,7 +36,8 @@ std::unique_ptr<TTDevice> create_simulation_tt_device(
             num_chips > 1,
             num_host_mem_channels,
             num_chips,
-            force_shared_bdf_mode);
+            force_shared_bdf_mode,
+            assigned_bdf);
     }
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation device");
     return std::make_unique<RtlSimulationTTDevice>(simulator_directory, soc_descriptor, chip_id, num_host_mem_channels);

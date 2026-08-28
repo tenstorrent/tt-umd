@@ -11,6 +11,8 @@
 #include <filesystem>
 #include <functional>
 #include <mutex>
+#include <optional>
+#include <vector>
 
 namespace tt::umd {
 
@@ -111,8 +113,47 @@ public:
      */
     uint32_t pci_config_read32(uint32_t bus_device_function, uint32_t offset);
 
-    // Enumerate consecutive host-visible PCI functions exposed by the loaded simulator.
-    uint32_t get_num_mmio_devices();
+    // Count the host-visible PCI endpoints the loaded simulator exposes. See enumerate_endpoints()
+    // for what multi_bus_capable controls; this counts exactly the slots that walk finds.
+    uint32_t get_num_mmio_devices(bool multi_bus_capable);
+
+    // One populated slot in the simulated PCI hierarchy.
+    struct EnumeratedEndpoint {
+        uint16_t bus;
+        uint8_t device;
+
+        // Placement as a single bus id, the form consumers expect. tt-metal's get_ubb_id() reads
+        // the tray from the high nibble and the ASIC slot from the low nibble of one value, so a
+        // simulator that puts tray N on bus tray_prefix[N] and ASIC slot M at device M composes
+        // back to the bus id real hardware reports for that slot.
+        uint16_t compose_bus_id() const { return static_cast<uint16_t>((bus & 0xF0) | (device & 0x0F)); }
+    };
+
+    /**
+     * Walk the simulated PCI hierarchy and report which (bus, device) slots are populated, in
+     * enumeration order. Entry i corresponds to the chip UMD creates as chip_id i.
+     *
+     * This is how a simulated chip's bus number is determined: by *where it answers*, never by the
+     * endpoint reporting its own position. That mirrors silicon, where the kernel assigns the BDF
+     * while walking the hierarchy and the endpoint is never asked -- UMD then reads the result back
+     * from the KMD rather than probing config space itself.
+     *
+     * @param multi_bus_capable Whether the loaded simulator models more than one PCI bus. Must be
+     *   false for simulators that abort on a non-zero bus field in the BDF rather than reporting an
+     *   empty slot -- that abort is fatal and uncatchable, so probing past bus 0 against such a
+     *   build kills the process. When false, only bus 0 is scanned.
+     */
+    std::vector<EnumeratedEndpoint> enumerate_endpoints(bool multi_bus_capable) const;
+
+    /**
+     * Bind this communicator to the slot enumeration found its chip at, so per-chip config reads
+     * address the device where it actually lives rather than assuming bus 0 / device chip_id.
+     *
+     * Must be set before the chip's config space is read (BAR discovery at bring-up) whenever the
+     * simulator places endpoints anywhere other than bus 0 device chip_id. Left unset, the legacy
+     * bus 0 / device chip_id addressing is used.
+     */
+    void set_assigned_bdf(uint32_t bdf) { assigned_bdf_ = bdf; }
 
     /**
      * Advance the simulator clock.
@@ -214,6 +255,10 @@ private:
     bool uses_shared_handle() const { return multichip_mode_ || shared_bdf_mode_; }
 
     uint32_t chip_id_ = 0;
+
+    // Slot (as a BDF) that enumeration found this chip at. Unset until assigned, in which case
+    // config reads fall back to the legacy bus 0 / device chip_id addressing.
+    std::optional<uint32_t> assigned_bdf_;
     uint32_t num_chips_ = 1;
     bool force_shared_bdf_mode_ = false;
     static void *s_shared_handle_;

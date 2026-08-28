@@ -360,7 +360,15 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     // its BDF (device field = chip_id), so each chip reads its own per-device BAR bases.
     // Callers pass bus_device_function 0 ("this device"); we fill in the device field.
     uint32_t bdf = bus_device_function;
-    if (shared_bdf_mode_) {
+    if (assigned_bdf_.has_value()) {
+        // An explicit slot was assigned (by enumeration, or by bring-up locating a live one). It
+        // need not be bus 0 / device chip_id: a simulator that places endpoints by physical position
+        // puts them wherever that position maps to, and may leave device 0 empty. Address the chip
+        // where it actually lives, or these reads return another device's registers. Honored in
+        // every mode, since a caller that knows the slot is always more authoritative than the
+        // chip_id-derived guess below.
+        bdf |= *assigned_bdf_;
+    } else if (shared_bdf_mode_) {
         // BDF: function[2:0], device[7:3], bus[15:8]. The device field is only 5 bits, so chip_id >= 32
         // would silently overflow into the bus field and misroute. Fail loudly instead.
         UMD_ASSERT(chip_id_ < 32, error::RuntimeError, "BDF device field is 5 bits; chip_id must be < 32 in BDF mode.");
@@ -370,17 +378,53 @@ uint32_t TTSimCommunicator::pci_config_read32(uint32_t bus_device_function, uint
     return pfn_libttsim_pci_config_rd32_(bdf, offset);
 }
 
-uint32_t TTSimCommunicator::get_num_mmio_devices() {
+uint32_t TTSimCommunicator::get_num_mmio_devices(bool multi_bus_capable) {
+    // Counting is just enumeration without keeping the slots, so share the walk rather than
+    // duplicating the probe rules. Note this must not stop at the first empty slot: once a
+    // simulator places endpoints at placement-derived BDFs, low slots (including 00:00.0) can
+    // legitimately be empty while later ones are populated, so scan the whole space and count hits.
+    return static_cast<uint32_t>(enumerate_endpoints(multi_bus_capable).size());
+}
+
+// Enumerate the simulated PCI hierarchy the way a host does: probe each (bus, device) and treat an
+// all-ones vendor/device read as an unpopulated slot. A device's bus number is therefore *where it
+// answered*, never something the endpoint reports about itself -- matching silicon, where the BDF is
+// assigned by the kernel walking the hierarchy and programming bridge Secondary/Subordinate Bus
+// Number registers, and the endpoint is never asked.
+//
+// Returns one entry per populated slot, in enumeration order, so entry i describes the chip that
+// UMD creates as chip_id i (cluster.cpp creates chips 0..num_mmio_devices-1 in this same order).
+//
+// IMPORTANT -- why the bus sweep is opt-in rather than unconditional: a simulator that models only
+// bus 0 is not required to report an empty slot for a non-zero bus. Such builds *abort the process*
+// ("ERROR: UndefinedBehavior: libttsim_pci_config_rd32: bus_device_function=0x100") instead of
+// returning all-ones, and that is a hard abort, not a C++ exception, so it cannot be caught or
+// probed for. Sweeping past bus 0 unconditionally would kill every run against them. The caller
+// therefore states the simulator's capability via multi_bus_capable; when false only bus 0 is
+// scanned, and every endpoint reports bus 0 as it did before this walk existed.
+std::vector<TTSimCommunicator::EnumeratedEndpoint> TTSimCommunicator::enumerate_endpoints(
+    bool multi_bus_capable) const {
     std::lock_guard<std::mutex> lock(device_lock_);
-    uint32_t count = 0;
-    for (uint32_t device = 0; device < 32; ++device) {
-        const uint32_t bdf = device << 3;
-        if (pfn_libttsim_pci_config_rd32_(bdf, 0) == 0xFFFFFFFFu) {
-            break;
-        }
-        ++count;
+    std::vector<EnumeratedEndpoint> endpoints;
+    if (pfn_libttsim_pci_config_rd32_ == nullptr) {
+        return endpoints;
     }
-    return count;
+
+    const uint32_t bus_limit = multi_bus_capable ? 256u : 1u;
+    for (uint32_t bus = 0; bus < bus_limit; ++bus) {
+        for (uint32_t device = 0; device < 32; ++device) {
+            const uint32_t bdf = (bus << 8) | (device << 3);
+            const uint32_t vendor_device = pfn_libttsim_pci_config_rd32_(bdf, 0);
+            // All-ones is the architected "no device here" response; 0 is treated the same way
+            // because a simulator that zero-fills unmodelled config space would otherwise look
+            // populated at every slot.
+            if (vendor_device == 0xFFFFFFFFu || vendor_device == 0) {
+                continue;
+            }
+            endpoints.push_back(EnumeratedEndpoint{static_cast<uint16_t>(bus), static_cast<uint8_t>(device)});
+        }
+    }
+    return endpoints;
 }
 
 void TTSimCommunicator::advance_clock(uint32_t n_clocks) {

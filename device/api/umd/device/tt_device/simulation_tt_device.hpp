@@ -64,12 +64,12 @@ public:
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
     bool get_noc_translation_enabled() override;
-    void dma_multicast_write(
-        void* src,
+    void dma_write_to_core_range(
+        const void* src,
+        uint64_t dst_addr,
         size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
-        uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void noc_multicast_write(
@@ -89,14 +89,16 @@ public:
 
 protected:
     SimulationTTDevice(
-        const std::filesystem::path& simulator_directory, std::unique_ptr<SimulationSysmemManager> sysmem_manager);
+        std::unique_ptr<TTDeviceModel> model,
+        const std::filesystem::path& simulator_directory,
+        std::unique_ptr<SimulationSysmemManager> sysmem_manager);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
     // Client-mode constructor: the device does not own a local simulator, so it has no simulator
     // directory or sysmem manager -- those live on the remote host reached over the socket. Takes
     // the client here so client_ is initialized through the base, not written by each derived ctor.
-    explicit SimulationTTDevice(std::unique_ptr<SimulationClient> client);
+    SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client);
 
     // Attach to / detach from the remote host in client mode. Both derived devices drive their
     // client-mode lifecycle (setup_/teardown_) through these rather than touching client_ directly.

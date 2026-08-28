@@ -1,4 +1,5 @@
 set(BAREMETAL_TESTS_SRCS
+    test_architecture_tlbs.cpp
     test_cluster_descriptor_offline.cpp
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
@@ -8,8 +9,6 @@ set(BAREMETAL_TESTS_SRCS
     test_long_jump.cpp
     test_notification_mechanism.cpp
     test_cluster.cpp
-    # BlackholeArcApb and BlackholeArcMessageQueue take only protocol interfaces, so they are
-    # verified against mocks with no card and no simulation build.
     test_blackhole_arc_apb.cpp
     test_blackhole_arc_message_queue.cpp
     # SimulationServerSocket and SimulationClient have no simulation deps (always compiled), so
@@ -17,6 +16,9 @@ set(BAREMETAL_TESTS_SRCS
     test_simulation_server_socket.cpp
     test_simulation_client.cpp
     test_simulation_server_transport.cpp
+    # WormholeArcWindow takes only protocol interfaces, so it is verified against mocks with no
+    # card and no simulation build.
+    test_wormhole_arc_window.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})

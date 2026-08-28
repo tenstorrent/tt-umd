@@ -9,16 +9,16 @@
 #include <unordered_set>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
-class TTDevice;
+class DeviceProtocol;
 
 class SmBusArcTelemetryReader : public ArcTelemetryReader {
 public:
-    SmBusArcTelemetryReader(TTDevice* tt_device);
+    SmBusArcTelemetryReader(
+        DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1);
 
     uint32_t read_entry(const uint8_t telemetry_tag, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override;
 
@@ -35,7 +35,7 @@ protected:
     void get_telemetry_address() override;
 
 private:
-    uint64_t telemetry_base_noc_addr;
+    static constexpr uint64_t SMBUS_TELEMETRY_NOC_ADDR = 0x820078d60;
 };
 
 }  // namespace tt::umd

@@ -22,7 +22,6 @@
 #include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
-#include <tuple>
 #include <vector>
 
 #include "cpuset_lib.hpp"
@@ -154,7 +153,7 @@ void SiliconSysmemManager::unpin_or_unmap_sysmem() {
     } else {
         for (int ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
             auto &hugepage_mapping = hugepage_mapping_per_channel[ch];
-            if (hugepage_mapping.physical_address && pci_device_->is_mapping_buffer_to_noc_supported()) {
+            if (hugepage_mapping.physical_address) {
                 // This will unmap the hugepage if it was mapped through kmd.
                 // This is a hack for the 4th hugepage channel which is limited to 768MB.
                 size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
@@ -290,26 +289,19 @@ bool SiliconSysmemManager::pin_or_map_hugepages() {
         size_t actual_size = (pci_device_->get_arch() == tt::ARCH::WORMHOLE_B0 && ch == 3)
                                  ? HUGEPAGE_CHANNEL_3_SIZE_LIMIT
                                  : hugepage_size;
-        bool map_buffer_to_noc = pci_device_->is_mapping_buffer_to_noc_supported();
-        uint64_t physical_address;
-        uint64_t noc_address;
-        if (map_buffer_to_noc) {
-            std::tie(noc_address, physical_address) = pci_device_->map_hugepage_to_noc(mapping, actual_size);
-            uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
+        auto [noc_address, physical_address] = pci_device_->map_hugepage_to_noc(mapping, actual_size);
+        uint64_t expected_noc_address = pcie_base_ + (ch * hugepage_size);
 
-            log_debug(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
-            // Note that the truncated page is the final one, so there is no need to
-            // give expected_noc_address special treatment for a subsequent page.
-            if (noc_address != expected_noc_address) {
-                log_warning(
-                    LogUMD,
-                    "NOC address of a hugepage does not match the expected address. This usually means another "
-                    "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
-                    "process from a previous run). To fix this, find and kill the other processes using the "
-                    "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
-            }
-        } else {
-            physical_address = pci_device_->map_for_hugepage(mapping, actual_size);
+        log_debug(LogUMD, "Mapped hugepage {:#x} to NOC address {:#x}", physical_address, noc_address);
+        // Note that the truncated page is the final one, so there is no need to
+        // give expected_noc_address special treatment for a subsequent page.
+        if (noc_address != expected_noc_address) {
+            log_warning(
+                LogUMD,
+                "NOC address of a hugepage does not match the expected address. This usually means another "
+                "process is already holding the sysmem NOC address space UMD requires (often a stale or crashed "
+                "process from a previous run). To fix this, find and kill the other processes using the "
+                "Tenstorrent device(s), then retry. Proceeding could lead to undefined behavior.");
         }
 
         if (physical_address == 0) {
@@ -394,17 +386,15 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
         return true;
     }
 
-    bool map_buffer_to_noc = pci_device_->is_mapping_buffer_to_noc_supported();
-
-    sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, map_buffer_to_noc);
+    sysmem_buffer_ = map_sysmem_buffer(iommu_mapping, iommu_mapping_size, true);
     uint64_t iova = sysmem_buffer_->get_device_io_addr();
     auto noc_address = sysmem_buffer_->get_noc_addr();
 
-    if (map_buffer_to_noc && !noc_address.has_value()) {
+    if (!noc_address.has_value()) {
         UMD_THROW(error::RuntimeError, "NOC address is not set for sysmem buffer.");
     }
 
-    if (map_buffer_to_noc && (*noc_address != pcie_base_)) {
+    if (*noc_address != pcie_base_) {
         // If this happens, it means that something else is using the address
         // space that UMD typically uses.  Historically, this would have crashed
         // or done something inscrutable.  Now it is just an error.
@@ -427,11 +417,7 @@ bool SiliconSysmemManager::pin_or_map_iommu() {
             "lead to undefined behavior");
     }
 
-    if (map_buffer_to_noc) {
-        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
-    } else {
-        log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}", iova);
-    }
+    log_debug(LogUMD, "Mapped sysmem via IOMMU to IOVA {:#x}; NOC address {:#x}", iova, *noc_address);
 
     for (size_t ch = 0; ch < hugepage_mapping_per_channel.size(); ch++) {
         uint64_t device_io_address = iova + ch * HUGEPAGE_REGION_SIZE;

@@ -12,14 +12,15 @@
 #include <thread>
 #include <vector>
 
+#include "noc_access.hpp"
 #include "tt-logger/tt-logger.hpp"
 #include "umd/device/arc/blackhole_arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arc/wormhole_arc_telemetry_reader.hpp"
-#include "umd/device/firmware/firmware_utils.hpp"
-#include "umd/device/tt_device/tt_device.hpp"
+#include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/wormhole_telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
 #include "utils.hpp"
@@ -28,27 +29,35 @@ namespace tt::umd {
 
 static constexpr FirmwareBundleVersion FW_NEW_TELEMETRY = FirmwareBundleVersion(18, 4, 0);
 
-ArcTelemetryReader::ArcTelemetryReader(TTDevice* tt_device) : tt_device(tt_device) {}
+ArcTelemetryReader::ArcTelemetryReader(
+    DeviceProtocol* device_protocol, const tt_xy_pair arc_core_noc0, const tt_xy_pair arc_core_noc1) :
+    device_protocol(device_protocol), arc_core_noc0(arc_core_noc0), arc_core_noc1(arc_core_noc1) {}
+
+tt_xy_pair ArcTelemetryReader::get_arc_core(NocId noc_id) const {
+    return noc_id == NocId::NOC1 ? arc_core_noc1 : arc_core_noc0;
+}
 
 std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_reader(
-    TTDevice* tt_device, std::chrono::milliseconds timeout_ms) {
+    DeviceProtocol* device_protocol,
+    const tt::ARCH arch,
+    const tt_xy_pair arc_core_noc0,
+    const tt_xy_pair arc_core_noc1) {
     std::unique_ptr<ArcTelemetryReader> reader;
-    switch (tt_device->get_arch()) {
+    switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            FirmwareBundleVersion fw_bundle_version = get_firmware_version_util(tt_device);
+            reader = std::make_unique<SmBusArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
+            FirmwareBundleVersion fw_bundle_version = FirmwareBundleVersion::from_firmware_bundle_tag(
+                reader->read_entry(wormhole::LegacyTelemetryTag::FW_BUNDLE_VERSION));
 
-            if (fw_bundle_version >= FW_NEW_TELEMETRY) {
-                log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
-                reader = std::make_unique<WormholeArcTelemetryReader>(tt_device);
-            } else {
-                log_debug(tt::LogUMD, "Creating old-style telemetry reader.");
-                reader = std::make_unique<SmBusArcTelemetryReader>(tt_device);
+            if (fw_bundle_version < FW_NEW_TELEMETRY) {
+                return reader;
             }
+
+            reader = std::make_unique<WormholeArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
             break;
         }
         case tt::ARCH::BLACKHOLE:
-            log_debug(tt::LogUMD, "Creating new-style telemetry reader.");
-            reader = std::make_unique<BlackholeArcTelemetryReader>(tt_device);
+            reader = std::make_unique<BlackholeArcTelemetryReader>(device_protocol, arc_core_noc0, arc_core_noc1);
             break;
         default:
             UMD_THROW(error::RuntimeError, "Unsupported architecture for creating ArcTelemetryReader.");
@@ -57,31 +66,43 @@ std::unique_ptr<ArcTelemetryReader> ArcTelemetryReader::create_arc_telemetry_rea
 }
 
 void ArcTelemetryReader::initialize_telemetry() {
-    tt_device->read_from_device(
-        &entry_count, arc_core, telemetry_table_addr + sizeof(uint32_t), sizeof(uint32_t), get_selected_noc_id());
+    device_protocol->read_data(
+        &entry_count,
+        get_arc_core(get_selected_noc_id()),
+        telemetry_table_addr + sizeof(uint32_t),
+        sizeof(uint32_t),
+        get_selected_noc_id());
 
     // We offset the tag_table_address by 2 * sizeof(uint32_t) to skip the first two uint32_t values,
     // which are version and entry count. For representaiton look at telemetry.h
     uint64_t tag_table_address = telemetry_table_addr + 2 * sizeof(uint32_t);
     std::vector<TelemetryTagEntry> telemetry_tag_entries(entry_count);
-    tt_device->read_from_device(
+    device_protocol->read_data(
         telemetry_tag_entries.data(),
-        arc_core,
+        get_arc_core(get_selected_noc_id()),
         tag_table_address,
         entry_count * sizeof(TelemetryTagEntry),
         get_selected_noc_id());
 
     std::vector<uint32_t> telemetry_data(entry_count);
-    tt_device->read_from_device(
-        telemetry_data.data(), arc_core, telemetry_values_addr, entry_count * sizeof(uint32_t), get_selected_noc_id());
+    device_protocol->read_data(
+        telemetry_data.data(),
+        get_arc_core(get_selected_noc_id()),
+        telemetry_values_addr,
+        entry_count * sizeof(uint32_t),
+        get_selected_noc_id());
 
     for (uint32_t i = 0; i < entry_count; ++i) {
         uint32_t tag_offset;
         // + 8 is to skip first 2 numbers representing version and entry count.
         // 4 * i is to get to the i-th entry in the tag table where each entry is 4 bytes big.
         // Looking at layout in arc_telemetry_reader.h for reference.
-        tt_device->read_from_device(
-            &tag_offset, arc_core, telemetry_table_addr + 8 + 4 * i, sizeof(uint32_t), get_selected_noc_id());
+        device_protocol->read_data(
+            &tag_offset,
+            get_arc_core(get_selected_noc_id()),
+            telemetry_table_addr + 8 + 4 * i,
+            sizeof(uint32_t),
+            get_selected_noc_id());
 
         const uint16_t tag_val = tag_offset & 0xFFFF;
         const uint16_t offset_val = tag_offset >> 16;
@@ -107,9 +128,9 @@ uint32_t ArcTelemetryReader::read_entry(const uint8_t telemetry_tag, NocId noc_i
 
     const uint32_t offset = telemetry_offset.at(telemetry_tag);
     uint32_t telemetry_val;
-    tt_device->read_from_device(
+    device_protocol->read_data(
         &telemetry_val,
-        arc_core,
+        get_arc_core(get_selected_noc_id()),
         telemetry_values_addr + offset * sizeof(uint32_t),
         sizeof(uint32_t),
         get_selected_noc_id());

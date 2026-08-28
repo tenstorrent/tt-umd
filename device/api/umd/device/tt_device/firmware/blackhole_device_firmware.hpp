@@ -26,7 +26,7 @@ class DeviceProtocol;
 class FirmwareInfoProvider;
 class JtagInterface;
 class PcieInterface;
-class architecture_implementation;
+class ArchitectureImplementation;
 
 /**
  * @brief Blackhole management firmware implementation.
@@ -37,7 +37,7 @@ public:
         DeviceProtocol* device_protocol,
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
-        architecture_implementation* architecture_impl,
+        ArchitectureImplementation* architecture_impl,
         FirmwareInfoProvider* firmware_info_provider,
         FirmwareTelemetryReader* firmware_telemetry_reader);
 
@@ -93,7 +93,7 @@ private:
     DeviceProtocol* device_protocol_ = nullptr;
     PcieInterface* pcie_interface_ = nullptr;
     JtagInterface* jtag_interface_ = nullptr;
-    architecture_implementation* architecture_impl_ = nullptr;
+    ArchitectureImplementation* architecture_impl_ = nullptr;
     FirmwareInfoProvider* firmware_info_provider_ = nullptr;
     FirmwareTelemetryReader* firmware_telemetry_reader_ = nullptr;
 

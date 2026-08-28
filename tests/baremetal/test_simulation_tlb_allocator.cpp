@@ -8,7 +8,6 @@
 #include <memory>
 #include <unordered_set>
 
-#include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
 #include "umd/device/types/arch.hpp"
 
@@ -23,8 +22,7 @@ constexpr uint64_t TEST_BAR0_BASE = 0x10000000ULL;
 }  // namespace
 
 TEST(SimulationTlbAllocator, WormholeBasicAllocateAndDeallocate) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     int idx = allocator.allocate_tlb_index(0x100000);
     ASSERT_NE(idx, -1);
@@ -41,8 +39,7 @@ TEST(SimulationTlbAllocator, WormholeBasicAllocateAndDeallocate) {
 }
 
 TEST(SimulationTlbAllocator, WormholeAllocateEachSizeClass) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     int idx_1mb = allocator.allocate_tlb_index(0x100000);
     ASSERT_NE(idx_1mb, -1);
@@ -58,8 +55,7 @@ TEST(SimulationTlbAllocator, WormholeAllocateEachSizeClass) {
 }
 
 TEST(SimulationTlbAllocator, WormholeAllocateZeroPicksSmallest) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     int idx = allocator.allocate_tlb_index(0);
     ASSERT_NE(idx, -1);
@@ -68,8 +64,7 @@ TEST(SimulationTlbAllocator, WormholeAllocateZeroPicksSmallest) {
 }
 
 TEST(SimulationTlbAllocator, WormholeAllocateZeroFallsBackWhenSmallestClassExhausted) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     // Drain the 1MB pool entirely (Wormhole has 156 1MB TLBs).
     for (size_t i = 0; i < 156; ++i) {
@@ -83,8 +78,7 @@ TEST(SimulationTlbAllocator, WormholeAllocateZeroFallsBackWhenSmallestClassExhau
 }
 
 TEST(SimulationTlbAllocator, WormholeIndicesAreUniqueWithinSizeClass) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     std::unordered_set<int> seen_indices;
     seen_indices.reserve(156);
@@ -97,8 +91,7 @@ TEST(SimulationTlbAllocator, WormholeIndicesAreUniqueWithinSizeClass) {
 }
 
 TEST(SimulationTlbAllocator, WormholeFallsBackToLargerSizeClassWhenExhausted) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     // Drain the 1MB pool entirely (Wormhole has 156 1MB TLBs).
     for (size_t i = 0; i < 156; ++i) {
@@ -112,8 +105,7 @@ TEST(SimulationTlbAllocator, WormholeFallsBackToLargerSizeClassWhenExhausted) {
 }
 
 TEST(SimulationTlbAllocator, WormholeReturnsNegativeOneWhenAllPoolsExhausted) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     // Exhaust every size class. allocate_tlb_index(0) picks any available TLB.
     while (allocator.allocate_tlb_index(0) != -1) {
@@ -125,8 +117,7 @@ TEST(SimulationTlbAllocator, WormholeReturnsNegativeOneWhenAllPoolsExhausted) {
 }
 
 TEST(SimulationTlbAllocator, WormholeAddressFromIndex) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     // Wormhole layout from BAR0 base 0x10000000:
     //   indices   0..155: 156 x 1MB  (0x10000000 .. 0x19BFFFFF)
@@ -139,8 +130,7 @@ TEST(SimulationTlbAllocator, WormholeAddressFromIndex) {
 }
 
 TEST(SimulationTlbAllocator, WormholeRegAddressFromIndex) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     // TLB config registers start at BAR0+0x1FC00000 with 8-byte stride on Wormhole.
     EXPECT_EQ(allocator.get_tlb_reg_address_from_index(0), 0x2FC00000ULL);
@@ -148,8 +138,7 @@ TEST(SimulationTlbAllocator, WormholeRegAddressFromIndex) {
 }
 
 TEST(SimulationTlbAllocator, BlackholeBasicAllocate) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::BLACKHOLE);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::BLACKHOLE);
 
     int idx = allocator.allocate_tlb_index(0x200000);
     ASSERT_NE(idx, -1);
@@ -159,8 +148,7 @@ TEST(SimulationTlbAllocator, BlackholeBasicAllocate) {
 }
 
 TEST(SimulationTlbAllocator, BlackholeAddressFromIndex) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::BLACKHOLE);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::BLACKHOLE);
 
     // Blackhole layout from BAR0 base 0x10000000:
     //   indices 0..201: 202 x 2MB (0x10000000 .. 0x291FFFFF)
@@ -169,8 +157,7 @@ TEST(SimulationTlbAllocator, BlackholeAddressFromIndex) {
 }
 
 TEST(SimulationTlbAllocator, BlackholeRegAddressFromIndex) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::BLACKHOLE);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::BLACKHOLE);
 
     // TLB config registers start at BAR0+0x1FC00000 with 12-byte stride on Blackhole.
     EXPECT_EQ(allocator.get_tlb_reg_address_from_index(0), 0x2FC00000ULL);
@@ -178,8 +165,7 @@ TEST(SimulationTlbAllocator, BlackholeRegAddressFromIndex) {
 }
 
 TEST(SimulationTlbAllocator, GettersThrowOnInvalidIndex) {
-    auto arch_impl = architecture_implementation::create(tt::ARCH::WORMHOLE_B0);
-    SimulationTlbAllocator allocator(TEST_BAR0_BASE, arch_impl.get());
+    SimulationTlbAllocator allocator(TEST_BAR0_BASE, tt::ARCH::WORMHOLE_B0);
 
     // Negative indices are rejected.
     EXPECT_THROW(allocator.get_tlb_size_from_index(-1), std::exception);

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "common.hpp"
+#include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
@@ -24,23 +25,6 @@
 #include "umd/device/types/tlb.hpp"
 
 using namespace tt::umd;
-
-// Helper function to get TLB count for a given size from architecture.
-uint32_t get_tlb_count_for_size(architecture_implementation* arch_impl, size_t tlb_size) {
-    static constexpr size_t one_mb = 1 << 20;
-    static constexpr size_t one_gb = 1 << 30;
-
-    if (tlb_size == 1 * one_mb) {
-        return arch_impl->get_tlb_1m_base_and_count().second;
-    } else if (tlb_size == 2 * one_mb) {
-        return arch_impl->get_tlb_2m_base_and_count().second;
-    } else if (tlb_size == 16 * one_mb) {
-        return arch_impl->get_tlb_16m_base_and_count().second;
-    } else if (tlb_size == 4ULL * one_gb) {
-        return arch_impl->get_tlb_4g_base_and_count().second;
-    }
-    return 0;
-}
 
 int main(int argc, char* argv[]) {
     cxxopts::Options options("tlb_virus", "Allocate TLBs in an infinite loop until failure for all sizes.");
@@ -64,9 +48,7 @@ int main(int argc, char* argv[]) {
             tt_device->init_tt_device();
             tt::ARCH arch = tt_device->get_arch();
             auto pci_device = tt_device->get_pci_device();
-            auto arch_impl = tt_device->get_architecture_implementation();
-
-            const std::vector<size_t>& tlb_sizes = arch_impl->get_tlb_sizes();
+            const std::vector<TlbSizeClass>& tlb_size_classes = get_architecture_tlbs(arch).size_classes;
 
             log_info(
                 tt::LogUMD,
@@ -74,21 +56,22 @@ int main(int argc, char* argv[]) {
                 pci_device_id,
                 tt::arch_to_str(arch));
 
-            // Fetch and log TLB counts per size for this architecture.
-            for (size_t tlb_size : tlb_sizes) {
-                uint32_t total_count = get_tlb_count_for_size(arch_impl, tlb_size);
-                // Initialize tracking for this device and size.
-                tlb_allocation_summary[pci_device_id][tlb_size] = {0, total_count};
+            // Initialize tracking for this device, per window size.
+            for (const TlbSizeClass& size_class : tlb_size_classes) {
+                tlb_allocation_summary[pci_device_id][size_class.size] = {0, size_class.count};
             }
 
-            for (size_t tlb_size : tlb_sizes) {
+            for (const TlbSizeClass& size_class : tlb_size_classes) {
+                const size_t tlb_size = size_class.size;
                 int total_allocated = 0;
                 log_info(tt::LogUMD, "Testing TLB size: {} bytes", tlb_size);
 
                 while (true) {
                     try {
                         auto tlb_handle = pci_device->allocate_tlb(tlb_size, TlbMapping::WC);
-                        log_info(
+                        // One line per allocated TLB, and the loop deliberately allocates until it
+                        // fails; the per-size summary below reports the counts that matter.
+                        log_debug(
                             tt::LogUMD, "Allocated TLB id: {} of size {} bytes", tlb_handle->get_tlb_id(), tlb_size);
                         allocated_tlbs.emplace_back(std::move(tlb_handle));
                         total_allocated++;

@@ -150,6 +150,26 @@ void TTSimTTDevice::initialize_backend() {
         libttsim_pci_device_id);
     UMD_ASSERT(vendor_id == 0x1E52, error::RuntimeError, "Unexpected PCI vendor ID.");
 
+    // Physical PCI bus id, reported through the standard Subsystem ID field (config offset 0x2C,
+    // upper 16 bits). On silicon UMD gets pci_bus from the kernel's PCIe enumeration; there is no
+    // enumeration here and no PCIDevice to read, so a simulator that models a physical board
+    // reports it via the subsystem id -- the conventional home for board/variant identity.
+    //
+    // This matters for UBB parts, where consumers decode board placement (tray + ASIC slot) from
+    // the bus id nibbles. Without it every chip resolves to tray 0 / ASIC 0.
+    //
+    // 0 means "not reported" (the field reads 0 on simulators that do not model a board), so those
+    // targets keep the previous behavior of contributing no bus id at all.
+    const uint32_t subsystem = communicator_->pci_config_read32(0, 0x2C) >> 16;
+    if (subsystem != 0) {
+        reported_pci_bus_id_ = static_cast<uint16_t>(subsystem);
+        log_info(
+            tt::LogEmulationDriver,
+            "TTSimTTDevice chip_id={} reported PCI bus id=0x{:x} (from subsystem id)",
+            chip_id_,
+            subsystem);
+    }
+
     if ((libttsim_pci_device_id == TT_WORMHOLE_PCI_DEVICE_ID) ||
         (libttsim_pci_device_id == TT_BLACKHOLE_PCI_DEVICE_ID)) {
         // Compute physical address of BAR0 from PCI config registers.

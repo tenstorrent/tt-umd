@@ -36,6 +36,9 @@
 #include "umd/device/topology/topology_discovery_options.hpp"
 #include "umd/device/topology/topology_utils.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
+#ifdef TT_UMD_BUILD_SIMULATION
+#include "umd/device/tt_device/tt_sim_tt_device.hpp"
+#endif
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/communication_protocol.hpp"
@@ -547,6 +550,17 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             cluster_desc->chip_to_bus_id.insert(
                 {current_chip_id, tt_device->get_pci_device()->get_device_info().pci_bus});
         }
+#ifdef TT_UMD_BUILD_SIMULATION
+        else if (auto *sim_device = dynamic_cast<TTSimTTDevice *>(tt_device.get())) {
+            // No real PCIDevice, but a simulator may still model a physical PCI identity (reported
+            // through its config space at bring-up). Consumers decode board placement from the bus
+            // id -- for UBB parts, tray and ASIC slot -- so it has to reach the cluster descriptor
+            // or every chip resolves to tray 0 / ASIC 0. nullopt for simulators that model no board.
+            if (auto reported_bus_id = sim_device->get_reported_pci_bus_id(); reported_bus_id.has_value()) {
+                cluster_desc->chip_to_bus_id.insert({current_chip_id, *reported_bus_id});
+            }
+        }
+#endif
 
         if (is_using_eth_coords()) {
             if (!eth_coords.empty()) {

@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include "umd/device/chip_helpers/simulation_sysmem_manager.hpp"
 #include "umd/device/chip_helpers/simulation_tlb_allocator.hpp"
@@ -94,6 +95,15 @@ public:
 
     uint32_t get_num_mmio_devices() { return communicator_->get_num_mmio_devices(); }
 
+    // Physical PCI bus id this simulator reports for the chip, read from the standard Subsystem ID
+    // field of its PCI config space at bring-up. There is no PCIe enumeration and no PCIDevice in
+    // simulation, so this is how a simulated board's placement (for UBB parts, tray + ASIC slot
+    // encoded in the bus id nibbles) reaches topology discovery.
+    //
+    // std::nullopt when the simulator does not model a board (subsystem id reads 0) and in client
+    // mode, where there is no local communicator to read config space from.
+    std::optional<uint16_t> get_reported_pci_bus_id() const { return reported_pci_bus_id_; }
+
     uint64_t bar0_base = 0;
     uint64_t bar4_base = 0;
 
@@ -140,5 +150,6 @@ private:
     std::unique_ptr<TTSimCommunicator> communicator_;
     ChipId chip_id_;
     uint32_t libttsim_pci_device_id;
+    std::optional<uint16_t> reported_pci_bus_id_;
 };
 }  // namespace tt::umd

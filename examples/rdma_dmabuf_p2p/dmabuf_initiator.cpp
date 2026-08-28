@@ -24,8 +24,8 @@ namespace {
 struct Args {
     std::string host;
     uint16_t port = 9999;
-    // Must match dmabuf_target's --size, which defaults to the same value for the arch reasons
-    // documented there (2 MiB is the only size class valid on both Wormhole and Blackhole).
+    // Must match dmabuf_target's --size, which defaults to the same value for the reason documented
+    // there (2 MiB is the smaller of Blackhole's two TLB window size classes).
     uint64_t size = 2ull << 20;
     uint64_t iters = 100;      // number of RDMA ops of --size bytes to issue, timed as one batch
     std::string dev;           // empty = first RDMA device with an ACTIVE port

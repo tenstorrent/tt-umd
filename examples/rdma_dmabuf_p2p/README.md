@@ -12,47 +12,81 @@ the target side.
 - `dmabuf_initiator.cpp` — runs on the peer host. Registers a plain host-memory MR, connects to the
   target, brings up an RC QP, and issues `--iters` back-to-back RDMA operations, timing the batch to
   report bandwidth. Links no UMD at all.
-- `rdma_common.hpp` — the out-of-band TCP handshake and RoCEv2 GID selection shared by the two.
+- `rdma_common.hpp` — the TCP handshake, RDMA device/GID selection, RC QP bring-up and verification
+  pattern shared by the two.
+
+**Scope: Blackhole only.** This is currently intended for Blackhole Galaxy systems, and has only been
+developed and run there. Wormhole is not a supported target: nothing in the code rejects it, but none
+of it has been exercised on Wormhole and the defaults below are picked for Blackhole. Treat a Wormhole
+run as unverified.
 
 For a single-host smoke test that needs no peer and no network config, see
 `TestDmabufRdmaLoopback.ExportedDmabufIsRdmaReadable` in `tests/rdma/test_dmabuf_loopback.cpp`
 instead — it exercises the same export path over an RDMA loopback QP pair on one NIC port. It lives
-in the `rdma_tests` target, which is excluded from the default build and requires libibverbs:
+in the `rdma_tests` target, behind the same `TT_UMD_BUILD_RDMA` flag as this example:
 
 ```bash
+cmake -B build -DTT_UMD_BUILD_TESTS=ON -DTT_UMD_BUILD_RDMA=ON
 cmake --build build --target rdma_tests
 ./build/test/umd/rdma/rdma_tests
 ```
 
 ## Prerequisites (both hosts)
 
+Four separate things have to be in place. Only the first comes from a package; the rest are part of
+bringing up the NIC and the driver.
+
+### 1. Userspace RDMA libraries
+
 ```bash
-# tt-kmd version — need >= 2.10.0-rc1 for TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF
-cat /sys/module/tenstorrent/version
-
-# kernel — need >= 5.8
-uname -r
-
-# RDMA NIC present and active
-ibv_devices
-ibv_devinfo   # note the device name and port link_layer (Ethernet=RoCE vs InfiniBand)
-
-# rdma-core dev headers
 sudo apt-get install -y libibverbs-dev rdma-core ibverbs-utils
 ```
 
-If `/sys/module/tenstorrent/version` is older than 2.10.0-rc1, `export_dmabuf()` throws — the kmd on
+`libibverbs-dev` is what this example links against (library *and* headers — `libibverbs1` alone is
+not enough), and `ibverbs-utils` provides the `ibv_devices` / `ibv_devinfo` diagnostics used below.
+On RHEL-family distros the equivalents are `rdma-core-devel` and `libibverbs-utils`.
+
+### 2. A working RDMA NIC
+
+The kernel driver and NIC firmware are vendor-specific and are part of installing the NIC, not
+something the packages above provide. Most current NICs are served by an in-tree kernel module
+(`mlx5_core` for NVIDIA/Mellanox, `bnxt_re` for Broadcom), in which case `rdma-core` is all the
+userspace you need; a vendor stack such as NVIDIA DOCA-OFED replaces both and works too.
+
+```bash
+ibv_devices    # the NIC shows up here only once its RDMA driver is loaded
+ibv_devinfo    # state must be PORT_ACTIVE; note link_layer (Ethernet = RoCE, InfiniBand)
+```
+
+An empty `ibv_devices` means the RDMA driver is not loaded, and nothing below will work.
+
+### 3. The RoCE port configured
+
+For RoCE the port needs an IP address, because the routable RoCEv2 GID the binaries auto-select is
+derived from it. This is ordinary host networking and fabric configuration, outside the scope of
+these binaries. `show_gids` (from `ibverbs-utils`) lists what is available; if it shows no RoCEv2
+IPv4-mapped entry, the address is missing or the port is on RoCEv1 only.
+
+### 4. tt-kmd new enough to export a dma-buf
+
+```bash
+cat /sys/module/tenstorrent/version   # need >= 2.10.0-rc1 for TENSTORRENT_IOCTL_EXPORT_TLB_DMABUF
+uname -r                              # need kernel >= 5.8
+```
+
+If either is too old, `export_dmabuf()` throws with a message naming both versions, and the kmd on
 that host needs updating first.
 
 ## Build (both hosts)
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DTT_UMD_BUILD_EXAMPLES=ON
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DTT_UMD_BUILD_EXAMPLES=ON -DTT_UMD_BUILD_RDMA=ON
 cmake --build build -j"$(nproc)"
 ```
 
-Binaries land in `build/examples/rdma_dmabuf_p2p/`. If `libibverbs` is not installed the example is
-skipped at configure time rather than failing the build.
+Binaries land in `build/examples/rdma_dmabuf_p2p/`. `TT_UMD_BUILD_RDMA` is OFF by default, so a
+normal build never needs libibverbs; with it ON, missing or too-old libibverbs is a configure error
+naming what to install rather than a silent skip.
 
 ## Run
 
@@ -109,10 +143,10 @@ read-completion concurrency and latency rather than raw link bandwidth.
 - `addr + size` must stay within a single DRAM bank. On Blackhole the usable bank space ends short
   of the nominal `DRAM_BANK_SIZE` — keep clear of the tail when picking large `--size`/`--addr`.
 - The underlying TLB window size is chosen by `tt_tlb_alloc()`, which accepts only specific size
-  classes (1/2/16 MiB on Wormhole, 2 MiB or 4 GiB on Blackhole). `export_dmabuf()` rounds `--size`
-  up to the smallest class that fits, so no manual adjustment is needed — but a `--size` above the
-  largest class fails outright, which is why the default is 2 MiB, the only class valid on both
-  archs. On Blackhole anything above 2 MiB consumes one of the few 4 GiB windows.
+  classes — on Blackhole exactly 2 MiB or 4 GiB (see the size class tables in
+  `device/arch/architecture_tlbs.cpp`). `export_dmabuf()` rounds `--size` up to the smallest class
+  that fits, so no manual adjustment is needed. This is why the default is 2 MiB: anything larger
+  consumes one of the few 4 GiB windows.
 - `--size` is capped at 4 GiB minus one byte by the `uint32_t` length of a single RDMA work request,
   and further by the port's `max_msg_sz` (often 1 GiB). Both are rejected up front.
 - GID selection matters and is easy to get wrong. On some NICs GID index 0 is RoCE *v1* with a

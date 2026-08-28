@@ -33,8 +33,11 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/hang_detection)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
-# rdma_tests is EXCLUDE_FROM_ALL and requires libibverbs; it is intentionally left out of umd_tests.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/rdma)
+# Opt-in via TT_UMD_BUILD_RDMA: needs libibverbs to build and an RDMA NIC to run. Deliberately left
+# out of the umd_tests aggregate target, which CI runs, for the same reason.
+if(TT_UMD_BUILD_RDMA)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/rdma)
+endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)

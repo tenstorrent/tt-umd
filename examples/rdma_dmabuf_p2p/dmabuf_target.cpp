@@ -34,11 +34,10 @@ struct Args {
     uint16_t port = 9999;
     tt::ChipId chip = 0;
     uint64_t addr = 0;
-    // 2 MiB, and it must stay a value that is a valid TLB window size class on every arch: Wormhole
-    // offers {1, 2, 16} MiB and Blackhole {2 MiB, 4 GiB} (get_tlb_sizes() in the *_implementation.hpp
-    // headers). export_dmabuf() rounds up to the next class that can cover the request, so a larger
-    // default throws outright on Wormhole ("No TLB window size can cover ...") and on Blackhole
-    // quietly consumes one of the few 4 GiB windows. Raise it with --size when you know the arch.
+    // 2 MiB: this example targets Blackhole, whose only TLB window size classes are 2 MiB and 4 GiB
+    // (see the size class tables in device/arch/architecture_tlbs.cpp). export_dmabuf() rounds up to
+    // the next class that can cover the request, so any larger default quietly consumes one of the
+    // few 4 GiB windows. Raise it with --size only when that trade is what you want.
     uint64_t size = 2ull << 20;
     std::string dev;                   // empty = first RDMA device with an ACTIVE port
     int ib_port = -1;                  // -1 = first ACTIVE port on that device

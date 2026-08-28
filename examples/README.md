@@ -8,7 +8,7 @@ This directory contains examples demonstrating how to use various software compo
 Demonstrates TTDevice usage, showcasing basic device operations and the difference between functionality available before and after calling `init_tt_device()`.
 
 ### `rdma_dmabuf_p2p/`
-Two-host benchmark for `Cluster::export_dmabuf()`: a peer NIC RDMA-writes (or reads) directly against a TLB window over a DRAM core on the other host's card. Requires RDMA hardware on both hosts and libibverbs (library + headers, e.g. `libibverbs-dev`); skipped at configure time if the ibverbs library is missing.
+Two-host benchmark for `Cluster::export_dmabuf()`: a peer NIC RDMA-writes (or reads) directly against a TLB window over a DRAM core on the other host's card. Blackhole only at the moment (intended for Blackhole Galaxy systems). Requires RDMA hardware on both hosts and libibverbs (library + headers, e.g. `libibverbs-dev`). Built only with `-DTT_UMD_BUILD_RDMA=ON`, which is OFF by default; with it ON, missing or too-old libibverbs is a configure error rather than a silent skip.
 
 ## Building Examples
 
@@ -21,6 +21,9 @@ cmake -B build -DTT_UMD_BUILD_EXAMPLES=ON
 # Build
 cmake --build build
 ```
+
+`rdma_dmabuf_p2p` additionally needs `-DTT_UMD_BUILD_RDMA=ON`, since it requires libibverbs at build
+time and RDMA hardware to run.
 
 Each example directory contains its own README with specific usage instructions.
 

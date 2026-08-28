@@ -43,9 +43,13 @@ using namespace tt::umd;
 // different TLB window. A self-consistent "write and read back through the same window" check could
 // not distinguish that from a misprogrammed or bogus export.
 //
-// This target is not part of the default build or of any automatically run test suite: it needs
-// libibverbs at build time and an ACTIVE RoCEv2 NIC plus a KMD with dma-buf export support at run
-// time. Run it explicitly on a machine that has them.
+// Scope: the dma-buf export path is currently intended for Blackhole Galaxy systems and is only
+// exercised there. Nothing in this test is arch-specific and the size below is valid on Wormhole too,
+// so it is not gated to one arch, but a Wormhole run is unverified.
+//
+// This target is opt-in and not part of any automatically run test suite: it needs libibverbs at
+// build time (-DTT_UMD_BUILD_RDMA=ON) and an ACTIVE RoCEv2 NIC plus a KMD with dma-buf export support
+// at run time. Run it explicitly on a machine that has them.
 // The pattern write below is a single 2 MiB MMIO transfer through a TLB window, which carries no
 // hang-detector veto: on a contended host it can outlast the tight default per-op budget and throw
 // DeviceTimeoutError. Widen the budget for the test and restore the default afterwards.
@@ -67,7 +71,9 @@ TEST_F(TestDmabufRdmaLoopback, ExportedDmabufIsRdmaReadable) {
     }
 
     const ChipId chip = 0;
-    const uint64_t size = 1 << 21;  // 2 MiB: a valid tt_tlb_alloc size class on both Wormhole and Blackhole.
+    // 2 MiB: a valid tt_tlb_alloc size class on both Wormhole and Blackhole, so the test needs no
+    // arch-specific adjustment (see the size class tables in device/arch/architecture_tlbs.cpp).
+    const uint64_t size = 1 << 21;
     const size_t nwords = size / sizeof(uint64_t);
     const size_t chunk_size = 512 * 1024;
     const int max_outstanding_reads = 8;

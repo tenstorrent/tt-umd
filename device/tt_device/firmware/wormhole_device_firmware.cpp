@@ -20,8 +20,8 @@
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/wormhole_eth.hpp"
-#include "umd/device/utils/lock_manager.hpp"
 #include "umd/device/utils/common.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 #include "utils.hpp"
 
 namespace tt::umd {

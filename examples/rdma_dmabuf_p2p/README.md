@@ -15,8 +15,14 @@ the target side.
 - `rdma_common.hpp` — the out-of-band TCP handshake and RoCEv2 GID selection shared by the two.
 
 For a single-host smoke test that needs no peer and no network config, see
-`TestClusterExportDmabufLoopback` in `tests/unified/test_tlb.cpp` instead — it exercises the same
-export path over an RDMA loopback QP pair on one NIC port.
+`TestDmabufRdmaLoopback.ExportedDmabufIsRdmaReadable` in `tests/rdma/test_dmabuf_loopback.cpp`
+instead — it exercises the same export path over an RDMA loopback QP pair on one NIC port. It lives
+in the `rdma_tests` target, which is excluded from the default build and requires libibverbs:
+
+```bash
+cmake --build build --target rdma_tests
+./build/test/umd/rdma/rdma_tests
+```
 
 ## Prerequisites (both hosts)
 

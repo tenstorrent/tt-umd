@@ -438,6 +438,18 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
     UMD_THROW(error::RuntimeError, "Failed to allocate TLB window.");
 }
 
+// Non-virtual by design: the spec surface takes config structs and hands back an IoWindow, while the
+// virtual get_io_window() below it stays TLB-flavored (tlb_data, unique_ptr<TlbWindow>) as the seam
+// SimulationTTDevice overrides. That split is what lets the backends behind it change shape -- e.g.
+// the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
+// without touching this signature or any caller.
+std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
+    std::unique_ptr<TlbWindow> window = get_io_window({}, mapping, host.size);
+    window->configure(target);
+    return window;
+}
+
 void TTDevice::read_from_device(void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id) {
     ZoneScopedC(tracy::Color::Orange);
     get_device_protocol()->read_data(mem_ptr, resolve_coordinate(core, noc_id), addr, size, noc_id);

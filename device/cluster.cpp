@@ -939,18 +939,6 @@ TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord cor
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
 }
 
-IoWindow* Cluster::get_static_io_window(const ChipId chip, const CoreCoord core) {
-    // Never throws: metal treats "not mapped" (including an untranslatable coord) as a plain
-    // nullptr branch, not an exception.
-    try {
-        tt_xy_pair translated_core =
-            get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-        return get_chip(chip)->get_static_io_window(translated_core);
-    } catch (const std::exception&) {
-        return nullptr;
-    }
-}
-
 int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {
     return get_local_chip(chip)->export_dmabuf(core, addr, size, ordering);
 }

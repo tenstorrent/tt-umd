@@ -49,12 +49,12 @@ namespace tt::umd {
 
 class ClusterDescriptor;
 class EthernetBroadcast;
+class IoWindow;
 class LocalChip;
 class RemoteChip;
 class PCIDevice;
 class TLBManager;
 class TlbWindow;
-class IoWindow;
 
 /**
  * Chip type to create under the Cluster class.
@@ -279,6 +279,23 @@ public:
         size_t tlb_size,
         uint64_t address,
         uint64_t ordering = tlb_data::Relaxed);
+
+    /**
+     * Maps a core into host address space, anchored at an address on that core. Reads and writes
+     * through the returned window address it as offsets from that anchor. The window is created
+     * large enough to cover the requested size, rounded up to a size the architecture provides.
+     *
+     * The caller owns the window: the mapping is released when it is destroyed, so it must be held
+     * for as long as it is used, and it must not outlive this Cluster. Returns nullptr for chips
+     * with no device behind them (mock and emulated).
+     *
+     * @param chip Device to target.
+     * @param core Core to map.
+     * @param addr Address on the core the window is anchored at.
+     * @param host Host-side window properties (caching strategy and requested size).
+     */
+    std::unique_ptr<IoWindow> create_io_window(
+        const ChipId chip, const CoreCoord core, uint64_t addr, HostIoWindowConfig host = {});
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to
@@ -514,16 +531,6 @@ public:
      * @param core The core to access.
      */
     TlbWindow* get_static_tlb_window(const ChipId chip, const CoreCoord core);
-
-    /**
-     * Base API lookup for a statically-mapped IoWindow. Never throws: returns nullptr when the core
-     * has no static window, the chip does not support static windows, or the coord is absent from
-     * the SOC's translated map.
-     *
-     * @param chip The chip to access.
-     * @param core The core to access.
-     */
-    IoWindow* get_static_io_window(const ChipId chip, const CoreCoord core);
 
     /**
      * Export the memory at (chip, core, addr) as a dma-buf for peer-to-peer PCIe DMA, and return

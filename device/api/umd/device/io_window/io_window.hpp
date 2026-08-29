@@ -18,8 +18,8 @@ namespace tt::umd {
  * Maps a fixed-size region of host virtual address space to device address space.
  * Through this window, the host can read and write device memory directly.
  *
- * The window has a fixed size determined at construction, but can be reconfigured at
- * runtime to point to different device addresses.
+ * The window is backed by a fixed-size mapping determined at construction, but can be
+ * reconfigured at runtime to point to different device addresses.
  *
  * Ordering guarantees for all operations are determined by the concrete implementation, which
  * accounts for both host-side factors (e.g., memory caching strategy) and device-side factors
@@ -124,12 +124,14 @@ public:
     virtual IoOrdering get_io_ordering() const = 0;
 
     /**
-     * @brief Returns the actual size of this I/O window in bytes.
+     * @brief Returns the number of bytes accessible through this window.
      *
-     * The size is determined by the concrete implementation during construction
-     * and may differ from what was requested in HostIoWindowConfig.
+     * Counted from the window base, the address this window is currently configured to. The window
+     * is backed by a fixed-size mapping chosen by the implementation, which may be larger than the
+     * size requested in HostIoWindowConfig; the accessible span is what remains of that mapping
+     * from the base onward, so reconfiguring to a less aligned address can shrink it.
      *
-     * @return size_t Window size as allocated by the implementation.
+     * @return size_t Number of accessible bytes; valid offsets are [0, size).
      */
     virtual size_t get_size() const = 0;
 

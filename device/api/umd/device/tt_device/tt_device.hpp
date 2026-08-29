@@ -525,15 +525,16 @@ public:
      * The returned window supports direct pointer-style reads and writes to device memory.
      * It can be reconfigured at runtime to point to different device addresses.
      *
+     * The window is created large enough to cover the requested size, rounded up to a size the
+     * architecture provides; @ref IoWindow::get_size reports what was actually created. A requested
+     * size of 0 leaves the choice to the implementation. Cores are named in the translated coordinate
+     * system, and a target without a NOC is routed over the NOC selected for this thread.
+     *
      * @param target Device-side target describing the core, address, and optional NOC.
      * See @ref TargetIoWindowConfig.
-     * @param host Host-side properties (caching strategy and requested size). A size of 0
-     *        delegates size selection to the concrete implementation.
+     * @param host Host-side properties (caching strategy and requested size).
      * See @ref HostIoWindowConfig.
      * @return std::unique_ptr<@ref IoWindow> An exclusively owned handle to the newly created I/O window.
-     *
-     * Note that a size of 0 is only honored on the silicon path, which tries arch-supported sizes in
-     * order; simulation has no such fallback and requires a non-zero size.
      */
     std::unique_ptr<IoWindow> create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host);
 

@@ -47,6 +47,7 @@
 #include "umd/device/chip_helpers/tlb_manager.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
+#include "umd/device/io_window/io_window.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -911,22 +912,22 @@ void Cluster::refresh_cluster_description() {
     }
 }
 
+std::unique_ptr<IoWindow> Cluster::create_io_window(
+    const ChipId chip, const CoreCoord core, uint64_t addr, HostIoWindowConfig host) {
+    TTDevice* tt_device = get_chip(chip)->get_tt_device();
+    if (tt_device == nullptr) {
+        // Mock and emulated chips have no device to map.
+        return nullptr;
+    }
+    tt_xy_pair translated_core =
+        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
+    return tt_device->create_io_window({.core_start = translated_core, .addr = addr}, host);
+}
+
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {
     tt_xy_pair translated_core =
         get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
     return get_tlb_manager(chip)->get_tlb_window(translated_core);
-}
-
-IoWindow* Cluster::get_static_io_window(const ChipId chip, const CoreCoord core) {
-    // Never throws: metal treats "not mapped" (including an untranslatable coord) as a plain
-    // nullptr branch, not an exception.
-    try {
-        tt_xy_pair translated_core =
-            get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-        return get_chip(chip)->get_static_io_window(translated_core);
-    } catch (const std::exception&) {
-        return nullptr;
-    }
 }
 
 int Cluster::export_dmabuf(const ChipId chip, const CoreCoord core, uint64_t addr, size_t size, uint64_t ordering) {

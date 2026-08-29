@@ -68,7 +68,6 @@ public:
     TTDevice* get_tt_device() override;
     SysmemManager* get_sysmem_manager() override;
     TLBManager* get_tlb_manager() override;
-    IoWindow* get_static_io_window(tt_xy_pair translated_core) override;
 
     bool is_mmio_capable() const override { return false; }
 

@@ -135,10 +135,6 @@ SysmemManager* LocalChip::get_sysmem_manager() { return sysmem_manager_.get(); }
 
 TLBManager* LocalChip::get_tlb_manager() { return tlb_manager_.get(); }
 
-IoWindow* LocalChip::get_static_io_window(tt_xy_pair translated_core) {
-    return tlb_manager_->is_tlb_mapped(translated_core) ? tlb_manager_->get_tlb_window(translated_core) : nullptr;
-}
-
 bool LocalChip::is_mmio_capable() const { return true; }
 
 void LocalChip::start_device(uint32_t dram_membar_subchannel) {

@@ -162,15 +162,32 @@ jobs:
       # CI runners may lack invariant TSC support (required by Tracy for high-res timestamps).
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
-      # Env. vars related to SCCache:
+      # Env. vars related to SCCache, which uses an S3 backend (Garage).
       # Enabled on push to main (the only branch that triggers a push event here)
       # and on manual dispatch when the input is set; skipped on PRs and merge queue.
-      SCCACHE_GHA_ENABLED: ${{ github.event_name == 'push' || inputs.use-sccache }}
-      SCCACHE_GHA_VERSION: >-
+      # The bucket must also be configured: fork PRs get no secrets, and repos
+      # without the vars set should build uncached rather than stall on a
+      # cache they can't reach.
+      SCCACHE_ENABLED: >-
+        ${{ (github.event_name == 'push' || inputs.use-sccache)
+        && vars.SCCACHE_S3_BUCKET != '' }}
+      SCCACHE_BUCKET: ${{ vars.SCCACHE_S3_BUCKET }}
+      SCCACHE_ENDPOINT: ${{ vars.SCCACHE_S3_ENDPOINT }}
+      SCCACHE_REGION: ${{ vars.SCCACHE_S3_REGION || 'garage' }}
+      # Garage addresses objects path-style (http://host:port/bucket/key), so
+      # virtual-host style must stay off. SSL is off for plain-HTTP endpoints
+      # such as an in-cluster Service; override the var for an HTTPS ingress.
+      SCCACHE_S3_ENABLE_VIRTUAL_HOST_STYLE: "false"
+      SCCACHE_S3_USE_SSL: ${{ vars.SCCACHE_S3_USE_SSL || 'false' }}
+      # Namespaces cache entries per build config so configs don't collide
+      # inside the shared bucket.
+      SCCACHE_S3_KEY_PREFIX: >-
         build-device-${{ matrix.image.distro }}-${{ matrix.image.compiler-c
         }}${{ matrix.image.use_release_flags && '-release' || '' }}
       # Only the main branch may write to the sccache; all other branches read only.
-      SCCACHE_GHA_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
+      SCCACHE_S3_RW_MODE: ${{ github.ref == 'refs/heads/main' && 'READ_WRITE' || 'READ_ONLY' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.SCCACHE_S3_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.SCCACHE_S3_SECRET_ACCESS_KEY }}
     container:
       # All jobs run on GitHub-hosted runners and pull images directly from ghcr.io.
       image: >-
@@ -184,16 +201,8 @@ jobs:
 
     steps:
       - name: Run sccache-cache
-        if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
+        if: ${{ env.SCCACHE_ENABLED == 'true' }}
         uses: mozilla-actions/sccache-action@v0.0.10
-
-      - name: Configure sccache to access GHA cache
-        if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_RESULTS_URL', process.env.ACTIONS_RESULTS_URL || '');
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
       - uses: actions/checkout@v6
         with:
@@ -207,7 +216,7 @@ jobs:
       # with build-tests and other environments (e.g. /localdev) that place tt-umd
       # at a different absolute path.
       - name: Export SCCACHE_BASEDIRS
-        if: ${{ env.SCCACHE_GHA_ENABLED == 'true' }}
+        if: ${{ env.SCCACHE_ENABLED == 'true' }}
         shell: bash
         # Note: TT_UMD_DIR_SHELL can't be used here. It holds the literal string
         # "$GITHUB_WORKSPACE/tt-umd" and bash does not re-expand the result of an
@@ -243,14 +252,14 @@ jobs:
               -DTT_UMD_BUILD_PYTHON=ON \
               -DTT_UMD_BUILD_EXAMPLES=OFF \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_ENABLED == 'true' && 'ON' || 'OFF' }} \
               -DCMAKE_BUILD_TYPE=Release
           else
             cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
               -DTT_UMD_BUILD_ALL=ON \
               -DTT_UMD_BUILD_PIP=ON \
               -DTT_UMD_ENABLE_CLANG_TIDY=ON \
-              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+              -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_ENABLED == 'true' && 'ON' || 'OFF' }} \
               -DTT_UMD_ENABLE_TRACY=ON
           fi
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
@@ -362,7 +371,7 @@ jobs:
           cmake -B ${{ env.BUILD_OUTPUT_DIR }} -G Ninja \
             -DTT_UMD_BUILD_ALL=ON \
             -DTT_UMD_BUILD_PIP=OFF \
-            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_GHA_ENABLED == 'true' && 'ON' || 'OFF' }} \
+            -DTT_UMD_ENABLE_SCCACHE=${{ env.SCCACHE_ENABLED == 'true' && 'ON' || 'OFF' }} \
             -DTT_UMD_ENABLE_CLANG_TIDY=ON
           cmake --build ${{ env.BUILD_OUTPUT_DIR }}
           echo "Compile complete."

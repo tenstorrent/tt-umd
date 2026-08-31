@@ -254,6 +254,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/tt-umd/tt_device/protocol/device_protocol.hpp
                 api/tt-umd/tt_device/protocol/pcie_interface.hpp
                 api/tt-umd/tt_device/protocol/jtag_interface.hpp
+                api/tt-umd/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/tt-umd/tt_device/protocol/remote_interface.hpp
                 api/tt-umd/tt_device/firmware/blackhole_arc_apb.hpp
                 api/tt-umd/tt_device/firmware/device_firmware.hpp
@@ -374,6 +375,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/tt_device/hang_detection/hang_detector.hpp
                 api/umd/device/tt_device/protocol/device_protocol.hpp
                 api/umd/device/tt_device/protocol/jtag_interface.hpp
+                api/umd/device/tt_device/protocol/grendel_jtag_protocol.hpp
                 api/umd/device/tt_device/protocol/pcie_interface.hpp
                 api/umd/device/tt_device/protocol/remote_interface.hpp
                 api/umd/device/tt_device/protocol/tt_sim_protocol.hpp
@@ -455,6 +457,19 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 # Grendel (chippy) JTAG. Empty INTERFACE lib when TT_UMD_BUILD_GRENDEL_JTAG=OFF,
 # so this link is a no-op for normal builds.
 target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
+
+if(TT_UMD_BUILD_GRENDEL_JTAG)
+    # The Grendel protocol translation unit includes chippy headers and must
+    # compile as C++20. Confine the bump to this one source (the -std override
+    # comes after the target's -std=c++17, so it wins); UMD's public standard
+    # stays C++17.
+    target_sources(tt-umd PRIVATE src/tt_device/protocol/grendel_jtag_protocol.cpp)
+    set_source_files_properties(
+        src/tt_device/protocol/grendel_jtag_protocol.cpp
+        PROPERTIES
+            COMPILE_OPTIONS "-std=c++20"
+    )
+endif()
 
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
 target_link_libraries(tt-umd PRIVATE tt-umd-utils::tt-umd-utils)

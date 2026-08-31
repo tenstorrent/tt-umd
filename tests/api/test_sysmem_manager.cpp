@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <set>
@@ -225,6 +226,70 @@ TEST(ApiSysmemManager, SysmemBufferFunctions) {
 
     EXPECT_EQ(sysmem_buffer->get_buffer_size(), buf_size);
     EXPECT_EQ(sysmem_buffer->get_buffer_va(), mapped_buffer);
+}
+
+namespace {
+
+// Resident set size in KiB, or 0 if it could not be read.
+size_t read_rss_kib() {
+    std::ifstream status("/proc/self/status");
+    std::string line;
+    while (std::getline(status, line)) {
+        if (line.rfind("VmRSS:", 0) == 0) {
+            return std::stoull(line.substr(line.find_first_of("0123456789")));
+        }
+    }
+    return 0;
+}
+
+}  // namespace
+
+// allocate_sysmem_buffer() mmaps the backing memory, so the buffer has to free it on destruction.
+// Before the buffer owned its memory, every allocation leaked the whole mapping.
+TEST(ApiSysmemManager, AllocatedBufferFreesBackingMemory) {
+    std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
+    if (pci_device_ids.empty()) {
+        GTEST_SKIP() << "No Tenstorrent PCI devices found.";
+    }
+    if (!PCIDevice(pci_device_ids[0]).is_iommu_enabled()) {
+        GTEST_SKIP() << "Skipping test since IOMMU is not enabled.";
+    }
+
+    std::unique_ptr<Cluster> cluster = test_utils::make_default_test_cluster();
+
+    const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
+    SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
+
+    const size_t buf_size = 64ULL << 20;
+    const size_t buf_size_kib = buf_size >> 10;
+    const int iterations = 8;
+
+    // Warm up so one-time allocations do not land inside the measurement.
+    { std::unique_ptr<SysmemBuffer> warmup = sysmem_manager->allocate_sysmem_buffer(buf_size); }
+
+    const size_t rss_before = read_rss_kib();
+    if (rss_before == 0) {
+        GTEST_SKIP() << "Could not read VmRSS from /proc/self/status.";
+    }
+
+    const size_t page_size = static_cast<size_t>(sysconf(_SC_PAGESIZE));
+    for (int i = 0; i < iterations; i++) {
+        std::unique_ptr<SysmemBuffer> buffer = sysmem_manager->allocate_sysmem_buffer(buf_size);
+        ASSERT_NE(buffer, nullptr);
+        // Touch one byte per page so the whole mapping is resident. Touching only the first page would
+        // leave a leak invisible: RSS would grow by a page per iteration rather than by the buffer size.
+        uint8_t* bytes = static_cast<uint8_t*>(buffer->get_buffer_va());
+        for (size_t offset = 0; offset < buf_size; offset += page_size) {
+            bytes[offset] = static_cast<uint8_t>(i);
+        }
+    }
+
+    const size_t rss_after = read_rss_kib();
+    const size_t growth_kib = rss_after > rss_before ? rss_after - rss_before : 0;
+
+    // Leaking would retain every iteration's mapping. Allow one buffer of slack for allocator noise.
+    EXPECT_LT(growth_kib, buf_size_kib) << "RSS grew by " << growth_kib << " KiB across " << iterations
+                                        << " allocate/destroy cycles of " << buf_size_kib << " KiB each";
 }
 
 // The manager pins for exactly one device and stamps that device's id into every buffer, so the id

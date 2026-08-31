@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <exception>
+#include <memory>
 #include <optional>
 #include <string>
 #include <tt-logger/tt-logger.hpp>
@@ -23,8 +25,36 @@
 
 namespace tt::umd {
 
+namespace {
+
+// Wraps a caller-supplied deleter so it is always safe for unique_ptr to run from the destructor.
+// Two things are handled here: an empty std::function deleter makes unique_ptr throw bad_function_call
+// on a non-null pointer, and an exception escaping the deleter would propagate out of ~SysmemBuffer and
+// terminate the process. Cleanup failures are logged instead.
+SysmemBuffer::Deleter make_non_throwing(SysmemBuffer::Deleter deleter) {
+    return [deleter = std::move(deleter)](void* aligned_va) noexcept {
+        if (!deleter) {
+            return;
+        }
+        try {
+            deleter(aligned_va);
+        } catch (const std::exception& e) {
+            log_warning(LogUMD, "Failed to release sysmem buffer backing memory at {}: {}.", aligned_va, e.what());
+        } catch (...) {
+            log_warning(LogUMD, "Failed to release sysmem buffer backing memory at {}.", aligned_va);
+        }
+    };
+}
+
+}  // namespace
+
 SysmemBuffer::SysmemBuffer(
-    TTDevice* tt_device, void* buffer_va, size_t buffer_size, bool map_to_noc, DeviceBufferAccess device_access) :
+    TTDevice* tt_device,
+    void* buffer_va,
+    size_t buffer_size,
+    bool map_to_noc,
+    DeviceBufferAccess device_access,
+    Deleter release_backing_memory) :
     pci_device_(tt_device->get_pci_device()),
     tt_device_(tt_device),
     buffer_va_(buffer_va),
@@ -41,6 +71,21 @@ SysmemBuffer::SysmemBuffer(
         device_io_addr_ = pci_device_->map_for_dma(buffer_va_, mapped_buffer_size_, device_access_);
         noc_addr_ = std::nullopt;
     }
+    // Compose the full deleter now that the buffer is aligned and pinned: always unpin, then release the
+    // backing memory if this buffer owns it.
+    system_memory_ptr_ = std::unique_ptr<void, Deleter>(
+        buffer_va_,
+        [pci_device = pci_device_,
+         mapped_size = mapped_buffer_size_,
+         iova = device_io_addr_,
+         release = make_non_throwing(std::move(release_backing_memory))](void* aligned_va) {
+            try {
+                pci_device->unmap_for_dma(aligned_va, mapped_size);
+            } catch (...) {
+                log_warning(LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_size, iova);
+            }
+            release(aligned_va);
+        });
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
 }
 
@@ -50,7 +95,7 @@ SysmemBuffer::SysmemBuffer(
     uint64_t device_io_addr,
     int communication_id,
     std::optional<uint64_t> noc_addr,
-    std::function<void()> unmap_callback,
+    Deleter deleter,
     DeviceBufferAccess device_access) :
     pci_device_(nullptr),
     tt_device_(nullptr),
@@ -59,10 +104,10 @@ SysmemBuffer::SysmemBuffer(
     buffer_size_(buffer_size),
     device_io_addr_(device_io_addr),
     noc_addr_(noc_addr),
-    unmap_callback_(std::move(unmap_callback)),
     device_access_(device_access),
     communication_id_(communication_id) {
     align_address_and_size();
+    system_memory_ptr_ = std::unique_ptr<void, Deleter>(buffer_va_, make_non_throwing(std::move(deleter)));
     // Pair with TracyFreeN in the destructor so Tracy sees balanced alloc/free.
     TracyAllocN(buffer_va_, mapped_buffer_size_, "SysmemBuffer");
 }
@@ -99,19 +144,8 @@ void SysmemBuffer::dma_read_from_device(const size_t offset, size_t size, const 
 
 SysmemBuffer::~SysmemBuffer() {
     TracyFreeN(buffer_va_, "SysmemBuffer");
-    if (unmap_callback_) {
-        unmap_callback_();
-        return;
-    }
-    if (pci_device_ == nullptr) {
-        return;
-    }
-    try {
-        pci_device_->unmap_for_dma(buffer_va_, mapped_buffer_size_);
-    } catch (...) {
-        log_warning(
-            LogUMD, "Failed to unmap sysmem buffer (size: {:#x}, IOVA: {:#x}).", mapped_buffer_size_, device_io_addr_);
-    }
+    // Destroying system_memory_ptr_ runs the deleter composed at construction: unpin, and free the
+    // backing memory if this buffer owns it.
 }
 
 void SysmemBuffer::align_address_and_size() {

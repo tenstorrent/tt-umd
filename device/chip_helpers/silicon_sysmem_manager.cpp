@@ -447,7 +447,29 @@ std::unique_ptr<SysmemBuffer> SiliconSysmemManager::allocate_sysmem_buffer(
             error::RuntimeError,
             fmt::format("Failed to allocate sysmem buffer of size {:#x} bytes with mmap.", sysmem_buffer_size));
     }
-    return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
+    // This mapping belongs to the buffer, so hand it a deleter that frees it. mmap returns a page-aligned
+    // address, so the pointer the deleter receives is the one to munmap.
+    const size_t mapping_size = sysmem_buffer_size;
+    const SysmemBuffer::Deleter release_mapping = [mapping_size](void *aligned_va) {
+        if (munmap(aligned_va, mapping_size) != 0) {
+            log_warning(
+                LogUMD,
+                "Failed to munmap sysmem buffer of size {:#x} at {:p}: {}.",
+                mapping_size,
+                aligned_va,
+                strerror(errno));
+        }
+    };
+
+    // Nothing owns the mapping until the buffer is constructed, and constructing it pins the pages and can
+    // throw, so release the mapping ourselves on that path.
+    try {
+        return std::make_unique<SysmemBuffer>(
+            tt_device_, mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+    } catch (...) {
+        release_mapping(mapping);
+        throw;
+    }
 }
 
 std::unique_ptr<SysmemBuffer> SiliconSysmemManager::map_sysmem_buffer(

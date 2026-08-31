@@ -101,80 +101,6 @@ void SiliconTlbWindow::update_io_timeout_callback() {
 
 void SiliconTlbWindow::set_safe_io(bool enable) { safe_io_ = enable; }
 
-template <typename Func, typename... Args>
-decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
-    if (sigsetjmp(point, 1) == 0) {
-        ScopedJumpGuard guard;
-        return std::invoke(std::forward<Func>(func), this, std::forward<Args>(args)...);
-    } else {
-        std::atomic_signal_fence(std::memory_order_seq_cst);
-        jump_set = 0;
-        throw error::SigbusError("SIGBUS signal detected: Device access failed.");
-    }
-}
-
-void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
-    if (safe_io_) {
-        execute_safe(&SiliconTlbWindow::write16_impl, offset, value);
-    } else {
-        write16_impl(offset, value);
-    }
-}
-
-uint16_t SiliconTlbWindow::read16(uint64_t offset) {
-    if (safe_io_) {
-        return execute_safe(&SiliconTlbWindow::read16_impl, offset);
-    }
-    return read16_impl(offset);
-}
-
-void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
-    if (safe_io_) {
-        execute_safe(&SiliconTlbWindow::write32_impl, offset, value);
-    } else {
-        write32_impl(offset, value);
-    }
-}
-
-uint32_t SiliconTlbWindow::read32(uint64_t offset) {
-    if (safe_io_) {
-        return execute_safe(&SiliconTlbWindow::read32_impl, offset);
-    }
-    return read32_impl(offset);
-}
-
-void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
-    if (safe_io_) {
-        execute_safe(&SiliconTlbWindow::write_register_impl, offset, data, size);
-    } else {
-        write_register_impl(offset, data, size);
-    }
-}
-
-void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
-    if (safe_io_) {
-        execute_safe(&SiliconTlbWindow::read_register_impl, offset, data, size);
-    } else {
-        read_register_impl(offset, data, size);
-    }
-}
-
-void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
-    if (safe_io_) {
-        execute_safe(&SiliconTlbWindow::write_block_impl, offset, data, size);
-    } else {
-        write_block_impl(offset, data, size);
-    }
-}
-
-void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
-    if (safe_io_) {
-        execute_safe(&SiliconTlbWindow::read_block_impl, offset, data, size);
-    } else {
-        read_block_impl(offset, data, size);
-    }
-}
-
 void SiliconTlbWindow::write16_impl(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
     write16_to_device(tlb_handle->get_base() + get_total_offset(offset), value, io_timeout_callback_);
@@ -348,6 +274,80 @@ void SiliconTlbWindow::read_regs(
     while (word_len-- != 0) {
         uint32_t temp = read32_from_device(src++, on_timeout);
         memcpy(dest++, &temp, sizeof(temp));
+    }
+}
+
+template <typename Func, typename... Args>
+decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
+    if (sigsetjmp(point, 1) == 0) {
+        ScopedJumpGuard guard;
+        return std::invoke(std::forward<Func>(func), this, std::forward<Args>(args)...);
+    } else {
+        std::atomic_signal_fence(std::memory_order_seq_cst);
+        jump_set = 0;
+        throw error::SigbusError("SIGBUS signal detected: Device access failed.");
+    }
+}
+
+void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::write16_impl, offset, value);
+    } else {
+        write16_impl(offset, value);
+    }
+}
+
+uint16_t SiliconTlbWindow::read16(uint64_t offset) {
+    if (safe_io_) {
+        return execute_safe(&SiliconTlbWindow::read16_impl, offset);
+    }
+    return read16_impl(offset);
+}
+
+void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::write32_impl, offset, value);
+    } else {
+        write32_impl(offset, value);
+    }
+}
+
+uint32_t SiliconTlbWindow::read32(uint64_t offset) {
+    if (safe_io_) {
+        return execute_safe(&SiliconTlbWindow::read32_impl, offset);
+    }
+    return read32_impl(offset);
+}
+
+void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::write_register_impl, offset, data, size);
+    } else {
+        write_register_impl(offset, data, size);
+    }
+}
+
+void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::read_register_impl, offset, data, size);
+    } else {
+        read_register_impl(offset, data, size);
+    }
+}
+
+void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::write_block_impl, offset, data, size);
+    } else {
+        write_block_impl(offset, data, size);
+    }
+}
+
+void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
+    if (safe_io_) {
+        execute_safe(&SiliconTlbWindow::read_block_impl, offset, data, size);
+    } else {
+        read_block_impl(offset, data, size);
     }
 }
 

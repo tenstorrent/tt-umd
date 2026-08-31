@@ -99,9 +99,10 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
-    // The default TTDevice constructor does not build firmware, so the most derived constructor
-    // does it here -- which is also what makes create_device_firmware() resolve to this class.
-    build_device_firmware();
+    // Qualified deliberately: create_device_firmware() is virtual, and naming the class here says
+    // which implementation runs. Calling it from TTDevice's constructor would silently pick
+    // TTDevice's.
+    build_device_firmware(RtlSimulationTTDevice::create_device_firmware());
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -113,9 +114,10 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
-    // The default TTDevice constructor does not build firmware, so the most derived constructor
-    // does it here -- which is also what makes create_device_firmware() resolve to this class.
-    build_device_firmware();
+    // Qualified deliberately: create_device_firmware() is virtual, and naming the class here says
+    // which implementation runs. Calling it from TTDevice's constructor would silently pick
+    // TTDevice's.
+    build_device_firmware(RtlSimulationTTDevice::create_device_firmware());
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.

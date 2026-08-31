@@ -42,6 +42,10 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
+    // Qualified deliberately: create_device_firmware() is virtual, and naming the class here says
+    // which implementation runs. Calling it from TTDevice's constructor would silently pick
+    // TTDevice's.
+    build_device_firmware(BlackholeTTDevice::create_device_firmware());
     BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(
         get_device_protocol(), BlackholeTTDevice::get_noc_translation_enabled()));

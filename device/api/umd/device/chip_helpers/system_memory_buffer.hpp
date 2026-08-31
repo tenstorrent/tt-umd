@@ -95,8 +95,6 @@ public:
      */
     void* get_va() const;
 
-    [[deprecated("Use get_va() instead.")]] void* get_buffer_va() const { return get_va(); }
-
     /**
      * Returns the size of the buffer passed by the user.
      *
@@ -104,25 +102,15 @@ public:
      */
     size_t get_size() const;
 
-    [[deprecated("Use get_size() instead.")]] size_t get_buffer_size() const { return get_size(); }
-
     /**
      * Returns device IOVA (IO virtual address) of the buffer on the offset from the start of the buffer.
      *
      * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
      * @return Device IOVA of the buffer on the offset from the start of the buffer.
      */
-    uint64_t get_iova(const size_t offset = 0) const;
-
-    [[deprecated("Use get_iova() instead.")]] uint64_t get_device_io_addr(const size_t offset = 0) const {
-        return get_iova(offset);
-    }
+    uint64_t get_iova() const;
 
     std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
-
-    [[deprecated("Use get_noc_address() instead.")]] std::optional<uint64_t> get_noc_addr() const {
-        return get_noc_address();
-    }
 
     /**
      * Binds a NOC address to this buffer, so every tile on the device can reach it rather than only the

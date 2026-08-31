@@ -391,7 +391,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     // We haven't actually mapped the hugepage yet, since cluster->start_device or
     // sysmem_manager->pin_or_map_sysmem_to_device wasn't called yet. So this will be the first buffer that was mapped,
     // and it is expected to have the starting NOC address.
-    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    EXPECT_EQ(sysmem_buffer->get_noc_addr().value(), cluster->get_sysmem_window_noc_base(mmio_chip));
 
     uint8_t* sysmem_data = static_cast<uint8_t*>(sysmem_buffer->get_buffer_va());
     for (uint32_t i = 0; i < one_mb; ++i) {
@@ -424,7 +424,7 @@ TEST(ApiSysmemManager, SysmemBufferNocAddress) {
     // If we map another buffer it is expected to have a higher NOC address.
     std::unique_ptr<SysmemBuffer> sysmem_buffer2 = sysmem_manager->allocate_sysmem_buffer(one_mb, true);
     EXPECT_TRUE(sysmem_buffer2->get_noc_addr().has_value());
-    EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_pcie_base_addr_from_device(mmio_chip));
+    EXPECT_GT(sysmem_buffer2->get_noc_addr().value(), cluster->get_sysmem_window_noc_base(mmio_chip));
 }
 
 TEST(ApiSysmemManager, ReadOnlySharedFileMapping) {

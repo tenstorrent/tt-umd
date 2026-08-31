@@ -580,7 +580,7 @@ TEST_F(TestDeviceIOFixture, SysmemReadWrite) {
     for (const ChipId mmio_chip_id : mmio_chips) {
         const auto pci_cores = cluster->get_soc_descriptor(mmio_chip_id).get_cores(CoreType::PCIE);
         const auto pcie_core = pci_cores.at(0);
-        const auto base_address = cluster->get_pcie_base_addr_from_device(mmio_chip_id);
+        const auto base_address = cluster->get_sysmem_window_noc_base(mmio_chip_id);
 
         // Distinct per-chip sentinel so a misrouted DMA (landing in another chip's window, or aliasing
         // host_base 0) surfaces as a readback mismatch instead of coincidentally matching.

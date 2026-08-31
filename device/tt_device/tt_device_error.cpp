@@ -74,45 +74,6 @@ ArcStartupError::ArcStartupError(
     message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
 }
 
-// device_firmware is not read: a DeviceFirmware carries no device identity, so the TTDeviceData part
-// of the payload (io_device_type, chip_id, arch) keeps its defaults. It stays in the signature so
-// these errors can be filled in properly once the firmware component can name its device.
-FirmwareStartupError::FirmwareStartupError(
-    const DeviceFirmware& device_firmware,
-    NocId noc_id,
-    xy_pair arc_core,
-    uint32_t scratch_status,
-    uint32_t postcode,
-    std::optional<uint32_t> message_id,
-    std::optional<uint32_t> smc_init_status) :
-    UmdError<ArcStartupData>(
-        fmt::format(
-            "Firmware startup error at core {} over {}: scratch_status={:#x}, postcode={:#x}{}{}",
-            arc_core.str(),
-            noc_to_str(noc_id),
-            scratch_status,
-            postcode,
-            message_id.has_value() ? fmt::format(", message_id={:#x}", message_id.value()) : "",
-            smc_init_status.has_value() ? fmt::format(
-                                              ", smc_init_status={:#x} ({})",
-                                              smc_init_status.value(),
-                                              blackhole::interpret_smc_init_status(smc_init_status.value()))
-                                        : ""),
-        {{TTDeviceData{}, arc_core, noc_id}, scratch_status, postcode, message_id, smc_init_status}) {}
-
-FirmwareStartupError::FirmwareStartupError(
-    const DeviceFirmware& device_firmware,
-    NocId noc_id,
-    xy_pair arc_core,
-    uint32_t scratch_status,
-    uint32_t postcode,
-    std::chrono::milliseconds timeout,
-    std::optional<uint32_t> message_id,
-    std::optional<uint32_t> smc_init_status) :
-    FirmwareStartupError(device_firmware, noc_id, arc_core, scratch_status, postcode, message_id, smc_init_status) {
-    message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
-}
-
 TTDeviceData::TTDeviceData(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch) :
     io_device_type(io_device_type), chip_id(chip_id), arch(arch) {}
 

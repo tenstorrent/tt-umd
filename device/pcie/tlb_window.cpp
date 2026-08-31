@@ -85,21 +85,37 @@ tlb_data TlbWindow::make_tlb_config(
 // functions directly instead of going through a TlbWindow.
 void TlbWindow::read_block_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::read_block_reconfigure");
     tt::umd::read_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::read_register_reconfigure(
     void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::read_register_reconfigure");
     tt::umd::read_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::write_block_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::write_block_reconfigure");
     tt::umd::write_block_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
 void TlbWindow::write_register_reconfigure(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, uint64_t ordering) {
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::write_register_reconfigure");
     tt::umd::write_register_reconfigure(*this, mem_ptr, core, addr, size, noc_id, static_cast<IoOrdering>(ordering));
 }
 
@@ -111,6 +127,10 @@ void TlbWindow::noc_multicast_write_reconfigure(
     uint64_t addr,
     NocId noc_id,
     uint64_t ordering) {
+    UMD_ASSERT(
+        ordering == tlb_data::Relaxed || ordering == tlb_data::Strict || ordering == tlb_data::Posted,
+        error::RuntimeError,
+        "Invalid ordering value passed to TlbWindow::noc_multicast_write_reconfigure");
     tt::umd::noc_multicast_write_reconfigure(
         *this, src, size, core_start, core_end, addr, noc_id, static_cast<IoOrdering>(ordering));
 }

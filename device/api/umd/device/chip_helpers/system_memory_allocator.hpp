@@ -8,7 +8,7 @@
 #include <memory>
 #include <utility>
 
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 #include "umd/device/types/host_memory.hpp"
 
 namespace tt::umd {
@@ -36,7 +36,7 @@ public:
      * not just the PCIe tile, can reach it.
      * @return An exclusively owned system memory buffer.
      */
-    virtual std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) = 0;
+    virtual std::unique_ptr<SystemMemoryBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) = 0;
 
     /**
      * Pins and maps a caller-provided host memory buffer for device DMA access.
@@ -53,7 +53,7 @@ public:
      * device cannot write through them, which needs KMD support the concrete allocator reports separately.
      * @return An exclusively owned handle to the mapped buffer.
      */
-    virtual std::unique_ptr<SysmemBuffer> map_user_buffer(
+    virtual std::unique_ptr<SystemMemoryBuffer> map_user_buffer(
         void* user_ptr,
         size_t size,
         bool bind_to_noc = false,
@@ -69,14 +69,14 @@ public:
 
 protected:
     /**
-     * Creates a buffer, forwarding its arguments to the private SysmemBuffer constructor.
+     * Creates a buffer, forwarding its arguments to the private SystemMemoryBuffer constructor.
      *
      * Friendship is not inherited, so a concrete allocator cannot reach that constructor itself and
      * builds every buffer through this helper.
      */
     template <typename... Args>
-    static std::unique_ptr<SysmemBuffer> create_buffer(Args&&... args) {
-        return std::unique_ptr<SysmemBuffer>(new SysmemBuffer(std::forward<Args>(args)...));
+    static std::unique_ptr<SystemMemoryBuffer> create_buffer(Args&&... args) {
+        return std::unique_ptr<SystemMemoryBuffer>(new SystemMemoryBuffer(std::forward<Args>(args)...));
     }
 };
 

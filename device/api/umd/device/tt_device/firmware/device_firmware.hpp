@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "umd/device/types/cluster_descriptor_types.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/power_state.hpp"
 
@@ -102,6 +103,15 @@ public:
      * @return true if translation is enabled.
      */
     virtual bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Queries the chip's physical identity and configuration.
+     * @param noc_id NOC to route through.
+     * @return ChipInfo Harvesting masks, board identity, and NOC translation state.
+     * @throws error::UninitializedDeviceError if init_firmware() has not run: the answers come from
+     * state the firmware publishes.
+     */
+    virtual ChipInfo get_chip_info([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

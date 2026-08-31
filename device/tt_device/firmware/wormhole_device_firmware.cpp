@@ -14,6 +14,7 @@
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
@@ -471,6 +472,35 @@ bool WormholeDeviceFirmware::get_noc_translation_enabled(NocId noc_id) {
     uint32_t niu_cfg = 0x0;
     read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof(niu_cfg), noc_id);
     return (niu_cfg & (1 << 14)) != 0;
+}
+
+ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+    ChipInfo chip_info;
+
+    chip_info.noc_translation_enabled = get_noc_translation_enabled(noc_id);
+    chip_info.board_id = firmware_info_provider_->get_board_id().value_or(0);
+    chip_info.board_type = get_board_type_from_board_id(chip_info.board_id);
+    chip_info.asic_location = firmware_info_provider_->get_asic_location().value_or(0);
+
+    // Wormhole reports harvesting through an ARC message rather than telemetry, and only the tensix
+    // mask is available.
+    DeviceCommandResult result = send_device_command(
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        noc_id);
+    if (result.exit_code != 0) {
+        UMD_THROW(
+            error::RuntimeError, fmt::format("Failed to get harvesting masks with exit code: {}", result.exit_code));
+    }
+
+    chip_info.harvesting_masks.tensix_harvesting_mask =
+        CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, result.return_values.at(0));
+
+    return chip_info;
 }
 
 tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {

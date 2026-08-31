@@ -62,6 +62,8 @@ public:
 
     bool get_noc_translation_enabled(NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    ChipInfo get_chip_info(NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *

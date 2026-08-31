@@ -14,9 +14,25 @@
 #include "tt-umd/pcie/tlb_handle.hpp"
 #include "tt-umd/simulation/rtl_sim_communicator.hpp"
 #include "tt-umd/tt_device/tt_device.hpp"
+#include "tt-umd/types/io_window_config.hpp"
 #include "tt-umd/types/tlb.hpp"
 
 namespace tt::umd {
+
+namespace {
+
+// Bit positions in the AXI awuser/aruser word, per the NPU-in AXI master layout.
+constexpr int kAxiUserBitSnoop = 8;  // cce_cmd_snoop
+
+uint64_t user_bits_from_window_flags(WindowFlags flags) {
+    uint64_t bits = 0;
+    if ((flags & WindowFlags::Snoop) != WindowFlags::None) {
+        bits |= (1ULL << kAxiUserBitSnoop);
+    }
+    return bits;
+}
+
+}  // namespace
 
 RtlSimTlbWindow::RtlSimTlbWindow(
     std::unique_ptr<TlbHandle> handle,
@@ -34,8 +50,9 @@ void RtlSimTlbWindow::translate_and_write(uint64_t offset, const void* data, siz
     const auto& config = tlb_handle->get_config();
     const tt_xy_pair core(config.x_end, config.y_end);
     const uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
+    const uint64_t user_bits = user_bits_from_window_flags(window_flags_);
     if (resolver_ == nullptr) {
-        communicator_->tile_write_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size));
+        communicator_->tile_write_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size), user_bits);
         return;
     }
     // In flat-address mode the address alone names the destination, and the simulator moves whole
@@ -54,8 +71,9 @@ void RtlSimTlbWindow::translate_and_read(uint64_t offset, void* data, size_t siz
     const auto& config = tlb_handle->get_config();
     const tt_xy_pair core(config.x_end, config.y_end);
     const uint64_t device_addr = config.local_offset * tlb_handle->get_size() + get_total_offset(offset);
+    const uint64_t user_bits = user_bits_from_window_flags(window_flags_);
     if (resolver_ == nullptr) {
-        communicator_->tile_read_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size));
+        communicator_->tile_read_bytes(core.x, core.y, device_addr, data, static_cast<uint32_t>(size), user_bits);
         return;
     }
     const uint64_t flat_addr = att::resolve_translated(*resolver_, *soc_descriptor_, core, device_addr, size);

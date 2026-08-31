@@ -33,6 +33,8 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/hang_detection)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/blackhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/misc)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/pcie)
+# rdma_tests is EXCLUDE_FROM_ALL and requires libibverbs; it is intentionally left out of umd_tests.
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/rdma)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/unified)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/wormhole)
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/galaxy)

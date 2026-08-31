@@ -176,53 +176,84 @@ public:
     virtual void write_to_device_reg(
         const void *mem_ptr, CoreCoord core, uint64_t addr, size_t size, NocId noc_id = NocId::DEFAULT_NOC);
 
-    virtual void dma_write_to_device(
-        const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
-
-    virtual void dma_read_from_device(
-        void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id = NocId::DEFAULT_NOC);
+    /**
+     * @brief Executes a Host-to-Device (H2D) DMA transfer using an internal bounce buffer.
+     *
+     * Copies from the user-provided buffer into an internal pinned staging buffer
+     * before issuing the hardware DMA to the device.
+     *
+     * @param src Pointer to the user-provided buffer containing the data to send.
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     */
+    virtual void dma_write(
+        const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * DMA multicast write function that writes data to multiple cores on the NOC grid. Similar to noc_multicast_write
-     * but uses DMA for better performance. Multicast writes data to a grid of cores. Cores must be specified in the
-     * translated coordinate system so that the write lands on the intended cores.
+     * @brief Executes a Device-to-Host (D2H) DMA transfer using an internal bounce buffer.
      *
-     * @param src pointer to memory from which the data is sent
-     * @param size number of bytes
-     * @param core_start starting core coordinates (x,y) of the multicast write
-     * @param core_end ending core coordinates (x,y) of the multicast write
-     * @param addr address on the device where data will be written
+     * DMAs data into an internal pinned staging buffer and then copies it into the
+     * user-provided buffer.
+     *
+     * @param dst Pointer to the user-provided buffer where data will be received.
+     * @param src_addr Source address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Source core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
-    virtual void dma_multicast_write(
-        void *src,
+    virtual void dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
+
+    /**
+     * @brief Executes a multicast Host-to-Device DMA transfer using an internal bounce buffer.
+     *
+     * Broadcasts data to a rectangular grid of cores via the internal staging buffer. Cores must be
+     * specified in the translated coordinate system so that the write lands on the intended cores.
+     *
+     * @param src Pointer to the user-provided buffer containing the data to send.
+     * @param dst_addr Destination address on the target device cores.
+     * @param size Number of bytes to transfer.
+     * @param core_start Top-left core coordinate of the multicast grid.
+     * @param core_end Bottom-right core coordinate of the multicast grid.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
+     */
+    virtual void dma_write_to_core_range(
+        const void *src,
+        uint64_t dst_addr,
         size_t size,
         CoreCoord core_start,
         CoreCoord core_end,
-        uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * Zero-copy Device-to-Host DMA into caller-managed pinned memory, bypassing the internal
-     * staging buffer. Unlike dma_read_from_device, there is no non-DMA fallback: this throws if
-     * DMA is unavailable.
+     * @brief Executes a zero-copy Device-to-Host (D2H) DMA transfer.
+     *
+     * Operates directly on caller-managed pinned host memory identified by its IOVA, bypassing the
+     * internal staging buffer. Unlike dma_read, there is no non-DMA fallback: this throws if DMA is
+     * unavailable.
      *
      * @param dst_iova IOVA of the destination pinned host memory buffer.
-     * @param src_addr source address on the target core.
-     * @param size number of bytes
-     * @param core source core coordinates
+     * @param src_addr Source address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Source core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
     virtual void dma_read_zero_copy(
         uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
 
     /**
-     * Zero-copy Host-to-Device DMA from caller-managed pinned memory, bypassing the internal
-     * staging buffer. Unlike dma_write_to_device, there is no non-DMA fallback: this throws if
-     * DMA is unavailable.
+     * @brief Executes a zero-copy Host-to-Device (H2D) DMA transfer.
+     *
+     * Operates directly on caller-managed pinned host memory identified by its IOVA, bypassing the
+     * internal staging buffer. Unlike dma_write, there is no non-DMA fallback: this throws if DMA is
+     * unavailable.
      *
      * @param src_iova IOVA of the source pinned host memory buffer.
-     * @param dst_addr destination address on the target core.
-     * @param size number of bytes
-     * @param core target core coordinates
+     * @param dst_addr Destination address on the target device core.
+     * @param size Number of bytes to transfer.
+     * @param core Target core coordinate on the device.
+     * @param noc_id Physical network to route the transaction over. Defaults to NocId::DEFAULT_NOC.
      */
     virtual void dma_write_zero_copy(
         uint64_t src_iova, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id = NocId::DEFAULT_NOC);
@@ -504,17 +535,12 @@ public:
     const SocDescriptor &get_soc_descriptor() const;
 
 protected:
-    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
     LockManager lock_manager;
 
-    // Every TTDevice is built around a model, which supplies its identity, the protocol it talks to
-    // hardware over and -- as components are decoupled from TTDevice -- the components it runs on.
-    // The transport no longer reaches TTDevice at all; the model owns it.
-    TTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl);
-    TTDevice(
-        std::unique_ptr<TTDeviceModel> model,
-        std::unique_ptr<ArchitectureImplementation> architecture_impl,
-        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    // Every TTDevice is built around a model, which supplies its identity and the components it
+    // runs on: the protocol it talks to hardware over, its architecture implementation and its SoC
+    // architecture descriptor.
+    explicit TTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual void retrain_dram_core(const uint32_t dram_channel) = 0;
 
@@ -569,14 +595,12 @@ protected:
     virtual std::unique_ptr<DeviceFirmware> create_device_firmware();
 
 private:
-    void assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
 
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();
 
     std::unique_ptr<TTDeviceModel> model_;
-    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_ = nullptr;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;

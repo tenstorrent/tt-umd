@@ -66,17 +66,7 @@ enum class RiscType : std::uint64_t;
     SiliconTlbWindow::set_sigbus_safe_handler(set_safe_handler);
 }
 
-TTDevice::TTDevice(
-    std::unique_ptr<TTDeviceModel> model, std::unique_ptr<ArchitectureImplementation> architecture_impl) :
-    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {}
-
-TTDevice::TTDevice(
-    std::unique_ptr<TTDeviceModel> model,
-    std::unique_ptr<ArchitectureImplementation> architecture_impl,
-    const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    architecture_impl_(std::move(architecture_impl)), model_(std::move(model)) {
-    assign_soc_arch_descriptor(soc_arch_descriptor);
-
+TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(model)) {
     if (model_->get_pcie_interface() != nullptr) {
         // Initialize PCIe DMA mutex through LockManager for cross-process synchronization.
         lock_manager.initialize_mutex(
@@ -97,7 +87,7 @@ std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
                 model_->get_device_protocol(),
                 model_->get_pcie_interface(),
                 model_->get_jtag_interface(),
-                architecture_impl_.get(),
+                model_->get_architecture_impl(),
                 telemetry,
                 firmware_info_provider);
         case tt::ARCH::WORMHOLE_B0:
@@ -106,7 +96,7 @@ std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
                 model_->get_pcie_interface(),
                 model_->get_jtag_interface(),
                 model_->get_remote_interface(),
-                architecture_impl_.get(),
+                model_->get_architecture_impl(),
                 telemetry,
                 firmware_info_provider);
         default:
@@ -121,21 +111,6 @@ DeviceFirmware *TTDevice::get_device_firmware() {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
     return device_firmware_.get();
-}
-
-void TTDevice::assign_soc_arch_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) {
-    if (soc_arch_descriptor == nullptr) {
-        soc_arch_descriptor_ = std::make_shared<SocArchDescriptor>(architecture_impl_->get_architecture());
-        return;
-    }
-    UMD_ASSERT(
-        soc_arch_descriptor->get_arch() == get_arch(),
-        error::RuntimeError,
-        fmt::format(
-            "SocArchDescriptor architecture {} does not match device architecture {}.",
-            arch_to_str(soc_arch_descriptor->get_arch()),
-            arch_to_str(get_arch())));
-    soc_arch_descriptor_ = soc_arch_descriptor;
 }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
@@ -156,7 +131,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     // Still built here: its callers reach it through TTDevice and have not moved to
     // DeviceFirmware::send_device_command yet.
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    construct_soc_descriptor(soc_arch_descriptor_);
+    construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
 }
 
 /* static */ std::unique_ptr<TTDevice> TTDevice::create(
@@ -175,13 +150,12 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
         arch = jtag_device->get_jtag_arch(device_number);
         switch (arch) {
             case ARCH::WORMHOLE_B0:
-                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                    std::make_unique<WormholeTTDeviceModel>(std::move(jtag_device), device_number),
-                    soc_arch_descriptor));
+                return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
+                    std::move(jtag_device), device_number, soc_arch_descriptor)));
             case ARCH::BLACKHOLE:
-                return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
-                    std::make_unique<BlackholeTTDeviceModel>(std::move(jtag_device), device_number),
-                    soc_arch_descriptor));
+                return std::unique_ptr<BlackholeTTDevice>(
+                    new BlackholeTTDevice(std::make_unique<BlackholeTTDeviceModel>(
+                        std::move(jtag_device), device_number, soc_arch_descriptor)));
             default:
                 UMD_THROW(
                     error::RuntimeError,
@@ -195,10 +169,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     switch (arch) {
         case ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(std::move(pci_device), use_safe_api), soc_arch_descriptor));
+                std::make_unique<WormholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         case ARCH::BLACKHOLE:
             return std::unique_ptr<BlackholeTTDevice>(new BlackholeTTDevice(
-                std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api), soc_arch_descriptor));
+                std::make_unique<BlackholeTTDeviceModel>(std::move(pci_device), use_safe_api, soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -215,7 +189,7 @@ std::unique_ptr<TTDevice> TTDevice::create(
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0:
             return std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication)), soc_arch_descriptor));
+                std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication), soc_arch_descriptor)));
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -238,9 +212,9 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
             arch_to_str(arch)));
     switch (arch) {
         case tt::ARCH::WORMHOLE_B0: {
-            auto device = std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(
-                std::make_unique<WormholeTTDeviceModel>(std::move(remote_communication)),
-                /*soc_arch_descriptor=*/nullptr));
+            auto device =
+                std::unique_ptr<WormholeTTDevice>(new WormholeTTDevice(std::make_unique<WormholeTTDeviceModel>(
+                    std::move(remote_communication), /*soc_arch_descriptor=*/nullptr)));
             // This device is never run through init_tt_device() (no ARC to probe), so construct_soc_descriptor()
             // never overwrites the descriptor set here; set_soc_descriptor keeps the assign-exactly-once invariant.
             device->set_soc_descriptor(soc_descriptor);
@@ -254,7 +228,7 @@ std::unique_ptr<TTDevice> TTDevice::create_simulation_remote(
 }
 #endif  // TT_UMD_BUILD_SIMULATION
 
-ArchitectureImplementation *TTDevice::get_architecture_implementation() { return architecture_impl_.get(); }
+ArchitectureImplementation *TTDevice::get_architecture_implementation() { return model_->get_architecture_impl(); }
 
 // The nullptr check for capabilities in the APIs get_pci_device and get_remote_communication
 // exists for backward compatibility — these APIs are expected to return nullptr when a capability is unavailable.
@@ -440,20 +414,20 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (dram_channel >= architecture_impl_->get_dram_banks_number()) {
+    if (dram_channel >= get_architecture_implementation()->get_dram_banks_number()) {
         UMD_THROW(
             error::RuntimeError,
             fmt::format(
                 "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
                 dram_channel,
-                architecture_impl_->get_dram_banks_number() - 1));
+                get_architecture_implementation()->get_dram_banks_number() - 1));
     }
     const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
     uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        std::vector<DramTrainingStatus> dram_training_status =
-            get_firmware_info_provider()->get_dram_training_status(architecture_impl_->get_dram_banks_number());
+        std::vector<DramTrainingStatus> dram_training_status = get_firmware_info_provider()->get_dram_training_status(
+            get_architecture_implementation()->get_dram_banks_number());
 
         if (dram_training_status.empty()) {
             log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
@@ -552,11 +526,15 @@ uint64_t TTDevice::get_refclk_counter() {
     uint32_t high1_addr = 0;
     uint32_t high2_addr = 0;
     uint32_t low_addr = 0;
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
-    read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
-    read_from_arc_apb(&high1_addr, architecture_impl_->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(
+        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
+    read_from_arc_apb(
+        &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
+    read_from_arc_apb(
+        &high1_addr, get_architecture_implementation()->get_reset_unit_refclk_high_offset(), sizeof(high1_addr));
     if (high2_addr > high1_addr) {
-        read_from_arc_apb(&low_addr, architecture_impl_->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
+        read_from_arc_apb(
+            &low_addr, get_architecture_implementation()->get_reset_unit_refclk_low_offset(), sizeof(low_addr));
     }
     return (static_cast<uint64_t>(high2_addr) << 32) | low_addr;
 }
@@ -591,29 +569,31 @@ void TTDevice::advance_device_execution() {
 
 uint32_t TTDevice::get_risc_reset_state(CoreCoord core) {
     uint32_t tensix_risc_state;
-    read_from_device_reg(&tensix_risc_state, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    read_from_device_reg(
+        &tensix_risc_state, core, get_architecture_implementation()->get_tensix_soft_reset_addr(), sizeof(uint32_t));
 
     return tensix_risc_state;
 }
 
 void TTDevice::set_risc_reset_state(CoreCoord core, const uint32_t risc_flags) {
-    write_to_device_reg(&risc_flags, core, architecture_impl_->get_tensix_soft_reset_addr(), sizeof(uint32_t));
+    write_to_device_reg(
+        &risc_flags, core, get_architecture_implementation()->get_tensix_soft_reset_addr(), sizeof(uint32_t));
     tt_driver_atomics::sfence();
 }
 
 void TTDevice::assert_risc_reset(CoreCoord core, const RiscType selected_riscs) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state | soft_reset_update;
     set_risc_reset_state(core, soft_reset_new);
 }
 
 void TTDevice::deassert_risc_reset(CoreCoord core, const RiscType selected_riscs, bool staggered_start) {
     uint32_t soft_reset_current_state = get_risc_reset_state(core);
-    uint32_t soft_reset_update = architecture_impl_->get_soft_reset_reg_value(selected_riscs);
+    uint32_t soft_reset_update = get_architecture_implementation()->get_soft_reset_reg_value(selected_riscs);
     uint32_t soft_reset_new = soft_reset_current_state & ~soft_reset_update;
     uint32_t soft_reset_new_with_staggered_start =
-        soft_reset_new | (staggered_start ? architecture_impl_->get_soft_reset_staggered_start() : 0);
+        soft_reset_new | (staggered_start ? get_architecture_implementation()->get_soft_reset_staggered_start() : 0);
     set_risc_reset_state(core, soft_reset_new_with_staggered_start);
 }
 
@@ -626,7 +606,7 @@ tt_xy_pair TTDevice::get_arc_core(const NocId noc_id) const {
 void TTDevice::noc_multicast_write(
     const void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
+        get_soc_descriptor().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     ZoneScopedC(tracy::Color::Orange);
@@ -660,7 +640,7 @@ void TTDevice::noc_multicast_write(
 
 void TTDevice::noc_multicast_write(const void *src, size_t size, uint64_t addr, NocId noc_id) {
     UMD_ASSERT(
-        get_chip_info().noc_translation_enabled,
+        get_soc_descriptor().noc_translation_enabled,
         error::RuntimeError,
         "Multicast not implemented for devices without NOC translation enabled.");
     auto [start, end] =
@@ -694,26 +674,26 @@ int TTDevice::export_dmabuf(CoreCoord core, uint64_t addr, size_t size, uint64_t
     return get_pcie_interface()->export_dmabuf(resolve_coordinate(core, noc_id), addr, size, ordering, noc_id);
 }
 
-void TTDevice::dma_write_to_device(const void *src, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_write(const void *src, uint64_t dst_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
-        UMD_THROW(error::RuntimeError, "DMA write to device not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_write(src, addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success = get_dma_interface()->dma_write(src, dst_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular write.
     pcie_dma_lock.unlock();
-    write_to_device(src, core, addr, size, noc_id);
+    write_to_device(src, core, dst_addr, size, noc_id);
 }
 
-void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_read(void *dst, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
         UMD_THROW(error::RuntimeError, "DMA read from device not supported for remote device.");
@@ -722,28 +702,28 @@ void TTDevice::dma_read_from_device(void *dst, size_t size, CoreCoord core, uint
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
-    bool dma_success = get_dma_interface()->dma_read(dst, addr, size, resolve_coordinate(core, noc_id), noc_id);
+    bool dma_success = get_dma_interface()->dma_read(dst, src_addr, size, resolve_coordinate(core, noc_id), noc_id);
     if (dma_success) {
         return;
     }
 
     // DMA unavailable, fall back to regular read.
     pcie_dma_lock.unlock();
-    read_from_device(dst, core, addr, size, noc_id);
+    read_from_device(dst, core, src_addr, size, noc_id);
 }
 
-void TTDevice::dma_multicast_write(
-    void *src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
+void TTDevice::dma_write_to_core_range(
+    const void *src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
     ZoneScopedC(tracy::Color::MediumPurple);
     if (is_remote()) {
-        UMD_THROW(error::RuntimeError, "DMA multicast write not supported for remote device.");
+        UMD_THROW(error::RuntimeError, "DMA write to core range not supported for remote device.");
     }
     auto pcie_dma_lock =
         lock_manager.acquire_mutex(MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
 
     // Returns true if DMA transfer succeeded, false if DMA is not available.
     bool dma_success = get_dma_interface()->dma_multicast_write(
-        src, addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
+        src, dst_addr, size, resolve_coordinate(core_start, noc_id), resolve_coordinate(core_end, noc_id), noc_id);
 
     if (dma_success) {
         return;
@@ -751,7 +731,7 @@ void TTDevice::dma_multicast_write(
 
     // DMA unavailable, fall back to regular multicast write.
     pcie_dma_lock.unlock();
-    noc_multicast_write(src, size, core_start, core_end, addr, noc_id);
+    noc_multicast_write(src, size, core_start, core_end, dst_addr, noc_id);
 }
 
 void TTDevice::dma_read_zero_copy(uint64_t dst_iova, uint64_t src_addr, size_t size, CoreCoord core, NocId noc_id) {

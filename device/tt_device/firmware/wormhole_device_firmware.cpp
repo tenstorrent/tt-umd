@@ -315,7 +315,7 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
 
 ChipInfo WormholeDeviceFirmware::get_chip_info(NocId noc_id) {
     if (firmware_info_provider_ == nullptr) {
-        UMD_THROW(error::RuntimeError, "Chip info is unavailable without a FirmwareInfoProvider.");
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
     }
     ChipInfo chip_info;
 

@@ -87,18 +87,14 @@ std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
                 model_->get_device_protocol(),
                 model_->get_pcie_interface(),
                 model_->get_jtag_interface(),
-                model_->get_architecture_impl(),
-                telemetry,
-                firmware_info_provider);
+                model_->get_architecture_impl());
         case tt::ARCH::WORMHOLE_B0:
             return std::make_unique<WormholeDeviceFirmware>(
                 model_->get_device_protocol(),
                 model_->get_pcie_interface(),
                 model_->get_jtag_interface(),
                 model_->get_remote_interface(),
-                model_->get_architecture_impl(),
-                telemetry,
-                firmware_info_provider);
+                model_->get_architecture_impl());
         default:
             UMD_THROW(
                 error::RuntimeError,
@@ -106,7 +102,7 @@ std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
     }
 }
 
-DeviceFirmware *TTDevice::get_device_firmware() {
+DeviceFirmware *TTDevice::get_device_firmware() const {
     if (device_firmware_ == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
@@ -481,17 +477,11 @@ ArcMessenger *TTDevice::get_arc_messenger() const {
 }
 
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
-    if (telemetry == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    return telemetry.get();
+    return get_device_firmware()->get_firmware_telemetry_reader();
 }
 
 FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
-    if (firmware_info_provider == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
-    return firmware_info_provider.get();
+    return get_device_firmware()->get_firmware_info_provider();
 }
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
@@ -550,15 +540,14 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
 ChipInfo TTDevice::get_chip_info() {
-    if (firmware_info_provider == nullptr) {
-        UMD_THROW(error::UninitializedDeviceError, *this);
-    }
     ChipInfo chip_info;
 
-    chip_info.noc_translation_enabled = get_noc_translation_enabled();
+    // Read through FirmwareInfoProvider first: an uninitialized device reports it here rather than
+    // part way through filling the struct.
     chip_info.board_id = get_board_id();
     chip_info.board_type = get_board_type();
     chip_info.asic_location = get_asic_location();
+    chip_info.noc_translation_enabled = get_noc_translation_enabled();
 
     return chip_info;
 }

@@ -366,6 +366,10 @@ target_link_libraries(tt-umd PRIVATE umd_asio_lib)
 
 target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 
+# Grendel (chippy) JTAG. Empty INTERFACE lib when TT_UMD_BUILD_GRENDEL_JTAG=OFF,
+# so this link is a no-op for normal builds.
+target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
+
 check_function_exists(
     backtrace
     HAVE_BACKTRACE

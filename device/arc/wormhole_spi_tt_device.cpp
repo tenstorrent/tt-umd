@@ -18,12 +18,12 @@
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/semver.hpp"
-#include "umd/device/tt_device/firmware/device_firmware.hpp"
 
 namespace tt::umd {
 
@@ -326,8 +326,10 @@ void WormholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
     }
 
     std::vector<uint32_t> ret(1);
-    uint32_t rc = send_arc_command(firmware, 
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR), ret);
+    uint32_t rc = send_arc_command(
+        firmware,
+        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
+        ret);
     if (rc != 0 || ret.empty()) {
         UMD_THROW(error::RuntimeError, "Failed to get SPI dump address on Wormhole.");
     }
@@ -396,7 +398,8 @@ void WormholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size,
     std::exception_ptr write_exception;
     try {
         std::vector<uint32_t> ret(1);
-        uint32_t rc = send_arc_command(firmware, 
+        uint32_t rc = send_arc_command(
+            firmware,
             wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_SPI_DUMP_ADDR),
             ret);
         if (rc != 0 || ret.empty()) {

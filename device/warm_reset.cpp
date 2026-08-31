@@ -334,8 +334,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
             MSG_TYPE_ARC_STATE3, {default_arg_value, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
         usleep(30'000);
         if (reset_m3) {
-            firmware->send_device_command(
-                MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
+            firmware->send_device_command(MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
         } else {
             firmware->send_device_command(
                 MSG_TYPE_TRIGGER_RESET, {default_arg_value, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);

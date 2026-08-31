@@ -126,7 +126,8 @@ int Chip::arc_msg(
         arc_msg_return_values.push_back(0);
     }
 
-    DeviceCommandResult result = get_tt_device()->get_device_firmware()->send_device_command(msg_code, args, timeout_ms);
+    DeviceCommandResult result =
+        get_tt_device()->get_device_firmware()->send_device_command(msg_code, args, timeout_ms);
     const uint32_t exit_code = result.exit_code;
     for (size_t i = 0; i < arc_msg_return_values.size() && i < result.return_values.size(); i++) {
         arc_msg_return_values[i] = result.return_values[i];

@@ -43,6 +43,10 @@ public:
 
     DeviceFirmware *get_device_firmware() override;
 
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() override;
+
+    FirmwareInfoProvider *get_firmware_info_provider() override;
+
     ArchitectureImplementation *get_architecture_impl() override;
 
     SocArchDescriptor *get_soc_arch_descriptor() override;

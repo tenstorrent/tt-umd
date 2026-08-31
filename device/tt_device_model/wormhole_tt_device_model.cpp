@@ -82,6 +82,14 @@ DeviceProtocol *WormholeTTDeviceModel::get_device_protocol() { return protocol_.
 
 DeviceFirmware *WormholeTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
 
+FirmwareTelemetryReader *WormholeTTDeviceModel::get_firmware_telemetry_reader() {
+    return device_firmware_->get_firmware_telemetry_reader();
+}
+
+FirmwareInfoProvider *WormholeTTDeviceModel::get_firmware_info_provider() {
+    return device_firmware_->get_firmware_info_provider();
+}
+
 SocArchDescriptor *WormholeTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 
 ArchitectureImplementation *WormholeTTDeviceModel::get_architecture_impl() { return architecture_impl_.get(); }

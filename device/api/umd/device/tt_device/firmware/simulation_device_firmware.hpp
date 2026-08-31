@@ -51,6 +51,7 @@ public:
     void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
+
 protected:
     /**
      * @brief Waits for the management firmware; a no-op on every simulation backend.

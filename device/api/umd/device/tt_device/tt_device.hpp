@@ -595,7 +595,6 @@ protected:
     virtual std::unique_ptr<DeviceFirmware> create_device_firmware();
 
 private:
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();

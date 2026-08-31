@@ -163,9 +163,10 @@ jobs:
       # This skips Tracy's runtime TSC check to prevent initialization failures during build.
       TRACY_NO_INVARIANT_CHECK: 1
       # Env. vars related to SCCache:
-      # Enabled on push to main (the only branch that triggers a push event here)
-      # and on manual dispatch when the input is set; skipped on PRs and merge queue.
-      SCCACHE_GHA_ENABLED: ${{ github.event_name == 'push' || inputs.use-sccache }}
+      # Enabled on every triggering event (PR, merge queue, push to main). The `inputs` context
+      # only exists for workflow_dispatch, so it can't be the sole condition here - on the other
+      # events it expands to the empty string and would disable the cache everywhere.
+      SCCACHE_GHA_ENABLED: ${{ github.event_name != 'workflow_dispatch' || inputs.use-sccache }}
       SCCACHE_GHA_VERSION: >-
         build-device-${{ matrix.image.distro }}-${{ matrix.image.compiler-c
         }}${{ matrix.image.use_release_flags && '-release' || '' }}

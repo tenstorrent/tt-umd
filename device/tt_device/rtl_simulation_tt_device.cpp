@@ -94,7 +94,6 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     int num_host_mem_channels) :
     SimulationTTDevice(
         std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
-        ArchitectureImplementation::create(soc_descriptor.arch),
         simulator_directory,
         std::make_unique<SimulationSysmemManager>(num_host_mem_channels, soc_descriptor.arch)),
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
@@ -112,10 +111,7 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
 
 RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
-    SimulationTTDevice(
-        std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch),
-        ArchitectureImplementation::create(soc_descriptor.arch),
-        std::move(client)) {
+    SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
     // The default TTDevice constructor does not build firmware, so the most derived constructor
     // does it here -- which is also what makes create_device_firmware() resolve to this class.

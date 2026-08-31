@@ -23,6 +23,12 @@ namespace tt::umd {
  */
 class SimulationDeviceFirmware : public DeviceFirmware {
 public:
+    /** Simulation backends publish no firmware telemetry. */
+    FirmwareTelemetryReader *get_firmware_telemetry_reader() const override { return nullptr; }
+
+    /** Simulation backends publish no firmware information. */
+    FirmwareInfoProvider *get_firmware_info_provider() const override { return nullptr; }
+
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     DeviceCommandResult send_device_command(

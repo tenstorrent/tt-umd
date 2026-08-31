@@ -176,43 +176,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     return chip_info;
 }
 
-void BlackholeTTDevice::probe_arc() {
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, registers_.arc_reset_scratch_offset, sizeof(dummy));  // SCRATCH_0
-}
-
-void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    uint32_t arc_boot_status = 0;
-    uint32_t arc_postcode = 0;
-    uint32_t arc_error_status0 = 0;
-
-    constexpr auto busy_poll_window = std::chrono::microseconds(1000);
-    constexpr auto poll_interval = std::chrono::microseconds(10);
-    const bool arc_core_started = utils::poll_until(
-        [this, &arc_boot_status, &arc_postcode]() {
-            read_from_arc_apb(&arc_boot_status, blackhole::SCRATCH_RAM_2, sizeof arc_boot_status);
-            read_from_arc_apb(&arc_postcode, registers_.arc_reset_scratch_offset, sizeof arc_postcode);
-            return (arc_boot_status & 0x7) == 0x5;
-        },
-        timeout_ms,
-        busy_poll_window,
-        poll_interval);
-
-    if (!arc_core_started) {
-        read_from_arc_apb(&arc_error_status0, blackhole::SCRATCH_RAM_4, sizeof arc_error_status0);
-        UMD_THROW(
-            error::ArcStartupError,
-            *this,
-            get_selected_noc_id(),
-            get_arc_core(),
-            arc_boot_status,
-            arc_postcode,
-            timeout_ms,
-            /*message_id=*/std::nullopt,
-            arc_error_status0);
-    }
-}
-
 uint32_t BlackholeTTDevice::get_clock() {
     if (get_firmware_telemetry_reader()->is_entry_available(TelemetryTag::AICLK)) {
         return get_firmware_telemetry_reader()->read_entry(TelemetryTag::AICLK);
@@ -282,14 +245,6 @@ void BlackholeTTDevice::write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_
         return;
     }
     bar_write32(registers_.arc_apb_bar0_offset + arc_addr_offset, *(reinterpret_cast<const uint32_t *>(mem_ptr)));
-}
-
-void BlackholeTTDevice::write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    UMD_THROW(error::RuntimeError, "CSM write not supported for Blackhole.");
-}
-
-void BlackholeTTDevice::read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
-    UMD_THROW(error::RuntimeError, "CSM read not supported for Blackhole.");
 }
 
 std::chrono::milliseconds BlackholeTTDevice::wait_eth_core_training(

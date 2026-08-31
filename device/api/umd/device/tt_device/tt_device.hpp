@@ -49,6 +49,7 @@ namespace tt::umd {
 
 class ArcMessenger;
 class ArcTelemetryReader;
+class DeviceFirmware;
 class RemoteCommunication;
 class SimulationSysmemManager;
 class DmaInterface;
@@ -319,40 +320,6 @@ public:
     virtual void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
 
     /**
-     * Read function that will send read message to the ARC core CSM.
-     *
-     * @param mem_ptr pointer to memory which will receive the data
-     * @param arc_addr_offset address offset in ARC core CSM
-     * @param size number of bytes
-     *
-     * NOTE: This function will read from CSM. It will use the AXI interface to read the data if the chip is local/PCIe,
-     * while the remote chip will use the NOC interface to read the data. Blackhole has board
-     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
-     * interface will be used even for local chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void read_from_arc_csm(void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
-     * Write function that will send write message to the ARC core CSM.
-     *
-     * @param mem_ptr pointer to memory from which the data is sent
-     * @param arc_addr_offset address offset in ARC core CSM
-     * @param size number of bytes
-     *
-     * NOTE: This function will write to CSM. It will use the AXI interface to write the data if the chip is local/PCIe,
-     * while the remote chip will use the NOC interface to write the data. Blackhole has board
-     * configurations where the ARC is not available over AXI, hence in this situations, the NOC
-     * interface will be used even for local chips.
-     *
-     * For additional details on the ARC core architecture and communication mechanisms, please refer to:
-     * https://github.com/tenstorrent/tt-isa-documentation
-     */
-    virtual void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) = 0;
-
-    /**
      * Configures a PCIe Address Translation Unit (iATU) region.
      *
      * Device software expects to be able to access memory that is shared with
@@ -385,11 +352,10 @@ public:
     FirmwareBundleVersion get_firmware_version();
 
     /**
-     * Waits for ARC core to be fully ready for communication.
-     * Must be called before using ArcMessenger.
-     * This ensures the ARC core is completely initialized and operational.
+     * Interface to the device's management firmware. Owned by the model, so never null; created
+     * with the device, initialized by init_tt_device() through DeviceFirmware::init_firmware().
      */
-    virtual void wait_arc_core_start(const std::chrono::milliseconds timeout_ms = timeout::ARC_STARTUP_TIMEOUT) = 0;
+    DeviceFirmware *get_device_firmware() const;
 
     /**
      * Waits for ETH core training to complete.
@@ -586,10 +552,6 @@ protected:
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
 
     virtual void set_arc_coordinate() {}
-
-    // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
-    // can implement it. Goes away once firmware startup moves out of TTDevice.
-    virtual void probe_arc() {}
 
 private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);

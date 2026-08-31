@@ -31,6 +31,7 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/tt_device/protocol/dma_interface.hpp"
@@ -75,6 +76,8 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
     }
 }
 
+DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
+
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
     if (model_->get_pcie_interface() != nullptr) {
@@ -85,8 +88,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     if (noc_hang_check_result) {
         UMD_THROW(error::NocHangError, *this, is_selected_noc1() ? NocId::NOC1 : NocId::NOC0);
     }
-    probe_arc();
-    wait_arc_core_start(timeout_ms);
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
         get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);

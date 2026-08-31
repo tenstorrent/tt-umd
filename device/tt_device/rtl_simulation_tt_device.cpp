@@ -291,10 +291,6 @@ void RtlSimulationTTDevice::deassert_risc_reset(CoreCoord core, const RiscType s
     }
 }
 
-void RtlSimulationTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    // RTL simulation doesn't have ARC cores in the same way.
-}
-
 std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
     CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
     // RTL simulation doesn't require Ethernet training.

@@ -6,7 +6,11 @@
 
 namespace tt::umd {
 
-void SimulationDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {}
+void SimulationDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    wait_firmware_ready(timeout_ms, noc_id);
+}
+
+void SimulationDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {}
 
 DeviceCommandResult SimulationDeviceFirmware::send_device_command(
     uint32_t msg_code, const std::vector<uint32_t> &args, std::chrono::milliseconds timeout, NocId noc_id) {

@@ -73,6 +73,20 @@ public:
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
 private:
+    /**
+     * @brief Blocks until the management firmware reports it has booted.
+     *
+     * Split out from init_firmware() to mark the seam where this becomes its own API: waiting for
+     * the firmware and building the components that depend on it are two jobs, and callers such as
+     * warm reset only want the first. Once they are separate entry points, init_firmware()'s
+     * idempotence guard goes away with them.
+     *
+     * @param timeout_ms How long to wait for the firmware to report ready.
+     * @param noc_id NOC to route the status reads over.
+     * @throws error::FirmwareStartupError if the firmware does not come up within the timeout.
+     */
+    void wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id);
+
     IODeviceType get_io_device_type() const;
 
     // Asks the firmware to retrain one DRAM channel; throws if the firmware reports a failure.
@@ -99,7 +113,7 @@ private:
 
     // Names the ARC message mutex; taken from the protocol so it identifies this device, not the
     // silicon model. See DeviceProtocol::get_mmio_id().
-    const int device_id_ = 0;
+    int device_id_ = 0;
 
     // ARC core coordinate per NOC, resolved once in the constructor: it depends only on the NOC
     // translation state, which is fixed for the device's lifetime.

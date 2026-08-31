@@ -213,6 +213,13 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
 
 DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id) {
+    // No commands before the firmware is up. Wormhole messages go through scratch registers that are
+    // readable either way, so nothing stops the access -- it would just be talking to firmware that
+    // has not reported ready.
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+
     if ((msg_code & 0xff00) != wormhole::ARC_MSG_COMMON_PREFIX) {
         log_error(LogUMD, "Malformed message. msg_code is {:#x} but should be 0xaa..", msg_code);
     }

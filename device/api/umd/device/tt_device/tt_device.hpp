@@ -577,15 +577,6 @@ protected:
     virtual void probe_arc() {}
 
     /**
-     * @brief Throws UninitializedDeviceError unless init_tt_device() has run.
-     *
-     * The facade owns this contract: callers are promised that specific error before
-     * initialization. Methods that delegate to DeviceFirmware check it here first, because the
-     * firmware reports only whether it can currently answer, not whether this device was set up.
-     */
-    void require_initialized() const;
-
-    /**
      * @brief Takes ownership of the firmware this device runs on.
      *
      * Called from the most derived constructor, with the result of an explicitly qualified

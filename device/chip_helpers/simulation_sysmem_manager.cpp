@@ -19,7 +19,7 @@
 
 #include "hugepage.hpp"
 #include "tracy.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 #include "umd/device/utils/error.hpp"
 
 namespace tt {
@@ -150,7 +150,7 @@ void* SimulationSysmemManager::get_mapped_host_ptr(uint64_t device_io_addr) {
     return static_cast<uint8_t*>(b->buffer) + (device_io_addr - b->device_io_addr);
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
+std::unique_ptr<SystemMemoryBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     size_t sysmem_buffer_size, const bool map_to_noc) {
     void* mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
@@ -158,7 +158,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     // This mapping belongs to the buffer, so it is released along with the registry entry. mmap returns
     // a page-aligned address, so the pointer the deleter receives is the one to munmap.
     const size_t mapping_size = sysmem_buffer_size;
-    const SysmemBuffer::Deleter release_mapping = [mapping_size](void* aligned_va) {
+    const SystemMemoryBuffer::Deleter release_mapping = [mapping_size](void* aligned_va) {
         if (munmap(aligned_va, mapping_size) != 0) {
             log_warning(
                 LogUMD,
@@ -179,18 +179,18 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     }
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
+std::unique_ptr<SystemMemoryBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
     // The caller owns this memory, so the buffer only drops the registry entry.
     return register_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
 }
 
-std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
+std::unique_ptr<SystemMemoryBuffer> SimulationSysmemManager::register_and_wrap(
     void* buffer,
     size_t sysmem_buffer_size,
     const bool map_to_noc,
     DeviceBufferAccess device_access,
-    SysmemBuffer::Deleter release_backing_memory) {
+    SystemMemoryBuffer::Deleter release_backing_memory) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
@@ -210,7 +210,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
     // The buffer's deleter drops the registry entry, then releases the backing memory if this manager
     // allocated it.
-    SysmemBuffer::Deleter deleter =
+    SystemMemoryBuffer::Deleter deleter =
         [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* aligned_va) {
             if (auto reg = weak_reg.lock()) {
                 std::lock_guard<std::mutex> lock(reg->mutex);

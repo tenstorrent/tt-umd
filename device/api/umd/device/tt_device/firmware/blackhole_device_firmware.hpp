@@ -60,6 +60,14 @@ public:
     void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     /**
+     * @brief Queries whether NOC address translation is active.
+     *
+     * The state is fixed for the device's lifetime and read over BAR/JTAG, never over a NOC, so
+     * noc_id is unused. The constructor also uses it to resolve the ARC coordinates.
+     */
+    bool get_noc_translation_enabled(NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    /**
      * @brief Telemetry published by the management firmware.
      *
      * Owned here: it reads state the firmware publishes, so it cannot exist until init_firmware()
@@ -105,11 +113,6 @@ private:
     // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
     // settle, rather than throwing.
     void wait_for_aiclk_value(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
-
-    // Whether NOC address translation is active. Private for now: the constructor needs it to
-    // resolve the ARC coordinates, while TTDevice::get_noc_translation_enabled stays the public
-    // entry until that API moves here. Read over BAR/JTAG, so it does not need the firmware up.
-    bool get_noc_translation_enabled() const;
 
     // The management firmware core's coordinate, resolved for noc_id. Private until the TTDevice
     // API it replaces moves here.

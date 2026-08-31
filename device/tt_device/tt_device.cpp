@@ -213,6 +213,8 @@ void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {
     get_device_firmware()->set_clock_state(state, get_selected_noc_id());
 }
 
+bool TTDevice::get_noc_translation_enabled() { return get_device_firmware()->get_noc_translation_enabled(); }
+
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
 
 PcieInterface *TTDevice::get_pcie_interface() {

@@ -299,12 +299,6 @@ std::unique_ptr<TlbWindow> SimulationTTDevice::get_io_window(tlb_data config, Tl
     return create_tlb_window(tlb_index, actual_size, mapping, config);
 }
 
-bool SimulationTTDevice::get_noc_translation_enabled() {
-    // Simulation backends operate on logical/virtual coordinates end-to-end; NOC translation is never
-    // applied.
-    return false;
-}
-
 void SimulationTTDevice::noc_multicast_write(
     const void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
     multicast_write_via_unicast(src, size, core_start, core_end, addr, noc_id);

@@ -433,7 +433,7 @@ TEST(MicrobenchmarkIOMMU, Map1GBPagesSysmemBuffers) {
     ankerl::nanobench::Result unmap_result(bench.config());
     ankerl::nanobench::detail::PerformanceCounters pc;  // Empty perf. counters just to fill in args.
 
-    std::array<std::unique_ptr<SysmemBuffer>, NUM_PAGES> sysmem_buffers{};
+    std::array<std::unique_ptr<SystemMemoryBuffer>, NUM_PAGES> sysmem_buffers{};
     for (int i = 0; i < NUM_EPOCHS; i++) {
         for (size_t page = 0; page < NUM_PAGES; page++) {
             auto now = std::chrono::high_resolution_clock::now();

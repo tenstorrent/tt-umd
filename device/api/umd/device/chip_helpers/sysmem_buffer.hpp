@@ -27,6 +27,9 @@ class TTDevice;
  * Traditionally, we have referred to the sysmem buffer as something that is
  * visible to device, has its own NOC address. Without changes to KMD, this is still not fully supported for IOMMU
  * buffers.
+ *
+ * SystemMemoryBuffer is the Base API Specification name for this type, available as an alias below and the one
+ * new code should use. The class keeps its SysmemBuffer spelling here; renaming it is a separate change.
  */
 class SysmemBuffer {
 public:
@@ -93,14 +96,18 @@ public:
      * Returns the virtual address of the buffer in the process address space.
      * Both in case of aligned and unaligned buffers, this will return the original buffer address.
      */
-    void* get_buffer_va() const;
+    void* get_va() const;
+
+    [[deprecated("Use get_va() instead.")]] void* get_buffer_va() const { return get_va(); }
 
     /**
      * Returns the size of the buffer passed by the user.
      *
      * @return Size of the buffer passed by the user.
      */
-    size_t get_buffer_size() const;
+    size_t get_size() const;
+
+    [[deprecated("Use get_size() instead.")]] size_t get_buffer_size() const { return get_size(); }
 
     /**
      * Returns device IOVA (IO virtual address) of the buffer on the offset from the start of the buffer.
@@ -108,9 +115,17 @@ public:
      * @param offset Offset from the start of the buffer. Must be less than the size of the buffer.
      * @return Device IOVA of the buffer on the offset from the start of the buffer.
      */
-    uint64_t get_device_io_addr(const size_t offset = 0) const;
+    uint64_t get_iova(const size_t offset = 0) const;
 
-    std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
+    [[deprecated("Use get_iova() instead.")]] uint64_t get_device_io_addr(const size_t offset = 0) const {
+        return get_iova(offset);
+    }
+
+    std::optional<uint64_t> get_noc_address() const { return noc_addr_; }
+
+    [[deprecated("Use get_noc_address() instead.")]] std::optional<uint64_t> get_noc_addr() const {
+        return get_noc_address();
+    }
 
     /**
      * Binds a NOC address to this buffer, so every tile on the device can reach it rather than only the
@@ -161,9 +176,9 @@ private:
     /**
      * Constructs a buffer over host memory the allocator has already pinned for the device.
      *
-     * Alignment stays invisible to the user: get_buffer_va() and get_buffer_size() report what was
-     * passed in, and offsets are bounded by that size. The allocator must pin the same aligned range,
-     * which it computes with page_align().
+     * Alignment stays invisible to the user: get_va() and get_size() report what was passed in, and
+     * offsets are bounded by that size. The allocator must pin the same aligned range, which it
+     * computes with page_align().
      *
      * @param tt_device Device this buffer belongs to, used for the zero-copy DMA helpers. May be null for
      * buffers never used for DMA, such as the simulator's.
@@ -230,5 +245,10 @@ private:
     // Device this buffer's IOVA is valid for. -1 when unknown.
     int communication_id_ = -1;
 };
+
+// The Base API Specification name for the type above. An alias rather than the class name itself for now:
+// downstream repos forward declare `class SysmemBuffer;`, which a type alias cannot satisfy, so the class is
+// renamed only once those declarations are gone.
+using SystemMemoryBuffer = SysmemBuffer;
 
 }  // namespace tt::umd

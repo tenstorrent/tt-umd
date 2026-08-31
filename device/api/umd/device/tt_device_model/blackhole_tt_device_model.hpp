@@ -60,7 +60,6 @@ private:
     int communication_device_id_;
     std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
     std::unique_ptr<ArchitectureImplementation> architecture_impl_;
-    std::unique_ptr<HangDetector> hang_detector_;
 
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;
@@ -69,6 +68,10 @@ private:
     RemoteInterface *remote_interface_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().
     PCIDevice *pci_device_ = nullptr;
+
+    // Must come after pci_device_: the detector holds a TLB window wired in by TTDevice, which needs
+    // the protocol's PCIDevice alive when it is released.
+    std::unique_ptr<HangDetector> hang_detector_;
 };
 
 }  // namespace tt::umd

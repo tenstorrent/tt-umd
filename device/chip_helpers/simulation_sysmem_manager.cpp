@@ -38,6 +38,7 @@ SimulationSysmemManager::SimulationSysmemManager(uint32_t num_host_mem_channels,
     // region target, so each chip's DMA lands in its own host window with no per-chip tag at egress.
     pcie_base_ = get_pcie_base_for_arch(arch);
     host_base_ = static_cast<uint64_t>(chip_id) * PER_CHIP_HOST_STRIDE;
+    communication_id_ = static_cast<int>(chip_id);
     registry_ = std::make_shared<MappedBufferRegistry>();
     SimulationSysmemManager::init_sysmem(num_host_mem_channels);
 }
@@ -186,6 +187,7 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
         buffer,
         sysmem_buffer_size,
         device_io_addr,
+        communication_id_,
         noc_addr,
         [weak_reg, device_io_addr]() {
             if (auto reg = weak_reg.lock()) {

@@ -58,10 +58,17 @@ public:
         size_t buffer_size,
         bool map_to_noc = false,
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
+    /**
+     * Constructor for a buffer that was already made visible to the device by the caller.
+     *
+     * @param communication_id Identifier of the device this buffer's IOVA is valid for. Supplied by the
+     * allocator, which pins for exactly one device. Matches TTDevice::get_communication_device_id().
+     */
     SysmemBuffer(
         void* buffer_va,
         size_t buffer_size,
         uint64_t device_io_addr,
+        int communication_id,
         std::optional<uint64_t> noc_addr = std::nullopt,
         std::function<void()> unmap_callback = {},
         DeviceBufferAccess device_access = DeviceBufferAccess::READ_WRITE);
@@ -112,6 +119,13 @@ public:
     std::optional<uint64_t> get_noc_addr() const { return noc_addr_; }
 
     DeviceBufferAccess get_device_access() const { return device_access_; }
+
+    /**
+     * Returns the identifier of the device context this buffer was pinned for. The IOVA is valid only
+     * for that device, so callers can compare this against TTDevice::get_communication_device_id() to
+     * confirm a buffer belongs to the device it is about to be used with.
+     */
+    int get_communication_id() const { return communication_id_; }
 
     /**
      * Does zero copy DMA transfer to the device. Since the buffer is already mapped through KMD, this function
@@ -178,6 +192,9 @@ private:
 
     std::function<void()> unmap_callback_;
     DeviceBufferAccess device_access_ = DeviceBufferAccess::READ_WRITE;
+
+    // Device this buffer's IOVA is valid for. -1 when unknown.
+    int communication_id_ = -1;
 };
 
 }  // namespace tt::umd

@@ -216,6 +216,29 @@ TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
     EXPECT_EQ(sentinel, sentinel_readback);
 }
 
+// The manager stamps its communication id into every buffer it produces, so a caller can confirm a
+// buffer belongs to the device it is about to be used with.
+TEST_P(ApiSimulationSysmemManagerByArch, BuffersCarryTheManagerCommunicationId) {
+    const uint32_t chip_id = 3;
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id);
+    EXPECT_EQ(sysmem->get_communication_id(), static_cast<int>(chip_id));
+
+    auto allocated = sysmem->allocate_sysmem_buffer(4096);
+    ASSERT_NE(allocated, nullptr);
+    EXPECT_EQ(allocated->get_communication_id(), sysmem->get_communication_id());
+
+    std::vector<uint8_t> external_buf(8192, 0);
+    auto mapped = sysmem->map_sysmem_buffer(external_buf.data(), external_buf.size());
+    ASSERT_NE(mapped, nullptr);
+    EXPECT_EQ(mapped->get_communication_id(), sysmem->get_communication_id());
+
+    // A manager for a different chip stamps a different id.
+    auto other_sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam(), chip_id + 1);
+    auto other_buffer = other_sysmem->allocate_sysmem_buffer(4096);
+    ASSERT_NE(other_buffer, nullptr);
+    EXPECT_NE(other_buffer->get_communication_id(), allocated->get_communication_id());
+}
+
 TEST_P(ApiSimulationSysmemManagerByArch, HostCopyOutOfBoundsThrows) {
     auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
 

@@ -187,26 +187,6 @@ uint32_t BlackholeTTDevice::get_clock() {
 
 uint32_t BlackholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
-void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
-    ZoneScoped;
-    int exit_code = 0;
-    switch (state) {
-        case TTDevice::PowerState::BUSY:
-            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
-            break;
-        case TTDevice::PowerState::IDLE:
-            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
-            break;
-        default:
-            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
-    }
-    UMD_ASSERT(
-        exit_code == 0,
-        error::RuntimeError,
-        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
-    wait_for_aiclk_value(state);
-}
-
 void BlackholeTTDevice::read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) {
     if (arc_addr_offset > blackhole::ARC_XBAR_ADDRESS_END) {
         UMD_THROW(error::RuntimeError, "Address is out of ARC XBAR address range.");

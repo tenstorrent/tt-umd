@@ -16,6 +16,7 @@
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 #include "umd/device/utils/lock_manager.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
 
@@ -55,6 +56,8 @@ public:
         std::chrono::milliseconds timeout,
         NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -91,6 +94,11 @@ private:
     void wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id);
 
     IODeviceType get_io_device_type() const;
+
+    // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
+    // settle, rather than throwing.
+    void wait_for_aiclk_value(
+        uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
 
     // The management firmware core's coordinate, resolved for noc_id. Private until the TTDevice
     // API it replaces moves here.

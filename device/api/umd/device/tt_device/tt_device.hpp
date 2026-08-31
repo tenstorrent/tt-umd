@@ -27,6 +27,7 @@
 #include "umd/device/pcie/tlb_window.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
@@ -395,12 +396,12 @@ public:
     /**
      * @brief Sets the device clock frequency.
      *
-     * Controls the AICLK frequency the device runs at. Distinct from
-     * set_power_state(), which manages hardware power domains.
+     * Controls the AICLK frequency the device runs at. Distinct from set_power_state(), which
+     * manages hardware power domains.
      *
      * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
      */
-    virtual void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
+    void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
 
     virtual uint32_t get_clock() = 0;
 
@@ -536,11 +537,6 @@ protected:
         uint64_t addr,
         NocId noc_id = NocId::DEFAULT_NOC);
 
-    // Polls AICLK until it reaches the frequency expected for `power_state`, or logs a warning and
-    // returns on timeout.
-    void wait_for_aiclk_value(
-        PowerState power_state, const std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
-
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
@@ -554,8 +550,6 @@ protected:
     virtual void set_arc_coordinate() {}
 
 private:
-    void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();

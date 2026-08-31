@@ -94,34 +94,6 @@ uint32_t WormholeTTDevice::get_clock() {
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
 
-uint32_t WormholeTTDevice::get_power_state_arc_msg(TTDevice::PowerState state) {
-    uint32_t msg = wormhole::ARC_MSG_COMMON_PREFIX;
-    switch (state) {
-        case TTDevice::PowerState::BUSY: {
-            msg |= get_architecture_implementation()->get_firmware_message_go_busy();
-            break;
-        }
-        case TTDevice::PowerState::IDLE: {
-            msg |= get_architecture_implementation()->get_firmware_message_go_idle();
-            break;
-        }
-        default:
-            UMD_THROW(error::RuntimeError, "Unrecognized power state.");
-    }
-    return msg;
-}
-
-void WormholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
-    ZoneScoped;
-    uint32_t msg = get_power_state_arc_msg(state);
-    int exit_code = get_arc_messenger()->send_message(msg, {0, 0});
-    UMD_ASSERT(
-        exit_code == 0,
-        error::RuntimeError,
-        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, exit_code));
-    wait_for_aiclk_value(state);
-}
-
 void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     uint32_t dest_bar_lo = target & 0xffffffff;
     uint32_t dest_bar_hi = (target >> 32) & 0xffffffff;

@@ -50,7 +50,6 @@ protected:
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
-
     void probe_arc() override;
 
 private:

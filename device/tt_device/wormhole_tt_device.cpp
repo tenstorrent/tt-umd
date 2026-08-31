@@ -24,6 +24,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
@@ -80,15 +81,14 @@ ChipInfo WormholeTTDevice::get_chip_info() {
 
 uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
-    std::vector<uint32_t> arc_msg_return_values = {0};
-    auto exit_code = get_arc_messenger()->send_message(
+    DeviceCommandResult result = get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-        arc_msg_return_values,
-        {0xFFFF, 0xFFFF});
-    if (exit_code != 0) {
-        UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", exit_code));
+        {0xFFFF, 0xFFFF},
+        timeout::ARC_MESSAGE_TIMEOUT);
+    if (result.exit_code != 0) {
+        UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
     }
-    return arc_msg_return_values[0];
+    return result.return_values.at(0);
 }
 
 uint32_t WormholeTTDevice::get_min_clock_freq() { return get_architecture_implementation()->get_min_clock_freq(); }
@@ -140,10 +140,11 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
     bar_write32(registers_.arc_csm_bar0_mailbox_offset + 1 * 4, dest_bar_lo);
     bar_write32(registers_.arc_csm_bar0_mailbox_offset + 2 * 4, dest_bar_hi);
     bar_write32(registers_.arc_csm_bar0_mailbox_offset + 3 * 4, region_size);
-    get_arc_messenger()->send_message(
+    get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX |
             static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER),
-        {0, 0});
+        {0, 0},
+        timeout::ARC_MESSAGE_TIMEOUT);
 
     // Print what just happened.
     uint32_t peer_region_start = region_id_to_use * region_size;

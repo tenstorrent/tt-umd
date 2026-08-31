@@ -21,6 +21,16 @@ public:
     void init_firmware(
         [[maybe_unused]] std::chrono::milliseconds timeout_ms,
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
+
+    // There is no management firmware to command; report success with no return values so shared
+    // flows that issue commands unconditionally keep working against a simulated device.
+    DeviceCommandResult send_device_command(
+        [[maybe_unused]] uint32_t msg_code,
+        [[maybe_unused]] const std::vector<uint32_t>& args,
+        [[maybe_unused]] std::chrono::milliseconds timeout,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
+        return DeviceCommandResult{};
+    }
 };
 
 }  // namespace tt::umd

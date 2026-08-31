@@ -8,12 +8,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
+#include "umd/device/arc/blackhole_arc_message_queue.hpp"
 #include "umd/device/tt_device/firmware/blackhole_arc_apb.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/types/communication_protocol.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
+#include "umd/device/utils/lock_manager.hpp"
 
 namespace tt::umd {
 
@@ -44,6 +47,12 @@ public:
     ~BlackholeDeviceFirmware() override;
 
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    DeviceCommandResult send_device_command(
+        uint32_t msg_code,
+        const std::vector<uint32_t>& args,
+        std::chrono::milliseconds timeout,
+        NocId noc_id = NocId::DEFAULT_NOC) override;
 
     /**
      * @brief Telemetry published by the management firmware.
@@ -110,6 +119,15 @@ private:
     tt_xy_pair arc_core_noc1_;
 
     BlackholeArcApb arc_apb_;
+
+    // Serializes ARC messages against other processes driving the same device, exactly as
+    // ArcMessenger does for the path this replaces.
+    LockManager lock_manager_;
+
+    // Created by init_firmware(), not the constructor: building it reads the queue descriptor
+    // from the device, which the ARC firmware only publishes once it is up. Declared after arc_apb_
+    // so it is destroyed first - it holds a raw pointer to it.
+    std::unique_ptr<BlackholeArcMessageQueue> arc_msg_queue_;
 
     // Created by init_firmware(), not the constructor: they read state the firmware publishes, so
     // this is the earliest they can exist. The info provider holds a raw pointer to the telemetry

@@ -12,6 +12,8 @@ include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 
 include(${PROJECT_SOURCE_DIR}/cmake/ttexalens_private.cmake)
 
+include(${PROJECT_SOURCE_DIR}/cmake/grendel_jtag.cmake)
+
 ####################################################################################################################
 # google test
 ####################################################################################################################

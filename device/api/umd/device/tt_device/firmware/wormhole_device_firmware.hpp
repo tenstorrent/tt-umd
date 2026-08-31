@@ -47,11 +47,11 @@ public:
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
         RemoteInterface* remote_interface,
-        ArchitectureImplementation* architecture_impl,
-        // Slots owned by the caller. Null until init_firmware() fills them: they cannot be built
-        // before the firmware is up, and this class is what brings it up.
-        std::unique_ptr<FirmwareTelemetryReader>& firmware_telemetry_reader,
-        std::unique_ptr<FirmwareInfoProvider>& firmware_info_provider);
+        ArchitectureImplementation* architecture_impl);
+
+    FirmwareTelemetryReader* get_firmware_telemetry_reader() const override;
+
+    FirmwareInfoProvider* get_firmware_info_provider() const override;
 
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
 
@@ -117,9 +117,8 @@ private:
     JtagInterface* jtag_interface_ = nullptr;
     RemoteInterface* remote_interface_ = nullptr;
     ArchitectureImplementation* architecture_impl_ = nullptr;
-    // References to the owner's slots, not owned here.
-    std::unique_ptr<FirmwareTelemetryReader>& firmware_telemetry_reader_;
-    std::unique_ptr<FirmwareInfoProvider>& firmware_info_provider_;
+    std::unique_ptr<FirmwareTelemetryReader> firmware_telemetry_reader_;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider_;
 
     // Names the ARC message mutex; taken from the protocol so it identifies this device, not the
     // silicon model. See DeviceProtocol::get_mmio_id().

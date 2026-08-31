@@ -577,15 +577,6 @@ protected:
     virtual void probe_arc() {}
 
     /**
-     * @brief Throws UninitializedDeviceError unless init_tt_device() has run.
-     *
-     * The facade owns this contract: callers are promised that specific error before
-     * initialization. Methods that delegate to DeviceFirmware check it here first, because the
-     * firmware reports only whether it can currently answer, not whether this device was set up.
-     */
-    void require_initialized() const;
-
-    /**
      * @brief Takes ownership of the firmware this device runs on.
      *
      * Called from the most derived constructor, with the result of an explicitly qualified
@@ -619,9 +610,6 @@ private:
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    // Declared after the two slots: it holds references to them, so it must be destroyed first.
     std::unique_ptr<DeviceFirmware> device_firmware_ = nullptr;
     std::unique_ptr<HangDetector> hang_detector_;
 };

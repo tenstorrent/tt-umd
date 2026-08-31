@@ -72,11 +72,11 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
         lock_manager.initialize_mutex(
             MutexType::PCIE_DMA, get_communication_device_id(), get_communication_device_type());
     }
-
-    build_device_firmware();
 }
 
-void TTDevice::build_device_firmware() { device_firmware_ = create_device_firmware(); }
+void TTDevice::build_device_firmware(std::unique_ptr<DeviceFirmware> firmware) {
+    device_firmware_ = std::move(firmware);
+}
 
 std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
     // The model owns the transport now, so the firmware is built from its interfaces rather than

@@ -552,7 +552,16 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
-ChipInfo TTDevice::get_chip_info() { return get_device_firmware()->get_chip_info(); }
+void TTDevice::require_initialized() const {
+    if (firmware_info_provider == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, *this);
+    }
+}
+
+ChipInfo TTDevice::get_chip_info() {
+    require_initialized();
+    return get_device_firmware()->get_chip_info();
+}
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 

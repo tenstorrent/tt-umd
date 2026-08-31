@@ -55,6 +55,10 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDev
 }
 
 uint32_t WormholeTTDevice::get_clock() {
+    // get_arc_messenger() used to supply this on the way past; send_device_command() does not, and
+    // callers are promised UninitializedDeviceError before init_tt_device().
+    require_initialized();
+
     // There is one return value from AICLK ARC message.
     DeviceCommandResult result = get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),

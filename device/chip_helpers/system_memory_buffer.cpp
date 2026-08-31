@@ -95,7 +95,7 @@ void SystemMemoryBuffer::dma_write_to_device(const size_t offset, size_t size, c
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tt_device_->dma_write_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
+    tt_device_->dma_write_zero_copy(get_iova() + offset, addr, size, core, get_selected_noc_id());
 }
 
 void SystemMemoryBuffer::dma_read_from_device(const size_t offset, size_t size, const tt_xy_pair core, uint64_t addr) {
@@ -112,7 +112,7 @@ void SystemMemoryBuffer::dma_read_from_device(const size_t offset, size_t size, 
     // proper coordinates.
     // core = translate_chip_coord_virtual_to_translated(core);
 
-    tt_device_->dma_read_zero_copy(get_iova(offset), addr, size, core, get_selected_noc_id());
+    tt_device_->dma_read_zero_copy(get_iova() + offset, addr, size, core, get_selected_noc_id());
 }
 
 SystemMemoryBuffer::~SystemMemoryBuffer() {
@@ -150,10 +150,7 @@ void* SystemMemoryBuffer::get_va() const { return static_cast<uint8_t*>(buffer_v
 
 size_t SystemMemoryBuffer::get_size() const { return buffer_size_; }
 
-uint64_t SystemMemoryBuffer::get_iova(const size_t offset) const {
-    validate(offset);
-    return device_io_addr_ + offset + offset_from_aligned_addr_;
-}
+uint64_t SystemMemoryBuffer::get_iova() const { return device_io_addr_ + offset_from_aligned_addr_; }
 
 void SystemMemoryBuffer::validate(const size_t offset, const size_t size) const {
     if (offset >= buffer_size_ || size > buffer_size_ - offset) {

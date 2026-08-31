@@ -61,7 +61,6 @@ public:
     void write_to_arc_apb(const void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) override;
     uint32_t get_clock() override;
     uint32_t get_min_clock_freq() override;
-    bool get_noc_translation_enabled() override;
     void dma_write_to_core_range(
         const void* src,
         uint64_t dst_addr,

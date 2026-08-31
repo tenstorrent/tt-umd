@@ -464,6 +464,15 @@ void WormholeDeviceFirmware::wait_for_aiclk_value(
     }
 }
 
+bool WormholeDeviceFirmware::get_noc_translation_enabled(NocId noc_id) {
+    constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
+    constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
+
+    uint32_t niu_cfg = 0x0;
+    read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof(niu_cfg), noc_id);
+    return (niu_cfg & (1 << 14)) != 0;
+}
+
 tt_xy_pair WormholeDeviceFirmware::get_firmware_noc_coord(NocId noc_id) const {
     return noc_id == NocId::NOC1 ? arc_core_noc1_ : arc_core_noc0_;
 }

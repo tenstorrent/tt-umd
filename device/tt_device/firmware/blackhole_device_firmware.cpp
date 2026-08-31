@@ -284,7 +284,7 @@ void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds time
     }
 }
 
-bool BlackholeDeviceFirmware::get_noc_translation_enabled() const {
+bool BlackholeDeviceFirmware::get_noc_translation_enabled(NocId /*noc_id*/) {
     uint32_t niu_cfg;
     if (get_io_device_type() == IODeviceType::JTAG) {
         niu_cfg = jtag_interface_->mmio_read32(blackhole::NIU_CFG_NOC0_ARC_ADDR);

@@ -117,19 +117,6 @@ void BlackholeTTDevice::configure_iatu_region(size_t region, uint64_t target, si
         target);
 }
 
-bool BlackholeTTDevice::get_noc_translation_enabled() {
-    uint32_t niu_cfg;
-    const uint64_t addr = blackhole::NIU_CFG_NOC0_BAR_PCIE_ADDR + 0x100;
-
-    if (get_communication_device_type() == IODeviceType::JTAG) {
-        // Target arc core.
-        niu_cfg = get_jtag_interface()->mmio_read32(blackhole::NIU_CFG_NOC0_ARC_ADDR);
-    } else {
-        niu_cfg = bar_read32(addr);
-    }
-    return ((niu_cfg >> 14) & 0x1) != 0;
-}
-
 ChipInfo BlackholeTTDevice::get_chip_info() {
     ChipInfo chip_info = TTDevice::get_chip_info();
     chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(

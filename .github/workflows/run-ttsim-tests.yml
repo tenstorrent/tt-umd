@@ -91,6 +91,22 @@ jobs:
           fileName: "libttsim_wh_x2.so"
           out-file-path: /tmp/ttsim-wh-x2
 
+      - name: Download ttsim binary (wh_x32)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_wh_x32.so"
+          out-file-path: /tmp/ttsim-wh-x32
+
+      - name: Download ttsim binary (bh_x32)
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f  # v1.13
+        with:
+          repository: tenstorrent/ttsim
+          latest: true
+          fileName: "libttsim_bh_x32.so"
+          out-file-path: /tmp/ttsim-bh-x32
+
       - name: Build tt-metal
         run: |
           cd tt-metal
@@ -106,12 +122,14 @@ jobs:
       - name: Prepare sim paths
         run: |
           echo "Preparing sim paths"
-          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2
+          mkdir -p sim_wh sim_bh sim_qsr sim_wh_x2 sim_bh_x2 sim_wh_x32 sim_bh_x32
           mv /tmp/ttsim-wh/libttsim_wh.so sim_wh/libttsim.so
           mv /tmp/ttsim-bh/libttsim_bh.so sim_bh/libttsim.so
           mv /tmp/ttsim-qsr/libttsim_qsr.so sim_qsr/libttsim.so
           mv /tmp/ttsim-wh-x2/libttsim_wh_x2.so sim_wh_x2/libttsim.so
           mv /tmp/ttsim-bh-x2/libttsim_bh_x2.so sim_bh_x2/libttsim.so
+          mv /tmp/ttsim-wh-x32/libttsim_wh_x32.so sim_wh_x32/libttsim.so
+          mv /tmp/ttsim-bh-x32/libttsim_bh_x32.so sim_bh_x32/libttsim.so
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh/soc_descriptor.yaml
           cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh/soc_descriptor.yaml
           cp tt-metal/tt_metal/third_party/umd/tests/soc_descs/quasar_32_arch.yaml sim_qsr/soc_descriptor.yaml
@@ -127,6 +145,11 @@ jobs:
           # and enumerates both MMIO chips. Without it, the sim is a single MMIO chip.
           cp tt-metal/tt_metal/third_party/umd/tests/cluster_descriptor_examples/blackhole_P300_both_mmio.yaml \
             sim_bh_x2/cluster_descriptor.yaml
+          # x32 is the 6U Galaxy simulator (32 chips, all MMIO). Its topology is baked into the .so,
+          # and the tt-metal tests below supply the matching cluster descriptor through
+          # TT_METAL_MOCK_CLUSTER_DESC_PATH, so no cluster_descriptor.yaml is placed beside it.
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/wormhole_b0_80_arch.yaml sim_wh_x32/soc_descriptor.yaml
+          cp $TT_METAL_HOME/tt_metal/soc_descriptors/blackhole_140_arch.yaml sim_bh_x32/soc_descriptor.yaml
 
       - name: Build UMD api_tests, microbenchmark and sim_server with simulation support
         run: |
@@ -324,12 +347,16 @@ jobs:
           if-no-files-found: error
 
       # Galaxy tests can be a bit longer, should run on the order of minutes.
+      # These mirror tt-metal's own runtime_sim_galaxy_cpp_unit_tests legs one-for-one (same x32
+      # simulator, same env, same filters), so a failure here is a real regression rather than a
+      # difference in how this workflow drives the simulator.
       - name: Run tt-metal C++ unit test on tt-sim galaxy wormhole_b0
         timeout-minutes: 5
         env:
-          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh
-          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh/libttsim.so
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_wh_x32
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_wh_x32/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_DISABLE_SFPLOADMACRO: 1
           TT_METAL_TESTS_DIR: >-
             ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/wormhole/6u_cluster_desc
         run: |
@@ -342,9 +369,10 @@ jobs:
       - name: Run tt-metal C++ unit test on tt-sim galaxy blackhole
         timeout-minutes: 5
         env:
-          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh
-          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh/libttsim.so
+          TT_METAL_SIMULATOR_HOME: ${{ github.workspace }}/sim_bh_x32
+          TT_METAL_SIMULATOR: ${{ github.workspace }}/sim_bh_x32/libttsim.so
           TT_METAL_SLOW_DISPATCH_MODE: 1
+          TT_METAL_DISABLE_SFPLOADMACRO: 1
           TT_METAL_TESTS_DIR: >-
             ${{ github.workspace }}/tt-metal/tt_metal/third_party/tt-cluster-descriptors/blackhole/bh_6u_cluster_desc
         run: |

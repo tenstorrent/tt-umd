@@ -610,9 +610,6 @@ private:
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
 
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
-    std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;
-    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider = nullptr;
-    // Declared after the two slots: it holds references to them, so it must be destroyed first.
     std::unique_ptr<DeviceFirmware> device_firmware_ = nullptr;
     std::unique_ptr<HangDetector> hang_detector_;
 };

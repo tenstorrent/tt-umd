@@ -38,16 +38,12 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
     RemoteInterface* remote_interface,
-    ArchitectureImplementation* architecture_impl,
-    std::unique_ptr<FirmwareTelemetryReader>& firmware_telemetry_reader,
-    std::unique_ptr<FirmwareInfoProvider>& firmware_info_provider) :
+    ArchitectureImplementation* architecture_impl) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
     remote_interface_(remote_interface),
     architecture_impl_(architecture_impl),
-    firmware_telemetry_reader_(firmware_telemetry_reader),
-    firmware_info_provider_(firmware_info_provider),
     arc_apb_(WormholeArcWindow::arc_apb(device_protocol, pcie_interface, jtag_interface, remote_interface)),
     arc_csm_(WormholeArcWindow::arc_csm(device_protocol, pcie_interface, jtag_interface, remote_interface)) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "WormholeDeviceFirmware requires a DeviceProtocol.");
@@ -209,6 +205,20 @@ void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeo
             timeout_ms,
             message_id);
     }
+}
+
+FirmwareTelemetryReader* WormholeDeviceFirmware::get_firmware_telemetry_reader() const {
+    if (firmware_telemetry_reader_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+    return firmware_telemetry_reader_.get();
+}
+
+FirmwareInfoProvider* WormholeDeviceFirmware::get_firmware_info_provider() const {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+    return firmware_info_provider_.get();
 }
 
 DeviceCommandResult WormholeDeviceFirmware::send_device_command(

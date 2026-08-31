@@ -9,6 +9,7 @@
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
+class BlackholeDeviceFirmware;
 
 class ArchitectureImplementation;
 class JtagDevice;
@@ -36,6 +37,8 @@ public:
     int get_communication_device_id() const override;
 
     DeviceProtocol *get_device_protocol() override;
+
+    DeviceFirmware *get_device_firmware() override;
 
     ArchitectureImplementation *get_architecture_impl() override;
 
@@ -65,6 +68,9 @@ private:
     RemoteInterface *remote_interface_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().
     PCIDevice *pci_device_ = nullptr;
+
+    // Declared after the transports: it borrows them, so it must be destroyed first.
+    std::unique_ptr<BlackholeDeviceFirmware> device_firmware_;
 };
 
 }  // namespace tt::umd

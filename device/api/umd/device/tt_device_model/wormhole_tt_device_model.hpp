@@ -9,6 +9,7 @@
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
+class WormholeDeviceFirmware;
 
 class ArchitectureImplementation;
 class JtagDevice;
@@ -40,6 +41,8 @@ public:
 
     DeviceProtocol *get_device_protocol() override;
 
+    DeviceFirmware *get_device_firmware() override;
+
     ArchitectureImplementation *get_architecture_impl() override;
 
     SocArchDescriptor *get_soc_arch_descriptor() override;
@@ -68,6 +71,9 @@ private:
     RemoteInterface *remote_interface_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().
     PCIDevice *pci_device_ = nullptr;
+
+    // Declared after the transports: it borrows them, so it must be destroyed first.
+    std::unique_ptr<WormholeDeviceFirmware> device_firmware_;
 };
 
 }  // namespace tt::umd

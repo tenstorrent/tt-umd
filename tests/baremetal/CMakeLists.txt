@@ -23,6 +23,9 @@ set(BAREMETAL_TESTS_SRCS
     test_simulation_client.cpp
     test_eth_ipc.cpp
     test_simulation_server_transport.cpp
+    # TlbWindow's WindowFlags contract runs against a fake TlbHandle, so it needs no card and no
+    # simulation build either. The RTL-sim half of that feature is gated below.
+    test_tlb_window_flags.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
@@ -38,6 +41,8 @@ if(TT_UMD_BUILD_EMULE)
     target_link_libraries(baremetal_tests PRIVATE tt-emule::headers)
 endif()
 if(TT_UMD_BUILD_SIMULATION)
+    # RtlSimTlbWindow's configure() path is software-only (software TLB handle, communicator
+    # untouched until an actual read/write), so the WindowFlags contract runs with no card.
     target_sources(
         baremetal_tests
         PRIVATE
@@ -45,6 +50,7 @@ if(TT_UMD_BUILD_SIMULATION)
             test_rtl_sim_att_program.cpp
             test_rtl_sim_ip_layout.cpp
             test_rtl_sim_session.cpp
+            test_rtl_sim_tlb_window.cpp
             test_word_access.cpp
     )
 endif()

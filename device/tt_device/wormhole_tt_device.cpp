@@ -40,9 +40,7 @@
 
 namespace tt::umd {
 
-WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
-    WormholeTTDevice::set_arc_coordinate();
-}
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {}
 
 uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
@@ -200,13 +198,6 @@ EthTrainingStatus WormholeTTDevice::read_eth_core_training_status(CoreCoord eth_
 
 void WormholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
     UMD_THROW(error::RuntimeError, "DRAM retraining is not supported on WormholeTTDevice.");
-}
-
-void WormholeTTDevice::set_arc_coordinate() {
-    arc_core_noc0 = wormhole::ARC_CORES_NOC0[0];
-    arc_core_noc1 = tt_xy_pair(
-        wormhole::NOC0_X_TO_NOC1_X[wormhole::ARC_CORES_NOC0[0].x],
-        wormhole::NOC0_Y_TO_NOC1_Y[wormhole::ARC_CORES_NOC0[0].y]);
 }
 
 }  // namespace tt::umd

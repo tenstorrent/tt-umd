@@ -63,6 +63,12 @@ public:
         return chip_info;
     }
 
+    // A simulated device has no management firmware core; callers that need a coordinate get the
+    // origin, matching what TTDevice::get_arc_core() returned for simulation before this existed.
+    tt_xy_pair get_firmware_noc_coord([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const override {
+        return tt_xy_pair{};
+    }
+
 private:
     tt::ARCH arch_ = tt::ARCH::Invalid;
 };

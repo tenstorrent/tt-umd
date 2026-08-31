@@ -535,13 +535,8 @@ protected:
 
     virtual uint32_t get_max_dram_retrain_attempts() const { return 0; }
 
-    xy_pair arc_core_noc0;
-    xy_pair arc_core_noc1;
-
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
-
-    virtual void set_arc_coordinate() {}
 
 private:
     // Wires the model's hang detector to this device: routes a timed-out MMIO op to a NOC liveness

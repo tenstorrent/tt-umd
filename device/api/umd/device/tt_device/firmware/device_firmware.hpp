@@ -15,6 +15,8 @@
 #include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
+class FirmwareInfoProvider;
+class FirmwareTelemetryReader;
 
 /**
  * @brief Result of a firmware command execution.
@@ -60,6 +62,25 @@ public:
      * @param noc_id NOC to route through.
      * @return DeviceCommandResult The exit code and any return values.
      */
+    /**
+     * @brief Telemetry published by the management firmware.
+     *
+     * Owned here: it reads state the firmware publishes, so it cannot exist until init_firmware()
+     * has brought the firmware up.
+     *
+     * @throws error::UninitializedDeviceError if init_firmware() has not run.
+     */
+    virtual FirmwareTelemetryReader *get_firmware_telemetry_reader() const = 0;
+
+    /**
+     * @brief Firmware-reported device information.
+     *
+     * Owned here for the same reason as the telemetry reader.
+     *
+     * @throws error::UninitializedDeviceError if init_firmware() has not run.
+     */
+    virtual FirmwareInfoProvider *get_firmware_info_provider() const = 0;
+
     virtual DeviceCommandResult send_device_command(
         uint32_t msg_code,
         const std::vector<uint32_t> &args,

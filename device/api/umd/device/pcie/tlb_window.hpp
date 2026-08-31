@@ -23,6 +23,12 @@ namespace tt::umd {
  * Base class for TlbWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
+ *
+ * WindowFlags requested through configure(TargetIoWindowConfig) are validated
+ * against supported_window_flags() and, if accepted, stored as window state
+ * that applies to every subsequent access through the window. A TLB mapping has
+ * no field for them, so they live alongside the tlb_data rather than in it and
+ * survive the tlb_data-based configure() done by the _reconfigure family.
  */
 class TlbWindow : public IoWindow {
 public:
@@ -141,6 +147,11 @@ public:
     uint64_t get_base_address() const;
 
 protected:
+    // WindowFlags this implementation can actually honor. The base class rejects anything outside
+    // this set in configure() rather than silently dropping it. Default: none, since a plain TLB
+    // mapping cannot express any of them.
+    virtual WindowFlags supported_window_flags() const { return WindowFlags::None; }
+
     void validate(uint64_t offset, size_t size) const;
     uint64_t get_total_offset(uint64_t offset) const;
 
@@ -154,6 +165,7 @@ protected:
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
+    WindowFlags window_flags_ = WindowFlags::None;
 
 private:
     template <typename buffer_pointer, typename io_operation>

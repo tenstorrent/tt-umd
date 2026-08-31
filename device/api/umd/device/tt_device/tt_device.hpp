@@ -421,6 +421,16 @@ public:
      */
     virtual void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC);
 
+    /**
+     * @brief Sets the device clock frequency.
+     *
+     * Controls the AICLK frequency the device runs at. Distinct from set_power_state(), which
+     * manages hardware power domains.
+     *
+     * @param state The target clock state (BUSY = max frequency, IDLE = min frequency).
+     */
+    void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC);
+
     virtual uint32_t get_clock() = 0;
 
     uint32_t get_max_clock_freq();

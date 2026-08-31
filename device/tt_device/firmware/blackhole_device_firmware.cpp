@@ -4,6 +4,11 @@
 
 #include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 
+#include <fmt/ranges.h>
+
+#include <tt-logger/tt-logger.hpp>
+#include <utility>
+
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/firmware/firmware_info_provider_implementation.hpp"
@@ -11,6 +16,7 @@
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/types/blackhole_arc.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
@@ -45,6 +51,10 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     // protocol faulted there before the assert could report it.
     device_id_ = device_protocol_->get_mmio_id();
 
+    // acquire_mutex() throws unless the mutex was initialized first, so claim it up front the way
+    // ArcMessenger's constructor does.
+    lock_manager_.initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+
     // Resolve both ARC coordinates once. The NOC translation state they depend on is fixed for the
     // device's lifetime and is read over BAR/JTAG, so this does not need the firmware to be up.
     const bool noc_translation_enabled = get_noc_translation_enabled();
@@ -73,6 +83,16 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
 
     wait_firmware_ready(timeout_ms, noc_id);
 
+    // The queue descriptor is published by the ARC firmware while it boots, so it can only be read
+    // once the firmware is up.
+    arc_msg_queue_ = BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
+        device_protocol_,
+        jtag_interface_,
+        &arc_apb_,
+        get_noc_translation_enabled(),
+        BlackholeArcMessageQueueIndex::APPLICATION,
+        noc_id);
+
     // The telemetry reader and info provider read state the firmware publishes, so this is the
     // earliest point they can exist.
     firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
@@ -88,6 +108,30 @@ FirmwareTelemetryReader* BlackholeDeviceFirmware::get_firmware_telemetry_reader(
 
 FirmwareInfoProvider* BlackholeDeviceFirmware::get_firmware_info_provider() const {
     return firmware_info_provider_.get();
+}
+
+DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
+    uint32_t msg_code, const std::vector<uint32_t>& args, std::chrono::milliseconds timeout, NocId noc_id) {
+    // No commands before the firmware is up: the queue descriptor it publishes during boot is what
+    // the message queue is built from.
+    if (arc_msg_queue_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
+    }
+
+    // Serializes against other processes messaging the same device's ARC.
+    auto lock = lock_manager_.acquire_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
+
+    std::vector<uint32_t> return_values;
+    uint32_t exit_code = arc_msg_queue_->send_message((ArcMessageType)msg_code, return_values, args, timeout, noc_id);
+
+    log_debug(
+        LogUMD,
+        "ARC message 0x{:x} returned exit_code={} return_values=[{}]",
+        msg_code,
+        exit_code,
+        fmt::join(return_values, ", "));
+
+    return DeviceCommandResult{exit_code, std::move(return_values)};
 }
 
 void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {

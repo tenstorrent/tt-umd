@@ -25,6 +25,7 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
@@ -284,8 +285,12 @@ int BlackholeTTDevice::get_pcie_x_coordinate() {
 bool BlackholeTTDevice::is_arc_available_over_axi() { return (get_pcie_x_coordinate() == 11); }
 
 void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    uint32_t ret_code = get_arc_messenger()->send_message(
-        static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET), {dram_channel});
+    uint32_t ret_code = get_device_firmware()
+                            ->send_device_command(
+                                static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET),
+                                {dram_channel},
+                                timeout::ARC_MESSAGE_TIMEOUT)
+                            .exit_code;
     if (ret_code != 0) {
         UMD_THROW(
             error::RuntimeError,

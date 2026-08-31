@@ -19,129 +19,106 @@ constexpr size_t ONE_MB = 1 << 20;
 constexpr size_t ONE_GB = 1024 * ONE_MB;
 }  // namespace
 
-namespace wormhole {
-
-static tlb_configuration tlb_configuration_for(const uint32_t tlb_index) {
-    if (tlb_index >= TLB_BASE_INDEX_16M) {
+tlb_configuration ArchitectureTlbs::get_configuration(const uint32_t tlb_index) const {
+    for (const TlbSizeClass& size_class : size_classes) {
+        if (tlb_index < size_class.base_index || tlb_index >= size_class.base_index + size_class.count) {
+            continue;
+        }
+        const uint64_t index_offset = tlb_index - size_class.base_index;
         return tlb_configuration{
-            .size = DYNAMIC_TLB_16M_SIZE,
-            .base = DYNAMIC_TLB_16M_BASE,
-            .cfg_addr = DYNAMIC_TLB_16M_CFG_ADDR,
-            .index_offset = tlb_index - TLB_BASE_INDEX_16M,
-            .tlb_offset = DYNAMIC_TLB_16M_BASE + (tlb_index - TLB_BASE_INDEX_16M) * DYNAMIC_TLB_16M_SIZE,
-            .offset = TLB_16M_OFFSET,
-        };
-    } else if (tlb_index >= TLB_BASE_INDEX_2M) {
-        return tlb_configuration{
-            .size = DYNAMIC_TLB_2M_SIZE,
-            .base = DYNAMIC_TLB_2M_BASE,
-            .cfg_addr = DYNAMIC_TLB_2M_CFG_ADDR,
-            .index_offset = tlb_index - TLB_BASE_INDEX_2M,
-            .tlb_offset = DYNAMIC_TLB_2M_BASE + (tlb_index - TLB_BASE_INDEX_2M) * DYNAMIC_TLB_2M_SIZE,
-            .offset = TLB_2M_OFFSET,
-        };
-    } else {
-        return tlb_configuration{
-            .size = DYNAMIC_TLB_1M_SIZE,
-            .base = DYNAMIC_TLB_1M_BASE,
-            .cfg_addr = DYNAMIC_TLB_1M_CFG_ADDR,
-            .index_offset = tlb_index - TLB_BASE_INDEX_1M,
-            .tlb_offset = DYNAMIC_TLB_1M_BASE + (tlb_index - TLB_BASE_INDEX_1M) * DYNAMIC_TLB_1M_SIZE,
-            .offset = TLB_1M_OFFSET,
-        };
-    }
-}
-
-}  // namespace wormhole
-
-namespace blackhole {
-
-static tlb_configuration tlb_configuration_for(const uint32_t tlb_index) {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
-    if (tlb_index >= TLB_COUNT_2M && tlb_index < TLB_COUNT_2M + TLB_COUNT_4G) {
-        return tlb_configuration{
-            .size = DYNAMIC_TLB_4G_SIZE,
-            .base = DYNAMIC_TLB_4G_BASE,
-            .cfg_addr = DYNAMIC_TLB_4G_CFG_ADDR,
-            .index_offset = tlb_index - TLB_BASE_INDEX_4G,
-            .tlb_offset = DYNAMIC_TLB_4G_BASE + (tlb_index - TLB_BASE_INDEX_4G) * DYNAMIC_TLB_4G_SIZE,
-            .offset = TLB_4G_OFFSET,
+            .size = size_class.size,
+            .base = size_class.bar_offset,
+            // Address of the size class's first configuration register.
+            .cfg_addr = static_cfg_addr + size_class.base_index * cfg_reg_size_bytes,
+            .index_offset = index_offset,
+            .tlb_offset = size_class.bar_offset + index_offset * size_class.size,
+            .offset = size_class.register_layout,
         };
     }
 
-    return tlb_configuration{
-        .size = DYNAMIC_TLB_2M_SIZE,
-        .base = DYNAMIC_TLB_2M_BASE,
-        .cfg_addr = DYNAMIC_TLB_2M_CFG_ADDR,
-        .index_offset = tlb_index - TLB_BASE_INDEX_2M,
-        .tlb_offset = DYNAMIC_TLB_2M_BASE + (tlb_index - TLB_BASE_INDEX_2M) * DYNAMIC_TLB_2M_SIZE,
-        .offset = TLB_2M_OFFSET,
-    };
+    UMD_THROW(error::RuntimeError, fmt::format("No TLB window with index {}.", tlb_index));
 }
-
-}  // namespace blackhole
-
-namespace grendel {
-
-static tlb_configuration tlb_configuration_for(const uint32_t tlb_index) {
-    // If TLB index is in range for 4GB tlbs (8 TLBs after 202 TLBs for 2MB).
-    if (tlb_index >= TLB_COUNT_2M && tlb_index < TLB_COUNT_2M + TLB_COUNT_4G) {
-        return tlb_configuration{
-            .size = DYNAMIC_TLB_4G_SIZE,
-            .base = DYNAMIC_TLB_4G_BASE,
-            .cfg_addr = DYNAMIC_TLB_4G_CFG_ADDR,
-            .index_offset = tlb_index - TLB_BASE_INDEX_4G,
-            .tlb_offset = DYNAMIC_TLB_4G_BASE + (tlb_index - TLB_BASE_INDEX_4G) * DYNAMIC_TLB_4G_SIZE,
-            .offset = TLB_4G_OFFSET,
-        };
-    }
-
-    return tlb_configuration{
-        .size = DYNAMIC_TLB_2M_SIZE,
-        .base = DYNAMIC_TLB_2M_BASE,
-        .cfg_addr = DYNAMIC_TLB_2M_CFG_ADDR,
-        .index_offset = tlb_index - TLB_BASE_INDEX_2M,
-        .tlb_offset = DYNAMIC_TLB_2M_BASE + (tlb_index - TLB_BASE_INDEX_2M) * DYNAMIC_TLB_2M_SIZE,
-        .offset = TLB_2M_OFFSET,
-    };
-}
-
-}  // namespace grendel
 
 const ArchitectureTlbs& get_architecture_tlbs(const tt::ARCH arch) {
     static const ArchitectureTlbs wormhole_tlbs = {
         .size_classes =
-            {{ONE_MB, wormhole::TLB_COUNT_1M, wormhole::TLB_BASE_INDEX_1M, false},
-             {2 * ONE_MB, wormhole::TLB_COUNT_2M, wormhole::TLB_BASE_INDEX_2M, false},
-             {16 * ONE_MB, wormhole::TLB_COUNT_16M, wormhole::TLB_BASE_INDEX_16M, false}},
+            {{
+                 .size = ONE_MB,
+                 .count = wormhole::TLB_COUNT_1M,
+                 .base_index = wormhole::TLB_BASE_INDEX_1M,
+                 .bar_offset = wormhole::DYNAMIC_TLB_1M_BASE,
+                 .in_bar4 = false,
+                 .register_layout = wormhole::TLB_1M_OFFSET,
+             },
+             {
+                 .size = 2 * ONE_MB,
+                 .count = wormhole::TLB_COUNT_2M,
+                 .base_index = wormhole::TLB_BASE_INDEX_2M,
+                 .bar_offset = wormhole::DYNAMIC_TLB_2M_BASE,
+                 .in_bar4 = false,
+                 .register_layout = wormhole::TLB_2M_OFFSET,
+             },
+             {
+                 .size = 16 * ONE_MB,
+                 .count = wormhole::TLB_COUNT_16M,
+                 .base_index = wormhole::TLB_BASE_INDEX_16M,
+                 .bar_offset = wormhole::DYNAMIC_TLB_16M_BASE,
+                 .in_bar4 = false,
+                 .register_layout = wormhole::TLB_16M_OFFSET,
+             }},
         .cached_window_size = wormhole::STATIC_TLB_SIZE,
         .use_static_vc = true,
         .static_cfg_addr = wormhole::STATIC_TLB_CFG_ADDR,
-        .cfg_reg_size_bytes = 8,
-        .get_configuration = &wormhole::tlb_configuration_for,
+        .cfg_reg_size_bytes = wormhole::TLB_CFG_REG_SIZE_BYTES,
     };
 
     static const ArchitectureTlbs blackhole_tlbs = {
         .size_classes =
-            {{2 * ONE_MB, blackhole::TLB_COUNT_2M, blackhole::TLB_BASE_INDEX_2M, false},
-             {4 * ONE_GB, blackhole::TLB_COUNT_4G, blackhole::TLB_BASE_INDEX_4G, true}},
+            {{
+                 .size = 2 * ONE_MB,
+                 .count = blackhole::TLB_COUNT_2M,
+                 .base_index = blackhole::TLB_BASE_INDEX_2M,
+                 .bar_offset = blackhole::DYNAMIC_TLB_2M_BASE,
+                 .in_bar4 = false,
+                 .register_layout = blackhole::TLB_2M_OFFSET,
+             },
+             {
+                 .size = 4 * ONE_GB,
+                 .count = blackhole::TLB_COUNT_4G,
+                 .base_index = blackhole::TLB_BASE_INDEX_4G,
+                 .bar_offset = blackhole::DYNAMIC_TLB_4G_BASE,
+                 .in_bar4 = true,
+                 .register_layout = blackhole::TLB_4G_OFFSET,
+             }},
         .cached_window_size = blackhole::STATIC_TLB_SIZE,
         // False due to a known HW issue.
         .use_static_vc = false,
         .static_cfg_addr = blackhole::STATIC_TLB_CFG_ADDR,
-        .cfg_reg_size_bytes = 12,
-        .get_configuration = &blackhole::tlb_configuration_for,
+        .cfg_reg_size_bytes = blackhole::TLB_CFG_REG_SIZE_BYTES,
     };
 
     static const ArchitectureTlbs grendel_tlbs = {
         .size_classes =
-            {{2 * ONE_MB, grendel::TLB_COUNT_2M, grendel::TLB_BASE_INDEX_2M, false},
-             {4 * ONE_GB, grendel::TLB_COUNT_4G, grendel::TLB_BASE_INDEX_4G, true}},
+            {{
+                 .size = 2 * ONE_MB,
+                 .count = grendel::TLB_COUNT_2M,
+                 .base_index = grendel::TLB_BASE_INDEX_2M,
+                 .bar_offset = grendel::DYNAMIC_TLB_2M_BASE,
+                 .in_bar4 = false,
+                 .register_layout = grendel::TLB_2M_OFFSET,
+             },
+             {
+                 .size = 4 * ONE_GB,
+                 .count = grendel::TLB_COUNT_4G,
+                 .base_index = grendel::TLB_BASE_INDEX_4G,
+                 .bar_offset = grendel::DYNAMIC_TLB_4G_BASE,
+                 .in_bar4 = true,
+                 .register_layout = grendel::TLB_4G_OFFSET,
+             }},
         .cached_window_size = grendel::STATIC_TLB_SIZE,
         .use_static_vc = true,
         .static_cfg_addr = grendel::STATIC_TLB_CFG_ADDR,
-        .cfg_reg_size_bytes = 12,
-        .get_configuration = &grendel::tlb_configuration_for,
+        .cfg_reg_size_bytes = grendel::TLB_CFG_REG_SIZE_BYTES,
     };
 
     switch (arch) {

@@ -56,6 +56,10 @@ option(TT_UMD_BUILD_SIMULATION "Enables build of tt_umd simulation harnessing" O
 option(TT_UMD_BUILD_PYTHON "Enables build of tt_umd python bindings" OFF)
 option(TT_UMD_BUILD_TOOLS "Enables build of tt_umd tools" ON)
 option(TT_UMD_BUILD_EXAMPLES "Enables build of tt_umd examples" OFF)
+# The RDMA dma-buf test and example need libibverbs and RDMA hardware, so they are opt-in rather
+# than auto-detected: with this ON, missing or too-old libibverbs is a configure error rather than
+# a silent skip, so a host that cannot build them says so instead of quietly producing nothing.
+option(TT_UMD_BUILD_RDMA "Enables build of the RDMA dma-buf test and example (requires libibverbs)" OFF)
 option(TT_UMD_BUILD_ALL "Enables build of all tt_umd components (tests, simulation, python, tools, examples)" OFF)
 option(TT_UMD_BUILD_STATIC "Enables build of tt_umd as a static library" OFF)
 option(TT_UMD_ENABLE_TRACY "Enable Tracy profiling support" OFF)
@@ -169,6 +173,11 @@ if(TT_UMD_BUILD_PYTHON)
 endif()
 if(TT_UMD_BUILD_TOOLS)
     add_subdirectory(tools)
+endif()
+
+# Locate and version-check libibverbs once, for both the RDMA test and the RDMA example.
+if(TT_UMD_BUILD_RDMA)
+    include(${PROJECT_SOURCE_DIR}/cmake/ibverbs.cmake)
 endif()
 
 if(TT_UMD_BUILD_EXAMPLES)

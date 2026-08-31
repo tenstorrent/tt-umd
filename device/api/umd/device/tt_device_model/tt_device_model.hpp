@@ -10,6 +10,7 @@
 #include "umd/device/types/arch.hpp"
 
 namespace tt::umd {
+class DeviceFirmware;
 
 class ArchitectureImplementation;
 class DmaInterface;
@@ -54,6 +55,14 @@ public:
 
     // Required components.
     virtual DeviceProtocol *get_device_protocol() = 0;
+
+    /**
+     * @brief The device's management firmware component.
+     *
+     * Created and owned by the concrete model, like every other component: the model knows its
+     * architecture and backend statically, so no dispatch is involved in picking the implementation.
+     */
+    virtual DeviceFirmware *get_device_firmware() = 0;
 
     virtual ArchitectureImplementation *get_architecture_impl() = 0;
 

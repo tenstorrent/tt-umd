@@ -23,6 +23,26 @@ struct tlb_offsets {
     uint32_t linked;
     uint32_t static_vc;
     uint32_t static_vc_end;
+    uint32_t static_vc_buddy;
+    uint32_t static_vc_class;
+    uint32_t static_vc_class_end;
+};
+
+// What a TLB window will carry. A window carrying a single direction can be given a virtual channel
+// of its own, so reads and writes never share one. BIDIRECTIONAL is for windows that stay
+// configured across both.
+enum class TlbVcDirection {
+    UNICAST_WRITE,
+    UNICAST_READ,
+    MULTICAST_WRITE,
+    BIDIRECTIONAL,
+};
+
+// The virtual channel a TLB window is configured to use.
+struct tlb_static_vc {
+    uint64_t static_vc = 0;
+    uint64_t static_vc_buddy = 0;
+    uint64_t static_vc_class = 0;
 };
 
 struct tlb_data {
@@ -36,11 +56,15 @@ struct tlb_data {
     uint64_t ordering = 0;
     uint64_t linked = 0;
     uint64_t static_vc = 0;
+    uint64_t static_vc_buddy = 0;
+    uint64_t static_vc_class = 0;
 
     // Orderings.
     static constexpr uint64_t Relaxed = 0;
     static constexpr uint64_t Strict = 1;
     static constexpr uint64_t Posted = 2;
+
+    void set_static_vc(const tlb_static_vc &vc);
 
     bool check(const tlb_offsets &offset) const;
     std::pair<std::uint64_t, std::uint64_t> apply_offset(const tlb_offsets &offset) const;

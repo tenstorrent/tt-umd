@@ -328,7 +328,8 @@ void LocalChip::write_to_device_reg(CoreCoord core, const void* src, uint64_t re
     config.y_end = translated_core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
+    config.set_static_vc(
+        get_architecture_tlbs(get_tt_device()->get_arch()).get_static_vc(TlbVcDirection::UNICAST_WRITE));
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 
@@ -359,7 +360,8 @@ void LocalChip::read_from_device_reg(CoreCoord core, void* dest, uint64_t reg_sr
     config.y_end = translated_core.y;
     config.noc_sel = is_selected_noc1() ? 1 : 0;
     config.ordering = tlb_data::Strict;
-    config.static_vc = get_architecture_tlbs(get_tt_device()->get_arch()).use_static_vc;
+    config.set_static_vc(
+        get_architecture_tlbs(get_tt_device()->get_arch()).get_static_vc(TlbVcDirection::UNICAST_READ));
     TlbWindow* tlb_window = get_cached_uc_tlb_window();
     tlb_window->configure(config);
 

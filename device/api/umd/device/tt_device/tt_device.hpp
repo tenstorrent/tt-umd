@@ -587,13 +587,15 @@ protected:
     virtual void probe_arc() {}
 
     /**
-     * @brief Builds the firmware for this device and takes ownership of it.
+     * @brief Takes ownership of the firmware this device runs on.
      *
-     * Called from the constructors of every device that has firmware, so that the component exists
-     * before init_tt_device() runs. Simulation devices call it from their own constructor because
-     * they use the default TTDevice constructor, which does not.
+     * Called from the most derived constructor, with the result of an explicitly qualified
+     * create_device_firmware(). Both halves matter: create_device_firmware() is virtual, so calling
+     * it from TTDevice's own constructor would resolve to TTDevice's implementation rather than the
+     * device's, and qualifying it at the call site says which one runs without the reader having to
+     * know that.
      */
-    void build_device_firmware();
+    void build_device_firmware(std::unique_ptr<DeviceFirmware> firmware);
 
     /**
      * @brief Creates the firmware implementation this device needs.

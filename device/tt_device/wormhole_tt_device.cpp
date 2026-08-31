@@ -44,26 +44,6 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDev
     WormholeTTDevice::set_arc_coordinate();
 }
 
-ChipInfo WormholeTTDevice::get_chip_info() {
-    ChipInfo chip_info = TTDevice::get_chip_info();
-
-    DeviceCommandResult result = get_device_firmware()->send_device_command(
-        wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::ARC_GET_HARVESTING),
-        {0, 0},
-        timeout::ARC_MESSAGE_TIMEOUT,
-        get_selected_noc_id());
-
-    if (result.exit_code != 0) {
-        UMD_THROW(
-            error::RuntimeError, fmt::format("Failed to get harvesting masks with exit code: {}", result.exit_code));
-    }
-
-    chip_info.harvesting_masks.tensix_harvesting_mask =
-        CoordinateManager::shuffle_tensix_harvesting_mask(tt::ARCH::WORMHOLE_B0, result.return_values.at(0));
-
-    return chip_info;
-}
-
 uint32_t WormholeTTDevice::get_clock() {
     // There is one return value from AICLK ARC message.
     DeviceCommandResult result = get_device_firmware()->send_device_command(

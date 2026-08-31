@@ -13,6 +13,7 @@
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
@@ -238,6 +239,62 @@ void BlackholeDeviceFirmware::wait_for_aiclk_value(uint32_t target_aiclk, std::c
             AICLK_TOLERANCE_PERCENT,
             target_aiclk);
     }
+}
+
+ChipInfo BlackholeDeviceFirmware::get_chip_info(NocId noc_id) {
+    UMD_ASSERT(
+        firmware_info_provider_ != nullptr && firmware_telemetry_reader_ != nullptr,
+        error::UninitializedDeviceError,
+        get_io_device_type(),
+        device_id_,
+        tt::ARCH::BLACKHOLE);
+    ChipInfo chip_info;
+
+    chip_info.noc_translation_enabled = get_noc_translation_enabled(noc_id);
+    chip_info.board_id = firmware_info_provider_->get_board_id().value_or(0);
+    chip_info.board_type = get_board_type_from_board_id(chip_info.board_id);
+    chip_info.asic_location = firmware_info_provider_->get_asic_location().value_or(0);
+
+    chip_info.harvesting_masks.tensix_harvesting_mask = CoordinateManager::shuffle_tensix_harvesting_mask(
+        tt::ARCH::BLACKHOLE,
+        firmware_telemetry_reader_->is_entry_available(TelemetryTag::ENABLED_TENSIX_COL)
+            ? (~firmware_telemetry_reader_->read_entry(TelemetryTag::ENABLED_TENSIX_COL) & 0x3FFF)
+            : 0);
+    chip_info.harvesting_masks.dram_harvesting_mask =
+        firmware_telemetry_reader_->is_entry_available(TelemetryTag::ENABLED_GDDR)
+            ? (~firmware_telemetry_reader_->read_entry(TelemetryTag::ENABLED_GDDR) & 0xFF)
+            : 0;
+
+    chip_info.harvesting_masks.eth_harvesting_mask =
+        firmware_telemetry_reader_->is_entry_available(TelemetryTag::ENABLED_ETH)
+            ? (~firmware_telemetry_reader_->read_entry(TelemetryTag::ENABLED_ETH) & 0x3FFF)
+            : 0;
+
+    chip_info.harvesting_masks.pcie_harvesting_mask = 0;
+    if (firmware_telemetry_reader_->is_entry_available(TelemetryTag::PCIE_USAGE)) {
+        uint32_t pcie_usage = firmware_telemetry_reader_->read_entry(TelemetryTag::PCIE_USAGE);
+
+        uint32_t pcie0_usage = pcie_usage & 0x3;
+        uint32_t pcie1_usage = (pcie_usage >> 2) & 0x3;
+
+        const uint32_t pcie_usage_endpoint = 1;
+        chip_info.harvesting_masks.pcie_harvesting_mask = 0;
+        if (pcie0_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= 0x1;
+        }
+
+        if (pcie1_usage != pcie_usage_endpoint) {
+            chip_info.harvesting_masks.pcie_harvesting_mask |= (1 << 1);
+        }
+    }
+
+    chip_info.harvesting_masks.l2cpu_harvesting_mask = 0;
+    if (firmware_telemetry_reader_->is_entry_available(TelemetryTag::ENABLED_L2CPU)) {
+        chip_info.harvesting_masks.l2cpu_harvesting_mask = CoordinateManager::shuffle_l2cpu_harvesting_mask(
+            tt::ARCH::BLACKHOLE, firmware_telemetry_reader_->read_entry(TelemetryTag::ENABLED_L2CPU));
+    }
+
+    return chip_info;
 }
 
 void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {

@@ -68,6 +68,27 @@ public:
     ~SysmemBuffer();
 
     /**
+     * Copies data from a caller-provided source buffer into this system memory buffer.
+     * Pure host-side operation, the device is not involved. This is allowed regardless of
+     * DeviceBufferAccess, which only constrains what the device may do to the mapping.
+     *
+     * @param src Pointer to the source host memory.
+     * @param size Number of bytes to copy.
+     * @param offset Byte offset within this buffer to write to. offset + size must fit in the buffer.
+     */
+    void write_to_sysmem(const void* src, size_t size, size_t offset);
+
+    /**
+     * Copies data from this system memory buffer into a caller-provided destination buffer.
+     * Pure host-side operation, the device is not involved.
+     *
+     * @param dest Pointer to the destination host memory.
+     * @param size Number of bytes to copy.
+     * @param offset Byte offset within this buffer to read from. offset + size must fit in the buffer.
+     */
+    void read_from_sysmem(void* dest, size_t size, size_t offset);
+
+    /**
      * Returns the virtual address of the buffer in the process address space.
      * Both in case of aligned and unaligned buffers, this will return the original buffer address.
      */

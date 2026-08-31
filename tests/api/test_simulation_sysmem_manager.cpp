@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -179,6 +180,63 @@ TEST_P(ApiSimulationSysmemManagerByArch, WriteReadThroughMappedBuffer) {
 
     // Confirm the data is also visible through the buffer VA.
     EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), pattern.data(), pattern.size()));
+}
+
+// SysmemBuffer::write_to_sysmem / read_from_sysmem are pure host-side copies against the
+// buffer VA, bounded by the user-requested size.
+TEST_P(ApiSimulationSysmemManagerByArch, HostCopyThroughBufferRoundTrips) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
+
+    const size_t buffer_size = 4096;
+    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    ASSERT_NE(buffer, nullptr);
+
+    const std::vector<uint8_t> pattern = {0xDE, 0xAD, 0xBE, 0xEF, 0xCA, 0xFE};
+
+    // Round-trip at the start of the buffer.
+    buffer->write_to_sysmem(pattern.data(), pattern.size(), 0);
+    std::vector<uint8_t> readback(pattern.size(), 0);
+    buffer->read_from_sysmem(readback.data(), readback.size(), 0);
+    EXPECT_EQ(pattern, readback);
+    EXPECT_EQ(0, std::memcmp(buffer->get_buffer_va(), pattern.data(), pattern.size()));
+
+    // Round-trip at a non-zero offset, leaving the earlier bytes untouched.
+    const size_t offset = 512;
+    buffer->write_to_sysmem(pattern.data(), pattern.size(), offset);
+    std::fill(readback.begin(), readback.end(), 0);
+    buffer->read_from_sysmem(readback.data(), readback.size(), offset);
+    EXPECT_EQ(pattern, readback);
+    EXPECT_EQ(0, std::memcmp(static_cast<uint8_t*>(buffer->get_buffer_va()) + offset, pattern.data(), pattern.size()));
+
+    // The last byte of the buffer is addressable.
+    const uint8_t sentinel = 0xA5;
+    buffer->write_to_sysmem(&sentinel, sizeof(sentinel), buffer_size - 1);
+    uint8_t sentinel_readback = 0;
+    buffer->read_from_sysmem(&sentinel_readback, sizeof(sentinel_readback), buffer_size - 1);
+    EXPECT_EQ(sentinel, sentinel_readback);
+}
+
+TEST_P(ApiSimulationSysmemManagerByArch, HostCopyOutOfBoundsThrows) {
+    auto sysmem = std::make_unique<SimulationSysmemManager>(1, GetParam());
+
+    const size_t buffer_size = 4096;
+    auto buffer = sysmem->allocate_sysmem_buffer(buffer_size);
+    ASSERT_NE(buffer, nullptr);
+
+    std::vector<uint8_t> scratch(16, 0);
+
+    // Offset past the end.
+    EXPECT_THROW(buffer->write_to_sysmem(scratch.data(), 1, buffer_size), std::exception);
+    EXPECT_THROW(buffer->read_from_sysmem(scratch.data(), 1, buffer_size), std::exception);
+
+    // Offset in range, but the range runs off the end. This is the case the read path
+    // used to miss.
+    EXPECT_THROW(buffer->write_to_sysmem(scratch.data(), 2, buffer_size - 1), std::exception);
+    EXPECT_THROW(buffer->read_from_sysmem(scratch.data(), 2, buffer_size - 1), std::exception);
+
+    // Size larger than the whole buffer.
+    EXPECT_THROW(buffer->write_to_sysmem(scratch.data(), buffer_size + 1, 0), std::exception);
+    EXPECT_THROW(buffer->read_from_sysmem(scratch.data(), buffer_size + 1, 0), std::exception);
 }
 
 // get_mapped_host_ptr resolves a device_io_addr to the in-place host pointer (zero-copy),

@@ -123,11 +123,7 @@ SimulationTlbAllocator::TlbPool* SimulationTlbAllocator::find_pool_for_index(int
 }
 
 void SimulationTlbAllocator::initialize_architecture_config() {
-    if (architecture_ == tt::ARCH::WORMHOLE_B0) {
-        tlb_reg_size_bytes_ = 8;  // wormhole::TLB_CFG_REG_SIZE_BYTES.
-    } else if (architecture_ == tt::ARCH::BLACKHOLE) {
-        tlb_reg_size_bytes_ = 12;  // blackhole::TLB_CFG_REG_SIZE_BYTES.
-    } else {
+    if (architecture_ != tt::ARCH::WORMHOLE_B0 && architecture_ != tt::ARCH::BLACKHOLE) {
         // Intentional: architectures like QUASAR construct a SimulationTlbAllocator
         // but the sim TTDevice's constructor bypasses it entirely (builds the
         // cached TLB window with a fixed index, never calling allocate_tlb_index).
@@ -142,7 +138,10 @@ void SimulationTlbAllocator::initialize_architecture_config() {
         return;
     }
 
-    for (const TlbSizeClass& size_class : get_architecture_tlbs(architecture_).size_classes) {
+    const ArchitectureTlbs& tlbs = get_architecture_tlbs(architecture_);
+    tlb_reg_size_bytes_ = tlbs.cfg_reg_size_bytes;
+
+    for (const TlbSizeClass& size_class : tlbs.size_classes) {
         TlbPool pool;
         pool.layout = size_class;
         pool.allocated.resize(size_class.count, false);

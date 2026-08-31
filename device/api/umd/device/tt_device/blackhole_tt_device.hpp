@@ -48,8 +48,7 @@ public:
     EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
 
 protected:
-    BlackholeTTDevice(
-        std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    explicit BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual bool is_arc_available_over_axi();
 

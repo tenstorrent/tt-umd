@@ -10,7 +10,9 @@
 
 namespace tt::umd {
 
+class ArchitectureImplementation;
 class JtagDevice;
+class SocArchDescriptor;
 class RemoteCommunication;
 
 // Model for a Wormhole device, over any transport that reaches one. Each constructor builds the
@@ -18,15 +20,29 @@ class RemoteCommunication;
 // protocol provides -- the rest stay null.
 class WormholeTTDeviceModel : public TTDeviceModel {
 public:
-    WormholeTTDeviceModel(std::unique_ptr<PCIDevice> pci_device, bool use_safe_api);
-    WormholeTTDeviceModel(std::unique_ptr<JtagDevice> jtag_device, uint8_t jlink_id);
-    explicit WormholeTTDeviceModel(std::unique_ptr<RemoteCommunication> remote_communication);
+    WormholeTTDeviceModel(
+        std::unique_ptr<PCIDevice> pci_device,
+        bool use_safe_api,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    WormholeTTDeviceModel(
+        std::unique_ptr<JtagDevice> jtag_device,
+        uint8_t jlink_id,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+    WormholeTTDeviceModel(
+        std::unique_ptr<RemoteCommunication> remote_communication,
+        const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
+
+    ~WormholeTTDeviceModel() override;
 
     tt::ARCH get_arch() const override;
 
     int get_communication_device_id() const override;
 
     DeviceProtocol *get_device_protocol() override;
+
+    ArchitectureImplementation *get_architecture_impl() override;
+
+    SocArchDescriptor *get_soc_arch_descriptor() override;
 
     PcieInterface *get_pcie_interface() override;
 
@@ -36,10 +52,14 @@ public:
 
     RemoteInterface *get_remote_interface() override;
 
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
+
     PCIDevice *get_pci_device() override;
 
 private:
     int communication_device_id_;
+    std::shared_ptr<SocArchDescriptor> soc_arch_descriptor_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
 
     std::unique_ptr<DeviceProtocol> protocol_;
     PcieInterface *pcie_interface_ = nullptr;

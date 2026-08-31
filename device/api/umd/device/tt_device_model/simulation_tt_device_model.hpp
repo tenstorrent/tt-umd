@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "umd/device/tt_device_model/tt_device_model.hpp"
 
 namespace tt::umd {
@@ -17,14 +19,23 @@ class SimulationTTDeviceModel : public TTDeviceModel {
 public:
     explicit SimulationTTDeviceModel(tt::ARCH arch);
 
+    ~SimulationTTDeviceModel() override;
+
     tt::ARCH get_arch() const override;
 
     int get_communication_device_id() const override;
 
     DeviceProtocol *get_device_protocol() override;
 
+    ArchitectureImplementation *get_architecture_impl() override;
+
+    SocArchDescriptor *get_soc_arch_descriptor() override;
+
+    std::shared_ptr<SocArchDescriptor> get_shared_soc_arch_descriptor() override;
+
 private:
     tt::ARCH arch_;
+    std::unique_ptr<ArchitectureImplementation> architecture_impl_;
 };
 
 }  // namespace tt::umd

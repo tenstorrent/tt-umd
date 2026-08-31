@@ -33,18 +33,12 @@ namespace tt::umd {
 // public header only forward-declares SimulationServerSocket.
 SimulationTTDevice::SimulationTTDevice(
     std::unique_ptr<TTDeviceModel> model,
-    std::unique_ptr<ArchitectureImplementation> architecture_impl,
     const std::filesystem::path& simulator_directory,
     std::unique_ptr<SimulationSysmemManager> sysmem_manager) :
-    TTDevice(std::move(model), std::move(architecture_impl)),
-    simulator_directory_(simulator_directory),
-    sysmem_manager_(std::move(sysmem_manager)) {}
+    TTDevice(std::move(model)), simulator_directory_(simulator_directory), sysmem_manager_(std::move(sysmem_manager)) {}
 
-SimulationTTDevice::SimulationTTDevice(
-    std::unique_ptr<TTDeviceModel> model,
-    std::unique_ptr<ArchitectureImplementation> architecture_impl,
-    std::unique_ptr<SimulationClient> client) :
-    TTDevice(std::move(model), std::move(architecture_impl)), client_(std::move(client)) {}
+SimulationTTDevice::SimulationTTDevice(std::unique_ptr<TTDeviceModel> model, std::unique_ptr<SimulationClient> client) :
+    TTDevice(std::move(model)), client_(std::move(client)) {}
 
 SimulationTTDevice::~SimulationTTDevice() = default;
 
@@ -321,9 +315,9 @@ void SimulationTTDevice::noc_multicast_write(const void* src, size_t size, uint6
     noc_multicast_write(src, size, start, end, addr, noc_id);
 }
 
-void SimulationTTDevice::dma_multicast_write(
-    void* src, size_t size, CoreCoord core_start, CoreCoord core_end, uint64_t addr, NocId noc_id) {
-    UMD_THROW(error::RuntimeError, "DMA multicast write is not supported for simulation devices.");
+void SimulationTTDevice::dma_write_to_core_range(
+    const void* src, uint64_t dst_addr, size_t size, CoreCoord core_start, CoreCoord core_end, NocId noc_id) {
+    UMD_THROW(error::RuntimeError, "DMA write to core range is not supported for simulation devices.");
 }
 
 void SimulationTTDevice::read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, [[maybe_unused]] size_t size) {

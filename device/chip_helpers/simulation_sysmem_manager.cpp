@@ -9,10 +9,12 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <tt-logger/tt-logger.hpp>
 #include <vector>
 
 #include "hugepage.hpp"
@@ -97,10 +99,6 @@ void SimulationSysmemManager::unpin_or_unmap_sysmem() {
         std::lock_guard<std::mutex> lock(registry_->mutex);
         registry_->buffers.clear();
     }
-    for (const auto& [allocation, allocation_size] : owned_allocations_) {
-        munmap(allocation, allocation_size);
-    }
-    owned_allocations_.clear();
     hugepage_mapping_per_channel.clear();
     if (system_memory_ != nullptr) {
         munmap(system_memory_, system_memory_size_);
@@ -157,15 +155,42 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::allocate_sysmem_buffer(
     void* mapping =
         mmap(nullptr, sysmem_buffer_size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, -1, 0);
     UMD_ASSERT(mapping != MAP_FAILED, error::RuntimeError, "Simulation sysmem buffer mmap() failed");
-    {
-        std::lock_guard<std::mutex> lock(registry_->mutex);
-        owned_allocations_.push_back({mapping, sysmem_buffer_size});
+    // This mapping belongs to the buffer, so it is released along with the registry entry. mmap returns
+    // a page-aligned address, so the pointer the deleter receives is the one to munmap.
+    const size_t mapping_size = sysmem_buffer_size;
+    const SysmemBuffer::Deleter release_mapping = [mapping_size](void* aligned_va) {
+        if (munmap(aligned_va, mapping_size) != 0) {
+            log_warning(
+                LogUMD,
+                "Failed to munmap simulation sysmem buffer of size {:#x} at {:p}: {}.",
+                mapping_size,
+                aligned_va,
+                strerror(errno));
+        }
+    };
+
+    try {
+        return register_and_wrap(
+            mapping, sysmem_buffer_size, map_to_noc, DeviceBufferAccess::READ_WRITE, release_mapping);
+    } catch (...) {
+        // Nothing owns the mmap yet, so free it here rather than leaking it.
+        release_mapping(mapping);
+        throw;
     }
-    return map_sysmem_buffer(mapping, sysmem_buffer_size, map_to_noc);
 }
 
 std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     void* buffer, size_t sysmem_buffer_size, const bool map_to_noc, DeviceBufferAccess device_access) {
+    // The caller owns this memory, so the buffer only drops the registry entry.
+    return register_and_wrap(buffer, sysmem_buffer_size, map_to_noc, device_access, {});
+}
+
+std::unique_ptr<SysmemBuffer> SimulationSysmemManager::register_and_wrap(
+    void* buffer,
+    size_t sysmem_buffer_size,
+    const bool map_to_noc,
+    DeviceBufferAccess device_access,
+    SysmemBuffer::Deleter release_backing_memory) {
     static const auto page_size = sysconf(_SC_PAGESIZE);
     const uint64_t mapped_size = align_up(sysmem_buffer_size, page_size);
 
@@ -183,13 +208,10 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
     // Capture a weak_ptr so the unmap callback is a safe no-op if the manager
     // has already been destroyed (unpin_or_unmap_sysmem clears the registry).
     std::weak_ptr<MappedBufferRegistry> weak_reg = registry_;
-    return std::make_unique<SysmemBuffer>(
-        buffer,
-        sysmem_buffer_size,
-        device_io_addr,
-        communication_id_,
-        noc_addr,
-        [weak_reg, device_io_addr](void*) {
+    // The buffer's deleter drops the registry entry, then releases the backing memory if this manager
+    // allocated it.
+    SysmemBuffer::Deleter deleter =
+        [weak_reg, device_io_addr, release = std::move(release_backing_memory)](void* aligned_va) {
             if (auto reg = weak_reg.lock()) {
                 std::lock_guard<std::mutex> lock(reg->mutex);
                 reg->buffers.erase(
@@ -201,7 +223,19 @@ std::unique_ptr<SysmemBuffer> SimulationSysmemManager::map_sysmem_buffer(
                         }),
                     reg->buffers.end());
             }
-        },
+            if (release) {
+                release(aligned_va);
+            }
+        };
+
+    return create_buffer(
+        /*tt_device=*/nullptr,
+        buffer,
+        sysmem_buffer_size,
+        device_io_addr,
+        communication_id_,
+        std::move(deleter),
+        noc_addr,
         device_access);
 }
 

@@ -6,7 +6,9 @@
 
 namespace tt::umd {
 
-void RtlSimulationDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {}
+void RtlSimulationDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    wait_firmware_ready(timeout_ms, noc_id);
+}
 
 bool RtlSimulationDeviceFirmware::wait_eth_core_training(
     tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id) {

@@ -51,6 +51,15 @@ public:
     void set_power_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
 
     void set_clock_state(ClockState state, NocId noc_id = NocId::DEFAULT_NOC) override;
+protected:
+    /**
+     * @brief Waits for the management firmware; a no-op on every simulation backend.
+     *
+     * Present so the seam is in the same place as on silicon: waiting for the firmware and building
+     * what depends on it are two jobs, and this is the half that becomes its own API. Simulators
+     * have no management firmware to wait for, so there is nothing to do here.
+     */
+    void wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id);
 };
 
 }  // namespace tt::umd

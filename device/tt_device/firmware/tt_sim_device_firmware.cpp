@@ -6,7 +6,9 @@
 
 namespace tt::umd {
 
-void TTSimDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {}
+void TTSimDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    wait_firmware_ready(timeout_ms, noc_id);
+}
 
 ChipInfo TTSimDeviceFirmware::get_chip_info(NocId noc_id) { return ChipInfo{}; }
 

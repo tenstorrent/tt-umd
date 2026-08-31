@@ -25,6 +25,9 @@ struct TTDeviceData {
     TTDeviceData() = default;
     TTDeviceData(const TTDevice& tt_device, std::optional<uint64_t> discovery_unique_id = std::nullopt);
 
+    // For components that report a device-scoped error without holding a TTDevice.
+    TTDeviceData(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch);
+
     IODeviceType io_device_type = IODeviceType::UNDEFINED;
     ChipId chip_id = 0;
     tt::ARCH arch = tt::ARCH::Invalid;
@@ -101,6 +104,10 @@ struct PcieHangError : UmdError<PcieHangData> {
 
 struct UninitializedDeviceError : UmdError<TTDeviceData> {
     UninitializedDeviceError(const TTDevice& tt_device);
+
+    // For components that report the same condition without holding a TTDevice -- DeviceFirmware
+    // takes protocol interfaces, not a device, so it supplies the identity fields itself.
+    UninitializedDeviceError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch);
 };
 
 struct UnresolvableCoordinateError : UmdError<DeviceCoreData> {

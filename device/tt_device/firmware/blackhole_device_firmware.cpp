@@ -49,13 +49,16 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     architecture_impl_(architecture_impl),
     firmware_telemetry_reader_(firmware_telemetry_reader),
     firmware_info_provider_(firmware_info_provider),
-    device_id_(device_protocol->get_mmio_id()),
     arc_apb_(device_protocol, pcie_interface, jtag_interface) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeDeviceFirmware requires a DeviceProtocol.");
     UMD_ASSERT(
         architecture_impl_ != nullptr,
         error::RuntimeError,
         "BlackholeDeviceFirmware requires an ArchitectureImplementation.");
+
+    // Read after the checks above, not in the member initialiser list: that runs first, so a null
+    // protocol faulted there before the assert could report it.
+    device_id_ = device_protocol_->get_mmio_id();
     // The exactly-one-transport invariant that get_io_device_type() and the ARC APB routing rely on
     // is enforced by arc_apb_, which is constructed from the same two interfaces above.
 
@@ -87,6 +90,29 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
         return;
     }
 
+    wait_firmware_ready(timeout_ms, noc_id);
+
+    // The queue descriptor is published by the ARC firmware while it boots, so it can only be read
+    // once the firmware is up. This mirrors TTDevice::init_tt_device(), which builds the ARC
+    // messenger on the line right after wait_arc_core_start().
+    arc_msg_queue_ = BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
+        device_protocol_,
+        jtag_interface_,
+        &arc_apb_,
+        get_noc_translation_enabled(noc_id),
+        BlackholeArcMessageQueueIndex::APPLICATION,
+        noc_id);
+
+    // The telemetry reader and info provider read state the firmware publishes, so this is the
+    // earliest point they can exist. They are filled into the owner's slots rather than owned here.
+    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
+        device_protocol_, tt::ARCH::BLACKHOLE, arc_core_noc0_, arc_core_noc1_);
+
+    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+        tt::ARCH::BLACKHOLE, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
+}
+
+void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {
     // Probe the ARC APB path before waiting on boot status, as TTDevice::init_tt_device does with
     // probe_arc() on the line right before wait_arc_core_start().
     uint32_t dummy;
@@ -121,25 +147,6 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
             /*message_id=*/std::nullopt,
             arc_error_status0);
     }
-
-    // The queue descriptor is published by the ARC firmware while it boots, so it can only be read
-    // once the firmware is up. This mirrors TTDevice::init_tt_device(), which builds the ARC
-    // messenger on the line right after wait_arc_core_start().
-    arc_msg_queue_ = BlackholeArcMessageQueue::get_blackhole_arc_message_queue(
-        device_protocol_,
-        jtag_interface_,
-        &arc_apb_,
-        get_noc_translation_enabled(noc_id),
-        BlackholeArcMessageQueueIndex::APPLICATION,
-        noc_id);
-
-    // The telemetry reader and info provider read state the firmware publishes, so this is the
-    // earliest point they can exist. They are filled into the owner's slots rather than owned here.
-    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
-        device_protocol_, tt::ARCH::BLACKHOLE, arc_core_noc0_, arc_core_noc1_);
-
-    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        tt::ARCH::BLACKHOLE, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
 }
 
 DeviceCommandResult BlackholeDeviceFirmware::send_device_command(

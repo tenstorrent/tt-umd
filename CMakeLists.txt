@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
 
+# Grendel (chippy) JTAG support. OFF by default: access-gated (chippy is on the
+# internal GitLab) and requires GCC >= 13. See cmake/grendel_jtag.cmake.
+option(TT_UMD_BUILD_GRENDEL_JTAG "Enable Grendel (chippy) JTAG support" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON) # This also impacts dependencies brought in through CPM

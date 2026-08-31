@@ -199,11 +199,12 @@ RemoteCommunication *TTDevice::get_remote_communication() {
     return remote_interface == nullptr ? nullptr : remote_interface->get_remote_communication();
 }
 
-void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
-    if (is_remote() || model_->get_pcie_interface() == nullptr) {
-        return;
-    }
-    get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
+void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc_id) {
+    // TTDevice::PowerState is BUSY/IDLE and the firmware's is HIGH/LOW; converting here rather than
+    // at every call site keeps the ~90 existing TTDevice::PowerState uses compiling while the two
+    // enums are collapsed separately.
+    get_device_firmware()->set_power_state(
+        state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc_id);
 }
 
 void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {

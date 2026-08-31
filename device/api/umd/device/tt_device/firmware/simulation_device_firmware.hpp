@@ -35,6 +35,10 @@ public:
     // Simulated devices have no controllable clock.
     void set_clock_state(
         [[maybe_unused]] ClockState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
+
+    // Simulated devices have no power domains to manage.
+    void set_power_state(
+        [[maybe_unused]] PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
 };
 
 }  // namespace tt::umd

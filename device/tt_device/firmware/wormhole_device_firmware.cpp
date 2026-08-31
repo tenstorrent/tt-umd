@@ -352,6 +352,15 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
     return DeviceCommandResult{exit_code, std::move(return_values)};
 }
 
+void WormholeDeviceFirmware::set_power_state(PowerState state, NocId noc_id) {
+    // Power domains are only controllable over PCIe; JTAG and remote devices have no PcieInterface,
+    // which matches what TTDevice::set_power_state did by returning early for them.
+    if (pcie_interface_ == nullptr) {
+        return;
+    }
+    pcie_interface_->set_power_state(state);
+}
+
 void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
     // The BUSY branch reads the info provider before send_device_command can run its own pre-init
     // check, so refuse here with the same error the deleted TTDevice path produced.

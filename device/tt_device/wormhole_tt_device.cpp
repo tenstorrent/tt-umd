@@ -41,6 +41,10 @@
 namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
+    // Qualified deliberately: create_device_firmware() is virtual, and naming the class here says
+    // which implementation runs. Calling it from TTDevice's constructor would silently pick
+    // TTDevice's.
+    build_device_firmware(WormholeTTDevice::create_device_firmware());
     // A remote device has no protocol of its own to probe; its liveness is that of the local device
     // it is reached through.
     DeviceProtocol *hang_check_protocol =

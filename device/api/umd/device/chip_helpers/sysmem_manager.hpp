@@ -9,8 +9,8 @@
 #include <memory>
 #include <vector>
 
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/system_memory_allocator.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/cluster_types.hpp"
@@ -33,9 +33,9 @@ public:
      * allocate_sysmem_buffer() / map_sysmem_buffer() implementations below, which the legacy
      * channel-based paths still call directly.
      */
-    std::unique_ptr<SysmemBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override;
+    std::unique_ptr<SystemMemoryBuffer> allocate_buffer(size_t size, bool bind_to_noc = false) override;
 
-    std::unique_ptr<SysmemBuffer> map_user_buffer(
+    std::unique_ptr<SystemMemoryBuffer> map_user_buffer(
         void* user_ptr,
         size_t size,
         bool bind_to_noc = false,
@@ -61,10 +61,10 @@ public:
 
     HugepageMapping get_hugepage_mapping(size_t channel) const;
 
-    virtual std::unique_ptr<SysmemBuffer> allocate_sysmem_buffer(
+    virtual std::unique_ptr<SystemMemoryBuffer> allocate_sysmem_buffer(
         size_t sysmem_buffer_size, const bool map_to_noc = false) = 0;
 
-    virtual std::unique_ptr<SysmemBuffer> map_sysmem_buffer(
+    virtual std::unique_ptr<SystemMemoryBuffer> map_sysmem_buffer(
         void* buffer,
         size_t sysmem_buffer_size,
         const bool map_to_noc = false,
@@ -101,7 +101,7 @@ protected:
     void* iommu_mapping = nullptr;
     size_t iommu_mapping_size = 0;
 
-    std::unique_ptr<SysmemBuffer> sysmem_buffer_ = nullptr;
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer_ = nullptr;
 };
 
 }  // namespace tt::umd

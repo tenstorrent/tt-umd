@@ -18,8 +18,8 @@
 
 #include "common/microbenchmark_utils.hpp"
 #include "umd/device/chip/chip.hpp"
-#include "umd/device/chip_helpers/sysmem_buffer.hpp"
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
+#include "umd/device/chip_helpers/system_memory_buffer.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/pcie/pci_device.hpp"
@@ -222,7 +222,7 @@ TEST(MicrobenchmarkPCIeDMA, DRAMZeroCopy) {
     cluster->set_clock_state(DevicePowerState::BUSY);
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(200 * ONE_MIB);
     const CoreCoord dram_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::DRAM)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
@@ -257,7 +257,7 @@ TEST(MicrobenchmarkPCIeDMA, TensixZeroCopy) {
 
     const ChipId mmio_chip = *cluster->get_target_mmio_device_ids().begin();
     SysmemManager* sysmem_manager = cluster->get_chip(mmio_chip)->get_sysmem_manager();
-    std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
+    std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->allocate_sysmem_buffer(2 * ONE_MIB);
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
@@ -296,12 +296,12 @@ TEST(MicrobenchmarkPCIeDMA, TensixMapBufferZeroCopy) {
     const CoreCoord tensix_core = cluster->get_soc_descriptor(mmio_chip).get_cores(CoreType::TENSIX)[0];
 
     bench.batch(BUFFER_SIZE).name(fmt::format("DMA, write, {} bytes", BUFFER_SIZE)).run([&]() {
-        std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
+        std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
         sysmem_buffer->dma_write_to_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
     });
     if (d2h_supported) {
         bench.batch(BUFFER_SIZE).name(fmt::format("DMA, read, {} bytes", BUFFER_SIZE)).run([&]() {
-            std::unique_ptr<SysmemBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
+            std::unique_ptr<SystemMemoryBuffer> sysmem_buffer = sysmem_manager->map_sysmem_buffer(mapping, BUFFER_SIZE);
             sysmem_buffer->dma_read_from_device(0, BUFFER_SIZE, tensix_core.to_pair(), ADDRESS);
         });
     }

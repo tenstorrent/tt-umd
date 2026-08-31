@@ -41,7 +41,6 @@ public:
 
     void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-
     std::chrono::milliseconds wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
@@ -56,7 +55,6 @@ protected:
 
     // Number of retrain attempts is chosen based on syseng team testing.
     uint32_t get_max_dram_retrain_attempts() const override { return 3; }
-
 
     void probe_arc() override;
 

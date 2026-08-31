@@ -38,7 +38,6 @@ public:
 
     void write_to_arc_csm(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-
     std::chrono::milliseconds wait_eth_core_training(
         CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
 
@@ -50,7 +49,6 @@ protected:
     explicit WormholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
     void retrain_dram_core(const uint32_t dram_channel) override;
-
 
     void probe_arc() override;
 

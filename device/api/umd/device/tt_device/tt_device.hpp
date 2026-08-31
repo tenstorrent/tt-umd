@@ -559,10 +559,8 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
-
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
-
 
     // TODO: temporary. The register to probe is architecture specific, so only the concrete devices
     // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.
@@ -592,7 +590,6 @@ protected:
     virtual std::unique_ptr<DeviceFirmware> create_device_firmware();
 
 private:
-
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;
 
     DmaInterface *get_dma_interface();

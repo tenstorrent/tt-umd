@@ -148,8 +148,7 @@ void Chip::advance_device_execution() {
 
 void Chip::set_clock_state(DevicePowerState state) {
     if (auto* tt_device = get_tt_device()) {
-        tt_device->get_device_firmware()->set_clock_state(
-            state == DevicePowerState::BUSY ? ClockState::BUSY : ClockState::IDLE);
+        tt_device->set_clock_state(state == DevicePowerState::BUSY ? ClockState::BUSY : ClockState::IDLE);
     }
 }
 

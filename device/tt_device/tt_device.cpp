@@ -250,6 +250,10 @@ void TTDevice::set_power_state(TTDevice::PowerState state, NocId noc_id) {
         state == TTDevice::PowerState::BUSY ? tt::umd::PowerState::HIGH : tt::umd::PowerState::LOW, noc_id);
 }
 
+void TTDevice::set_clock_state(ClockState state, NocId noc_id) {
+    get_device_firmware()->set_clock_state(state, noc_id);
+}
+
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
 
 PcieInterface *TTDevice::get_pcie_interface() {

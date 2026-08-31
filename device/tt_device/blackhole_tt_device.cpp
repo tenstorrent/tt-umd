@@ -43,7 +43,6 @@
 namespace tt::umd {
 
 BlackholeTTDevice::BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
-    BlackholeTTDevice::set_arc_coordinate();
     set_hang_detector(std::make_unique<BlackholeHangDetector>(get_device_protocol(), get_noc_translation_enabled()));
 }
 
@@ -221,11 +220,6 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
             error::RuntimeError,
             fmt::format("Failed to retrain DRAM core {} with exit code {}.", dram_channel, ret_code));
     }
-}
-
-void BlackholeTTDevice::set_arc_coordinate() {
-    arc_core_noc0 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/false);
-    arc_core_noc1 = blackhole::get_arc_core(BlackholeTTDevice::get_noc_translation_enabled(), /*use_noc1=*/true);
 }
 
 }  // namespace tt::umd

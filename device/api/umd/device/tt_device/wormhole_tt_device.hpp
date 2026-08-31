@@ -46,8 +46,6 @@ protected:
 
     void retrain_dram_core(const uint32_t dram_channel) override;
 
-    void set_arc_coordinate() override;
-
 private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::WORMHOLE_B0);
 

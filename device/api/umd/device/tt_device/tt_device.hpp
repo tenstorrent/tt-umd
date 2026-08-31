@@ -541,13 +541,8 @@ protected:
 
     void set_hang_detector(std::unique_ptr<HangDetector> hang_detector);
 
-    xy_pair arc_core_noc0;
-    xy_pair arc_core_noc1;
-
     void construct_soc_descriptor(const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor);
     void set_soc_descriptor(const SocDescriptor &soc_descriptor);
-
-    virtual void set_arc_coordinate() {}
 
 private:
     xy_pair resolve_coordinate(CoreCoord core, NocId noc_id) const;

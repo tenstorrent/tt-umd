@@ -69,6 +69,8 @@ public:
 
     ChipInfo get_chip_info(NocId noc_id = NocId::DEFAULT_NOC) override;
 
+    tt_xy_pair get_firmware_noc_coord(NocId noc_id = NocId::DEFAULT_NOC) const override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *
@@ -115,10 +117,6 @@ private:
     // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
     // settle, rather than throwing.
     void wait_for_aiclk_value(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms = timeout::AICLK_TIMEOUT);
-
-    // The management firmware core's coordinate, resolved for noc_id. Private until the TTDevice
-    // API it replaces moves here.
-    tt_xy_pair get_firmware_noc_coord(NocId noc_id) const;
 
     // Thin wrapper that resolves the ARC core for noc_id and hands the access to arc_apb_.
     void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);

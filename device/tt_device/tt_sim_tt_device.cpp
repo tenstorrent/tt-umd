@@ -26,6 +26,7 @@
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/simulation/tt_sim_communicator.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/tt_sim_device_firmware.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -113,6 +114,9 @@ TTSimTTDevice::TTSimTTDevice(
         simulator_directory, copy_sim_binary, static_cast<uint32_t>(chip_id), static_cast<uint32_t>(num_chips))),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
+    // The default TTDevice constructor does not build firmware, so the most derived constructor
+    // does it here -- which is also what makes create_device_firmware() resolve to this class.
+    build_device_firmware();
     // Host/local mode: the lifecycle drives the in-process .so backend (the communicator).
     setup_ = [this] { initialize_backend(); };
     teardown_ = [this] { communicator_->shutdown(); };
@@ -186,6 +190,9 @@ TTSimTTDevice::TTSimTTDevice(
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)),
     chip_id_(chip_id) {
     set_soc_descriptor(soc_descriptor);
+    // The default TTDevice constructor does not build firmware, so the most derived constructor
+    // does it here -- which is also what makes create_device_firmware() resolve to this class.
+    build_device_firmware();
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -441,6 +448,10 @@ void TTSimTTDevice::pci_dma_write_bytes(uint64_t paddr, const void* p, uint32_t 
     }
     const uint16_t channel = static_cast<uint16_t>(paddr / (1ULL << 30));
     sim_mgr->write_to_sysmem(channel, p, paddr % (1ULL << 30), size);
+}
+
+std::unique_ptr<DeviceFirmware> TTSimTTDevice::create_device_firmware() {
+    return std::make_unique<TTSimDeviceFirmware>();
 }
 
 }  // namespace tt::umd

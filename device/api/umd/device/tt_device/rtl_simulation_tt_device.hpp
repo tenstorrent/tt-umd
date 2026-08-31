@@ -33,6 +33,8 @@ class TlbWindow;
 
 class RtlSimulationTTDevice : public SimulationTTDevice {
 public:
+    std::unique_ptr<DeviceFirmware> create_device_firmware() override;
+
     RtlSimulationTTDevice(
         const std::filesystem::path& simulator_directory,
         const SocDescriptor& soc_descriptor,

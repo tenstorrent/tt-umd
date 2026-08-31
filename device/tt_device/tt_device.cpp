@@ -79,21 +79,22 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
     build_device_firmware();
 }
 
-void TTDevice::build_device_firmware() {
+void TTDevice::build_device_firmware() { device_firmware_ = create_device_firmware(); }
+
+std::unique_ptr<DeviceFirmware> TTDevice::create_device_firmware() {
     // The model owns the transport now, so the firmware is built from its interfaces rather than
     // from members of this class.
     switch (model_->get_arch()) {
         case tt::ARCH::BLACKHOLE:
-            device_firmware_ = std::make_unique<BlackholeDeviceFirmware>(
+            return std::make_unique<BlackholeDeviceFirmware>(
                 model_->get_device_protocol(),
                 model_->get_pcie_interface(),
                 model_->get_jtag_interface(),
                 model_->get_architecture_impl(),
                 telemetry,
                 firmware_info_provider);
-            break;
         case tt::ARCH::WORMHOLE_B0:
-            device_firmware_ = std::make_unique<WormholeDeviceFirmware>(
+            return std::make_unique<WormholeDeviceFirmware>(
                 model_->get_device_protocol(),
                 model_->get_pcie_interface(),
                 model_->get_jtag_interface(),
@@ -101,10 +102,10 @@ void TTDevice::build_device_firmware() {
                 model_->get_architecture_impl(),
                 telemetry,
                 firmware_info_provider);
-            break;
         default:
-            // Simulation backends have no management firmware.
-            break;
+            UMD_THROW(
+                error::RuntimeError,
+                fmt::format("No DeviceFirmware implementation for {} architecture.", arch_to_str(model_->get_arch())));
     }
 }
 

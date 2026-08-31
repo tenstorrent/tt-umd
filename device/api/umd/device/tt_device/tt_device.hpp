@@ -586,6 +586,29 @@ protected:
     // can implement it. Goes away once DeviceFirmware::init_firmware owns ARC startup.
     virtual void probe_arc() {}
 
+    /**
+     * @brief Builds the firmware for this device and takes ownership of it.
+     *
+     * Called from the constructors of every device that has firmware, so that the component exists
+     * before init_tt_device() runs. Simulation devices call it from their own constructor because
+     * they use the default TTDevice constructor, which does not.
+     */
+    void build_device_firmware();
+
+    /**
+     * @brief Creates the firmware implementation this device needs.
+     *
+     * Silicon devices are told apart by architecture, which the base implementation switches on.
+     * Simulation devices are told apart by backend instead, so they override this rather than being
+     * another case in that switch.
+     *
+     * Called from a constructor, so it resolves to the implementation of whichever class's
+     * constructor is running: the base one for the silicon devices, whose constructors reach it
+     * through TTDevice's, and the overriding one for a simulation device, whose most derived
+     * constructor calls build_device_firmware() itself.
+     */
+    virtual std::unique_ptr<DeviceFirmware> create_device_firmware();
+
 private:
     void log_aiclk_timeout_warning(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms);
 
@@ -595,10 +618,6 @@ private:
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
-    // Selects and builds the per-arch firmware from the model's protocol interfaces, handing it
-    // references to the two slots below. This switch is what becomes TTDeviceModelFactory's
-    // dispatch once the model owns the components outright.
-    void build_device_firmware();
 
     std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<FirmwareTelemetryReader> telemetry = nullptr;

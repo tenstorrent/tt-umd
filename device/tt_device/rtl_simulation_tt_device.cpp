@@ -24,6 +24,7 @@
 #include "umd/device/simulation/simulation_client.hpp"
 #include "umd/device/simulation/simulation_device_identity.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/rtl_simulation_device_firmware.hpp"
 #include "umd/device/tt_device_model/simulation_tt_device_model.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/core_coordinates.hpp"
@@ -98,6 +99,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     communicator_(std::make_unique<RtlSimCommunicator>(simulator_directory)) {
     log_info(tt::LogEmulationDriver, "Instantiating RTL simulation TTDevice");
     set_soc_descriptor(soc_descriptor);
+    // The default TTDevice constructor does not build firmware, so the most derived constructor
+    // does it here -- which is also what makes create_device_firmware() resolve to this class.
+    build_device_firmware();
 
     // Host/local mode: the lifecycle drives the in-process RTL backend (the communicator).
     setup_ = [this, num_host_mem_channels] { initialize_backend(num_host_mem_channels); };
@@ -109,6 +113,9 @@ RtlSimulationTTDevice::RtlSimulationTTDevice(
     const SocDescriptor& soc_descriptor, ChipId chip_id, std::unique_ptr<SimulationClient> client) :
     SimulationTTDevice(std::make_unique<SimulationTTDeviceModel>(soc_descriptor.arch), std::move(client)) {
     set_soc_descriptor(soc_descriptor);
+    // The default TTDevice constructor does not build firmware, so the most derived constructor
+    // does it here -- which is also what makes create_device_firmware() resolve to this class.
+    build_device_firmware();
 
     // Client mode: the lifecycle drives the remote host over the socket. read/write are not wired
     // here -- the SimulationClient has no device I/O yet -- so those throw until the API grows.
@@ -300,6 +307,10 @@ std::chrono::milliseconds RtlSimulationTTDevice::wait_eth_core_training(
 EthTrainingStatus RtlSimulationTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
     // RTL simulation doesn't require Ethernet training.
     return EthTrainingStatus::SUCCESS;
+}
+
+std::unique_ptr<DeviceFirmware> RtlSimulationTTDevice::create_device_firmware() {
+    return std::make_unique<RtlSimulationDeviceFirmware>();
 }
 
 }  // namespace tt::umd

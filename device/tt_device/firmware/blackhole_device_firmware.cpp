@@ -40,15 +40,11 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     DeviceProtocol* device_protocol,
     PcieInterface* pcie_interface,
     JtagInterface* jtag_interface,
-    ArchitectureImplementation* architecture_impl,
-    std::unique_ptr<FirmwareTelemetryReader>& firmware_telemetry_reader,
-    std::unique_ptr<FirmwareInfoProvider>& firmware_info_provider) :
+    ArchitectureImplementation* architecture_impl) :
     device_protocol_(device_protocol),
     pcie_interface_(pcie_interface),
     jtag_interface_(jtag_interface),
     architecture_impl_(architecture_impl),
-    firmware_telemetry_reader_(firmware_telemetry_reader),
-    firmware_info_provider_(firmware_info_provider),
     arc_apb_(device_protocol, pcie_interface, jtag_interface) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeDeviceFirmware requires a DeviceProtocol.");
     UMD_ASSERT(
@@ -147,6 +143,20 @@ void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds time
             /*message_id=*/std::nullopt,
             arc_error_status0);
     }
+}
+
+FirmwareTelemetryReader* BlackholeDeviceFirmware::get_firmware_telemetry_reader() const {
+    if (firmware_telemetry_reader_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
+    }
+    return firmware_telemetry_reader_.get();
+}
+
+FirmwareInfoProvider* BlackholeDeviceFirmware::get_firmware_info_provider() const {
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::BLACKHOLE);
+    }
+    return firmware_info_provider_.get();
 }
 
 DeviceCommandResult BlackholeDeviceFirmware::send_device_command(

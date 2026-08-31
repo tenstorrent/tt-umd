@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/power_state.hpp"
 
 namespace tt::umd {
 
@@ -84,6 +85,16 @@ public:
      * @param noc_id NOC to route through.
      */
     virtual void set_clock_state(ClockState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Requests a hardware power domain state change.
+     *
+     * Distinct from set_clock_state(): this manages power domains rather than the clock frequency.
+     *
+     * @param state The requested power state.
+     * @param noc_id NOC to route through.
+     */
+    virtual void set_power_state(PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

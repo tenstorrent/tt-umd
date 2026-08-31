@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <utility>
 #include <vector>
 
 #include "umd/device/chip_helpers/sysmem_manager.hpp"
@@ -101,10 +100,19 @@ private:
     // Caller must hold registry_->mutex.
     std::optional<MappedBuffer> find_mapped_buffer_locked(uint64_t device_io_addr, uint32_t size);
 
+    // Assigns an arena address, registers the buffer and wraps it. Shared by the allocate and map
+    // paths, which differ only in who owns the memory: allocate passes a release callable that frees
+    // the mapping, map passes none because the caller owns it. Mirrors SiliconSysmemManager::pin_and_wrap().
+    std::unique_ptr<SysmemBuffer> register_and_wrap(
+        void* buffer,
+        size_t sysmem_buffer_size,
+        const bool map_to_noc,
+        DeviceBufferAccess device_access,
+        SysmemBuffer::Deleter release_backing_memory);
+
     uint8_t* system_memory_ = nullptr;
     size_t system_memory_size_ = 0;
     uint64_t host_base_ = 0;  // this chip's distinct host-physical base (= chip_id * PER_CHIP_HOST_STRIDE)
-    std::vector<std::pair<void*, size_t>> owned_allocations_;
     std::shared_ptr<MappedBufferRegistry> registry_;
 };
 

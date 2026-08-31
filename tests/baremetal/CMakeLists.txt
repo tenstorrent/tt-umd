@@ -1,4 +1,5 @@
 set(BAREMETAL_TESTS_SRCS
+    test_architecture_tlbs.cpp
     test_cluster_descriptor_offline.cpp
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
@@ -8,6 +9,8 @@ set(BAREMETAL_TESTS_SRCS
     test_long_jump.cpp
     test_notification_mechanism.cpp
     test_cluster.cpp
+    test_blackhole_arc_apb.cpp
+    test_blackhole_arc_message_queue.cpp
     # SimulationServerSocket and SimulationClient have no simulation deps (always compiled), so
     # their tests need no card and no simulation build -- they run in the no-card baremetal CI lane.
     test_simulation_server_socket.cpp

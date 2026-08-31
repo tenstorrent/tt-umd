@@ -12,6 +12,7 @@
 #include <tt-logger/tt-logger.hpp>
 #include <vector>
 
+#include "spi_arc_command.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
@@ -22,25 +23,6 @@
 #include "umd/device/utils/semver.hpp"
 
 namespace tt::umd {
-
-namespace {
-
-// The SPI flows were written against ArcMessenger::send_message, which fills the caller's
-// return-value vector in place and returns the exit code. Kept as a local adapter so the conversion
-// to DeviceFirmware does not also rewrite the flows themselves.
-uint32_t send_arc_command(
-    DeviceFirmware* firmware,
-    uint32_t msg_code,
-    std::vector<uint32_t>& return_values,
-    const std::vector<uint32_t>& args = {}) {
-    DeviceCommandResult result = firmware->send_device_command(msg_code, args, timeout::ARC_MESSAGE_TIMEOUT);
-    for (size_t i = 0; i < return_values.size() && i < result.return_values.size(); i++) {
-        return_values[i] = result.return_values[i];
-    }
-    return result.exit_code;
-}
-
-}  // namespace
 
 namespace {
 
@@ -184,7 +166,7 @@ void BlackholeSPITTDevice::read(uint32_t addr, uint8_t* data, size_t size) {
 
         // Request ARC to read chunk into dump buffer using READ_EEPROM (0x19).
         std::vector<uint32_t> read_ret;
-        uint32_t rc = send_arc_command(
+        uint32_t rc = send_spi_arc_command(
             firmware,
             static_cast<uint32_t>(blackhole::ArcMessageType::READ_EEPROM),
             read_ret,
@@ -221,8 +203,8 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
 
     if (need_lock_unlock) {
         std::vector<uint32_t> unlock_ret;
-        uint32_t rc =
-            send_arc_command(firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
+        uint32_t rc = send_spi_arc_command(
+            firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_UNLOCK), unlock_ret, {});
         if (rc != 0) {
             UMD_THROW(error::RuntimeError, "Failed to unlock SPI for write on Blackhole (fw >= 19.0).");
         }
@@ -241,7 +223,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
         if (!skip_write_to_spi) {
             // Request ARC to write chunk from buffer to SPI using WRITE_EEPROM (0x1A).
             std::vector<uint32_t> write_ret;
-            uint32_t rc = send_arc_command(
+            uint32_t rc = send_spi_arc_command(
                 firmware,
                 static_cast<uint32_t>(blackhole::ArcMessageType::WRITE_EEPROM),
                 write_ret,
@@ -254,7 +236,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
                 // Relock SPI if unlock was successful.
                 if (need_lock_unlock) {
                     std::vector<uint32_t> lock_ret;
-                    send_arc_command(
+                    send_spi_arc_command(
                         firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
                 }
                 UMD_THROW(error::RuntimeError, "Failed to write to SPI on Blackhole.");
@@ -268,7 +250,7 @@ void BlackholeSPITTDevice::write(uint32_t addr, const uint8_t* data, size_t size
     if (need_lock_unlock) {
         std::vector<uint32_t> lock_ret;
         uint32_t rc =
-            send_arc_command(firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
+            send_spi_arc_command(firmware, static_cast<uint32_t>(blackhole::ArcMessageType::SPI_LOCK), lock_ret, {});
         if (rc != 0) {
             UMD_THROW(error::RuntimeError, "Failed to lock SPI after write on Blackhole (fw >= 19.0).");
         }

@@ -4,19 +4,24 @@
 
 #include "umd/device/tt_device/firmware/blackhole_device_firmware.hpp"
 
+#include <fmt/format.h>
 #include <fmt/ranges.h>
 
 #include <tt-logger/tt-logger.hpp>
 #include <utility>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
+#include "umd/device/firmware/firmware_info_provider.hpp"
 #include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/tt_device/protocol/device_protocol.hpp"
 #include "umd/device/tt_device/protocol/jtag_interface.hpp"
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/types/telemetry.hpp"
+#include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "utils.hpp"
 
@@ -134,6 +139,60 @@ DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
         fmt::join(return_values, ", "));
 
     return DeviceCommandResult{exit_code, std::move(return_values)};
+}
+
+void BlackholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
+    uint32_t msg_code = 0;
+    uint32_t target_aiclk = 0;
+    switch (state) {
+        case ClockState::BUSY:
+            msg_code = static_cast<uint32_t>(blackhole::ArcMessageType::AICLK_GO_BUSY);
+            target_aiclk = firmware_info_provider_->get_max_clock_freq().value_or(0);
+            break;
+        case ClockState::IDLE:
+            msg_code = static_cast<uint32_t>(blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            target_aiclk = blackhole::AICLK_IDLE_VAL;
+            break;
+        default:
+            UMD_THROW(error::RuntimeError, "Unrecognized clock state.");
+    }
+
+    DeviceCommandResult result = send_device_command(msg_code, {}, timeout::ARC_MESSAGE_TIMEOUT, noc_id);
+    UMD_ASSERT(
+        result.exit_code == 0,
+        error::RuntimeError,
+        fmt::format("Failed to set clock state to {} with exit code: {}", (int)state, result.exit_code));
+
+    wait_for_aiclk_value(target_aiclk);
+}
+
+void BlackholeDeviceFirmware::wait_for_aiclk_value(uint32_t target_aiclk, std::chrono::milliseconds timeout_ms) {
+    constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
+
+    uint32_t aiclk = 0;
+    const bool settled = utils::poll_until(
+        [&] {
+            aiclk = firmware_telemetry_reader_->read_entry(TelemetryTag::AICLK);
+            return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
+        },
+        timeout_ms,
+        std::chrono::microseconds(500),
+        std::chrono::microseconds(100));
+
+    if (!settled) {
+        log_warning(
+            LogUMD, "AICLK did not reach {} MHz within {} ms. Proceeding anyway.", target_aiclk, timeout_ms.count());
+        return;
+    }
+
+    if (aiclk != target_aiclk) {
+        log_warning(
+            LogUMD,
+            "AICLK settled at {} MHz, within {}% of the requested {} MHz but not an exact match. Proceeding.",
+            aiclk,
+            AICLK_TOLERANCE_PERCENT,
+            target_aiclk);
+    }
 }
 
 void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {

@@ -31,6 +31,10 @@ public:
         [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {
         return DeviceCommandResult{};
     }
+
+    // Simulated devices have no controllable clock.
+    void set_clock_state(
+        [[maybe_unused]] ClockState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
 };
 
 }  // namespace tt::umd

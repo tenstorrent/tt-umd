@@ -30,8 +30,6 @@ public:
 
     uint32_t get_min_clock_freq() override;
 
-    void set_clock_state(PowerState state, NocId noc_id = NocId::DEFAULT_NOC) override;
-
     bool get_noc_translation_enabled() override;
 
     void read_from_arc_apb(void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
@@ -58,7 +56,6 @@ private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::WORMHOLE_B0);
 
     // Builds the ARC message (with the common prefix) that requests the given clock state.
-    uint32_t get_power_state_arc_msg(PowerState state);
 
     friend std::unique_ptr<TTDevice> TTDevice::create(
         int device_number,

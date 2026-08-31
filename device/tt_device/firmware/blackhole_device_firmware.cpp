@@ -49,13 +49,16 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     architecture_impl_(architecture_impl),
     firmware_telemetry_reader_(firmware_telemetry_reader),
     firmware_info_provider_(firmware_info_provider),
-    device_id_(device_protocol->get_mmio_id()),
     arc_apb_(device_protocol, pcie_interface, jtag_interface) {
     UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "BlackholeDeviceFirmware requires a DeviceProtocol.");
     UMD_ASSERT(
         architecture_impl_ != nullptr,
         error::RuntimeError,
         "BlackholeDeviceFirmware requires an ArchitectureImplementation.");
+
+    // Read after the checks above, not in the member initialiser list: that runs first, so a null
+    // protocol faulted there before the assert could report it.
+    device_id_ = device_protocol_->get_mmio_id();
     // The exactly-one-transport invariant that get_io_device_type() and the ARC APB routing rely on
     // is enforced by arc_apb_, which is constructed from the same two interfaces above.
 

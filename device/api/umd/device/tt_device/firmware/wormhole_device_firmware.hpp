@@ -123,7 +123,7 @@ private:
 
     // Names the ARC message mutex; taken from the protocol so it identifies this device, not the
     // silicon model. See DeviceProtocol::get_mmio_id().
-    const int device_id_ = 0;
+    int device_id_ = 0;
 
     // ARC core coordinate per NOC. Fixed for Wormhole, so resolved once in the constructor.
     tt_xy_pair arc_core_noc0_;

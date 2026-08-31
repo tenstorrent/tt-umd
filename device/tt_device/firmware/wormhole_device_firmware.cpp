@@ -48,9 +48,18 @@ WormholeDeviceFirmware::WormholeDeviceFirmware(
     architecture_impl_(architecture_impl),
     firmware_telemetry_reader_(firmware_telemetry_reader),
     firmware_info_provider_(firmware_info_provider),
-    device_id_(device_protocol->get_mmio_id()),
     arc_apb_(WormholeArcWindow::arc_apb(device_protocol, pcie_interface, jtag_interface, remote_interface)),
     arc_csm_(WormholeArcWindow::arc_csm(device_protocol, pcie_interface, jtag_interface, remote_interface)) {
+    UMD_ASSERT(device_protocol_ != nullptr, error::RuntimeError, "WormholeDeviceFirmware requires a DeviceProtocol.");
+    UMD_ASSERT(
+        architecture_impl_ != nullptr,
+        error::RuntimeError,
+        "WormholeDeviceFirmware requires an ArchitectureImplementation.");
+
+    // Read after the checks above, not in the member initialiser list: that runs first, so a null
+    // protocol faulted there before the assert could report it.
+    device_id_ = device_protocol_->get_mmio_id();
+
     // Wormhole serializes all ARC traffic on one system-wide mutex rather than a per-device one:
     // several topology discovery instances can reach the same remote chip through different local
     // chips, so a per-device lock would let concurrent messages interleave on that chip. This mirrors

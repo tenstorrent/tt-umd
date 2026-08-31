@@ -316,6 +316,10 @@ target_link_libraries(tt-umd-base PRIVATE umd_asio_lib)
 
 target_link_libraries(tt-umd-base PRIVATE tt-kmd-lib::tt-kmd-lib)
 
+# Grendel (chippy) JTAG. Empty INTERFACE lib when TT_UMD_BUILD_GRENDEL_JTAG=OFF,
+# so this link is a no-op for normal builds.
+target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
+
 # tt-umd-utils ships inside tt-umd rather than as its own package, but tt-umd public headers include its headers.
 target_link_libraries(
     tt-umd-base

@@ -40,9 +40,7 @@
 
 namespace tt::umd {
 
-WormholeTTDevice::WormholeTTDevice(
-    std::unique_ptr<TTDeviceModel> model, const std::shared_ptr<SocArchDescriptor> &soc_arch_descriptor) :
-    TTDevice(std::move(model), std::make_unique<WormholeImplementation>(), soc_arch_descriptor) {
+WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
     WormholeTTDevice::set_arc_coordinate();
     // A remote device has no protocol of its own to probe; its liveness is that of the local device
     // it is reached through.

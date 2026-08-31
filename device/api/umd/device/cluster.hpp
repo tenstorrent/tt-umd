@@ -648,7 +648,7 @@ public:
     std::uint64_t get_sysmem_window_noc_base(const ChipId chip_id) const;
 
     /**
-     * Get base PCIe address that is used to access the device.
+     * Get the NOC base address of the chip's sysmem (PCIe) window.
      *
      * @param chip_id Chip to target.
      *

@@ -558,10 +558,7 @@ void TTDevice::require_initialized() const {
     }
 }
 
-ChipInfo TTDevice::get_chip_info() {
-    require_initialized();
-    return get_device_firmware()->get_chip_info();
-}
+ChipInfo TTDevice::get_chip_info() { return get_device_firmware()->get_chip_info(); }
 
 uint32_t TTDevice::get_max_clock_freq() { return get_firmware_info_provider()->get_max_clock_freq().value_or(0); }
 

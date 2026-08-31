@@ -174,8 +174,10 @@ DeviceCommandResult BlackholeDeviceFirmware::send_device_command(
 ChipInfo BlackholeDeviceFirmware::get_chip_info(NocId noc_id) {
     UMD_ASSERT(
         firmware_info_provider_ != nullptr && firmware_telemetry_reader_ != nullptr,
-        error::RuntimeError,
-        "Chip info is unavailable because init_firmware() has not been run.");
+        error::UninitializedDeviceError,
+        get_io_device_type(),
+        device_id_,
+        tt::ARCH::BLACKHOLE);
     ChipInfo chip_info;
 
     chip_info.noc_translation_enabled = get_noc_translation_enabled(noc_id);

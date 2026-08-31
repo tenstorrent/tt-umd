@@ -76,6 +76,19 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
         return;
     }
 
+    wait_firmware_ready(timeout_ms, noc_id);
+
+    // The telemetry reader and info provider read state the firmware publishes, so this is the
+    // earliest point they can exist. Wormhole does not read either itself - harvesting and AICLK
+    // come from ARC messages - but the owner requires them, and only here can they be built.
+    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
+        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_);
+
+    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
+        tt::ARCH::WORMHOLE_B0, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
+}
+
+void WormholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {
     // Status codes.
     constexpr uint32_t STATUS_NO_ACCESS = 0xFFFFFFFF;
     constexpr uint32_t STATUS_WATCHDOG_TRIGGERED = 0xDEADC0DE;
@@ -187,15 +200,6 @@ void WormholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms,
             timeout_ms,
             message_id);
     }
-
-    // The telemetry reader and info provider read state the firmware publishes, so this is the
-    // earliest point they can exist. Wormhole does not read either itself - harvesting and AICLK
-    // come from ARC messages - but the owner requires them, and only here can they be built.
-    firmware_telemetry_reader_ = ArcTelemetryReader::create_arc_telemetry_reader(
-        device_protocol_, tt::ARCH::WORMHOLE_B0, arc_core_noc0_, arc_core_noc1_);
-
-    firmware_info_provider_ = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        tt::ARCH::WORMHOLE_B0, device_protocol_, arc_core_noc0_, arc_core_noc1_, firmware_telemetry_reader_.get());
 }
 
 DeviceCommandResult WormholeDeviceFirmware::send_device_command(

@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "umd/device/tt_device/firmware/blackhole_arc_apb.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
@@ -18,6 +19,8 @@ namespace tt::umd {
 
 class ArchitectureImplementation;
 class DeviceProtocol;
+class FirmwareInfoProvider;
+class FirmwareTelemetryReader;
 class JtagInterface;
 class PcieInterface;
 
@@ -37,15 +40,39 @@ public:
         JtagInterface* jtag_interface,
         ArchitectureImplementation* architecture_impl);
 
+    // Defined in the .cpp, where the owned components' types are complete.
+    ~BlackholeDeviceFirmware() override;
+
     void init_firmware(std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    /**
+     * @brief Telemetry published by the management firmware.
+     *
+     * Owned here: it reads state the firmware publishes, so it cannot exist until init_firmware()
+     * has brought the firmware up. Deliberately a concrete-class getter rather than part of
+     * DeviceFirmware: the concrete model lends it onward, and the facade turns a null into
+     * UninitializedDeviceError carrying the device's identity.
+     *
+     * @return The reader, or nullptr until init_firmware() has run.
+     */
+    FirmwareTelemetryReader* get_firmware_telemetry_reader() const;
+
+    /**
+     * @brief Firmware-reported device information. Owned and lent the same way as the telemetry
+     * reader.
+     *
+     * @return The provider, or nullptr until init_firmware() has run.
+     */
+    FirmwareInfoProvider* get_firmware_info_provider() const;
 
 private:
     /**
      * @brief Blocks until the management firmware reports it has booted.
      *
-     * Kept as its own step because init_firmware() has a second job arriving: building the
-     * components that read what the firmware publishes, which lands next to this call rather than
-     * around it.
+     * Kept as its own step because init_firmware() has a second job - building the components
+     * that read what the firmware publishes - and callers such as warm reset only want this first
+     * one. Once the two become separate API calls, init_firmware()'s idempotence guard goes away
+     * with them.
      *
      * @param timeout_ms How long to wait for the firmware to report ready.
      * @param noc_id NOC to route the status reads over.
@@ -83,6 +110,12 @@ private:
     tt_xy_pair arc_core_noc1_;
 
     BlackholeArcApb arc_apb_;
+
+    // Created by init_firmware(), not the constructor: they read state the firmware publishes, so
+    // this is the earliest they can exist. The info provider holds a raw pointer to the telemetry
+    // reader, so it is declared after it and destroyed first.
+    std::unique_ptr<FirmwareTelemetryReader> firmware_telemetry_reader_;
+    std::unique_ptr<FirmwareInfoProvider> firmware_info_provider_;
 };
 
 }  // namespace tt::umd

@@ -25,7 +25,6 @@
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_tlbs.hpp"
 #include "umd/device/driver_atomics.hpp"
-#include "umd/device/firmware/firmware_info_provider_implementation.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
@@ -91,16 +90,10 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     if (hang_detector != nullptr && hang_detector->is_noc_hung(hang_check_noc).value_or(false)) {
         UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
+    // Waits for the firmware and builds the components that read what it publishes; the model's
+    // firmware owns them, and the accessors below lend them onward.
     get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
-    telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
-        get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);
-    firmware_info_provider = FirmwareInfoProviderImplementation::create_firmware_info_provider(
-        get_arch(),
-        get_device_protocol(),
-        get_arc_core(NocId::NOC0),
-        get_arc_core(NocId::NOC1),
-        get_firmware_telemetry_reader());
     construct_soc_descriptor(model_->get_shared_soc_arch_descriptor());
 }
 
@@ -529,17 +522,19 @@ ArcMessenger *TTDevice::get_arc_messenger() const {
 }
 
 FirmwareTelemetryReader *TTDevice::get_firmware_telemetry_reader() const {
-    if (telemetry == nullptr) {
+    FirmwareTelemetryReader *telemetry_reader = model_->get_firmware_telemetry_reader();
+    if (telemetry_reader == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
-    return telemetry.get();
+    return telemetry_reader;
 }
 
 FirmwareInfoProvider *TTDevice::get_firmware_info_provider() const {
-    if (firmware_info_provider == nullptr) {
+    FirmwareInfoProvider *info_provider = model_->get_firmware_info_provider();
+    if (info_provider == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
-    return firmware_info_provider.get();
+    return info_provider;
 }
 
 FirmwareBundleVersion TTDevice::get_firmware_version() { return get_firmware_info_provider()->get_firmware_version(); }
@@ -598,7 +593,7 @@ double TTDevice::get_asic_temperature() { return get_firmware_info_provider()->g
 uint8_t TTDevice::get_asic_location() { return get_firmware_info_provider()->get_asic_location().value_or(0); }
 
 ChipInfo TTDevice::get_chip_info() {
-    if (firmware_info_provider == nullptr) {
+    if (model_->get_firmware_info_provider() == nullptr) {
         UMD_THROW(error::UninitializedDeviceError, *this);
     }
     ChipInfo chip_info;

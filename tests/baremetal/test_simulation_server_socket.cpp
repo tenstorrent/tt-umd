@@ -112,23 +112,15 @@ TEST_F(SimulationServerSocketTest, ThrowsWhenLiveServerAlreadyExists) {
     EXPECT_ANY_THROW(SimulationServerSocket::create(path_));
 }
 
-TEST_F(SimulationServerSocketTest, TryCreateReturnsNullWhenLiveHostExists) {
-    auto host = SimulationServerSocket::try_create(path_);
-    ASSERT_NE(host, nullptr);
-    EXPECT_EQ(SimulationServerSocket::try_create(path_), nullptr);  // live host -> null, no throw
+// A failed create() builds and destroys a socket object that never won the bind; ownership-gated
+// teardown must stop it removing the live host's socket on the way out.
+TEST_F(SimulationServerSocketTest, FailedCreateLeavesTheLiveHostAlone) {
+    auto host = SimulationServerSocket::create(path_);
 
-    // The throwaway object from the failed try_create above must not remove the live
-    // host's socket on destruction (ownership-gated teardown).
+    EXPECT_ANY_THROW(SimulationServerSocket::create(path_));
+
     EXPECT_TRUE(std::filesystem::exists(path_));
-    EXPECT_TRUE(can_connect(path_));
-}
-
-TEST_F(SimulationServerSocketTest, TryCreateReclaimsStaleSocket) {
-    leave_stale_socket(path_);
-
-    auto host = SimulationServerSocket::try_create(path_);
-    EXPECT_NE(host, nullptr);  // stale leftover reclaimed
-    EXPECT_TRUE(can_connect(path_));
+    EXPECT_TRUE(SimulationServerSocket::is_live(path_));
 }
 
 // A non-socket file squatting the path also yields EADDRINUSE on bind; the reclaim path
@@ -136,8 +128,29 @@ TEST_F(SimulationServerSocketTest, TryCreateReclaimsStaleSocket) {
 TEST_F(SimulationServerSocketTest, RefusesToReclaimNonSocketFile) {
     { std::ofstream(path_) << "not a socket"; }
 
-    EXPECT_THROW(SimulationServerSocket::try_create(path_), std::exception);
+    EXPECT_THROW(SimulationServerSocket::create(path_), std::exception);
     EXPECT_TRUE(std::filesystem::exists(path_));  // the regular file was left untouched
+}
+
+// is_live() is the liveness question the socket file's presence cannot answer: nothing there and a
+// socket left by a crashed owner both read as "no host", only a bound-and-listening owner as live.
+TEST_F(SimulationServerSocketTest, IsLiveDistinguishesAHostFromAnAbsentOrStaleSocket) {
+    EXPECT_FALSE(SimulationServerSocket::is_live(path_));  // nothing there at all
+
+    leave_stale_socket(path_);
+    ASSERT_TRUE(std::filesystem::exists(path_));           // the file is on disk...
+    EXPECT_FALSE(SimulationServerSocket::is_live(path_));  // ...but nothing is serving on it
+
+    auto host = SimulationServerSocket::create(path_);  // reclaims the stale file and binds
+    EXPECT_TRUE(SimulationServerSocket::is_live(path_));
+}
+
+// A path too long for sockaddr_un cannot name a reachable listener, so is_live() answers the
+// predicate rather than throwing out of make_endpoint().
+TEST_F(SimulationServerSocketTest, IsLiveIsFalseForAnOverlongPath) {
+    const std::filesystem::path too_long =
+        std::filesystem::temp_directory_path() / (std::string(sizeof(sockaddr_un::sun_path), 'x') + ".sock");
+    EXPECT_FALSE(SimulationServerSocket::is_live(too_long));
 }
 
 // Inverts every byte, so a served reply is distinguishable from the request that produced it.

@@ -9,7 +9,6 @@
 #include <optional>
 #include <type_traits>
 
-#include "umd/device/types/core_coordinates.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/xy_pair.hpp"
 
@@ -86,8 +85,8 @@ constexpr WindowFlags& operator&=(WindowFlags& lhs, WindowFlags rhs) noexcept {
  * @brief Device-side target for an IoWindow: core(s), address, optional NOC, and transaction flags.
  */
 struct TargetIoWindowConfig {
-    CoreCoord core_start;  ///< Target core, or upper-left corner of a multicast grid.
-    std::optional<CoreCoord> core_end =
+    tt_xy_pair core_start;  ///< Target core, or upper-left corner of a multicast grid.
+    std::optional<tt_xy_pair> core_end =
         std::nullopt;                         ///< Lower-right corner of a multicast grid, or nullopt for unicast.
     uint64_t addr;                            ///< Destination address on the target core(s).
     std::optional<NocId> noc = std::nullopt;  ///< Optional routing selection.

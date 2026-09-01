@@ -31,6 +31,9 @@ enum class CoreType {
     SECURITY,
     L2CPU,
     DISPATCH,
+    // System Management Complex: the on-die management CPU of a Grendel chiplet, and the surface a
+    // JTAG bring-up client reaches first.
+    SMC,
     // TODO: this keeps compatibility with existing code in SocDescriptor
     // but it won't be needed later on
     HARVESTED,
@@ -75,6 +78,8 @@ static inline std::string to_str(const CoreType core_type) {
             return "L2CPU";
         case CoreType::DISPATCH:
             return "DISPATCH";
+        case CoreType::SMC:
+            return "SMC";
         case CoreType::HARVESTED:
             return "HARVESTED";
         case CoreType::ETH:
@@ -110,6 +115,8 @@ static inline char type_shorthand(const CoreType type) {
             return 's';
         case CoreType::L2CPU:
             return 'l';
+        case CoreType::SMC:
+            return 'm';
         case CoreType::UNSPECIFIED:
             return '\0';
         default:

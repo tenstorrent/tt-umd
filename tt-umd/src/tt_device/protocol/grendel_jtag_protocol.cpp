@@ -25,10 +25,12 @@ void GrendelJtagProtocol::write_to_device(
     const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if (noc_id != NocId::NOC0) {
         UMD_THROW(
-            error::RuntimeError,
-            fmt::format("GrendelJtagProtocol supports only NOC0 (got {}).", noc_to_str(noc_id)));
+            error::RuntimeError, fmt::format("GrendelJtagProtocol supports only NOC0 (got {}).", noc_to_str(noc_id)));
     }
     try {
+        // chippy's TransportInterface::write() takes a non-const void* even though it only reads the
+        // buffer, so the const has to be cast away at the boundary.
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast).
         impl_->transport_for(core)->write(size, kMinWordSizeBytes, addr, const_cast<void*>(mem_ptr));
     } catch (const std::exception& e) {
         UMD_THROW(
@@ -41,8 +43,7 @@ void GrendelJtagProtocol::write_to_device(
 void GrendelJtagProtocol::read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) {
     if (noc_id != NocId::NOC0) {
         UMD_THROW(
-            error::RuntimeError,
-            fmt::format("GrendelJtagProtocol supports only NOC0 (got {}).", noc_to_str(noc_id)));
+            error::RuntimeError, fmt::format("GrendelJtagProtocol supports only NOC0 (got {}).", noc_to_str(noc_id)));
     }
     try {
         impl_->transport_for(core)->read(size, kMinWordSizeBytes, addr, mem_ptr);

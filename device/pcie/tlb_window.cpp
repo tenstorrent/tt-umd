@@ -160,13 +160,16 @@ void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
 void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
-    // A TLB mapping has no way to express these; failing loudly beats silently dropping them.
+    // Flags a given implementation cannot honor are rejected; failing loudly beats silently dropping them.
     UMD_ASSERT(
-        config.flags == WindowFlags::None,
+        (config.flags & ~supported_window_flags()) == WindowFlags::None,
         error::RuntimeError,
-        "WindowFlags are not supported by TLB-backed IoWindows.");
+        "Requested WindowFlags are not supported by this TLB-backed IoWindow.");
 
     UMD_ASSERT(config.noc.has_value(), error::RuntimeError, "TLB-backed IoWindows must specify a NOC.");
+
+    // A TLB mapping has no field for the flags, so they are kept as window state.
+    window_flags_ = config.flags;
 
     const bool mcast = config.core_end.has_value();
     configure(make_tlb_config(
@@ -193,6 +196,7 @@ TargetIoWindowConfig TlbWindow::get_target_config() const {
     // The handle holds the aligned base; the remainder lives in offset_from_aligned_addr.
     target.addr = get_base_address();
     target.noc = static_cast<NocId>(config.noc_sel);
+    target.flags = window_flags_;
     return target;
 }
 

@@ -19,6 +19,9 @@ set(BAREMETAL_TESTS_SRCS
     # WormholeArcWindow takes only protocol interfaces, so it is verified against mocks with no
     # card and no simulation build.
     test_wormhole_arc_window.cpp
+    # TlbWindow's WindowFlags contract runs against a fake TlbHandle, so it needs no card and no
+    # simulation build either. The RTL-sim half of that feature is gated below.
+    test_tlb_window_flags.cpp
 )
 
 add_executable(baremetal_tests ${BAREMETAL_TESTS_SRCS})
@@ -28,6 +31,9 @@ if(TT_UMD_BUILD_EMULE)
 endif()
 if(TT_UMD_BUILD_SIMULATION)
     target_sources(baremetal_tests PRIVATE test_simulation_tlb_allocator.cpp)
+    # RtlSimTlbWindow's configure() path is software-only (software TLB handle, communicator
+    # untouched until an actual read/write), so the WindowFlags contract runs with no card.
+    target_sources(baremetal_tests PRIVATE test_rtl_sim_tlb_window.cpp)
 endif()
 set_target_properties(
     baremetal_tests

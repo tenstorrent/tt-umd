@@ -591,8 +591,13 @@ TEST_F(TestTlb, IoWindowInterface) {
     EXPECT_EQ(window.get_io_ordering(), IoOrdering::Posted);
     EXPECT_EQ(window.get_target_config().addr, l1_addr) << "Ordering change should not disturb the target";
 
-    // WindowFlags have no TLB equivalent and must be rejected rather than silently dropped.
+    // A silicon TLB can express none of the WindowFlags -- AXI user bits belong to the kernel
+    // driver -- so both must be rejected rather than silently dropped. RtlSimTlbWindow is the one
+    // implementation that accepts Snoop; see baremetal RtlSimTlbWindow.* for that side.
     target.flags = WindowFlags::Atomic;
+    EXPECT_ANY_THROW(window.configure(target));
+
+    target.flags = WindowFlags::Snoop;
     EXPECT_ANY_THROW(window.configure(target));
 }
 

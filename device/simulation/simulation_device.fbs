@@ -36,6 +36,8 @@ table DeviceRequestResponse {
     core : tt_vcs_core;
     address : uint64;
     size : uint32;
+    user_bits : uint64;       // Low 64 bits of AXI awuser/aruser (READ/WRITE only).
+    user_bits_hi : uint64;    // Bits 64..127 (RTL currently uses bits 64..69).
 }
 
 root_type DeviceRequestResponse;

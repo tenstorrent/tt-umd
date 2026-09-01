@@ -22,6 +22,11 @@ struct tlb_data;
  * into tile_read_bytes/tile_write_bytes calls on RtlSimCommunicator.
  * Since RTL sim has no PCIe BAR0, the TLB config (core coordinates + address)
  * is used to reconstruct the target core and address for each access.
+ *
+ * This is the one TlbWindow that can honor a WindowFlag: WindowFlags::Snoop
+ * requested through configure(TargetIoWindowConfig) is translated into AXI
+ * awuser/aruser bit 8 (cce_cmd_snoop) and forwarded to the communicator on
+ * every access.
  */
 class RtlSimTlbWindow : public TlbWindow {
 public:
@@ -38,6 +43,10 @@ public:
 
     void safe_write16(uint64_t offset, uint16_t value) override;
     uint16_t safe_read16(uint64_t offset) override;
+
+protected:
+    // The RTL sim carries AXI user bits on the wire, so snoop is expressible here.
+    WindowFlags supported_window_flags() const override { return WindowFlags::Snoop; }
 
 private:
     /**

@@ -17,10 +17,10 @@
 #      run), then import the resulting static libraries.
 #
 # NOTE: the interim ExternalProject import below (library set, build-tree paths,
-# include dirs) is authored against chippy's source layout but has NOT been
-# build-verified in this environment (no GCC >= 13 available). It must be
-# finalized against a real chippy build, or superseded by find_package(chippy)
-# once the package lands.
+# include dirs) tracks chippy's internal build-tree layout at the pinned commit,
+# so it breaks whenever chippy moves a target between directories or flips one
+# between STATIC and INTERFACE. It is meant to be superseded by
+# find_package(chippy) once chippy exports a package.
 
 if(NOT TT_UMD_BUILD_GRENDEL_JTAG)
     add_library(umd_grendel_jtag INTERFACE)
@@ -50,33 +50,42 @@ message(STATUS "Grendel JTAG: chippy package not found; using interim isolated E
 
 set(CHIPPY_GIT_REPOSITORY
     "https://yyz-gitlab.local.tenstorrent.com/syseng-platform/chippy.git"
-    CACHE STRING "chippy git repository"
+    CACHE STRING
+    "chippy git repository"
 )
-set(CHIPPY_GIT_TAG
-    "bdcc120458fe181d1593cc08e69a8d1bbee14e6d"
-    CACHE STRING "chippy pinned commit"
-)
+set(CHIPPY_GIT_TAG "bdcc120458fe181d1593cc08e69a8d1bbee14e6d" CACHE STRING "chippy pinned commit")
 
 include(${PROJECT_SOURCE_DIR}/cmake/CPM.cmake)
 include(ExternalProject)
 
 # Fetch source only. Never add_subdirectory chippy (see header comment).
+#
+# lfs.fetchexclude: chippy LFS-tracks files under validation/ and .gitlab/, none of
+# which lib/ needs. Without this the checkout fails outright wherever git-lfs is
+# installed but cannot reach the LFS endpoint (containers, CI).
 CPMAddPackage(
     NAME chippy
     GIT_REPOSITORY ${CHIPPY_GIT_REPOSITORY}
     GIT_TAG ${CHIPPY_GIT_TAG}
+    GIT_CONFIG
+    lfs.fetchexclude=*
     DOWNLOAD_ONLY YES
 )
 
 set(_chippy_lib_src "${chippy_SOURCE_DIR}/lib")
 set(_chippy_build "${CMAKE_CURRENT_BINARY_DIR}/chippy-build")
 
-# Static libraries produced by chippy's lib/ build that the Grendel path needs.
-# Build-tree paths mirror the lib/ subdir structure. PROVISIONAL — confirm the
-# set, names, and paths against a real GCC >= 13 chippy build.
+# Static libraries produced by chippy's lib/ build that the Grendel path needs:
+# the link closure of chippy's `grendel` target. Build-tree paths mirror the lib/
+# subdir structure, except transport_interface, which is declared in
+# transport/CMakeLists.txt and so lands directly in transport/.
+#
+# chippy's arch_asic, mock_transport, smc_remap_transport and common targets are
+# INTERFACE libraries (headers only) and produce no archive, so they contribute
+# include dirs (below) but nothing here. lz4 is only a lib/test_framework
+# dependency and is not in the Grendel closure.
 set(_chippy_libs
     arch/grendel/libgrendel.a
-    arch/libarch_asic.a
     register_map/grendel/quasar/libquasar_map.a
     register_map/grendel/mimir/libmimir_map.a
     register_map/grendel/keraunos/libkeraunos_map.a
@@ -84,14 +93,12 @@ set(_chippy_libs
     transport/jtag2axi_transport/jtag2axi_v1_transport/libjtag2axi_v1_transport.a
     transport/jtag2axi_transport/jtag2axi_transport_interface/libjtag2axi_transport_interface.a
     transport/emu_axi_transport/libemu_axi_transport.a
-    transport/mock_transport/libmock_transport.a
-    transport/smc_remap_transport/libsmc_remap_transport.a
-    transport/transport_interface/libtransport_interface.a
+    transport/sim_axi_transport/libsim_axi_transport.a
+    transport/distsim_axi_transport/libdistsim_axi_transport.a
+    transport/libtransport_interface.a
     address_translation/libaddress_translation.a
-    common/libcommon.a
     common/logging/liblogging.a
     common/utils/libutils.a
-    lz4/liblz4.a
 )
 list(TRANSFORM _chippy_libs PREPEND "${_chippy_build}/")
 
@@ -100,25 +107,45 @@ ExternalProject_Add(
     SOURCE_DIR "${_chippy_lib_src}"
     BINARY_DIR "${_chippy_build}"
     CMAKE_ARGS
-        -DCMAKE_BUILD_TYPE=Release
-        -DCHIPPY_BUILD_UNIT_TESTS=OFF
-        -DBUILD_EXCLUDE_JLINK=TRUE
+        -DCMAKE_BUILD_TYPE=Release -DCHIPPY_BUILD_UNIT_TESTS=OFF -DBUILD_EXCLUDE_JLINK=TRUE
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-    INSTALL_COMMAND "" # chippy exports no install rules; we import build-tree static libs
-    BUILD_BYPRODUCTS ${_chippy_libs}
+    # Build only the grendel target and its dependencies. chippy's `all` also
+    # builds the Blackhole/Wormhole register maps and lib/test_framework, which
+    # fetches yaml-cpp and CLI11 from GitHub.
+    BUILD_COMMAND
+        ${CMAKE_COMMAND} --build ${_chippy_build} --target grendel
+    INSTALL_COMMAND
+        "" # chippy exports no install rules; we import build-tree static libs
+    BUILD_BYPRODUCTS
+        ${_chippy_libs}
 )
 
-# Include roots for the Grendel path. PROVISIONAL — confirm against a real build.
+# Include roots for the Grendel path: the source dirs chippy's grendel targets
+# export, including the header-only (INTERFACE) ones that ship no archive. chippy
+# uses flat includes ("asic.h", "noc_utils.h", ...), so every directory holding a
+# header reachable from lib/arch/grendel/*.h has to be listed.
+#
+# Not listed: spdlog, which chippy's common/logging/logging.h includes (reached via
+# arch/grendel/ip/quasar_smn.h). UMD's own spdlog headers satisfy it, since tt-umd
+# already links spdlog. Note chippy compiles liblogging.a against its own
+# header-only spdlog, so its logging types are ODR-sensitive to that version skew;
+# UMD code should not include chippy's logging.h if it can avoid it.
 set(_chippy_includes
     ${_chippy_lib_src}/transport/transport_interface
+    ${_chippy_lib_src}/transport/transport_utils
     ${_chippy_lib_src}/address_translation
     ${_chippy_lib_src}/arch
+    ${_chippy_lib_src}/arch/asic
     ${_chippy_lib_src}/arch/grendel
     ${_chippy_lib_src}/transport/jtag2axi_transport/jtag2axi_transport_interface
     ${_chippy_lib_src}/transport/emu_axi_transport
+    ${_chippy_lib_src}/transport/sim_axi_transport
+    ${_chippy_lib_src}/transport/distsim_axi_transport
     ${_chippy_lib_src}/transport/mock_transport
+    ${_chippy_lib_src}/transport/smc_remap_transport
     ${_chippy_lib_src}/common
     ${_chippy_lib_src}/common/logging
+    ${_chippy_lib_src}/common/utils
     ${_chippy_lib_src}/register_map/grendel/quasar/include
     ${_chippy_lib_src}/register_map/grendel/mimir/include
     ${_chippy_lib_src}/register_map/grendel/keraunos/include

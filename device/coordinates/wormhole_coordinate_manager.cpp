@@ -31,7 +31,8 @@ WormholeCoordinateManager::WormholeCoordinateManager(
     const std::vector<tt_xy_pair>& l2cpu_cores,
     const std::vector<tt_xy_pair>& dispatch_cores,
     const std::vector<uint32_t>& noc0_x_to_noc1_x,
-    const std::vector<uint32_t>& noc0_y_to_noc1_y) :
+    const std::vector<uint32_t>& noc0_y_to_noc1_y,
+    const std::vector<tt_xy_pair>& smc_cores) :
     CoordinateManager(
         noc_translation_enabled,
         harvesting_masks,
@@ -49,7 +50,8 @@ WormholeCoordinateManager::WormholeCoordinateManager(
         l2cpu_cores,
         dispatch_cores,
         noc0_x_to_noc1_x,
-        noc0_y_to_noc1_y) {
+        noc0_y_to_noc1_y,
+        smc_cores) {
     initialize();
 }
 

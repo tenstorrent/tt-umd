@@ -86,6 +86,8 @@ public:
 
     const std::vector<tt_xy_pair>& get_dispatch_cores() const { return dispatch_cores_; }
 
+    const std::vector<tt_xy_pair>& get_smc_cores() const { return smc_cores_; }
+
     // Memory sizes.
     uint32_t get_worker_l1_size() const { return worker_l1_size_; }
 
@@ -155,6 +157,7 @@ private:
     std::vector<tt_xy_pair> security_cores_;
     std::vector<tt_xy_pair> l2cpu_cores_;
     std::vector<tt_xy_pair> dispatch_cores_;
+    std::vector<tt_xy_pair> smc_cores_;
     uint32_t worker_l1_size_ = 0;
     uint32_t eth_l1_size_ = 0;
     uint64_t dram_bank_size_ = 0;

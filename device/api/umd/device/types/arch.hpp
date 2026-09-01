@@ -21,6 +21,10 @@ enum class ARCH {
     WORMHOLE_B0 = 2,
     BLACKHOLE = 3,
     QUASAR = 4,
+    // A Grendel multi-chiplet package (Quasar/Mimir/Keraunos). Grendel packages have no fixed
+    // floorplan, so their descriptors always come from a YAML SoC descriptor rather than from
+    // hardcoded architecture constants.
+    GRENDEL = 5,
     Invalid = 0xFF,
 };
 
@@ -33,6 +37,8 @@ static inline tt::ARCH arch_from_str(const std::string &arch_str) {
         return tt::ARCH::BLACKHOLE;
     } else if (arch_str_lower == "quasar") {
         return tt::ARCH::QUASAR;
+    } else if (arch_str_lower == "grendel") {
+        return tt::ARCH::GRENDEL;
     } else {
         return tt::ARCH::Invalid;
     }
@@ -46,6 +52,8 @@ static inline std::string arch_to_str(const tt::ARCH arch) {
             return "blackhole";
         case tt::ARCH::QUASAR:
             return "quasar";
+        case tt::ARCH::GRENDEL:
+            return "grendel";
         case tt::ARCH::Invalid:
         default:
             return "Invalid";

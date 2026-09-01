@@ -87,6 +87,11 @@ public:
 
     std::unique_ptr<TlbWindow> get_io_window(tlb_data config, TlbMapping mapping, size_t size) override;
 
+    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
+    // remote client can build the matching device class, and reported by Cluster so a caller can
+    // tell what its simulation is backed by.
+    virtual SimulationBackendType backend_type() const = 0;
+
 protected:
     SimulationTTDevice(
         std::unique_ptr<TTDeviceModel> model,
@@ -121,10 +126,6 @@ protected:
     // read_from_device/write_to_device translate the CoreCoord once (via
     // translate_chip_coord_to_translated) before dispatching, so the `core` handed to every hook
     // below is already a TRANSLATED coordinate -- do not translate it again.
-
-    // Which simulator this device runs (TTSim vs RTL). Served as part of the device identity so a
-    // remote client can build the matching device class.
-    virtual SimulationBackendType backend_type() const = 0;
 
     // Direct tile (NOC unicast) access through the backend communicator.
     virtual void tile_read_bytes(tt_xy_pair core, uint64_t addr, void* mem_ptr, size_t size) = 0;

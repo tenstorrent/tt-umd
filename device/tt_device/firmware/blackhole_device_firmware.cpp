@@ -51,8 +51,10 @@ BlackholeDeviceFirmware::BlackholeDeviceFirmware(
     // protocol faulted there before the assert could report it.
     device_id_ = device_protocol_->get_mmio_id();
 
-    // acquire_mutex() throws unless the mutex was initialized first, so claim it up front the way
-    // ArcMessenger's constructor does.
+    // acquire_mutex() throws unless the mutex was initialized first, so claim it up front. For a
+    // PCIe device this is the same key BlackholeArcMessenger uses (its device-number argument
+    // defaults the type to PCIe), so this path and the messenger - still alive for tests - exclude
+    // each other; the messenger never worked over JTAG, where this adds the missing key.
     lock_manager_.initialize_mutex(MutexType::ARC_MSG, device_id_, get_io_device_type());
 
     // Resolve both ARC coordinates once. The NOC translation state they depend on is fixed for the

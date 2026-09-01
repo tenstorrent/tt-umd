@@ -84,7 +84,8 @@ uint32_t WormholeTTDevice::get_clock() {
     DeviceCommandResult result = get_device_firmware()->send_device_command(
         wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
         {0xFFFF, 0xFFFF},
-        timeout::ARC_MESSAGE_TIMEOUT);
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
     if (result.exit_code != 0) {
         UMD_THROW(error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
     }
@@ -144,7 +145,8 @@ void WormholeTTDevice::configure_iatu_region(size_t region, uint64_t target, siz
         wormhole::ARC_MSG_COMMON_PREFIX |
             static_cast<uint32_t>(wormhole::arc_message_type::SETUP_IATU_FOR_PEER_TO_PEER),
         {0, 0},
-        timeout::ARC_MESSAGE_TIMEOUT);
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
 
     // Print what just happened.
     uint32_t peer_region_start = region_id_to_use * region_size;

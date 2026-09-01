@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
+#include "umd/device/types/noc_id.hpp"
 #include "umd/device/utils/timeouts.hpp"
 
 namespace tt::umd {
@@ -22,7 +23,9 @@ inline uint32_t send_spi_arc_command(
     uint32_t msg_code,
     std::vector<uint32_t>& return_values,
     const std::vector<uint32_t>& args = {}) {
-    DeviceCommandResult result = firmware->send_device_command(msg_code, args, timeout::ARC_MESSAGE_TIMEOUT);
+    // The ArcMessenger path this replaces read the thread-selected NOC itself; keep that.
+    DeviceCommandResult result =
+        firmware->send_device_command(msg_code, args, timeout::ARC_MESSAGE_TIMEOUT, get_selected_noc_id());
     for (size_t i = 0; i < return_values.size() && i < result.return_values.size(); i++) {
         return_values[i] = result.return_values[i];
     }

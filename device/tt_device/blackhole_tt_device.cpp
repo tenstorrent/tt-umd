@@ -291,7 +291,8 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
                             ->send_device_command(
                                 static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET),
                                 {dram_channel},
-                                timeout::ARC_MESSAGE_TIMEOUT)
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
                             .exit_code;
     if (ret_code != 0) {
         UMD_THROW(

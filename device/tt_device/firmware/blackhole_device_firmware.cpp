@@ -59,6 +59,10 @@ void BlackholeDeviceFirmware::init_firmware(std::chrono::milliseconds timeout_ms
 }
 
 void BlackholeDeviceFirmware::wait_firmware_ready(std::chrono::milliseconds timeout_ms, NocId noc_id) {
+    // Deliberate difference from the deleted TTDevice wait: its JTAG reads were pinned to the NOC0
+    // ARC coordinate over the default NOC, and its non-AXI PCIe branch paired the selected NOC's
+    // coordinate with the default NOC's routing. Every read here uses noc_id consistently,
+    // coordinate and routing both; with the default NOC0 the two are bit-identical.
     // One throwaway read before the poll, so a dead ARC APB path faults on an access that is
     // clearly a probe rather than partway into the boot-status loop. This was
     // TTDevice::probe_arc(), moved here with its only caller.

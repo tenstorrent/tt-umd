@@ -308,8 +308,15 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
         auto tt_device = TTDevice::create(i);
         try {
             tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
-        } catch (error::FirmwareStartupError& fw_error) {
-            log_warning(LogUMD, fw_error.message());
+        } catch (error::UmdBaseException& err) {
+            // UMD_THROW raises UmdException<E>, which wraps E rather than deriving from it, so a
+            // plain catch (error::FirmwareStartupError&) can never match. The catch this replaces
+            // (error::ArcStartupError&) had the same flaw and silently never fired; this is the
+            // log-and-skip behavior it always intended. See topology_utils.hpp for the same pattern.
+            if (dynamic_cast<error::UmdException<error::FirmwareStartupError>*>(&err) == nullptr) {
+                throw;
+            }
+            log_warning(LogUMD, err.message());
             continue;
         }
         tt_devices.emplace_back(std::move(tt_device));

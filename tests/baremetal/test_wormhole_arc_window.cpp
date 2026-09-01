@@ -203,7 +203,7 @@ TEST_F(WormholeArcCsmWindowTest, RemoteWriteIsADataAccess) {
 }
 
 // The memory-vs-registers distinction is a remote-route one only: JTAG reaches every window over
-// the register path, as WormholeTTDevice::read_from_arc_csm did.
+// the register path, as the TTDevice-era CSM accessor this replaced did.
 TEST_F(WormholeArcCsmWindowTest, JtagReadStaysOnTheRegisterPath) {
     auto window = over_jtag();
 

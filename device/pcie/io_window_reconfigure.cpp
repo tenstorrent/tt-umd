@@ -37,7 +37,7 @@ void read_block_reconfigure(
     IoWindow& window, void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
-        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::None, IoDirection::Read},
+        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::UnicastRead},
         ordering,
         static_cast<uint8_t*>(mem_ptr),
         size,
@@ -54,7 +54,7 @@ void write_block_reconfigure(
     IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
-        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::None, IoDirection::Write},
+        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::UnicastWrite},
         ordering,
         static_cast<const uint8_t*>(mem_ptr),
         size,
@@ -65,7 +65,7 @@ void read_register_reconfigure(
     IoWindow& window, void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id, IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
-        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::None, IoDirection::Read},
+        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::UnicastRead},
         ordering,
         static_cast<uint8_t*>(mem_ptr),
         size,
@@ -82,7 +82,7 @@ void write_register_reconfigure(
     IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
-        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::None, IoDirection::Write},
+        TargetIoWindowConfig{core, std::nullopt, addr, noc_id, WindowFlags::UnicastWrite},
         ordering,
         static_cast<const uint8_t*>(mem_ptr),
         size,
@@ -100,7 +100,7 @@ void noc_multicast_write_reconfigure(
     IoOrdering ordering) {
     transfer_and_reconfigure(
         window,
-        TargetIoWindowConfig{core_start, core_end, addr, noc_id, WindowFlags::None, IoDirection::Write},
+        TargetIoWindowConfig{core_start, core_end, addr, noc_id, WindowFlags::MulticastWrite},
         ordering,
         static_cast<const uint8_t*>(src),
         size,

@@ -30,25 +30,6 @@ static_assert(static_cast<uint64_t>(IoOrdering::Relaxed) == tlb_data::Relaxed);
 static_assert(static_cast<uint64_t>(IoOrdering::Strict) == tlb_data::Strict);
 static_assert(static_cast<uint64_t>(IoOrdering::Posted) == tlb_data::Posted);
 
-namespace {
-
-// Pinning a mapping to a static VC keeps its writes ordered, but a single VC carrying both directions
-// trips a hardware bug, so only a mapping that commits to one direction can be pinned. Multicast
-// writes take their own VC class, which is why the write case splits on mcast.
-TlbVcDirection to_tlb_vc_direction(const IoDirection direction, const bool mcast) {
-    switch (direction) {
-        case IoDirection::Read:
-            return TlbVcDirection::UNICAST_READ;
-        case IoDirection::Write:
-            return mcast ? TlbVcDirection::MULTICAST_WRITE : TlbVcDirection::UNICAST_WRITE;
-        case IoDirection::Bidirectional:
-        default:
-            return TlbVcDirection::BIDIRECTIONAL;
-    }
-}
-
-}  // namespace
-
 TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
     tlb_data aligned_config = config;
     aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
@@ -61,7 +42,7 @@ tlb_data TlbWindow::make_tlb_config(
     tt_xy_pair core_end,
     NocId noc_id,
     uint64_t ordering,
-    TlbVcDirection direction,
+    WindowFlags flags,
     bool mcast,
     tt_xy_pair core_start) const {
     tlb_data config{};
@@ -70,7 +51,7 @@ tlb_data TlbWindow::make_tlb_config(
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = ordering;
-    config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(direction));
+    config.set_static_vc(get_architecture_tlbs(handle_ref().get_arch()).get_static_vc(flags));
     if (mcast) {
         config.mcast = true;
         config.x_start = core_start.x;
@@ -171,11 +152,12 @@ void TlbWindow::read_aligned(uint64_t offset, void* data, size_t size) {
 void TlbWindow::configure(const TargetIoWindowConfig& config) { configure(config, IoOrdering::Strict); }
 
 void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering ordering) {
-    // A TLB mapping has no way to express these; failing loudly beats silently dropping them.
+    // A TLB mapping has no way to express anything outside the direction field; failing loudly beats
+    // silently dropping it.
     UMD_ASSERT(
-        config.flags == WindowFlags::None,
+        (config.flags & ~WindowFlags::DirectionMask) == WindowFlags::None,
         error::RuntimeError,
-        "WindowFlags are not supported by TLB-backed IoWindows.");
+        "WindowFlags other than the direction field are not supported by TLB-backed IoWindows.");
 
     UMD_ASSERT(config.noc.has_value(), error::RuntimeError, "TLB-backed IoWindows must specify a NOC.");
 
@@ -185,7 +167,7 @@ void TlbWindow::configure(const TargetIoWindowConfig& config, IoOrdering orderin
         mcast ? config.core_end.value() : config.core_start,
         config.noc.value(),
         static_cast<uint64_t>(ordering),
-        to_tlb_vc_direction(config.direction, mcast),
+        config.flags,
         mcast,
         config.core_start));
 }

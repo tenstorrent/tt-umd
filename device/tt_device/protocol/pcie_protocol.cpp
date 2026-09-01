@@ -260,7 +260,7 @@ bool PcieProtocol::dma_write(const void* src, uint64_t dst_addr, size_t size, tt
         const_cast<void*>(src),  // NOLINT
         size,
         dst_addr,
-        create_dma_tlb_config(dst_addr, core, noc_id, TlbVcDirection::UNICAST_WRITE),
+        create_dma_tlb_config(dst_addr, core, noc_id, WindowFlags::UnicastWrite),
         DmaDirection::H2D);
 }
 
@@ -269,7 +269,7 @@ bool PcieProtocol::dma_read(void* dst, uint64_t src_addr, size_t size, tt_xy_pai
         dst,
         size,
         src_addr,
-        create_dma_tlb_config(src_addr, core, noc_id, TlbVcDirection::UNICAST_READ),
+        create_dma_tlb_config(src_addr, core, noc_id, WindowFlags::UnicastRead),
         DmaDirection::D2H);
 }
 
@@ -279,7 +279,7 @@ bool PcieProtocol::dma_multicast_write(
         const_cast<void*>(src),  // NOLINT
         size,
         dst_addr,
-        create_dma_tlb_config(dst_addr, core_end, noc_id, TlbVcDirection::MULTICAST_WRITE, core_start),
+        create_dma_tlb_config(dst_addr, core_end, noc_id, WindowFlags::MulticastWrite, core_start),
         DmaDirection::H2D);
 }
 
@@ -289,7 +289,7 @@ bool PcieProtocol::dma_read_zero_copy(
         dst_iova,
         size,
         src_addr,
-        create_dma_tlb_config(src_addr, core, noc_id, TlbVcDirection::UNICAST_READ),
+        create_dma_tlb_config(src_addr, core, noc_id, WindowFlags::UnicastRead),
         DmaDirection::D2H);
 }
 
@@ -299,7 +299,7 @@ bool PcieProtocol::dma_write_zero_copy(
         src_iova,
         size,
         dst_addr,
-        create_dma_tlb_config(dst_addr, core, noc_id, TlbVcDirection::UNICAST_WRITE),
+        create_dma_tlb_config(dst_addr, core, noc_id, WindowFlags::UnicastWrite),
         DmaDirection::H2D);
 }
 
@@ -309,7 +309,7 @@ bool PcieProtocol::dma_multicast_write_zero_copy(
         src_iova,
         size,
         dst_addr,
-        create_dma_tlb_config(dst_addr, core_end, noc_id, TlbVcDirection::MULTICAST_WRITE, core_start),
+        create_dma_tlb_config(dst_addr, core_end, noc_id, WindowFlags::MulticastWrite, core_start),
         DmaDirection::H2D);
 }
 
@@ -318,14 +318,14 @@ bool PcieProtocol::dma_multicast_write_zero_copy(
 // (the target core). When core_start is provided, the transfer becomes a multicast to the
 // core range [core_start, core_end].
 tlb_data PcieProtocol::create_dma_tlb_config(
-    uint64_t addr, tt_xy_pair core_end, NocId noc_id, TlbVcDirection direction, std::optional<tt_xy_pair> core_start) {
+    uint64_t addr, tt_xy_pair core_end, NocId noc_id, WindowFlags flags, std::optional<tt_xy_pair> core_start) {
     tlb_data config{};
     config.local_offset = addr;
     config.x_end = core_end.x;
     config.y_end = core_end.y;
     config.noc_sel = static_cast<uint64_t>(noc_id);
     config.ordering = tlb_data::Relaxed;
-    config.set_static_vc(get_architecture_tlbs(pci_device_->get_arch()).get_static_vc(direction));
+    config.set_static_vc(get_architecture_tlbs(pci_device_->get_arch()).get_static_vc(flags));
     if (core_start) {
         config.x_start = core_start->x;
         config.y_start = core_start->y;

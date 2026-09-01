@@ -370,6 +370,20 @@ target_link_libraries(tt-umd PRIVATE tt-kmd-lib::tt-kmd-lib)
 # so this link is a no-op for normal builds.
 target_link_libraries(tt-umd PRIVATE umd_grendel_jtag)
 
+if(TT_UMD_BUILD_GRENDEL_JTAG)
+    # The Grendel protocol translation unit includes chippy headers and must
+    # compile as C++20. Confine the bump to this one source (the -std override
+    # comes after the target's -std=c++17, so it wins); UMD's public standard
+    # stays C++17.
+    target_sources(tt-umd PRIVATE tt_device/protocol/grendel_jtag_protocol.cpp)
+    set_source_files_properties(
+        tt_device/protocol/grendel_jtag_protocol.cpp
+        PROPERTIES
+            COMPILE_OPTIONS
+                "-std=c++20"
+    )
+endif()
+
 check_function_exists(
     backtrace
     HAVE_BACKTRACE

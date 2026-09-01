@@ -29,7 +29,8 @@ static_assert(static_cast<uint64_t>(IoOrdering::Relaxed) == tlb_data::Relaxed);
 static_assert(static_cast<uint64_t>(IoOrdering::Strict) == tlb_data::Strict);
 static_assert(static_cast<uint64_t>(IoOrdering::Posted) == tlb_data::Posted);
 
-TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) : tlb_handle(std::move(handle)) {
+TlbWindow::TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
+    tlb_handle(std::move(handle)), io_safety_(io_safety) {
     tlb_data aligned_config = config;
     aligned_config.local_offset = config.local_offset & ~(tlb_handle->get_size() - 1);
     tlb_handle->configure(aligned_config);

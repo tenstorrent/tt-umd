@@ -23,7 +23,8 @@ class TlbHandle;
  */
 class SiliconTlbWindow : public TlbWindow {
 public:
-    SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
+    SiliconTlbWindow(
+        std::unique_ptr<TlbHandle> handle, const tlb_data config = {}, IoSafety io_safety = IoSafety::Disabled);
 
     // Implementation of memory access methods using direct pointer access.
     void write16(uint64_t offset, uint16_t value) override;
@@ -34,9 +35,6 @@ public:
     void read_register(uint64_t offset, void* data, size_t size) override;
     void write_block(uint64_t offset, const void* data, size_t size) override;
     void read_block(uint64_t offset, void* data, size_t size) override;
-
-    // Enables/disables SIGBUS recovery (see execute_safe below) for the memory-access methods above.
-    void set_safe_io(bool enable) override;
 
     // Wires the per-op MMIO timeout: on a single-op overrun hang_check is consulted for the window's
     // currently configured NOC. Returning true means that NOC is hung (the transfer aborts with
@@ -84,7 +82,7 @@ private:
     decltype(auto) execute_safe(Func&& func, Args&&... args);
 
     // Unguarded bodies of the memory-access methods above; the public overrides route through
-    // execute_safe() when safe_io_ is enabled and call these directly otherwise.
+    // execute_safe() when io_safety_ is enabled and call these directly otherwise.
     void write16_impl(uint64_t offset, uint16_t value);
     uint16_t read16_impl(uint64_t offset);
     void write32_impl(uint64_t offset, uint32_t value);
@@ -94,7 +92,6 @@ private:
     void write_block_impl(uint64_t offset, const void* data, size_t size);
     void read_block_impl(uint64_t offset, void* data, size_t size);
 
-    bool safe_io_ = false;
     std::function<bool(NocId)> hang_check_;
     // Cached is_false_alarm callback bound to the currently configured NOC; refreshed by
     // update_io_timeout_callback() so the IO paths need not rebuild it per call.

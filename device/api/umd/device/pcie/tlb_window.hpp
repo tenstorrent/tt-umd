@@ -20,13 +20,28 @@
 namespace tt::umd {
 
 /**
+ * Safe-I/O policy of a window, fixed for its lifetime.
+ *
+ * With Enabled, the window's memory-access methods recover from a SIGBUS raised by a failing device
+ * access and throw SigbusError instead of letting the fault take the process down. Only
+ * SiliconTlbWindow can offer this, since simulation windows never touch mapped device memory; where it
+ * cannot be offered the policy is ignored.
+ *
+ * The underlying type is bool so that a caller still holding a flag can cast it directly.
+ */
+enum class IoSafety : bool {
+    Disabled = false,
+    Enabled = true,
+};
+
+/**
  * Base class for TlbWindow implementations that contains all shared logic.
  * The memory access methods are pure virtual to allow different implementations
  * for silicon (direct memory access) vs simulation (communicator-based access).
  */
 class TlbWindow : public IoWindow {
 public:
-    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {});
+    TlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config = {}, IoSafety io_safety = IoSafety::Disabled);
 
     virtual ~TlbWindow() = default;
 
@@ -53,13 +68,6 @@ public:
     // SiliconTlbWindow consults it (simulation windows do not run the timed path). See SiliconTlbWindow.
     virtual void set_io_timeout_hang_check(const std::function<bool(NocId)>& hang_check) {}
 
-    // Installs safe-I/O as window-level policy: once enabled, the memory-access methods above recover
-    // from SIGBUS by throwing SigbusError instead of crashing the process. No-op by default; only
-    // SiliconTlbWindow can actually offer this (simulation windows never touch mapped device memory).
-    // Callers needing chunked transfers use the free functions in io_window_reconfigure.hpp, which honor
-    // whatever policy is installed here since they operate through this window's ops.
-    virtual void set_safe_io(bool enable) {}
-
     // Shared utility methods.
     TlbHandle& handle_ref() const;
     size_t get_size() const override;
@@ -81,6 +89,7 @@ protected:
 
     std::unique_ptr<TlbHandle> tlb_handle;
     uint64_t offset_from_aligned_addr = 0;
+    const IoSafety io_safety_;
 };
 
 }  // namespace tt::umd

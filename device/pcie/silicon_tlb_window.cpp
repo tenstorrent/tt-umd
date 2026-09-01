@@ -66,8 +66,8 @@ struct ScopedJumpGuard {
     signal(SIGBUS, SIG_DFL);
 }
 
-SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config) :
-    TlbWindow(std::move(handle), config) {
+SiliconTlbWindow::SiliconTlbWindow(std::unique_ptr<TlbHandle> handle, const tlb_data config, IoSafety io_safety) :
+    TlbWindow(std::move(handle), config, io_safety) {
     update_io_timeout_callback();
 }
 
@@ -98,8 +98,6 @@ void SiliconTlbWindow::update_io_timeout_callback() {
     auto hang_check = hang_check_;
     io_timeout_callback_ = [hang_check, noc]() -> bool { return !hang_check(noc); };
 }
-
-void SiliconTlbWindow::set_safe_io(bool enable) { safe_io_ = enable; }
 
 void SiliconTlbWindow::write16_impl(uint64_t offset, uint16_t value) {
     validate(offset, sizeof(uint16_t));
@@ -290,65 +288,65 @@ decltype(auto) SiliconTlbWindow::execute_safe(Func &&func, Args &&...args) {
 }
 
 void SiliconTlbWindow::write16(uint64_t offset, uint16_t value) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         execute_safe(&SiliconTlbWindow::write16_impl, offset, value);
-    } else {
-        write16_impl(offset, value);
+        return;
     }
+    write16_impl(offset, value);
 }
 
 uint16_t SiliconTlbWindow::read16(uint64_t offset) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         return execute_safe(&SiliconTlbWindow::read16_impl, offset);
     }
     return read16_impl(offset);
 }
 
 void SiliconTlbWindow::write32(uint64_t offset, uint32_t value) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         execute_safe(&SiliconTlbWindow::write32_impl, offset, value);
-    } else {
-        write32_impl(offset, value);
+        return;
     }
+    write32_impl(offset, value);
 }
 
 uint32_t SiliconTlbWindow::read32(uint64_t offset) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         return execute_safe(&SiliconTlbWindow::read32_impl, offset);
     }
     return read32_impl(offset);
 }
 
 void SiliconTlbWindow::write_register(uint64_t offset, const void *data, size_t size) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         execute_safe(&SiliconTlbWindow::write_register_impl, offset, data, size);
-    } else {
-        write_register_impl(offset, data, size);
+        return;
     }
+    write_register_impl(offset, data, size);
 }
 
 void SiliconTlbWindow::read_register(uint64_t offset, void *data, size_t size) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         execute_safe(&SiliconTlbWindow::read_register_impl, offset, data, size);
-    } else {
-        read_register_impl(offset, data, size);
+        return;
     }
+    read_register_impl(offset, data, size);
 }
 
 void SiliconTlbWindow::write_block(uint64_t offset, const void *data, size_t size) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         execute_safe(&SiliconTlbWindow::write_block_impl, offset, data, size);
-    } else {
-        write_block_impl(offset, data, size);
+        return;
     }
+    write_block_impl(offset, data, size);
 }
 
 void SiliconTlbWindow::read_block(uint64_t offset, void *data, size_t size) {
-    if (safe_io_) {
+    if (io_safety_ == IoSafety::Enabled) {
         execute_safe(&SiliconTlbWindow::read_block_impl, offset, data, size);
-    } else {
-        read_block_impl(offset, data, size);
+        return;
     }
+    read_block_impl(offset, data, size);
 }
 
 }  // namespace tt::umd

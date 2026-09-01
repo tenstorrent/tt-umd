@@ -61,11 +61,38 @@ Classification classify(const std::filesystem::path& simulator_path) {
         fmt::format("Simulator path is neither a .so file nor a directory: {}", simulator_path.string()));
     // A directory that holds per-chip simulation sockets means a host is already serving there, so
     // attach as a client; any other directory is an RTL build we host.
-    auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
+    const auto sockets = SimulationServerSocket::sockets_in_directory(simulator_path);
     if (sockets.empty()) {
         return {SimulationConnector::Role::Host, SimulationBackendType::RTL, {}};
     }
-    return {SimulationConnector::Role::Client, std::nullopt, std::move(sockets)};
+    // A socket file on disk only proves someone bound the path once, not that anyone is still
+    // serving it: a crashed host leaves one behind that is indistinguishable by stat(). Count only
+    // the sockets with a live listener, so a stale one neither drags a healthy directory's chip
+    // list out of shape nor sends discover() off to connect to nothing.
+    std::map<ChipId, std::filesystem::path> live_sockets;
+    for (const auto& [chip_id, socket_path] : sockets) {
+        if (SimulationServerSocket::is_live(socket_path)) {
+            live_sockets.emplace(chip_id, socket_path);
+        } else {
+            log_warning(
+                LogUMD,
+                "Ignoring simulation socket {} (chip {}): no host is serving it.",
+                socket_path.string(),
+                chip_id);
+        }
+    }
+    // Every socket is stale: the directory belonged to a host that is gone. Say so, rather than
+    // falling through to hosting an RTL build out of a server directory -- which would fail later
+    // with an unrelated message. `sim_server.sh prune` clears these out.
+    UMD_ASSERT(
+        !live_sockets.empty(),
+        error::RuntimeError,
+        fmt::format(
+            "The {} simulation socket(s) in {} are stale -- the host that served them is gone. Run `sim_server.sh "
+            "prune` to clear them, or point at a simulator to host one.",
+            sockets.size(),
+            simulator_path.string()));
+    return {SimulationConnector::Role::Client, std::nullopt, std::move(live_sockets)};
 }
 
 // Host path: bring up the in-process backend (the direct hot path). A null socket means serving is

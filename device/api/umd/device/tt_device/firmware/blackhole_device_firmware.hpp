@@ -4,7 +4,15 @@
 
 #pragma once
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+
+#include "umd/device/tt_device/firmware/blackhole_arc_apb.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
+#include "umd/device/types/communication_protocol.hpp"
+#include "umd/device/types/noc_id.hpp"
+#include "umd/device/types/xy_pair.hpp"
 
 namespace tt::umd {
 
@@ -30,10 +38,36 @@ public:
         ArchitectureImplementation* architecture_impl);
 
 private:
+    IODeviceType get_io_device_type() const;
+
+    // Whether NOC address translation is active. Private for now: the constructor needs it to
+    // resolve the ARC coordinates, while TTDevice::get_noc_translation_enabled stays the public
+    // entry until that API moves here. Read over BAR/JTAG, so it does not need the firmware up.
+    bool get_noc_translation_enabled() const;
+
+    // The management firmware core's coordinate, resolved for noc_id. Private until the TTDevice
+    // API it replaces moves here.
+    tt_xy_pair get_firmware_noc_coord(NocId noc_id) const;
+
+    // Thin wrapper that resolves the ARC core for noc_id and hands the access to arc_apb_.
+    void read_from_arc_apb(void* mem_ptr, uint64_t arc_addr_offset, size_t size, NocId noc_id);
+
+    // All non-owning; they belong to the object that owns this one and must outlive it.
     DeviceProtocol* device_protocol_ = nullptr;
     PcieInterface* pcie_interface_ = nullptr;
     JtagInterface* jtag_interface_ = nullptr;
     ArchitectureImplementation* architecture_impl_ = nullptr;
+
+    // Identifies this device in error payloads; taken from the protocol so it identifies the
+    // device, not the silicon model. See DeviceProtocol::get_mmio_id().
+    int device_id_ = 0;
+
+    // ARC core coordinate per NOC, resolved once in the constructor: it depends only on the NOC
+    // translation state, which is fixed for the device's lifetime.
+    tt_xy_pair arc_core_noc0_;
+    tt_xy_pair arc_core_noc1_;
+
+    BlackholeArcApb arc_apb_;
 };
 
 }  // namespace tt::umd

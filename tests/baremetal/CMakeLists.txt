@@ -1,5 +1,6 @@
 set(BAREMETAL_TESTS_SRCS
     test_cluster_descriptor_offline.cpp
+    test_cluster_descriptor_host_id.cpp
     test_core_coord_translation_wh.cpp
     test_core_coord_translation_bh.cpp
     test_core_coord_translation_quasar.cpp

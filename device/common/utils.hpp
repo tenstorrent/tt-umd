@@ -7,6 +7,8 @@
 #include <fmt/ranges.h>
 #include <unistd.h>
 
+#include <array>
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +17,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <tt-logger/tt-logger.hpp>
 #include <type_traits>
@@ -134,6 +137,101 @@ inline std::unordered_set<int> get_visible_devices(const std::unordered_set<int>
     return target_devices.empty() && env_var_value.has_value()
                ? get_unordered_set_from_string(env_var_value.value()).value_or(std::unordered_set<int>{})
                : target_devices;
+}
+
+// Overrides the host id that discovery stamps on the cluster descriptor. Needed in containers and
+// VMs, where gethostname() returns the container/guest name and not an identity of the group of
+// accelerators. On bare metal it should be left unset, so the OS hostname is used.
+inline constexpr std::string_view TT_HOST_ID_ENV = "TT_HOST_ID";
+
+// A host id has to fit in the fixed 64-byte buffer that tt-metal packs it into, NUL included.
+inline constexpr size_t HOST_ID_MAX_LENGTH = 63;
+
+inline std::string trim_whitespace(const std::string& input) {
+    const size_t first = input.find_first_not_of(" \n\r\t");
+    if (first == std::string::npos) {
+        return "";
+    }
+    return input.substr(first, input.find_last_not_of(" \n\r\t") - first + 1);
+}
+
+// Returns why host_id is not a legal host id, or nullopt when it is legal. Legal ids match
+// ^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$ and are at most HOST_ID_MAX_LENGTH long. That is
+// deliberately hostname-shaped: host ids are currently hostname-valued and have to join against
+// hostnames in the factory system descriptor.
+inline std::optional<std::string> get_host_id_error(const std::string& host_id) {
+    auto is_alphanumeric = [](const char character) {
+        return std::isalnum(static_cast<unsigned char>(character)) != 0;
+    };
+
+    if (host_id.empty()) {
+        return "it is empty";
+    }
+    if (host_id.size() > HOST_ID_MAX_LENGTH) {
+        return fmt::format("it is {} characters long, the limit is {}", host_id.size(), HOST_ID_MAX_LENGTH);
+    }
+    if (!is_alphanumeric(host_id.front()) || !is_alphanumeric(host_id.back())) {
+        return "it has to start and end with an alphanumeric character";
+    }
+    for (const char character : host_id) {
+        if (!is_alphanumeric(character) && character != '.' && character != '-' && character != '_') {
+            return fmt::format("it contains '{}', and only alphanumerics, '.', '-' and '_' are allowed", character);
+        }
+    }
+    return std::nullopt;
+}
+
+inline void validate_host_id(const std::string& host_id, const std::string_view source) {
+    const std::optional<std::string> host_id_error = get_host_id_error(host_id);
+    if (host_id_error.has_value()) {
+        UMD_THROW(
+            error::RuntimeError,
+            fmt::format("Invalid host id \"{}\" from {}: {}.", host_id, source, host_id_error.value()));
+    }
+}
+
+// Host id of the group of accelerators this process is running on: $TT_HOST_ID when it is set to a
+// non-empty value, otherwise the OS hostname. Returns nullopt when neither can be used, which leaves
+// the field unset on the cluster descriptor and lets consumers fall back to what they did before.
+//
+// An invalid TT_HOST_ID throws rather than falling back to gethostname(): the variable is set on
+// purpose, and quietly substituting a container hostname would produce a wrong-but-plausible
+// topology, which is exactly what TT_HOST_ID exists to prevent. An unusable OS hostname only warns,
+// because that is not something the operator asked for.
+inline std::optional<std::string> local_host_id() {
+    const std::optional<std::string> host_id_from_env = get_env_var_value(TT_HOST_ID_ENV.data());
+    if (host_id_from_env.has_value()) {
+        const std::string host_id = trim_whitespace(host_id_from_env.value());
+        // Exported but empty is a launcher accident, not a request for an empty host id.
+        if (!host_id.empty()) {
+            validate_host_id(host_id, TT_HOST_ID_ENV);
+            log_info(LogUMD, "Using host id \"{}\" from {}.", host_id, TT_HOST_ID_ENV);
+            return host_id;
+        }
+        log_warning(LogUMD, "{} is set but empty, falling back to the OS hostname.", TT_HOST_ID_ENV);
+    }
+
+    std::array<char, 256> hostname = {};
+    if (gethostname(hostname.data(), hostname.size() - 1) != 0) {
+        log_warning(LogUMD, "gethostname() failed, leaving the host id unset. Set {} to provide one.", TT_HOST_ID_ENV);
+        return std::nullopt;
+    }
+
+    // Stored raw, with no FQDN stripping -- consumers canonicalize.
+    const std::string host_id(hostname.data());
+    const std::optional<std::string> host_id_error = get_host_id_error(host_id);
+    if (host_id_error.has_value()) {
+        log_warning(
+            LogUMD,
+            "Leaving the host id unset because the OS hostname \"{}\" cannot be used as one: {}. Set {} to "
+            "provide one.",
+            host_id,
+            host_id_error.value(),
+            TT_HOST_ID_ENV);
+        return std::nullopt;
+    }
+    log_debug(LogUMD, "Using host id \"{}\" from the OS hostname.", host_id);
+    return host_id;
 }
 
 template <typename... Args>

@@ -22,6 +22,7 @@
 
 #include "api/umd/device/topology/topology_discovery_blackhole.hpp"
 #include "api/umd/device/topology/topology_discovery_wormhole.hpp"
+#include "common/utils.hpp"
 #include "tracy.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/firmware/erisc_firmware.hpp"
@@ -513,6 +514,8 @@ std::unique_ptr<ClusterDescriptor> TopologyDiscovery::fill_cluster_descriptor_in
             cluster_desc->idle_eth_channels[current_chip_id].erase(active_channel);
         }
     }
+    // $TT_HOST_ID, else the OS hostname. Stays unset if neither is usable.
+    cluster_desc->host_id = utils::local_host_id();
     cluster_desc->io_device_type = io_device_type;
     cluster_desc->eth_fw_version = expected_eth_fw_version;
     cluster_desc->fw_bundle_version = first_fw_bundle_version;

@@ -132,6 +132,12 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_from_yaml_content(
     std::unique_ptr<ClusterDescriptor> desc = std::make_unique<ClusterDescriptor>();
 
     YAML::Node yaml = YAML::Load(cluster_descriptor_file_content);
+
+    // Optional, and absent from every descriptor written before the field existed.
+    if (yaml["host_id"].IsDefined()) {
+        desc->set_host_id(yaml["host_id"].as<std::string>());
+    }
+
     desc->load_chips_from_connectivity_descriptor(yaml);
     desc->load_harvesting_information(yaml);
     desc->load_ethernet_connections_from_connectivity_descriptor(yaml);
@@ -407,6 +413,8 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
     desc->harvesting_masks_map = filter_chip_collection(full_cluster_desc->harvesting_masks_map, visible_chips);
 
     desc->asic_locations = filter_chip_collection(full_cluster_desc->asic_locations, visible_chips);
+    // Fewer chips, same accelerator group.
+    desc->host_id = full_cluster_desc->host_id;
     desc->io_device_type = full_cluster_desc->io_device_type;
     desc->eth_fw_version = full_cluster_desc->eth_fw_version;
     desc->fw_bundle_version = full_cluster_desc->fw_bundle_version;
@@ -493,6 +501,7 @@ std::unique_ptr<ClusterDescriptor> ClusterDescriptor::create_constrained_cluster
         }
 
         auto remapped = std::make_unique<ClusterDescriptor>();
+        remapped->host_id = desc->host_id;
         remapped->io_device_type = desc->io_device_type;
         remapped->eth_fw_version = desc->eth_fw_version;
         remapped->fw_bundle_version = desc->fw_bundle_version;
@@ -1005,6 +1014,12 @@ std::string ClusterDescriptor::serialize() const {
 
     out << YAML::BeginMap;
 
+    // First in the map because it names the whole descriptor. Omitted when unset, so descriptors
+    // that never had a host id serialize byte-identically to before.
+    if (host_id.has_value()) {
+        out << YAML::Key << "host_id" << YAML::Value << host_id.value();
+    }
+
     out << YAML::Key << "arch" << YAML::Value << YAML::BeginMap;
     std::map<ChipId, tt::ARCH> chip_arch_map = std::map<ChipId, tt::ARCH>(chip_arch.begin(), chip_arch.end());
     for (const auto &[chip_id, arch] : chip_arch_map) {
@@ -1363,6 +1378,13 @@ uint8_t ClusterDescriptor::get_asic_location(ChipId chip_id) const {
 const std::unordered_map<ChipId, std::string> &ClusterDescriptor::get_chip_pci_bdfs() const { return chip_pci_bdfs; }
 
 IODeviceType ClusterDescriptor::get_io_device_type() const { return io_device_type; }
+
+const std::optional<std::string> &ClusterDescriptor::get_host_id() const { return host_id; }
+
+void ClusterDescriptor::set_host_id(std::string host_id) {
+    utils::validate_host_id(host_id, "set_host_id");
+    this->host_id = std::move(host_id);
+}
 
 uint16_t ClusterDescriptor::get_bus_id(ChipId chip_id) const {
     auto it = chip_to_bus_id.find(chip_id);

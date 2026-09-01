@@ -444,6 +444,13 @@ std::unique_ptr<TlbWindow> TTDevice::get_io_window(tlb_data config, TlbMapping m
 // the concrete windows implementing IoWindow directly, without TlbWindow as an intermediate base --
 // without touching this signature or any caller.
 std::unique_ptr<IoWindow> TTDevice::create_io_window(TargetIoWindowConfig target, HostIoWindowConfig host) {
+    // A grid is only addressable in the translated space: without it the corners name NOC coordinates,
+    // which harvesting shifts, so the rectangle they bound is not the one the caller asked for.
+    UMD_ASSERT(
+        !target.core_end.has_value() || get_soc_descriptor().noc_translation_enabled,
+        error::RuntimeError,
+        "Multicast not implemented for devices without NOC translation enabled.");
+
     const TlbMapping mapping = host.mapping == HostMemoryCaching::WC ? TlbMapping::WC : TlbMapping::UC;
 
     // A window is backed by a hardware mapping whose size comes from a fixed per-architecture set, so a

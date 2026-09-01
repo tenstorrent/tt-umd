@@ -281,21 +281,21 @@ public:
         uint64_t ordering = tlb_data::Relaxed);
 
     /**
-     * Maps a core into host address space, anchored at an address on that core. Reads and writes
-     * through the returned window address it as offsets from that anchor. The window is created
-     * large enough to cover the requested size, rounded up to a size the architecture provides.
+     * Maps a target into host address space, anchored at the address the target names. Reads and
+     * writes through the returned window address it as offsets from that anchor. The window is
+     * created large enough to cover the requested size, rounded up to a size the architecture
+     * provides.
      *
      * The caller owns the window: the mapping is released when it is destroyed, so it must be held
      * for as long as it is used, and it must not outlive this Cluster. Returns nullptr for chips
      * with no device behind them (mock and emulated).
      *
      * @param chip Device to target.
-     * @param core Core to map.
-     * @param addr Address on the core the window is anchored at.
+     * @param target Device-side target describing the core(s), address, optional NOC and flags.
      * @param host Host-side window properties (caching strategy and requested size).
      */
     std::unique_ptr<IoWindow> create_io_window(
-        const ChipId chip, const CoreCoord core, uint64_t addr, HostIoWindowConfig host = {});
+        const ChipId chip, TargetIoWindowConfig target, HostIoWindowConfig host = {});
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to

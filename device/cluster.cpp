@@ -913,15 +913,24 @@ void Cluster::refresh_cluster_description() {
 }
 
 std::unique_ptr<IoWindow> Cluster::create_io_window(
-    const ChipId chip, const CoreCoord core, uint64_t addr, HostIoWindowConfig host) {
+    const ChipId chip, TargetIoWindowConfig target, HostIoWindowConfig host) {
     TTDevice* tt_device = get_chip(chip)->get_tt_device();
     if (tt_device == nullptr) {
         // Mock and emulated chips have no device to map.
         return nullptr;
     }
-    tt_xy_pair translated_core =
-        get_chip(chip)->get_soc_descriptor().translate_chip_coord_to_translated(core, get_selected_noc_id());
-    return tt_device->create_io_window({.core_start = translated_core, .addr = addr}, host);
+    // Routing is resolved once here, so the coordinates below and the mapping the window ends up
+    // with are translated against the same NOC even when the target left the choice open.
+    if (!target.noc.has_value()) {
+        target.noc = get_selected_noc_id();
+    }
+    const SocDescriptor& soc_descriptor = get_chip(chip)->get_soc_descriptor();
+    target.core_start = soc_descriptor.translate_chip_coord_to_translated(target.core_start, target.noc.value());
+    if (target.core_end.has_value()) {
+        target.core_end =
+            soc_descriptor.translate_chip_coord_to_translated(target.core_end.value(), target.noc.value());
+    }
+    return tt_device->create_io_window(target, host);
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {

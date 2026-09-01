@@ -25,8 +25,7 @@ namespace tt::umd {
  * closes over a chippy Grendel (Issue: connection factory); tests inject a
  * provider that returns a chippy::transport::MockTransportInterface.
  */
-using SmnTransportProvider =
-    std::function<std::shared_ptr<chippy::transport::TransportInterface>(tt_xy_pair)>;
+using SmnTransportProvider = std::function<std::shared_ptr<chippy::transport::TransportInterface>(tt_xy_pair)>;
 
 struct GrendelJtagProtocol::Impl {
     SmnTransportProvider provider;
@@ -34,8 +33,7 @@ struct GrendelJtagProtocol::Impl {
     // One transport per core, created lazily and reused.
     std::map<tt_xy_pair, std::shared_ptr<chippy::transport::TransportInterface>> transport_cache;
 
-    explicit Impl(SmnTransportProvider provider, int mmio_id) :
-        provider(std::move(provider)), mmio_id(mmio_id) {}
+    explicit Impl(SmnTransportProvider provider, int mmio_id) : provider(std::move(provider)), mmio_id(mmio_id) {}
 
     std::shared_ptr<chippy::transport::TransportInterface> transport_for(tt_xy_pair core) {
         auto it = transport_cache.find(core);

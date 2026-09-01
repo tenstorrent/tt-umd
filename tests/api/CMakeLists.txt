@@ -43,7 +43,8 @@ if(TT_UMD_BUILD_GRENDEL_JTAG)
     set_source_files_properties(
         test_grendel_jtag_protocol.cpp
         PROPERTIES
-            COMPILE_OPTIONS "-std=c++20"
+            COMPILE_OPTIONS
+                "-std=c++20"
     )
 endif()
 set_target_properties(

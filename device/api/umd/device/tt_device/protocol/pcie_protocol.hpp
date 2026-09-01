@@ -119,7 +119,7 @@ private:
     std::unique_ptr<TlbWindow> cached_dma_tlb_window_;
 
     // Hang check consulted on an IO-op timeout; empty until a HangDetector is wired in (see
-    // TTDevice::set_hang_detector).
+    // TTDevice::wire_hang_detector).
     std::function<bool(NocId)> hang_check_;
 };
 

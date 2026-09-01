@@ -11,6 +11,7 @@
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/pcie/silicon_tlb_window.hpp"
+#include "umd/device/tt_device/hang_detection/wormhole_hang_detector.hpp"
 #include "umd/device/tt_device/protocol/jtag_protocol.hpp"
 #include "umd/device/tt_device/protocol/pcie_protocol.hpp"
 #include "umd/device/tt_device/protocol/remote_protocol.hpp"
@@ -31,6 +32,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     pcie_interface_ = pcie_protocol.get();
     dma_interface_ = pcie_protocol.get();
     protocol_ = std::move(pcie_protocol);
+    hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
     if (use_safe_api) {
         SiliconTlbWindow::set_sigbus_safe_handler(true);
     }
@@ -46,6 +48,7 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     auto jtag_protocol = std::make_unique<JtagProtocol>(std::move(jtag_device), jlink_id);
     jtag_interface_ = jtag_protocol.get();
     protocol_ = std::move(jtag_protocol);
+    hang_detector_ = std::make_unique<WormholeHangDetector>(protocol_.get());
 }
 
 // A remote device is reached through a local one, so it takes the local device's identity.
@@ -58,6 +61,8 @@ WormholeTTDeviceModel::WormholeTTDeviceModel(
     auto remote_protocol = std::make_unique<RemoteProtocol>(std::move(remote_communication));
     remote_interface_ = remote_protocol.get();
     protocol_ = std::move(remote_protocol);
+    hang_detector_ = std::make_unique<WormholeHangDetector>(
+        remote_interface_->get_remote_communication()->get_local_device()->get_device_protocol());
 }
 
 // Out-of-line: the unique_ptr members hold forward-declared types, whose deleters need a
@@ -77,6 +82,8 @@ ArchitectureImplementation *WormholeTTDeviceModel::get_architecture_impl() { ret
 std::shared_ptr<SocArchDescriptor> WormholeTTDeviceModel::get_shared_soc_arch_descriptor() {
     return soc_arch_descriptor_;
 }
+
+HangDetector *WormholeTTDeviceModel::get_hang_detector() { return hang_detector_.get(); }
 
 PcieInterface *WormholeTTDeviceModel::get_pcie_interface() { return pcie_interface_; }
 

@@ -11,6 +11,7 @@
 namespace tt::umd {
 
 class ArchitectureImplementation;
+class HangDetector;
 class JtagDevice;
 class SocArchDescriptor;
 class RemoteCommunication;
@@ -39,6 +40,8 @@ public:
 
     ArchitectureImplementation *get_architecture_impl() override;
 
+    HangDetector *get_hang_detector() override;
+
     SocArchDescriptor *get_soc_arch_descriptor() override;
 
     PcieInterface *get_pcie_interface() override;
@@ -65,6 +68,10 @@ private:
     RemoteInterface *remote_interface_ = nullptr;
     // Owned by the PCIe protocol; retained only to serve get_pci_device().
     PCIDevice *pci_device_ = nullptr;
+
+    // Must come after pci_device_: the detector holds a TLB window wired in by TTDevice, which needs
+    // the protocol's PCIDevice alive when it is released.
+    std::unique_ptr<HangDetector> hang_detector_;
 };
 
 }  // namespace tt::umd

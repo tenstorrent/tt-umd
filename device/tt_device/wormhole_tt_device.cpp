@@ -42,13 +42,6 @@ namespace tt::umd {
 
 WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDevice(std::move(model)) {
     WormholeTTDevice::set_arc_coordinate();
-    // A remote device has no protocol of its own to probe; its liveness is that of the local device
-    // it is reached through.
-    DeviceProtocol *hang_check_protocol =
-        is_remote()
-            ? TTDevice::get_remote_interface()->get_remote_communication()->get_local_device()->get_device_protocol()
-            : get_device_protocol();
-    set_hang_detector(std::make_unique<WormholeHangDetector>(hang_check_protocol));
 }
 
 bool WormholeTTDevice::get_noc_translation_enabled() {

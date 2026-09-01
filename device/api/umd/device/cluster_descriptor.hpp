@@ -262,7 +262,7 @@ public:
     IODeviceType get_cluster_io_device_type() const { return io_device_type; }
 
     using DeviceHealthError = std::variant<
-        error::ArcStartupError,
+        error::FirmwareStartupError,
         error::NocHangError,
         error::PcieHangError,
         error::UnsupportedCMFWError,

@@ -348,8 +348,10 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
                 case STATUS_NO_ACCESS:
                 case STATUS_WATCHDOG_TRIGGERED:
                     UMD_THROW(
-                        error::ArcStartupError,
-                        *this,
+                        error::FirmwareStartupError,
+                        get_communication_device_type(),
+                        get_communication_device_id(),
+                        get_arch(),
                         get_selected_noc_id(),
                         get_arc_core(),
                         bar_read_arc_reset_scratch_status,
@@ -400,8 +402,10 @@ void WormholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeo
 
     if (!arc_core_started) {
         UMD_THROW(
-            error::ArcStartupError,
-            *this,
+            error::FirmwareStartupError,
+            get_communication_device_type(),
+            get_communication_device_id(),
+            get_arch(),
             get_selected_noc_id(),
             get_arc_core(),
             bar_read_arc_reset_scratch_status,

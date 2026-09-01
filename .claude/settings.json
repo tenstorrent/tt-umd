@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash (curl https://api.github.com/repos/tenstorrent/tt-umd/:*)"
+    ]
+  }
+}

@@ -95,6 +95,12 @@ private:
 
     IODeviceType get_io_device_type() const;
 
+    // Full diagnostics for an unsettled AICLK, matching what TTDevice::log_aiclk_timeout_warning
+    // reported: observed vs expected, ASIC temperature, the max-arbiter clamp, and a staleness hint
+    // when the timeout is within the telemetry update interval.
+    void log_aiclk_timeout_warning(
+        uint32_t target_aiclk, uint32_t observed_aiclk, std::chrono::milliseconds timeout_ms);
+
     // Polls AICLK until it is within tolerance of target_aiclk. Logs and returns if it does not
     // settle, rather than throwing.
     void wait_for_aiclk_value(

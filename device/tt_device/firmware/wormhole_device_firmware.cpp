@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "umd/device/arc/arc_telemetry_reader.hpp"
+#include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/architecture_registers.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
@@ -20,6 +21,7 @@
 #include "umd/device/tt_device/protocol/pcie_interface.hpp"
 #include "umd/device/tt_device/protocol/remote_interface.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
+#include "umd/device/types/telemetry.hpp"
 #include "umd/device/utils/common.hpp"
 #include "umd/device/utils/error.hpp"
 #include "umd/device/utils/timeouts.hpp"
@@ -351,6 +353,12 @@ DeviceCommandResult WormholeDeviceFirmware::send_device_command(
 }
 
 void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
+    // The BUSY branch reads the info provider before send_device_command can run its own pre-init
+    // check, so refuse here with the same error the deleted TTDevice path produced.
+    if (firmware_info_provider_ == nullptr) {
+        UMD_THROW(error::UninitializedDeviceError, get_io_device_type(), device_id_, tt::ARCH::WORMHOLE_B0);
+    }
+
     uint32_t msg_code = wormhole::ARC_MSG_COMMON_PREFIX;
     uint32_t target_aiclk = 0;
     switch (state) {
@@ -375,6 +383,37 @@ void WormholeDeviceFirmware::set_clock_state(ClockState state, NocId noc_id) {
     wait_for_aiclk_value(target_aiclk, noc_id);
 }
 
+void WormholeDeviceFirmware::log_aiclk_timeout_warning(
+    uint32_t target_aiclk, uint32_t observed_aiclk, std::chrono::milliseconds timeout_ms) {
+    std::string arb_max_info;
+    if (firmware_telemetry_reader_->is_entry_available(TelemetryTag::AICLK_ARB_MAX)) {
+        const uint32_t arb_max = firmware_telemetry_reader_->read_entry(TelemetryTag::AICLK_ARB_MAX);
+        arb_max_info = fmt::format(
+            ", AICLK clamped by max-arbiter index {} at {} MHz", (arb_max >> 16) & 0xFFFF, arb_max & 0xFFFF);
+    }
+
+    log_warning(
+        LogUMD,
+        "AICLK failed to settle after {} ms. Expected {}, observed {}. ASIC temperature: {}{}",
+        timeout_ms.count(),
+        target_aiclk,
+        observed_aiclk,
+        firmware_info_provider_->get_asic_temperature().value_or(0.0),
+        arb_max_info);
+
+    if (firmware_telemetry_reader_->is_entry_available(TelemetryTag::UPDATE_TELEM_SPEED)) {
+        const uint32_t update_telem_speed_ms = firmware_telemetry_reader_->read_entry(TelemetryTag::UPDATE_TELEM_SPEED);
+        if (timeout_ms.count() <= update_telem_speed_ms) {
+            log_warning(
+                LogUMD,
+                "AICLK timeout ({} ms) is not larger than the telemetry update interval ({} ms); the observed "
+                "AICLK may be a stale telemetry value. Consider increasing AICLK_TIMEOUT.",
+                timeout_ms.count(),
+                update_telem_speed_ms);
+        }
+    }
+}
+
 void WormholeDeviceFirmware::wait_for_aiclk_value(
     uint32_t target_aiclk, NocId noc_id, std::chrono::milliseconds timeout_ms) {
     constexpr double AICLK_TOLERANCE_PERCENT = 5.0;
@@ -382,12 +421,18 @@ void WormholeDeviceFirmware::wait_for_aiclk_value(
     uint32_t aiclk = 0;
     const bool settled = utils::poll_until(
         [&] {
-            // Wormhole reads AICLK through an ARC message rather than telemetry.
+            // Wormhole reads AICLK through an ARC message rather than telemetry. The 0xFFFF pair
+            // packs to the firmware's no-argument sentinel, exactly as TTDevice::get_clock sends it;
+            // a failed read throws rather than settling on garbage, as the deleted path did.
             DeviceCommandResult result = send_device_command(
                 wormhole::ARC_MSG_COMMON_PREFIX | static_cast<uint32_t>(wormhole::arc_message_type::GET_AICLK),
-                {0, 0},
+                {0xFFFF, 0xFFFF},
                 timeout::ARC_MESSAGE_TIMEOUT,
                 noc_id);
+            if (result.exit_code != 0) {
+                UMD_THROW(
+                    error::RuntimeError, fmt::format("Failed to get AICLK value with exit code: {}", result.exit_code));
+            }
             aiclk = result.return_values.at(0);
             return is_within_percentage(aiclk, target_aiclk, AICLK_TOLERANCE_PERCENT);
         },
@@ -396,8 +441,7 @@ void WormholeDeviceFirmware::wait_for_aiclk_value(
         std::chrono::microseconds(100));
 
     if (!settled) {
-        log_warning(
-            LogUMD, "AICLK did not reach {} MHz within {} ms. Proceeding anyway.", target_aiclk, timeout_ms.count());
+        log_aiclk_timeout_warning(target_aiclk, aiclk, timeout_ms);
         return;
     }
 

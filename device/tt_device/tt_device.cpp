@@ -207,8 +207,10 @@ void TTDevice::set_power_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     get_pci_device()->set_power_state(state == TTDevice::PowerState::BUSY);
 }
 
-void TTDevice::set_clock_state(ClockState state, NocId noc_id) {
-    get_device_firmware()->set_clock_state(state, noc_id);
+void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {
+    // The per-arch overrides this replaces ignored the parameter and let ArcMessenger route on the
+    // thread-selected NOC; keep that until the parameter is honored end-to-end.
+    get_device_firmware()->set_clock_state(state, get_selected_noc_id());
 }
 
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }

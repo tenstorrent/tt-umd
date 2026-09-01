@@ -38,18 +38,21 @@ PcieHangError::PcieHangError(const TTDevice& tt_device, uint32_t data_read) :
             tt_device.get_communication_device_id()),
         {{tt_device}, data_read}) {}
 
-ArcStartupError::ArcStartupError(
-    const TTDevice& tt_device,
+FirmwareStartupError::FirmwareStartupError(
+    IODeviceType io_device_type,
+    ChipId chip_id,
+    tt::ARCH arch,
     NocId noc_id,
-    xy_pair arc_core,
+    xy_pair fw_core,
     uint32_t scratch_status,
     uint32_t postcode,
     std::optional<uint32_t> message_id,
     std::optional<uint32_t> smc_init_status) :
-    UmdError<ArcStartupData>(
+    UmdError<FirmwareStartupData>(
         fmt::format(
-            "ARC startup error at core {} over {}: scratch_status={:#x}, postcode={:#x}{}{}",
-            arc_core.str(),
+            "Firmware startup error on device {} at core {} over {}: scratch_status={:#x}, postcode={:#x}{}{}",
+            chip_id,
+            fw_core.str(),
             noc_to_str(noc_id),
             scratch_status,
             postcode,
@@ -59,18 +62,25 @@ ArcStartupError::ArcStartupError(
                                               smc_init_status.value(),
                                               blackhole::interpret_smc_init_status(smc_init_status.value()))
                                         : ""),
-        {{{tt_device}, arc_core, noc_id}, scratch_status, postcode, message_id, smc_init_status}) {}
+        {{TTDeviceData(io_device_type, chip_id, arch), fw_core, noc_id},
+         scratch_status,
+         postcode,
+         message_id,
+         smc_init_status}) {}
 
-ArcStartupError::ArcStartupError(
-    const TTDevice& tt_device,
+FirmwareStartupError::FirmwareStartupError(
+    IODeviceType io_device_type,
+    ChipId chip_id,
+    tt::ARCH arch,
     NocId noc_id,
-    xy_pair arc_core,
+    xy_pair fw_core,
     uint32_t scratch_status,
     uint32_t postcode,
     std::chrono::milliseconds timeout,
     std::optional<uint32_t> message_id,
     std::optional<uint32_t> smc_init_status) :
-    ArcStartupError(tt_device, noc_id, arc_core, scratch_status, postcode, message_id, smc_init_status) {
+    FirmwareStartupError(
+        io_device_type, chip_id, arch, noc_id, fw_core, scratch_status, postcode, message_id, smc_init_status) {
     message().append(fmt::format(" (Timed out after {} ms)", timeout.count()));
 }
 

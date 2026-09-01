@@ -38,26 +38,32 @@ struct DeviceCoreData : public TTDeviceData {
     NocId noc_id = NocId::DEFAULT_NOC;
 };
 
-struct ArcStartupData : public DeviceCoreData {
+struct FirmwareStartupData : public DeviceCoreData {
     uint32_t scratch_status = 0;
     uint32_t postcode = 0;
     std::optional<uint32_t> message_id = std::nullopt;
     std::optional<uint32_t> smc_init_status = std::nullopt;
 };
 
-struct ArcStartupError : UmdError<ArcStartupData> {
-    ArcStartupError(
-        const TTDevice& tt_device,
+// Thrown by DeviceFirmware, which takes protocol interfaces rather than a TTDevice, so the device
+// identity is passed as the fields a TTDevice would have supplied.
+struct FirmwareStartupError : UmdError<FirmwareStartupData> {
+    FirmwareStartupError(
+        IODeviceType io_device_type,
+        ChipId chip_id,
+        tt::ARCH arch,
         NocId noc_id,
-        xy_pair arc_core,
+        xy_pair fw_core,
         uint32_t scratch_status,
         uint32_t postcode,
         std::optional<uint32_t> message_id = std::nullopt,
         std::optional<uint32_t> smc_init_status = std::nullopt);
-    ArcStartupError(
-        const TTDevice& tt_device,
+    FirmwareStartupError(
+        IODeviceType io_device_type,
+        ChipId chip_id,
+        tt::ARCH arch,
         NocId noc_id,
-        xy_pair arc_core,
+        xy_pair fw_core,
         uint32_t scratch_status,
         uint32_t postcode,
         std::chrono::milliseconds timeout,

@@ -649,8 +649,8 @@ TEST_F(TestTlb, CreateIoWindow) {
 
     // The same factory reached by chip and CoreCoord, which is how clients that hold neither a
     // TTDevice nor translated coordinates ask for a window.
-    std::unique_ptr<IoWindow> chip_window =
-        cluster->create_io_window(chip, tensix_core, l1_addr, {.size = requested_size}, IoOrdering::Relaxed);
+    std::unique_ptr<IoWindow> chip_window = cluster->create_io_window(
+        chip, {.core_start = tensix_core, .addr = l1_addr}, {.size = requested_size}, IoOrdering::Relaxed);
     ASSERT_NE(chip_window, nullptr);
     EXPECT_EQ(chip_window->get_target_config().core_start, target.core_start);
     EXPECT_EQ(chip_window->get_target_config().addr, l1_addr);
@@ -700,12 +700,9 @@ TEST_F(TestTlb, CreateMulticastIoWindow) {
 
     std::unique_ptr<IoWindow> window = cluster->create_io_window(
         chip,
-        grid_start,
-        l1_addr,
+        {.core_start = grid_start, .core_end = grid_end, .addr = l1_addr, .flags = WindowFlags::MulticastWrite},
         {.size = sizeof(pattern)},
-        IoOrdering::Strict,
-        grid_end,
-        WindowFlags::MulticastWrite);
+        IoOrdering::Strict);
     ASSERT_NE(window, nullptr);
 
     window->write32(0, pattern);

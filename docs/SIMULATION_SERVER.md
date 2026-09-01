@@ -115,7 +115,7 @@ flowchart TB
      ./build/test/umd/api/api_tests --gtest_filter="TestDeviceIOFixture.RegReadWrite"
    ```
 
-   There is no Python entry point today.
+   Python works the same way — see [From Python](#from-python) below.
 
 4. **Stop the server.**
 
@@ -158,7 +158,7 @@ sequenceDiagram
 ## Connecting from code
 
 Attaching to a running server is the same code path as opening real hardware — you point UMD at that
-server's socket directory instead of picking a role. There are two levels you can enter at.
+server's socket directory instead of picking a role. There are a few levels you can enter at.
 
 ### At the Cluster level
 
@@ -218,7 +218,34 @@ arch, and -- for a host that serves -- the directory and per-chip sockets it ser
 part matters when you leave `server_directory` empty: UMD allocates one, and this is the only place
 it tells you which. `Cluster::get_simulation_connection()` reports the same thing for a cluster.
 
-In both cases the target is the server directory, and pointing at it is what makes your process a
+### From Python
+
+`SimulationConnector` is bound in the `tt_umd` wheel whenever UMD is built with simulation support,
+and behaves exactly as it does in C++ — including deciding the role from the path.
+
+```python
+import tt_umd
+
+# What is running on this machine, without connecting to any of it.
+for server in tt_umd.SimulationConnector.list_servers():
+    print(server.index, server.directory, server.sockets)
+
+options = tt_umd.SimulationConnectorOptions()
+options.simulator_directory = "/tmp/tt-umd-sim-server-0"  # a server directory -> client
+assert (
+    tt_umd.SimulationConnector.role_for(options.simulator_directory)
+    == tt_umd.SimulationConnector.Role.CLIENT
+)
+
+connection, devices = tt_umd.SimulationConnector.discover(options)  # devices: {chip_id: TTDevice}
+print(connection.role, connection.simulator, connection.arch, connection.server_directory)
+```
+
+To host instead, name a simulator rather than a server directory, and set
+`options.serve_over_sockets = True` to publish it. `SimulationConnector.allocate_server_directory()`
+claims a directory up front when you want to report where you are about to serve.
+
+In all cases the target is the server directory, and pointing at it is what makes your process a
 client — there is no separate "connect" call.
 
 ## Where things live

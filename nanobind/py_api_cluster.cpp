@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <nanobind/nanobind.h>
+#include <nanobind/stl/filesystem.h>
 #include <nanobind/stl/map.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/set.h>
 
 #include "umd/device/cluster.hpp"
@@ -23,5 +25,14 @@ void bind_cluster(nb::module_ &m) {
     nb::class_<Cluster>(m, "Cluster")
         .def(nb::init<>(), release_gil())
         .def("get_target_device_ids", &Cluster::get_target_device_ids, release_gil())
-        .def("get_clocks", &Cluster::get_clocks, release_gil());
+        .def("get_clocks", &Cluster::get_clocks, release_gil())
+#ifdef TT_UMD_BUILD_SIMULATION
+        .def(
+            "get_simulation_connection",
+            &Cluster::get_simulation_connection,
+            release_gil(),
+            "What simulation this cluster is connected to (role, simulator, server directory), or None when it is "
+            "not a simulation cluster.")
+#endif
+        ;
 }

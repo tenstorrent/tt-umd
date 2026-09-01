@@ -116,6 +116,11 @@ FirmwareStartupError::FirmwareStartupError(
 TTDeviceData::TTDeviceData(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch) :
     io_device_type(io_device_type), chip_id(chip_id), arch(arch) {}
 
+PcieHangError::PcieHangError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch, uint32_t data_read) :
+    UmdError<PcieHangData>(
+        fmt::format("Read {:#x} over PCIe ID {}: the board should be reset.", data_read, chip_id),
+        {TTDeviceData(io_device_type, chip_id, arch), data_read}) {}
+
 UninitializedDeviceError::UninitializedDeviceError(const TTDevice& tt_device) :
     UmdError<TTDeviceData>(
         fmt::format(

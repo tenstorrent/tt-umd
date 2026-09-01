@@ -60,6 +60,9 @@ TEST(GrendelJtagProtocol, RejectsNonNoc0) {
     EXPECT_THROW(proto->write_to_device(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC1), std::exception);
 }
 
+// The mock throws in order to exercise the translation path, which is NOT how a real bus error
+// arrives: chippy logs an AXI SLVERR/DECERR and returns normally. This test therefore covers
+// alignment rejections and transport failures, not bus errors. See grendel_jtag_protocol.cpp.
 TEST(GrendelJtagProtocol, TranslatesTransportErrors) {
     struct ThrowingTransport : MockTransportInterface {
         std::uint32_t read32(std::uint64_t) override { throw std::runtime_error("boom"); }

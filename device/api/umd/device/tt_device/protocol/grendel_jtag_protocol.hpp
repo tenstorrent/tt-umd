@@ -29,6 +29,11 @@ namespace tt::umd {
  * Construction is not public here: the production entry point (create()) is added
  * alongside the chippy connection factory; tests construct via
  * GrendelJtagProtocolTestAccess with an injected transport provider.
+ *
+ * Access constraints inherited from the chippy transport, which differ from the PCIe path:
+ * addresses must be 4-byte aligned, a write whose size is not a multiple of 4 zero-fills the rest
+ * of its final word, and an AXI error response is not raised as an exception -- chippy logs it and
+ * returns, so a failed read yields zeros. Validate by read-back, not by absence of a throw.
  */
 class GrendelJtagProtocol : public DeviceProtocol, public JtagInterface {
 public:

@@ -41,6 +41,7 @@ void bind_soc_descriptor(nb::module_ &m) {
         .value("ROUTER_ONLY", CoreType::ROUTER_ONLY)
         .value("SECURITY", CoreType::SECURITY)
         .value("L2CPU", CoreType::L2CPU)
+        .value("SMC", CoreType::SMC)
         .value("HARVESTED", CoreType::HARVESTED)
         .value("ETH", CoreType::ETH)
         .value("WORKER", CoreType::WORKER)

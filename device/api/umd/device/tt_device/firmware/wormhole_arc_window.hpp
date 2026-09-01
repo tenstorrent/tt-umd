@@ -118,6 +118,19 @@ public:
      */
     void read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);
 
+    /**
+     * @brief Writes to the window.
+     * @param mem_ptr Source buffer.
+     * @param arc_addr_offset Offset into the window. The whole transfer has to fit inside it, so the
+     * largest valid offset is the window size less size.
+     * @param size Bytes to write. The remote path honors any size; the JTAG and BAR paths write one
+     * word and reject anything other than sizeof(uint32_t) rather than silently widening.
+     * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
+     * including JTAG, which WormholeTTDevice pinned to NOC0 instead.
+     * @param noc_id NOC to route through.
+     */
+    void write(const void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);
+
 private:
     WormholeArcWindow(
         const Config& config,

@@ -65,6 +65,16 @@ TEST_F(WormholeArcApbWindowTest, RemoteReadIsARegisterAccessKeepingSize) {
     window.read(values.data(), APB_OFFSET, sizeof(values), ARC_CORE, NocId::NOC0);
 }
 
+TEST_F(WormholeArcApbWindowTest, RemoteWriteIsARegisterAccessKeepingSize) {
+    auto window = over_remote();
+
+    EXPECT_CALL(protocol_, write_ctrl(_, ARC_CORE, noc_address(), 16, NocId::NOC1));
+    EXPECT_CALL(protocol_, write_data(_, _, _, _, _)).Times(0);
+
+    std::array<uint32_t, 4> values{};
+    window.write(values.data(), APB_OFFSET, sizeof(values), ARC_CORE, NocId::NOC1);
+}
+
 // A device opened over JTAG has no PcieInterface, so the access goes over the NOC, one word at a
 // time. WormholeTTDevice pinned this branch to NOC0; the window uses what the caller passed.
 TEST_F(WormholeArcApbWindowTest, JtagReadUsesTheCallersCoreAndNoc) {
@@ -74,6 +84,15 @@ TEST_F(WormholeArcApbWindowTest, JtagReadUsesTheCallersCoreAndNoc) {
 
     uint32_t value = 0;
     window.read(&value, APB_OFFSET, sizeof(value), ARC_CORE, NocId::NOC1);
+}
+
+TEST_F(WormholeArcApbWindowTest, JtagWriteUsesTheCallersCoreAndNoc) {
+    auto window = over_jtag();
+
+    EXPECT_CALL(protocol_, write_ctrl(_, ARC_CORE, noc_address(), sizeof(uint32_t), NocId::NOC1));
+
+    uint32_t value = 0xABCD;
+    window.write(&value, APB_OFFSET, sizeof(value), ARC_CORE, NocId::NOC1);
 }
 
 // A local PCIe device goes through the BAR, which never touches the NOC.
@@ -88,6 +107,16 @@ TEST_F(WormholeArcApbWindowTest, PcieReadGoesThroughTheBar) {
     EXPECT_EQ(value, 0xDEADBEEF);
 }
 
+TEST_F(WormholeArcApbWindowTest, PcieWriteGoesThroughTheBar) {
+    auto window = over_pcie();
+
+    EXPECT_CALL(pcie_, bar_write32(bar_address(), 0xABCD1234));
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).Times(0);
+
+    uint32_t value = 0xABCD1234;
+    window.write(&value, APB_OFFSET, sizeof(value), ARC_CORE, NocId::NOC0);
+}
+
 // The JTAG and BAR routes always move one word, so a size they cannot honor is rejected instead of
 // overrunning or short-changing the caller's buffer.
 TEST_F(WormholeArcApbWindowTest, NonWordSizeIsRejectedOnTheWordSizedRoutes) {
@@ -95,9 +124,11 @@ TEST_F(WormholeArcApbWindowTest, NonWordSizeIsRejectedOnTheWordSizedRoutes) {
 
     auto pcie_window = over_pcie();
     EXPECT_THROW(pcie_window.read(&value, APB_OFFSET, 2, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(pcie_window.write(&value, APB_OFFSET, 8, ARC_CORE, NocId::NOC0), std::exception);
 
     auto jtag_window = over_jtag();
     EXPECT_THROW(jtag_window.read(&value, APB_OFFSET, 2, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(jtag_window.write(&value, APB_OFFSET, 8, ARC_CORE, NocId::NOC0), std::exception);
 }
 
 // The window bound covers the whole transfer, not just its first byte: a word access starting at
@@ -128,6 +159,7 @@ TEST_F(WormholeArcApbWindowTest, ZeroLengthAccessIsRejected) {
     uint32_t value = 0;
 
     EXPECT_THROW(window.read(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), std::exception);
+    EXPECT_THROW(window.write(&value, APB_OFFSET, 0, ARC_CORE, NocId::NOC0), std::exception);
 }
 
 // Arbitrary offset inside the window, not a hardware-defined location.
@@ -163,6 +195,16 @@ TEST_F(WormholeArcCsmWindowTest, RemoteReadIsADataAccess) {
     window.read(values.data(), CSM_OFFSET, sizeof(values), ARC_CORE, NocId::NOC0);
 }
 
+TEST_F(WormholeArcCsmWindowTest, RemoteWriteIsADataAccess) {
+    auto window = over_remote();
+
+    EXPECT_CALL(protocol_, write_data(_, ARC_CORE, noc_address(), 16, NocId::NOC0));
+    EXPECT_CALL(protocol_, write_ctrl(_, _, _, _, _)).Times(0);
+
+    std::array<uint32_t, 4> values{};
+    window.write(values.data(), CSM_OFFSET, sizeof(values), ARC_CORE, NocId::NOC0);
+}
+
 // The memory-vs-registers distinction is a remote-route one only: JTAG reaches every window over
 // the register path, as the TTDevice-era CSM accessor this replaced did.
 TEST_F(WormholeArcCsmWindowTest, JtagReadStaysOnTheRegisterPath) {
@@ -183,6 +225,15 @@ TEST_F(WormholeArcCsmWindowTest, PcieReadGoesThroughTheCsmBarOffset) {
     uint32_t value = 0;
     window.read(&value, CSM_OFFSET, sizeof(value), ARC_CORE, NocId::NOC0);
     EXPECT_EQ(value, 0x12345678);
+}
+
+TEST_F(WormholeArcCsmWindowTest, PcieWriteGoesThroughTheCsmBarOffset) {
+    auto window = over_pcie();
+
+    EXPECT_CALL(pcie_, bar_write32(bar_address(), 0x87654321));
+
+    uint32_t value = 0x87654321;
+    window.write(&value, CSM_OFFSET, sizeof(value), ARC_CORE, NocId::NOC0);
 }
 
 // The two windows are separate address ranges, so each is bounded by its own size.

@@ -127,4 +127,25 @@ void WormholeArcWindow::read(void* mem_ptr, uint64_t arc_addr_offset, size_t siz
     *(reinterpret_cast<uint32_t*>(mem_ptr)) = result;
 }
 
+void WormholeArcWindow::write(
+    const void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id) {
+    check_access(arc_addr_offset, size);
+
+    const uint64_t noc_address = config_.noc_base_address + arc_addr_offset;
+    if (remote_interface_ != nullptr) {
+        if (config_.content == Content::MEMORY) {
+            device_protocol_->write_data(mem_ptr, arc_core, noc_address, size, noc_id);
+        } else {
+            device_protocol_->write_ctrl(mem_ptr, arc_core, noc_address, size, noc_id);
+        }
+        return;
+    }
+    if (jtag_interface_ != nullptr) {
+        device_protocol_->write_ctrl(mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id);
+        return;
+    }
+    pcie_interface_->bar_write32(
+        config_.bar0_offset_start + arc_addr_offset, *(reinterpret_cast<const uint32_t*>(mem_ptr)));
+}
+
 }  // namespace tt::umd

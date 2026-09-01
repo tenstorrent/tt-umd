@@ -36,10 +36,11 @@ class RemoteInterface;
  *
  * The interfaces are non-owning and must outlive this object.
  *
- * This lands as a skeleton: construction, validation and the window configurations, with no
- * accesses yet. Each access arrives as a behavior migration - read() with the firmware boot wait,
- * write() with the firmware command path - deleting the WormholeTTDevice copy it replaces in the
- * same diff wherever that copy has no other callers left.
+ * TODO: WormholeTTDevice still holds its own copy of the APB routing, with the original bound
+ * check that validates only the first byte of a transfer, for the callers that have not moved to
+ * DeviceFirmware yet (the ARC messenger and its dependents). It is retired with them -- until then
+ * the two can drift. The CSM copy is already gone: its only caller was the firmware boot wait,
+ * which moved here together with this class.
  */
 class WormholeArcWindow {
 public:
@@ -104,6 +105,19 @@ public:
         JtagInterface* jtag_interface,
         RemoteInterface* remote_interface);
 
+    /**
+     * @brief Reads from the window.
+     * @param mem_ptr Destination buffer.
+     * @param arc_addr_offset Offset into the window. The whole transfer has to fit inside it, so the
+     * largest valid offset is the window size less size.
+     * @param size Bytes to read. The remote path honors any size; the JTAG and BAR paths read one
+     * word and reject anything other than sizeof(uint32_t) rather than silently widening.
+     * @param arc_core NOC coordinate of the ARC core, resolved for noc_id. Used on every route,
+     * including JTAG, which WormholeTTDevice pinned to NOC0 instead.
+     * @param noc_id NOC to route through.
+     */
+    void read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id);
+
 private:
     WormholeArcWindow(
         const Config& config,
@@ -111,6 +125,8 @@ private:
         PcieInterface* pcie_interface,
         JtagInterface* jtag_interface,
         RemoteInterface* remote_interface);
+
+    void check_access(uint64_t arc_addr_offset, size_t size) const;
 
     Config config_;
     // All non-owning; they belong to the component that owns this object and must outlive it.

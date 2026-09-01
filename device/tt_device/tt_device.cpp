@@ -32,6 +32,7 @@
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
 #include "umd/device/tt_device/blackhole_tt_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector_implementation.hpp"
 #include "umd/device/tt_device/protocol/dma_interface.hpp"
@@ -76,6 +77,8 @@ TTDevice::TTDevice(std::unique_ptr<TTDeviceModel> model) : model_(std::move(mode
     }
     wire_hang_detector();
 }
+
+DeviceFirmware *TTDevice::get_device_firmware() const { return model_->get_device_firmware(); }
 
 void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);

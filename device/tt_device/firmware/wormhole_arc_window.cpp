@@ -15,8 +15,12 @@
 
 namespace tt::umd {
 
-// The constructor enforces that exactly one transport interface is given: which one is present
-// is how the accesses added by later PRs pick their route.
+// How this class picks a route, mirroring WormholeTTDevice::read_from_arc_apb: a non-null
+// RemoteInterface means the device is reached over ethernet through a gateway, a non-null
+// JtagInterface means it is reached over JTAG, and otherwise it is reached over PCIe. Inferring the
+// route from which optional interface is present is sound because a TTDevice is built for exactly
+// one communication protocol. The constructor enforces that exactly one of them is given, so the
+// route the null checks pick always has an interface behind it.
 
 /* static */ WormholeArcWindow WormholeArcWindow::arc_apb(
     DeviceProtocol* device_protocol,
@@ -73,6 +77,54 @@ WormholeArcWindow::WormholeArcWindow(
             "The {} window requires exactly one of a PcieInterface, a JtagInterface or a RemoteInterface, since "
             "which one is present is how it picks the route for an access.",
             config_.name));
+}
+
+void WormholeArcWindow::check_access(uint64_t arc_addr_offset, size_t size) const {
+    UMD_ASSERT(size != 0, error::RuntimeError, fmt::format("Zero-length {} access.", config_.name));
+
+    // The JTAG and BAR routes move exactly one word whatever size the caller asked for, so anything
+    // else is a caller error: a smaller size overruns mem_ptr, a larger one leaves it short. Both
+    // were silent in WormholeTTDevice, where the accessors were private and every caller passed a
+    // word.
+    UMD_ASSERT(
+        remote_interface_ != nullptr || size == sizeof(uint32_t),
+        error::RuntimeError,
+        fmt::format(
+            "{} access over JTAG or the PCIe BAR must be {} bytes, got {}.", config_.name, sizeof(uint32_t), size));
+
+    // size_bytes is the size of the window, not its last valid offset, so the whole transfer has to
+    // fit: the last access that fits starts size bytes before the end. Checking only the first byte,
+    // as WormholeTTDevice did, let a word access at the very end run past the window. The bound is a
+    // subtraction rather than an addition so it cannot wrap.
+    UMD_ASSERT(
+        size <= config_.size_bytes && arc_addr_offset <= config_.size_bytes - size,
+        error::RuntimeError,
+        fmt::format(
+            "{} access of {} bytes at offset {:#x} does not fit in the {:#x} byte window.",
+            config_.name,
+            size,
+            arc_addr_offset,
+            config_.size_bytes));
+}
+
+void WormholeArcWindow::read(void* mem_ptr, uint64_t arc_addr_offset, size_t size, tt_xy_pair arc_core, NocId noc_id) {
+    check_access(arc_addr_offset, size);
+
+    const uint64_t noc_address = config_.noc_base_address + arc_addr_offset;
+    if (remote_interface_ != nullptr) {
+        if (config_.content == Content::MEMORY) {
+            device_protocol_->read_data(mem_ptr, arc_core, noc_address, size, noc_id);
+        } else {
+            device_protocol_->read_ctrl(mem_ptr, arc_core, noc_address, size, noc_id);
+        }
+        return;
+    }
+    if (jtag_interface_ != nullptr) {
+        device_protocol_->read_ctrl(mem_ptr, arc_core, noc_address, sizeof(uint32_t), noc_id);
+        return;
+    }
+    auto result = pcie_interface_->bar_read32(config_.bar0_offset_start + arc_addr_offset);
+    *(reinterpret_cast<uint32_t*>(mem_ptr)) = result;
 }
 
 }  // namespace tt::umd

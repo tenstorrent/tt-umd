@@ -13,7 +13,6 @@
 #include <vector>
 
 #include "spi_arc_command.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"

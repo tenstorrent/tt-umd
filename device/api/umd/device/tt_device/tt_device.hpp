@@ -16,7 +16,6 @@
 #include <utility>
 
 #include "tt_device_error.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/firmware_telemetry_reader.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
@@ -48,7 +47,6 @@
 
 namespace tt::umd {
 
-class ArcMessenger;
 class ArcTelemetryReader;
 class DeviceFirmware;
 class RemoteCommunication;
@@ -374,8 +372,6 @@ public:
 
     uint32_t bar_read32(uint32_t addr);
 
-    ArcMessenger *get_arc_messenger() const;
-
     FirmwareTelemetryReader *get_firmware_telemetry_reader() const;
 
     tt_xy_pair get_arc_core() const;
@@ -551,7 +547,6 @@ private:
 
     std::unique_ptr<TTDeviceModel> model_;
     std::optional<SocDescriptor> soc_descriptor_ = std::nullopt;
-    std::unique_ptr<ArcMessenger> arc_messenger_ = nullptr;
     std::unique_ptr<HangDetector> hang_detector_;
 };
 

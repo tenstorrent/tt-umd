@@ -347,7 +347,6 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         using err = error::UmdException<error::UninitializedDeviceError>;
         EXPECT_THROW(tt_device->get_chip_info(), err);
         EXPECT_THROW(tt_device->get_soc_descriptor(), err);
-        EXPECT_THROW(tt_device->get_arc_messenger(), err);
         EXPECT_THROW(tt_device->get_firmware_telemetry_reader(), err);
         EXPECT_THROW(tt_device->get_firmware_info_provider(), err);
         EXPECT_THROW(tt_device->get_board_id(), err);
@@ -364,7 +363,6 @@ TEST(ApiTTDeviceTest, UninitializedError) {
         // These methods should work only after successful initialization.
         EXPECT_NO_THROW(tt_device->get_chip_info());
         EXPECT_NO_THROW(tt_device->get_soc_descriptor());
-        EXPECT_NO_THROW(tt_device->get_arc_messenger());
         EXPECT_NO_THROW(tt_device->get_firmware_telemetry_reader());
         EXPECT_NO_THROW(tt_device->get_firmware_info_provider());
         EXPECT_NO_THROW(tt_device->get_board_id());

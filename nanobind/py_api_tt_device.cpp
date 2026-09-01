@@ -22,6 +22,7 @@
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/soc_arch_descriptor.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/remote_communication.hpp"
 #include "umd/device/tt_device/rtl_simulation_tt_device.hpp"
 #include "umd/device/tt_device/simulation_device_factory.hpp"
@@ -533,14 +534,16 @@ void bind_tt_device(nb::module_ &m) {
                 if (self.get_arch() == tt::ARCH::WORMHOLE_B0) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -569,14 +572,16 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout_ms));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout_ms), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,
@@ -605,14 +610,16 @@ void bind_tt_device(nb::module_ &m) {
                     msg_code = wormhole::ARC_MSG_COMMON_PREFIX | msg_code;
                 }
                 std::vector<uint32_t> args = {arg0, arg1};
-                std::vector<uint32_t> return_values = {0, 0};
-                uint32_t exit_code;
+                DeviceCommandResult result;
                 {
                     nb::gil_scoped_release release;
-                    exit_code = self.get_arc_messenger()->send_message(
-                        msg_code, return_values, args, std::chrono::milliseconds(timeout * 1000));
+                    result = self.get_device_firmware()->send_device_command(
+                        msg_code, args, std::chrono::milliseconds(timeout * 1000), get_selected_noc_id());
                 }
-                return std::make_tuple(exit_code, return_values[0], return_values[1]);
+                return std::make_tuple(
+                    result.exit_code,
+                    result.return_values.size() > 0 ? result.return_values[0] : 0,
+                    result.return_values.size() > 1 ? result.return_values[1] : 0);
             },
             nb::arg("msg_code"),
             nb::arg("wait_for_done") = true,

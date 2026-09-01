@@ -16,7 +16,6 @@
 #include <tt-logger/tt-logger.hpp>
 #include <unordered_set>
 
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arc/arc_telemetry_reader.hpp"
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"

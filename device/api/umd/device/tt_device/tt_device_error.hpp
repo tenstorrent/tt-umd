@@ -100,6 +100,9 @@ struct PcieHangData : TTDeviceData {
 
 struct PcieHangError : UmdError<PcieHangData> {
     PcieHangError(const TTDevice& tt_device, uint32_t data_read);
+
+    // For components that report the same condition without holding a TTDevice.
+    PcieHangError(IODeviceType io_device_type, ChipId chip_id, tt::ARCH arch, uint32_t data_read);
 };
 
 struct UninitializedDeviceError : UmdError<TTDeviceData> {

@@ -32,8 +32,8 @@ TEST(GrendelJtagProtocol, RoundTripsBytesPerCore) {
 
     uint32_t in = 0xDEADBEEF;
     uint32_t out = 0;
-    proto->write_to_device(&in, tt_xy_pair(1, 1), 0x100, sizeof(in), NocId::NOC0);
-    proto->read_from_device(&out, tt_xy_pair(1, 1), 0x100, sizeof(out), NocId::NOC0);
+    proto->write_data(&in, tt_xy_pair(1, 1), 0x100, sizeof(in), NocId::NOC0);
+    proto->read_data(&out, tt_xy_pair(1, 1), 0x100, sizeof(out), NocId::NOC0);
     EXPECT_EQ(out, 0xDEADBEEFu);
 }
 
@@ -45,9 +45,9 @@ TEST(GrendelJtagProtocol, CachesTransportPerCore) {
     });
 
     uint32_t v = 0;
-    proto->read_from_device(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC0);  // new core -> provider called
-    proto->read_from_device(&v, tt_xy_pair(1, 1), 0x4, sizeof(v), NocId::NOC0);  // same core -> cached
-    proto->read_from_device(&v, tt_xy_pair(2, 1), 0x0, sizeof(v), NocId::NOC0);  // new core -> provider called
+    proto->read_data(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC0);  // new core -> provider called
+    proto->read_data(&v, tt_xy_pair(1, 1), 0x4, sizeof(v), NocId::NOC0);  // same core -> cached
+    proto->read_data(&v, tt_xy_pair(2, 1), 0x0, sizeof(v), NocId::NOC0);  // new core -> provider called
     EXPECT_EQ(provider_calls, 2);
 }
 
@@ -56,8 +56,8 @@ TEST(GrendelJtagProtocol, RejectsNonNoc0) {
         GrendelJtagProtocolTestAccess::make([](tt_xy_pair) { return std::make_shared<MockTransportInterface>(); });
 
     uint32_t v = 0;
-    EXPECT_THROW(proto->read_from_device(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC1), std::exception);
-    EXPECT_THROW(proto->write_to_device(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC1), std::exception);
+    EXPECT_THROW(proto->read_data(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC1), std::exception);
+    EXPECT_THROW(proto->write_data(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC1), std::exception);
 }
 
 // The mock throws in order to exercise the translation path, which is NOT how a real bus error
@@ -71,7 +71,22 @@ TEST(GrendelJtagProtocol, TranslatesTransportErrors) {
     auto proto = GrendelJtagProtocolTestAccess::make([](tt_xy_pair) { return std::make_shared<ThrowingTransport>(); });
 
     uint32_t v = 0;
-    EXPECT_THROW(proto->read_from_device(&v, tt_xy_pair(1, 1), 0x100, sizeof(v), NocId::NOC0), std::exception);
+    EXPECT_THROW(proto->read_data(&v, tt_xy_pair(1, 1), 0x100, sizeof(v), NocId::NOC0), std::exception);
+}
+
+TEST(GrendelJtagProtocol, CtrlAccessesValidateAlignmentThenShareTheDataPath) {
+    auto mock = std::make_shared<MockTransportInterface>();
+    auto proto = GrendelJtagProtocolTestAccess::make([mock](tt_xy_pair) { return mock; });
+
+    uint32_t in = 0x5A5A5A5A;
+    uint32_t out = 0;
+    proto->write_ctrl(&in, tt_xy_pair(1, 1), 0x200, sizeof(in), NocId::NOC0);
+    proto->read_ctrl(&out, tt_xy_pair(1, 1), 0x200, sizeof(out), NocId::NOC0);
+    EXPECT_EQ(out, 0x5A5A5A5Au);
+
+    // Register accesses must be 4-byte aligned in both address and size.
+    EXPECT_THROW(proto->read_ctrl(&out, tt_xy_pair(1, 1), 0x202, sizeof(out), NocId::NOC0), std::exception);
+    EXPECT_THROW(proto->write_ctrl(&in, tt_xy_pair(1, 1), 0x200, 3, NocId::NOC0), std::exception);
 }
 
 TEST(GrendelJtagProtocol, WriteToCoreRangeReturnsFalse) {

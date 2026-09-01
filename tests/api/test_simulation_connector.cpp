@@ -3,13 +3,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <vector>
 
 #include "simulation/simulation_server_socket.hpp"
+#include "tests/test_utils/simulation_socket_test_utils.hpp"
 #include "umd/device/cluster.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -408,4 +413,55 @@ TEST(SimulationConnector, ReportsClientConnection) {
     EXPECT_EQ(client.connection.simulator, host.connection.simulator);
     EXPECT_EQ(client.connection.backend, host.connection.backend);
     EXPECT_EQ(client.connection.arch, host.connection.arch);
+}
+
+// A socket file proves only that someone bound the path once. A directory holding nothing but
+// sockets a crashed host left behind is not a server to attach to, and saying so beats falling
+// through to hosting an RTL build out of a server directory. Needs no simulator.
+TEST(SimulationConnector, ThrowsOnADirectoryOfOnlyStaleSockets) {
+    const std::filesystem::path directory = SimulationServerSocket::allocate_server_directory();
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(directory, 0));
+
+    // Classification is what rejects it, so both entry points do.
+    EXPECT_THROW(SimulationConnector::role_for(directory), std::exception);
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = directory;
+    EXPECT_THROW(SimulationConnector::discover(options), std::exception);
+
+    std::filesystem::remove_all(directory);
+}
+
+// One stale socket beside a live one must not drag the healthy chip out of the client's device
+// list, nor make the topology probe pick the dead socket. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, IgnoresAStaleSocketBesideALiveOne) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+
+    SimulationConnectorOptions host_options;
+    host_options.simulator_directory = simulator_path;
+    host_options.serve_over_sockets = true;
+    host_options.server_directory = server_directory;
+    const SimulationConnector::Result host = SimulationConnector::discover(host_options);
+    ASSERT_EQ(host.devices.size(), 1u);  // the live host serves chip 0
+
+    // A second chip's socket, left behind by a host that is gone.
+    test_utils::leave_stale_socket(SimulationServerSocket::default_socket_path(server_directory, 1));
+
+    SimulationConnectorOptions client_options;
+    client_options.simulator_directory = server_directory;
+    const SimulationConnector::Result client = SimulationConnector::discover(client_options);
+
+    EXPECT_EQ(client.connection.role, SimulationConnector::Role::Client);
+    // Chip 1 is dropped at classification, so it reaches neither the devices nor the reported
+    // sockets -- the client sees exactly the chips actually being served.
+    EXPECT_EQ(client.devices.size(), 1u);
+    EXPECT_EQ(client.devices.count(1), 0u);
+    EXPECT_EQ(client.connection.sockets, host.connection.sockets);
+
+    std::filesystem::remove_all(server_directory);
 }

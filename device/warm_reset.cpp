@@ -336,13 +336,20 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     for (const auto& tt_device : tt_devices) {
         auto* firmware = tt_device->get_device_firmware();
         firmware->send_device_command(
-            MSG_TYPE_ARC_STATE3, {default_arg_value, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
+            MSG_TYPE_ARC_STATE3,
+            {default_arg_value, default_arg_value},
+            timeout::ARC_MESSAGE_TIMEOUT,
+            get_selected_noc_id());
         usleep(30'000);
         if (reset_m3) {
-            firmware->send_device_command(MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
+            firmware->send_device_command(
+                MSG_TYPE_TRIGGER_RESET, {3, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT, get_selected_noc_id());
         } else {
             firmware->send_device_command(
-                MSG_TYPE_TRIGGER_RESET, {default_arg_value, default_arg_value}, timeout::ARC_MESSAGE_TIMEOUT);
+                MSG_TYPE_TRIGGER_RESET,
+                {default_arg_value, default_arg_value},
+                timeout::ARC_MESSAGE_TIMEOUT,
+                get_selected_noc_id());
         }
     }
 

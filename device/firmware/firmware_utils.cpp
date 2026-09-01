@@ -21,6 +21,7 @@
 #include "umd/device/arc/smbus_arc_telemetry_reader.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/soc_descriptor.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/arch.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
@@ -147,8 +148,11 @@ void set_tdp_limit(TTDevice* tt_device, const uint32_t tdp_limit_watts) {
             tt_device->get_arch(),
             tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
 
-    tt_device->get_arc_messenger()->send_message(
-        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT), {tdp_limit_watts, TDP_LIMIT_APPLY_REQUESTED});
+    tt_device->get_device_firmware()->send_device_command(
+        static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT),
+        {tdp_limit_watts, TDP_LIMIT_APPLY_REQUESTED},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
 
     // Firmware refuses a limit above chip_limits.max_tdp_limit through an exit code that send_message drops,
     // so the outcome is read back: firmware rewrites the limit only once it has accepted one.
@@ -176,9 +180,11 @@ void restore_default_tdp_limit(TTDevice* tt_device) {
             tt_device->get_firmware_info_provider()->get_firmware_version().to_string()));
 
     // Firmware takes the default from chip_limits.tdp_limit in the SPI firmware table.
-    tt_device->get_arc_messenger()->send_message(
+    tt_device->get_device_firmware()->send_device_command(
         static_cast<uint32_t>(blackhole::ArcMessageType::SET_TDP_LIMIT),
-        {TDP_LIMIT_WATTS_IGNORED, TDP_LIMIT_RESTORE_DEFAULT});
+        {TDP_LIMIT_WATTS_IGNORED, TDP_LIMIT_RESTORE_DEFAULT},
+        timeout::ARC_MESSAGE_TIMEOUT,
+        get_selected_noc_id());
 }
 
 std::vector<std::pair<CoreCoord, bool>> filter_harvested_eth_status(

@@ -187,13 +187,25 @@ uint32_t BlackholeTTDevice::get_min_clock_freq() { return get_architecture_imple
 
 void BlackholeTTDevice::set_clock_state(TTDevice::PowerState state, NocId /*noc_id*/) {
     ZoneScoped;
-    int exit_code = 0;
+    uint32_t exit_code = 0;
     switch (state) {
         case TTDevice::PowerState::BUSY:
-            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+            exit_code = get_device_firmware()
+                            ->send_device_command(
+                                (uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY,
+                                {},
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
+                            .exit_code;
             break;
         case TTDevice::PowerState::IDLE:
-            exit_code = get_arc_messenger()->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+            exit_code = get_device_firmware()
+                            ->send_device_command(
+                                (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE,
+                                {},
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
+                            .exit_code;
             break;
         default:
             UMD_THROW(error::RuntimeError, "Unrecognized power state.");
@@ -289,7 +301,8 @@ void BlackholeTTDevice::retrain_dram_core(const uint32_t dram_channel) {
                             ->send_device_command(
                                 static_cast<uint32_t>(blackhole::ArcMessageType::TOGGLE_GDDR_RESET),
                                 {dram_channel},
-                                timeout::ARC_MESSAGE_TIMEOUT)
+                                timeout::ARC_MESSAGE_TIMEOUT,
+                                get_selected_noc_id())
                             .exit_code;
     if (ret_code != 0) {
         UMD_THROW(

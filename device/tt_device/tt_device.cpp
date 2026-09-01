@@ -214,7 +214,11 @@ void TTDevice::set_clock_state(ClockState state, NocId /*noc_id*/) {
     get_device_firmware()->set_clock_state(state, get_selected_noc_id());
 }
 
-bool TTDevice::get_noc_translation_enabled() { return get_device_firmware()->get_noc_translation_enabled(); }
+bool TTDevice::get_noc_translation_enabled() {
+    // The overrides this replaces routed their device reads per the thread-selected NOC (via the
+    // TTDevice accessors); keep that.
+    return get_device_firmware()->get_noc_translation_enabled(get_selected_noc_id());
+}
 
 DeviceProtocol *TTDevice::get_device_protocol() { return model_->get_device_protocol(); }
 

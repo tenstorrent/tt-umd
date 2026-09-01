@@ -76,6 +76,7 @@ target_sources(
         chip_helpers/tlb_manager.cpp
         pcie/tlb_window.cpp
         pcie/io_window_reconfigure.cpp
+        io_window/io_window_target.cpp
         pcie/device_memcpy.cpp
         pcie/silicon_tlb_window.cpp
         pcie/silicon_tlb_handle.cpp
@@ -238,6 +239,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.23)
                 api/umd/device/pcie/rtl_sim_tlb_window.hpp
                 api/umd/device/pcie/rtl_sim_tlb_handle.hpp
                 api/umd/device/io_window/io_window.hpp
+                api/umd/device/io_window/io_window_target.hpp
                 api/umd/device/warm_reset.hpp
                 api/umd/device/warm_reset_with_recovery.hpp
                 api/umd/device/utils/semver.hpp

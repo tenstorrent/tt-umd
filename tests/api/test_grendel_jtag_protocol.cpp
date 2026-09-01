@@ -52,8 +52,8 @@ TEST(GrendelJtagProtocol, CachesTransportPerCore) {
 }
 
 TEST(GrendelJtagProtocol, RejectsNonNoc0) {
-    auto proto = GrendelJtagProtocolTestAccess::make(
-        [](tt_xy_pair) { return std::make_shared<MockTransportInterface>(); });
+    auto proto =
+        GrendelJtagProtocolTestAccess::make([](tt_xy_pair) { return std::make_shared<MockTransportInterface>(); });
 
     uint32_t v = 0;
     EXPECT_THROW(proto->read_from_device(&v, tt_xy_pair(1, 1), 0x0, sizeof(v), NocId::NOC1), std::exception);
@@ -64,16 +64,16 @@ TEST(GrendelJtagProtocol, TranslatesTransportErrors) {
     struct ThrowingTransport : MockTransportInterface {
         std::uint32_t read32(std::uint64_t) override { throw std::runtime_error("boom"); }
     };
-    auto proto = GrendelJtagProtocolTestAccess::make(
-        [](tt_xy_pair) { return std::make_shared<ThrowingTransport>(); });
+
+    auto proto = GrendelJtagProtocolTestAccess::make([](tt_xy_pair) { return std::make_shared<ThrowingTransport>(); });
 
     uint32_t v = 0;
     EXPECT_THROW(proto->read_from_device(&v, tt_xy_pair(1, 1), 0x100, sizeof(v), NocId::NOC0), std::exception);
 }
 
 TEST(GrendelJtagProtocol, WriteToCoreRangeReturnsFalse) {
-    auto proto = GrendelJtagProtocolTestAccess::make(
-        [](tt_xy_pair) { return std::make_shared<MockTransportInterface>(); });
+    auto proto =
+        GrendelJtagProtocolTestAccess::make([](tt_xy_pair) { return std::make_shared<MockTransportInterface>(); });
 
     uint32_t v = 0;
     EXPECT_FALSE(proto->write_to_core_range(&v, tt_xy_pair(1, 1), tt_xy_pair(2, 2), 0x0, sizeof(v), NocId::NOC0));

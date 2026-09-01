@@ -38,12 +38,8 @@ public:
     void write_to_device(const void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     void read_from_device(void* mem_ptr, tt_xy_pair core, uint64_t addr, size_t size, NocId noc_id) override;
     bool write_to_core_range(
-        const void* mem_ptr,
-        tt_xy_pair core_start,
-        tt_xy_pair core_end,
-        uint64_t addr,
-        uint32_t size,
-        NocId noc_id) override;
+        const void* mem_ptr, tt_xy_pair core_start, tt_xy_pair core_end, uint64_t addr, uint32_t size, NocId noc_id)
+        override;
     int get_mmio_id() override;
 
     // JtagInterface. Grendel has no UMD JtagDevice (that is the JLink-specific

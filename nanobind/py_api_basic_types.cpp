@@ -54,6 +54,7 @@ void bind_basic_types(nb::module_ &m) {
         .value("WORMHOLE_B0", tt::ARCH::WORMHOLE_B0)
         .value("BLACKHOLE", tt::ARCH::BLACKHOLE)
         .value("QUASAR", tt::ARCH::QUASAR)
+        .value("GRENDEL", tt::ARCH::GRENDEL)
         .value("Invalid", tt::ARCH::Invalid)
         .def("__str__", &tt::arch_to_str)
         .def("__int__", [](tt::ARCH tag) { return static_cast<int>(tag); })

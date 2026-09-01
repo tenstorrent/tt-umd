@@ -37,7 +37,8 @@ public:
         const std::vector<tt_xy_pair>& l2cpu_cores,
         const std::vector<tt_xy_pair>& dispatch_cores,
         const std::vector<uint32_t>& noc0_x_to_noc1_x = {},
-        const std::vector<uint32_t>& noc0_y_to_noc1_y = {});
+        const std::vector<uint32_t>& noc0_y_to_noc1_y = {},
+        const std::vector<tt_xy_pair>& smc_cores = {});
 
 protected:
     void assert_coordinate_manager_constructor() override;

@@ -332,8 +332,4 @@ uint32_t SimulationTTDevice::get_min_clock_freq() {
     UMD_THROW(error::RuntimeError, "Getting minimum clock frequency is not supported for simulation devices.");
 }
 
-void SimulationTTDevice::retrain_dram_core(const uint32_t dram_channel) {
-    UMD_THROW(error::RuntimeError, "DRAM retraining is not supported for simulation devices.");
-}
-
 }  // namespace tt::umd

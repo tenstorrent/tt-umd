@@ -66,6 +66,14 @@ public:
 
     tt_xy_pair get_firmware_noc_coord(NocId noc_id = NocId::DEFAULT_NOC) const override;
 
+    bool wait_eth_core_training(
+        tt_xy_pair eth_core, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    EthTrainingStatus get_eth_core_training_status(tt_xy_pair eth_core, NocId noc_id = NocId::DEFAULT_NOC) override;
+
+    bool wait_dram_channel_training(
+        uint32_t dram_channel, std::chrono::milliseconds timeout_ms, NocId noc_id = NocId::DEFAULT_NOC) override;
+
     /**
      * @brief Telemetry published by the management firmware.
      *

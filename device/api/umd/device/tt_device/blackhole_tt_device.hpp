@@ -37,21 +37,12 @@ public:
 
     void write_to_arc_apb(const void *mem_ptr, uint64_t arc_addr_offset, size_t size) override;
 
-    std::chrono::milliseconds wait_eth_core_training(
-        CoreCoord eth_core, const std::chrono::milliseconds timeout_ms = timeout::ETH_TRAINING_TIMEOUT) override;
-
-    EthTrainingStatus read_eth_core_training_status(CoreCoord eth_core) override;
-
 protected:
     explicit BlackholeTTDevice(std::unique_ptr<TTDeviceModel> model);
 
     virtual bool is_arc_available_over_axi();
 
-    void retrain_dram_core(const uint32_t dram_channel) override;
-
     // Number of retrain attempts is chosen based on syseng team testing.
-    uint32_t get_max_dram_retrain_attempts() const override { return 3; }
-
 private:
     const ArchitectureRegisters registers_ = get_architecture_registers(tt::ARCH::BLACKHOLE);
 

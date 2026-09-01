@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "umd/device/types/cluster_descriptor_types.hpp"
+#include "umd/device/types/eth_training_status.hpp"
 #include "umd/device/types/noc_id.hpp"
 #include "umd/device/types/power_state.hpp"
 #include "umd/device/types/xy_pair.hpp"
@@ -119,6 +120,39 @@ public:
      * @param noc_id NOC to resolve the coordinate for.
      */
     virtual tt_xy_pair get_firmware_noc_coord([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) const = 0;
+
+    /**
+     * @brief Waits for an Ethernet core to complete link training.
+     * @param eth_core Target Ethernet core coordinate, resolved for noc_id.
+     * @param timeout_ms Maximum time to wait.
+     * @param noc_id NOC to route through.
+     * @return true if training completed within the timeout.
+     */
+    virtual bool wait_eth_core_training(
+        tt_xy_pair eth_core,
+        std::chrono::milliseconds timeout_ms,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Reads the current link training status of an Ethernet core.
+     * @param eth_core Target Ethernet core coordinate, resolved for noc_id.
+     * @param noc_id NOC to route through.
+     * @return EthTrainingStatus The current training state.
+     */
+    virtual EthTrainingStatus get_eth_core_training_status(
+        tt_xy_pair eth_core, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Waits for a DRAM channel to complete training.
+     * @param dram_channel The DRAM channel index to wait on.
+     * @param timeout_ms Maximum time to wait.
+     * @param noc_id NOC to route through.
+     * @return true if training completed within the timeout.
+     */
+    virtual bool wait_dram_channel_training(
+        uint32_t dram_channel,
+        std::chrono::milliseconds timeout_ms,
+        [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

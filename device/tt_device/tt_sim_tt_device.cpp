@@ -337,15 +337,6 @@ void TTSimTTDevice::advance_device_execution() {
     }
 }
 
-std::chrono::milliseconds TTSimTTDevice::wait_eth_core_training(
-    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
-    UMD_THROW(error::RuntimeError, "Waiting for ETH core training is not supported in TTSim simulation device.");
-}
-
-EthTrainingStatus TTSimTTDevice::read_eth_core_training_status(CoreCoord eth_core) {
-    UMD_THROW(error::RuntimeError, "Reading ETH core training status is not supported in TTSim simulation device.");
-}
-
 void TTSimTTDevice::configure_iatu_region(size_t region, uint64_t target, size_t region_size) {
     // Configure the outbound iATU the silicon way: iATU register writes via BAR2 (BH writes these
     // directly on real HW at ATU_OFFSET_IN_BH_BAR2=0x1000; WH models its iATU regs at 0x1200). We issue

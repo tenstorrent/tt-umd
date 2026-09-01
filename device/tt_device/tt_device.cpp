@@ -391,55 +391,23 @@ void TTDevice::configure_iatu_region(size_t region, uint64_t target, size_t regi
 
 void TTDevice::wait_dram_channel_training(const uint32_t dram_channel, const std::chrono::milliseconds timeout_ms) {
     ZoneScopedC(tracy::Color::DarkGreen);
-    if (dram_channel >= get_architecture_implementation()->get_dram_banks_number()) {
-        UMD_THROW(
-            error::RuntimeError,
-            fmt::format(
-                "Invalid DRAM channel index {}, maximum index for given architecture is {}.",
-                dram_channel,
-                get_architecture_implementation()->get_dram_banks_number() - 1));
-    }
-    const uint32_t MAX_DRAM_RETRAIN_ATTEMPTS = get_max_dram_retrain_attempts();
-    uint32_t num_retrain_dram_core = MAX_DRAM_RETRAIN_ATTEMPTS;
+    get_device_firmware()->wait_dram_channel_training(dram_channel, timeout_ms, get_selected_noc_id());
+}
+
+std::chrono::milliseconds TTDevice::wait_eth_core_training(
+    CoreCoord eth_core, const std::chrono::milliseconds timeout_ms) {
+    ZoneScopedC(tracy::Color::DarkGreen);
+    // The overrides this replaces measured the poll loop's duration; measuring around the firmware
+    // call reports the same thing to the callers that subtract it from a timeout budget.
+    const NocId noc_id = get_selected_noc_id();
     auto start = std::chrono::steady_clock::now();
-    while (true) {
-        std::vector<DramTrainingStatus> dram_training_status = get_firmware_info_provider()->get_dram_training_status(
-            get_architecture_implementation()->get_dram_banks_number());
+    get_device_firmware()->wait_eth_core_training(resolve_coordinate(eth_core, noc_id), timeout_ms, noc_id);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+}
 
-        if (dram_training_status.empty()) {
-            log_warning(LogUMD, "DRAM training status is not available, breaking the wait for DRAM training.");
-            return;
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::FAIL) {
-            if (num_retrain_dram_core > 0) {
-                log_warning(
-                    LogUMD,
-                    "DRAM training failed for channel {}, attempting retrain ({} attempts remaining).",
-                    dram_channel,
-                    num_retrain_dram_core - 1);
-                retrain_dram_core(dram_channel);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-                num_retrain_dram_core--;
-            } else {
-                UMD_THROW(
-                    error::RuntimeError,
-                    fmt::format(
-                        "DRAM training failed for channel {} after {} retrain attempts.",
-                        dram_channel,
-                        MAX_DRAM_RETRAIN_ATTEMPTS));
-            }
-        }
-
-        if (dram_training_status.at(dram_channel) == DramTrainingStatus::SUCCESS) {
-            return;
-        }
-
-        utils::check_timeout(
-            start,
-            timeout_ms,
-            fmt::format("DRAM training for channel {} timed out after {} ms", dram_channel, timeout_ms.count()));
-    }
+EthTrainingStatus TTDevice::read_eth_core_training_status(CoreCoord eth_core) {
+    const NocId noc_id = get_selected_noc_id();
+    return get_device_firmware()->get_eth_core_training_status(resolve_coordinate(eth_core, noc_id), noc_id);
 }
 
 void TTDevice::bar_write32(uint32_t addr, uint32_t data) { return get_pcie_interface()->bar_write32(addr, data); }

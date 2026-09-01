@@ -218,7 +218,10 @@ private:
     // down as soon as the last of them goes away rather than at static destruction.
     static std::weak_ptr<void> s_shared_lib_;
     static bool s_sim_initialized_;
-    static std::mutex s_shared_init_mutex_;
+    // Recursive because the teardown deleter locks it too, and both acquire paths build the owning
+    // shared_ptr with the lock already held: if that construction throws, the standard runs the deleter
+    // to release the handle, re-entering this mutex on the same thread.
+    static std::recursive_mutex s_shared_init_mutex_;
 
     // Wraps a fresh, non-null dlopen handle in the owning shared_ptr whose deleter performs the
     // process-global teardown: libttsim_exit, dlclose, reset s_sim_initialized_.

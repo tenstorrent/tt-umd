@@ -39,7 +39,7 @@ namespace tt::umd {
 // process-global state (eth_switch routing table, Device* registry).
 std::weak_ptr<void> TTSimCommunicator::s_shared_lib_;
 bool TTSimCommunicator::s_sim_initialized_ = false;
-std::mutex TTSimCommunicator::s_shared_init_mutex_;
+std::recursive_mutex TTSimCommunicator::s_shared_init_mutex_;
 std::mutex TTSimCommunicator::device_lock_;
 
 std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
@@ -49,9 +49,10 @@ std::shared_ptr<void> TTSimCommunicator::adopt_shared_library(void *handle) {
     return std::shared_ptr<void>(handle, [exit_fn](void *h) {
         // Runs when the last owner drops its copy: the last communicator to destruct, or -- if symbol
         // resolution threw before any of them committed -- the reference initialize() held while
-        // probing.  The deleter mutates shared static state, so it takes the lock itself; no caller may
-        // drop its reference while already holding s_shared_init_mutex_.
-        std::lock_guard<std::mutex> lock(s_shared_init_mutex_);
+        // probing.  It also runs on this thread, with s_shared_init_mutex_ already held, if the
+        // shared_ptr construction below throws while allocating its control block: the standard hands
+        // the deleter the handle to release.  That is why the mutex is recursive.
+        std::lock_guard<std::recursive_mutex> lock(s_shared_init_mutex_);
         // The simulator is process-global, so libttsim_exit runs exactly once -- and only if some
         // communicator got as far as start_sim() and actually called libttsim_init.
         if (s_sim_initialized_ && exit_fn) {
@@ -108,13 +109,11 @@ void TTSimCommunicator::initialize() {
     //
     // shared_lib carries the probe's own reference through the rest of initialize().  If symbol
     // resolution below throws, unwinding drops it, and when this call performed the fresh dlopen that
-    // closes the library so a retry starts clean.  It is declared outside every s_shared_init_mutex_
-    // scope below on purpose: the deleter takes that mutex itself, so the reference must never be
-    // dropped while the lock is held.
+    // closes the library so a retry starts clean.
     std::shared_ptr<void> shared_lib;
     bool multichip_supported = false;
     {
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         shared_lib = s_shared_lib_.lock();
         if (shared_lib) {
             // Already loaded by another communicator -- probe in-place.
@@ -140,7 +139,7 @@ void TTSimCommunicator::initialize() {
 
     if (multichip_supported) {
         log_info(tt::LogEmulationDriver, "TTSim multichip mode enabled (chip_id={}, shared dlopen)", chip_id_);
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         // shared_lib is guaranteed non-null here (adopted by the probe above, or locked from a prior
         // communicator's).
         libttsim_handle_ = shared_lib.get();
@@ -213,7 +212,7 @@ void TTSimCommunicator::initialize() {
         num_chips_ > 1 &&
         std::filesystem::exists(SimulationChip::get_cluster_descriptor_path_from_simulator_path(simulator_directory_));
     if (self_describing_multi_mmio) {
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!shared_lib) {
             void *handle = dlopen(simulator_directory_.c_str(), RTLD_LAZY);
             // Guard before wrapping: a shared_ptr built on nullptr would still run the teardown deleter.
@@ -262,7 +261,7 @@ void TTSimCommunicator::start_sim() {
     if (multichip_mode_) {
         // libttsim_init only on the first communicator. Subsequent
         // communicators register their chip into the shared registry.
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!s_sim_initialized_) {
             pfn_libttsim_init_();
             s_sim_initialized_ = true;
@@ -275,7 +274,7 @@ void TTSimCommunicator::start_sim() {
     if (shared_bdf_mode_) {
         // Shared dlopen: initialize the simulator exactly once. Chips are addressed by
         // BDF, so there is no per-chip registration call.
-        std::lock_guard<std::mutex> init_lock(s_shared_init_mutex_);
+        std::lock_guard<std::recursive_mutex> init_lock(s_shared_init_mutex_);
         if (!s_sim_initialized_) {
             pfn_libttsim_init_();
             s_sim_initialized_ = true;

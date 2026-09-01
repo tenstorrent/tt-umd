@@ -48,6 +48,7 @@
 #include "umd/device/cluster.hpp"
 #include "umd/device/cluster_descriptor.hpp"
 #include "umd/device/io_window/io_window.hpp"
+#include "umd/device/io_window/io_window_target.hpp"
 #include "umd/device/pcie/pci_device.hpp"
 #include "umd/device/simulation/simulation_chip.hpp"
 #include "umd/device/simulation/simulation_client.hpp"
@@ -913,24 +914,23 @@ void Cluster::refresh_cluster_description() {
 }
 
 std::unique_ptr<IoWindow> Cluster::create_io_window(
-    const ChipId chip, TargetIoWindowConfig target, HostIoWindowConfig host, IoOrdering ordering) {
+    const ChipId chip,
+    CoreCoord core_start,
+    uint64_t addr,
+    HostIoWindowConfig host,
+    IoOrdering ordering,
+    std::optional<CoreCoord> core_end,
+    WindowFlags flags,
+    std::optional<NocId> noc) {
     TTDevice* tt_device = get_chip(chip)->get_tt_device();
     if (tt_device == nullptr) {
         // Mock and emulated chips have no device to map.
         return nullptr;
     }
-    // Routing is resolved once here, so the coordinates below and the mapping the window ends up
-    // with are translated against the same NOC even when the target left the choice open.
-    if (!target.noc.has_value()) {
-        target.noc = get_selected_noc_id();
-    }
-    const SocDescriptor& soc_descriptor = get_chip(chip)->get_soc_descriptor();
-    target.core_start = soc_descriptor.translate_chip_coord_to_translated(target.core_start, target.noc.value());
-    if (target.core_end.has_value()) {
-        target.core_end =
-            soc_descriptor.translate_chip_coord_to_translated(target.core_end.value(), target.noc.value());
-    }
-    return tt_device->create_io_window(target, host, ordering);
+    return tt_device->create_io_window(
+        make_io_window_target(get_chip(chip)->get_soc_descriptor(), core_start, addr, noc, core_end, flags),
+        host,
+        ordering);
 }
 
 TlbWindow* Cluster::get_static_tlb_window(const ChipId chip, const CoreCoord core) {

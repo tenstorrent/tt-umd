@@ -41,7 +41,7 @@ TEST(SimulationConnector, CreatesHostDeviceAndExposesSocket) {
     options.server_directory = server_directory;
 
     {
-        auto devices = SimulationConnector::discover(options);
+        auto devices = SimulationConnector::discover(options).devices;
         ASSERT_EQ(devices.size(), 1u);
         ASSERT_NE(devices.at(0), nullptr);
         EXPECT_TRUE(std::filesystem::exists(socket));  // host exposed it
@@ -70,7 +70,7 @@ TEST(SimulationConnector, CreatesPrivateHostDeviceWhenNotServing) {
     // serve_over_sockets defaults to false: a private in-process host, no socket published.
     options.server_directory = server_directory;
 
-    auto devices = SimulationConnector::discover(options);
+    auto devices = SimulationConnector::discover(options).devices;
     ASSERT_EQ(devices.size(), 1u);
     EXPECT_NE(devices.at(0), nullptr);              // a usable host device...
     EXPECT_FALSE(std::filesystem::exists(socket));  // ...that published no socket
@@ -105,7 +105,7 @@ TEST(SimulationConnector, HostServesClientMemoryOverSocket) {
     options.simulator_directory = simulator_path;
     options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
-    auto devices = SimulationConnector::discover(options);
+    auto devices = SimulationConnector::discover(options).devices;
     ASSERT_EQ(devices.size(), 1u);
     TTDevice* host = devices.at(0).get();
     ASSERT_NE(host, nullptr);
@@ -166,7 +166,7 @@ TEST(SimulationConnector, HostServesDeviceInfoOverSocket) {
     options.simulator_directory = simulator_path;
     options.serve_over_sockets = true;  // this test exercises the socket-serving host path
     options.server_directory = server_directory;
-    auto devices = SimulationConnector::discover(options);
+    auto devices = SimulationConnector::discover(options).devices;
     ASSERT_EQ(devices.size(), 1u);
     TTDevice* host = devices.at(0).get();
     ASSERT_NE(host, nullptr);
@@ -210,14 +210,14 @@ TEST(SimulationConnector, ClientDeviceReadsAndWritesOverSocket) {
 
     // The .so path hosts and publishes its per-chip socket; pointing discovery at that server's
     // directory takes the client path, attaching one client device per socket.
-    auto host_devices = SimulationConnector::discover(host_options);
+    auto host_devices = SimulationConnector::discover(host_options).devices;
     ASSERT_EQ(host_devices.size(), 1u);
     TTDevice* host = host_devices.at(0).get();
     ASSERT_NE(host, nullptr);
 
     SimulationConnectorOptions client_options;
     client_options.simulator_directory = server_directory;
-    auto client_devices = SimulationConnector::discover(client_options);
+    auto client_devices = SimulationConnector::discover(client_options).devices;
     ASSERT_EQ(client_devices.count(0), 1u);
     TTDevice* client = client_devices.at(0).get();
     ASSERT_NE(client, nullptr);
@@ -277,6 +277,24 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     // The client reconstructed the same chips the host serves.
     EXPECT_EQ(client_cluster.get_target_device_ids(), host_cluster.get_target_device_ids());
 
+    // Each Cluster can say what it is connected to: the host names the simulator it runs and the
+    // directory it serves in; the client names the directory it attached to and the simulator the
+    // host reported over the wire.
+    const auto host_connection = host_cluster.get_simulation_connection();
+    ASSERT_TRUE(host_connection.has_value());
+    EXPECT_EQ(host_connection->role, SimulationConnector::Role::Host);
+    EXPECT_EQ(host_connection->simulator, std::filesystem::path(simulator_path));
+    EXPECT_EQ(host_connection->server_directory, server_directory);
+    EXPECT_FALSE(host_connection->sockets.empty());
+
+    const auto client_connection = client_cluster.get_simulation_connection();
+    ASSERT_TRUE(client_connection.has_value());
+    EXPECT_EQ(client_connection->role, SimulationConnector::Role::Client);
+    EXPECT_EQ(client_connection->server_directory, server_directory);
+    EXPECT_EQ(client_connection->simulator, std::filesystem::path(simulator_path));
+    EXPECT_EQ(client_connection->backend, host_connection->backend);
+    EXPECT_EQ(client_connection->arch, host_connection->arch);
+
     const tt::ChipId chip = 0;
     const SocDescriptor& soc = host_cluster.get_soc_descriptor(chip);
     const CoreCoord tensix = soc.get_cores(tt::CoreType::TENSIX).at(0);
@@ -288,4 +306,106 @@ TEST(SimulationConnector, HostAndClientClustersShareDeviceMemory) {
     std::vector<uint8_t> readback(pattern.size());
     client_cluster.read_from_device(readback.data(), chip, tensix, addr, pattern.size());
     EXPECT_EQ(readback, pattern);
+}
+
+// discover() reports the connection it opened, not just the devices: as a serving host, the
+// simulator it runs, the backend and arch behind it, and the directory and per-chip sockets it
+// serves on. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ReportsServingHostConnection) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    options.serve_over_sockets = true;
+    options.server_directory = server_directory;
+
+    const SimulationConnector::Result result = SimulationConnector::discover(options);
+    const SimulationConnector::Connection& connection = result.connection;
+
+    EXPECT_EQ(connection.role, SimulationConnector::Role::Host);
+    EXPECT_EQ(connection.simulator, std::filesystem::path(simulator_path));
+    const bool is_ttsim = std::filesystem::path(simulator_path).extension() == ".so";
+    EXPECT_EQ(connection.backend, is_ttsim ? SimulationBackendType::TTSIM : SimulationBackendType::RTL);
+    EXPECT_EQ(connection.arch, result.devices.at(0)->get_soc_descriptor().arch);
+    EXPECT_EQ(connection.server_directory, server_directory);
+    EXPECT_EQ(connection.sockets.size(), result.devices.size());
+    EXPECT_EQ(connection.sockets.at(0), SimulationServerSocket::default_socket_path(server_directory, 0));
+}
+
+// The point of reporting the connection on the host side: with server_directory left empty the
+// connector allocates one internally, and the caller has no other way to learn which. Requires
+// TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ReportsTheServerDirectoryItAllocated) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    options.serve_over_sockets = true;
+    // server_directory deliberately left empty: the connector allocates one.
+
+    const SimulationConnector::Result result = SimulationConnector::discover(options);
+
+    ASSERT_FALSE(result.connection.server_directory.empty());
+    EXPECT_TRUE(std::filesystem::is_directory(result.connection.server_directory));
+    ASSERT_EQ(result.connection.sockets.count(0), 1u);
+    EXPECT_EQ(result.connection.sockets.at(0).parent_path(), result.connection.server_directory);
+    EXPECT_TRUE(std::filesystem::exists(result.connection.sockets.at(0)));
+}
+
+// A private in-process host still reports its role and simulator; an empty server_directory is how
+// "not serving" reads. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ReportsPrivateHostConnection) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    SimulationConnectorOptions options;
+    options.simulator_directory = simulator_path;
+    // serve_over_sockets defaults to false.
+
+    const SimulationConnector::Result result = SimulationConnector::discover(options);
+
+    EXPECT_EQ(result.connection.role, SimulationConnector::Role::Host);
+    EXPECT_EQ(result.connection.simulator, std::filesystem::path(simulator_path));
+    EXPECT_NE(result.connection.arch, tt::ARCH::Invalid);
+    EXPECT_TRUE(result.connection.server_directory.empty());
+    EXPECT_TRUE(result.connection.sockets.empty());
+}
+
+// A client reports the directory it attached to and the simulator the host runs -- the latter comes
+// over the wire, since a client has no local simulator build to read. Requires TT_UMD_SIMULATOR.
+TEST(SimulationConnector, ReportsClientConnection) {
+    const char* simulator_path = std::getenv("TT_UMD_SIMULATOR");
+    if (simulator_path == nullptr) {
+        GTEST_SKIP() << "TT_UMD_SIMULATOR is not set.";
+    }
+
+    const std::filesystem::path server_directory = SimulationServerSocket::allocate_server_directory();
+
+    SimulationConnectorOptions host_options;
+    host_options.simulator_directory = simulator_path;
+    host_options.serve_over_sockets = true;
+    host_options.server_directory = server_directory;
+    const SimulationConnector::Result host = SimulationConnector::discover(host_options);
+
+    SimulationConnectorOptions client_options;
+    client_options.simulator_directory = server_directory;
+    const SimulationConnector::Result client = SimulationConnector::discover(client_options);
+
+    EXPECT_EQ(client.connection.role, SimulationConnector::Role::Client);
+    EXPECT_EQ(client.connection.server_directory, server_directory);
+    EXPECT_EQ(client.connection.sockets, host.connection.sockets);
+    // Reported by the host over GET_DEVICE_INFO, and matching what the host itself says it runs.
+    EXPECT_EQ(client.connection.simulator, host.connection.simulator);
+    EXPECT_EQ(client.connection.backend, host.connection.backend);
+    EXPECT_EQ(client.connection.arch, host.connection.arch);
 }

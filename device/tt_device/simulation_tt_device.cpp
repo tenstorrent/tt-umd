@@ -69,7 +69,7 @@ std::vector<uint8_t> SimulationTTDevice::handle_request(
     // read/write skeleton below (SimulationServerResponse), so it is handled up front.
     if (request.command == SimulationServerCommand::GET_DEVICE_INFO) {
         try {
-            return encode(describe_device(get_soc_descriptor(), backend_type()));
+            return encode(describe_device(get_soc_descriptor(), backend_type(), simulator_directory_));
         } catch (const std::exception& e) {
             log_warning(tt::LogUMD, "Simulation host failed to serve device info: {}", e.what());
             SimulationServerDeviceInfo info;

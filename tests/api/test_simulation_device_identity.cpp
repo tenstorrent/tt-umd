@@ -33,11 +33,13 @@ TEST(SimulationDeviceIdentity, DescribeThenRebuildMatches) {
     SocDescriptor original(
         std::make_shared<SocArchDescriptor>(test_utils::GetSocDescAbsPath("blackhole_140_arch.yaml")), chip_info);
 
-    const SimulationServerDeviceInfo info = describe_device(original, SimulationBackendType::TTSIM);
+    const SimulationServerDeviceInfo info =
+        describe_device(original, SimulationBackendType::TTSIM, "/opt/sim_bh/libttsim.so");
     EXPECT_EQ(info.status, 0);
     EXPECT_EQ(info.backend_type, SimulationBackendType::TTSIM);
     EXPECT_FALSE(info.soc_descriptor_yaml.empty());
     EXPECT_EQ(info.tensix_harvesting_mask, 0x1u);
+    EXPECT_EQ(info.simulator_path, "/opt/sim_bh/libttsim.so");
 
     const SocDescriptor rebuilt = build_soc_descriptor(info);
     EXPECT_EQ(rebuilt.arch, original.arch);

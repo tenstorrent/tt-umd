@@ -463,7 +463,9 @@ Cluster::Cluster(ClusterOptions options) {
                 connector_options.simulator_directory = options.simulator_directory;
                 connector_options.num_host_mem_channels =
                     static_cast<int>(options.num_host_mem_ch_per_mmio_device.value_or(0));
-                tt_devices = SimulationConnector::discover(connector_options);
+                auto discovered = SimulationConnector::discover(connector_options);
+                simulation_connection_ = std::move(discovered.connection);
+                tt_devices = std::move(discovered.devices);
 
                 // Every chip the topology names must have a socket-backed device (single-chip today;
                 // a multichip host will publish one socket per chip). Fail clearly rather than later
@@ -652,9 +654,16 @@ Cluster::Cluster(ClusterOptions options) {
 #endif  // TT_UMD_BUILD_SIMULATION
 
 #ifdef TT_UMD_BUILD_SIMULATION
-    if (options.chip_type == ChipType::SIMULATION && options.serve_simulation_devices_over_sockets) {
-        serve_simulation_devices_over_sockets(
-            options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+    if (options.chip_type == ChipType::SIMULATION) {
+        // The client path recorded its connection during discovery, so reaching here without one
+        // means this process runs the simulation itself.
+        if (!simulation_connection_.has_value()) {
+            simulation_connection_ = describe_simulation_host(options.simulator_directory);
+        }
+        if (options.serve_simulation_devices_over_sockets) {
+            serve_simulation_devices_over_sockets(
+                options.simulator_directory, options.simulator_server_directory, options.simulation_shutdown_handler);
+        }
     }
 #endif  // TT_UMD_BUILD_SIMULATION
 
@@ -666,6 +675,28 @@ Cluster::Cluster(ClusterOptions options) {
 }
 
 #ifdef TT_UMD_BUILD_SIMULATION
+std::optional<SimulationConnector::Connection> Cluster::get_simulation_connection() const {
+    return simulation_connection_;
+}
+
+SimulationConnector::Connection Cluster::describe_simulation_host(
+    const std::filesystem::path& simulator_directory) const {
+    SimulationConnector::Connection connection;
+    connection.role = SimulationConnector::Role::Host;
+    connection.simulator = simulator_directory;
+    // Take the backend and arch from a device rather than re-deriving them from the path, so this
+    // reports what was actually built. server_directory and sockets stay empty until (and unless)
+    // serve_simulation_devices_over_sockets() fills them.
+    for (const auto& [chip_id, chip] : chips_) {
+        if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
+            connection.backend = sim_device->backend_type();
+            connection.arch = sim_device->get_soc_descriptor().arch;
+            break;
+        }
+    }
+    return connection;
+}
+
 void Cluster::serve_simulation_devices_over_sockets(
     const std::filesystem::path& simulator_directory,
     const std::filesystem::path& simulator_server_directory,
@@ -686,11 +717,21 @@ void Cluster::serve_simulation_devices_over_sockets(
                                                        ? SimulationServerSocket::allocate_server_directory()
                                                        : simulator_server_directory;
     log_info(LogUMD, "Simulation host serving sockets in {}", server_directory.string());
+    // Report where this host serves. When the caller left simulator_server_directory empty the
+    // directory was allocated just above, so this is the only way it learns of it -- recorded here
+    // rather than per chip, so a host that turns out to have no simulation devices still reports
+    // the directory it claimed instead of reading as "not serving".
+    if (simulation_connection_.has_value()) {
+        simulation_connection_->server_directory = server_directory;
+    }
     for (const auto& [chip_id, chip] : chips_) {
         if (auto* sim_device = dynamic_cast<SimulationTTDevice*>(chip->get_tt_device())) {
-            sim_device->adopt_socket(
-                SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id)),
-                shutdown_handler);
+            const std::filesystem::path socket_path =
+                SimulationServerSocket::default_socket_path(server_directory, chip_id);
+            sim_device->adopt_socket(SimulationServerSocket::create(socket_path), shutdown_handler);
+            if (simulation_connection_.has_value()) {
+                simulation_connection_->sockets.emplace(chip_id, socket_path);
+            }
         }
     }
 }

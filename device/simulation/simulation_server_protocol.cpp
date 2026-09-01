@@ -58,6 +58,7 @@ std::vector<uint8_t> encode(const SimulationServerResponse& response) {
 std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info) {
     flatbuffers::FlatBufferBuilder builder;
     auto yaml = builder.CreateString(device_info.soc_descriptor_yaml);
+    auto simulator_path = builder.CreateString(device_info.simulator_path);
     builder.Finish(wire::CreateSimulationServerDeviceInfo(
         builder,
         device_info.status,
@@ -69,7 +70,8 @@ std::vector<uint8_t> encode(const SimulationServerDeviceInfo& device_info) {
         device_info.dram_harvesting_mask,
         device_info.eth_harvesting_mask,
         device_info.l2cpu_harvesting_mask,
-        device_info.pcie_harvesting_mask));
+        device_info.pcie_harvesting_mask,
+        simulator_path));
     return to_bytes(builder);
 }
 
@@ -119,6 +121,9 @@ SimulationServerDeviceInfo decode_device_info(const uint8_t* data, size_t size) 
     info.eth_harvesting_mask = fb->eth_harvesting_mask();
     info.l2cpu_harvesting_mask = fb->l2cpu_harvesting_mask();
     info.pcie_harvesting_mask = fb->pcie_harvesting_mask();
+    if (fb->simulator_path() != nullptr) {
+        info.simulator_path = fb->simulator_path()->str();
+    }
     return info;
 }
 

@@ -124,8 +124,9 @@ std::vector<SimulationServerInfo> SimulationConnector::list_servers() {
     return servers;
 }
 
-std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const SimulationConnectorOptions& options) {
-    std::map<ChipId, std::unique_ptr<TTDevice>> devices;
+SimulationConnector::Result SimulationConnector::discover(const SimulationConnectorOptions& options) {
+    Result result;
+    std::map<ChipId, std::unique_ptr<TTDevice>>& devices = result.devices;
     const std::filesystem::path& simulator_path = options.simulator_directory;
 
     const Classification classification = classify(simulator_path);
@@ -142,6 +143,36 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
                 // pick the device class, and passes the fetched identity into create_client so it is
                 // not fetched again.
                 const SimulationServerDeviceInfo info = fetch_device_info_from_host(*client);
+                // A server directory is claimed atomically by one host (see
+                // allocate_server_directory), so every socket in it is served by one process
+                // running one simulator: the first socket that answers describes the whole
+                // directory. Warn rather than silently describing only the first if that ever
+                // fails to hold -- a hand-assembled directory mixing two servers' sockets is the
+                // only way it can, and it should not pass unnoticed.
+                if (result.devices.empty()) {
+                    result.connection.simulator = info.simulator_path;
+                    result.connection.backend = info.backend_type;
+                    result.connection.arch = static_cast<tt::ARCH>(info.arch);
+                } else if (
+                    info.simulator_path != result.connection.simulator.string() ||
+                    info.backend_type != result.connection.backend ||
+                    static_cast<tt::ARCH>(info.arch) != result.connection.arch) {
+                    log_warning(
+                        LogUMD,
+                        "Simulation socket {} (chip {}) reports a different simulation than the rest of {}: "
+                        "{} ({}/{}) instead of {} ({}/{}). Reporting the first; the directory is serving more "
+                        "than one host.",
+                        socket_file.string(),
+                        chip_id,
+                        simulator_path.string(),
+                        info.simulator_path,
+                        arch_to_str(static_cast<tt::ARCH>(info.arch)),
+                        info.backend_type == SimulationBackendType::TTSIM ? "ttsim" : "rtl",
+                        result.connection.simulator.string(),
+                        arch_to_str(result.connection.arch),
+                        result.connection.backend == SimulationBackendType::TTSIM ? "ttsim" : "rtl");
+                }
+                result.connection.sockets.emplace(chip_id, socket_file);
                 devices.emplace(chip_id, make_client_device(chip_id, std::move(client), info));
             } catch (const std::exception& e) {
                 log_warning(
@@ -154,7 +185,9 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
             !devices.empty(),
             error::RuntimeError,
             fmt::format("No reachable simulation hosts among the sockets in {}", simulator_path.string()));
-        return devices;
+        result.connection.role = Role::Client;
+        result.connection.server_directory = simulator_path;
+        return result;
     }
 
     // Host: single chip for now. Serving over sockets is opt-in: by default the host device stays
@@ -167,12 +200,24 @@ std::map<ChipId, std::unique_ptr<TTDevice>> SimulationConnector::discover(const 
         const std::filesystem::path server_directory = options.server_directory.empty()
                                                            ? SimulationServerSocket::allocate_server_directory()
                                                            : options.server_directory;
-        socket = SimulationServerSocket::create(SimulationServerSocket::default_socket_path(server_directory, chip_id));
+        const std::filesystem::path socket_path =
+            SimulationServerSocket::default_socket_path(server_directory, chip_id);
+        socket = SimulationServerSocket::create(socket_path);
+        // Report where this host ended up serving -- the allocated directory is otherwise known
+        // only in here, so a caller that did not pre-allocate one could never name it.
+        result.connection.server_directory = server_directory;
+        result.connection.sockets.emplace(chip_id, socket_path);
     }
     devices.emplace(
         chip_id,
         make_host_device(classification.kind, simulator_path, options.num_host_mem_channels, std::move(socket)));
-    return devices;
+
+    result.connection.role = Role::Host;
+    result.connection.simulator = simulator_path;
+    result.connection.backend =
+        classification.kind == PathKind::HOST_TTSIM ? SimulationBackendType::TTSIM : SimulationBackendType::RTL;
+    result.connection.arch = devices.at(chip_id)->get_soc_descriptor().arch;
+    return result;
 }
 
 }  // namespace tt::umd

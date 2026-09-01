@@ -32,11 +32,11 @@ TTSimTlbHandle::TTSimTlbHandle(
     tlb_mapping_ = tlb_mapping;
 
     // Compute the address for this TLB based on BAR0 base + TLB offset.
-    // QUASAR bypasses the simulation TLB allocator entirely (the communicator
-    // handles all I/O), so the allocator has no pools and the get_*_from_index
-    // calls would throw. Skip them for QUASAR; tlb_base_ / tlb_reg_addr_ stay at
-    // their defaults (nullptr / 0), which the QUASAR path never dereferences.
-    if (allocator_ && allocator_->get_architecture() != tt::ARCH::QUASAR) {
+    // An allocator without a layout (the communicator handles all I/O) has no pools, so the
+    // get_*_from_index calls would throw. Skip them; tlb_base_ / tlb_reg_addr_ stay at their
+    // defaults (nullptr / 0), which the windowless path never dereferences.
+    maps_window_ = allocator_ && allocator_->uses_window_addressing();
+    if (maps_window_) {
         tlb_base_ = reinterpret_cast<uint8_t*>(allocator_->get_tlb_address_from_index(tlb_id_));
         tlb_reg_addr_ = allocator_->get_tlb_reg_address_from_index(tlb_id_);
     }
@@ -71,14 +71,13 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
     tlb_config_.static_vc_buddy = 0;
     tlb_config_.static_vc_class = 0;
 
-    // Get architecture from allocator to determine correct offsets.
-    tt::ARCH architecture = get_arch();
-
-    // Quasar has no real TLB registers to program — the communicator handles
-    // all I/O directly, so configure is a no-op beyond storing tlb_config_.
-    if (architecture == tt::ARCH::QUASAR) {
+    // No window mapped means no TLB registers to program — the communicator handles all I/O
+    // directly, so configure is a no-op beyond storing tlb_config_.
+    if (!maps_window_) {
         return;
     }
+
+    tt::ARCH architecture = get_arch();
 
     log_debug(
         LogUMD,
@@ -95,6 +94,9 @@ void TTSimTlbHandle::configure(const tlb_data& new_config) {
         tlb_config_.ordering);
 
     // Determine which TLB offset structure to use based on architecture and size.
+    // TODO: TlbSizeClass::register_layout in the architecture TLB table already carries these
+    // offsets and would replace this switch, but swapping it in is not behaviour-preserving: the
+    // fallbacks below accept an unrecognised size and warn, where the table simply has no entry.
     const tlb_offsets* offsets = nullptr;
     constexpr size_t SIZE_1MB = 1024 * 1024;
     constexpr size_t SIZE_2MB = 2 * 1024 * 1024;

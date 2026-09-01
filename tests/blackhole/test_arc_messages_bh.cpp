@@ -11,13 +11,19 @@
 #include <thread>
 #include <vector>
 
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/blackhole_implementation.hpp"
 #include "umd/device/pcie/pci_device.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/types/blackhole_arc.hpp"
+#include "umd/device/utils/timeouts.hpp"
 
 using namespace tt::umd;
+
+// The ArcMessenger these tests used to create built its own message queue, so it worked without
+// init_tt_device(). The firmware command path refuses to talk to firmware that has not reported
+// ready, so each test brings the firmware up first - init_firmware() is the lighter entry that
+// skips the SocDescriptor construction the full init_tt_device() would add.
 
 TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     std::vector<int> pci_device_ids = PCIDevice::enumerate_devices();
@@ -25,13 +31,13 @@ TEST(BlackholeArcMessages, BlackholeArcMessagesBasic) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
-
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
         const uint32_t num_loops = 100;
         for (int i = 0; i < num_loops; i++) {
-            uint32_t response = bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
-            ASSERT_EQ(response, 0);
+            DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+                (uint32_t)blackhole::ArcMessageType::TEST, {}, timeout::ARC_MESSAGE_TIMEOUT);
+            ASSERT_EQ(result.exit_code, 0u);
         }
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
@@ -44,18 +50,16 @@ TEST(BlackholeArcMessages, BlackholeArcMessageArgPassing) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
-
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
         // TEST (0x90) increments the argument and returns it in word[1] of the response.
         unsigned int random_arg = 42;
-        std::vector<uint32_t> return_values;
-        uint32_t exit_code =
-            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST, return_values, {random_arg});
+        DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+            (uint32_t)blackhole::ArcMessageType::TEST, {random_arg}, timeout::ARC_MESSAGE_TIMEOUT);
 
-        EXPECT_EQ(exit_code, 0);
-        ASSERT_FALSE(return_values.empty());
-        EXPECT_EQ(return_values[0], random_arg + 1);
+        EXPECT_EQ(result.exit_code, 0u);
+        ASSERT_FALSE(result.return_values.empty());
+        EXPECT_EQ(result.return_values[0], random_arg + 1);
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
@@ -67,16 +71,14 @@ TEST(BlackholeArcMessages, BlackholeArcMessageReturnValues) {
     for (int pci_device_id : pci_device_ids) {
         std::unique_ptr<TTDevice> tt_device = TTDevice::create(pci_device_id);
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
+        tt_device->get_device_firmware()->init_firmware(timeout::ARC_STARTUP_TIMEOUT);
 
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
+        DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+            (uint32_t)blackhole::ArcMessageType::READ_TS, {}, timeout::ARC_MESSAGE_TIMEOUT);
 
-        std::vector<uint32_t> return_values;
-        uint32_t exit_code =
-            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::READ_TS, return_values);
-
-        EXPECT_EQ(exit_code, 0);
-        ASSERT_FALSE(return_values.empty());
-        EXPECT_GT(return_values[0], 0u);
+        EXPECT_EQ(result.exit_code, 0u);
+        ASSERT_FALSE(result.return_values.empty());
+        EXPECT_GT(result.return_values[0], 0u);
 
         tt_device->set_power_state(TTDevice::PowerState::IDLE);
     }
@@ -92,10 +94,8 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        std::unique_ptr<ArcMessenger> bh_arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
-
-        [[maybe_unused]] uint32_t response =
-            bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY);
+        [[maybe_unused]] DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+            (uint32_t)blackhole::ArcMessageType::AICLK_GO_BUSY, {}, timeout::ARC_MESSAGE_TIMEOUT);
 
         // Wait for telemetry to update AICLK.
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
@@ -105,7 +105,8 @@ TEST(BlackholeArcMessages, BlackholeArcMessageHigherAIClock) {
         // TODO #781: For now expect only that busy val is something larger than idle val.
         EXPECT_GT(aiclk, blackhole::AICLK_IDLE_VAL);
 
-        response = bh_arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE);
+        result = tt_device->get_device_firmware()->send_device_command(
+            (uint32_t)blackhole::ArcMessageType::AICLK_GO_LONG_IDLE, {}, timeout::ARC_MESSAGE_TIMEOUT);
 
         // Wait for telemetry to update AICLK.
         std::this_thread::sleep_for(std::chrono::milliseconds(ms_sleep));
@@ -128,22 +129,18 @@ TEST(BlackholeArcMessages, MultipleThreadsArcMessages) {
         tt_device->set_power_state(TTDevice::PowerState::BUSY);
         tt_device->init_tt_device();
 
-        std::thread thread0([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
-
+        // Both threads drive the same firmware command path; the named ARC mutex serializes them
+        // exactly as it serialized the per-thread ArcMessenger instances this test used to create.
+        auto message_loop = [&]() {
             for (uint32_t loop = 0; loop < num_loops; loop++) {
-                uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
-                ASSERT_EQ(response, 0);
+                DeviceCommandResult result = tt_device->get_device_firmware()->send_device_command(
+                    (uint32_t)blackhole::ArcMessageType::TEST, {}, timeout::ARC_MESSAGE_TIMEOUT);
+                ASSERT_EQ(result.exit_code, 0u);
             }
-        });
+        };
 
-        std::thread thread1([&]() {
-            std::unique_ptr<ArcMessenger> arc_messenger = ArcMessenger::create_arc_messenger(tt_device.get());
-            for (uint32_t loop = 0; loop < num_loops; loop++) {
-                uint32_t response = arc_messenger->send_message((uint32_t)blackhole::ArcMessageType::TEST);
-                ASSERT_EQ(response, 0);
-            }
-        });
+        std::thread thread0(message_loop);
+        std::thread thread1(message_loop);
 
         thread0.join();
         thread1.join();

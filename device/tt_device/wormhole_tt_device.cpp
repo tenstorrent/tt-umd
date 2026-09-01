@@ -17,7 +17,6 @@
 
 #include "noc_access.hpp"
 #include "tracy.hpp"
-#include "umd/device/arc/arc_messenger.hpp"
 #include "umd/device/arch/architecture_implementation.hpp"
 #include "umd/device/arch/wormhole_implementation.hpp"
 #include "umd/device/coordinates/coordinate_manager.hpp"

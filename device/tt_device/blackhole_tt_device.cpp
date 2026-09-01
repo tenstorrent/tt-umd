@@ -25,7 +25,6 @@
 #include "umd/device/coordinates/coordinate_manager.hpp"
 #include "umd/device/jtag/jtag_device.hpp"
 #include "umd/device/pcie/pci_device.hpp"
-#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/hang_detection/blackhole_hang_detector.hpp"
 #include "umd/device/tt_device/hang_detection/hang_detector.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
@@ -173,17 +172,6 @@ ChipInfo BlackholeTTDevice::get_chip_info() {
     }
 
     return chip_info;
-}
-
-void BlackholeTTDevice::probe_arc() {
-    uint32_t dummy;
-    read_from_arc_apb(&dummy, registers_.arc_reset_scratch_offset, sizeof(dummy));  // SCRATCH_0
-}
-
-void BlackholeTTDevice::wait_arc_core_start(const std::chrono::milliseconds timeout_ms) {
-    // Transitional shim: the wait moved into BlackholeDeviceFirmware; this override goes away with
-    // the API once every backend has moved.
-    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
 }
 
 uint32_t BlackholeTTDevice::get_clock() {

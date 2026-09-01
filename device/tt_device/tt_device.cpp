@@ -91,8 +91,7 @@ void TTDevice::init_tt_device(const std::chrono::milliseconds timeout_ms) {
     if (hang_detector != nullptr && hang_detector->is_noc_hung(hang_check_noc).value_or(false)) {
         UMD_THROW(error::NocHangError, *this, hang_check_noc);
     }
-    probe_arc();
-    wait_arc_core_start(timeout_ms);
+    get_device_firmware()->init_firmware(timeout_ms, get_selected_noc_id());
     arc_messenger_ = ArcMessenger::create_arc_messenger(this);
     telemetry = ArcTelemetryReader::create_arc_telemetry_reader(
         get_device_protocol(), get_arch(), arc_core_noc0, arc_core_noc1);

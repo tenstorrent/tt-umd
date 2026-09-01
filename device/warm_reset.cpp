@@ -37,6 +37,7 @@
 #include "api/umd/device/arch/wormhole_implementation.hpp"
 #include "api/umd/device/pcie/pci_device.hpp"
 #include "umd/device/arc/arc_messenger.hpp"
+#include "umd/device/tt_device/firmware/device_firmware.hpp"
 #include "umd/device/tt_device/tt_device.hpp"
 #include "umd/device/tt_device/tt_device_error.hpp"
 #include "umd/device/types/arch.hpp"
@@ -306,7 +307,7 @@ bool WarmReset::warm_reset_wormhole_legacy(std::vector<int> pci_device_ids, bool
     for (auto& i : pci_device_ids) {
         auto tt_device = TTDevice::create(i);
         try {
-            tt_device->wait_arc_core_start(timeout::ARC_LONG_POST_RESET_TIMEOUT);
+            tt_device->get_device_firmware()->init_firmware(timeout::ARC_LONG_POST_RESET_TIMEOUT);
         } catch (error::UmdBaseException& err) {
             // UMD_THROW raises UmdException<E>, which wraps E rather than deriving from it, so a
             // plain catch (error::FirmwareStartupError&) can never match. The catch this replaces

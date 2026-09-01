@@ -282,10 +282,9 @@ public:
         uint64_t ordering = tlb_data::Relaxed);
 
     /**
-     * Maps a target into host address space, anchored at the address the target names. Reads and
-     * writes through the returned window address it as offsets from that anchor. The window is
-     * created large enough to cover the requested size, rounded up to a size the architecture
-     * provides.
+     * Maps a core into host address space, anchored at an address on that core. Reads and writes
+     * through the returned window address it as offsets from that anchor. The window is created
+     * large enough to cover the requested size, rounded up to a size the architecture provides.
      *
      * The caller owns the window: the mapping is released when it is destroyed, so it must be held
      * for as long as it is used, and it must not outlive this Cluster. Returns nullptr for chips
@@ -295,15 +294,23 @@ public:
      * Naming a second corner makes the window a multicast grid, which requires NOC translation.
      *
      * @param chip Device to target.
-     * @param target Device-side target describing the core(s), address, optional NOC and flags.
+     * @param core_start Core to map, or upper-left corner of a multicast grid.
+     * @param addr Address on the core(s) the window is anchored at.
      * @param host Host-side window properties (caching strategy and requested size).
      * @param ordering Transaction ordering mode to apply to the mapping.
+     * @param core_end Lower-right corner of a multicast grid, or nullopt for unicast.
+     * @param flags Transaction attributes.
+     * @param noc Routing selection, or nullopt to route over the NOC selected for this thread.
      */
     std::unique_ptr<IoWindow> create_io_window(
         const ChipId chip,
-        TargetIoWindowConfig target,
+        CoreCoord core_start,
+        uint64_t addr,
         HostIoWindowConfig host = {},
-        IoOrdering ordering = IoOrdering::Strict);
+        IoOrdering ordering = IoOrdering::Strict,
+        std::optional<CoreCoord> core_end = std::nullopt,
+        WindowFlags flags = WindowFlags::None,
+        std::optional<NocId> noc = std::nullopt);
 
     /**
      * Pass in ethernet cores with active links for a specific MMIO chip. When called, this function will force UMD to

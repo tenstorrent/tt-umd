@@ -166,6 +166,7 @@ jobs:
         # On main, just run all of them since we are not that critical about runtime and want to maximize coverage.
         run: |
           ENTRIES=$(jq -cn '$ARGS.positional' --args \
+            'pull_request|*|BH-Quietbox-2' \
             'merge_group|ASan|BH-Quietbox-2' \
             'merge_group|TSan|BH-Quietbox-2' \
             'pull_request|*|tt-ubuntu-2204-wh-glx-6u-*' \

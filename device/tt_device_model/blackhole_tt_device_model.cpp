@@ -84,6 +84,14 @@ DeviceProtocol *BlackholeTTDeviceModel::get_device_protocol() { return protocol_
 
 DeviceFirmware *BlackholeTTDeviceModel::get_device_firmware() { return device_firmware_.get(); }
 
+FirmwareTelemetryReader *BlackholeTTDeviceModel::get_firmware_telemetry_reader() {
+    return device_firmware_->get_firmware_telemetry_reader();
+}
+
+FirmwareInfoProvider *BlackholeTTDeviceModel::get_firmware_info_provider() {
+    return device_firmware_->get_firmware_info_provider();
+}
+
 SocArchDescriptor *BlackholeTTDeviceModel::get_soc_arch_descriptor() { return soc_arch_descriptor_.get(); }
 
 ArchitectureImplementation *BlackholeTTDeviceModel::get_architecture_impl() { return architecture_impl_.get(); }

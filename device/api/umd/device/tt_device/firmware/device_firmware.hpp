@@ -95,6 +95,13 @@ public:
      * @param noc_id NOC to route through.
      */
     virtual void set_power_state(PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
+
+    /**
+     * @brief Queries whether NOC address translation is active on this chip.
+     * @param noc_id NOC to route through.
+     * @return true if translation is enabled.
+     */
+    virtual bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) = 0;
 };
 
 }  // namespace tt::umd

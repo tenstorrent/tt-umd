@@ -39,6 +39,10 @@ public:
     // Simulated devices have no power domains to manage.
     void set_power_state(
         [[maybe_unused]] PowerState state, [[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override {}
+
+    // Simulation backends operate on logical/virtual coordinates end-to-end; NOC translation is
+    // never applied.
+    bool get_noc_translation_enabled([[maybe_unused]] NocId noc_id = NocId::DEFAULT_NOC) override { return false; }
 };
 
 }  // namespace tt::umd

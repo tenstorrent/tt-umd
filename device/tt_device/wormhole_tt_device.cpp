@@ -44,14 +44,6 @@ WormholeTTDevice::WormholeTTDevice(std::unique_ptr<TTDeviceModel> model) : TTDev
     WormholeTTDevice::set_arc_coordinate();
 }
 
-bool WormholeTTDevice::get_noc_translation_enabled() {
-    uint32_t niu_cfg = 0x0;
-    constexpr uint32_t ARC_APB_NIU_0_OFFSET = 0x50000;
-    constexpr uint32_t NIU_CFG_0_OFFSET = 0x100;
-    read_from_arc_apb(&niu_cfg, ARC_APB_NIU_0_OFFSET + NIU_CFG_0_OFFSET, sizeof niu_cfg);
-    return (niu_cfg & (1 << 14)) != 0;
-}
-
 ChipInfo WormholeTTDevice::get_chip_info() {
     ChipInfo chip_info = TTDevice::get_chip_info();
 
